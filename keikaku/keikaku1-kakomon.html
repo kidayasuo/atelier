@@ -24,6 +24,7 @@
   --safe-b:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
 html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
 body{
   background:var(--paper);color:var(--ink);font-family:var(--sans);
@@ -270,6 +271,7 @@ body{
       <h2>7年分で繰り返されている論点</h2>
       <p>この試験は、毎年ほぼ同じ論点を形式だけ変えて出すタイプです。丸はその年に出た印、右端が出題年数。5年以上のものは必出と考えてよいものです。</p>
       <div class="mwrap"><table class="matrix" id="matrix"></table></div>
+      <p>1つの論点がカード1枚とは限りません。「耐用年数とコスト」は3枚、「日本の集合住宅作品」は9枚に分かれています。上位の論点をまとめて回すときは、カードタブの絞り込みで<b>「よく出る」</b>を選んでください。4年以上出題された問題だけが残ります。直近の傾向をなぞるなら<b>「最近3年」</b>です。</p>
     </div>
 
     <div class="sec">
@@ -335,6 +337,7 @@ body{
 <div class="sheet-bg" id="sheet-bg"></div>
 <div class="sheet" id="sheet">
   <p class="tally" id="tally">—</p>
+  <div class="grp"><h3>クイック</h3><div class="chips" id="f-preset"></div></div>
   <div class="grp"><h3>ぶんや</h3><div class="chips" id="f-catchips"></div></div>
   <div class="grp"><h3>ねんど</h3><div class="chips" id="f-yearchips"></div></div>
   <div class="grp"><h3>しぼりこみ</h3><div class="chips" id="f-optchips"></div></div>
@@ -509,27 +512,50 @@ async function load(){
 
 /* ---- フィルタ ---- */
 function toggle(set,v){ set.has(v)?set.delete(v):set.add(v); }
+const chipRefs={cat:{},year:{},opt:{}};
+const RECENT=()=>YEARS.slice(-3);
 function buildChips(){
+  [['すべて','all'],['よく出る','freq'],['最近3年','recent']].forEach(([label,key])=>{
+    const b=el('button','chip freq',label);
+    b.dataset.preset=key; b.onclick=()=>preset(key);
+    $('#f-preset').appendChild(b);
+  });
   Object.entries(CATS).forEach(([k,label])=>{
     const b=el('button','chip',label);
-    b.setAttribute('aria-pressed','true');
-    b.onclick=()=>{ toggle(S.cats,k); b.setAttribute('aria-pressed',S.cats.has(k)); rebuild(); };
-    $('#f-catchips').appendChild(b);
+    b.onclick=()=>{ toggle(S.cats,k); syncChips(); rebuild(); };
+    chipRefs.cat[k]=b; $('#f-catchips').appendChild(b);
   });
   YEARS.forEach(y=>{
     const b=el('button','chip year',y);
-    b.setAttribute('aria-pressed','true');
-    b.onclick=()=>{ toggle(S.years,y); b.setAttribute('aria-pressed',S.years.has(y)); rebuild(); };
-    $('#f-yearchips').appendChild(b);
+    b.onclick=()=>{ toggle(S.years,y); syncChips(); rebuild(); };
+    chipRefs.year[y]=b; $('#f-yearchips').appendChild(b);
   });
-  const f=el('button','chip freq','4年以上出た問題');
-  f.setAttribute('aria-pressed','false');
-  f.onclick=()=>{ S.freqOnly=!S.freqOnly; f.setAttribute('aria-pressed',S.freqOnly); rebuild(); };
-  $('#f-optchips').appendChild(f);
   const m=el('button','chip freq','まだのものだけ');
-  m.setAttribute('aria-pressed','false');
-  m.onclick=()=>{ S.againOnly=!S.againOnly; m.setAttribute('aria-pressed',S.againOnly); rebuild(); };
-  $('#f-optchips').appendChild(m);
+  m.onclick=()=>{ S.againOnly=!S.againOnly; syncChips(); rebuild(); };
+  chipRefs.opt.again=m; $('#f-optchips').appendChild(m);
+  syncChips();
+}
+function preset(key){
+  S.cats=new Set(Object.keys(CATS));
+  if(key==='all'){ S.years=new Set(YEARS); S.freqOnly=false; S.againOnly=false; }
+  if(key==='freq'){ S.years=new Set(YEARS); S.freqOnly=true; }
+  if(key==='recent'){ S.years=new Set(RECENT()); S.freqOnly=false; }
+  syncChips(); rebuild();
+}
+function syncChips(){
+  Object.entries(chipRefs.cat).forEach(([k,b])=>b.setAttribute('aria-pressed',S.cats.has(k)));
+  Object.entries(chipRefs.year).forEach(([y,b])=>b.setAttribute('aria-pressed',S.years.has(y)));
+  chipRefs.opt.again.setAttribute('aria-pressed',S.againOnly);
+  const allCats=S.cats.size===Object.keys(CATS).length;
+  const allYears=S.years.size===YEARS.length;
+  const r=RECENT(); const isRecent=S.years.size===r.length && r.every(y=>S.years.has(y));
+  document.querySelectorAll('#f-preset .chip').forEach(b=>{
+    const k=b.dataset.preset;
+    const on = k==='all'  ? (allCats&&allYears&&!S.freqOnly&&!S.againOnly)
+             : k==='freq' ? S.freqOnly
+             :                isRecent;
+    b.setAttribute('aria-pressed',on);
+  });
 }
 function pool(){
   return CARDS.filter(c=>{
