@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#E4E9E7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>建築計画Ⅰ カード</title>
+<style>
+:root{
+  --paper:#E4E9E7;
+  --sheet:#F8FAF9;
+  --ink:#17233A;
+  --ink-2:#4B5B6C;
+  --ink-3:#93A0A8;
+  --rule:#C6CFCC;
+  --rule-2:#DDE3E1;
+  --shu:#B93B24;
+  --ai:#2C5A78;
+  --grid:rgba(44,90,120,.07);
+  --sans:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic Medium","Yu Gothic",Meiryo,system-ui,sans-serif;
+  --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;
+  height:100dvh;display:flex;flex-direction:column;overflow:hidden;
+}
+.shell{
+  width:100%;max-width:480px;margin:0 auto;flex:1;min-height:0;
+  display:flex;flex-direction:column;padding:0 14px calc(10px + var(--safe-b));
+}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0 8px;flex:none}
+.brand{font-family:var(--mincho);font-size:15px;letter-spacing:.1em;font-weight:600;white-space:nowrap}
+.brand em{font-style:normal;color:var(--shu)}
+.seg{display:flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.seg button{
+  appearance:none;background:none;border:0;padding:5px 11px;cursor:pointer;
+  font-family:var(--sans);font-size:11.5px;letter-spacing:.06em;color:var(--ink-2);
+}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--sheet)}
+.seg button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
+
+.meta{display:flex;align-items:center;gap:10px;flex:none;padding-bottom:9px}
+.bar{flex:1;height:3px;background:var(--rule-2);position:relative;border-radius:2px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ai);border-radius:2px;transition:width .25s ease}
+.count{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.06em;white-space:nowrap}
+.gear{
+  appearance:none;background:none;border:1px solid var(--rule);border-radius:2px;cursor:pointer;
+  font-family:var(--sans);font-size:11.5px;color:var(--ink-2);padding:4px 10px;white-space:nowrap;
+}
+.gear:active{background:rgba(23,35,58,.06)}
+
+/* ---------- card ---------- */
+.stage{flex:1;min-height:0;position:relative;perspective:1400px}
+.stack{position:absolute;inset:0;will-change:transform}
+.flipper{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.8,.25,1)}
+.stage.flipped .flipper{transform:rotateY(180deg)}
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--sheet);border:1px solid var(--ink);border-radius:3px;
+  box-shadow:0 2px 0 rgba(23,35,58,.10);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.front{
+  background-image:
+    repeating-linear-gradient(to right, var(--grid) 0 1px, transparent 1px 19px),
+    repeating-linear-gradient(to bottom, var(--grid) 0 1px, transparent 1px 19px);
+}
+.back{transform:rotateY(180deg)}
+.face-head{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex:none;
+  padding:9px 14px;border-bottom:1px solid var(--rule-2);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--ink-3);
+}
+.cat{color:var(--ink-2);white-space:nowrap}
+.srcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.srcs b{font-weight:400;color:var(--ai);border:1px solid rgba(44,90,120,.3);padding:0 4px;font-size:9px;white-space:nowrap;border-radius:1px}
+.srcs b.hot{color:var(--shu);border-color:rgba(185,59,36,.35)}
+.face-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 20px 18px;position:relative}
+.q{font-family:var(--mincho);font-size:20px;line-height:1.8;letter-spacing:.02em;margin:0;font-weight:500}
+.a{
+  font-family:var(--mincho);font-size:24px;line-height:1.6;color:var(--shu);font-weight:600;letter-spacing:.03em;margin:0 0 14px;
+}
+.n{font-size:13px;line-height:1.85;color:var(--ink-2);margin:0;padding-top:13px;border-top:1px dashed var(--rule)}
+.n.warn{color:var(--shu);border-top-color:rgba(185,59,36,.35)}
+.qs{font-size:12.5px;color:var(--ink-3);margin:0 0 12px;line-height:1.7}
+.hint{
+  position:absolute;left:0;right:0;bottom:10px;text-align:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--ink-3);
+  transition:opacity .4s ease;
+}
+.hint.gone{opacity:0}
+
+/* 覚えたハンコ */
+.stamp{
+  position:absolute;right:14px;bottom:12px;width:56px;height:56px;border-radius:50%;
+  border:2.5px solid var(--shu);color:var(--shu);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mincho);font-size:23px;font-weight:700;letter-spacing:0;
+  transform:rotate(-11deg) scale(.5);opacity:0;pointer-events:none;
+  transition:transform .28s cubic-bezier(.2,1.5,.4,1), opacity .2s ease;
+}
+.stamp b{font-weight:700}
+.stamp.on{transform:rotate(-11deg) scale(1);opacity:.82}
+
+/* めくり中の左右ヒント */
+.swipe-tag{
+  position:absolute;top:50%;transform:translateY(-50%);
+  font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--ink-3);
+  opacity:0;transition:opacity .15s ease;pointer-events:none;
+}
+.swipe-tag.l{left:-2px}
+.swipe-tag.r{right:-2px}
+
+/* ---------- 下部ボタン ---------- */
+.pad{display:flex;align-items:center;justify-content:center;gap:36px;flex:none;padding:16px 0 6px}
+.big{
+  appearance:none;cursor:pointer;width:66px;height:66px;border-radius:50%;
+  background:var(--sheet);display:flex;align-items:center;justify-content:center;
+  font-size:27px;line-height:1;transition:transform .12s ease;
+}
+.big:active{transform:scale(.9)}
+.big.x{border:1.5px solid var(--ink-3);color:var(--ink-2)}
+.big.o{border:1.5px solid var(--shu);color:var(--shu)}
+.big:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
+.pad-label{
+  display:flex;justify-content:center;gap:36px;flex:none;
+  font-family:var(--sans);font-size:10.5px;color:var(--ink-3);letter-spacing:.1em;
+}
+.pad-label span{width:66px;text-align:center}
+
+/* ---------- 設定シート ---------- */
+.sheet-bg{
+  position:fixed;inset:0;background:rgba(23,35,58,.35);opacity:0;pointer-events:none;
+  transition:opacity .25s ease;z-index:20;
+}
+.sheet-bg.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:21;
+  background:var(--paper);border-top:1px solid var(--ink);
+  border-radius:10px 10px 0 0;padding:16px 18px calc(20px + var(--safe-b));
+  max-width:480px;margin:0 auto;max-height:82dvh;overflow-y:auto;
+  transform:translateY(102%);transition:transform .28s cubic-bezier(.2,.8,.25,1);
+}
+.sheet.on{transform:none}
+.sheet h3{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);margin:0 0 9px;font-weight:400}
+.sheet .grp{margin-bottom:18px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  appearance:none;cursor:pointer;border:1px solid var(--rule);background:transparent;color:var(--ink-2);
+  font-family:var(--sans);font-size:12px;padding:5px 11px;border-radius:2px;
+}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+.chip.year[aria-pressed="true"]{background:var(--ai);border-color:var(--ai)}
+.chip.freq[aria-pressed="true"]{background:var(--shu);border-color:var(--shu)}
+.sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
+.tbtn{
+  appearance:none;cursor:pointer;border:1px solid var(--ink);background:transparent;color:var(--ink);
+  font-family:var(--sans);font-size:13px;padding:9px 16px;border-radius:2px;flex:1;min-width:120px;
+}
+.tbtn.solid{background:var(--ink);color:var(--sheet)}
+.tally{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);letter-spacing:.06em;margin:0 0 14px}
+.tally b{color:var(--shu)}
+
+/* ---------- 一覧・傾向 ---------- */
+.scroller{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+.search{
+  width:100%;padding:9px 12px;border:1px solid var(--rule);background:var(--sheet);
+  font-family:var(--sans);font-size:16px;color:var(--ink);border-radius:2px;margin-bottom:12px;
+}
+.search:focus{outline:none;border-color:var(--ai)}
+.row{border-bottom:1px solid var(--rule-2);padding:11px 2px}
+.row .rq{font-size:14px;line-height:1.65;margin:0 0 4px}
+.row .ra{font-size:14px;color:var(--shu);font-weight:600;margin:0 0 4px;font-family:var(--mincho)}
+.row .rs{font-family:var(--mono);font-size:10px;color:var(--ai);letter-spacing:.04em}
+.empty{padding:40px 0;text-align:center;color:var(--ink-3);font-size:14px}
+.sec{margin:0 0 32px}
+.sec h2{font-family:var(--mincho);font-size:17px;letter-spacing:.08em;font-weight:600;margin:0 0 4px;padding-bottom:6px;border-bottom:1px solid var(--ink)}
+.sec .eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ai);margin:0 0 12px}
+.sec p{margin:0 0 12px;font-size:13.5px;line-height:1.8}
+.mwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
+.matrix{border-collapse:collapse;font-size:12px;min-width:100%}
+.matrix th{font-family:var(--mono);font-size:9.5px;padding:5px 3px;text-align:center;color:var(--ink-2);font-weight:400}
+.matrix th:first-child{text-align:left;padding-right:8px}
+.matrix td{padding:5px 3px;text-align:center;border-bottom:1px solid var(--rule-2)}
+.matrix td:first-child{text-align:left;font-size:12.5px;white-space:nowrap;padding-right:8px}
+.dot{display:inline-block;width:9px;height:9px;background:var(--ai);border-radius:50%}
+.dot.off{background:transparent;border:1px solid var(--rule)}
+.cnt{font-family:var(--mono);font-size:10.5px;color:var(--shu);font-weight:600}
+.note-list{margin:0;padding-left:1.15em;font-size:13.5px;line-height:1.8}
+.note-list li{margin-bottom:8px}
+.kv{width:100%;border-collapse:collapse;font-size:13px}
+.kv td{padding:6px 2px;border-bottom:1px solid var(--rule-2)}
+.kv td:last-child{font-family:var(--mono);color:var(--shu);text-align:right;white-space:nowrap}
+
+@media (min-width:520px){
+  .shell{padding-bottom:18px}
+  .q{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="top">
+    <div class="brand">建築計画<em>Ⅰ</em></div>
+    <div class="seg" role="tablist">
+      <button role="tab" id="tab-study" aria-selected="true">カード</button>
+      <button role="tab" id="tab-list" aria-selected="false">一覧</button>
+      <button role="tab" id="tab-trend" aria-selected="false">傾向</button>
+    </div>
+  </div>
+
+  <!-- ========== カード ========== -->
+  <div class="meta" id="meta">
+    <span class="count" id="count">0 / 0</span>
+    <span class="bar"><i id="bar" style="width:0%"></i></span>
+    <button class="gear" id="btn-gear">絞り込み</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <span class="swipe-tag l" id="tag-l">← まえ</span>
+    <span class="swipe-tag r" id="tag-r">つぎ →</span>
+    <div class="stack" id="stack">
+      <div class="flipper">
+        <div class="face front">
+          <div class="face-head"><span class="cat" id="f-cat">—</span><span class="srcs" id="f-src"></span></div>
+          <div class="face-body">
+            <p class="q" id="f-q">読み込み中</p>
+            <div class="stamp" id="stamp"><b>覚</b></div>
+            <p class="hint" id="hint">タップで答え　左右にスワイプでめくる</p>
+          </div>
+        </div>
+        <div class="face back">
+          <div class="face-head"><span class="cat">こたえ</span><span class="srcs" id="b-src"></span></div>
+          <div class="face-body">
+            <p class="qs" id="b-q"></p>
+            <p class="a" id="b-a"></p>
+            <p class="n" id="b-n"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <button class="big x" id="btn-x" aria-label="まだ">✕</button>
+    <button class="big o" id="btn-o" aria-label="覚えた">✓</button>
+  </div>
+  <div class="pad-label"><span>まだ</span><span>覚えた</span></div>
+
+  <!-- ========== 一覧 ========== -->
+  <div class="scroller" id="view-list" hidden>
+    <input class="search" id="q-search" type="search" placeholder="用語・年度・問題番号で検索">
+    <div id="list-body"></div>
+  </div>
+
+  <!-- ========== 傾向 ========== -->
+  <div class="scroller" id="view-trend" hidden>
+    <div class="sec">
+      <p class="eyebrow">01 — 出題マトリクス</p>
+      <h2>7年分で繰り返されている論点</h2>
+      <p>この試験は、毎年ほぼ同じ論点を形式だけ変えて出すタイプです。丸はその年に出た印、右端が出題年数。5年以上のものは必出と考えてよいものです。</p>
+      <div class="mwrap"><table class="matrix" id="matrix"></table></div>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">02 — 形式の変化</p>
+      <h2>穴埋めから、記述と作品へ</h2>
+      <p>平成25〜27年度は用語の穴埋め（問Ⅰ）と語句選択（問Ⅲ）が中心。平成30年度で構成が変わり、2021年度以降は次の形に落ち着いています。</p>
+      <ul class="note-list">
+        <li><b>正誤5択（問1）</b>— 10文から正しいものを5つ。誤文には必ず用語の入れ替えが仕込まれます。積み上げ方式↔原単位方式、SI方式↔コーポラティブハウスが定番。</li>
+        <li><b>寸法の対応（問2）</b>— 人体寸法・部材寸法と建築の寸法を結ぶ。平成30年度から4年連続。</li>
+        <li><b>作図つき記述（問3・問5）</b>— パーソナルスペース、ソシオペタルとソシオフーガル、ペデストリアンデッキとボンエルフ、群衆事故。図の型を持っておく必要があります。</li>
+        <li><b>語句選択（問4）</b>— 平成25年度の問Ⅲからほぼ変わらず、最も使い回しが多い領域。</li>
+        <li><b>ドミノシステムの説明</b>— 平成30年度 問Ⅳ-(1)は100字、2022年度 問5は200字。</li>
+      </ul>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">03 — 近年の重心</p>
+      <h2>日本の集合住宅が増えている</h2>
+      <p>平成25〜27年度の事例はハーレン集合住宅、サヴォア邸、オルセー美術館など海外の近代建築が中心でした。2022年度以降は日本の集合住宅・住宅作品が毎年出ています。</p>
+      <ul class="note-list">
+        <li>2022年度 問1 — 日本橋の家（岸和郎）、岐阜県営住宅ハイタウン北方（妹島和世）、熊本県営保田窪第一団地（山本理顕）</li>
+        <li>2023年度 問1・問2 — 同潤会アパート、ライブタウン浜田山、NEXT21、Mポート、晴海高層アパート、観月橋団地、塔の家（東孝光）</li>
+      </ul>
+      <p>作品名と、その作品が代表する計画上の概念がセットで問われます。NEXT21ならSI方式、Mポートならコーポラティブハウス、晴海高層アパートならスキップフロア。概念の側から作品を思い出せれば足ります。</p>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">04 — 数値</p>
+      <h2>取りこぼしやすい数字</h2>
+      <table class="kv">
+        <tr><td>住宅の居室の採光開口比</td><td>1/7</td></tr>
+        <tr><td>学校の教室の採光開口比</td><td>1/5</td></tr>
+        <tr><td>バルコニー手すりの高さ</td><td>110cm 以上</td></tr>
+        <tr><td>手すり子の内法間隔</td><td>110mm 以下</td></tr>
+        <tr><td>1坪</td><td>約 3.3 m²</td></tr>
+        <tr><td>階段の経験式 T＋2R</td><td>60 cm</td></tr>
+        <tr><td>標準／車椅子用の駐車区画幅</td><td>2.5m ／ 3.5m</td></tr>
+        <tr><td>尺モジュール住宅の廊下幅</td><td>780 mm</td></tr>
+        <tr><td>フラッシュオーバーまでの時間</td><td>発火後 5〜10 分</td></tr>
+        <tr><td>床座と椅子座の目の高さの差</td><td>約 20 cm</td></tr>
+      </table>
+      <p style="margin-top:12px">110 が高さ（cm）と間隔（mm）の両方で出ます。単位ごと覚えないと両方落とします。</p>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">05 — 注意</p>
+      <h2>解答が割れている箇所</h2>
+      <p>このカードは、答案の書き込みと番号付き選択肢を突き合わせて作っています。次の箇所は判断が分かれるので、講義ノートで確認してください。該当カードには朱の補足が付いています。</p>
+      <ul class="note-list">
+        <li><b>浴室の扉の開き勝手</b>（H30 Ⅲ-(5)／2021 問4-(6)）— 授業の解答は内開きで2年とも一致。ただしバリアフリーの文脈では、中で人が倒れたときに開けられるよう外開きまたは引戸とする逆の説明が一般的です。</li>
+        <li><b>床座と椅子座の目の高さの差</b>（H26 Ⅰ-(7)／H30 Ⅰ-(9)）— H30の解答は20cm。実測値からは30cm前後が自然で、H26の答案も30と読めます。</li>
+        <li><b>江戸間と京間</b>（2021 問1-③／2023 問1-⑧）— 2021は「江戸間や京間は内法制」が正文。一般には京間が内法制、江戸間は心々制です。</li>
+        <li><b>柱1本あたり床面積</b>（H26 Ⅰ-(3)）— 約30m²としていますが、6m×6m＝36m²とする教科書もあります。</li>
+        <li><b>階段の経験式</b>（H25 Ⅰ-(9)）— T＋2R＝60cm。ブロンデルの式では63cmです。</li>
+        <li><b>テラスハウスとタウンハウス</b>（2021 問1-⑧／2022 問1-⑧）— 「敷地の所有形式」「界壁の有無」はどちらも誤文扱い。共有の屋外空間を持つかどうかが分かれ目です。</li>
+        <li><b>H25〜H27の判読</b>— この3年分は画像が粗く、選択肢の語そのものを読み切れていないものが残っています。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 設定シート ========== -->
+<div class="sheet-bg" id="sheet-bg"></div>
+<div class="sheet" id="sheet">
+  <p class="tally" id="tally">—</p>
+  <div class="grp"><h3>ぶんや</h3><div class="chips" id="f-catchips"></div></div>
+  <div class="grp"><h3>ねんど</h3><div class="chips" id="f-yearchips"></div></div>
+  <div class="grp"><h3>しぼりこみ</h3><div class="chips" id="f-optchips"></div></div>
+  <div class="sheet-actions">
+    <button class="tbtn" id="btn-shuffle">シャッフル</button>
+    <button class="tbtn" id="btn-reset">覚えた記録を消す</button>
+    <button class="tbtn solid" id="btn-close">とじる</button>
+  </div>
+</div>
+
+<script>
+const YEARS = ['H25','H26','H27','H30','2021','2022','2023'];
+const CATS = {term:'用語・概念', num:'数値・寸法', work:'作品・人物', tf:'正誤の急所', desc:'記述・論述'};
+
+const CARDS = [
+/* ---------- 用語・概念 ---------- */
+{c:'term',q:'人間の体感温度を左右する4つの要素は。',a:'気温・湿度・気流・輻射熱',n:'人体側の着衣量（clo）と代謝量（met）を加えた6要素でPMVが決まる。空欄になるのは気流か湿度のどちらか。',y:[['H25','Ⅲ-(1)'],['H26','Ⅲ-(1)'],['H27','Ⅲ-(1)'],['H30','Ⅲ-(1)'],['2021','問4-(1)']]},
+{c:'term',q:'建築基準法で定められた、住宅の居室と学校の教室の採光開口比は。',a:'住宅の居室 1/7、学校の教室 1/5',n:'病院の病室・寄宿舎の寝室は1/7、事務所の居室には規定なし。有効面積は採光補正係数を掛けて算定する。平成30年度を除く6年度で出題。',y:[['H25','Ⅲ-(2)'],['H26','Ⅲ-(3)'],['H27','Ⅲ-(2)'],['2021','問4-(2)'],['2022','問4-(1)'],['2023','問4-(1)']]},
+{c:'term',q:'室内の火災が発火後5〜10分後に起こし、部屋全体が一瞬で火の海となる現象は。',a:'フラッシュオーバー',n:'天井付近に溜まった可燃性ガスと蓄熱した内装が一斉着火し、成長期から最盛期へ移る。これ以降は初期消火が不能で、避難計画の基準時間となる。',y:[['H25','Ⅲ-(3)'],['H30','Ⅲ-(2)'],['2021','問4-(3)']]},
+{c:'term',q:'ミース・ファン・デル・ローエが提起した、機能を限定せず融通性をもたせる空間概念は。',a:'ユニバーサル・スペース',n:'「未来の機能は予測できないのだから、建物はあらゆる機能を迎え入れられるように設計されなければならない」。クラウンホール、ベルリン新国立ギャラリー。',y:[['H25','Ⅲ-(7)'],['H30','Ⅲ-(6)'],['2021','問5-(1)'],['2022','問4-(6)']]},
+{c:'term',q:'ル・コルビュジエが考案した、複数の柱で床スラブを支え、荷重を壁から解放した架構は。',a:'ドミノシステム',n:'1914年。床スラブ＋柱＋階段のみ。組積造では壁が荷重を支えるため開口が限られたが、これにより窓を端から端まで設けられるようになり、横長の連続窓が可能になった。',y:[['H25','Ⅳ-(5)'],['H26','Ⅳ-(4)'],['H27','Ⅳ-(1)'],['H30','Ⅳ-(1)'],['2022','問5'],['2023','問4-(9)']]},
+{c:'term',q:'ル・コルビュジエの近代建築五原則を挙げよ。',a:'ピロティ／屋上庭園／自由な平面／横長の窓／自由なファサード',n:'いずれもドミノシステムによる壁からの解放が前提。2021年度は15字以内で5つ記述させる形で出題された。',y:[['2021','問6']]},
+{c:'term',q:'機械力に頼らず、建築の形態や材料から省エネルギーを図る手法は。',a:'パッシブ手法',n:'庇・断熱・蓄熱・通風・自然採光など。対語はアクティブ手法（高効率空調、太陽光発電）。',y:[['H25','Ⅲ-(9)'],['H27','Ⅲ-(6)'],['2022','問4-(8)'],['2023','問4-(6)']]},
+{c:'term',q:'階段・エレベーター・配管シャフト・洗面所などを特定の場所にまとめて集中配置する手法は。',a:'コア・システム',n:'有効執務面積が増え、設備配管も短く更新しやすい。センターコア／偏心コア／両端コア／分散コアの類型。超高層では耐震要素も兼ねる。',y:[['H25','Ⅲ-(10)'],['H30','Ⅲ-(10)'],['2021','問4-(10)'],['2022','問4-(10)']]},
+{c:'term',q:'日本の伝統的な木造建築の壁の形式で、柱が構造材であるとともに仕上材ともなるものは。',a:'真壁（しんかべ）',n:'柱を見せるのが真壁、柱を壁で覆い隠すのが大壁。平成27年度は逆に、現在の一般的な木造住宅の壁を問う形（答えは大壁）で出ている。',y:[['H26','Ⅲ-(9)'],['H27','Ⅲ-(9)'],['H30','Ⅲ-(9)'],['2021','問4-(11)'],['2023','問4-(7)']]},
+{c:'term',q:'維持費・修理費・諸経費など、増加すると経済的耐用年数を縮める費用は。',a:'ランニングコスト',n:'イニシャルコスト＋ランニングコスト＝トータルコスト。建設費は生涯費用の1/4程度で、残りは運用期間の費用というのが定番の指摘。',y:[['H26','Ⅲ-(8)'],['H27','Ⅲ-(4)'],['H30','Ⅲ-(7)'],['2022','問4-(7)']]},
+{c:'term',q:'計画・設計・建設・維持管理に加え、解体・廃棄処分まで含めた建物の一生涯に必要な総費用は。',a:'ライフサイクルコスト',n:'トータルコストが運用時の費用に着目するのに対し、こちらは解体・廃棄まで含む。長寿命化やストック活用を論じるときの土台になる語。',y:[['2021','問4-(8)'],['2023','問4-(5)']]},
+{c:'term',q:'建築の物理的耐用年数に対して一般に短く、修理や交換を前提とした設計が必要となる耐用年数は。',a:'設備的耐用年数',n:'躯体60〜100年に対し、設備配管は15〜30年、機器は10〜20年程度。だからこそスケルトン・インフィルや、更新可能なパイプスペース・二重床が要る。',y:[['H25','Ⅲ-(8)'],['2021','問4-(7)'],['2023','問4-(4)']]},
+{c:'term',q:'あらゆる使用者の行動能力や使用状況を想定し、可能なかぎり使いやすい公共施設・生活環境をデザインすることは。',a:'ユニバーサルデザイン',n:'ロン・メイス提唱、7原則。障害という障壁を事後的に除去するバリアフリーと違い、最初からすべての人を対象に設計する点が異なる。',y:[['H25','Ⅰ-(7)'],['H30','Ⅰ-(7)']]},
+{c:'term',q:'1951年に提案された公営住宅標準設計51C型で、計画の軸となった2つの原則は。',a:'食寝分離と就寝分離',n:'東京大学・吉武泰水研究室が設計、西山夘三の食寝分離論が背景。2DKの原型。「リビングルームを初めて取り入れた」は誤文として出題される。',y:[['H25','Ⅰ-(3)'],['H30','Ⅰ-(3)'],['2022','問1-①'],['2023','問2-①']]},
+{c:'term',q:'日本の伝統演劇の舞台で、客席から見て右手の方を何と呼ぶか。',a:'上手（かみて）',n:'身分の高い登場人物が座を占める。客席から見て左は下手。役者から見ると左右が逆になる点に注意。',y:[['H25','Ⅰ-(6)'],['H27','Ⅰ-(7)'],['H30','Ⅰ-(8)']]},
+{c:'term',q:'同じ色でも面積が大きくなると明度や彩度が高く見える現象は。',a:'色彩の面積効果',n:'小さな色見本で選ぶと、壁一面に塗ったとき明るく鮮やかに見える。内外装の色決めでは見本より1〜2段階抑えた色を選ぶ。',y:[['H25','Ⅰ-(5)'],['H27','Ⅰ-(5)']]},
+{c:'term',q:'マンセル表色系で 6.5G 7/3 と表記されたとき、それぞれの数字は何を表すか。',a:'色相 6.5G、明度 7、彩度 3（H V/C）',n:'明度は0が黒、10が白。平成26年度は 7.5R 5/4 で明度5を問う形。表記の順序さえ覚えれば確実に取れる。',y:[['H26','Ⅰ-(5)'],['H30','Ⅰ-(6)']]},
+{c:'term',q:'日本の住宅の縁側は、何のための仕掛けか。',a:'季節による日照状態の変化に対処するため',n:'夏は高い太陽を庇で切り、冬は低い日射を室内へ入れる。内外の中間領域として、屋根付きの歩行空間でもある。',y:[['H27','Ⅰ-(1)'],['H30','Ⅰ-(1)']]},
+{c:'term',q:'日本の住宅で玄関の扉を外開きとする理由・利点を2つ。',a:'雨仕舞（雨水の侵入を防ぐ）と、たたきで靴を脱ぐスペースを確保できること',n:'欧米では防犯・断熱の観点から内開きが主流で、日本と逆になる。平成27年度は記述問題（問Ⅴ）として出題された。',y:[['H25','Ⅲ-(6)'],['H27','Ⅴ'],['2022','問4-(5)']]},
+{c:'term',q:'住宅内の浴室において、浴室からみて扉はどちら開きとするのがよいか。',a:'内開き',n:'この授業の解答は内開き（脱衣室へ湯水が流れ出るのを防ぐ）。ただしバリアフリーの文脈では、浴室内で人が倒れた場合に開けられるよう外開きまたは引戸とする説明が一般的。出題文が住宅の浴室であれば内開きで答える。',y:[['H26','Ⅲ-(6)'],['H30','Ⅲ-(5)'],['2021','問4-(6)']],warn:true},
+{c:'term',q:'特別避難階段で、途中階から階段室へ逃げ込む扉は階段室からみてどちら開きか。',a:'内開き',n:'原則は「扉は避難方向に開く」。途中階では階段室へ入る向きが避難方向なので内開き、避難階では屋外側＝外開きになる。',y:[['H25','Ⅲ-(5)']]},
+{c:'term',q:'多人数がいる集会室などの出入口の扉はどちら開きとするか。',a:'外開き',n:'避難方向に開かせる。室内側に開くと、人が押し寄せたときに扉が開かなくなる。',y:[['H27','Ⅰ-(10)']]},
+{c:'term',q:'燃焼の3要素と、消火の原理は。',a:'可燃物・温度・酸素／3要素のいずれかを除去する',n:'除去消火（可燃物）、冷却消火（温度）、窒息消火（酸素）が対応する。',y:[['H26','Ⅲ-(4)'],['2022','問4-(2)']]},
+{c:'term',q:'初期消火のための設備を2つ挙げよ。',a:'屋内消火栓とスプリンクラー',n:'防火対策の順序は、出火防止 → 早期発見と初期消火 → 防火区画・竪穴区画による延焼防止 → その間に避難。',y:[['H27','Ⅲ-(3)'],['2022','問4-(3)']]},
+{c:'term',q:'自動火災報知設備の感知器には2種類ある。何と何か。',a:'熱感知器と煙感知器',n:'出火現場に人がいなくても作動する。早期発見＝避難開始を早めるための設備。',y:[['2021','問4-(4)'],['2023','問4-(2)']]},
+{c:'term',q:'火災時の延焼防止に直接関わる2つの語は。',a:'耐火構造と防火区画',n:'区画は面積区画・高層区画・竪穴区画・異種用途区画の4種。報知が発見、区画と耐火が拡大防止、と役割で整理する。',y:[['H25','Ⅳ-(1)'],['H26','Ⅳ-(1)'],['H30','Ⅲ-(3)']]},
+{c:'term',q:'駅舎を再生したコンバージョンの代表例として挙げられる美術館は。',a:'オルセー美術館',n:'1900年の駅舎を美術館へ（ガエ・アウレンティ、1986）。中世の城を改修したカステルヴェッキオ美術館（カルロ・スカルパ）と対で問われる。',y:[['H25','Ⅳ-(2)'],['H27','Ⅲ-(5)'],['2023','問4-(10)']]},
+{c:'term',q:'人と車の動線を立体的に分離して歩行者の安全を確保する手法は。',a:'ペデストリアンデッキ',n:'市街地や駅前に用いられる。建物同士を接続し、地上の車道と歩行者を階層で分ける。',y:[['H25','Ⅳ-(3)'],['H27','Ⅲ-(11)'],['2023','問5-(1)']]},
+{c:'term',q:'クルドサックと歩行者専用路を組み合わせ、歩車を完全に分離した住区計画の手法は。',a:'ラドバーンシステム',n:'1929年、米ニュージャージー州ラドバーン。スタインとライト。スーパーブロックの中に袋小路の車道を差し込み、歩道は緑地を通って各戸の裏へつながる。',y:[['H26','Ⅳ-(3)'],['H27','Ⅳ-(2)'],['H30','Ⅳ-(2)'],['2021','問5-(3)']]},
+{c:'term',q:'車を排除せず、速度が出にくい道路構造で歩行者と共存させる、1970年代オランダ発の手法は。',a:'ボンエルフ',n:'「生活の庭」の意。ハンプ、シケイン、狭さくが具体的な手法。日本ではコミュニティ道路として展開。郊外の住宅街に適する。',y:[['H25','Ⅳ-(4)'],['2022','問4-(12)'],['2023','問5-(2)']]},
+{c:'term',q:'屋根付きの歩行空間を指す語を挙げよ。',a:'ポルティコ（縁側、パサージュ、アーケードも同系）',n:'ポルティコは列柱で支えられた屋根付きの歩廊。ボローニャの街路が有名。',y:[['H26','Ⅳ-(2)'],['2021','問5-(2)']]},
+{c:'term',q:'軒や庇の裏側（天井）に水がまわるのを防ぐため、先端部の下側につけるものは。',a:'水切り',n:'水を部材の外へ切り落とす。立ち上げて侵入方向を絶つ水返しと対で、雨仕舞ディテールの基本。',y:[['H26','Ⅳ-(5)'],['H27','Ⅲ-(8)'],['H30','Ⅲ-(8)'],['2022','問4-(9)']]},
+{c:'term',q:'外部空間で、まわりの地面よりレベルを下げて囲われ感のある広場をつくるものは。',a:'サンクンガーデン',n:'地下階への採光・通風にもなる。ポケットパークやプラザとは、レベルを下げる点が異なる。',y:[['H27','Ⅲ-(12)'],['2021','問4-(12)'],['2022','問4-(11)']]},
+{c:'term',q:'空間をいくつかの区域やエリアに分ける計画手法は。',a:'ゾーニング',n:'敷地条件（高低差）、建物形態、機能や使われ方、空間条件などによって分ける。類似の要素をまとめる手法はグルーピング。',y:[['H27','Ⅲ-(7)']]},
+{c:'term',q:'住宅団地で隣棟間隔を決めるとき、何に配慮するか。',a:'日照の確保とプライバシーの確保',n:'目安は南側に建つ建物の高さの約2倍（冬至に4時間程度の日照）。緯度が高いほど大きく必要になる。',y:[['H26','Ⅲ-(10)'],['H27','Ⅲ-(10)'],['2023','問4-(8)']]},
+{c:'term',q:'都市部で夜間の気温が下がりにくくなり、冷房負荷が増大する現象は。',a:'ヒートアイランド現象',n:'水面や緑地の減少、地面の舗装、建築の高密度化、エネルギー消費が原因。対策は屋上・壁面緑化、保水性舗装、風の道。',y:[['H26','Ⅲ-(2)']]},
+{c:'term',q:'次世代の負担にならないよう、環境保護と開発を両立させる持続可能な取組みを表す語は。',a:'サスティナビリティ',n:'ブルントラント報告（1987）の「将来世代のニーズを損なわずに現在のニーズを満たす」。',y:[['H26','Ⅲ-(7)']]},
+{c:'term',q:'トンネルの入口付近の照度を高くしておくのは、何に配慮しているからか。',a:'ブラックホール現象',n:'明るい屋外から暗い坑内を見ると、内部が真っ黒に見えて先が把握できなくなる。入口の照度を上げ、奥へ向かって段階的に下げる。',y:[['H27','Ⅰ-(6)']]},
+{c:'term',q:'群衆の流れを安全に処理するために、避難路はどのような形にするとよいか。',a:'出口に向けて末広がりにする',n:'先細りは滞留と圧力集中を生む。群衆事故はここで起きる。',y:[['H27','Ⅰ-(4)']]},
+{c:'term',q:'柱や梁のない構造で、戸数の多い集合住宅などでよく使われる構造形式は。',a:'壁式構造',n:'壁と床で荷重を支える。室内に柱型・梁型が出ないが、開口の位置と大きさが制約される。ドミノシステムが解放したのはまさにこの制約。※出典画像の空欄部分（「（　）の多い集合住宅」）は判読が不確かで、戸数と読んでいる。',y:[['H27','Ⅰ-(3)']],warn:true},
+{c:'term',q:'視覚的材質感に対して、触覚的材質感を何というか。',a:'タクタイル・テクスチュア',n:'見た目の質感と、触れたときの質感を分けて捉える語。仕上材の選択で両者がずれることがある。',y:[['H30','Ⅰ-(4)']]},
+{c:'term',q:'東本願寺では、寺院境内の景観をくずさないように参拝接待所をどこにつくったか。',a:'地下',n:'既存の景観を保存しながら現代的な機能を加える手法。ストックの活用と景観保全の実例として使える。',y:[['H30','Ⅰ-(10)']]},
+{c:'term',q:'個人のプライバシー保護を優先し、交流を妨げる（遠心的な）レイアウトを何というか。',a:'ソシオフーガル（対語：ソシオペタル＝求心的）',n:'ソシオペタルは向かい合わせなど交流を促す配置、ソシオフーガルは背を向ける・同じ方向を向く配置。待合室やベンチの計画で使い分ける。',y:[['2021','問1-⑩'],['2023','問3-(2)']]},
+{c:'term',q:'他人に入り込まれると不快に感じる、個人を取り巻く空間を何というか。',a:'パーソナルスペース',n:'相手との関係によって大きさが変わる。ホールは密接距離・個体距離・社会距離・公衆距離に分類した。座席配置の計画に直結する。',y:[['H30','Ⅱ-②'],['2022','問2-④'],['2023','問3-(1)']]},
+{c:'term',q:'簡便に建物の規模を算定するのに用いられる方式は。',a:'原単位方式',n:'1人あたり床面積などの原単位に人数を掛けて概算する。室ごとに面積を積み上げる積み上げ方式は精密だが簡便ではない。この2語の入れ替えが誤文として頻出。',y:[['2021','問1-④'],['2022','問1-⑤'],['2023','問1-③']]},
+{c:'term',q:'住宅取得希望者が組合をつくり、自ら居住する住宅を計画・取得・管理していく方式は。',a:'コーポラティブハウス',n:'SI方式と入れ替えた誤文として出題される。代表例はMポート（熊本アートポリス）。',y:[['2021','問1-⑤'],['2023','問2-④']]},
+{c:'term',q:'SI方式とは何か。',a:'スケルトン（躯体）とインフィルを分離する方式',n:'耐用年数の長い躯体と、短い内装・設備を切り離して更新できるようにする。設備的耐用年数の短さへの答えであり、代表例はNEXT21。',y:[['2021','問1-⑤'],['2023','問2-③']]},
+{c:'term',q:'通り土間型の民家が発達したのは、どのような場所か。',a:'平地が乏しく間口の狭い敷地（漁村・臨海部・山村部）',n:'間口が狭く奥行きの深い敷地で、土間を通して奥まで動線を通す。人口の密集する平野部では広い敷地が取れるため、田の字型など別の平面になる。',y:[['2021','問1-⑥'],['2022','問1-③'],['2023','問1-①']]},
+{c:'term',q:'テラスハウスとタウンハウスの大きな違いは何か。',a:'共有の屋外空間（コモンスペース）をもつかどうか',n:'「敷地の所有形式である」「界壁の有無である」はいずれも誤文として出題されている。タウンハウスは低層連続住宅に共用の庭や広場を伴う。',y:[['2021','問1-⑧'],['2022','問1-⑧']],warn:true},
+{c:'term',q:'集合住宅で、中廊下型と片廊下型ではどちらがプライバシー確保に優れるか。',a:'中廊下型',n:'片廊下型は共用廊下側の窓が外部からの視線にさらされる。中廊下型は廊下が内側にあるためその問題が起きないが、通風・採光では不利になる。',y:[['2022','問1-④'],['2023','問1-⑤']]},
+{c:'term',q:'ツインコリドール形式は何を目的とした形式か。',a:'中廊下型の通風・採光など居住環境の改善',n:'2021年度では「住民間の交流促進のための提案である」が誤文として出題された。廊下を2本にして間に吹抜けを設け、中廊下型の弱点を補う形式。',y:[['2021','問1-①']],warn:true},
+{c:'term',q:'群衆密度と歩行速度はどのような関係にあるか。',a:'反比例（密度が上がると歩行速度は落ちる）',n:'正比例とする誤文が出題される。密度が限界を超えると流れが止まり、後続の圧力で群衆雪崩が起きる。',y:[['2023','問1-⑩']]},
+{c:'term',q:'高床式の住居は、どのような気候の地域に見られるか。',a:'高温多湿の地域（湿気・通風対策）',n:'寒冷地帯の手法とする誤文が出題される。寒冷地では断熱と気密、地面からの冷えを断つ工夫が主題になる。',y:[['2023','問1-⑦']]},
+{c:'term',q:'需要の時間的変動には3種類ある。それぞれの施設例を挙げよ。',a:'時刻変動＝駅（ラッシュ）／週間変動＝商業施設（週末）／季節変動＝旅館・海の家',n:'規模計画では、ピークに合わせると平常時に過大になる。どの変動をどこまで受け止めるかを施設ごとに決める必要がある。',y:[['H30','Ⅱ-①'],['2021','問3']]},
+{c:'term',q:'バルコニーの手すりを縦格子とするのはなぜか。',a:'横桟は足がかりになり、乗り越えの危険があるため',n:'手すり子の内法間隔は110mm以下として、幼児の頭部が通り抜けないようにする。',y:[['H25','Ⅲ-(4)'],['2023','問4-(3)']]},
+{c:'term',q:'区域内の建築規制を建築基準法よりも詳細に定め、優れた住環境を形成・保全することをねらいとした制度は。',a:'建築協定（制度）',n:'土地所有者等の全員の合意と特定行政庁の認可による。市町村が都市計画として決める地区計画と区別する。※判読が不確かで、地区計画の可能性も残る。',y:[['H25','Ⅰ-(4)']],warn:true},
+{c:'term',q:'細長い敷地や三角形の敷地で、まとまった外部空間を確保するにはどのような配置とするか。',a:'L字形',n:'建物を敷地の2辺に寄せることで、残りを分散させず一体の庭として使える。コの字にすると囲み性は高まるが採光・通風に不利。',y:[['H26','Ⅰ-(2)'],['H30','Ⅰ-(2)']]},
+{c:'term',q:'日本のような温暖湿潤地域で、日光を最大限に入れるために建築の形態はどちら方向に長くするか。',a:'東西方向',n:'南面を最大化する。夏の南面は太陽高度が高く庇で遮りやすいが、東西面は低い日射が入り遮蔽しにくいため小さくする。',y:[['H26','Ⅰ-(1)']]},
+{c:'term',q:'車イス使用者のために、出入口の扉はどのような形式が望ましいか。',a:'引き戸',n:'開き戸は前後の移動を強いられる。有効幅員80cm以上、レバーハンドルや自動ドアも同じ発想。',y:[['H26','Ⅰ-(10)']]},
+{c:'term',q:'日本の座敷で、上座と下座を定めるものは何か。また入口の近くはどちらか。',a:'床の間の位置／入口の近くは下座',n:'床の間の前が上座。舞台の上手・下手（客席から見て右が上手）と混同しないこと。',y:[['H26','Ⅰ-(6)']]},
+
+/* ---------- 数値・寸法 ---------- */
+{c:'num',q:'1坪は約何m²か。',a:'約 3.3 m²',n:'1坪＝畳2枚＝1間×1間。1間＝約1.818mなので1.818²≒3.306m²。逆に1m²≒0.3025坪。',y:[['H25','Ⅰ-(8)'],['H27','Ⅰ-(8)']]},
+{c:'num',q:'集合住宅のバルコニーの手すりの高さは法規上いくつ以上か。',a:'110 cm 以上',n:'建築基準法施行令126条。手すり子の内法間隔110mm以下と、単位ごと区別して覚える。',y:[['H26','Ⅲ-(5)'],['H27','Ⅰ-(9)'],['2022','問4-(4)']]},
+{c:'num',q:'バルコニーの手すり子の内法間隔はいくつ以下とするか。',a:'110 mm 以下',n:'幼児の頭部が通り抜けない寸法。手すりは縦格子とする。',y:[['H25','Ⅲ-(4)'],['H30','Ⅲ-(4)'],['2021','問4-(5)'],['2023','問4-(3)']]},
+{c:'num',q:'階段の1段の高さ（R）と踏面の幅（T）について、経験的によいとされる式は。',a:'T ＋ 2R ＝ 60 cm',n:'人の平地の歩幅（約60〜65cm）に由来する。Rが大きいほどTを小さくする関係。ブロンデルの式では63cmとする。',y:[['H25','Ⅰ-(9)']],warn:true},
+{c:'num',q:'車椅子使用者のための駐車区画は最小限どれだけ必要か。',a:'3.5 m × 5.0 m',n:'標準的な区画は2.5m×5.0m。通常幅に乗降・車椅子展開のスペース1.4m程度を加える。',y:[['H25','Ⅰ-(10)']]},
+{c:'num',q:'ラーメン式の鉄筋コンクリート造では、床面積いくつに対しほぼ1本の柱が必要か。',a:'約 30 m²',n:'スパン5〜7m程度の目安。6m×6m＝36m²とする教科書もある。計画初期に柱本数を概算するための感覚値。',y:[['H26','Ⅰ-(3)']],warn:true},
+{c:'num',q:'1メートルはどのように定義された長さか。',a:'パリを通る子午線を含む地球子午線の4千万分の1',n:'フランス革命期の定義。北極から赤道までの距離の1000万分の1と言い換えてもよい。',y:[['H26','Ⅰ-(8)']]},
+{c:'num',q:'体育館の天井高は、何の競技種目の必要高さによって決めるか。',a:'バレーボール',n:'公式競技で最も高い天井を要求する（12.5m以上）。バドミントンは9m以上。体育館の断面はこの数値で決まる。',y:[['H26','Ⅰ-(9)']]},
+{c:'num',q:'床座と椅子座では、目の高さに約何cmの差があるか。',a:'約 20 cm',n:'平成30年度の解答による。実測値（床座 約90cm、椅子座 約120cm）からは30cm前後とする資料もある。窓台の高さや飾り棚の位置に影響する。',y:[['H26','Ⅰ-(7)'],['H30','Ⅰ-(9)']],warn:true},
+{c:'num',q:'敷地面積に対する建築延べ床面積の割合を何というか。',a:'容積率',n:'都市計画法等で地区ごとに上限値が定められる。建築面積÷敷地面積は建蔽率。',y:[['H26','Ⅰ-(4)'],['H30','Ⅰ-(5)']]},
+{c:'num',q:'尺モジュールによる在来木造住宅では、一般的な廊下幅はいくつになるか。',a:'780 mm 程度',n:'3尺＝910mmの柱芯間隔から壁厚を引いた有効寸法。大手住宅メーカーのモジュールは現在も統一されていない。',y:[['2022','問1-⑦']]},
+{c:'num',q:'110mm・2寸・120mm・45cm・6尺は、それぞれ何の寸法か。',a:'110mm＝手すり格子幅／2寸＝屋根勾配／120mm＝柱材／45cm＝密接距離／6尺＝畳',n:'部材寸法と人体寸法が混ざって出る。密接距離はパーソナルスペースの最も内側。',y:[['2022','問2']]},
+{c:'num',q:'顔幅・下腿高・前方腕長・肩幅・指先点高・肩峰高は、それぞれ何を決めるか。',a:'顔幅＝手すり格子幅／下腿高＝座面高／前方腕長＝流し台奥行／肩幅＝座席幅／指先点高＝棚高さ／肩峰高＝天井高',n:'人体寸法から建築寸法を導く問題。平成30年度から4年連続で形を変えて出ている。',y:[['2021','問2']]},
+{c:'num',q:'需要変動・パーソナルスペース・指極・心々制・指先点高・群衆密度・前方腕長・上肢挙上高は、それぞれ何と対応するか。',a:'需要変動＝衛生機器数／パーソナルスペース＝座席配置／指極＝通路幅員／心々制＝田舎間／指先点高＝洗面台高／群衆密度＝出入口／前方腕長＝流し台奥行／上肢挙上高＝天井高',n:'指極は両手を広げた幅。心々制は柱芯で寸法を取る方式で、江戸間（田舎間）に対応する。',y:[['H30','Ⅱ']]},
+{c:'num',q:'江戸間と京間は、それぞれどの寸法制を用いるか。',a:'京間＝内法制／江戸間＝心々制',n:'内法制は畳の寸法を基準に柱位置を決め、心々制は柱芯の間隔を基準に取るため畳が小さくなる。2021年度では「江戸間や京間は内法制を用いる」が正文とされているので、授業の扱いを確認しておく。',y:[['2021','問1-③'],['2023','問1-⑧']],warn:true},
+
+/* ---------- 作品・人物 ---------- */
+{c:'work',q:'ハーレン集合住宅（スイス）の特徴は。',a:'森の斜面に建つ、専用庭をもったセットバック形式の連続低層集合住宅',n:'アトリエ5、1961年。アーレ川を望む南向き斜面に住戸を段状にずらし、各戸の専用庭を確保しつつ高密度を実現した。ル・コルビュジエの影響が強い。',y:[['H25','Ⅰ-(1)'],['H27','Ⅰ-(2)']]},
+{c:'work',q:'「形は機能に従う」と述べ、機能主義の先駆者とされたアメリカの建築家は。',a:'ルイス・サリヴァン',n:'シカゴ派。Form follows function。近代建築の標語となった。フランク・ロイド・ライトの師。',y:[['H25','Ⅰ-(2)']]},
+{c:'work',q:'室内に差し込む日射光による空間演出が特徴的な、ル・コルビュジエ設計の礼拝堂は。',a:'ロンシャンの礼拝堂',n:'厚い壁に穿たれた大小の開口から光が落ちる。五原則を体現した初期作品とは対照的な、彫塑的な後期作品。',y:[['2021','問1-⑨'],['2023','問1-④']]},
+{c:'work',q:'ル・コルビュジエの近代建築五原則の集大成とされる住宅は。',a:'サヴォア邸',n:'ピロティ、屋上庭園、自由な平面、横長の窓、自由なファサードがすべて現れる。ドミノシステムの延長線上にある。',y:[['H26','Ⅳ-(4)'],['H27','Ⅳ-(1)'],['2021','問5-(1)']]},
+{c:'work',q:'ミース・ファン・デル・ローエが設計した、均質空間を体現するガラスの住宅は。',a:'ファンズワース邸',n:'ユニバーサル・スペースの住宅版。柱と床・屋根スラブだけで構成され、内部に固定的な仕切りをほとんど持たない。',y:[['2021','問5-(1)']]},
+{c:'work',q:'中世の城をカルロ・スカルパが改修した、コンバージョンの代表例は。',a:'カステルヴェッキオ美術館',n:'1964年、ヴェローナ。新旧を対比させながら挿入する手法で、既存ストック活用の古典。',y:[['H25','Ⅳ-(2)'],['H27','Ⅲ-(5)']]},
+{c:'work',q:'狭小間口の住宅の最上階に、極端に高い天井高の部屋を設けた岸和郎の作品は。',a:'日本橋の家',n:'町家的な狭小間口を、垂直方向の操作で解いた事例。',y:[['2022','問1-②']]},
+{c:'work',q:'共用廊下に沿うように住戸の諸室群を並べた特徴的な平面をもつ、妹島和世の集合住宅は。',a:'岐阜県営住宅ハイタウン北方',n:'住戸を一列に並べ、各室が廊下に接する構成。片廊下型の常識を組み替えた計画。',y:[['2022','問1-⑥']]},
+{c:'work',q:'個人と家族と社会の関係のあり方を主題とした、山本理顕の中庭型集合住宅は。',a:'熊本県営保田窪第一団地',n:'住棟に囲まれた中庭を居住者だけの共有領域とし、外部に対して閉じることで共同性を立ち上げた。',y:[['2022','問1-⑩']]},
+{c:'work',q:'NEXT21が代表する集合住宅の方式は。',a:'SI方式',n:'大阪ガスの実験集合住宅。躯体（スケルトン）と住戸（インフィル）を分離し、住戸ごとの更新・改変を可能にした。',y:[['2023','問2-③']]},
+{c:'work',q:'Mポートが代表する集合住宅の方式は。',a:'コーポラティブハウス',n:'熊本アートポリスの一環。入居者が組合をつくり、計画段階から参加する。',y:[['2023','問2-④']]},
+{c:'work',q:'晴海高層アパートが代表する断面の手法は。',a:'スキップフロア',n:'前川國男。数階ごとに共用廊下を設け、住戸から階段で上下することで廊下面積を減らし、廊下のない階の環境を良くする。',y:[['2023','問2-⑤']]},
+{c:'work',q:'ライブタウン浜田山が代表する住宅形式は。',a:'タウンハウス',n:'低層の連続住宅で、コモンスペース（共有の屋外空間）をもつ。テラスハウスとの違いはここにある。',y:[['2023','問2-②']]},
+{c:'work',q:'観月橋団地が代表する手法は。',a:'リノベーション',n:'既存の団地ストックを改修して再生した事例。建築を社会的資産として捉える論述にそのまま使える。',y:[['2023','問2-⑥']]},
+{c:'work',q:'東孝光の「塔の家」はどのような住宅か。',a:'都心の狭小敷地に建つ、垂直方向に展開した住宅',n:'「屋上庭園をテーマとした住宅」は誤文として出題されている。屋上庭園はル・コルビュジエの五原則の語。',y:[['2023','問1-⑨']],warn:true},
+
+/* ---------- 正誤の急所 ---------- */
+{c:'tf',q:'「積み上げ方式は、簡便に建物の規模を算定するのに用いられる」— 正誤とその理由。',a:'誤り。簡便な算定は原単位方式',n:'積み上げ方式は室ごとに必要面積を積算する精密な方法。この2語の入れ替えは3年分の試験に登場する定番の誤文。',y:[['2021','問1-④'],['2022','問1-⑤'],['2023','問1-③']]},
+{c:'tf',q:'「集合住宅におけるSI方式は、住宅取得希望者が組合をつくり、自ら居住する住宅を計画・取得・管理していく方式である」— 正誤。',a:'誤り。それはコーポラティブハウス',n:'SI方式はスケルトンとインフィルの分離。方式名の入れ替えに注意する。',y:[['2021','問1-⑤']]},
+{c:'tf',q:'「公営住宅標準設計51C型は、日本の集合住宅の間取りにリビングルームをはじめて取り入れたものである」— 正誤。',a:'誤り。51C型の主題は食寝分離と就寝分離',n:'ダイニングキッチンを備えた2DKの原型であり、リビングルームの導入が主題ではない。',y:[['2022','問1-①']]},
+{c:'tf',q:'「プレファブ化の欠点の一つに、建材の質の均一化と質の向上が難しいことが挙げられる」— 正誤。',a:'誤り。均一化と品質向上はむしろ利点',n:'欠点は計画の自由度が低いこと、規格に縛られること。利点は工期短縮・品質の安定・コストの見通しやすさ。',y:[['2022','問1-⑨'],['2023','問1-②']]},
+{c:'tf',q:'「寒冷地域においてよく見られる、住居の断熱性を確保する手法として二重屋根がある」— 正誤。',a:'誤り。二重屋根は主に高温地域で小屋裏の熱気を抜くための手法',n:'寒冷地の主題は断熱・気密と、屋根雪や結露への対処になる。',y:[['2021','問1-②']]},
+{c:'tf',q:'「ツインコリドール形式は、集合住宅における住民間の交流促進のための提案である」— 正誤。',a:'誤り。中廊下型の通風・採光を改善するための形式',n:'交流促進を主題とするのはコモンスペースやコモンアクセスの計画。',y:[['2021','問1-①']]},
+{c:'tf',q:'「群衆密度と歩行速度は、おおむね正比例の関係にある」— 正誤。',a:'誤り。反比例する',n:'密度が上がるほど歩行速度は落ち、限界を超えると流れが止まって群衆雪崩の危険が生じる。',y:[['2023','問1-⑩']]},
+{c:'tf',q:'「一般的に、人口の密集する平野部では通り土間型の民家がつくられやすかった」— 正誤。',a:'誤り。通り土間型は平地が乏しく間口の狭い漁村や山村部',n:'平野部では敷地が広く取れるため、田の字型など別の平面形式になる。',y:[['2023','問1-①']]},
+{c:'tf',q:'「一般的に、集合住宅における中廊下型は片廊下型よりもプライバシーの確保に優れている」— 正誤。',a:'正しい',n:'片廊下型は共用廊下側の窓が外部の視線にさらされる。ただし中廊下型は通風・採光では不利になる。',y:[['2022','問1-④'],['2023','問1-⑤']]},
+{c:'tf',q:'「我が国の大手住宅メーカーの採用するモジュールは、現在に至るまで統一されていない」— 正誤。',a:'正しい',n:'尺モジュールとメーターモジュールが併存し、メーカーごとにも異なる。部材の互換性が生まれにくい要因。',y:[['2021','問1-⑦']]},
+
+/* ---------- 記述・論述 ---------- */
+{c:'desc',q:'建築は社会的資産であると言われる。具体例を挙げ、建築計画上で配慮すべき点を論述せよ。',a:'外部性・長寿命化・景観・公共性・合意形成',n:'建築は所有者個人のものであると同時に、街並みと環境を構成し、効用が周辺住民や後世にも及ぶ。例＝歴史的町並み（京町家、重伝建地区）、公共建築、集合住宅の外観と空地。配慮点＝①長寿命化と可変性（スケルトン・インフィル、ユニバーサル・スペース）②景観と周辺環境への調和 ③公共性の確保 ④ライフサイクルコストと既存ストックの活用（オルセー美術館、観月橋団地）⑤建築協定や地区計画による合意形成。',y:[['H25','Ⅱ']]},
+{c:'desc',q:'建築の形態は利用者の行動と密接な関係にある。具体例を挙げ、計画上配慮すべき点を論述せよ。',a:'動線・着座行動・エッジ効果・避難時行動',n:'例＝①実際に歩かれる経路に沿った通路配置 ②パーソナルスペースと座席配置（ソシオペタル／ソシオフーガル）③人は壁際や柱の陰など背後が守られた場所に留まる ④避難時は明るい方・入ってきた経路へ向かう ⑤群衆密度が上がると歩行速度が落ちる。配慮点＝行動調査に基づく計画、空間構成による誘導、行動能力の幅への対応、非常時を前提とした安全側の設計。',y:[['H26','Ⅱ']]},
+{c:'desc',q:'「いいものをつくって、きちんと手入れして、長く大切に使う」について、ライフサイクルコスト・需要予測・ユニバーサルデザインを用いて論述せよ。',a:'3語をつなぐ筋を用意しておく',n:'ライフサイクルコスト＝初期建設費より運用・維持・解体まで含めた総費用で判断する。需要予測＝将来の使われ方は予測しきれないため、可変性（ユニバーサル・スペース、SI方式）を確保する。ユニバーサルデザイン＝使い手の幅が変わっても使い続けられるようにする。3語はいずれも「時間軸に対する備え」という一本の筋でつながる。',y:[['H27','Ⅱ']]},
+{c:'desc',q:'ドミノシステムの図を説明せよ。組積造と比べて開口部はどう変化したか。',a:'荷重を壁から柱へ移し、開口が自由になった',n:'床スラブ・柱・階段のみで構成される鉄筋コンクリートの架構（1914）。組積造では壁が荷重を支えるため開口は小さく限られたが、柱がスラブを支えることで壁は荷重から解放され、窓を建物の端から端まで設けられるようになった。ここから自由な平面・横長の窓・自由なファサードが導かれる。平成30年度は100字、2022年度は200字以内。',y:[['H30','Ⅳ-(1)'],['2022','問5']]},
+{c:'desc',q:'ラドバーンシステムの図を100字以内で説明せよ。',a:'クルドサックと歩行者専用路による歩車分離の住区',n:'幹線道路に囲まれたスーパーブロックの内側に、行き止まりのクルドサック状の車道を差し込み、各戸に車で近づけるようにする。一方で歩行者は中央の緑地を通る専用路で各戸の反対側につながり、車道と交差しない。',y:[['H30','Ⅳ-(2)']]},
+{c:'desc',q:'1956年の弥彦神社事件について、群衆行動と建築空間の両面から原因を説明せよ。',a:'密度上昇による群衆雪崩と、石段・玉垣という空間の形',n:'群衆行動＝元日未明の餅まき行事に多数が集中し、密度が上がって歩行速度が落ち、後続の圧力で群衆雪崩が起きた。建築空間＝境内へ至る狭く急な石段に流れが集中し、脇の玉垣が群衆の圧力で崩壊して被害が拡大した。避難路は出口に向けて末広がりにするという原則の裏返しの事例。',y:[['2022','問3']]},
+{c:'desc',q:'ソシオペタルとソシオフーガルを、図を併用して説明せよ。',a:'求心的＝交流促進／遠心的＝交流抑制',n:'ソシオペタルは椅子が内側を向き、視線が中心に集まる求心的な配置で、会話や交流が生まれやすい。ソシオフーガルは背を向ける、あるいは同じ方向を向く遠心的な配置で、視線が交わらず交流が起きにくい。図は小さな円（人）と矢印（視線の向き）で描くと伝わる。',y:[['2023','問3-(2)']]},
+{c:'desc',q:'ペデストリアンデッキとボンエルフを、図を描いて説明せよ。',a:'立体的な歩車分離／速度を落とす歩車共存',n:'ペデストリアンデッキ＝歩行者と自動車を立体的に分離し、建物同士をデッキで接続する。市街地や駅前に適する。ボンエルフ＝人と自動車を共存させ、ハンプやシケインで速度を出しにくくした道路構造。郊外の住宅街に適する。分離と共存という正反対の思想である点が答えの軸になる。',y:[['2023','問5']]},
+{c:'desc',q:'規模計画における需要の時間的変動について、具体的な施設を例示しながら説明せよ。',a:'時刻変動・週間変動・季節変動',n:'時刻変動＝駅（朝夕のラッシュ）。週間変動＝商業施設（週末に集中）。季節変動＝旅館・海の家。ピークに合わせると平常時に過大な施設になるため、どこまで受け止め、どこから待たせるか・他用途で吸収するかを決める。',y:[['2021','問3']]}
+];
+
+/* ============================================================ */
+const YO={}; YEARS.forEach((y,i)=>YO[y]=i);
+const $ = s => document.querySelector(s);
+const el = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+CARDS.forEach((c,i)=>{c.id='k'+i; c.y.sort((a,b)=>YO[a[0]]-YO[b[0]]);});
+const srcText = p => p[0]+' '+p[1];
+
+let S = {cats:new Set(Object.keys(CATS)), years:new Set(YEARS), freqOnly:false, againOnly:false,
+         order:[], idx:0, flipped:false, marks:{}, hinted:false};
+
+/* ---- 進捗の保存（対応環境のみ） ---- */
+const KEY='kk1-progress';
+let lsOK=false; try{ localStorage.setItem(KEY+':t','1'); localStorage.removeItem(KEY+':t'); lsOK=true; }catch(e){ lsOK=false; }
+function withTimeout(p,ms){ return Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]); }
+function save(){
+  const v=JSON.stringify(S.marks);
+  if(lsOK){ try{ localStorage.setItem(KEY,v); }catch(e){} }
+  try{ if(window.storage&&window.storage.set) Promise.resolve(window.storage.set(KEY,v)).catch(()=>{}); }catch(e){}
+}
+async function load(){
+  if(lsOK){ try{ const v=localStorage.getItem(KEY); if(v) return JSON.parse(v); }catch(e){} }
+  try{ if(window.storage&&window.storage.get){
+    const r=await withTimeout(Promise.resolve(window.storage.get(KEY)).catch(()=>null),1500);
+    if(r&&r.value) return JSON.parse(r.value);
+  } }catch(e){}
+  return null;
+}
+
+/* ---- フィルタ ---- */
+function toggle(set,v){ set.has(v)?set.delete(v):set.add(v); }
+function buildChips(){
+  Object.entries(CATS).forEach(([k,label])=>{
+    const b=el('button','chip',label);
+    b.setAttribute('aria-pressed','true');
+    b.onclick=()=>{ toggle(S.cats,k); b.setAttribute('aria-pressed',S.cats.has(k)); rebuild(); };
+    $('#f-catchips').appendChild(b);
+  });
+  YEARS.forEach(y=>{
+    const b=el('button','chip year',y);
+    b.setAttribute('aria-pressed','true');
+    b.onclick=()=>{ toggle(S.years,y); b.setAttribute('aria-pressed',S.years.has(y)); rebuild(); };
+    $('#f-yearchips').appendChild(b);
+  });
+  const f=el('button','chip freq','4年以上出た問題');
+  f.setAttribute('aria-pressed','false');
+  f.onclick=()=>{ S.freqOnly=!S.freqOnly; f.setAttribute('aria-pressed',S.freqOnly); rebuild(); };
+  $('#f-optchips').appendChild(f);
+  const m=el('button','chip freq','まだのものだけ');
+  m.setAttribute('aria-pressed','false');
+  m.onclick=()=>{ S.againOnly=!S.againOnly; m.setAttribute('aria-pressed',S.againOnly); rebuild(); };
+  $('#f-optchips').appendChild(m);
+}
+function pool(){
+  return CARDS.filter(c=>{
+    if(!S.cats.has(c.c)) return false;
+    if(!c.y.some(p=>S.years.has(p[0]))) return false;
+    if(S.freqOnly && c.y.length<4) return false;
+    if(S.againOnly && S.marks[c.id]==='known') return false;
+    return true;
+  });
+}
+function rebuild(){ S.order=pool().map(c=>c.id); S.idx=0; setFlip(false); render(); }
+
+/* ---- 描画 ---- */
+function render(){
+  const ids=S.order;
+  updateTally();
+  if(!ids.length){
+    $('#f-cat').textContent='—'; $('#f-src').innerHTML=''; $('#b-src').innerHTML='';
+    $('#f-q').textContent='この条件に合う問題がありません。絞り込みをゆるめてください。';
+    $('#b-q').textContent=''; $('#b-a').textContent=''; $('#b-n').textContent='';
+    $('#stamp').classList.remove('on');
+    $('#count').textContent='0 / 0'; $('#bar').style.width='0%';
+    return;
+  }
+  if(S.idx>=ids.length) S.idx=ids.length-1;
+  const c=CARDS.find(x=>x.id===ids[S.idx]);
+  $('#f-cat').textContent=CATS[c.c];
+  const fs=$('#f-src'), bs=$('#b-src'); fs.innerHTML=''; bs.innerHTML='';
+  c.y.forEach(p=>{
+    fs.appendChild(el('b', c.y.length>=4?'hot':'', srcText(p)));
+    bs.appendChild(el('b', c.y.length>=4?'hot':'', srcText(p)));
+  });
+  $('#f-q').textContent=c.q;
+  $('#b-q').textContent=c.q;
+  $('#b-a').textContent=c.a;
+  const n=$('#b-n'); n.textContent=c.n||''; n.className='n'+(c.warn?' warn':''); n.hidden=!c.n;
+  $('#stamp').classList.toggle('on', S.marks[c.id]==='known');
+  $('#count').textContent=(S.idx+1)+' / '+ids.length;
+  $('#bar').style.width=((S.idx+1)/ids.length*100)+'%';
+  document.querySelectorAll('.face-body').forEach(b=>b.scrollTop=0);
+}
+function updateTally(){
+  const k=Object.values(S.marks).filter(v=>v==='known').length;
+  $('#tally').innerHTML='覚えた <b>'+k+'</b> / 全 '+CARDS.length+' 問　（表示中 '+S.order.length+' 問）';
+}
+function setFlip(v){ S.flipped=v; $('#stage').classList.toggle('flipped',v); }
+function resetFlip(){
+  if(!S.flipped){ return; }
+  const f=document.querySelector('.flipper');
+  f.style.transition='none'; setFlip(false);
+  requestAnimationFrame(()=>{ f.style.transition=''; });
+}
+
+/* ---- 移動 ---- */
+function go(dir){
+  if(!S.order.length) return;
+  S.idx=(S.idx+dir+S.order.length)%S.order.length;
+  resetFlip();
+  const st=$('#stack');
+  st.style.transition='none';
+  st.style.transform='translateX('+(dir>0?36:-36)+'px)';
+  st.style.opacity='0';
+  render();
+  requestAnimationFrame(()=>{
+    st.style.transition='transform .22s ease, opacity .22s ease';
+    st.style.transform=''; st.style.opacity='1';
+  });
+}
+function mark(v){
+  if(!S.order.length) return;
+  const id=S.order[S.idx];
+  if(v==='known') S.marks[id]='known'; else delete S.marks[id];
+  $('#stamp').classList.toggle('on', v==='known');
+  save();
+  setTimeout(()=>go(1), v==='known'?260:120);
+}
+
+/* ---- タップ＆スワイプ ---- */
+const stage=$('#stage'), stack=$('#stack');
+let px=0,py=0,dx=0,dy=0,dragging=false,axis=null,t0=0;
+stage.style.touchAction='pan-y';
+stage.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.face-body') && e.target.closest('.face-body').scrollHeight > e.target.closest('.face-body').clientHeight + 4){ /* 縦スクロールも許可 */ }
+  dragging=true; axis=null; px=e.clientX; py=e.clientY; dx=0; dy=0; t0=Date.now();
+  stack.style.transition='none';
+});
+stage.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  dx=e.clientX-px; dy=e.clientY-py;
+  if(!axis && (Math.abs(dx)>6 || Math.abs(dy)>6)) axis = Math.abs(dx)>Math.abs(dy) ? 'x' : 'y';
+  if(axis!=='x') return;
+  e.preventDefault();
+  stack.style.transform='translateX('+dx+'px) rotate('+(dx*0.02)+'deg)';
+  stack.style.opacity=String(Math.max(.45,1-Math.abs(dx)/420));
+  $('#tag-l').style.opacity = dx>40 ? '1':'0';
+  $('#tag-r').style.opacity = dx<-40 ? '1':'0';
+});
+function endDrag(){
+  if(!dragging) return;
+  dragging=false;
+  $('#tag-l').style.opacity='0'; $('#tag-r').style.opacity='0';
+  const quick = Date.now()-t0 < 260;
+  if(axis==='x' && (Math.abs(dx)>62 || (quick && Math.abs(dx)>34))){
+    go(dx<0 ? 1 : -1);
+    return;
+  }
+  stack.style.transition='transform .2s ease, opacity .2s ease';
+  stack.style.transform=''; stack.style.opacity='1';
+  if(axis===null && Math.abs(dx)<8 && Math.abs(dy)<8){ setFlip(!S.flipped); hideHint(); }
+}
+stage.addEventListener('pointerup',endDrag);
+stage.addEventListener('pointercancel',endDrag);
+stage.addEventListener('pointerleave',endDrag);
+function hideHint(){ if(!S.hinted){ S.hinted=true; $('#hint').classList.add('gone'); } }
+
+$('#btn-o').onclick=()=>mark('known');
+$('#btn-x').onclick=()=>mark('again');
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if($('#stage').hidden) return;
+  if(e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); setFlip(!S.flipped); hideHint(); }
+  else if(e.key==='ArrowRight') go(1);
+  else if(e.key==='ArrowLeft') go(-1);
+  else if(e.key==='1'||e.key==='o') mark('known');
+  else if(e.key==='2'||e.key==='x') mark('again');
+});
+
+/* ---- シート ---- */
+function sheet(v){ $('#sheet').classList.toggle('on',v); $('#sheet-bg').classList.toggle('on',v); if(v) updateTally(); }
+$('#btn-gear').onclick=()=>sheet(true);
+$('#btn-close').onclick=()=>sheet(false);
+$('#sheet-bg').onclick=()=>sheet(false);
+$('#btn-shuffle').onclick=()=>{
+  for(let i=S.order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.order[i],S.order[j]]=[S.order[j],S.order[i]];}
+  S.idx=0; setFlip(false); render(); sheet(false);
+};
+$('#btn-reset').onclick=()=>{ S.marks={}; save(); render(); };
+
+/* ---- 一覧 ---- */
+function renderList(f){
+  const box=$('#list-body'); box.innerHTML='';
+  f=(f||'').trim().toLowerCase();
+  const rows=CARDS.filter(c=>!f || (c.q+c.a+(c.n||'')+c.y.map(srcText).join(' ')+CATS[c.c]).toLowerCase().includes(f));
+  if(!rows.length){ box.appendChild(el('div','empty','見つかりませんでした。')); return; }
+  rows.forEach(c=>{
+    const d=el('div','row');
+    d.appendChild(el('p','rq',c.q));
+    d.appendChild(el('p','ra',c.a));
+    d.appendChild(el('div','rs',c.y.map(srcText).join('　')));
+    box.appendChild(d);
+  });
+}
+$('#q-search').addEventListener('input',e=>renderList(e.target.value));
+
+/* ---- 傾向マトリクス ---- */
+const MATRIX=[
+  ['採光開口比（1/7・1/5）',['H25','H26','H27','2021','2022','2023']],
+  ['ドミノシステム',['H25','H26','H27','H30','2022','2023']],
+  ['温熱4要素',['H25','H26','H27','H30','2021']],
+  ['真壁と大壁',['H26','H27','H30','2021','2023']],
+  ['ラドバーン・歩車分離',['H25','H26','H27','H30','2021','2023']],
+  ['扉の開き勝手',['H25','H26','H27','H30','2021','2022']],
+  ['手すりの高さ・格子間隔',['H25','H26','H27','H30','2021','2022','2023']],
+  ['耐用年数とコスト',['H25','H26','H27','H30','2021','2022','2023']],
+  ['火災の防止と初期消火',['H25','H26','H27','H30','2021','2022','2023']],
+  ['コア・システム',['H25','H30','2021','2022']],
+  ['パッシブ手法',['H25','H27','2022','2023']],
+  ['ユニバーサル・スペース',['H25','H30','2021','2022']],
+  ['雨仕舞（水切り・水返し）',['H26','H27','H30','2022']],
+  ['ボンエルフ・歩車共存',['H25','2022','2023']],
+  ['人体寸法と建築寸法',['H30','2021','2022','2023']],
+  ['パーソナルスペース・ソシオ〜',['H30','2021','2022','2023']],
+  ['日本の集合住宅作品',['2022','2023']],
+  ['サンクンガーデン',['H27','2021','2022']],
+  ['コンバージョン',['H25','H27','2023']],
+  ['上手・下座（席次）',['H25','H26','H27','H30']]
+];
+function renderMatrix(){
+  const t=$('#matrix');
+  const hr=el('tr'); hr.appendChild(el('th',null,'論点'));
+  YEARS.forEach(y=>hr.appendChild(el('th',null,y)));
+  hr.appendChild(el('th',null,'年'));
+  const head=el('thead'); head.appendChild(hr); t.appendChild(head);
+  const body=el('tbody');
+  MATRIX.slice().sort((a,b)=>b[1].length-a[1].length).forEach(([name,ys])=>{
+    const tr=el('tr'); tr.appendChild(el('td',null,name));
+    YEARS.forEach(y=>{const td=el('td'); td.appendChild(el('span','dot'+(ys.includes(y)?'':' off'))); tr.appendChild(td);});
+    const c=el('td'); c.appendChild(el('span','cnt',ys.length)); tr.appendChild(c);
+    body.appendChild(tr);
+  });
+  t.appendChild(body);
+}
+
+/* ---- タブ ---- */
+const STUDY=['#meta','#stage','.pad','.pad-label'];
+const tabs=[['#tab-study','study'],['#tab-list','#view-list'],['#tab-trend','#view-trend']];
+function show(which){
+  tabs.forEach(([t,v])=>$(t).setAttribute('aria-selected', v===which));
+  const isStudy = which==='study';
+  STUDY.forEach(s=>{ const n=$(s); if(n) n.hidden=!isStudy; });
+  $('#view-list').hidden = which!=='#view-list';
+  $('#view-trend').hidden = which!=='#view-trend';
+}
+tabs.forEach(([t,v])=>$(t).onclick=()=>show(v));
+
+(function init(){
+  buildChips();
+  renderMatrix();
+  renderList('');
+  rebuild();
+  show('study');
+  load().then(m=>{ if(m && typeof m==='object'){ S.marks=m; render(); } }).catch(()=>{});
+})();
+</script>
+</body>
+</html>
