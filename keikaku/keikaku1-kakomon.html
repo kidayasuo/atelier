@@ -474,7 +474,16 @@ const CARDS = [
 const YO={}; YEARS.forEach((y,i)=>YO[y]=i);
 const $ = s => document.querySelector(s);
 const el = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
-CARDS.forEach((c,i)=>{c.id='k'+i; c.y.sort((a,b)=>YO[a[0]]-YO[b[0]]);});
+/* カードのIDは「設問＋答え」から作る。内容が同じかぎり更新後もIDが変わらないので
+   覚えたハンコは引き継がれ、設問か答えを直したカードだけがハンコを失う。 */
+function cardHash(s){ let x=2166136261; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return (x>>>0).toString(36); }
+const seenIds={};
+CARDS.forEach((c,i)=>{
+  let id=cardHash(c.q+'\u0000'+c.a);
+  if(seenIds[id]) id=id+'-'+i;   // 万一の衝突よけ
+  seenIds[id]=1; c.id=id;
+  c.y.sort((a,b)=>YO[a[0]]-YO[b[0]]);
+});
 const srcText = p => p[0]+' '+p[1];
 
 let S = {cats:new Set(Object.keys(CATS)), years:new Set(YEARS), freqOnly:false, againOnly:false,
@@ -733,7 +742,13 @@ tabs.forEach(([t,v])=>$(t).onclick=()=>show(v));
   renderList('');
   rebuild();
   show('study');
-  load().then(m=>{ if(m && typeof m==='object'){ S.marks=m; render(); } }).catch(()=>{});
+  load().then(m=>{
+    if(!m || typeof m!=='object') return;
+    const live=new Set(CARDS.map(c=>c.id));
+    const kept={};
+    Object.keys(m).forEach(k=>{ if(live.has(k)) kept[k]=m[k]; });  // 消えた／直した問題の記録は捨てる
+    S.marks=kept; render();
+  }).catch(()=>{});
 })();
 </script>
 </body>
