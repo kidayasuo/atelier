@@ -84,7 +84,7 @@ body{
 .srcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .srcs b{font-weight:400;color:var(--ai);border:1px solid rgba(44,90,120,.3);padding:0 4px;font-size:9px;white-space:nowrap;border-radius:1px}
 .srcs b.hot{color:var(--shu);border-color:rgba(185,59,36,.35)}
-.face-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 20px 18px;position:relative}
+.face-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 20px 82px;position:relative}
 .q{font-family:var(--mincho);font-size:20px;line-height:1.8;letter-spacing:.02em;margin:0;font-weight:500}
 .a{
   font-family:var(--mincho);font-size:24px;line-height:1.6;color:var(--shu);font-weight:600;letter-spacing:.03em;margin:0 0 14px;
@@ -99,17 +99,23 @@ body{
 }
 .hint.gone{opacity:0}
 
-/* 覚えたハンコ */
+/* 覚えたハンコ（押せる） */
 .stamp{
+  appearance:none;cursor:pointer;background:transparent;
   position:absolute;left:14px;bottom:12px;width:56px;height:56px;border-radius:50%;
-  border:2.5px solid var(--shu);color:var(--shu);
+  border:2px dotted rgba(185,59,36,.30);color:rgba(185,59,36,.32);
   display:flex;align-items:center;justify-content:center;
   font-family:var(--mincho);font-size:23px;font-weight:700;letter-spacing:0;
-  transform:rotate(-11deg) scale(.5);opacity:0;pointer-events:none;
-  transition:transform .28s cubic-bezier(.2,1.5,.4,1), opacity .2s ease;
+  transform:rotate(-11deg) scale(.88);opacity:1;z-index:3;
+  transition:transform .28s cubic-bezier(.2,1.5,.4,1), opacity .2s ease, border-color .2s ease, color .2s ease;
 }
 .stamp b{font-weight:700}
-.stamp.on{transform:rotate(-11deg) scale(1);opacity:.82}
+.stamp:active{transform:rotate(-11deg) scale(.78)}
+.stamp.on{
+  border:2.5px solid var(--shu);color:var(--shu);
+  transform:rotate(-11deg) scale(1);opacity:.82;
+}
+.stamp:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
 
 /* めくり中の左右ヒント */
 .swipe-tag{
@@ -128,8 +134,7 @@ body{
   font-size:27px;line-height:1;transition:transform .12s ease;
 }
 .big:active{transform:scale(.9)}
-.big.x{border:1.5px solid var(--ink-3);color:var(--ink-2)}
-.big.o{border:1.5px solid var(--shu);color:var(--shu)}
+.big.nav{border:1.5px solid var(--ink-3);color:var(--ink-2);font-size:22px}
 .big:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
 .pad-label{
   display:flex;justify-content:center;gap:36px;flex:none;
@@ -236,9 +241,9 @@ body{
           <div class="face-head"><span class="cat" id="f-cat">—</span><span class="srcs" id="f-src"></span></div>
           <div class="face-body">
             <p class="q" id="f-q">読み込み中</p>
-            <div class="stamp" id="stamp"><b>覚</b></div>
             <p class="hint" id="hint">タップで答え　左右にスワイプでめくる</p>
           </div>
+          <button class="stamp" id="stamp" aria-label="覚えた"><b>覚</b></button>
         </div>
         <div class="face back">
           <div class="face-head"><span class="cat">こたえ</span><span class="srcs" id="b-src"></span></div>
@@ -247,16 +252,17 @@ body{
             <p class="a" id="b-a"></p>
             <p class="n" id="b-n"></p>
           </div>
+          <button class="stamp" id="stamp-b" aria-label="覚えた"><b>覚</b></button>
         </div>
       </div>
     </div>
   </div>
 
   <div class="pad">
-    <button class="big x" id="btn-x" aria-label="まだ">✕</button>
-    <button class="big o" id="btn-o" aria-label="覚えた">✓</button>
+    <button class="big nav" id="btn-prev" aria-label="まえ">←</button>
+    <button class="big nav" id="btn-next" aria-label="つぎ">→</button>
   </div>
-  <div class="pad-label"><span>まだ</span><span>覚えた</span></div>
+  <div class="pad-label"><span>まえ</span><span>つぎ</span></div>
 
   <!-- ========== 一覧 ========== -->
   <div class="scroller" id="view-list" hidden>
@@ -603,7 +609,7 @@ CARDS.forEach((c,i)=>{
 const srcText = p => p[0]+' '+p[1];
 
 let S = {cats:new Set(Object.keys(CATS)), years:new Set(YEARS), freqOnly:false, againOnly:false,
-         order:[], idx:0, flipped:false, marks:{}, hinted:false, tab:'study'};
+         order:[], idx:0, flipped:false, marks:{}, hinted:false, tab:'study', kept:new Set()};
 
 /* ---- 進捗の保存（対応環境のみ） ---- */
 const KEY='kk1-progress';
@@ -706,7 +712,7 @@ function pool(){
     if(!S.cats.has(c.c)) return false;
     if(!c.y.some(p=>S.years.has(p[0]))) return false;
     if(S.freqOnly && c.y.length<4) return false;
-    if(S.againOnly && S.marks[c.id]==='known') return false;
+    if(S.againOnly && S.marks[c.id]==='known' && !S.kept.has(c.id)) return false;  // このセッションで押した札は残す
     return true;
   });
 }
@@ -720,7 +726,7 @@ function render(){
     $('#f-cat').textContent='—'; $('#f-src').innerHTML=''; $('#b-src').innerHTML='';
     $('#f-q').textContent='この条件に合う問題がありません。絞り込みをゆるめてください。';
     $('#b-q').textContent=''; $('#b-a').textContent=''; $('#b-n').textContent='';
-    $('#stamp').classList.remove('on');
+    setStamp(false);
     $('#count').textContent='0 / 0'; $('#bar').style.width='0%';
     return;
   }
@@ -736,7 +742,7 @@ function render(){
   $('#b-q').textContent=c.q;
   $('#b-a').textContent=c.a;
   const n=$('#b-n'); n.textContent=c.n||''; n.className='n'+(c.warn?' warn':''); n.hidden=!c.n;
-  $('#stamp').classList.toggle('on', S.marks[c.id]==='known');
+  setStamp(S.marks[c.id]==='known');
   $('#count').textContent=(S.idx+1)+' / '+ids.length;
   $('#bar').style.width=((S.idx+1)/ids.length*100)+'%';
   document.querySelectorAll('.face-body').forEach(b=>b.scrollTop=0);
@@ -769,27 +775,27 @@ function slide(dir){
 function go(dir){
   if(!S.order.length) return;
   S.idx=(S.idx+dir+S.order.length)%S.order.length;
+  // 進むときだけ、覚えた札は飛ばす（戻るときは出す＝取り消せる）
+  if(dir>0 && S.againOnly){
+    let guard=S.order.length;
+    while(guard-- > 0 && S.marks[S.order[S.idx]]==='known'){
+      S.idx=(S.idx+1)%S.order.length;
+    }
+  }
   slide(dir);
 }
-/* 「まだのものだけ」がONのときは、覚えた札をその場で山から抜く */
-function dropFromDeck(id){
-  const i=S.order.indexOf(id);
-  if(i<0){ go(1); return; }
-  S.order.splice(i,1);
-  if(!S.order.length){ resetFlip(); render(); return; }
-  if(S.idx>=S.order.length) S.idx=0;
-  slide(1);
-}
-function mark(v){
+function toggleMark(){
   if(!S.order.length) return;
   const id=S.order[S.idx];
-  if(v==='known') S.marks[id]='known'; else delete S.marks[id];
-  $('#stamp').classList.toggle('on', v==='known');
+  const now = S.marks[id]==='known';
+  if(now){ delete S.marks[id]; }
+  else { S.marks[id]='known'; S.kept.add(id); }   // 進まない。押し直しで取り消せる
+  setStamp(!now);
   save(); updateTally();
-  setTimeout(()=>{
-    if(S.againOnly && v==='known') dropFromDeck(id);
-    else go(1);
-  }, v==='known'?260:120);
+}
+function setStamp(on){
+  $('#stamp').classList.toggle('on', on);
+  $('#stamp-b').classList.toggle('on', on);
 }
 
 /* ---- タップ＆スワイプ ---- */
@@ -830,8 +836,14 @@ stage.addEventListener('pointercancel',endDrag);
 stage.addEventListener('pointerleave',endDrag);
 function hideHint(){ if(!S.hinted){ S.hinted=true; $('#hint').classList.add('gone'); } }
 
-$('#btn-o').onclick=()=>mark('known');
-$('#btn-x').onclick=()=>mark('again');
+$('#btn-prev').onclick=()=>go(-1);
+$('#btn-next').onclick=()=>go(1);
+['#stamp','#stamp-b'].forEach(sel=>{
+  const b=$(sel);
+  b.onclick=e=>{ e.stopPropagation(); toggleMark(); };
+  b.addEventListener('pointerdown',e=>e.stopPropagation());
+  b.addEventListener('pointerup',e=>e.stopPropagation());
+});
 
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
@@ -839,8 +851,7 @@ document.addEventListener('keydown',e=>{
   if(e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); setFlip(!S.flipped); hideHint(); }
   else if(e.key==='ArrowRight') go(1);
   else if(e.key==='ArrowLeft') go(-1);
-  else if(e.key==='1'||e.key==='o') mark('known');
-  else if(e.key==='2'||e.key==='x') mark('again');
+  else if(e.key==='1'||e.key==='o'||e.key==='Enter') toggleMark();
 });
 
 /* ---- シート ---- */
