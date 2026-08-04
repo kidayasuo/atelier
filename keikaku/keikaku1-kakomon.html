@@ -101,7 +101,7 @@ body{
 
 /* 覚えたハンコ */
 .stamp{
-  position:absolute;right:14px;bottom:12px;width:56px;height:56px;border-radius:50%;
+  position:absolute;left:14px;bottom:12px;width:56px;height:56px;border-radius:50%;
   border:2.5px solid var(--shu);color:var(--shu);
   display:flex;align-items:center;justify-content:center;
   font-family:var(--mincho);font-size:23px;font-weight:700;letter-spacing:0;
@@ -583,7 +583,8 @@ const CARDS = [
 {c:'term',q:'SI方式で住戸の広さを変える必要が生じるのは、どのような場合か。',a:'世帯構成の変化に合わせて、住戸を統合または分割するとき',n:'典型は二戸一化で、世帯が小さくなった団地の2戸をつないで1戸のファミリー向けにする。逆に単身や高齢者世帯が増えれば広い住戸を割る。戸境壁を動かせるようにするには、それが耐力壁であってはならず、ラーメン構造で長スパンを取り、パイプスペースを共用部に集約する必要がある。壁式構造では原理的にできない。',y:[['補足','背景']]},
 {c:'term',q:'SI方式で、スラブが与えてくれない自由は何か。',a:'階高とパイプスペースの位置',n:'平面は人間が決められるが、断面は最初に決まる。階高が二重床や天井懐の余地を規定し、PSの縦位置が水回りを置ける場所を規定する。だからSIの設計では階高をやや高めに取り、PSを共用部側に集約して逃げ道を確保する。現実にはもう一つ、分譲マンションの区分所有という壁もあり、住戸をまたぐ改修は権利の変更を伴う。',y:[['補足','背景']]},
 {c:'term',q:'SI方式の源流にあたる考え方と、その提唱者は。',a:'サポートとインフィルの分離（オープンビルディング）／ハブラーケン',n:'オランダのN.J.ハブラーケンが1960年代に提唱。日本では二段階供給方式として展開した。躯体は社会の資産として長く、内装設備は住み手のものとして短く、という耐用年数の差を、そのまま所有と更新の分け方にした発想。',y:[['補足','背景']]},
-{c:'term',q:'メタボリズムが、SI方式の考え方をさらに進めた方向は。',a:'空中に「土地」をつくること',n:'中銀（なかぎん）カプセルタワーは住戸そのものを交換可能な単位とし、松代（まつしろ）団地の「上の道」は地上とは別の高さに公共の地面を敷いた。スラブが土地をつくるという発想を、住戸の内側から、住棟の共用部や都市のレベルへ広げたもの。',y:[['補足','背景']]}
+{c:'term',q:'中銀カプセルタワーが、SI方式の系譜で先駆的とされるのはなぜか。',a:'住戸そのものを交換可能な単位としたから',n:'コアと軸だけを残し、住戸を取り替える前提で設計した。更新の周期が違うものを分けるという点で、ドミノからSIへ続く発想の延長にある。メタボリズムのうち、この方向を代表するのが中銀（なかぎん）カプセルタワー。',y:[['補足','背景']]},
+{c:'term',q:'松代団地の「上の道」は、どの系譜に属するか。',a:'空中街路・人工地盤の系譜',n:'スラブで新しい地面をつくり、その上に公共の場所を置く考え方。スミッソン夫妻のゴールデンレーン計画（1952）に始まり、日本では大高正人（おおたか まさと）の坂出人工土地や基町（もとまち）団地がこれにあたる。※ドミノやSIと混同しないこと。あちらは区分を決めずに残すことで自由を得るのに対し、こちらは公共の場所をはっきり決めて積層する。同じスラブを使っていても方向が逆で、メタボリズムの中にもこの2方向が並存している。',y:[['補足','背景']]}
 ];
 
 /* ============================================================ */
@@ -754,9 +755,7 @@ function resetFlip(){
 }
 
 /* ---- 移動 ---- */
-function go(dir){
-  if(!S.order.length) return;
-  S.idx=(S.idx+dir+S.order.length)%S.order.length;
+function slide(dir){
   resetFlip();
   const st=$('#stack');
   st.style.transition='none';
@@ -768,13 +767,30 @@ function go(dir){
     st.style.transform=''; st.style.opacity='1';
   });
 }
+function go(dir){
+  if(!S.order.length) return;
+  S.idx=(S.idx+dir+S.order.length)%S.order.length;
+  slide(dir);
+}
+/* 「まだのものだけ」がONのときは、覚えた札をその場で山から抜く */
+function dropFromDeck(id){
+  const i=S.order.indexOf(id);
+  if(i<0){ go(1); return; }
+  S.order.splice(i,1);
+  if(!S.order.length){ resetFlip(); render(); return; }
+  if(S.idx>=S.order.length) S.idx=0;
+  slide(1);
+}
 function mark(v){
   if(!S.order.length) return;
   const id=S.order[S.idx];
   if(v==='known') S.marks[id]='known'; else delete S.marks[id];
   $('#stamp').classList.toggle('on', v==='known');
-  save();
-  setTimeout(()=>go(1), v==='known'?260:120);
+  save(); updateTally();
+  setTimeout(()=>{
+    if(S.againOnly && v==='known') dropFromDeck(id);
+    else go(1);
+  }, v==='known'?260:120);
 }
 
 /* ---- タップ＆スワイプ ---- */
