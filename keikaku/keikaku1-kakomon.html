@@ -941,7 +941,8 @@ tabs.forEach(([t,v])=>$(t).onclick=()=>show(v));
     const live=new Set(CARDS.map(c=>c.id));
     const kept={};
     Object.keys(m).forEach(k=>{ if(live.has(k)) kept[k]=m[k]; });  // 消えた／直した問題の記録は捨てる
-    S.marks=kept; render();
+    S.marks=kept;
+    if(S.againOnly) rebuild(); else render();   // 覚えた記録は非同期で届くので、山を組み直す
   }).catch(()=>{});
 })();
 </script>
