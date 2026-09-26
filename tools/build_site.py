@@ -90,6 +90,8 @@ def render(md):
         md = md[m.end():]
 
     md = re.sub(r"(?m)^---\s*$", "", md)  # horizontal rules
+    # GitHub accepts 2-space nested lists; python-markdown needs 4
+    md = re.sub(r"(?m)^((?:  )+)(?=[-*+] |\d+\. )", lambda m: "    " * (len(m.group(1)) // 2) if len(m.group(1)) % 4 else m.group(1), md)
     # python-markdown needs a blank line before a table or list that follows a paragraph line
     md = re.sub(r"(?m)^([^\n|>#\-\s][^\n]*)\n(\|)", r"\1\n\n\2", md)
     md = re.sub(r"(?m)^([^\n|>\-\s\d][^\n]*)\n(- |\d+\. )", r"\1\n\n\2", md)
