@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#E4E9E7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>建築構造設計学1 カード</title>
+<style>
+*{touch-action:manipulation}
+:root{
+  --paper:#E4E9E7;
+  --sheet:#F8FAF9;
+  --ink:#17233A;
+  --ink-2:#4B5B6C;
+  --ink-3:#93A0A8;
+  --rule:#C6CFCC;
+  --rule-2:#DDE3E1;
+  --shu:#B93B24;
+  --ai:#2C5A78;
+  --grid:rgba(44,90,120,.07);
+  --sans:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic Medium","Yu Gothic",Meiryo,system-ui,sans-serif;
+  --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;
+  height:100dvh;display:flex;flex-direction:column;overflow:hidden;
+}
+.shell{
+  width:100%;max-width:480px;margin:0 auto;flex:1;min-height:0;
+  display:flex;flex-direction:column;padding:0 14px calc(10px + var(--safe-b));
+}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0 8px;flex:none}
+.brand{font-family:var(--mincho);font-size:15px;letter-spacing:.1em;font-weight:600;white-space:nowrap}
+.brand em{font-style:normal;color:var(--shu)}
+.seg{display:flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.seg button{
+  appearance:none;background:none;border:0;padding:5px 11px;cursor:pointer;
+  font-family:var(--sans);font-size:11.5px;letter-spacing:.06em;color:var(--ink-2);
+}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--sheet)}
+.seg button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
+
+.meta{display:flex;align-items:center;gap:10px;flex:none;padding-bottom:9px}
+.bar{flex:1;height:3px;background:var(--rule-2);position:relative;border-radius:2px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ai);border-radius:2px;transition:width .25s ease}
+.count{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.06em;white-space:nowrap}
+.gear{
+  appearance:none;background:none;border:1px solid var(--rule);border-radius:2px;cursor:pointer;
+  font-family:var(--sans);font-size:11.5px;color:var(--ink-2);padding:4px 10px;white-space:nowrap;
+}
+.gear:active{background:rgba(23,35,58,.06)}
+
+/* ---------- card ---------- */
+.stage{flex:1;min-height:0;position:relative;perspective:1400px}
+.stack{position:absolute;inset:0;will-change:transform}
+.flipper{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.8,.25,1)}
+.stage.flipped .flipper{transform:rotateY(180deg)}
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--sheet);border:1px solid var(--ink);border-radius:3px;
+  box-shadow:0 2px 0 rgba(23,35,58,.10);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.front{
+  background-image:
+    repeating-linear-gradient(to right, var(--grid) 0 1px, transparent 1px 19px),
+    repeating-linear-gradient(to bottom, var(--grid) 0 1px, transparent 1px 19px);
+}
+.back{transform:rotateY(180deg)}
+.face-head{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex:none;
+  padding:9px 14px;border-bottom:1px solid var(--rule-2);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--ink-3);
+}
+.cat{color:var(--ink-2);white-space:nowrap}
+.srcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.srcs b{font-weight:400;color:var(--ai);border:1px solid rgba(44,90,120,.3);padding:0 4px;font-size:9px;white-space:nowrap;border-radius:1px}
+.srcs b.hot{color:var(--shu);border-color:rgba(185,59,36,.35)}
+.face-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 20px 82px;position:relative}
+.q{font-family:var(--mincho);font-size:20px;line-height:1.8;letter-spacing:.02em;margin:0;font-weight:500}
+.a{
+  font-family:var(--mincho);font-size:24px;line-height:1.6;color:var(--shu);font-weight:600;letter-spacing:.03em;margin:0 0 14px;
+}
+.n{font-size:13px;line-height:1.85;color:var(--ink-2);margin:0;padding-top:13px;border-top:1px dashed var(--rule)}
+.n.warn{color:var(--shu);border-top-color:rgba(185,59,36,.35)}
+.qs{font-size:12.5px;color:var(--ink-3);margin:0 0 12px;line-height:1.7}
+.hint{
+  position:absolute;left:0;right:0;bottom:10px;text-align:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--ink-3);
+  transition:opacity .4s ease;
+}
+.hint.gone{opacity:0}
+
+/* 覚えたハンコ（押せる） */
+.stamp{
+  appearance:none;cursor:pointer;background:transparent;
+  position:absolute;left:14px;bottom:12px;width:56px;height:56px;border-radius:50%;
+  border:2px dotted rgba(185,59,36,.30);color:rgba(185,59,36,.32);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mincho);font-size:23px;font-weight:700;letter-spacing:0;
+  transform:rotate(-11deg) scale(.88);opacity:1;z-index:3;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  transition:transform .28s cubic-bezier(.2,1.5,.4,1), opacity .2s ease, border-color .2s ease, color .2s ease;
+}
+.stamp b{font-weight:700}
+.stamp:active{transform:rotate(-11deg) scale(.78)}
+.stamp.on{
+  border:2.5px solid var(--shu);color:var(--shu);
+  transform:rotate(-11deg) scale(1);opacity:.82;
+}
+.stamp:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
+/* 見えていない側のハンコは消す（透けて鏡文字で出るのを防ぐ） */
+.stage.flipped .front .stamp{visibility:hidden;pointer-events:none}
+.stage:not(.flipped) .back .stamp{visibility:hidden;pointer-events:none}
+
+/* めくり中の左右ヒント */
+.swipe-tag{
+  position:absolute;top:50%;transform:translateY(-50%);
+  font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--ink-3);
+  opacity:0;transition:opacity .15s ease;pointer-events:none;
+}
+.swipe-tag.l{left:-2px}
+.swipe-tag.r{right:-2px}
+
+/* ---------- 下部ボタン ---------- */
+.pad{display:flex;align-items:center;justify-content:center;gap:36px;flex:none;padding:16px 0 6px}
+.big{
+  appearance:none;cursor:pointer;width:66px;height:66px;border-radius:50%;
+  background:var(--sheet);display:flex;align-items:center;justify-content:center;
+  font-size:27px;line-height:1;transition:transform .12s ease;
+}
+.big:active{transform:scale(.9)}
+.big.nav{border:1.5px solid var(--ink-3);color:var(--ink-2);font-size:22px}
+.big:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
+.pad-label{
+  display:flex;justify-content:center;gap:36px;flex:none;
+  font-family:var(--sans);font-size:10.5px;color:var(--ink-3);letter-spacing:.1em;
+}
+.pad-label span{width:66px;text-align:center}
+
+/* ---------- 設定シート ---------- */
+.sheet-bg{
+  position:fixed;inset:0;background:rgba(23,35,58,.35);opacity:0;pointer-events:none;
+  transition:opacity .25s ease;z-index:20;
+}
+.sheet-bg.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:21;
+  background:var(--paper);border-top:1px solid var(--ink);
+  border-radius:10px 10px 0 0;padding:16px 18px calc(20px + var(--safe-b));
+  max-width:480px;margin:0 auto;max-height:82dvh;overflow-y:auto;
+  transform:translateY(102%);transition:transform .28s cubic-bezier(.2,.8,.25,1);
+}
+.sheet.on{transform:none}
+.sheet h3{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);margin:0 0 9px;font-weight:400}
+.sheet .grp{margin-bottom:18px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  appearance:none;cursor:pointer;border:1px solid var(--rule);background:transparent;color:var(--ink-2);
+  font-family:var(--sans);font-size:12px;padding:5px 11px;border-radius:2px;
+}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+.chip.year[aria-pressed="true"]{background:var(--ai);border-color:var(--ai)}
+.chip.freq[aria-pressed="true"]{background:var(--shu);border-color:var(--shu)}
+.sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
+.tbtn{
+  appearance:none;cursor:pointer;border:1px solid var(--ink);background:transparent;color:var(--ink);
+  font-family:var(--sans);font-size:13px;padding:9px 16px;border-radius:2px;flex:1;min-width:120px;
+}
+.tbtn.solid{background:var(--ink);color:var(--sheet)}
+.tally{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);letter-spacing:.06em;margin:0 0 14px}
+.tally b{color:var(--shu)}
+
+/* ---------- 一覧・傾向 ---------- */
+.scroller{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+.search{
+  width:100%;padding:9px 12px;border:1px solid var(--rule);background:var(--sheet);
+  font-family:var(--sans);font-size:16px;color:var(--ink);border-radius:2px;margin-bottom:12px;
+}
+.search:focus{outline:none;border-color:var(--ai)}
+.row{border-bottom:1px solid var(--rule-2);padding:11px 2px}
+.row .rq{font-size:14px;line-height:1.65;margin:0 0 4px}
+.row .ra{font-size:14px;color:var(--shu);font-weight:600;margin:0 0 4px;font-family:var(--mincho)}
+.row .rs{font-family:var(--mono);font-size:10px;color:var(--ai);letter-spacing:.04em}
+.empty{padding:40px 0;text-align:center;color:var(--ink-3);font-size:14px}
+.sec{margin:0 0 32px}
+.sec h2{font-family:var(--mincho);font-size:17px;letter-spacing:.08em;font-weight:600;margin:0 0 4px;padding-bottom:6px;border-bottom:1px solid var(--ink)}
+.sec .eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ai);margin:0 0 12px}
+.sec p{margin:0 0 12px;font-size:13.5px;line-height:1.8}
+.mwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
+.matrix{border-collapse:collapse;font-size:12px;min-width:100%}
+.matrix th{font-family:var(--mono);font-size:9.5px;padding:5px 3px;text-align:center;color:var(--ink-2);font-weight:400}
+.matrix th:first-child{text-align:left;padding-right:8px}
+.matrix td{padding:5px 3px;text-align:center;border-bottom:1px solid var(--rule-2)}
+.matrix td:first-child{text-align:left;font-size:12.5px;white-space:nowrap;padding-right:8px}
+.dot{display:inline-block;width:9px;height:9px;background:var(--ai);border-radius:50%}
+.dot.off{background:transparent;border:1px solid var(--rule)}
+.cnt{font-family:var(--mono);font-size:10.5px;color:var(--shu);font-weight:600}
+.note-list{margin:0;padding-left:1.15em;font-size:13.5px;line-height:1.8}
+.note-list li{margin-bottom:8px}
+.kv{width:100%;border-collapse:collapse;font-size:13px}
+.kv td{padding:6px 2px;border-bottom:1px solid var(--rule-2)}
+.kv td:last-child{font-family:var(--mono);color:var(--shu);text-align:right;white-space:nowrap}
+
+@media (min-width:520px){
+  .shell{padding-bottom:18px}
+  .q{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="top">
+    <div class="brand">構造設計学<em>1</em></div>
+    <div class="seg" role="tablist">
+      <button role="tab" id="tab-study" aria-selected="true">カード</button>
+      <button role="tab" id="tab-list" aria-selected="false">一覧</button>
+      <button role="tab" id="tab-trend" aria-selected="false">まとめ</button>
+    </div>
+  </div>
+
+  <!-- ========== カード ========== -->
+  <div class="meta" id="meta">
+    <span class="count" id="count">0 / 0</span>
+    <span class="bar"><i id="bar" style="width:0%"></i></span>
+    <button class="gear" id="btn-gear">絞り込み</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <span class="swipe-tag l" id="tag-l">← まえ</span>
+    <span class="swipe-tag r" id="tag-r">つぎ →</span>
+    <div class="stack" id="stack">
+      <div class="flipper">
+        <div class="face front">
+          <div class="face-head"><span class="cat" id="f-cat">—</span><span class="srcs" id="f-src"></span></div>
+          <div class="face-body">
+            <p class="q" id="f-q">読み込み中</p>
+            <p class="hint" id="hint">タップで答え　左右にスワイプでめくる</p>
+          </div>
+          <button class="stamp" id="stamp" aria-label="覚えた"><b>覚</b></button>
+        </div>
+        <div class="face back">
+          <div class="face-head"><span class="cat">こたえ</span><span class="srcs" id="b-src"></span></div>
+          <div class="face-body">
+            <p class="qs" id="b-q"></p>
+            <p class="a" id="b-a"></p>
+            <p class="n" id="b-n"></p>
+          </div>
+          <button class="stamp" id="stamp-b" aria-label="覚えた"><b>覚</b></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <button class="big nav" id="btn-prev" aria-label="まえ">←</button>
+    <button class="big nav" id="btn-next" aria-label="つぎ">→</button>
+  </div>
+  <div class="pad-label"><span>まえ</span><span>つぎ</span></div>
+
+  <!-- ========== 一覧 ========== -->
+  <div class="scroller" id="view-list" hidden>
+    <input class="search" id="q-search" type="search" placeholder="用語・講義回で検索">
+    <div id="list-body"></div>
+  </div>
+
+  <!-- ========== 傾向 ========== -->
+  <div class="scroller" id="view-trend" hidden>
+    <div class="sec">
+      <p class="eyebrow">第1講 — 建築物の構造設計</p>
+      <h2>この回の骨組み</h2>
+      <p>自然災害の実例から「建築物は倒壊してはならず、必要に応じて機能を維持しなければならない」ことを確認し、それを担うのが<b>構造＝建築を支える骨格</b>であり、その安全を確かめる仕事が<b>構造設計</b>だ、という流れです。後半は、誰がそれを設計してよいか（建築士制度）と、何を基準に安全とするか（建築基準法）。</p>
+      <p>カード右上の朱色のタグは、この回の要点として特に押さえたいもの。絞り込みの<b>「重要」</b>で、それだけを回せます。</p>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">01 — 建築士の業務範囲</p>
+      <h2>令和7年4月の改正</h2>
+      <table class="kv">
+        <tr><td>建築士でなくても設計できる（木造以外）</td><td>30㎡以下・2階以下</td></tr>
+        <tr><td>建築士でなくても設計できる（木造）</td><td>100㎡以下・2階以下</td></tr>
+        <tr><td>木造建築士以上（木造1〜2階）</td><td>100㎡超〜300㎡</td></tr>
+        <tr><td>一級のみ（特定用途）</td><td>500㎡超</td></tr>
+        <tr><td>一級のみ（一般用途）</td><td>1000㎡超（木造平屋を除く）</td></tr>
+        <tr><td>一級のみ（高さ）改正前</td><td>高さ13m超 or 軒高9m超</td></tr>
+        <tr><td>一級のみ（高さ）改正後</td><td>4階以上 or 高さ16m超</td></tr>
+        <tr><td>二級の範囲 改正後</td><td>3階以下かつ16m以下</td></tr>
+      </table>
+      <p style="margin-top:12px">改正で<b>軒高9mの条件が消え</b>、「階数」と「高さ16m」の2つで判定する形になりました。特定用途は、学校・病院・劇場・映画館・観覧場・公会堂・オーディトリアムを有する集会場・百貨店。</p>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">02 — 構造設計一級建築士への道</p>
+      <h2>最短で30歳</h2>
+      <ul class="note-list">
+        <li><b>大学卒業</b>— 指定科目の単位があれば一級建築士の受験資格（2020年から）</li>
+        <li><b>一級建築士免許</b>— 試験合格＋実務2年（60単位）／3年（50単位）。最短24歳（以前は25歳）</li>
+        <li><b>構造設計の実務5年</b>— 構造設計一級建築士講習の受講資格。最短29歳</li>
+        <li><b>講習と修了考査</b>— 一発で修了すれば構造設計一級建築士。最短30歳</li>
+      </ul>
+      <table class="kv">
+        <tr><td>一級建築士試験の合格率</td><td>約10％</td></tr>
+        <tr><td>構造設計一級講習の修了率</td><td>約3割（27〜36％）</td></tr>
+        <tr><td>制度の開始</td><td>平成20年（2008年）</td></tr>
+        <tr><td>根拠条文</td><td>建築士法 第20条の2</td></tr>
+      </table>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">03 — 構造種別</p>
+      <h2>4つの構造と、どの授業で扱うか</h2>
+      <table class="kv">
+        <tr><td>木造 — 低層、環境負荷で最も効率が良い</td><td>構造設計学Ⅱ</td></tr>
+        <tr><td>RC造 — 圧縮のコンクリート＋鉄筋、スパン10m程度の中低層</td><td>構造設計学1</td></tr>
+        <tr><td>S造 — 引張に強い鋼材、高層・ロングスパン、要耐火被覆</td><td>構造設計学Ⅱ</td></tr>
+        <tr><td>SRC造 — RCの中に鉄骨、高層・ロングスパン</td><td>（構造設計学1）</td></tr>
+      </table>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">04 — 注意</p>
+      <h2>確認したい箇所</h2>
+      <ul class="note-list">
+        <li><b>平野神社の台風の号数</b>— スライドは「台風20号」ですが、拝殿の倒壊は一般に2018年9月4日の台風21号によるものとして報じられています。</li>
+        <li><b>業務範囲の表</b>— スライドには改正前の表と改正の概要が並んでいます。カードは改正前の表の数字を基本にし、高さの条件だけ改正前後を分けました。試験でどちらを問うかは講義ノートで確認を。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 設定シート ========== -->
+<div class="sheet-bg" id="sheet-bg"></div>
+<div class="sheet" id="sheet">
+  <p class="tally" id="tally">—</p>
+  <div class="grp"><h3>クイック</h3><div class="chips" id="f-preset"></div></div>
+  <div class="grp"><h3>ぶんや</h3><div class="chips" id="f-catchips"></div></div>
+  <div class="grp"><h3>講義</h3><div class="chips" id="f-yearchips"></div></div>
+  <div class="grp"><h3>しぼりこみ</h3><div class="chips" id="f-optchips"></div></div>
+  <div class="sheet-actions">
+    <button class="tbtn" id="btn-shuffle">シャッフル</button>
+    <button class="tbtn" id="btn-reset">覚えた記録を消す</button>
+    <button class="tbtn solid" id="btn-close">とじる</button>
+  </div>
+</div>
+
+<script>
+const YEARS = ['第1講'];
+const EXAM_YEARS = YEARS;
+const CATS = {term:'用語・概念', law:'法規・制度', num:'数値', case:'災害事例'};
+
+const CARDS = [
+{"c": "case", "q": "建築物を襲う自然の猛威として、第1講で例示された3つは。", "a": "地震・台風・大雪", "n": "地震は阪神・淡路大震災、台風は平野神社（京都市北区）、大雪は2014年の関東地方大雪が例。設計上はそれぞれ地震力・風荷重・積雪荷重として扱い、第2〜3講の「建築物に作用する力」につながる。", "y": [["第1講", "p.5–7"]], "k": true},
+{"c": "case", "q": "1995年1月17日に発生し、多数の建築物が倒壊・層崩壊した震災は。", "a": "阪神・淡路大震災", "n": "兵庫県南部地震（M7.3）。死者の多くが建物の倒壊による圧死だった。1981年の新耐震基準より前に建てられた建物に被害が集中し、同年の耐震改修促進法の制定につながった。スライドの写真には、中間階だけが潰れる層崩壊やピロティ階の崩壊が写っている。", "y": [["第1講", "p.5"]]},
+{"c": "case", "q": "2018年の台風で拝殿が倒壊した、京都市北区の神社は。", "a": "平野神社", "n": "地震だけでなく台風（風荷重・倒木）も建物を襲う例。スライドの表記は「台風20号」だが、一般には2018年9月4日の台風21号（関西国際空港の連絡橋事故を起こした台風）による倒壊として報じられている。試験で号数を問われたら講義ノートで確認を。", "y": [["第1講", "p.6"]], "warn": true},
+{"c": "case", "q": "2014年2月の関東地方の大雪による建物被害として挙げられた2例は。", "a": "熊谷ドームの膜屋根崩落／旧富岡製糸場 乾燥場の倒壊", "n": "雪の重さ（積雪荷重）で建物が押しつぶされる例。膜屋根や大スパンの軽い屋根は、自重が小さいぶん積雪荷重の比率が大きく、想定を超える雪に弱い。関東は多雪区域ではないため積雪荷重の想定が小さかった。", "y": [["第1講", "p.7"]]},
+{"c": "term", "q": "自然災害に対し、建築物が果たすべき「絶対条件」とされる役割は。", "a": "倒壊防止", "n": "人々の生命や財産を守るため。これに加え、官公庁・工場・流通・インフラ等では「機能維持」も求められる。", "y": [["第1講", "p.8"]], "k": true},
+{"c": "term", "q": "官公庁・工場・流通・インフラ等の施設で、倒壊防止に加えて求められることは。", "a": "機能維持", "n": "生活やその基盤としての社会経済が停滞しないよう、災害後も使い続けられること。建築物は供用期間中に起こりうる自然の猛威に対して安全であることに加え、必要に応じて機能維持がなされるよう設計されなければならない。", "y": [["第1講", "p.8"]], "k": true},
+{"c": "term", "q": "「建築の構造」とは何か、ひと言で。", "a": "建築を支える骨格", "n": "常時作用する重力や自然の猛威に対し、建築が安定して存在し、その機能を果たし続けるために不可欠なもの。スライドの例では、外観からは見えないトラス架構が建設中の写真で現れている。", "y": [["第1講", "p.9"]], "k": true},
+{"c": "term", "q": "設計チームを構成する3つの設計分野は。", "a": "意匠・構造・設備", "n": "意匠設計が全体をまとめ、構造設計・設備設計がそれぞれの専門を担う。", "y": [["第1講", "p.10"]]},
+{"c": "term", "q": "設計チームの構成の2つの型は。", "a": "専業型と組織型", "n": "専業型：意匠・構造・設備の設計事務所がそれぞれ独立した会社（アトリエ建築家＋専業設計事務所）。組織型：同じ会社内に各部門がある（組織設計事務所、ゼネコン設計部）。", "y": [["第1講", "p.10"]], "k": true},
+{"c": "term", "q": "専業型の設計チームで、通常発注者と契約を結ぶのはどこか。", "a": "意匠設計事務所", "n": "構造設計事務所・設備設計事務所は意匠設計事務所と契約する。ただし構造設計事務所が発注者と直接契約を結ぶ場合もある。", "y": [["第1講", "p.10"]]},
+{"c": "term", "q": "組織型の設計チームの例を2つ。", "a": "組織設計事務所／ゼネコン設計部", "n": "同じ会社内に意匠・構造・設備の各部門がある。専業型の例はアトリエ建築家と専業設計事務所の組合せ。", "y": [["第1講", "p.10"]]},
+{"c": "law", "q": "「原則的に建築物の工事は、建築士の設計によらなければならない」ことを定める2つの条文は。", "a": "建築基準法 第5条の6／建築士法 第3条", "n": "一定の建築物の設計は、建築士以外の人はしてはいけないということ。建築士法3条が一級建築士、3条の2が一級・二級、3条の3が一級・二級・木造建築士でなければ設計できない建築物を定める。", "y": [["第1講", "p.11"]], "k": true},
+{"c": "law", "q": "建築士の3つの種類は。", "a": "一級建築士・二級建築士・木造建築士", "n": "扱える規模（難易度）は 非建築士＜木造建築士＜二級建築士＜一級建築士。", "y": [["第1講", "p.13"]], "k": true},
+{"c": "law", "q": "木造以外（RC造・S造等）で、建築士でなくても設計できる規模は。", "a": "延べ面積30㎡以下、かつ2階以下", "n": "木造なら延べ面積100㎡以下、かつ2階以下まで建築士でなくても設計できる（高さ・軒高の条件内）。", "y": [["第1講", "p.11–12"]], "k": true},
+{"c": "law", "q": "木造で、建築士でなくても設計できる規模は。", "a": "延べ面積100㎡以下、かつ2階以下", "n": "木造以外では30㎡以下・2階以下。100㎡超300㎡以下の木造1〜2階建ては、木造建築士以上が必要。", "y": [["第1講", "p.11–12"]]},
+{"c": "law", "q": "木造建築士が設計できる（それ以上の規模は二級以上が必要な）木造建築物の範囲は。", "a": "1〜2階建てで延べ面積300㎡以下", "n": "延べ面積100㎡以下なら建築士でなくてもよいので、木造建築士が意味を持つのは100㎡超300㎡以下の1〜2階建て。3階建て以上の木造は二級以上が必要。令和7年4月改正で木造建築士の業務範囲は「階数2以下かつ高さ16m以下」の木造に見直された。", "y": [["第1講", "p.11–12"]]},
+{"c": "law", "q": "改正前、構造種別を問わず一級建築士でなければ設計できなかった高さ・軒高の条件は。", "a": "高さ13m超、または軒高9m超", "n": "令和7年4月の改正で「地階を除く階数4以上、または高さ16m超」に見直された。", "y": [["第1講", "p.11"]]},
+{"c": "law", "q": "令和7年4月の改正で、二級建築士の業務範囲はどう変わったか。", "a": "「高さ13m以下かつ軒高9m以下」→「階数3以下かつ高さ16m以下」", "n": "あわせて、一級建築士でなければ設計できない木造建築物等の「高さ」も「地階を除く階数4以上又は高さ16m超」に、木造建築士の業務範囲も「階数2以下かつ高さ16m以下」の木造に見直された。軒高の条件がなくなり、階数と高さ16mで判定する形になった。", "y": [["第1講", "p.12"]], "k": true},
+{"c": "law", "q": "延べ面積500㎡を超えると一級建築士でなければ設計できなくなる「特定」の用途の例を3つ。", "a": "学校・病院・百貨店 など", "n": "スライドの定義では、学校、病院、劇場、映画館、観覧場、公会堂、オーディトリアムを有する集会場、百貨店。一般用途なら500㎡超でも二級で設計できる範囲がある。", "y": [["第1講", "p.11"]]},
+{"c": "law", "q": "延べ面積1000㎡超で一般用途の建物のうち、二級建築士でも設計できるのは。", "a": "木造の1階建て", "n": "表の例外的なマス。1000㎡を超える建物は原則一級建築士だが、木造平屋の一般用途だけは一級または二級で設計できる。", "y": [["第1講", "p.11–12"]]},
+{"c": "law", "q": "一定規模以上の建物の構造設計に、構造設計一級建築士の関与を求める条文は。", "a": "建築士法 第20条の2 第1項", "n": "スライドでは第2条6項も併記。対象は、一級建築士でなければ設計できない建築物のうち、ルート2以上の構造計算（許容応力度等計算・保有水平耐力計算など）が必要な規模のもの。", "y": [["第1講", "p.14"]]},
+{"c": "law", "q": "構造設計一級建築士が「関与する」とは、具体的にどういうことか。", "a": "本人が構造設計を行う／一級建築士の構造設計を確認し、サインする", "n": "後者は「法適合確認」と呼ばれる。つまり構造設計一級建築士でなくても構造設計はできるが、一定規模以上では構造設計一級建築士のチェックが必須になる。", "y": [["第1講", "p.14"]], "k": true},
+{"c": "law", "q": "構造設計一級建築士制度がスタートした年は。", "a": "平成20年（2008年）", "n": "2005年の構造計算書偽装事件（いわゆる姉歯事件）を受けた2006年の建築士法改正で創設された。同時に設備設計一級建築士も設けられた。", "y": [["第1講", "p.14"]], "k": true},
+{"c": "law", "q": "構造設計一級建築士講習を受講するための条件は。", "a": "一級建築士取得後、5年以上の構造設計実務経験", "n": "講習を受講し、その考査（修了考査）に合格すれば得られる。", "y": [["第1講", "p.15"]], "k": true},
+{"c": "law", "q": "大学卒業一年目で一級建築士試験を受験できるようになったのは何年から。", "a": "2020年", "n": "それまでは実務経験2年を積んでから受験。現在は、大学卒業時に指定科目の単位を取得していれば受験資格を得て、合格後に実務経験を満たして免許登録する。", "y": [["第1講", "p.15"]]},
+{"c": "num", "q": "一級建築士の免許登録に必要な実務経験年数は（指定科目60単位の場合）。", "a": "2年", "n": "指定科目の単位数によって変わり、60単位なら2年、50単位なら3年。", "y": [["第1講", "p.15"]]},
+{"c": "num", "q": "一級建築士免許の最短取得年齢は、2020年以降と以前でそれぞれ何歳か。", "a": "24歳（以前は25歳）", "n": "受験を先にして実務経験を後から積めるようになったため、1年早まった。", "y": [["第1講", "p.15"]]},
+{"c": "num", "q": "構造設計一級建築士になれる最短年齢は。", "a": "30歳", "n": "一級取得（最短24歳）→構造設計実務5年で講習受講資格（最短29歳）→翌年の講習・修了考査に一発で修了（最短30歳）。", "y": [["第1講", "p.15"]]},
+{"c": "num", "q": "一級建築士試験の合格率はおよそ何％か。", "a": "約10％", "n": "令和2年10.6％、令和3〜5年はいずれも9.9％。", "y": [["第1講", "p.15"]]},
+{"c": "num", "q": "構造設計一級建築士講習の修了率（合格率）はおよそどのくらいか。", "a": "約3割（3〜4人に1人）", "n": "令和2年36.1％、令和3年29.9％、令和4年36.3％、令和5年27.2％。一級取得後5年以上の実務者でもこの割合で、希少価値の高い資格とされる。", "y": [["第1講", "p.15"]]},
+{"c": "term", "q": "構造設計とは何か、ひと言で。", "a": "様々な外乱に対して建物が安全であるように設計すること", "n": "そこから「外乱をどう設定するか」「安全の確認方法は」「そもそも安全とは何か」という問いが生まれ、その最低限の答えとして国が定めたのが建築基準法。", "y": [["第1講", "p.16"]], "k": true},
+{"c": "law", "q": "構造設計において、建築基準法はどういう位置づけのルールか。", "a": "国が定めた、最低限守るべきルール", "n": "皆が好き勝手に外乱を設定すると国家としての水準が揃わないため。あくまで最低限であり、それ以上の性能を求めることは設計者と発注者の判断。", "y": [["第1講", "p.16"]], "k": true},
+{"c": "law", "q": "建築基準法が定めている、構造設計上の主な事柄3つは。", "a": "①主要構造部の材料と強度 ②外乱の決め方 ③計算の方法と安全とみなす基準", "n": "②は第2・3講（建築物に作用する力）で扱う。③の計算方法は建物の構造種別や規模ごとに定められている。", "y": [["第1講", "p.17"]], "k": true},
+{"c": "term", "q": "主要構造部に普通に使える材料3つは。", "a": "木・鋼（鉄）・コンクリート", "n": "特殊な構造方法に用いる材料として、アルミニウム、膜材、免震用ゴムなどもある。", "y": [["第1講", "p.17"]]},
+{"c": "term", "q": "構造計算で安全と判定する式 σ ＜ f の、σ と f はそれぞれ何か。", "a": "σ：構造計算結果の応力度　f：法で定められた許容応力度", "n": "安全か否かは「応答値」と「基準値」の比較で判定する、という考え方の最も基本的な形。許容応力度は材料の強度に安全率を見込んだ値で、長期・短期で異なる（第2講）。", "y": [["第1講", "p.17"]], "k": true},
+{"c": "law", "q": "構造計算の方法は、何ごとに定められているか。", "a": "建物の構造種別と規模", "n": "小規模な建物ほど簡易な方法で足り、大規模・高層になるほど高度な計算が求められる。", "y": [["第1講", "p.17"]]},
+{"c": "term", "q": "主要な4つの構造種別は。", "a": "木造・RC造・S造・SRC造", "n": "RC＝Reinforced Concrete（鉄筋コンクリート）、S＝Steel（鉄骨）、SRC＝Steel Reinforced Concrete（鉄骨鉄筋コンクリート）。この授業（構造設計学1）はRC造（とSRC造）を扱い、木造とS造は構造設計学Ⅱで扱う。", "y": [["第1講", "p.18"]], "k": true},
+{"c": "term", "q": "RC造（鉄筋コンクリート造）の原理は。", "a": "圧縮に強いコンクリートを、鉄筋で補強した構造", "n": "コンクリートは引張に弱く、鉄筋は引張に強い。互いの弱点を補い合う組合せ。詳しくは第4講で扱う。", "y": [["第1講", "p.18"]], "k": true},
+{"c": "term", "q": "RC造が一般的に用いられる建物の規模は。", "a": "梁スパン10m程度までの中低層建物", "n": "鉄骨造に比べて経済性が高く、耐久性・耐火性にすぐれる。", "y": [["第1講", "p.18"]]},
+{"c": "term", "q": "S造（鉄骨造）の弱点と、その対策は。", "a": "火災に弱い → 耐火被覆", "n": "引張力に強い高強度の鋼材を用いる。強度が高いので高層ビルやロングスパン梁に用いられる。", "y": [["第1講", "p.18"]], "k": true},
+{"c": "term", "q": "SRC造（鉄骨鉄筋コンクリート造）とは。", "a": "鉄筋コンクリートの中に鉄骨を挿入した構造", "n": "高層ビルやロングスパン梁に用いられる。", "y": [["第1講", "p.18"]]},
+{"c": "term", "q": "高層ビルやロングスパン梁に用いられる構造種別2つは。", "a": "S造・SRC造", "n": "強度が高いため。RC造は一般に梁スパン10m程度までの中低層。", "y": [["第1講", "p.18"]]},
+{"c": "term", "q": "木造の工法の例を3つ。", "a": "伝統木造・軸組工法・2×4工法", "n": "2×4（ツーバイフォー）工法は枠組壁工法とも呼ぶ。耐火性能や強度の観点から主に低層建築に用いられる。", "y": [["第1講", "p.18"]]},
+{"c": "term", "q": "4つの構造種別のうち、環境負荷の点で最も効率が良いとされるのは。", "a": "木造", "n": "木材は成長過程でCO₂を固定し、製造時のエネルギーも鋼材やセメントに比べて小さい。", "y": [["第1講", "p.18"]]},
+{"c": "term", "q": "建築構造設計学1で主に扱う構造種別は。", "a": "RC造（鉄筋コンクリート造）", "n": "あわせてSRC造・壁式RC・PC造などのコンクリート系、地盤と基礎、免震・制振も扱う。木造とS造は建築構造設計学Ⅱ。", "y": [["第1講", "p.2, p.18"]]}
+];
+
+/* ============================================================ */
+const YO={}; YEARS.forEach((y,i)=>YO[y]=i);
+const $ = s => document.querySelector(s);
+const el = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+/* カードのIDは「設問＋答え」から作る。内容が同じかぎり更新後もIDが変わらないので
+   覚えたハンコは引き継がれ、設問か答えを直したカードだけがハンコを失う。 */
+function cardHash(s){ let x=2166136261; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return (x>>>0).toString(36); }
+const seenIds={};
+CARDS.forEach((c,i)=>{
+  let id=cardHash(c.q+'\u0000'+c.a);
+  if(seenIds[id]) id=id+'-'+i;   // 万一の衝突よけ
+  seenIds[id]=1; c.id=id;
+  c.y.sort((a,b)=>YO[a[0]]-YO[b[0]]);
+});
+const srcText = p => p[0]+' '+p[1];
+
+let S = {cats:new Set(Object.keys(CATS)), years:new Set(YEARS), freqOnly:false, againOnly:false,
+         order:[], idx:0, flipped:false, marks:{}, hinted:false, tab:'study', kept:new Set()};
+
+/* ---- 進捗の保存（対応環境のみ） ---- */
+const KEY='kzs1-progress';
+let lsOK=false; try{ localStorage.setItem(KEY+':t','1'); localStorage.removeItem(KEY+':t'); lsOK=true; }catch(e){ lsOK=false; }
+function withTimeout(p,ms){ return Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]); }
+function save(){
+  const v=JSON.stringify(S.marks);
+  if(lsOK){ try{ localStorage.setItem(KEY,v); }catch(e){} }
+  try{ if(window.storage&&window.storage.set) Promise.resolve(window.storage.set(KEY,v)).catch(()=>{}); }catch(e){}
+}
+async function load(){
+  if(lsOK){ try{ const v=localStorage.getItem(KEY); if(v) return JSON.parse(v); }catch(e){} }
+  try{ if(window.storage&&window.storage.get){
+    const r=await withTimeout(Promise.resolve(window.storage.get(KEY)).catch(()=>null),1500);
+    if(r&&r.value) return JSON.parse(r.value);
+  } }catch(e){}
+  return null;
+}
+
+/* ---- 絞り込み設定の保存（対応環境のみ） ---- */
+const FKEY='kzs1-filters';
+function saveFilters(){
+  const v=JSON.stringify({cats:[...S.cats], years:[...S.years], freqOnly:S.freqOnly, againOnly:S.againOnly, tab:S.tab, cur:S.order[S.idx]||null});
+  if(lsOK){ try{ localStorage.setItem(FKEY,v); }catch(e){} }
+  try{ if(window.storage&&window.storage.set) Promise.resolve(window.storage.set(FKEY,v)).catch(()=>{}); }catch(e){}
+}
+function applyFilters(o){
+  if(!o || typeof o!=='object') return false;
+  const cats  = Array.isArray(o.cats)  ? o.cats.filter(k=>CATS[k])          : [];
+  const years = Array.isArray(o.years) ? o.years.filter(y=>YEARS.includes(y)) : [];
+  if(cats.length)  S.cats  = new Set(cats);
+  if(years.length) S.years = new Set(years);
+  S.freqOnly = !!o.freqOnly;
+  S.againOnly= !!o.againOnly;
+  if(typeof o.tab==='string') S.tab=o.tab;
+  return true;
+}
+function loadFiltersSync(){
+  if(lsOK){ try{ const v=localStorage.getItem(FKEY); if(v) return JSON.parse(v); }catch(e){} }
+  return null;
+}
+async function loadFiltersAsync(){
+  try{ if(window.storage&&window.storage.get){
+    const r=await withTimeout(Promise.resolve(window.storage.get(FKEY)).catch(()=>null),1500);
+    if(r&&r.value) return JSON.parse(r.value);
+  } }catch(e){}
+  return null;
+}
+
+/* ---- フィルタ ---- */
+function toggle(set,v){ set.has(v)?set.delete(v):set.add(v); }
+const chipRefs={cat:{},year:{},opt:{}};
+const RECENT=()=>EXAM_YEARS.slice(-1);
+function buildChips(){
+  [['すべて','all'],['重要','freq'],['最新の講','recent']].forEach(([label,key])=>{
+    const b=el('button','chip freq',label);
+    b.dataset.preset=key; b.onclick=()=>preset(key);
+    $('#f-preset').appendChild(b);
+  });
+  Object.entries(CATS).forEach(([k,label])=>{
+    const b=el('button','chip',label);
+    b.onclick=()=>{ toggle(S.cats,k); syncChips(); rebuild(); };
+    chipRefs.cat[k]=b; $('#f-catchips').appendChild(b);
+  });
+  YEARS.forEach(y=>{
+    const b=el('button','chip year',y);
+    b.onclick=()=>{ toggle(S.years,y); syncChips(); rebuild(); };
+    chipRefs.year[y]=b; $('#f-yearchips').appendChild(b);
+  });
+  const m=el('button','chip freq','まだのものだけ');
+  m.onclick=()=>{ S.againOnly=!S.againOnly; syncChips(); rebuild(); };
+  chipRefs.opt.again=m; $('#f-optchips').appendChild(m);
+  syncChips();
+}
+function preset(key){
+  S.cats=new Set(Object.keys(CATS));
+  if(key==='all'){ S.years=new Set(YEARS); S.freqOnly=false; S.againOnly=false; }
+  if(key==='freq'){ S.years=new Set(YEARS); S.freqOnly=true; }
+  if(key==='recent'){ S.years=new Set(RECENT()); S.freqOnly=false; }
+  syncChips(); rebuild();
+}
+function syncChips(){
+  Object.entries(chipRefs.cat).forEach(([k,b])=>b.setAttribute('aria-pressed',S.cats.has(k)));
+  Object.entries(chipRefs.year).forEach(([y,b])=>b.setAttribute('aria-pressed',S.years.has(y)));
+  chipRefs.opt.again.setAttribute('aria-pressed',S.againOnly);
+  const allCats=S.cats.size===Object.keys(CATS).length;
+  const allYears=S.years.size===YEARS.length;
+  const r=RECENT(); const isRecent=S.years.size===r.length && r.every(y=>S.years.has(y));
+  document.querySelectorAll('#f-preset .chip').forEach(b=>{
+    const k=b.dataset.preset;
+    const on = k==='all'  ? (allCats&&allYears&&!S.freqOnly&&!S.againOnly)
+             : k==='freq' ? S.freqOnly
+             :                isRecent;
+    b.setAttribute('aria-pressed',on);
+  });
+  saveFilters();
+}
+function pool(){
+  return CARDS.filter(c=>{
+    if(!S.cats.has(c.c)) return false;
+    if(!c.y.some(p=>S.years.has(p[0]))) return false;
+    if(S.freqOnly && !c.k) return false;
+    if(S.againOnly && S.marks[c.id]==='known' && !S.kept.has(c.id)) return false;  // このセッションで押した札は残す
+    return true;
+  });
+}
+function rebuild(){ S.order=pool().map(c=>c.id); S.idx=0; setFlip(false); render(); }
+
+/* ---- 描画 ---- */
+function render(){
+  const ids=S.order;
+  updateTally();
+  if(!ids.length){
+    $('#f-cat').textContent='—'; $('#f-src').innerHTML=''; $('#b-src').innerHTML='';
+    $('#f-q').textContent='この条件に合う問題がありません。絞り込みをゆるめてください。';
+    $('#b-q').textContent=''; $('#b-a').textContent=''; $('#b-n').textContent='';
+    setStamp(false);
+    $('#count').textContent='0 / 0'; $('#bar').style.width='0%';
+    return;
+  }
+  if(S.idx>=ids.length) S.idx=ids.length-1;
+  const c=CARDS.find(x=>x.id===ids[S.idx]);
+  $('#f-cat').textContent=CATS[c.c];
+  const fs=$('#f-src'), bs=$('#b-src'); fs.innerHTML=''; bs.innerHTML='';
+  c.y.forEach(p=>{
+    fs.appendChild(el('b', c.k?'hot':'', srcText(p)));
+    bs.appendChild(el('b', c.k?'hot':'', srcText(p)));
+  });
+  $('#f-q').textContent=c.q;
+  $('#b-q').textContent=c.q;
+  $('#b-a').textContent=c.a;
+  const n=$('#b-n'); n.textContent=c.n||''; n.className='n'+(c.warn?' warn':''); n.hidden=!c.n;
+  setStamp(S.marks[c.id]==='known');
+  $('#count').textContent=(S.idx+1)+' / '+ids.length;
+  $('#bar').style.width=((S.idx+1)/ids.length*100)+'%';
+  document.querySelectorAll('.face-body').forEach(b=>b.scrollTop=0);
+}
+function updateTally(){
+  const k=Object.values(S.marks).filter(v=>v==='known').length;
+  $('#tally').innerHTML='覚えた <b>'+k+'</b> / 全 '+CARDS.length+' 問　（表示中 '+S.order.length+' 問）';
+}
+function setFlip(v){ S.flipped=v; $('#stage').classList.toggle('flipped',v); }
+function resetFlip(){
+  if(!S.flipped){ return; }
+  const f=document.querySelector('.flipper');
+  f.style.transition='none'; setFlip(false);
+  requestAnimationFrame(()=>{ f.style.transition=''; });
+}
+
+/* ---- 移動 ---- */
+function restorePos(id){
+  if(!id) return;
+  const i=S.order.indexOf(id);
+  if(i>=0){ S.idx=i; resetFlip(); render(); }
+}
+function slide(dir){
+  saveFilters();          // 現在位置を覚える
+  resetFlip();
+  const st=$('#stack');
+  st.style.transition='none';
+  st.style.transform='translateX('+(dir>0?36:-36)+'px)';
+  st.style.opacity='0';
+  render();
+  requestAnimationFrame(()=>{
+    st.style.transition='transform .22s ease, opacity .22s ease';
+    st.style.transform=''; st.style.opacity='1';
+  });
+}
+function go(dir){
+  if(!S.order.length) return;
+  S.idx=(S.idx+dir+S.order.length)%S.order.length;
+  // 進むときだけ、覚えた札は飛ばす（戻るときは出す＝取り消せる）
+  if(dir>0 && S.againOnly){
+    let guard=S.order.length;
+    while(guard-- > 0 && S.marks[S.order[S.idx]]==='known'){
+      S.idx=(S.idx+1)%S.order.length;
+    }
+  }
+  slide(dir);
+}
+function toggleMark(){
+  if(!S.order.length) return;
+  const id=S.order[S.idx];
+  const now = S.marks[id]==='known';
+  if(now){ delete S.marks[id]; }
+  else { S.marks[id]='known'; S.kept.add(id); }   // 進まない。押し直しで取り消せる
+  setStamp(!now);
+  save(); updateTally();
+}
+function setStamp(on){
+  $('#stamp').classList.toggle('on', on);
+  $('#stamp-b').classList.toggle('on', on);
+}
+
+/* ---- タップ＆スワイプ ---- */
+const stage=$('#stage'), stack=$('#stack');
+let px=0,py=0,dx=0,dy=0,dragging=false,axis=null,t0=0;
+stage.style.touchAction='pan-y';
+stage.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.face-body') && e.target.closest('.face-body').scrollHeight > e.target.closest('.face-body').clientHeight + 4){ /* 縦スクロールも許可 */ }
+  dragging=true; axis=null; px=e.clientX; py=e.clientY; dx=0; dy=0; t0=Date.now();
+  stack.style.transition='none';
+});
+stage.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  dx=e.clientX-px; dy=e.clientY-py;
+  if(!axis && (Math.abs(dx)>6 || Math.abs(dy)>6)) axis = Math.abs(dx)>Math.abs(dy) ? 'x' : 'y';
+  if(axis!=='x') return;
+  e.preventDefault();
+  stack.style.transform='translateX('+dx+'px) rotate('+(dx*0.02)+'deg)';
+  stack.style.opacity=String(Math.max(.45,1-Math.abs(dx)/420));
+  $('#tag-l').style.opacity = dx>40 ? '1':'0';
+  $('#tag-r').style.opacity = dx<-40 ? '1':'0';
+});
+function endDrag(){
+  if(!dragging) return;
+  dragging=false;
+  $('#tag-l').style.opacity='0'; $('#tag-r').style.opacity='0';
+  const quick = Date.now()-t0 < 260;
+  if(axis==='x' && (Math.abs(dx)>62 || (quick && Math.abs(dx)>34))){
+    go(dx<0 ? 1 : -1);
+    return;
+  }
+  stack.style.transition='transform .2s ease, opacity .2s ease';
+  stack.style.transform=''; stack.style.opacity='1';
+  if(axis===null && Math.abs(dx)<8 && Math.abs(dy)<8){ setFlip(!S.flipped); hideHint(); }
+}
+stage.addEventListener('pointerup',endDrag);
+stage.addEventListener('pointercancel',endDrag);
+stage.addEventListener('pointerleave',endDrag);
+function hideHint(){ if(!S.hinted){ S.hinted=true; $('#hint').classList.add('gone'); } }
+
+$('#btn-prev').onclick=()=>go(-1);
+$('#btn-next').onclick=()=>go(1);
+['#stamp','#stamp-b'].forEach(sel=>{
+  const b=$(sel);
+  b.onclick=e=>{ e.stopPropagation(); toggleMark(); };
+  b.addEventListener('pointerdown',e=>e.stopPropagation());
+  b.addEventListener('pointerup',e=>e.stopPropagation());
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if($('#stage').hidden) return;
+  if(e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); setFlip(!S.flipped); hideHint(); }
+  else if(e.key==='ArrowRight') go(1);
+  else if(e.key==='ArrowLeft') go(-1);
+  else if(e.key==='1'||e.key==='o'||e.key==='Enter') toggleMark();
+});
+
+/* ---- シート ---- */
+function sheet(v){ $('#sheet').classList.toggle('on',v); $('#sheet-bg').classList.toggle('on',v); if(v) updateTally(); }
+$('#btn-gear').onclick=()=>sheet(true);
+$('#btn-close').onclick=()=>sheet(false);
+$('#sheet-bg').onclick=()=>sheet(false);
+$('#btn-shuffle').onclick=()=>{
+  for(let i=S.order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.order[i],S.order[j]]=[S.order[j],S.order[i]];}
+  S.idx=0; setFlip(false); render(); sheet(false);
+};
+$('#btn-reset').onclick=()=>{ S.marks={}; save(); render(); };
+
+/* ---- 一覧 ---- */
+function renderList(f){
+  const box=$('#list-body'); box.innerHTML='';
+  f=(f||'').trim().toLowerCase();
+  const rows=CARDS.filter(c=>!f || (c.q+c.a+(c.n||'')+c.y.map(srcText).join(' ')+CATS[c.c]).toLowerCase().includes(f));
+  if(!rows.length){ box.appendChild(el('div','empty','見つかりませんでした。')); return; }
+  rows.forEach(c=>{
+    const d=el('div','row');
+    d.appendChild(el('p','rq',c.q));
+    d.appendChild(el('p','ra',c.a));
+    d.appendChild(el('div','rs',c.y.map(srcText).join('　')));
+    box.appendChild(d);
+  });
+}
+$('#q-search').addEventListener('input',e=>renderList(e.target.value));
+
+/* ---- タブ ---- */
+const STUDY=['#meta','#stage','.pad','.pad-label'];
+const tabs=[['#tab-study','study'],['#tab-list','#view-list'],['#tab-trend','#view-trend']];
+function show(which){
+  S.tab=which; saveFilters();
+  tabs.forEach(([t,v])=>$(t).setAttribute('aria-selected', v===which));
+  const isStudy = which==='study';
+  STUDY.forEach(s=>{ const n=$(s); if(n) n.hidden=!isStudy; });
+  $('#view-list').hidden = which!=='#view-list';
+  $('#view-trend').hidden = which!=='#view-trend';
+}
+tabs.forEach(([t,v])=>$(t).onclick=()=>show(v));
+
+(function init(){
+  const saved=loadFiltersSync();
+  applyFilters(saved);
+  buildChips();
+  renderList('');
+  rebuild();
+  if(saved) restorePos(saved.cur);
+  show(S.tab||'study');
+  if(!saved){
+    loadFiltersAsync().then(o=>{
+      if(applyFilters(o)){ syncChips(); rebuild(); show(S.tab||'study'); }
+    }).catch(()=>{});
+  }
+  load().then(m=>{
+    if(!m || typeof m!=='object') return;
+    const live=new Set(CARDS.map(c=>c.id));
+    const kept={};
+    Object.keys(m).forEach(k=>{ if(live.has(k)) kept[k]=m[k]; });  // 消えた／直した問題の記録は捨てる
+    S.marks=kept;
+    if(S.againOnly){ const cur=S.order[S.idx]; rebuild(); restorePos(cur); }
+    else render();   // 覚えた記録は非同期で届くので、山を組み直す
+  }).catch(()=>{});
+})();
+</script>
+</body>
+</html>
