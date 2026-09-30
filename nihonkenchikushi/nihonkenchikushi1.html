@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#E4E9E7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>日本建築史1 カード</title>
+<style>
+*{touch-action:manipulation}
+:root{
+  --paper:#E4E9E7;
+  --sheet:#F8FAF9;
+  --ink:#17233A;
+  --ink-2:#4B5B6C;
+  --ink-3:#93A0A8;
+  --rule:#C6CFCC;
+  --rule-2:#DDE3E1;
+  --shu:#B93B24;
+  --ai:#2C5A78;
+  --grid:rgba(44,90,120,.07);
+  --sans:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic Medium","Yu Gothic",Meiryo,system-ui,sans-serif;
+  --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased;
+  height:100dvh;display:flex;flex-direction:column;overflow:hidden;
+}
+.shell{
+  width:100%;max-width:480px;margin:0 auto;flex:1;min-height:0;
+  display:flex;flex-direction:column;padding:0 14px calc(10px + var(--safe-b));
+}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0 8px;flex:none}
+.brand{font-family:var(--mincho);font-size:15px;letter-spacing:.1em;font-weight:600;white-space:nowrap}
+.brand em{font-style:normal;color:var(--shu)}
+.seg{display:flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.seg button{
+  appearance:none;background:none;border:0;padding:5px 11px;cursor:pointer;
+  font-family:var(--sans);font-size:11.5px;letter-spacing:.06em;color:var(--ink-2);
+}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--sheet)}
+.seg button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
+
+.meta{display:flex;align-items:center;gap:10px;flex:none;padding-bottom:9px}
+.bar{flex:1;height:3px;background:var(--rule-2);position:relative;border-radius:2px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ai);border-radius:2px;transition:width .25s ease}
+.count{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.06em;white-space:nowrap}
+.gear{
+  appearance:none;background:none;border:1px solid var(--rule);border-radius:2px;cursor:pointer;
+  font-family:var(--sans);font-size:11.5px;color:var(--ink-2);padding:4px 10px;white-space:nowrap;
+}
+.gear:active{background:rgba(23,35,58,.06)}
+
+/* ---------- card ---------- */
+.stage{flex:1;min-height:0;position:relative;perspective:1400px}
+.stack{position:absolute;inset:0;will-change:transform}
+.flipper{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.8,.25,1)}
+.stage.flipped .flipper{transform:rotateY(180deg)}
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--sheet);border:1px solid var(--ink);border-radius:3px;
+  box-shadow:0 2px 0 rgba(23,35,58,.10);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.front{
+  background-image:
+    repeating-linear-gradient(to right, var(--grid) 0 1px, transparent 1px 19px),
+    repeating-linear-gradient(to bottom, var(--grid) 0 1px, transparent 1px 19px);
+}
+.back{transform:rotateY(180deg)}
+.face-head{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex:none;
+  padding:9px 14px;border-bottom:1px solid var(--rule-2);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--ink-3);
+}
+.cat{color:var(--ink-2);white-space:nowrap}
+.srcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.srcs b{font-weight:400;color:var(--ai);border:1px solid rgba(44,90,120,.3);padding:0 4px;font-size:9px;white-space:nowrap;border-radius:1px}
+.srcs b.hot{color:var(--shu);border-color:rgba(185,59,36,.35)}
+.face-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 20px 82px;position:relative}
+.q{font-family:var(--mincho);font-size:20px;line-height:1.8;letter-spacing:.02em;margin:0;font-weight:500}
+.a{
+  white-space:pre-line;
+  font-family:var(--mincho);font-size:24px;line-height:1.6;color:var(--shu);font-weight:600;letter-spacing:.03em;margin:0 0 14px;
+}
+.n{font-size:13px;line-height:1.85;color:var(--ink-2);margin:0;padding-top:13px;border-top:1px dashed var(--rule)}
+.n p{margin:0 0 9px}
+.n p:last-child{margin-bottom:0}
+.n ul{margin:0 0 9px;padding-left:1.15em}
+.n li{margin:1px 0}
+.n li::marker{color:var(--ink-3)}
+.n b{color:var(--ink);font-weight:700}
+.n .nh{margin:16px 0 6px;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--ai)}
+.n.warn{color:var(--shu);border-top-color:rgba(185,59,36,.35)}
+.qs{font-size:12.5px;color:var(--ink-3);margin:0 0 12px;line-height:1.7}
+.hint{
+  position:absolute;left:0;right:0;bottom:10px;text-align:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--ink-3);
+  transition:opacity .4s ease;
+}
+.hint.gone{opacity:0}
+
+/* 覚えたハンコ（押せる） */
+.stamp{
+  appearance:none;cursor:pointer;background:transparent;
+  position:absolute;left:14px;bottom:12px;width:56px;height:56px;border-radius:50%;
+  border:2px dotted rgba(185,59,36,.30);color:rgba(185,59,36,.32);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mincho);font-size:23px;font-weight:700;letter-spacing:0;
+  transform:rotate(-11deg) scale(.88);opacity:1;z-index:3;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  transition:transform .28s cubic-bezier(.2,1.5,.4,1), opacity .2s ease, border-color .2s ease, color .2s ease;
+}
+.stamp b{font-weight:700}
+.stamp:active{transform:rotate(-11deg) scale(.78)}
+.stamp.on{
+  border:2.5px solid var(--shu);color:var(--shu);
+  transform:rotate(-11deg) scale(1);opacity:.82;
+}
+.stamp:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
+/* 見えていない側のハンコは消す（透けて鏡文字で出るのを防ぐ） */
+.stage.flipped .front .stamp{visibility:hidden;pointer-events:none}
+.stage:not(.flipped) .back .stamp{visibility:hidden;pointer-events:none}
+
+/* めくり中の左右ヒント */
+.swipe-tag{
+  position:absolute;top:50%;transform:translateY(-50%);
+  font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--ink-3);
+  opacity:0;transition:opacity .15s ease;pointer-events:none;
+}
+.swipe-tag.l{left:-2px}
+.swipe-tag.r{right:-2px}
+
+/* ---------- 下部ボタン ---------- */
+.pad{display:flex;align-items:center;justify-content:center;gap:36px;flex:none;padding:16px 0 6px}
+.big{
+  appearance:none;cursor:pointer;width:66px;height:66px;border-radius:50%;
+  background:var(--sheet);display:flex;align-items:center;justify-content:center;
+  font-size:27px;line-height:1;transition:transform .12s ease;
+}
+.big:active{transform:scale(.9)}
+.big.nav{border:1.5px solid var(--ink-3);color:var(--ink-2);font-size:22px}
+.big:focus-visible{outline:2px solid var(--ai);outline-offset:3px}
+.pad-label{
+  display:flex;justify-content:center;gap:36px;flex:none;
+  font-family:var(--sans);font-size:10.5px;color:var(--ink-3);letter-spacing:.1em;
+}
+.pad-label span{width:66px;text-align:center}
+
+/* ---------- 設定シート ---------- */
+.sheet-bg{
+  position:fixed;inset:0;background:rgba(23,35,58,.35);opacity:0;pointer-events:none;
+  transition:opacity .25s ease;z-index:20;
+}
+.sheet-bg.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:21;
+  background:var(--paper);border-top:1px solid var(--ink);
+  border-radius:10px 10px 0 0;padding:16px 18px calc(20px + var(--safe-b));
+  max-width:480px;margin:0 auto;max-height:82dvh;overflow-y:auto;
+  transform:translateY(102%);transition:transform .28s cubic-bezier(.2,.8,.25,1);
+}
+.sheet.on{transform:none}
+.sheet h3{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--ink-3);margin:0 0 9px;font-weight:400}
+.sheet .grp{margin-bottom:18px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  appearance:none;cursor:pointer;border:1px solid var(--rule);background:transparent;color:var(--ink-2);
+  font-family:var(--sans);font-size:12px;padding:5px 11px;border-radius:2px;
+}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--sheet)}
+.chip.year[aria-pressed="true"]{background:var(--ai);border-color:var(--ai)}
+.chip.freq[aria-pressed="true"]{background:var(--shu);border-color:var(--shu)}
+.sheet-actions{display:flex;gap:8px;flex-wrap:wrap}
+.tbtn{
+  appearance:none;cursor:pointer;border:1px solid var(--ink);background:transparent;color:var(--ink);
+  font-family:var(--sans);font-size:13px;padding:9px 16px;border-radius:2px;flex:1;min-width:120px;
+}
+.tbtn.solid{background:var(--ink);color:var(--sheet)}
+.tally{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);letter-spacing:.06em;margin:0 0 14px}
+.tally b{color:var(--shu)}
+
+/* ---------- 一覧・傾向 ---------- */
+.scroller{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:20px}
+.search{
+  width:100%;padding:9px 12px;border:1px solid var(--rule);background:var(--sheet);
+  font-family:var(--sans);font-size:16px;color:var(--ink);border-radius:2px;margin-bottom:12px;
+}
+.search:focus{outline:none;border-color:var(--ai)}
+.row{border-bottom:1px solid var(--rule-2);padding:11px 2px}
+.row .rq{font-size:14px;line-height:1.65;margin:0 0 4px}
+.row .ra{white-space:pre-line;font-size:14px;color:var(--shu);font-weight:600;margin:0 0 4px;font-family:var(--mincho)}
+.row .rs{font-family:var(--mono);font-size:10px;color:var(--ai);letter-spacing:.04em}
+.empty{padding:40px 0;text-align:center;color:var(--ink-3);font-size:14px}
+.sec{margin:0 0 32px}
+.sec h2{font-family:var(--mincho);font-size:17px;letter-spacing:.08em;font-weight:600;margin:0 0 4px;padding-bottom:6px;border-bottom:1px solid var(--ink)}
+.sec .eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--ai);margin:0 0 12px}
+.sec p{margin:0 0 12px;font-size:13.5px;line-height:1.8}
+.mwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
+.matrix{border-collapse:collapse;font-size:12px;min-width:100%}
+.matrix th{font-family:var(--mono);font-size:9.5px;padding:5px 3px;text-align:center;color:var(--ink-2);font-weight:400}
+.matrix th:first-child{text-align:left;padding-right:8px}
+.matrix td{padding:5px 3px;text-align:center;border-bottom:1px solid var(--rule-2)}
+.matrix td:first-child{text-align:left;font-size:12.5px;white-space:nowrap;padding-right:8px}
+.dot{display:inline-block;width:9px;height:9px;background:var(--ai);border-radius:50%}
+.dot.off{background:transparent;border:1px solid var(--rule)}
+.cnt{font-family:var(--mono);font-size:10.5px;color:var(--shu);font-weight:600}
+.note-list{margin:0;padding-left:1.15em;font-size:13.5px;line-height:1.8}
+.note-list li{margin-bottom:8px}
+.kv{width:100%;border-collapse:collapse;font-size:13px}
+.kv td{padding:6px 2px;border-bottom:1px solid var(--rule-2)}
+.kv td:last-child{font-family:var(--mono);color:var(--shu);text-align:right;white-space:nowrap}
+
+@media (min-width:520px){
+  .shell{padding-bottom:18px}
+  .q{font-size:21px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="top">
+    <div class="brand">日本建築史<em>1</em></div>
+    <div class="seg" role="tablist">
+      <button role="tab" id="tab-study" aria-selected="true">カード</button>
+      <button role="tab" id="tab-list" aria-selected="false">一覧</button>
+      <button role="tab" id="tab-trend" aria-selected="false">まとめ</button>
+    </div>
+  </div>
+
+  <!-- ========== カード ========== -->
+  <div class="meta" id="meta">
+    <span class="count" id="count">0 / 0</span>
+    <span class="bar"><i id="bar" style="width:0%"></i></span>
+    <button class="gear" id="btn-gear">絞り込み</button>
+  </div>
+
+  <div class="stage" id="stage">
+    <span class="swipe-tag l" id="tag-l">← まえ</span>
+    <span class="swipe-tag r" id="tag-r">つぎ →</span>
+    <div class="stack" id="stack">
+      <div class="flipper">
+        <div class="face front">
+          <div class="face-head"><span class="cat" id="f-cat">—</span><span class="srcs" id="f-src"></span></div>
+          <div class="face-body">
+            <p class="q" id="f-q">読み込み中</p>
+            <p class="hint" id="hint">タップで答え　左右にスワイプでめくる</p>
+          </div>
+          <button class="stamp" id="stamp" aria-label="覚えた"><b>覚</b></button>
+        </div>
+        <div class="face back">
+          <div class="face-head"><span class="cat">こたえ</span><span class="srcs" id="b-src"></span></div>
+          <div class="face-body">
+            <p class="qs" id="b-q"></p>
+            <p class="a" id="b-a"></p>
+            <div class="n" id="b-n"></div>
+          </div>
+          <button class="stamp" id="stamp-b" aria-label="覚えた"><b>覚</b></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pad">
+    <button class="big nav" id="btn-prev" aria-label="まえ">←</button>
+    <button class="big nav" id="btn-next" aria-label="つぎ">→</button>
+  </div>
+  <div class="pad-label"><span>まえ</span><span>つぎ</span></div>
+
+  <!-- ========== 一覧 ========== -->
+  <div class="scroller" id="view-list" hidden>
+    <input class="search" id="q-search" type="search" placeholder="用語・講義回で検索">
+    <div id="list-body"></div>
+  </div>
+
+  <!-- ========== 傾向 ========== -->
+  <div class="scroller" id="view-trend" hidden>
+    <div class="sec">
+      <p class="eyebrow">第1講 — 建物の原型：先史・古代の建築</p>
+      <h2>この回の骨組み</h2>
+      <p>日本建築を<b>住宅（人間）・寺院（仏）・神社（神）</b>の3類型でとらえ、「なぜこの形なのか」を考える訓練として歴史を学ぶ、という導入。本編は、現存しない最も原始的な建築＝<b>住居</b>を、床の位置・壁の有無・軸部・屋根の構法で分類し、縄文から古墳時代への変化をたどります。最後に、日本建築を通底する<b>身舎・庇</b>の構成へ。</p>
+      <p>カード右上の朱色のタグは、この回の要点として特に押さえたいもの。絞り込みの<b>「重要」</b>で、それだけを回せます。</p>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">01 — 住居の分類軸</p>
+      <h2>4つの軸で見る</h2>
+      <table class="kv">
+        <tr><td>床の位置</td><td>平地 → 竪穴 → 高床</td></tr>
+        <tr><td>壁の有無</td><td>伏屋（壁なし）→ 壁立</td></tr>
+        <tr><td>軸部</td><td>掘立柱 → 石場建・土台建（6、7世紀〜）</td></tr>
+        <tr><td>屋根</td><td>扠首（サス）→ 棟持柱（ウダツ）？</td></tr>
+      </table>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">02 — 時代の流れ</p>
+      <h2>縄文から古墳へ</h2>
+      <table class="kv">
+        <tr><td>旧石器後期</td><td>竪穴の遺跡が現れる。移動生活＋簡易な定住</td></tr>
+        <tr><td>縄文早期</td><td>浅い円形、直径2〜3m、炉は屋外</td></tr>
+        <tr><td>縄文前期</td><td>炉が屋内に。関東は方形、近畿以西は円形。高床が東日本に</td></tr>
+        <tr><td>縄文中期</td><td>植物栽培・儀礼、環状集落、中央に炉</td></tr>
+        <tr><td>縄文後期</td><td>小型化、地域差の拡大</td></tr>
+        <tr><td>縄文晩期</td><td>寒冷化、西日本に水田</td></tr>
+        <tr><td>弥生</td><td>方形が主流。高床は西日本の湿地に。中期から大規模建物</td></tr>
+        <tr><td>古墳（3C末〜7C頃）</td><td>炉が壁側へ＝室内の使い分け。倉庫は高床。豪族居館</td></tr>
+      </table>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">03 — 遺跡</p>
+      <h2>名前と場所</h2>
+      <table class="kv">
+        <tr><td>三内丸山（青森）</td><td>縄文前期〜。大型建物、栗・交易</td></tr>
+        <tr><td>桜町（富山）</td><td>縄文中期〜後期。貫の痕跡</td></tr>
+        <tr><td>瓜生堂（東大阪）</td><td>弥生中期。柱根と根がらみ</td></tr>
+        <tr><td>登呂（静岡）</td><td>弥生後期。高床倉庫の復原</td></tr>
+        <tr><td>安国寺（大分・国東）</td><td>弥生後期。高床住居と倉庫の復原図</td></tr>
+        <tr><td>草刈（千葉・市原）</td><td>古墳。住居内のゾーニング</td></tr>
+        <tr><td>三ツ寺（群馬・高崎）</td><td>古墳後期。豪族居館</td></tr>
+        <tr><td>江川家住宅（伊豆）</td><td>大黒柱だけ掘立</td></tr>
+      </table>
+    </div>
+
+    <div class="sec">
+      <p class="eyebrow">04 — 注意</p>
+      <h2>確認したい箇所</h2>
+      <ul class="note-list">
+        <li><b>年代の数値</b>— ノートでは竪穴・壁立が「35K年前」、ハサミ山遺跡が「25K年前」、縄文の区分が早期9.5K・前期6K・中期5K・後期4K年前、弥生が「前5C–4C」となっています。聞き取りの数値なので、カードには年代を入れすぎないようにしました。一般的な区分（縄文前期は約7000〜5500年前、弥生は3世紀頃まで など）とずれる所があるので、スライドか教科書で確かめてください。</li>
+        <li><b>遺跡名の表記</b>— 「椎木山遺跡（北九州市）」「ハサミ山梨田遺跡」はノートの表記のままです。</li>
+        <li><b>梁間と梁行</b>— カードの説明は一般的な使い分けです。授業での定義があれば、そちらに合わせてください。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 設定シート ========== -->
+<div class="sheet-bg" id="sheet-bg"></div>
+<div class="sheet" id="sheet">
+  <p class="tally" id="tally">—</p>
+  <div class="grp"><h3>クイック</h3><div class="chips" id="f-preset"></div></div>
+  <div class="grp"><h3>ぶんや</h3><div class="chips" id="f-catchips"></div></div>
+  <div class="grp"><h3>講義</h3><div class="chips" id="f-yearchips"></div></div>
+  <div class="grp"><h3>しぼりこみ</h3><div class="chips" id="f-optchips"></div></div>
+  <div class="sheet-actions">
+    <button class="tbtn" id="btn-shuffle">シャッフル</button>
+    <button class="tbtn" id="btn-reset">覚えた記録を消す</button>
+    <button class="tbtn solid" id="btn-close">とじる</button>
+  </div>
+</div>
+
+<script>
+const YEARS = ['第1講'];
+const EXAM_YEARS = YEARS;
+const CATS = {intro:'総論', term:'用語・概念', kouhou:'構法', site:'時代・遺跡'};
+
+const CARDS = [
+{"c": "intro", "q": "日本建築史で扱う3つの建築類型と、それぞれが「誰のための建築」か。", "a": "住宅：人間\n寺院：仏\n神社：神", "n": "この **三者が影響し合う** 面白さが、日本建築史の見どころ。\n・**住宅**：どのように形が決まっていくか\n・**寺院**：神聖な空間を、使う人間のためにどう作るか\n・**神社**：外来の仏教にどう対応したか\n授業の分担は、寺院・神社が **松田先生**（全体の約2/3）、住居系が **マルチネス先生**。", "y": [["第1講", "授業"]], "k": true},
+{"c": "intro", "q": "授業でいう、歴史を学ぶ意味とは。", "a": "「なぜこの形なのか」を考える訓練", "n": "歴史は、**現在の世の中を見るための訓練**。キーワードは **参照可能性**。\n形の理由を考えることで、**新しいカタチが生まれる秘密** を知る手がかりになる。", "y": [["第1講", "授業"]], "k": true},
+{"c": "intro", "q": "住宅の形を決めるのは、機能のほかに何か（授業で挙げられた3つ）。", "a": "環境・社会・生業", "n": "住宅の成り立ちの背景には、**日本のあり方** が反映される。\n大きくは **支配者層** と **被支配者層** の住宅に分けて見ていく。", "y": [["第1講", "授業"]]},
+{"c": "intro", "q": "寺院建築の担い手である仏教は、大まかにどう性格を変えていったか。", "a": "学問的 → 宗派的 → 公共機関的", "n": "・**学問的**：高度な哲学的体系。政治とのつながりが強い（古代）\n・**宗派的**：宗派ごとの信仰の場へ\n・**公共機関的**：江戸時代、寺が **集落の戸籍を管理** した\n【背景】\n江戸時代の **寺請制度** では、人々はいずれかの寺の檀家として登録され、寺が作る **宗門人別改帳** が戸籍の役割を果たした。\n寺院は **神聖な空間** だが、使うのは **人間**。しかも各時代の **最高技術** で建てられる。", "y": [["第1講", "授業"]]},
+{"c": "intro", "q": "神社建築の本質とされるものは。", "a": "神の降臨装置＝「仮住まい」", "n": "神は常にそこに住むのではなく、**祭り** のときに降りてくる。神と人間との関わりが祭り。\n**モノではない何かを、モノで表現している** のが神社建築。\n神社の見どころは、外来思想である **仏教にどう対応したか**。そこに日本人の美意識（の本音？）が表れる。", "y": [["第1講", "授業"]], "k": true},
+{"c": "intro", "q": "現存する日本最古級の建築は。また、それは何の類型か。", "a": "法隆寺金堂（7世紀後半）\n寺院建築", "n": "しかし **最も原始的な建築は住居** であろう。\n先史の住居は **掘立柱** で **草や土で葺いた** ため、建物として残らない。発掘された柱穴や炉の跡から推定する。", "y": [["第1講", "授業"]], "k": true},
+{"c": "intro", "q": "授業で紹介された参考書・図集は。", "a": "『日本建築史図集』（第三版）\n太田博太郎『日本建築史序説』", "n": "授業はスライド中心。『序説』が通史の参考書、『図集』がその図版集、という関係。\n評価は **期末試験**（おそらく持ち込みなし）。", "y": [["第1講", "授業"]]},
+{"c": "term", "q": "先史時代の住居を「床の位置」で分けた3種類を、古い順に。", "a": "平地住居 → 竪穴住居 → 高床", "n": "・**平地**：地面をそのまま床にする。最も古い\n・**竪穴**：地面を掘り下げて床にする\n・**高床**：床を地面から持ち上げる。約5500年前（縄文前期）から\n原始的な住居は **土間床で小規模** だっただろう、とされる。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "term", "q": "先史時代の住居を「壁の有無」で分けた2種類は。どちらが古いか。", "a": "伏屋（壁なし）と壁立\n伏屋が古い", "n": "・**伏屋**：屋根を地面まで葺き下ろし、屋根が壁を兼ねる\n・**壁立**：壁を立て、その上に屋根を架ける\nスライドの分類図は、床の位置 × 壁の有無で整理している（伏屋式平地住居、壁立式竪穴住居 など）。葺き材は **土葺** と **草葺**。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "term", "q": "「身舎（もや）・庇（ひさし）」構成とは。", "a": "柱列が内外2重に並び、内側が身舎、外側が庇になる構成", "n": "・**身舎**：建物の **主要な役目** を担う中心部\n・**庇**：その外側で **付属的な役目** を担う\n柱の並びがそのまま空間の区分になる＝ **構造と空間の一致**。\n建物の **構造と使い方が一体化していた**。**日本建築を通底する特徴** として重要。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "term", "q": "庇のさらに外側に付け足す庇を何と呼ぶか。", "a": "孫庇（まごびさし）", "n": "身舎 → 庇 → 孫庇 と、柱列を外へ足していくことで空間を広げる。", "y": [["第1講", "スライド"]]},
+{"c": "term", "q": "身舎の外側に、別の小さな屋根として差し掛けた部分を何と呼ぶか。", "a": "もこし（裳階）", "n": "庇が身舎と一続きの屋根の下にあるのに対し、もこしは **一段下に独立した屋根** を持つ。\n【背景】\n**法隆寺金堂** や **薬師寺東塔** の、各重の下に付く小さな屋根がもこし。薬師寺東塔は三重塔だが、もこしのため六重に見える。", "y": [["第1講", "スライド"]]},
+{"c": "term", "q": "棟木に平行な横架材と、直交する横架材の名前は。", "a": "平行：桁（けた）\n直交：梁（はり）", "n": "方向の呼び名も同じで、棟と平行な方向が **桁行**、直交する方向が **梁間／梁行**。\n建物の規模は「桁行○間、梁間○間」のように、柱と柱の間の数（間）で表す。", "y": [["第1講", "授業"]], "k": true},
+{"c": "term", "q": "「梁間（はりま）」と「梁行（はりゆき）」の違いは。", "a": "梁行：梁の架かる方向\n梁間：その方向の柱と柱の間（寸法・間数）", "n": "授業で「違いに注意」とされた語。\nどちらも棟と直交する方向を指すので、実務や文献では **ほぼ同じ意味で使われる** ことも多い。「梁間三間」のように **長さや間数** を言うときは梁間、**方向** を言うときは梁行、と押さえておくと使い分けやすい。", "y": [["第1講", "授業"]], "warn": true},
+{"c": "term", "q": "遺跡の建物を再現するときの「復元」と「復原」の違いは。", "a": "復原：残る建物を、当初の姿に戻す\n復元：失われた建物を、資料から推定して建てる", "n": "授業で **言葉の違いに注意** とされた。\n発掘された柱穴などから建物を推定して建てるのは、本来 **復元**。現存する建物の後世の改変を取り除き、当初の形に戻すのが **復原**。\nただしスライドの登呂遺跡・安国寺遺跡の図のように、推定図にも「復原」と書く例は多い。どちらの語が使われているかで、根拠の性格を意識するとよい。", "y": [["第1講", "授業"]], "k": true},
+{"c": "kouhou", "q": "掘立柱（ほったてばしら）とは。", "a": "地面に穴を掘り、柱を立てて埋め戻す", "n": "地中の部分は **丸太のまま**。**相当古くから** 使われた。\n柱が地面に固定されるので **柱だけで自立** する。一方、地中の部分が **腐りやすい**。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "kouhou", "q": "石場建（いしばだて）とは。", "a": "礎石の上に、直接柱を立てる", "n": "**石にあわせて柱の下を削る**。礎石の下は **地面をよくつき固める**。\n柱が地面から切れているので腐りにくいが、柱だけでは自立しない。そのため **建てるときに足場（仮の支え）が必要**。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "kouhou", "q": "土台建（どだいだて）とは。", "a": "礎石の上に土台を据え、その上に柱を立てる", "n": "石場建が柱を1本ずつ礎石に載せるのに対し、土台建は **水平の土台** を礎石に載せ、柱を土台に立てる。", "y": [["第1講", "スライド"]]},
+{"c": "kouhou", "q": "石場建・土台建が使われるようになったのは、いつ頃からか。", "a": "6、7世紀頃から", "n": "掘立柱は **相当古くから**。\n【背景】\n礎石の上に柱を立てる方式は、**仏教建築** とともに大陸から伝わった。飛鳥寺（6世紀末）など、初期の寺院で本格的に使われる。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "kouhou", "q": "大黒柱だけが掘立柱になっている民家の例は。", "a": "江川家住宅", "n": "大黒柱が **地面と切れていない**。\n【背景】\n伊豆の国市韮山にある、江戸時代初期の民家（重要文化財）。この柱は「生き柱」とも呼ばれる。\n同じく掘立の例として、**伊勢神宮の心御柱（しんのみはしら）** も挙げられた。", "y": [["第1講", "授業"]]},
+{"c": "kouhou", "q": "伊勢神宮で、掘立柱の例として挙げられた柱は。", "a": "心御柱（しんのみはしら）", "n": "正殿の床下中央に立てられる、神聖な柱。\n【背景】\n伊勢神宮の正殿（**唯一神明造**）は、社殿の柱そのものも掘立柱。礎石を使わない古い形式を、**式年遷宮** の建て替えで受け継いできた。", "y": [["第1講", "授業"]]},
+{"c": "kouhou", "q": "サス（扠首）構法とは。", "a": "2本の材を頂部で組み合わせ、屋根を支える構法（トラス）", "n": "頂部の交点は **アタマギ**。柱なしで屋根が成り立つ。\n**相当古くから** の構法で、移動生活の **テント** もこの形。\n**サス＝縄文、ウダツ＝弥生** という説もある。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "kouhou", "q": "ウダツ構法とは。", "a": "棟持柱で棟木を支え、垂木を掛ける構法", "n": "部材は **ハシラ（棟持柱）・ムナギ（棟木）・タルキ（垂木）**。\n扠首より **新しいか？** とされる。**サス＝縄文、ウダツ＝弥生** という説もある。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "kouhou", "q": "先史時代の高床で、床を支える5つの形式は。", "a": "差込柱・股柱・添柱・束柱・貫", "n": "・**差込柱**：柱に仕口をあけ、床の材を差し込む\n・**股柱**：先が二股の柱で受ける\n・**添柱**：柱に床受けの柱を添える\n・**束柱**：床下に短い束を立てる\n・**貫**：柱を貫く横材で受ける\n**床を支えるのは大変** だった、というのがこのスライドの主旨。", "y": [["第1講", "スライド"]]},
+{"c": "kouhou", "q": "縄文時代の建築で「貫」の痕跡が見つかった遺跡は。", "a": "桜町遺跡（富山県、縄文中期〜後期）", "n": "貫は **鎌倉時代以降** にしか使われていなかった、と言われていた。これは **大発見**。\n材は **栗**。当時の道具（石斧）で実験すると、**穴1つに5時間**、**1本の仕上げに1日** かかった。\n【背景】\n鎌倉時代の貫は、**大仏様**（東大寺南大門など）とともに本格的に使われた、とされてきた。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "kouhou", "q": "縄文の建築で使われた、とても硬い木は。", "a": "栗（クリ）", "n": "硬く腐りにくいため、かつては **鉄道の枕木** にも使われた。\n桜町遺跡の貫の材も栗。三内丸山遺跡では **栗の栽培** の痕跡も見つかっている。", "y": [["第1講", "授業"]]},
+{"c": "kouhou", "q": "湿地に建つ弥生の高床で、柱の沈下を防ぐ工夫の実例は。", "a": "根がらみ\n（瓜生堂遺跡、大阪府東大阪市、弥生中期）", "n": "柱の根元に **横材を組み合わせ**、柱が地中へ沈むのを防ぐ。\n弥生の高床は **水田のある湿地帯** に多く建てられたため、こうした工夫が必要だった。", "y": [["第1講", "スライド"]]},
+{"c": "site", "q": "竪穴住居の遺跡が現れるのは、どの時代からか。", "a": "旧石器時代後期", "n": "このころから定住が始まったか？\nこのころは **移動生活（テント＝サス構法）＋簡易な定住（焼畑）**。\n例：椎木山遺跡（北九州市）、ハサミ山遺跡（大阪府藤井寺市、約2.5万年前）", "y": [["第1講", "授業"]]},
+{"c": "site", "q": "縄文時代を、住まいの観点からひと言で。", "a": "定住生活の始まり", "n": "時期によって、竪穴の形・炉の位置・集落の形が変わっていく。\n早期 → 前期 → 中期 → 後期 → 晩期 の特徴を押さえる。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "site", "q": "縄文早期の竪穴住居の特徴は。", "a": "浅い・直径2〜3mの円形・炉は屋外が多い", "n": "ノートの記録では約9500年前。まだ小規模で、生活の中心が屋外にあった。", "y": [["第1講", "授業"]]},
+{"c": "site", "q": "縄文前期に竪穴住居はどう変わったか。", "a": "定住性が強まり、炉が屋内に入る", "n": "増改築の跡が見られる。\n平面は **関東は方形**、**近畿以西は円形**。\n関東・関西・東北で **土器も異なる**＝生活様式が異なる＝ **文化背景が異なる** ということ。", "y": [["第1講", "授業"]], "k": true},
+{"c": "site", "q": "縄文中期の生活と集落の特徴は。", "a": "農耕生活（植物栽培・宗教的儀礼）と環状集落", "n": "竪穴は **円形や多角形** で、**中央に炉**。\n**環状集落**：中央に **広場**、その周辺に住居と **貝塚**。", "y": [["第1講", "授業"]], "k": true},
+{"c": "site", "q": "縄文後期の竪穴住居の特徴は。", "a": "小型化し、地域差が拡大する", "n": "・**方形**：中部から九州\n・**円形**：東北から関東\n**東北** が文化の中心だったか（土器の技法が優れる）。**関西** では水田。", "y": [["第1講", "授業"]]},
+{"c": "site", "q": "縄文晩期に起こったことと、その次の時代は。", "a": "寒冷化で人口が減少し、西日本に水田が広がる → 弥生時代", "n": "稲作の広がりが、次の弥生時代を特徴づける。", "y": [["第1講", "授業"]]},
+{"c": "site", "q": "縄文の住居跡のうち、「住居ではないのでは」という説があるのは。", "a": "柄鏡形（えかがみがた）の住居跡", "n": "円形の主室に、柄のような張り出しが付く平面。スライドでは敷石を伴う例（柄鏡形敷石住居跡）。\n床に石を敷く特殊な作りから、**祭祀の場** ではないかという説がある。", "y": [["第1講", "スライド"]]},
+{"c": "site", "q": "高床建物が現れたのは、いつ・どこか。", "a": "縄文前期、東日本で", "n": "以前は **弥生時代から** とされていた。\n代表例が **三内丸山遺跡** の大型掘立柱建物。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "site", "q": "三内丸山遺跡（青森県）で見つかったものは。", "a": "縄文の大規模な竪穴建物・掘立柱建物と、栗の栽培・酒造・翡翠や黒曜石の加工交易の痕跡", "n": "縄文前期〜中期の大集落。\n大型掘立柱建物（6本柱）は高床建物の例として復元されている。\n遠方の翡翠や黒曜石が出ることから、**広い範囲の交易** があったとわかる。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "site", "q": "弥生時代の高床は、どこに多いか。", "a": "西日本の湿地帯（水田）", "n": "縄文時代に多かった **東北・北陸は少ない**。\n**東日本から伝播したか、大陸から移入したか？** は議論がある。\n湿地に建てるため、**柱の沈下を防ぐ工夫**（根がらみ）も見られる。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "site", "q": "弥生時代の竪穴住居の平面は。", "a": "方形が主流", "n": "ただし **近畿は円形**。**中国・九州は方形と円形が併存**。", "y": [["第1講", "授業"]]},
+{"c": "site", "q": "弥生時代後期の高床住居と倉庫の復原図が示された、大分県の遺跡は。", "a": "安国寺遺跡（国東市）", "n": "出土した部材から想定した部分と、推定の部分を描き分けている。小口径の丸太の出土部材は多いが、使われた箇所の特定は難しい。", "y": [["第1講", "スライド"]]},
+{"c": "site", "q": "高床倉庫の復原で有名な、弥生後期の遺跡は。", "a": "登呂遺跡（静岡市）", "n": "水田跡とともに、竪穴住居と高床倉庫が復原されている。", "y": [["第1講", "スライド"]]},
+{"c": "site", "q": "古墳時代の竪穴住居で起きた変化は。", "a": "方形平面になり、炉の位置が中央から壁側へ移る\n＝室内の使い分け", "n": "倉庫には **高床（掘立柱建物）** が使われた。\n【背景】\n5世紀ごろ、大陸から **造り付けのカマド** が伝わり、壁際に設けられるようになった。火の場所が壁に寄ったことで、室内を用途ごとに分けられるようになる。", "y": [["第1講", "スライド"]], "k": true},
+{"c": "site", "q": "古墳時代の住居跡のゾーニング（室内の使い分け）が示された遺跡は。", "a": "草刈遺跡（千葉県市原市）", "n": "床の硬さの違いから、よく踏まれた場所を推定している。図の **I が最も床が硬い**。\nスライドの推定図には、スイジ（炊事）・イマ・ネ（寝）・モノオキ・貯蔵・入口 などの区分が描かれている。", "y": [["第1講", "スライド"]]},
+{"c": "site", "q": "大規模建物が現れるのはいつからか。", "a": "弥生中期から", "n": "稲作による共同体・富の蓄積を背景に、建築や集落の規模が大きくなる。", "y": [["第1講", "授業"]]},
+{"c": "site", "q": "稲作は、建築や集落にどのような変化をもたらしたか。", "a": "共同体意識 → 公共施設（水路・穀倉など）→ 富の蓄積\n→ 建築や集落の大規模化", "n": "集団で水田を営むことが、共同の施設と、それを管理する **支配者** を生んだ。", "y": [["第1講", "授業"]], "k": true},
+{"c": "site", "q": "高床の建物は、倉庫からどのように性格を変えていったと考えられるか。", "a": "倉庫 → 礼拝の対象（穀霊信仰）→ 神社・神殿・支配者の邸宅へ？", "n": "稲を納める高床倉庫が、稲の霊を祀る対象になり、やがて神の建物や支配者の住まいの形になった、という見方。\n神社建築の起源を考える手がかりになる。", "y": [["第1講", "授業"]], "k": true},
+{"c": "site", "q": "古墳時代後期の「豪族居館」の例として示された、群馬県高崎市の遺跡は。", "a": "三ツ寺遺跡（三ツ寺I遺跡）", "n": "濠で囲まれた方形の区画の中に、**大規模な掘立柱建物（主殿）** が建つ。濠には水を引き込む **水道橋** の跡もある。\n支配者の住まいが、集落から切り離されて大きくなった例。", "y": [["第1講", "スライド"]]}
+];
+
+/* ============================================================ */
+const YO={}; YEARS.forEach((y,i)=>YO[y]=i);
+const $ = s => document.querySelector(s);
+const el = (t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+/* カードのIDは「設問＋答え」から作る。内容が同じかぎり更新後もIDが変わらないので
+   覚えたハンコは引き継がれ、設問か答えを直したカードだけがハンコを失う。 */
+function cardHash(s){ let x=2166136261; for(let i=0;i<s.length;i++){ x^=s.charCodeAt(i); x=Math.imul(x,16777619); } return (x>>>0).toString(36); }
+const seenIds={};
+CARDS.forEach((c,i)=>{
+  let id=cardHash(c.q+'\u0000'+c.a);
+  if(seenIds[id]) id=id+'-'+i;   // 万一の衝突よけ
+  seenIds[id]=1; c.id=id;
+  c.y.sort((a,b)=>YO[a[0]]-YO[b[0]]);
+});
+const srcText = p => p[0]+' '+p[1];
+/* 補足の簡易記法：改行＝段落、「・」で始まる行＝箇条書き、【見出し】だけの行＝小見出し、**語**＝強調 */
+const esc = t => t.replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const plain = t => (t||'').replace(/\*\*/g,'');
+function fmt(t){
+  const inl = x => esc(x).replace(/ ?\*\*(.+?)\*\* ?/g, '<b>$1</b>');
+  let h='', ul=false;
+  (t||'').split('\n').forEach(line=>{
+    const L=line.trim(); if(!L) return;
+    if(L.startsWith('・')){ if(!ul){ h+='<ul>'; ul=true; } h+='<li>'+inl(L.slice(1))+'</li>'; return; }
+    if(ul){ h+='</ul>'; ul=false; }
+    const m=L.match(/^【(.+)】$/);
+    h += m ? '<p class="nh">'+esc(m[1])+'</p>' : '<p>'+inl(L)+'</p>';
+  });
+  if(ul) h+='</ul>';
+  return h;
+}
+
+let S = {cats:new Set(Object.keys(CATS)), years:new Set(YEARS), freqOnly:false, againOnly:false,
+         order:[], idx:0, flipped:false, marks:{}, hinted:false, tab:'study', kept:new Set()};
+
+/* ---- 進捗の保存（対応環境のみ） ---- */
+const KEY='nks1-progress';
+let lsOK=false; try{ localStorage.setItem(KEY+':t','1'); localStorage.removeItem(KEY+':t'); lsOK=true; }catch(e){ lsOK=false; }
+function withTimeout(p,ms){ return Promise.race([p,new Promise(r=>setTimeout(()=>r(null),ms))]); }
+function save(){
+  const v=JSON.stringify(S.marks);
+  if(lsOK){ try{ localStorage.setItem(KEY,v); }catch(e){} }
+  try{ if(window.storage&&window.storage.set) Promise.resolve(window.storage.set(KEY,v)).catch(()=>{}); }catch(e){}
+}
+async function load(){
+  if(lsOK){ try{ const v=localStorage.getItem(KEY); if(v) return JSON.parse(v); }catch(e){} }
+  try{ if(window.storage&&window.storage.get){
+    const r=await withTimeout(Promise.resolve(window.storage.get(KEY)).catch(()=>null),1500);
+    if(r&&r.value) return JSON.parse(r.value);
+  } }catch(e){}
+  return null;
+}
+
+/* ---- 絞り込み設定の保存（対応環境のみ） ---- */
+const FKEY='nks1-filters';
+function saveFilters(){
+  const v=JSON.stringify({cats:[...S.cats], years:[...S.years], freqOnly:S.freqOnly, againOnly:S.againOnly, tab:S.tab, cur:S.order[S.idx]||null});
+  if(lsOK){ try{ localStorage.setItem(FKEY,v); }catch(e){} }
+  try{ if(window.storage&&window.storage.set) Promise.resolve(window.storage.set(FKEY,v)).catch(()=>{}); }catch(e){}
+}
+function applyFilters(o){
+  if(!o || typeof o!=='object') return false;
+  const cats  = Array.isArray(o.cats)  ? o.cats.filter(k=>CATS[k])          : [];
+  const years = Array.isArray(o.years) ? o.years.filter(y=>YEARS.includes(y)) : [];
+  if(cats.length)  S.cats  = new Set(cats);
+  if(years.length) S.years = new Set(years);
+  S.freqOnly = !!o.freqOnly;
+  S.againOnly= !!o.againOnly;
+  if(typeof o.tab==='string') S.tab=o.tab;
+  return true;
+}
+function loadFiltersSync(){
+  if(lsOK){ try{ const v=localStorage.getItem(FKEY); if(v) return JSON.parse(v); }catch(e){} }
+  return null;
+}
+async function loadFiltersAsync(){
+  try{ if(window.storage&&window.storage.get){
+    const r=await withTimeout(Promise.resolve(window.storage.get(FKEY)).catch(()=>null),1500);
+    if(r&&r.value) return JSON.parse(r.value);
+  } }catch(e){}
+  return null;
+}
+
+/* ---- フィルタ ---- */
+function toggle(set,v){ set.has(v)?set.delete(v):set.add(v); }
+const chipRefs={cat:{},year:{},opt:{}};
+const RECENT=()=>EXAM_YEARS.slice(-1);
+function buildChips(){
+  [['すべて','all'],['重要','freq'],['最新の講','recent']].forEach(([label,key])=>{
+    const b=el('button','chip freq',label);
+    b.dataset.preset=key; b.onclick=()=>preset(key);
+    $('#f-preset').appendChild(b);
+  });
+  Object.entries(CATS).forEach(([k,label])=>{
+    const b=el('button','chip',label);
+    b.onclick=()=>{ toggle(S.cats,k); syncChips(); rebuild(); };
+    chipRefs.cat[k]=b; $('#f-catchips').appendChild(b);
+  });
+  YEARS.forEach(y=>{
+    const b=el('button','chip year',y);
+    b.onclick=()=>{ toggle(S.years,y); syncChips(); rebuild(); };
+    chipRefs.year[y]=b; $('#f-yearchips').appendChild(b);
+  });
+  const m=el('button','chip freq','まだのものだけ');
+  m.onclick=()=>{ S.againOnly=!S.againOnly; syncChips(); rebuild(); };
+  chipRefs.opt.again=m; $('#f-optchips').appendChild(m);
+  syncChips();
+}
+function preset(key){
+  S.cats=new Set(Object.keys(CATS));
+  if(key==='all'){ S.years=new Set(YEARS); S.freqOnly=false; S.againOnly=false; }
+  if(key==='freq'){ S.years=new Set(YEARS); S.freqOnly=true; }
+  if(key==='recent'){ S.years=new Set(RECENT()); S.freqOnly=false; }
+  syncChips(); rebuild();
+}
+function syncChips(){
+  Object.entries(chipRefs.cat).forEach(([k,b])=>b.setAttribute('aria-pressed',S.cats.has(k)));
+  Object.entries(chipRefs.year).forEach(([y,b])=>b.setAttribute('aria-pressed',S.years.has(y)));
+  chipRefs.opt.again.setAttribute('aria-pressed',S.againOnly);
+  const allCats=S.cats.size===Object.keys(CATS).length;
+  const allYears=S.years.size===YEARS.length;
+  const r=RECENT(); const isRecent=S.years.size===r.length && r.every(y=>S.years.has(y));
+  document.querySelectorAll('#f-preset .chip').forEach(b=>{
+    const k=b.dataset.preset;
+    const on = k==='all'  ? (allCats&&allYears&&!S.freqOnly&&!S.againOnly)
+             : k==='freq' ? S.freqOnly
+             :                isRecent;
+    b.setAttribute('aria-pressed',on);
+  });
+  saveFilters();
+}
+function pool(){
+  return CARDS.filter(c=>{
+    if(!S.cats.has(c.c)) return false;
+    if(!c.y.some(p=>S.years.has(p[0]))) return false;
+    if(S.freqOnly && !c.k) return false;
+    if(S.againOnly && S.marks[c.id]==='known' && !S.kept.has(c.id)) return false;  // このセッションで押した札は残す
+    return true;
+  });
+}
+function rebuild(){ S.order=pool().map(c=>c.id); S.idx=0; setFlip(false); render(); }
+
+/* ---- 描画 ---- */
+function render(){
+  const ids=S.order;
+  updateTally();
+  if(!ids.length){
+    $('#f-cat').textContent='—'; $('#f-src').innerHTML=''; $('#b-src').innerHTML='';
+    $('#f-q').textContent='この条件に合う問題がありません。絞り込みをゆるめてください。';
+    $('#b-q').textContent=''; $('#b-a').textContent=''; $('#b-n').textContent='';
+    setStamp(false);
+    $('#count').textContent='0 / 0'; $('#bar').style.width='0%';
+    return;
+  }
+  if(S.idx>=ids.length) S.idx=ids.length-1;
+  const c=CARDS.find(x=>x.id===ids[S.idx]);
+  $('#f-cat').textContent=CATS[c.c];
+  const fs=$('#f-src'), bs=$('#b-src'); fs.innerHTML=''; bs.innerHTML='';
+  c.y.forEach(p=>{
+    fs.appendChild(el('b', c.k?'hot':'', srcText(p)));
+    bs.appendChild(el('b', c.k?'hot':'', srcText(p)));
+  });
+  $('#f-q').textContent=c.q;
+  $('#b-q').textContent=c.q;
+  $('#b-a').textContent=c.a;
+  const n=$('#b-n'); n.innerHTML=fmt(c.n); n.className='n'+(c.warn?' warn':''); n.hidden=!c.n;
+  setStamp(S.marks[c.id]==='known');
+  $('#count').textContent=(S.idx+1)+' / '+ids.length;
+  $('#bar').style.width=((S.idx+1)/ids.length*100)+'%';
+  document.querySelectorAll('.face-body').forEach(b=>b.scrollTop=0);
+}
+function updateTally(){
+  const k=Object.values(S.marks).filter(v=>v==='known').length;
+  $('#tally').innerHTML='覚えた <b>'+k+'</b> / 全 '+CARDS.length+' 問　（表示中 '+S.order.length+' 問）';
+}
+function setFlip(v){ S.flipped=v; $('#stage').classList.toggle('flipped',v); }
+function resetFlip(){
+  if(!S.flipped){ return; }
+  const f=document.querySelector('.flipper');
+  f.style.transition='none'; setFlip(false);
+  requestAnimationFrame(()=>{ f.style.transition=''; });
+}
+
+/* ---- 移動 ---- */
+function restorePos(id){
+  if(!id) return;
+  const i=S.order.indexOf(id);
+  if(i>=0){ S.idx=i; resetFlip(); render(); }
+}
+function slide(dir){
+  saveFilters();          // 現在位置を覚える
+  resetFlip();
+  const st=$('#stack');
+  st.style.transition='none';
+  st.style.transform='translateX('+(dir>0?36:-36)+'px)';
+  st.style.opacity='0';
+  render();
+  requestAnimationFrame(()=>{
+    st.style.transition='transform .22s ease, opacity .22s ease';
+    st.style.transform=''; st.style.opacity='1';
+  });
+}
+function go(dir){
+  if(!S.order.length) return;
+  S.idx=(S.idx+dir+S.order.length)%S.order.length;
+  // 進むときだけ、覚えた札は飛ばす（戻るときは出す＝取り消せる）
+  if(dir>0 && S.againOnly){
+    let guard=S.order.length;
+    while(guard-- > 0 && S.marks[S.order[S.idx]]==='known'){
+      S.idx=(S.idx+1)%S.order.length;
+    }
+  }
+  slide(dir);
+}
+function toggleMark(){
+  if(!S.order.length) return;
+  const id=S.order[S.idx];
+  const now = S.marks[id]==='known';
+  if(now){ delete S.marks[id]; }
+  else { S.marks[id]='known'; S.kept.add(id); }   // 進まない。押し直しで取り消せる
+  setStamp(!now);
+  save(); updateTally();
+}
+function setStamp(on){
+  $('#stamp').classList.toggle('on', on);
+  $('#stamp-b').classList.toggle('on', on);
+}
+
+/* ---- タップ＆スワイプ ---- */
+const stage=$('#stage'), stack=$('#stack');
+let px=0,py=0,dx=0,dy=0,dragging=false,axis=null,t0=0;
+stage.style.touchAction='pan-y';
+stage.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.face-body') && e.target.closest('.face-body').scrollHeight > e.target.closest('.face-body').clientHeight + 4){ /* 縦スクロールも許可 */ }
+  dragging=true; axis=null; px=e.clientX; py=e.clientY; dx=0; dy=0; t0=Date.now();
+  stack.style.transition='none';
+});
+stage.addEventListener('pointermove',e=>{
+  if(!dragging) return;
+  dx=e.clientX-px; dy=e.clientY-py;
+  if(!axis && (Math.abs(dx)>6 || Math.abs(dy)>6)) axis = Math.abs(dx)>Math.abs(dy) ? 'x' : 'y';
+  if(axis!=='x') return;
+  e.preventDefault();
+  stack.style.transform='translateX('+dx+'px) rotate('+(dx*0.02)+'deg)';
+  stack.style.opacity=String(Math.max(.45,1-Math.abs(dx)/420));
+  $('#tag-l').style.opacity = dx>40 ? '1':'0';
+  $('#tag-r').style.opacity = dx<-40 ? '1':'0';
+});
+function endDrag(){
+  if(!dragging) return;
+  dragging=false;
+  $('#tag-l').style.opacity='0'; $('#tag-r').style.opacity='0';
+  const quick = Date.now()-t0 < 260;
+  if(axis==='x' && (Math.abs(dx)>62 || (quick && Math.abs(dx)>34))){
+    go(dx<0 ? 1 : -1);
+    return;
+  }
+  stack.style.transition='transform .2s ease, opacity .2s ease';
+  stack.style.transform=''; stack.style.opacity='1';
+  if(axis===null && Math.abs(dx)<8 && Math.abs(dy)<8){ setFlip(!S.flipped); hideHint(); }
+}
+stage.addEventListener('pointerup',endDrag);
+stage.addEventListener('pointercancel',endDrag);
+stage.addEventListener('pointerleave',endDrag);
+function hideHint(){ if(!S.hinted){ S.hinted=true; $('#hint').classList.add('gone'); } }
+
+$('#btn-prev').onclick=()=>go(-1);
+$('#btn-next').onclick=()=>go(1);
+['#stamp','#stamp-b'].forEach(sel=>{
+  const b=$(sel);
+  b.onclick=e=>{ e.stopPropagation(); toggleMark(); };
+  b.addEventListener('pointerdown',e=>e.stopPropagation());
+  b.addEventListener('pointerup',e=>e.stopPropagation());
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if($('#stage').hidden) return;
+  if(e.key===' '||e.key==='ArrowDown'){ e.preventDefault(); setFlip(!S.flipped); hideHint(); }
+  else if(e.key==='ArrowRight') go(1);
+  else if(e.key==='ArrowLeft') go(-1);
+  else if(e.key==='1'||e.key==='o'||e.key==='Enter') toggleMark();
+});
+
+/* ---- シート ---- */
+function sheet(v){ $('#sheet').classList.toggle('on',v); $('#sheet-bg').classList.toggle('on',v); if(v) updateTally(); }
+$('#btn-gear').onclick=()=>sheet(true);
+$('#btn-close').onclick=()=>sheet(false);
+$('#sheet-bg').onclick=()=>sheet(false);
+$('#btn-shuffle').onclick=()=>{
+  for(let i=S.order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.order[i],S.order[j]]=[S.order[j],S.order[i]];}
+  S.idx=0; setFlip(false); render(); sheet(false);
+};
+$('#btn-reset').onclick=()=>{ S.marks={}; save(); render(); };
+
+/* ---- 一覧 ---- */
+function renderList(f){
+  const box=$('#list-body'); box.innerHTML='';
+  f=(f||'').trim().toLowerCase();
+  const rows=CARDS.filter(c=>!f || (c.q+c.a+plain(c.n)+c.y.map(srcText).join(' ')+CATS[c.c]).toLowerCase().includes(f));
+  if(!rows.length){ box.appendChild(el('div','empty','見つかりませんでした。')); return; }
+  rows.forEach(c=>{
+    const d=el('div','row');
+    d.appendChild(el('p','rq',c.q));
+    d.appendChild(el('p','ra',c.a));
+    d.appendChild(el('div','rs',c.y.map(srcText).join('　')));
+    box.appendChild(d);
+  });
+}
+$('#q-search').addEventListener('input',e=>renderList(e.target.value));
+
+/* ---- タブ ---- */
+const STUDY=['#meta','#stage','.pad','.pad-label'];
+const tabs=[['#tab-study','study'],['#tab-list','#view-list'],['#tab-trend','#view-trend']];
+function show(which){
+  S.tab=which; saveFilters();
+  tabs.forEach(([t,v])=>$(t).setAttribute('aria-selected', v===which));
+  const isStudy = which==='study';
+  STUDY.forEach(s=>{ const n=$(s); if(n) n.hidden=!isStudy; });
+  $('#view-list').hidden = which!=='#view-list';
+  $('#view-trend').hidden = which!=='#view-trend';
+}
+tabs.forEach(([t,v])=>$(t).onclick=()=>show(v));
+
+(function init(){
+  const saved=loadFiltersSync();
+  applyFilters(saved);
+  buildChips();
+  renderList('');
+  rebuild();
+  if(saved) restorePos(saved.cur);
+  show(S.tab||'study');
+  if(!saved){
+    loadFiltersAsync().then(o=>{
+      if(applyFilters(o)){ syncChips(); rebuild(); show(S.tab||'study'); }
+    }).catch(()=>{});
+  }
+  load().then(m=>{
+    if(!m || typeof m!=='object') return;
+    const live=new Set(CARDS.map(c=>c.id));
+    const kept={};
+    Object.keys(m).forEach(k=>{ if(live.has(k)) kept[k]=m[k]; });  // 消えた／直した問題の記録は捨てる
+    S.marks=kept;
+    if(S.againOnly){ const cur=S.order[S.idx]; rebuild(); restorePos(cur); }
+    else render();   // 覚えた記録は非同期で届くので、山を組み直す
+  }).catch(()=>{});
+})();
+</script>
+</body>
+</html>
