@@ -11,7 +11,8 @@ data/wnew.pkl を /tmp/claude-0/t/exact/wnew.pkl に置く。pip install rhino3d
   python3 south/finish.py OUT/s4.3dm OUT/s5.3dm model/sodachiya_approachA_layers.3dm
   python3 south/add_west_south.py OUT/s5.3dm OUT/s6.3dm data/wnew.pkl                   # 西館の外壁と開口（南の入口・遊戯室の窓・大戸は data/play.json）、キッチン・更衣・はれのま・東の帯・スパン 7
   python3 south/add_play.py OUT/s6.3dm OUT/s7.3dm data/play.json data/wnew.pkl          # 遊戯室の遊具・しつらえ（レイヤー 80〜89、寸法は遊戯室のスレッドの data/play.json）
-  python3 south/add_site.py OUT/s7.3dm model/sodachiya_exact_mesh.3dm                   # 敷地の現況：高野川の護岸（02、寸法は仮）
+  python3 south/add_hall.py OUT/s7.3dm OUT/s7b.3dm data/forest.json                     # ホールの北山杉の林（55、木ごとの h、頂部は半球）・スパン 11 の静養室／記録の机／園長室・2 階の更衣・ロッカー（43b）
+  python3 south/add_site.py OUT/s7b.3dm model/sodachiya_exact_mesh.3dm model/sodachiya_garden_layers.3dm   # 護岸（02、公園の角で GL−5.0）＋園庭の取り込み（90〜98、98 は隠す）
   python3 south/clean_wire.py model/sodachiya_exact_mesh.3dm model/sodachiya_exact.3dm   # Rhino 用（ワイヤフレームの筋なし）
   python3 south/draw100.py model/sodachiya_exact_mesh.3dm model/drawings                 # 1/100 平面・断面（モデルを直したら毎回）
 finish.py：レイヤー統合・00〜69 に番号整理・ガラス材質（透明 0.8／すり 0.4）・外構を -300 で取り込み。

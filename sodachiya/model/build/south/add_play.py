@@ -78,8 +78,10 @@ for ang, L in st['branches']:
     K.tube([*(c_st + d * 300), 950], [*mid, (950 + zt) / 2 + 300], 170, 120, L_ST, (138, 106, 68))
     K.tube([*mid, (950 + zt) / 2 + 300], [*tip, zt], 120, 60, L_ST, (138, 106, 68))
 # ---------------------------------------------------------------- 洞の台・道具入れ
-cv = P['cave']; pf = cv['platform']
-K.prism(RW(cv['u0'] + 0.1, cv['u1'] - 0.1, pf[0], pf[1]).intersection(PLAY), 0.0, pf[2] * 1000, L_DK)
+cv = P['cave']
+if 'platform' in cv:                                    # 腰掛けの台（10-21 夜 9 でやめた。キーがあれば作る）
+    pf = cv['platform']
+    K.prism(RW(cv['u0'] + 0.1, cv['u1'] - 0.1, pf[0], pf[1]).intersection(PLAY), 0.0, pf[2] * 1000, L_DK)
 store = RW(cv['u0'], cv['u1'], cv['store'][0], cv['store'][1]).intersection(PLAY)
 K.prism(store, 0.0, cv['beam_bottom'] * 1000, L_SO)
 # ---------------------------------------------------------------- デッキ・家具階段
@@ -89,26 +91,95 @@ ds = P['deck_steps']; n_ = len(ds['hs'])
 for k, h in enumerate(ds['hs']):
     ua = ds['u0'] + (ds['u1'] - ds['u0']) * k / n_; ub = ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_
     K.prism(RW(ua, ub, ds['w0'], ds['w1']), 0.0, h * 1000, L_DK)
-# ---------------------------------------------------------------- キャットウォーク（h3.0、幅 0.9、手すり h1.1）・輪の通路・橋
+# 北の口のついたて（L 字、吸音、h2.4）
+if 'screen' in P:
+    sc = P['screen']
+    K.prism(RW(sc['u0'], sc['u1'], sc['w'], sc['w'] + sc['t']), 0.0, sc['h'] * 1000, L_DK, (201, 183, 154))
+    K.prism(RW(sc['u0'], sc['u0'] + sc['t'], sc['return_w'], sc['w'] + sc['t'], 0.02), 0.0, sc['h'] * 1000, L_DK, (201, 183, 154))
+# ---------------------------------------------------------------- キャットウォーク（h3.0、北で段で h2.0 へ）・輪の通路・網の吊り橋・踊り場・はしご
 cw = P['catwalk']; H = cw['h'] * 1000; TH = 100.0; RAIL = cw['rail'] * 1000
 band = WN.buffer(-cw['inset'] * 1000, join_style=1).difference(WN.buffer(-(cw['inset'] + cw['width']) * 1000, join_style=1))
 zone = unary_union([RW(cw['u_start'], 60, -0.5, 1.6), RW(cw['north_u'], 60, -0.5, cw['west_w'])])
 CAT = band.intersection(zone)
+stp = cw.get('steps')
+ld = P.get('landing'); HL = ld['h'] * 1000 if ld else H
+def cat_pieces():
+    """キャットウォークを高さごとに分ける：東から w0 まで h3.0、段（n 段）、w1 から西は踊り場の高さ"""
+    if not stp: return [(CAT, H)]
+    out = [(CAT.intersection(RW(0, 60, -1, stp['w0'])), H)]
+    for k in range(stp['n']):
+        wa = stp['w0'] + (stp['w1'] - stp['w0']) * k / stp['n']; wb = stp['w0'] + (stp['w1'] - stp['w0']) * (k + 1) / stp['n']
+        out.append((CAT.intersection(RW(0, 60, wa, wb)), (stp['from_h'] - stp['rise'] * (k + 1)) * 1000))
+    out.append((CAT.intersection(RW(0, 60, stp['w1'], 30)), stp['to_h'] * 1000))
+    return out
+for g, z in cat_pieces(): K.prism(g, z - TH, z, L_CW)
 rg = P['ring']; ring_in = Point(c_net).buffer(rg['inner_r'] * 1000, resolution=48); ring_out = Point(c_net).buffer(rg['outer_r'] * 1000, resolution=48)
 RING = ring_out.difference(ring_in)
-bf, bt, bw = P['bridge']['from'], P['bridge']['to'], P['bridge']['width']
-BRIDGE = RW(bf[0], bt[0], bf[1] - bw / 2, bf[1] + bw / 2).difference(ring_in)
-WALK = unary_union([CAT, RING, BRIDGE])
-K.prism(WALK, H - TH, H, L_CW)
-# 手すり：通路の縁のうち、壁に沿わない所（厚さ 30）
+K.prism(RING, H - TH, H, L_CW)
+LAND = None
+if ld:
+    c_ld = np.array(xy(ld['u'], -0.9 - ld['w']))
+    LAND = Point(c_ld).buffer(ld['r'] * 1000, resolution=3)          # 踊り場（六角形に近い多角形）
+    K.prism(LAND, HL - TH, HL, L_CW)
+    for k in range(3):                                                # 低い柱
+        a = 2 * math.pi * k / 3 + 0.3; p = c_ld + 0.6 * ld['r'] * 1000 * np.array([math.cos(a), math.sin(a)])
+        K.tube([*p, 0], [*p, HL - TH], 45, 45, L_CW, n=8)
+    # 網の吊り橋：輪 h3.0 → 踊り場 h2.0、真ん中が sag だけ垂れる（網の面）
+    br = P['bridge']; d_ = c_ld - c_net; L_ = np.linalg.norm(d_); e_ = d_ / L_; n2 = np.array([-e_[1], e_[0]]) * br['width'] * 500
+    s0_ = rg['outer_r'] * 1000; s1_ = L_ - ld['r'] * 1000 * 0.85
+    G = []
+    for t in np.linspace(0, 1, 13):
+        p = c_net + e_ * (s0_ + (s1_ - s0_) * t)
+        z = br['h_from'] * 1000 + (br['h_to'] - br['h_from']) * 1000 * t - br['sag'] * 1000 * 4 * t * (1 - t)
+        G.append([[*(p + n2), z], [*(p - n2), z]])
+    G = np.array(G).transpose(1, 0, 2)
+    K.surface(G, L_NET, (122, 90, 54))
+    for side in (1, -1):                                              # 網の手すりの縁綱（h0.9 上）
+        for i in range(12):
+            a_ = G[0 if side > 0 else 1][i]; b_ = G[0 if side > 0 else 1][i + 1]
+            K.tube([a_[0], a_[1], a_[2] + 900], [b_[0], b_[1], b_[2] + 900], 12, 12, L_NET, STEEL, n=6, caps=False)
+WALK = unary_union([CAT, RING] + ([LAND] if LAND is not None else []))
+# 手すり：通路の縁のうち、壁に沿わない所（縦格子 h1.1、ここでは厚さ 30 の面で表す）
 edge = WALK.boundary.difference(WN.buffer(-cw['inset'] * 1000 + 20).exterior.buffer(60)).difference(ring_in.buffer(5))
-K.prism(edge.buffer(15, cap_style=2).intersection(WALK.buffer(16)), H, H + RAIL, L_CW)
-# ネットを留める鋼の輪と吊り材 6 本
+for g, z in cat_pieces() + [(RING, H)] + ([(LAND, HL)] if LAND is not None else []):
+    e_g = edge.intersection(g.buffer(20))
+    if not e_g.is_empty: K.prism(e_g.buffer(15, cap_style=2).intersection(g.buffer(16)), z, z + RAIL, L_CW)
+# はしご（踊り場へ）
+if 'ladder' in P:
+    la = P['ladder']; a0 = np.array(xy(la['base'][0], -0.9 - la['base'][1])); a1 = np.array(xy(la['top'][0], -0.9 - la['top'][1]))
+    dl = (a1 - a0) / np.linalg.norm(a1 - a0); nl = np.array([-dl[1], dl[0]]) * la['width'] * 500
+    for sgn in (1, -1):
+        K.tube([*(a0 + nl * sgn), 0], [*(a1 + nl * sgn), la['h'] * 1000], 25, 25, L_CW, n=8)
+    nr = int(round(la['h'] / la['rung']))
+    for k in range(1, nr):
+        t = k / nr; p = a0 + (a1 - a0) * t
+        K.tube([*(p + nl), t * la['h'] * 1000], [*(p - nl), t * la['h'] * 1000], 15, 15, L_CW, n=6)
+# ネットを留める鋼の輪
 K.prism(ring_in.buffer(40).difference(ring_in), H - 150, H, L_NET, STEEL)
-for k in range(rg['rods']):
-    a = 2 * math.pi * (k + 0.5) / rg['rods']; rr_ = (rg['inner_r'] + rg['outer_r']) / 2 * 1000
-    p = c_net + rr_ * np.array([math.cos(a), math.sin(a)])
-    K.tube([*p, H], [*p, under_roof(*p)], 15, 15, L_NET, STEEL, n=6)
+# 吊り材（support：吊るのは西館の梁だけ、梁の位置 u = 3 の倍数、梁の 2 枚のあいだを通す）
+SUP = P.get('support', {})
+for ub in (36, 39, 42, 45, 48):                                       # キャットウォークの外側の縁（東の壁沿い）
+    for g, z in cat_pieces():
+        p_ = g.intersection(LineString([xy(ub, -0.9), xy(ub, -30)]))
+        if p_.is_empty: continue
+        q = list(p_.coords) if p_.geom_type == 'LineString' else [c for gg in getattr(p_, 'geoms', []) for c in gg.coords]
+        if not q: continue
+        far = max(q, key=lambda c: -uv(*c)[1])                          # 部屋の側（西寄り）の縁
+        K.tube([*far, z - TH], [*far, under_roof(*far)], 8, 8, L_NET, STEEL, n=6)
+        break
+rr_ = (rg['inner_r'] + rg['outer_r']) / 2 * 1000
+spread = SUP.get('v_spread', 0.9) * 500
+for ub in (39, 42, 45):                                               # 輪：ハの字の 3 組
+    cand = sorted([(abs(uv(*(c_net + rr_ * np.array([math.cos(a), math.sin(a)])))[0] - ub), a) for a in np.linspace(0, 2 * math.pi, 72, endpoint=False)])
+    a_best = cand[0][1]
+    for da in (-0.35, 0.35):
+        p = c_net + rr_ * np.array([math.cos(a_best + da), math.sin(a_best + da)])
+        pu, pv = uv(*p); top = np.array(xy(ub, pv + (spread / 1000) * np.sign(da)))
+        K.tube([*p, H], [*top, under_roof(*top)], 8, 8, L_NET, STEEL, n=6)
+    # 東の壁の柱への水平の突っ張り
+    p = c_net + rg['outer_r'] * 1000 * np.array([math.cos(a_best), math.sin(a_best)])
+    wall = np.array(xy(ub, -0.9 - 0.15))
+    K.tube([*p, H - 60], [*wall, H - 60], 30, 30, L_NET, STEEL, n=8)
 # ---------------------------------------------------------------- 摺鉢ネット（上の縁 r2.1・h3.0 → 下の口 r0.3・h0.5）
 G = []
 for i in range(17):
@@ -118,10 +189,10 @@ for i in range(17):
     G.append([[c_net[0] + rr * math.cos(a), c_net[1] + rr * math.sin(a), z] for a in np.linspace(0, 2 * math.pi, 49)])
 K.surface(G, L_NET, (122, 90, 54))
 K.tube([*c_net, nt['bottom_h'] * 1000 - 20], [*c_net, nt['bottom_h'] * 1000 + 20], nt['bottom_r'] * 1000 + 40, nt['bottom_r'] * 1000 + 40, L_NET, STEEL, n=24)
-# ---------------------------------------------------------------- すべり台（キャットウォークの西の端 → 床）
+# ---------------------------------------------------------------- すべり台（踊り場 h2.0 → 床）
 sl = P['slide']; s0 = np.array(xy(sl['from'][0], -0.9 - sl['from'][1])); s1 = np.array(xy(sl['to'][0], -0.9 - sl['to'][1]))
 dd = (s1 - s0) / np.linalg.norm(s1 - s0); nn = np.array([-dd[1], dd[0]]) * sl['width'] * 500
-z0s, z1s = H, 350.0
+z0s, z1s = sl.get('h', cw['h']) * 1000, 350.0
 def slab(a, b, za, zb, w, zt):
     n_ = np.array([-dd[1], dd[0]]) * w
     K.box8([[*(a + n_), za], [*(b + n_), zb], [*(b - n_), zb], [*(a - n_), za],

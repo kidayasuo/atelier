@@ -107,8 +107,8 @@ def num(ln):
     mm_ = re.match(r'(\d+)', ln); return int(mm_.group(1)) if mm_ else -1
 def kind(ln):
     n = num(ln)
-    if n == 35: return 'volume'
-    if 80 <= n <= 88: return 'furn'
+    if n == 35 or 90 <= n <= 97: return 'volume'      # 園庭の小屋などは外形だけ（塗らない）
+    if 80 <= n <= 88 or n == 55: return 'furn'
     if any(k in ln for k in ('ガラス', '室内窓')) and 'ルーバー' not in ln: return 'glass'
     if n in (37, 39, 40, 46, 51, 75) or 'しつらえ' in ln: return 'furn'
     if n in (35,): return 'volume'
@@ -137,7 +137,16 @@ def poche(segs2d):
     if not ls: return None
     merged = unary_union(ls)
     polys = list(polygonize(merged))
-    if not polys: return None
+    if not polys:
+        # 端の閉じていない板（屋根のメッシュは小口が無い）：上下 2 本の線の端をつないで閉じる
+        lm = linemerge(merged) if merged.geom_type == 'MultiLineString' else merged
+        gs = [g for g in getattr(lm, 'geoms', [lm]) if g.geom_type == 'LineString' and g.length > 200]
+        if len(gs) == 2:
+            a_, b_ = [np.asarray(g.coords) for g in gs]
+            if np.hypot(*(a_[0] - b_[0])) > np.hypot(*(a_[0] - b_[-1])): b_ = b_[::-1]
+            P = Polygon(np.vstack([a_, b_[::-1]])).buffer(0)
+            if P.area > 0 and P.area < 400 * max(gs[0].length, gs[1].length): return P
+        return None
     # 入れ子（穴）は偶奇で
     polys.sort(key=lambda p: -p.area); out = None
     for p in polys:
@@ -157,6 +166,7 @@ import ezdxf, subprocess, datetime
 from ezdxf.enums import TextEntityAlignment
 from matplotlib.collections import LineCollection
 from shapely.geometry import Point
+from shapely import affinity as shp_affinity
 
 KIND_BEAM = ('11b', '11c', '22b', '22c', '22d')
 def is_beam(ln): return ln.split('_')[0] in KIND_BEAM
@@ -167,6 +177,7 @@ DL = {
     '02_切断（家具）': (8, 18, 'Continuous'),
     '03_切断（ガラス）': (5, 13, 'Continuous'),
     '04_切断（機械室などの塊）': (7, 35, 'Continuous'),
+    '05_断熱（仮）': (2, 9, 'Continuous'),
     '10_見えがかり': (7, 13, 'Continuous'),
     '11_見えがかり（家具）': (8, 9, 'Continuous'),
     '12_見えがかり（ガラス）': (5, 9, 'Continuous'),
@@ -231,9 +242,16 @@ class Ax:
         s.ax = sh.fig.add_axes([x_mm / sh.w, y_mm / sh.h, (x1 - x0) / k / sh.w, (y1 - y0) / k / sh.h])
         s.ax.set_xlim(x0, x1); s.ax.set_ylim(y0, y1); s.ax.set_aspect('equal'); s.ax.axis('off')
         s.ox, s.oy = x_mm * k - x0, y_mm * k - y0
+        s.phi = 0.0                       # モデルの座標をこの角度だけ回して描く（平面を建物の軸に合わせる）
+    def rot(s, q):
+        q = np.asarray(q, float)
+        if s.phi == 0.0: return q
+        c, n = math.cos(s.phi), math.sin(s.phi)
+        return np.c_[q[..., 0] * c - q[..., 1] * n, q[..., 0] * n + q[..., 1] * c] if q.ndim == 2 else np.array([q[0] * c - q[1] * n, q[0] * n + q[1] * c])
     def P(s, x, y): return (x + s.ox, y + s.oy)
-    def lines(s, segs, layer, lw=0.13, color='k', ls='-', z=3):
+    def lines(s, segs, layer, lw=0.13, color='k', ls='-', z=3, raw=False):
         segs = [np.asarray(q, float) for q in segs if len(q) >= 2]
+        if not raw: segs = [s.rot(q) for q in segs]
         if not segs: return
         s.ax.add_collection(LineCollection(segs, colors=color, linewidths=LW(lw), linestyles=ls, zorder=z, capstyle='butt'))
         for q in segs:
@@ -249,27 +267,32 @@ class Ax:
                 for g3 in gg.geoms:
                     if g3.geom_type in ('LineString', 'LinearRing'): segs.append(list(g3.coords))
         s.lines(segs, layer, **kw)
-    def fill(s, g, layer, fc='k', z=4):
+    def fill(s, g, layer, fc='k', z=4, hatch=None):
         if g is None or g.is_empty: return
+        if s.phi: g = shp_affinity.rotate(g, s.phi, origin=(0, 0), use_radians=True)
         for gg in getattr(g, 'geoms', [g]):
             if gg.geom_type != 'Polygon' or gg.area < 1: continue
             verts, codes = [], []
             for ring in [gg.exterior] + list(gg.interiors):
                 c = np.asarray(ring.coords); verts += c.tolist(); codes += [Path.MOVETO] + [Path.LINETO] * (len(c) - 2) + [Path.CLOSEPOLY]
-            s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='none', zorder=z))
+            s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='#777777' if hatch else 'none', lw=LW(0.05), hatch=hatch, zorder=z))
             h = s.sh.msp.add_hatch(color=7 if fc == 'k' else 8, dxfattribs={'layer': layer})
+            if hatch: h.set_pattern_fill('ANSI31', scale=20.0)
             h.paths.add_polyline_path([s.P(*p) for p in list(gg.exterior.coords)[:-1]], is_closed=True, flags=1)
             for ring in gg.interiors:
                 h.paths.add_polyline_path([s.P(*p) for p in list(ring.coords)[:-1]], is_closed=True, flags=0)
-    def text(s, x, y, t, pt, layer, ha='center', va='center', rot=0, color='k', box=False):
+    def text(s, x, y, t, pt, layer, ha='center', va='center', rot=0, color='k', box=False, raw=False):
         kw = dict(bbox=dict(fc='white', ec='none', pad=0.5, alpha=0.85)) if box else {}
+        if not raw and s.phi:                 # rot=0 の字（部屋名など）は紙の上で水平のまま、向きのある字だけ回す
+            x, y = s.rot([x, y])
+            if rot: rot = ((rot + math.degrees(s.phi)) + 90) % 180 - 90
         s.ax.text(x, y, t, ha=ha, va=va, fontsize=pt, rotation=rot, color=color, zorder=12, **kw)
         dxf_text(s.sh.msp, *s.P(x, y), t, pt * PT2MM * s.sh.k, layer, ha, va, rot)
     def bubble(s, x, y, t, layer='41_通り芯の符号', rad=450, pt=6.5):
-        th = np.linspace(0, 2 * np.pi, 33)
-        s.lines([np.c_[x + rad * np.cos(th), y + rad * np.sin(th)]], layer, lw=0.13, color='#B03030', z=11)
+        x, y = s.rot([x, y]); th = np.linspace(0, 2 * np.pi, 33)
+        s.lines([np.c_[x + rad * np.cos(th), y + rad * np.sin(th)]], layer, lw=0.13, color='#B03030', z=11, raw=True)
         s.ax.add_patch(plt.Circle((x, y), rad, fc='white', ec='none', zorder=10.5))
-        s.text(x, y, t, pt, layer, color='#B03030')
+        s.text(x, y, t, pt, layer, color='#B03030', raw=True)
 
 # ---------------------------------------------------------------- 隠れ線（近いものから、手前の形で後ろの線を切る）
 LAYER_OF = {'struct': ('01_切断（構造・壁）', '10_見えがかり'), 'other': ('01_切断（構造・壁）', '10_見えがかり'),
@@ -290,7 +313,7 @@ def merged(segs, pc):
             if g.geom_type == 'LineString' and g.length > 1: out.append(list(g.coords))
     return out
 
-def draw_cut(A, items):
+def draw_cut(A, items, insul=False):
     """items=[(ob, poche, segs)] → 塗りと切り口。返り値＝隠す形（ガラス以外）"""
     occ = []
     for ob, pc, segs in items:
@@ -305,6 +328,28 @@ def draw_cut(A, items):
         else:
             A.fill(pc, lay, fc='k', z=6); A.lines(segs, lay, lw=0.25, z=6)
         if pc is not None and k != 'glass': occ.append(pc.buffer(0))
+        n = num(ob['layer'])
+        if insul and n in (10, 20) and segs:      # 屋根（3dm では厚みの無い面）：面の下 50〜200 に断熱（垂木の間 150、仮）
+            ls_ = unary_union([LineString(q) for q in segs if len(q) >= 2])
+            ls_ = linemerge(ls_) if ls_.geom_type == 'MultiLineString' else ls_
+            bands = []
+            for g in getattr(ls_, 'geoms', [ls_]):
+                if g.geom_type != 'LineString' or g.length < 1000: continue
+                bands.append(shp_affinity.translate(g, 0, -125).buffer(75, cap_style=2, join_style=2))
+            if bands:
+                bb = unary_union(bands); xc = getattr(A, 'insul_x', None)          # 軒の出（外）は除く
+                if xc: bb = bb.intersection(box(xc[0], -1e5, xc[1], 1e5))
+                A.fill(bb, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+        if insul and pc is not None and not pc.is_empty:
+            band = None
+            if False:
+                pass
+            elif n in (17, 21):                    # 外壁：壁の中（両面 25 を残して）
+                band = pc.buffer(-25)
+            elif n in (12, 15):                    # 床：スラブの下 50（仮）
+                band = shp_affinity.translate(pc, 0, -50).difference(pc.buffer(1))
+            if band is not None and not band.is_empty and band.area > 1e4:
+                A.fill(band, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
     return unary_union(occ) if occ else None
 
 def draw_visible(A, items, occ):
@@ -321,7 +366,7 @@ def draw_visible(A, items, occ):
     return occ
 
 # ---------------------------------------------------------------- 平面
-ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)_', ln))
+ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_', ln))
 def room_name(ln):
     s = re.sub(r'^\d+[a-z]?_', '', ln); s = re.sub(r'^(1F|2F)_', '', s); return re.sub(r'（.*?）', '', s)
 
@@ -330,6 +375,7 @@ def plan(A, zcut, objs, overhead, level_z):
     for ob in objs:
         if ROOM_LAYERS(ob['layer']): continue
         z = ob['T'][:, :, 2]
+        if num(ob['layer']) == 94 and z.max() > zcut: overhead.append(ob); continue   # 園庭の木：樹冠を破線で
         if z.min() >= zcut: continue
         if z.max() > zcut and is_beam(ob['layer']): overhead.append(ob); continue      # 梁は上部（破線）
         if z.max() > zcut: cut.append(ob)
@@ -422,41 +468,58 @@ def objs_for_plan(level):
         n = num(ob['layer'])
         if ob['layer'].startswith('47'): continue
         if level == 1 and n in (41, 42, 43, 44, 45, 23): continue
+        if n in (90, 98): continue                     # 園庭の地形のメッシュは平面では描かない（等高線 91 で）
         out.append(ob)
     return out
 
+def plan_phi():
+    """平面を回す角度：建物の軸（u、北）を右へ。園庭（東）が下に来る"""
+    t = at(205000, theta_u(55000)) - at(205000, theta_u(5000)); return -math.atan2(t[1], t[0])
+PHI = plan_phi()
+def rot_pts(P):
+    c, n = math.cos(PHI), math.sin(PHI); P = np.asarray(P)[:, :2]; return np.c_[P[:, 0] * c - P[:, 1] * n, P[:, 0] * n + P[:, 1] * c]
+
 def make_plans():
-    W_, H_ = 594, 841
-    S = Sheet(W_, H_, '1 階平面図・西館 2 階平面図　1/100（A1）')
+    """A1 横。建物の軸に合わせて回す（北が右、園庭が下）。上の方位の矢印が本当の北"""
+    W_, H_ = 841, 594
+    S = Sheet(W_, H_, '1 階平面図・西館 2 階平面図　1/100（A1）　建物の軸に合わせて回してある（北は方位の矢印）')
     objs1 = objs_for_plan(1)
-    allp = np.vstack([ob['T'].reshape(-1, 3) for ob in objs1 if num(ob['layer']) < 70])
-    x0, y0 = allp[:, :2].min(0) - 2000; x1, y1 = allp[:, :2].max(0) + 2000
-    x1 += 2500                                     # 東の通り芯の符号と寸法の分
-    A = S.axes(25, 40, (x0, x1, y0, y1))
+    allp = rot_pts(np.vstack([ob['T'].reshape(-1, 3) for ob in objs1 if 2 < num(ob['layer']) < 70 or num(ob['layer']) in (0, 1)]))
+    x0, y0 = allp.min(0) - 2000; x1, y1 = allp.max(0) + 2000
+    y0 -= 2500                                     # 東（下）の通り芯の符号と寸法の分
+    gx0 = (W_ - (x1 - x0) / 100) / 2
+    A = S.axes(max(15, gx0), 25, (x0, x1, y0, y1)); A.phi = PHI
     for ln, P in CURVES:
+        if num(ln) in (94, 98): continue
+        if num(ln) == 91: A.lines([P[:, :2]], '30_敷地・外構', lw=0.05, color='0.7', z=1); continue
+        if num(ln) == 92: A.lines([P[:, :2]], '30_敷地・外構', lw=0.13, color='#3d6f9a', z=1); continue
         if num(ln) >= 70 or num(ln) < 2: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.55', z=1)
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
     plan(A, 1200, objs1, list(roofs), 0)
     plan_grid(A); plan_section_marks(A)
-    # 縮尺・方位
+    # 縮尺・方位（紙の上の座標＝回した後の座標で）
     for i in range(5):
-        A.ax.add_patch(plt.Rectangle((x0 + 2000 + i * 1000, y0 + 1000), 1000, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
-    A.text(x0 + 2000, y0 + 1500, '0', 5, '80_図名・縮尺・方位'); A.text(x0 + 7000, y0 + 1500, '5 m', 5, '80_図名・縮尺・方位')
-    A.lines([[(x1 - 2500, y1 - 5000), (x1 - 2500, y1 - 1500)]], '80_図名・縮尺・方位', lw=0.25)
-    A.lines([[(x1 - 2800, y1 - 2100), (x1 - 2500, y1 - 1500), (x1 - 2200, y1 - 2100)]], '80_図名・縮尺・方位', lw=0.25)
-    A.text(x1 - 2500, y1 - 1000, 'N', 8, '80_図名・縮尺・方位', va='bottom')
-    A.text(x0 + 2000, y1 - 1500, '1 階平面図　FL+1200 で切断　1/100', 9, '80_図名・縮尺・方位', ha='left', va='top')
-    # 西館 2 階：右の空きに
-    west = np.vstack([ob['T'].reshape(-1, 3) for ob in OBJ if num(ob['layer']) in (21, 23)])
-    wx0, wy0 = west[:, :2].min(0) - 1500; wx1, wy1 = west[:, :2].max(0) + 1500
-    used_w = (x1 - x0) / 100
-    xm = 25 + used_w + 10 if 25 + used_w + 10 + (wx1 - wx0) / 100 < W_ - 12 else W_ - 15 - (wx1 - wx0) / 100
-    A2 = S.axes(xm, H_ - 40 - (wy1 - wy0) / 100, (wx0, wx1, wy0, wy1))
-    o2 = [ob for ob in OBJ if not ob['layer'].startswith('47')]
-    o2 = [ob for ob in o2 if (ob['T'][:, :, :2].reshape(-1, 2).min(0) > [wx0, wy0]).all() and (ob['T'][:, :, :2].reshape(-1, 2).max(0) < [wx1, wy1]).all()]
+        A.ax.add_patch(plt.Rectangle((x0 + 2000 + i * 1000, y0 + 1000), 1000, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1), zorder=12))
+    A.text(x0 + 2000, y0 + 1500, '0', 5, '80_図名・縮尺・方位', raw=True); A.text(x0 + 7000, y0 + 1500, '5 m', 5, '80_図名・縮尺・方位', raw=True)
+    nd = np.array([-math.sin(PHI), math.cos(PHI)])      # 本当の北（モデルの +y）を回したもの
+    pd = np.array([-nd[1], nd[0]]); c0 = np.array([x0 + 3500, y1 - 5500])
+    A.lines([[c0 - nd * 1700, c0 + nd * 1700]], '80_図名・縮尺・方位', lw=0.25, raw=True)
+    A.lines([[c0 + nd * 1100 + pd * 300, c0 + nd * 1700, c0 + nd * 1100 - pd * 300]], '80_図名・縮尺・方位', lw=0.25, raw=True)
+    q = c0 + nd * 2300; A.text(q[0], q[1], 'N', 8, '80_図名・縮尺・方位', raw=True)
+    A.text(x0 + 2000, y1 - 1000, '1 階平面図　FL+1200 で切断　1/100　（右が北の端、下が園庭）', 9, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    # 西館 2 階：上の空きに（同じ向き）
+    west = rot_pts(np.vstack([ob['T'].reshape(-1, 3) for ob in OBJ if num(ob['layer']) in (21, 23)]))
+    wx0, wy0 = west.min(0) - 1500; wx1, wy1 = west.max(0) + 1500
+    gy = 25 + (y1 - y0) / 100 + 8
+    if gy + (wy1 - wy0) / 100 > H_ - 25: gy = H_ - 25 - (wy1 - wy0) / 100
+    A2 = S.axes(max(15, gx0) + (wx0 - x0) / 100, gy, (wx0, wx1, wy0, wy1)); A2.phi = PHI
+    o2 = [ob for ob in OBJ if not ob['layer'].startswith('47') and num(ob['layer']) not in (90, 94, 98)]
+    def inside(ob):
+        q = rot_pts(ob['T'].reshape(-1, 3)); return (q.min(0) > [wx0, wy0]).all() and (q.max(0) < [wx1, wy1]).all()
+    o2 = [ob for ob in o2 if inside(ob)]
     o2 = [ob for ob in o2 if ob['T'][:, :, 2].max() > 3000 or num(ob['layer']) in (21, 22, 25)]
     plan(A2, 3250 + 1200, o2, [ob for ob in OBJ if num(ob['layer']) == 20], 3250)
-    A2.text(wx0, wy1, '西館 2 階平面図　2FL+1200 で切断　1/100（梁は破線）', 9, '80_図名・縮尺・方位', ha='left', va='bottom')
+    A2.text(wx0, wy1, '西館 2 階平面図　2FL+1200 で切断　1/100（梁は破線）', 9, '80_図名・縮尺・方位', ha='left', va='bottom', raw=True)
     return S
 
 # ---------------------------------------------------------------- 断面
@@ -494,18 +557,18 @@ def section_u(A, theta, depth=3200):
     D = lambda P: (P - p0) @ u_t
     far, cuts = [], []
     for ob in OBJ:
-        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77): continue
+        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98: continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
         T = ob['T']; d = D(T.reshape(-1, 3)).reshape(-1, 3)
         if d.max() < 0 or d.min() > depth: continue
         if d.min() < 0 < d.max():
             segs = slice_tris(T, p0, u_t)
             S2 = [((X(s[0]), s[0][2]), (X(s[1]), s[1][2])) for s in segs]
             cuts.append((ob, poche(S2), S2))
-        if num(ob['layer']) == 2: continue                    # 川の護岸は切り口だけ（見えがかりは長くなりすぎる）
+        if num(ob['layer']) in (2, 90): continue              # 川の護岸・園庭の地形は切り口だけ（見えがかりは長くなりすぎる）
         keep = (d.max(1) >= 0) & (d.min(1) <= depth)
         T2 = np.stack([X(T[keep].reshape(-1, 3)).reshape(-1, 3), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, d.min()), ob, silhouette(T2)))
-    occ = draw_cut(A, cuts)
+    occ = draw_cut(A, cuts, insul=True)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
     A.lines([[(-17500, -300), (17800, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)   # GL
@@ -523,7 +586,7 @@ def section_arc(A, Rc, depth=30000):
     X = lambda th: SGN * (th - TH_S[0]) * Rc
     far, cuts = [], []
     for ob in OBJ:
-        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77): continue
+        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98: continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
         T = ob['T']; rr, th = RTH(T)
         if rr.max() < Rc or rr.min() > Rc + depth: continue
         if rr.min() < Rc < rr.max():
@@ -538,11 +601,11 @@ def section_arc(A, Rc, depth=30000):
                         t = ff[i] / (ff[i] - ff[j]); pts.append((X(tt[i] + (tt[j] - tt[i]) * t), tri[i][2] + (tri[j][2] - tri[i][2]) * t))
                 if len(pts) == 2: segs.append(pts)
             cuts.append((ob, poche(segs), segs))
-        if num(ob['layer']) == 2: continue                    # 川の護岸は切り口だけ
+        if num(ob['layer']) in (2, 90): continue              # 川の護岸・園庭の地形は切り口だけ
         keep = rr.max(1) >= Rc
         T2 = np.stack([X(th[keep]), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, rr.min() - Rc), ob, silhouette(T2)))
-    occ = draw_cut(A, cuts)
+    occ = draw_cut(A, cuts, insul=True)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
     A.lines([[(-5000, -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
@@ -563,6 +626,7 @@ def make_sections():
     S = Sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
     extA = (-14500, 65500, -5600, 10500)
     A = S.axes(30, H_ - 40 - 161, extA)
+    A.insul_x = (0, 57000)
     cutb = section_arc(A, SECTIONS[0][2])
     levels(A, cutb, 64300, True)
     A.text(extA[0] + 300, extA[3] - 200, f'断面 A　{SECTIONS[0][3]}', 9, '80_図名・縮尺・方位', ha='left', va='top')
@@ -572,6 +636,7 @@ def make_sections():
     extX = (-17500, 21500, -2600, 10500)
     for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
         A = S.axes(30 + i * (390 + 15), H_ - 40 - 161 - 45 - 131, extX)
+        A.insul_x = (-1e5, 12000)
         cutb = section_u(A, theta_u(val))
         westx = min([b[0] for k, b in cutb.items() if k.startswith('21_')] or [-900])
         chain_dims(A, [westx, -900, 0, 1600, 12000, 13500, 15000], -900)
