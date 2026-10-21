@@ -222,10 +222,10 @@ line(ax, XS(AM["overflow"]), lw=0.6, c="#2F6E95", ls=(0, (1, 2)), z=5.5)
 T(ax, X(46.5, 22.4), "大雨の樋（地中）", 4.2, c="#2F6E95", rot=-38)
 # シャワーの柱（床の噴水の北の端）
 sh = G["SHOWER"]; shp = np.array(X(*sh["c"]))
-ax.add_patch(Rectangle(shp - 0.55, 1.1, 1.1, fc="none", ec=C["wood"], lw=0.8, zorder=6.8))
-for k in (-0.3, 0.3):
-    ax.add_patch(Circle(shp + np.array([k, 0.0]), 0.22, fc="#CFE6F3", ec="#2F6E95", lw=0.5, zorder=6.9))
-T(ax, shp + np.array([1.0, 0.9]), "シャワーの柱（上から＋ハンド、温水）", 4.4, c="#3E6E8E", ha="left")
+ax.add_patch(Rectangle(shp - 0.09, 0.18, 0.18, fc=C["wood"], ec="none", zorder=6.9))          # 柱 1 本
+line(ax, [tuple(shp), tuple(shp + np.array([0.45, -0.35]))], lw=0.8, c=C["wood"], z=6.85)        # 腕
+ax.add_patch(Circle(shp + np.array([0.45, -0.35]), 0.3, fc="#CFE6F3", ec="#2F6E95", lw=0.5, zorder=6.8))
+T(ax, shp + np.array([1.0, 0.9]), "シャワーの柱（あめのシャワー＋ハンド、温水）", 4.4, c="#3E6E8E", ha="left")
 poly(ax, P(ell_ad(G["TANK"]["c"], G["TANK"]["r"], -30)), fc="none", ec="#4C8DB8", lw=0.35, ls=(0, (2, 1.5)), z=5.7)
 for b in G["BRIDGES"]:
     c = b["c"]
