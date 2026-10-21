@@ -1,0 +1,86 @@
+{
+ "soil": {
+  "fill_m3": 141,
+  "garden_cut_m3": 41,
+  "pit_cut_m3": 4,
+  "found_cut_m3": 537,
+  "total_cut_m3": 582,
+  "surplus_m3": 441,
+  "topsoil_m3": 177,
+  "note": "盛り土は締め固めた量。掘る土はほとんどが建物の根切り（ベタ基礎 0.4 m の仮定）"
+ },
+ "stream": {
+  "length_m": 45.6,
+  "slope": 0.0132,
+  "rows": [
+   {
+    "depth_cm": 3,
+    "v": 0.29,
+    "Q_Ls": 4.4,
+    "m3_day": 380
+   },
+   {
+    "depth_cm": 5,
+    "v": 0.39,
+    "Q_Ls": 9.9,
+    "m3_day": 851
+   },
+   {
+    "depth_cm": 8,
+    "v": 0.51,
+    "Q_Ls": 20.2,
+    "m3_day": 1748
+   }
+  ]
+ },
+ "fountain_shade_jul": [
+  {
+   "hour": 9,
+   "alt": 45,
+   "az": 96,
+   "shaded": 0.55
+  },
+  {
+   "hour": 10,
+   "alt": 57,
+   "az": 108,
+   "shaded": 0.15
+  },
+  {
+   "hour": 11,
+   "alt": 68,
+   "az": 128,
+   "shaded": 0.51
+  },
+  {
+   "hour": 12,
+   "alt": 74,
+   "az": 167,
+   "shaded": 0.61
+  },
+  {
+   "hour": 13,
+   "alt": 72,
+   "az": 216,
+   "shaded": 0.37
+  },
+  {
+   "hour": 14,
+   "alt": 62,
+   "az": 244,
+   "shaded": 0.2
+  },
+  {
+   "hour": 15,
+   "alt": 51,
+   "az": 258,
+   "shaded": 0.52
+  },
+  {
+   "hour": 16,
+   "alt": 39,
+   "az": 268,
+   "shaded": 0.95
+  }
+ ]
+}

@@ -1,5 +1,6 @@
 """園庭の木の配置の下書き：林ごとにすきまを決めて点を置き、data/garden.json の TREES に書く。
-一度書いたら図は TREES を読むので、ここを動かすのは林の組み方を変えるときだけ（手で直した木は消える）。"""
+一度書いたら図は TREES を読むので、ここを動かすのは林の組み方を変えるときだけ（手で直した木は消える）。
+10-21 夜から TREES は手で直した（木の種類・噴水の木陰のケヤキ）。もう動かさないこと：動かすと種類が消える。"""
 import json, os, random
 import numpy as np
 from shapely.geometry import Polygon, Point, LineString
