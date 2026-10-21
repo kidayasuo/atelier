@@ -135,10 +135,14 @@ def tilt_h(A, D):
 def height(A, D):
     A = np.asarray(A, float); D = np.asarray(D, float)
     h = mound_h(A, D)
+    add = np.zeros_like(h)
     for b in G["BUMPS"]:
-        h = np.maximum(h, bump_h(A, D, b))
+        if b.get("add"):
+            add = add + bump_h(A, D, b)               # 林床の盛り：上に足す
+        else:
+            h = np.maximum(h, bump_h(A, D, b))
     h = np.maximum(h, bank_h(A, D))
-    return h + bowl_h(A, D) + tilt_h(A, D)
+    return h + add + bowl_h(A, D) + tilt_h(A, D)
 
 
 # ---------------- 3dm から ----------------

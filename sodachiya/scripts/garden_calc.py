@@ -28,17 +28,30 @@ r = G["AMAOCHI"]; rain_cut = (r["u"][1] - r["u"][0]) * 0.8 * 0.35   # 雨の川�
 F = G["FOUNTAIN"]; fount_cut = math.pi * F["r"][0] * F["r"][1] * 0.35   # 床の噴水の下地・配管
 SP = G["SPLASH"]; splash_cut = math.pi * SP["r"][0] ** 2 * 0.3
 pit_cut = math.pi * 1.6 ** 2 * 0.55              # 遊戯室の穴の底（φ3.2、−450＋マットと下地）
-# 建物の根切り：ベタ基礎（深さ 約 0.4 m、外へ 0.3 m 広く）。本館 57×15（縁側を含む土間・布基礎）、西館 約 366、おむすび 30
-foot = 57 * 15.0 + 366 + 30
-found_cut = (foot + 0.3 * 2 * (57 + 15 + 80)) * 0.4
+# 建物の根切り。案 A＝ベタ基礎（深さ 約 0.4 m、外へ 0.3 m 広く）。
+# 案 B＝布基礎＋土間：根切りは基礎の下だけ（幅 0.6×深さ 0.5）。床の下は表土を 0.10 剥ぎ、掘った下の土で 0.10 埋め戻して締め固め、その上に砕石・断熱・土間。
+foot = 57 * 15.0 + 366 + 30                         # 本館 57×15、西館 約 366、おむすび 30
+found_A = (foot + 0.3 * 2 * (57 + 15 + 80)) * 0.4
+footing_len = 3 * 57 + 20 * 15 + 125 + 25          # 本館の柱の列 3 本＋架構 20 本、西館の外周と間仕切り、おむすび（目安）
+found_B = footing_len * 0.6 * 0.5
+top_B = foot * 0.10
+backfill_B = foot * 0.10
 garden_cut = bowl_cut + stream_cut + rain_cut + fount_cut + splash_cut
-LOOSE = 1.2                                       # ほぐした土はかさが増える（締め固めると戻る）
+mound_area = float(((gc.mound_h(AA, DD) > 0.02) & inside).sum() * cell)
+cap = mound_area * 0.2                              # 築山の表面 0.2 は表土
+TH0 = {"big": 3.0, "climb": 3.2, "mid": 2.1, "fruit": 2.3, "ever": 1.9}
+woods = unary_union([Point(t[0], t[1]).buffer(TH0[t[2]]) for t in G["TREES"]]).intersection(gpoly)
+forest = woods.area * 0.15                           # 木の下（林床）に表土を 0.15 足す
+subsoil_B = found_B + garden_cut + pit_cut
+use_sub_B = (fill - cap) + backfill_B
 OUT["soil"] = dict(fill_m3=round(fill), garden_cut_m3=round(garden_cut), pit_cut_m3=round(pit_cut),
-                   found_cut_m3=round(found_cut), total_cut_m3=round(garden_cut + pit_cut + found_cut),
-                   surplus_m3=round(garden_cut + pit_cut + found_cut - fill),
-                   topsoil_m3=round(gpoly.area * 0.2),
-                   note="盛り土は締め固めた量。掘る土はほとんどが建物の根切り（ベタ基礎 0.4 m の仮定）")
-
+                   A_found_cut_m3=round(found_A), A_surplus_m3=round(garden_cut + pit_cut + found_A - fill),
+                   B_footing_cut_m3=round(found_B), B_subsoil_cut_m3=round(subsoil_B), B_subsoil_use_m3=round(use_sub_B),
+                   B_subsoil_balance_m3=round(subsoil_B - use_sub_B), B_backfill_m3=round(backfill_B),
+                   B_topsoil_m3=round(top_B), B_topsoil_cap_m3=round(cap), B_woods_m2=round(woods.area), B_topsoil_forest_m3=round(forest),
+                   B_topsoil_left_m3=round(top_B - cap - forest),
+                   B_total_cut_m3=round(subsoil_B + top_B), B_total_use_m3=round(use_sub_B + cap + forest),
+                   note="A＝ベタ基礎 0.4 m、B＝布基礎＋土間（床の下は掘った土で埋め戻す）。盛り土は締め固めた量、目安")
 # ---------------- 小川の水の量（マニング） ----------------
 w = 0.5; n = 0.035                                # 幅 0.5、底は平らな石と砂利
 z0, z1 = 0.20, -0.40; S = (z0 - z1) / s_len
