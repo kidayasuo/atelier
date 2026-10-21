@@ -185,6 +185,16 @@ zone = SP(rectw(cw["u_start"], 60, -0.5, 1.6)).union(SP(rectw(cw["north_u"], 60,
 CAT = band.intersection(zone)
 poly(CAT, "#E6D3B3", C["cat"], 0.6, 10, alpha=0.85)
 poly(CAT, "none", C["cat"], 0.0, 10, hatch="....")
+# ring walkway around the net (same height as the catwalk) and a bridge to the north side
+RG = D["ring"]; npt0 = Ww(D["net"]["u"], D["net"]["w"])
+RING = SPt(npt0).buffer(RG["outer_r"], 96).difference(SPt(npt0).buffer(RG["inner_r"], 96))
+bf, bt = D["bridge"]["from"], D["bridge"]["to"]
+BRIDGE = SP(rectw(bf[0], bt[0], bf[1] - D["bridge"]["width"] / 2, bf[1] + D["bridge"]["width"] / 2)).difference(SPt(npt0).buffer(RG["inner_r"], 96))
+for g in (RING, BRIDGE):
+    poly(g, "#E6D3B3", C["cat"], 0.6, 10.2, alpha=0.85); poly(g, "none", C["cat"], 0.0, 10.2, hatch="....")
+for k in range(RG["rods"]):
+    a = 2 * math.pi * (k + 0.5) / RG["rods"]; rr_ = (RG["inner_r"] + RG["outer_r"]) / 2
+    circ((npt0[0] + rr_ * math.cos(a), npt0[1] + rr_ * math.sin(a)), 0.07, fc="#333333", ec="none", z=12)
 # slide from the catwalk's west end
 sl = D["slide"]; s0, s1 = np.array(Ww(*sl["from"])), np.array(Ww(*sl["to"]))
 sd = (s1 - s0) / np.linalg.norm(s1 - s0); sn = np.array([-sd[1], sd[0]]) * sl["width"] / 2
@@ -216,16 +226,14 @@ for (ua, ub) in [(D["niches"][0][1], D["niches"][1][0]), (D["niches"][1][1], D["
 rb = D["round_bench"]
 rbz = WB.difference(WB.buffer(-rb["depth"], join_style=1)).intersection(SP(rectw(rb["u0"], rb["u1"], 6.5, 20)))
 poly(rbz, "#D9C49A", "#5a4026", 0.5, 6)
-# north low window to the reading garden, and the maple
+# north window seat facing the reading garden's maple
 nw = D["north_window"]
-nline = SL([Ww(51.2, nw["w0"]), Ww(51.2, nw["w1"])])
-ylab = None
-for (u, v) in [(51.0, -0.9 - nw["w0"])]: pass
 north_edge = WB.exterior.intersection(SP(rectw(50.6, 51.6, nw["w0"], nw["w1"])))
 if not north_edge.is_empty:
     gs = [north_edge] if north_edge.geom_type == "LineString" else list(getattr(north_edge, "geoms", []))
     for g in gs:
         if g.geom_type == "LineString": line(list(g.coords), 1.6, C["glass"], z=9)
+poly(SP(rectw(51.0 - 0.15 - nw["seat_d"], 51.0 - 0.15, nw["w0"], nw["w1"])), "#D9C49A", "#5a4026", 0.5, 6.5)
 if MAPLE:   # the maple stands about 3 m north of the north window (outside this sheet): point to it
     a0 = Ww(50.9, 1.6); a1 = Ww(51.6, 1.6)
     ax.add_patch(FancyArrowPatch(a0, a1, arrowstyle="-|>", mutation_scale=8, color="#B4553A", lw=0.8, zorder=9))
@@ -276,14 +284,14 @@ NUMS = [
     (Ww(31.5, 12.0), "道具入れ 約 %.1f m²（西の低い隅、発表会の椅子など。倉庫 30 m² の一つに数える）" % SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY).area),
     (Ww(st["u"] + 1.9, st["w"] + 1.6), "枝付きの切り株（幹 φ1.0、枝の広がり φ4.0）。頭は 2 階の床の下、北の枝は天井の高い側へ出る。行事の日は木の前が舞台"),
     (Ww(dk["u0"] + 0.4, 2.3), "デッキ h1.2（下はマット・ボールの道具入れ）。南に家具階段 +300／600／900、東の壁に登り壁 → キャットウォーク"),
-    (Ww(44.0, 0.7), "キャットウォーク h3.0、幅 0.9（東の壁と北の角に沿う、手すり h1.1）"),
-    (Ww(nt["u"] - 2.4, nt["w"] + 0.8), "摺鉢ネット（上の輪 φ4.2 を h3.0 に、下の口 φ0.6 が h0.5）"),
+    (Ww(44.0, 0.7), "キャットウォーク h3.0、幅 0.9（東の壁と北の角に沿う、手すり h1.1）。ネットの輪から北の側へ橋（幅 0.9）を渡し、空中の輪にする"),
+    (Ww(nt["u"] - 2.4, nt["w"] + 0.8), "摺鉢ネット（上の縁 φ4.2、下の口 φ0.6 が h0.5）。まわりに輪の通路 h3.0（幅 0.8、外 φ5.8）、ネットの縁は通路の内側の鋼の輪に一周留める。輪は梁から 6 本の吊り材"),
     (Ww(nt["u"] + 1.2, nt["w"] - 0.2), "穴の底（φ3.2、−450、マット 100）"),
     (Ww(47.9, 8.9), "すべり台（キャットウォークの西の端 → 床）"),
-    (Ww(35.0, west_w(35.0) - 1.1), "ひだ：くぼみのベンチ（奥行き 0.7）。あいだに地窓"),
+    (Ww(35.0, west_w(35.0) - 1.1), "ひだ：柱と柱のあいだのくぼみ（造作の箱、奥行き 0.7、座 +300、天板 h1.4、奥に格子の覗き窓）。あいだの壁に地窓。詳しくは play02"),
     (Ww(43.3, 11.0), "北西の丸い角の丸いベンチ"),
     (Ww(47.0, 11.0), "搬入の大戸（幅 3.6×h3.0、ふだんは閉じる、避難口）"),
-    (Ww(50.6, 1.6), "北の地窓（読書の庭のモミジを見る）"),
+    (Ww(50.0, 1.6), "北の窓辺の腰掛け +300（窓 h350〜1200、座って読書の庭のモミジを見る）"),
     (W(40.7, -1.35), "東の壁の覗き窓（キャットウォークの高さ、すき間越しに本館）"),
     (Ww(FN["u"][1], 1.5), "天井扇 φ1.1 ×6（本館と同じ、越屋根の吹き抜け w 0–1.0 の真下、h6.0）"),
 ]
@@ -351,6 +359,13 @@ for side in (-1, 1):
     xs_ = np.linspace(rr, br, 20); zz = nt["bottom_h"] + (cw["h"] - nt["bottom_h"]) * ((xs_ - br) / (rr - br)) ** 1.6
     L2([(cx + side * x_, z_) for x_, z_ in zip(xs_, zz)], 1.0, C["net"], z=9)
 L2([(cx - rr, cw["h"]), (cx + rr, cw["h"])], 0.4, C["net"], ls=(0, (1, 1)), z=9)
+for sgn in (-1, 1):
+    xa, xb = cx + sgn * RG["inner_r"], cx + sgn * RG["outer_r"]
+    P2([(xa, cw["h"]), (xb, cw["h"]), (xb, cw["h"] - 0.15), (xa, cw["h"] - 0.15)], "#B08A5A", "#5a4026", 0.5, 8)
+    L2([(xb, cw["h"]), (xb, cw["h"] + cw["rail"])], 0.6, "#5a4026", z=8)
+    L2([(xa, cw["h"]), (xa, cw["h"] + 0.15)], 0.8, "#5a4026", z=8)                     # kick board at the net edge
+    L2([((xa + xb) / 2, cw["h"]), ((xa + xb) / 2, z_roof(abs(xa - X(0))) - 0.1)], 0.4, "#333333", ls=(0, (3, 2)), z=7)   # hanger rod
+T2(cx - RG["outer_r"] - 0.15, cw["h"] + 0.5, "輪の通路 h3.0", 4.6, ha="right")
 # fan under the lid (seen beyond, u 43.5)
 L2([(X(FN["w"]) - FN["d"] / 2, FN["h"]), (X(FN["w"]) + FN["d"] / 2, FN["h"])], 1.6, C["fan"], z=9)
 L2([(X(FN["w"]), FN["h"]), (X(FN["w"]), 8.3)], 0.5, C["fan"], z=9)
@@ -432,7 +447,7 @@ for i, (_, s) in enumerate(NUMS, 1):
     fig.text(lx / 297, (ly - 5 - (i - 1) * 9.2) / 420, f"{i}", fontsize=6, weight="bold")
     import textwrap
     fig.text((lx + 5) / 297, (ly - 5 - (i - 1) * 9.2) / 420, "\n".join(textwrap.wrap(s, 21)), fontsize=5.6, va="top")
-fig.text(lx / 297, 168 / 420, "遊び方の輪：南の口 → 家具階段 → デッキ → 登り壁 →\nキャットウォーク → ネットで降りる（穴の底）／すべり台 →\n北の口から西吹き抜けへ。木は低い洞に：てっぺんが\n2 階の床に届き、枝の先が高い側へ出る。",
+fig.text(lx / 297, 168 / 420, "遊び方の輪：南の口 → 家具階段 → デッキ → 登り壁 →\nキャットウォーク ⇄ ネットの輪 ⇄ 橋 → ネットで降りる（穴の底）\n／すべり台 → 北の口から西吹き抜けへ。木は低い洞に：てっぺんが\n2 階の床に届き、枝の先が高い側へ出る。",
          fontsize=5.6, color="#7a4a1a", va="top")
 
 os.makedirs(OUT, exist_ok=True)
