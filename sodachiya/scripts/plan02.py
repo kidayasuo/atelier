@@ -211,7 +211,7 @@ txt(11.2, 7.2, "0・1歳の部屋", size=6, color="#777777")
 txt(18.8, 7.0, "医務（スパン7）", size=6, color="#777777")
 
 # frames / dims
-for uf, f in zip([12, 15, 18], [15, 14, 13]):
+for uf, f in zip([12, 15, 18], [5, 6, 7]):
     x, y = P(uf, -1.15)
     ax.text(x, y, f"架構{f}", fontsize=5, ha="center", va="center")
     line([(uf, -0.35), (uf, -0.85)], lw=0.25)
@@ -253,7 +253,7 @@ a01 = area(rect_pts(0, 12, 1.6, 12))
 print(a_room, a_wc, a_room - a_wc, a_strip, a_path, a_eng)
 
 fig.text(25 / 297, 410 / 420, "育ち舎　2歳の部屋　家具配置（たたき台）", fontsize=13, weight="medium", va="top")
-fig.text(25 / 297, 402 / 420, "1/100（A3）　2026-10-19　架構15〜13（スパン5・6）。破線は頭上（屋根板・軒・物干し・天袋）と午睡時のコット。",
+fig.text(25 / 297, 402 / 420, "1/100（A3）　2026-10-19　架構5〜7（スパン5・6、南から）。破線は頭上（屋根板・軒・物干し・天袋）と午睡時のコット。",
          fontsize=6.5, va="top", color="#444444")
 legend = [
     "1　2歳の道（先生と歩いて登園する。幅 1.2、壁なし）",

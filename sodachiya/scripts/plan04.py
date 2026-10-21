@@ -188,7 +188,7 @@ for u, v, n in labels:
     num(u, v, n)
 
 # frames / dims
-for uf, f in zip(range(30, 58, 3), range(9, -1, -1)):
+for uf, f in zip(range(30, 58, 3), range(11, 21)):
     x, y = P(uf, -1.2)
     ax.text(x, y, f"架構{f}", fontsize=5, ha="center", va="center")
     line([(uf, -0.35), (uf, -0.85)], lw=0.25)
