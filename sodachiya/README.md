@@ -9,7 +9,7 @@
 |---|---|---|
 | `model/` | 3dm。`sodachiya_exact.3dm`（本体の架構・部屋）、`sodachiya_west_case3.3dm`（西館 案3）、`sodachiya_approachA_layers.3dm`（外構、取り込み用） | 本体＝3dm のチャット、外構＝図のチャット |
 | `scripts/` | 図をつくるスクリプト（matplotlib＋shapely） | 図のチャット |
-| `data/` | 図と 3dm が共有する寸法とデータ。`approachA.json`（アプローチ A 案の寸法）、`wnew.pkl`（西館の輪郭） | 書いたチャットが責任をもつ |
+| `data/` | 図と 3dm が共有する寸法とデータ。`approachA.json`（アプローチ A 案の寸法）、`forest.json`（ホールの北山杉の林）、`wnew.pkl`（西館の輪郭） | 書いたチャットが責任をもつ |
 | `out/` | 出力した PDF・PNG | 図のチャット |
 | `mokei/` | 1/100 模型の作り方とレーザーカッター用のデータ（寸法は `data/mokei.json`） | 模型作成のチャット |
 | `archive/` | 10-18 の引き継ぎ一式（古いスクリプト、/tmp の絶対パスのまま） | 参照のみ |
@@ -30,6 +30,8 @@
 pip install shapely rhino3dm matplotlib --break-system-packages
 python sodachiya/scripts/approachA.py      # → sodachiya/out/sodachiya_site_A_1-200.pdf / .png
 python sodachiya/scripts/export3dm.py      # → sodachiya/model/sodachiya_approachA_layers.3dm
+python sodachiya/scripts/forest_gen.py     # ホールの北山杉の林の配列 → data/forest.json の TREES
+python sodachiya/scripts/forest01.py       # → sodachiya/out/sodachiya_forest_01.pdf / .png
 ```
 
 フォントは Noto Sans CJK JP。出力先は環境変数 `OUT` で変えられる。
