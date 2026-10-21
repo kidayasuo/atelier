@@ -117,13 +117,28 @@ def bowl_h(A, D):
     return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1)))
 
 
+def _ss(x):
+    x = np.clip(x, 0, 1); return x * x * (3 - 2 * x)
+
+
+def tilt_h(A, D):
+    t = G.get("TILT")
+    if not t:
+        return np.zeros_like(A, dtype=float)
+    a0, a1 = t["a"]; o0, o1 = t["d_off"]
+    fa = _ss((a0 - A) / (a0 - a1))
+    off = np.vectorize(d_edge)(A) - D          # 本館の東の線からの距離
+    fd = _ss((off - o0) / (o1 - o0))
+    return t["h"] * fa * fd
+
+
 def height(A, D):
     A = np.asarray(A, float); D = np.asarray(D, float)
     h = mound_h(A, D)
     for b in G["BUMPS"]:
         h = np.maximum(h, bump_h(A, D, b))
     h = np.maximum(h, bank_h(A, D))
-    return h + bowl_h(A, D)
+    return h + bowl_h(A, D) + tilt_h(A, D)
 
 
 # ---------------- 3dm から ----------------

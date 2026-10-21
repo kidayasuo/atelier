@@ -31,7 +31,7 @@ roll = Polygon([(a0 - 3.5, d0 + 0.5), (a0 + 7.5, d0 + 0.5), (a0 + 8.5, d0 + m["r
 field = Polygon([(36.0, 12.5), (45.5, 11.5), (47.0, 17.0), (38.0, 17.5)])
 pool = Point(*G["FOUNTAIN"]["c"]).buffer(G["FOUNTAIN"]["r"][0] + 0.6)
 sand = Polygon(G["SAND"]["poly"]).buffer(0.2)
-look = Point(*G["LOOKOUT"]["c"]).buffer(3.0)
+look = Point(*G["LOOKOUT"]["c"]).buffer(2.0).union(Polygon([(54.4, 0), (56, 0), (56, 24), (54.4, 24)]))
 splash = Point(*G["SPLASH"]["c"]).buffer(2.6); grain = Point(*G["GRAIN"]["c"]).buffer(2.0)
 bowl = Point(*G["BOWL"]["c"]).buffer(G["BOWL"]["r"] - 0.3)
 willow = Point(*G["WILLOW"]["c"]).buffer(2.2)
