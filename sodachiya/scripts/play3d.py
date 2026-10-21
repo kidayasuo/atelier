@@ -37,8 +37,7 @@ L_FL = layer('80_遊戯室_穴の底・やわらかい床', (233, 201, 166))
 L_DK = layer('81_遊戯室_デッキ・家具階段・ついたて', (216, 185, 138))
 L_CW = layer('82_遊戯室_キャットウォーク・段・輪の通路・踊り場・はしご', (176, 138, 90))
 L_NET = layer('83_遊戯室_摺鉢ネット・吊り橋・吊り材', (122, 90, 54))
-L_SL = layer('84_遊戯室_すべり台（真っ直ぐ）', (207, 224, 234))
-L_SP = layer('84b_遊戯室_すべり台（くるくる、比較）', (226, 196, 214))
+L_SL = layer('84_遊戯室_すべり台', (207, 224, 234))
 L_ST = layer('85_遊戯室_切り株（クスノキ）', (138, 106, 68))
 L_HD = layer('86_遊戯室_ひだ（くぼみ・ベンチ・腰掛け）', (217, 196, 154))
 L_SO = layer('87_遊戯室_道具入れ', (205, 187, 152))
@@ -164,37 +163,6 @@ slab(s0, s1, z0s - 60, z1s - 60, sl['width'] * 500, 60)
 for sgn in (1, -1):
     off = np.array([-dd[1], dd[0]]) * (sl['width'] * 500 - 15) * sgn
     slab(s0 + off, s1 + off, z0s, z1s, 15, 200)
-# ---------------------------------------------------------------- くるくるすべり台（比較、84b）
-ss = P['slide_spiral']; cc = X(*ss['center']); R0 = ss['r'] * 1000; hw = ss['width'] * 500
-p_ld = X(P['landing']['u'], P['landing']['w']); a0 = math.atan2(*(p_ld - cc)[::-1])     # 踊り場の向きから始まる
-def heli(sgn):
-    n = 73; out = []
-    for i in range(n):
-        t = i / (n - 1); a = a0 + sgn * 2 * math.pi * ss['turns'] * t
-        z = (ss['from_h'] + (ss['to_h'] - ss['from_h']) * t) * 1000
-        out.append((a, z))
-    return out
-# 出口が部屋の中（南東：u と w が減る向き）を向く回り方を選ぶ
-into = X(P['landing']['u'] - 1, P['landing']['w'] - 1) - p_ld; into /= np.linalg.norm(into)
-best = None
-for sgn in (1, -1):
-    a_end = a0 + sgn * 2 * math.pi * ss['turns']; tan = np.array([-math.sin(a_end), math.cos(a_end)]) * sgn
-    if best is None or tan @ into > best[1]: best = (sgn, tan @ into, tan)
-sgn, _, tan_end = best
-H_ = heli(sgn)
-def ring_pts(rr, dz=0.0):
-    return [[cc[0] + rr * math.cos(a), cc[1] + rr * math.sin(a), z + dz] for a, z in H_]
-K.surface([ring_pts(R0 - hw), ring_pts(R0 + hw)], L_SP, (226, 196, 214))                       # 滑る面
-K.surface([ring_pts(R0 + hw), ring_pts(R0 + hw, ss['side_h_outer'] * 1000)], L_SP, (226, 196, 214))   # 外の壁
-K.surface([ring_pts(R0 - hw), ring_pts(R0 - hw, ss['side_h_inner'] * 1000)], L_SP, (226, 196, 214))   # 内の壁
-K.tube([*cc, 0], [*cc, ss['from_h'] * 1000 + 900], ss['post_r'] * 1000, ss['post_r'] * 1000, L_SP, STEEL, n=12)   # 中心の柱
-a_e, z_e = H_[-1]; pe_ = cc + R0 * np.array([math.cos(a_e), math.sin(a_e)]); nrm_e = np.array([math.cos(a_e), math.sin(a_e)])
-q0 = pe_; q1 = pe_ + tan_end * ss['runout'] * 1000
-K.box8([[*(q0 - nrm_e * hw), z_e - 60], [*(q1 - nrm_e * hw), z_e - 60], [*(q1 + nrm_e * hw), z_e - 60], [*(q0 + nrm_e * hw), z_e - 60],
-        [*(q0 - nrm_e * hw), z_e], [*(q1 - nrm_e * hw), z_e], [*(q1 + nrm_e * hw), z_e], [*(q0 + nrm_e * hw), z_e]], L_SP, (226, 196, 214))
-a_s, z_s = H_[0]; ps_ = cc + R0 * np.array([math.cos(a_s), math.sin(a_s)])                    # 踊り場から入口への渡り
-K.prism(LineString([p_ld, ps_]).buffer(hw, cap_style=2).difference(Point(p_ld).buffer(P['landing']['r'] * 950, resolution=3)), z_s - 100, z_s, L_SP, WOOD)
-print('spiral', 'dir', sgn, 'start', uv(*ps_), 'end', uv(*q1))
 # ---------------------------------------------------------------- ひだ
 def face_w(u):
     ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WN.exterior)
