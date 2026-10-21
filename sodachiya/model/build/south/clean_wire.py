@@ -149,6 +149,7 @@ PARENTS = [
     ('G 外（本体）', ('60', '62', '63', '64', '67')),
     ('H 外構（詳細設計）', ('70', '71', '72', '73', '74', '75', '76', '77')),
     ('I 敷地', ('00', '01', '02')),
+    ('L 周辺の道路・建物（PLATEAU、data/context_plateau.json）', ('03', '04')),
     ('J 遊戯室の遊具・しつらえ（data/play.json）', ('80', '81', '82', '83', '84', '85', '86', '87', '88', '89')),
     ('K 園庭（data/garden.json、園庭のチャット）', ('90', '91', '92', '93', '94', '95', '96', '97', '98')),
 ]
@@ -211,7 +212,7 @@ for o in m.Objects:
     if len(T0) == 0: continue
     geo = []
     for T in components(T0):
-        k, gs = process(W, T, not any(t in m.Layers[a0.LayerIndex].Name for t in ('ルーバー', 'ネット', '切り株', '地形', '林'))); stat[k] += 1; geo += gs
+        k, gs = process(W, T, not any(t in m.Layers[a0.LayerIndex].Name for t in ('ルーバー', 'ネット', '切り株', '地形', '林', '周辺_道路'))); stat[k] += 1; geo += gs
     grp = None
     if len(geo) > 1:
         grp = len(out.Groups); out.Groups.Add(r.Group())

@@ -469,6 +469,7 @@ def objs_for_plan(level):
         if ob['layer'].startswith('47'): continue
         if level == 1 and n in (41, 42, 43, 44, 45, 23): continue
         if n in (90, 98): continue                     # 園庭の地形のメッシュは平面では描かない（等高線 91 で）
+        if n in (3, 4): continue                       # 周辺（PLATEAU）は plan_context で外形だけ
         out.append(ob)
     return out
 
@@ -479,12 +480,26 @@ PHI = plan_phi()
 def rot_pts(P):
     c, n = math.cos(PHI), math.sin(PHI); P = np.asarray(P)[:, :2]; return np.c_[P[:, 0] * c - P[:, 1] * n, P[:, 0] * n + P[:, 1] * c]
 
+def plan_context(A, ext):
+    """周辺の道路（03）と建物（04、PLATEAU）を紙の範囲の中だけ細い線で（回した後の範囲 ext で切る）"""
+    from shapely.geometry import box as _box
+    clip = shp_affinity.rotate(_box(ext[0], ext[2], ext[1], ext[3]), -PHI, origin=(0, 0), use_radians=True)
+    for ob in OBJ:
+        n = num(ob['layer'])
+        if n not in (3, 4): continue
+        sil = silhouette(ob['T'][:, :, :2])
+        if sil is None: continue
+        sil = sil.intersection(clip)
+        if sil.is_empty: continue
+        if n == 4: A.fill(sil, '30_敷地・外構', fc='0.9', z=0.5); A.geom_lines(sil, '30_敷地・外構', lw=0.07, color='0.5', z=0.6)
+        else: A.geom_lines(sil, '30_敷地・外構', lw=0.05, color='0.65', z=0.6)
+
 def make_plans():
     """A1 横。建物の軸に合わせて回す（北が右、園庭が下）。上の方位の矢印が本当の北"""
     W_, H_ = 841, 594
     S = Sheet(W_, H_, '1 階平面図・西館 2 階平面図　1/100（A1）　建物の軸に合わせて回してある（北は方位の矢印）')
     objs1 = objs_for_plan(1)
-    allp = rot_pts(np.vstack([ob['T'].reshape(-1, 3) for ob in objs1 if 2 < num(ob['layer']) < 70 or num(ob['layer']) in (0, 1)]))
+    allp = rot_pts(np.vstack([ob['T'].reshape(-1, 3) for ob in objs1 if 4 < num(ob['layer']) < 70 or num(ob['layer']) in (0, 1)]))
     x0, y0 = allp.min(0) - 2000; x1, y1 = allp.max(0) + 2000
     y0 -= 2500                                     # 東（下）の通り芯の符号と寸法の分
     gx0 = (W_ - (x1 - x0) / 100) / 2
@@ -494,6 +509,7 @@ def make_plans():
         if num(ln) == 91: A.lines([P[:, :2]], '30_敷地・外構', lw=0.05, color='0.7', z=1); continue
         if num(ln) == 92: A.lines([P[:, :2]], '30_敷地・外構', lw=0.13, color='#3d6f9a', z=1); continue
         if num(ln) >= 70 or num(ln) < 2: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.55', z=1)
+    plan_context(A, (x0, x1, y0, y1))
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
     plan(A, 1200, objs1, list(roofs), 0)
     plan_grid(A); plan_section_marks(A)
@@ -557,7 +573,7 @@ def section_u(A, theta, depth=3200):
     D = lambda P: (P - p0) @ u_t
     far, cuts = [], []
     for ob in OBJ:
-        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98: continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
+        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98 or num(ob['layer']) in (3, 4): continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
         T = ob['T']; d = D(T.reshape(-1, 3)).reshape(-1, 3)
         if d.max() < 0 or d.min() > depth: continue
         if d.min() < 0 < d.max():
@@ -586,7 +602,7 @@ def section_arc(A, Rc, depth=30000):
     X = lambda th: SGN * (th - TH_S[0]) * Rc
     far, cuts = [], []
     for ob in OBJ:
-        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98: continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
+        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98 or num(ob['layer']) in (3, 4): continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
         T = ob['T']; rr, th = RTH(T)
         if rr.max() < Rc or rr.min() > Rc + depth: continue
         if rr.min() < Rc < rr.max():
