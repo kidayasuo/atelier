@@ -7,6 +7,9 @@
   東の帯 u 22.5–30（すき間を含む、はだし ±0）
 - 海峡を東の帯の南端まで延ばす（u 21–22.5、v −0.2〜−3.4、−150）、u 22.5 に框
 - 西館 1 階の間仕切り（キッチン・更衣・はれのま、h3100＝2 階の床の下まで）：配膳口・返却口・戸・見える台所の窓
+- スパン 7（10-21 午後）：事務を西の壁に寄せる（v 0〜4.5、西吹き抜けを含む）、医務 v 4.5〜12。
+  海峡の側：事務は開ける（低いカウンター「おはようの窓口」＋開いた口、框 150）、医務は壁。境は引き込み戸。
+  海峡に飛び石 1 つ（u 21.75、v 3.4、径 0.9、上面 ±0）
 """
 import sys, math, pickle, numpy as np, rhino3dm as r
 from shapely.geometry import Polygon, Point, LineString, MultiPolygon
@@ -35,6 +38,9 @@ L_KIT = lidx('32_'); L_HARE = lidx('34_'); L_BAND = lidx('33_')
 L_GL = layer('19_西館_建具・ガラス（南の入口・窓）', (120, 170, 200))
 L_COOK = layer('57_1F_調理の更衣・便所・前室', hexc('E3DAF0'))
 rename('33_', '33_1F_東の帯（はだし ±0、ホールと一続き）')
+L_MED = lidx('59_1F_医務'); L_WV = lidx('59_1F_西吹き抜け'); L_FURN = lidx('37_')
+L_OFF7 = layer('59_1F_事務（スパン 7、おはようの窓口）', hexc('E9DCC4'))
+WV = []
 # ガラスの材質は本館のガラス戸（16）と同じ
 mi = m.Layers[lidx('16_')].RenderMaterialIndex
 if mi >= 0: m.Layers[L_GL].RenderMaterialIndex = mi
@@ -49,7 +55,9 @@ for o in m.Objects:
     if li == L_WALL and isinstance(g, r.Mesh) and len(g.Vertices) > 500:
         ztop_src = np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))])
         continue
-    if li in (L_KIT, L_HARE, L_BAND): continue
+    if li in (L_KIT, L_HARE, L_BAND, L_MED): continue
+    if li == L_WV and isinstance(g, r.Mesh):
+        WV.append(g); continue
     keep.append((g, o.Attributes))
 new = r.File3dm()
 new.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
@@ -201,5 +209,25 @@ wall_u(29.25, -3.4, -6.4)
 wall_v(-6.4, KN, 29.25)
 wall_v(-5.25, KN, 29.25, [(28.4, 29.0, 0, 2100)])                                   # 更衣｜便所
 wall_u(28.0, -3.4, -5.25, [(-3.7, -4.4, 0, 2100)])                                  # 前室｜更衣
+
+# ---------------------------------------------------------------- スパン 7：事務・医務・おはようの窓口・飛び石
+def mesh_poly(g):
+    V = np.array([[g.Vertices[i].X, g.Vertices[i].Y] for i in range(len(g.Vertices))])
+    ps = []
+    for i in range(g.Faces.Count):
+        f = g.Faces[i]; ps.append(Polygon(V[[f[0], f[1], f[2]]]).buffer(0))
+    return unary_union([p.buffer(1) for p in ps if p.area > 0]).buffer(-1)
+for g in WV:                                   # 西吹き抜けの板からスパン 7 を抜く
+    flat(mesh_poly(g).difference(R(18.0, 21.0, -0.3, 1.9)), 10, L_WV)
+flat(R(18.0, 21.0, 0.0, 4.5), 10, L_OFF7)
+flat(R(18.0, 21.0, 4.5, 12.0), 10, L_MED)
+mesh_prism(R(20.95, 21.05, 4.5, 12.0, 0.02), 0.0, const(2400.0), L_KAMA)            # 医務｜海峡の壁
+mesh_prism(R(20.95, 21.05, 0.0, 4.5, 0.02), -150.0, const(0.0), L_KAMA, (150, 110, 70))   # 框 150（海峡 −150 → ±0）
+mesh_prism(R(20.50, 20.95, 0.15, 2.9, 0.05), 0.0, const(700.0), L_FURN, (196, 160, 110))  # おはようの窓口（低いカウンター）
+for a_, b_ in ((18.0, 19.0), (20.2, 21.0)):                                         # 事務｜医務（引き込み戸 u 19.0–20.2、ふだんは開けておく）
+    mesh_prism(R(a_, b_, 4.45, 4.55), 0.0, const(2400.0), L_KAMA)
+mesh_prism(R(19.0, 20.2, 4.45, 4.55), 2100.0, const(2400.0), L_KAMA)
+c0 = xy(21.75, 3.4)
+mesh_prism(Point(c0).buffer(450, resolution=16), -150.0, const(0.0), L_KAMA, (165, 160, 150))   # 飛び石
 
 new.Write(OUT, 8); print('written', OUT, len(new.Objects))
