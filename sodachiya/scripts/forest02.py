@@ -12,9 +12,12 @@ OUT = os.environ.get("OUT", os.path.join(ROOT, "out"))
 plt.rcParams["font.family"] = "Noto Sans CJK JP"
 F = json.load(open(os.path.join(ROOT, "data", "forest.json")))
 P, TR, TOPC = F["PARAMS"], F["TREES"], F["TOP"]
-duv = np.array(F["RESULT"]["view_dir_uv"])
 
-def top(v): return TOPC["WEST_VOID_TOP"] if v < TOPC["WEST_VOID_V"] else 4.0 - v / 12.0
+def top(v, u=None, d=0.0):
+    """幹の上端：屋根の下（垂木の下端）、西吹き抜けは越屋根の中。梁の真下なら梁の下端の 0.03 手前。"""
+    if u is not None and any(abs(u - uf) < P["BEAM_HALF"] + d / 2 for uf in P["FRAMES"]):
+        return 4.0 - max(0.0, v) / 12.0 - 0.6 - TOPC["BEAM_GAP"]
+    return TOPC["WEST_VOID_TOP"] if v < TOPC["WEST_VOID_V"] else 4.0 - v / 12.0
 def roof(v):
     if v < 0: return 3.25                     # west building 2nd floor (east band)
     if v < 1.6: return 4.6
@@ -75,7 +78,7 @@ def render(ax, p, fwd, eye, title, fov=110):
     items.sort(key=lambda x: -x[0])
     for D, rel, w, t_ in items:
         half = math.degrees(math.atan2(w / 2, D))
-        b = math.degrees(math.atan2(-eye, D)); tp = math.degrees(math.atan2(top(t_["v"]) - eye, D))
+        b = math.degrees(math.atan2(-eye, D)); tp = math.degrees(math.atan2(top(t_["v"], t_["u"], t_["d"]) - eye, D))
         shade = min(1, 2.2 / D)
         ax.add_patch(Polygon([(rel - half, b), (rel + half, b), (rel + half, tp), (rel - half, tp)],
                              fc=DCOL[t_["d"]], ec="none", alpha=0.45 + 0.55 * shade, zorder=3 + 1 / D))
@@ -91,14 +94,14 @@ def render(ax, p, fwd, eye, title, fov=110):
 
 MM = 1 / 25.4
 fig = plt.figure(figsize=(420 * MM, 297 * MM))
-fig.text(14 / 420, 288 / 297, "ホールの北山杉の林　こどもの目の高さ（0.9 m）から見た景色　（たたき台・2 版：向きをもつ群）", fontsize=11, weight="bold", va="top")
+fig.text(14 / 420, 288 / 297, "ホールの北山杉の林　こどもの目の高さ（0.9 m）から見た景色　（たたき台・3 版）", fontsize=11, weight="bold", va="top")
 fig.text(14 / 420, 281 / 297, "円筒投影（横＝方位 110°、縦＝仰角）。幹は北山杉（φ50 は磨き丸太、群の φ70・100 は太鼓落とし＝両側を平らに挽いた丸太、平らな面を列の向きにそろえる）。"
          "奥の色：うす緑＝縁側のガラス越しの園庭、ベージュ＝壁、橙＝キッチンのガラス、灰＝海峡", fontsize=6.2, va="top")
 VIEWS = [
     ("A　海峡から北を見る（登園のこども）", (22.2, 8.6), (1, 0), 0.75),
-    ("B　縁側から西を見る（園庭から入ってくる）", (25.4, 12.8), (0, -1), 0.9),
+    ("B　外縁側から西を見る（園庭から入ってくる）", (25.6, 14.2), (0, -1), 0.9),
     ("C　東の帯から東を見る（遊戯室から戻る）", (28.6, -1.8), (0, 1), 0.9),
-    ("D　ひらけ（ぬしの木の脇）から比叡山の向きを見る", (27.6 + 0.35 * duv[0] - 0.45 * duv[1], 8.4 + 0.35 * duv[1] + 0.45 * duv[0]), tuple(duv), 0.9),
+    ("D　絵本の通りの入口から南東を見る", (29.8, 0.8), (-0.6, 0.8), 0.9),
 ]
 W_, H_ = 196, 100
 pos = [(14, 168), (214, 168), (14, 62), (214, 62)]
@@ -139,7 +142,9 @@ kx.add_patch(Polygon([(0, 22.5), (12, 22.5), (12, 30), (0, 30)], fc="#E3C08D", e
 kx.add_patch(Polygon([(-3.4, 21), (15, 21), (15, 22.5), (-3.4, 22.5)], fc="#D9CBB4", ec="none"))
 kx.add_patch(Polygon([(-3.4, 22.5), (0, 22.5), (0, 30.5), (-3.4, 30.5)], fc="#F4EBDD", ec="none"))
 kx.add_patch(Polygon([(12, 22.5), (15, 22.5), (15, 30.5), (12, 30.5)], fc="#F4EBDD", ec="none"))
-cl = P["CLEARING"]; kx.add_patch(Circle((cl["c"][1], cl["c"][0]), cl["r"], fc="#EED7AE", ec="#B08D57", lw=0.4, ls=(0, (3, 2))))
+from shapely.geometry import LineString as _LS
+_b = _LS([(v, u) for u, v in F["CHANNEL"]["line_uv"]]).buffer(P["CHANNEL"]["clear"] / 2, cap_style=2)
+kx.add_patch(Polygon(list(_b.exterior.coords), fc="#FFF6E6", ec="#B07A2A", lw=0.3, ls=(0, (3, 2))))
 for t_ in TR: kx.add_patch(Circle((t_["v"], t_["u"]), max(t_["d"] / 2, 0.09), fc=DCOL[t_["d"]], ec="none"))
 for (title, p, fwd, eye) in VIEWS:
     f = np.array(fwd, float); f /= np.linalg.norm(f)
@@ -157,14 +162,14 @@ def group_block(name, th):
     for t, o in zip(T, os_): hit |= np.abs(offs - o) < proj_w(t, th) / 2
     return hit.mean()
 ROSE = {}
-for k, name in enumerate(["西の群", "海峡の群"]):
-    rx = fig.add_axes([(140 + k * 52) / 420, 8 / 297, 44 / 420, 44 / 297], projection="polar")
+for k, name in enumerate(["西の群", "海峡の群"]):  # 縁側の群は疎らなので省く
+    rx = fig.add_axes([(140 + k * 56) / 420, 8 / 297, 42 / 420, 42 / 297], projection="polar")
     ths = np.radians(np.arange(0, 360, 5))
     vals = np.array([group_block(name, t % math.pi) for t in ths])
     pa = math.pi / 2 - ths                                          # +u up, +v right
     rx.plot(np.r_[pa, pa[:1]], np.r_[vals, vals[:1]] * 100, color="#6B4423", lw=1.0)
     rx.fill(np.r_[pa, pa[:1]], np.r_[vals, vals[:1]] * 100, color="#C9A27A", alpha=0.35)
-    rx.set_rlim(0, 40); rx.set_rticks([10, 20, 30]); rx.tick_params(labelsize=4.2)
+    rx.set_rlim(0, 75); rx.set_rticks([20, 40, 60]); rx.tick_params(labelsize=4.2)
     rx.set_xticks(np.radians([90, 0, 270, 180])); rx.set_xticklabels(["北", "東", "南", "西"], fontsize=5.2)
     rx.grid(lw=0.3); rx.set_title(name, fontsize=6.4, pad=4)
     ROSE[name] = (vals.min(), vals.max())
