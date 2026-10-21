@@ -135,7 +135,7 @@ def south_engawa_uv():
         from shapely.geometry import MultiPoint
         CX, CY, RW = 194.66293237, -41.34826335, 205.0177
         TH_S = math.atan2(-65.17347495 - CY, -8.9654788 - CX) % (2 * math.pi)
-        f = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model", "sodachiya_exact.3dm")
+        f = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model", "sodachiya_exact_mesh.3dm")
         m = r.File3dm.Read(f)
         lay = {l.Index: l.FullPath for l in m.Layers}
         for o in m.Objects:
