@@ -226,8 +226,12 @@ def pockets(trees, n=6):
 
 if __name__ == "__main__":
     res = []
-    for seed in range(P["SEEDS"]):
+    seeds = [P["SEED_FIXED"]] if P.get("SEED_FIXED") is not None else range(P["SEEDS"])
+    for seed in seeds:
         t, ph = grow(seed)
+        so = P["SLALOM"].get("straight_open")                      # 抱えて通れる道をまっすぐに：どの列もこの範囲の幹を抜く
+        if so:
+            t = [x for x in t if not (x[3].startswith("減速") and x[1] + x[2] / 2 > so[0] and x[1] - x[2] / 2 < so[1])]
         ch = find_channel(t)
         band = ch.buffer(P["CHANNEL"]["clear"] / 2)
         removed = [x for x in t if band.distance(Point(x[0], x[1])) < x[2] / 2 and x[3] != "ぬし"]
