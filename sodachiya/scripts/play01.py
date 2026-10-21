@@ -190,9 +190,13 @@ poly(CAT, "none", C["cat"], 0.0, 10, hatch="....")
 # ring walkway around the net (same height as the catwalk) and a bridge to the north side
 RG = D["ring"]; npt0 = Ww(D["net"]["u"], D["net"]["w"])
 RING = SPt(npt0).buffer(RG["outer_r"], 96).difference(SPt(npt0).buffer(RG["inner_r"], 96))
-bf, bt = D["bridge"]["from"], D["bridge"]["to"]
-BRIDGE = SP(rectw(bf[0], bt[0], bf[1] - D["bridge"]["width"] / 2, bf[1] + D["bridge"]["width"] / 2)).difference(SPt(npt0).buffer(RG["inner_r"], 96))
-T(Ww((bf[0] + bt[0]) / 2 + 0.6, bf[1] + 1.25), "橋\nh3.0", 5.2, c="#5a4026", z=13, bbox=dict(fc="white", ec="none", pad=0.6, alpha=0.85))
+# the bridge runs from the ring to the landing on the NW catwalk, where the slide starts: the loop closes there
+LD = D["landing"]; lpt = Ww(LD["u"], LD["w"])
+LANDING = SPt(lpt).buffer(LD["r"], 3)
+BRIDGE = SL([npt0, lpt]).buffer(D["bridge"]["width"] / 2, cap_style=2).difference(SPt(npt0).buffer(RG["inner_r"], 96)).union(LANDING)
+bm = ((npt0[0] + lpt[0]) / 2, (npt0[1] + lpt[1]) / 2)
+T((bm[0] + 1.1, bm[1] + 0.9), "橋 h3.0", 5.2, c="#5a4026", z=13, bbox=dict(fc="white", ec="none", pad=0.6, alpha=0.85))
+T((lpt[0] + 1.5, lpt[1] - 0.2), "踊り場", 5.2, c="#5a4026", z=13, bbox=dict(fc="white", ec="none", pad=0.6, alpha=0.85))
 T(Ww(D["net"]["u"] - RG["outer_r"] + 0.4, D["net"]["w"] + 1.6), "輪の通路 h3.0", 4.8, c="#5a4026", z=13, bbox=dict(fc="white", ec="none", pad=0.6, alpha=0.85))
 for g in (RING, BRIDGE):
     poly(g, "#E6D3B3", C["cat"], 0.6, 10.2, alpha=0.85); poly(g, "none", C["cat"], 0.0, 10.2, hatch="....")
@@ -300,13 +304,13 @@ NUMS = [
     (Ww(31.5, 12.0), "道具入れ 約 %.1f m²（西の低い隅、東向きの引き戸。発表会の椅子など。倉庫 30 m² の一つに数える）" % SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY).area),
     (Ww(st["u"] + 1.9, st["w"] + 1.6), "枝付きの切り株（幹 φ1.0、枝の広がり φ4.0）。頭は 2 階の床の下、北の枝は天井の高い側へ出る。行事の日は木の前が舞台"),
     (Ww(dk["u0"] + 0.4, 2.3), "デッキ h1.2（下はマット・ボールの道具入れ）。南に家具階段 +300／600／900、東の壁に登り壁 → キャットウォーク"),
-    (Ww(44.0, 0.7), "キャットウォーク h3.0、幅 0.9（東の壁と北の角に沿う、手すり h1.1）。ネットの輪から北の側へ橋（幅 0.9）を渡し、空中の輪にする"),
+    (Ww(44.0, 0.7), "キャットウォーク h3.0、幅 0.9（東の壁と北の角に沿う、手すり h1.1）。ネットの輪から北西の踊り場へ橋（幅 0.9）を渡し、空中の輪にする。踊り場ですべり台へ"),
     (Ww(nt["u"] - 2.4, nt["w"] + 0.8), "摺鉢ネット（上の縁 φ4.2、下の口 φ0.6 が h0.5）。まわりに輪の通路 h3.0（幅 0.8、外 φ5.8）、ネットの縁は通路の内側の鋼の輪に一周留める。輪は梁から 6 本の吊り材"),
     (Ww(nt["u"] + 1.2, nt["w"] - 0.2), "穴の底（φ3.2、−450、マット 100）"),
-    (Ww(47.9, 8.9), "すべり台（キャットウォークの西の端 → 床）"),
+    (Ww(45.4, 8.6), "すべり台：北西の踊り場 h3.0 から北西の面に沿って、大戸の前を滑り降りる（長さ 約 5.0、約 31°、柱の手前で床に着く）。大戸は外開きで避難の邪魔にならない。搬入の工事のときは外す"),
     (Ww(35.0, west_w(35.0) - 1.1), "ひだ：柱と柱のあいだのくぼみ（造作の箱、奥行き 0.7、座 +300、天板 h1.4、奥に格子の覗き窓）。あいだの壁に地窓。詳しくは play02"),
     (Ww(43.3, 11.0), "北西の丸い角の丸いベンチ"),
-    (Ww(47.0, 11.0), "搬入の大戸（幅 3.6×h3.0、ふだんは閉じる、避難口）"),
+    (Ww(47.0, 11.0), "搬入の大戸（幅 3.6×h3.0、外開き、ふだんは閉じる、避難口）"),
     (Ww(50.0, 1.6), "北の窓辺の腰掛け +300（窓 h350〜1200、座って読書の庭のモミジを見る）"),
     (W(40.7, -1.35), "東の壁の覗き窓（キャットウォークの高さ、すき間越しに本館）。はめ殺し（音を本館へ回さない）"),
     (Ww(46.9, 2.0), "北の口のついたて（h2.4、長さ 3.0、吸音の面＋遊戯室側は掲示板）。南の端は閉じ、北へ抜ける（穴の底を避ける）。午睡の時間はすき間側に厚手の暖簾も"),
@@ -465,7 +469,7 @@ for i, (_, s) in enumerate(NUMS, 1):
     fig.text(lx / 297, (ly - 5 - (i - 1) * 9.2) / 420, f"{i}", fontsize=6, weight="bold")
     import textwrap
     fig.text((lx + 5) / 297, (ly - 5 - (i - 1) * 9.2) / 420, "\n".join(textwrap.wrap(s, 21)), fontsize=5.6, va="top")
-fig.text(lx / 297, 168 / 420, "遊び方の輪：南の口 → 家具階段 → デッキ → 登り壁 →\nキャットウォーク ⇄ ネットの輪 ⇄ 橋 → ネットで降りる（穴の底）\n／すべり台 → 北の口から西吹き抜けへ。木は低い洞に：てっぺんが\n2 階の床に届き、枝の先が高い側へ出る。",
+fig.text(lx / 297, 168 / 420, "遊び方の輪：南の口 → 家具階段 → デッキ → 登り壁 →\nキャットウォーク → 北 → 踊り場 → 橋 → ネットの輪 → 東（一周）。\n降りるのはネット（穴の底）か、踊り場からすべり台。\n北の口から西吹き抜けへ。木は低い洞に：てっぺんが\n2 階の床に届き、枝の先が高い側へ出る。",
          fontsize=5.6, color="#7a4a1a", va="top")
 
 os.makedirs(OUT, exist_ok=True)
