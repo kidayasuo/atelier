@@ -64,6 +64,20 @@ def lattice(g, rng):
     rng.shuffle(pts)
     return pts, ea
 
+def beam_fix(u, half):
+    """架構の線（梁 2 枚組：線から ±0.09〜0.18 が梁の板、あいだ 0.18）。幹（u 方向の半幅 half）が板に当たるなら、
+    少しずらして板のあいだに入れるか、板の外へ出す。決まりではなく、立った位置がたまたま梁のあいだなら抜けて屋根まで。"""
+    for uf in P["FRAMES"]:
+        x = u - uf
+        if abs(x) - half >= 0.185 or (abs(x) + half <= 0.085): continue
+        if half <= 0.085:
+            xin = max(-(0.085 - half), min(0.085 - half, x))
+            if abs(xin - x) <= 0.06: return uf + xin
+        xo = math.copysign(0.185 + half, x if x != 0 else 1)
+        if abs(xo - x) <= 0.15: return uf + xo
+        return None
+    return u
+
 def grow(seed):
     rng = random.Random(seed)
     ph = [(rng.uniform(0.6, 1.4) * s1, rng.uniform(0.6, 1.4) * s2, rng.uniform(0, 6.28)) for s1, s2 in [(1.1, 0.4), (0.3, 0.9), (0.8, -0.7)]]
@@ -72,16 +86,20 @@ def grow(seed):
     for g in P["GROUPS"]:
         pts, ea = lattice(g, rng)
         for (u, v, r) in pts:
-            if r > field(u, v, ph): continue                       # 疎密のむら
+            if r > max(field(u, v, ph), g.get("keep_min", 0)): continue   # 疎密のむら
             rr = rng.random(); k = 3 if rr < g["triple"] else (2 if rr < g["triple"] + g["pair"] else 1)
             if k > 1:
                 d = rng.choice(P["PAIR_D"])
+                u = beam_fix(u, abs(ea[0]) * (k - 1) * d / 2 + d / 2)
+                if u is None: continue
                 if ok(u, v, k * d, trees):
                     for j in range(k):
                         o = (j - (k - 1) / 2) * d
                         trees.append((u + ea[0] * o, v + ea[1] * o, d, g["name"] + "・株立ち"))
                 continue
             d = rng.choices(P["D"], weights=g["dw"])[0]
+            u = beam_fix(u, d / 2)
+            if u is None: continue
             if ok(u, v, d, trees): trees.append((u, v, d, g["name"]))
     return trees, ph
 
