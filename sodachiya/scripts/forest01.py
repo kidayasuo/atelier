@@ -106,11 +106,22 @@ for i, t_ in enumerate(TR, 1):
     u, v, d = t_["u"], t_["v"], t_["d"]
     x, y = W(u, v)
     ax.add_patch(Circle((x, y), d / 2 + P["GAP"] / 2, fc="none", ec="#B9A27E", lw=0.25, ls=(0, (1, 1.5)), zorder=8))
-    ax.add_patch(Circle((x, y), max(d / 2, 0.06), fc=DCOL[d], ec="black", lw=0.25, zorder=9))
+    if t_.get("shape") == "taiko":                                   # 太鼓落とし：平らな面を列の向きに（少し大きめに描く）
+        a = math.radians(t_["ang"]); ea = np.array([math.cos(a), math.sin(a)]); eb = np.array([-ea[1], ea[0]])
+        hw, ht = max(d / 2, 0.07), max(t_["t"] / 2, 0.04)
+        poly([W(*(np.array([u, v]) + ea * sx * hw + eb * sy * ht)) for sx, sy in [(-1, -1), (1, -1), (1, 1), (-1, 1)]], DCOL[d], "black", 0.25, 9)
+    else:
+        ax.add_patch(Circle((x, y), max(d / 2, 0.05), fc=DCOL[d], ec="black", lw=0.25, zorder=9))
     if abs(u - round(u)) < 1e-6 and int(round(u)) in P["FRAMES"]:
         ax.add_patch(Circle((x, y), max(d / 2, 0.06) + 0.07, fc="none", ec="#333333", lw=0.5, zorder=9))
     ax.text(x + 0.16, y + 0.16, str(i), fontsize=3.6, color="#555555", zorder=10)
 
+# group labels and row direction
+for g in P["GROUPS"]:
+    a = math.radians(g["ang"]); ea = np.array([math.cos(a), math.sin(a)]); c0 = np.array(g["c"])
+    p1, p2 = c0 - ea * 0.9, c0 + ea * 0.9
+    ax.add_patch(FancyArrowPatch(W(*p1), W(*p2), arrowstyle="<->", mutation_scale=5, lw=0.5, color="#8a5a2b", zorder=11, alpha=0.8))
+    T(c0[0] - 0.35, c0[1] + 0.0, g["name"], 4.8, c="#8a5a2b", z=12)
 # labels and numbered devices
 T(26.4, -1.9, "西館の東の帯（はだし ±0）→ 遊戯室", 4.6, c="#666666", rotation=90)
 T(21.75, 9.0, "海峡（土足 −150）", 5.0, c="#6b5a3a", rotation=90)
@@ -131,7 +142,7 @@ northv = np.array([0, 1.0]); northv = np.array([northv[0] * ca - northv[1] * sa,
 ax.add_patch(FancyArrowPatch((nx, ny), (nx + northv[0] * 1.2, ny + northv[1] * 1.2), arrowstyle="-|>", mutation_scale=8, lw=0.8, color="black", zorder=20))
 ax.text(nx + northv[0] * 1.55, ny + northv[1] * 1.55, "N", fontsize=6, ha="center", va="center")
 
-fig.text(PL / 420, 290 / 297, "ホールの北山杉の林　平面 1/100（たたき台）", fontsize=11, weight="bold", va="top")
+fig.text(PL / 420, 290 / 297, "ホールの北山杉の林　平面 1/100（たたき台・2 版：向きをもつ群）", fontsize=11, weight="bold", va="top")
 n = len(TR); nd = {dd: sum(1 for t_ in TR if t_["d"] == dd) for dd in DCOL}
 fig.text(PL / 420, 282 / 297, f"スパン 8–10　間伐材 {n} 本（φ50 ×{nd[0.05]}・φ70 ×{nd[0.07]}・φ100 ×{nd[0.1]}・ぬしの木 φ200 ×{nd[0.2]}）。幹と幹のあき 900 以上（点線の輪＝あきの半分）。"
          "海峡・西吹き抜けの道・東の帯・内縁側には生やさない", fontsize=6.4, va="top")
@@ -176,13 +187,13 @@ for vv_, s in [(-1.7, "東の帯"), (0.8, "西吹き抜け"), (7.0, "ホール")
 # ---------------------------------------------------------------- right column: notes and model table
 RX = 232
 items = [
-    ("1", "ひらけとぬしの木", "クラス 20 人と先生がぬしの木（φ200、ひとつだけ太い）を囲んで輪に座れる半径 2.2 の空き地。朝の会・お話・雨の日の集まり。こどもの腕で抱きつける太さ。"),
-    ("2", "築山の頂への見通し", "ひらけから縁側へ、幅 1.0 だけ幹を立てない筋。ホールから比叡山の方向（真北から 63.5°）に置いた築山の頂と、そこに立つ木が見える。"),
-    ("3", "林の小部屋", "奥の密な所に 6 本の輪（内のり 約 φ1.9）。布と洗濯ばさみ・ひもで、こどもが自分で家にする。北山杉の絞り丸太を混ぜると、こぶにひもが掛かる。"),
-    ("4", "光の木", "西の柱の列の上、柱と柱のあいだに 1 本ずつ。越屋根の中まで伸び、上からの光を浴びる。西吹き抜けの道は塞がない。"),
-    ("5", "梁を抜ける木", "架構の線の上では、幹は梁の 2 枚のあいだ（180）を抜けて屋根まで立ち、梁で上が留まる（太い輪）。線から 0.3 以内には立てない。"),
-    ("6", "林のへりの広場", "配膳の道（配膳口 → 東の帯 → ホールの西 → 飛び石）と海峡の口には生やさない。海峡を歩くこどもには、林のへりが左に続いて見える。"),
-    ("7", "縁側のへり", "縁側に寄るほど疎ら。朝の東の光が幹の影を床に長く落とし、昼に向かって影が回って短くなる（林が日時計になる）。"),
+    ("1", "ひらけとぬしの木", f"クラス 20 人と先生がぬしの木（φ200、ひとつだけ太い）を囲んで輪に座れる半径 {P['CLEARING']['r']} の空き地。朝の会・お話・雨の日の集まり。こどもの腕で抱きつける太さ。"),
+    ("2", "築山の頂への見通し", "ひらけから縁側へ、幅 1.0 だけ幹を立てない筋。ホールから比叡山の方向（真北から 63.5°）に置いた築山の頂が見える。両脇の比叡の群の列がこの向きにそろう。"),
+    ("3", "林の小部屋", "西の群（いちばん密な茂み）の列の目を一つ抜いた穴（半径 0.8）。まわりの株立ちが壁になる。布と洗濯ばさみ・ひもで、こどもが自分で家にする。"),
+    ("4", "光の木", "西の柱の列の上、柱と柱のあいだに 1 本ずつ。越屋根の中まで伸び、上からの光を浴びる。西の群の列の筋の突き当たりに見える。"),
+    ("5", "梁を抜ける木", "架構の線の上では、幹は梁の 2 枚のあいだ（180）を抜けて屋根まで立ち、梁で上が留まる（太い輪）。西の群は列が梁と同じ東西なので、一列がまるごと梁を抜ける。"),
+    ("6", "林のへりの広場", "配膳の道（配膳口 → 東の帯 → ホールの西 → 飛び石）と海峡の口には生やさない。"),
+    ("7", "縁側のへり", "縁側の前は疎ら。朝の東の光が幹の影を床に長く落とし、昼に向かって影が回って短くなる（林が日時計になる）。"),
 ]
 yy = 286
 fig.text(RX / 420, yy / 297, "林のしかけ", fontsize=8.5, weight="bold", va="top"); yy -= 6
@@ -195,15 +206,17 @@ for k, h, s in items:
 yy -= 1
 fig.text(RX / 420, yy / 297, "配列の決め方", fontsize=8.5, weight="bold", va="top"); yy -= 5.5
 rules = [
-    "格子にしない（柱や架構と同じ並びになり、林に見えない）。最小のあき 900 を守りながら、乱数で一本ずつ置いていく（scripts/forest_gen.py）。",
-    "北西の奥がいちばん密（あき 0.9）、縁側・海峡・ひらけに向かって疎ら（あき 最大 1.4）。奥は太め、へりは細め（林のへりは若い木）。",
-    f"まっすぐ走れる線（腕を振った幅 0.6）を測り、いちばん短い配列を選んだ：林の中で最長 {F['RESULT']['longest_run']:.1f} m（あき 900 のままでは塞げない、海峡の縁の疎らな所）。",
-    "幹：北山杉の間伐材の磨き丸太（一部は絞り丸太）、塗らない。足もとは床の穴に沓（金物を見せない）、上は垂木に金物で留め、引っ張っても倒れない。",
+    "KAIT 工房（石上純也）に学ぶ：柱の向きで見え方が変わる。丸い幹では向きが出ないので、「並びの向き」で出す。木を 3 つの群に分け、群の中は列に並べる。列に沿って見ると筋が透け、横切ると幹が重なる（ばらは 2 枚目）。",
+    "群ごとに列の向きを変える：西の群＝東西（梁と同じ）、海峡の群＝南北、比叡の群＝比叡山の向き。だから立つ所と見る向きで景色が変わる（2 枚目の A〜D）。",
+    "疎密：西の群は茂み（株の間 1.1、株立ちが多い）、海峡の群は中くらい（1.3）、比叡の群は疎ら（若い木）。群と群のあいだは空き地（ひらけ・へりの広場・縁側の前）。",
+    "株立ち：群の木の多くは細い 2〜3 本が触れあって立つ（台杉に倣う、株の中はあき 0）。列の向きに並べるので、扁平な柱のように向きで薄くも厚くも見える。あき 900 は株の外形で測る。",
+    f"まっすぐ走れる線（幅 0.6）：林の中で最長 {F['RESULT']['longest_run']:.1f} m（列に沿う筋。群が小さいので筋は短い）。",
+    "幹：北山杉の間伐材（磨き丸太、群の単木の φ70・100 は太鼓落とし）、塗らない。足もとは床の穴に沓、上は垂木に金物で留める。",
 ]
 for s in rules:
     for i, ln in enumerate(textwrap.wrap(s, 48)):
-        fig.text((RX + (0 if i == 0 else 2.5)) / 420, yy / 297, ("・" if i == 0 else "") + ln, fontsize=5.6, va="top", color="#333333"); yy -= 3.0
-    yy -= 0.8
+        fig.text((RX + (0 if i == 0 else 2.5)) / 420, yy / 297, ("・" if i == 0 else "") + ln, fontsize=5.4, va="top", color="#333333"); yy -= 2.8
+    yy -= 0.6
 
 # model table
 yy -= 1.5
@@ -213,7 +226,7 @@ WIRE = {0.05: "0.5", 0.07: "0.7", 0.1: "1.0", 0.2: "丸棒 2.0"}
 rows = []
 for i, t_ in enumerate(TR, 1):
     L = top(t_["v"]) * 10 - MOD["TOP_GAP"] + MOD["EMBED"]
-    rows.append((i, WIRE[t_["d"]], L))
+    rows.append((i, WIRE[t_["d"]] + ("太" if t_.get("shape") == "taiko" else ""), L))
 ncol = 4; per = math.ceil(len(rows) / ncol)
 for c in range(ncol):
     for r in range(per):
@@ -222,8 +235,8 @@ for c in range(ncol):
         i, w, L = rows[j]
         fig.text((RX + c * 45) / 420, (yy - r * 2.7) / 297, f"{i:>2}　{w:<6}　{L:.1f}", fontsize=5.2, va="top", family="Noto Sans CJK JP")
 yy -= per * 2.7 + 2
-tot = {w: sum(L for _, ww, L in rows if ww == w) for w in WIRE.values()}
-cnt = {w: sum(1 for _, ww, _L in rows if ww == w) for w in WIRE.values()}
+tot = {w: sum(L for _, ww, L in rows if ww.rstrip("太") == w) for w in WIRE.values()}
+cnt = {w: sum(1 for _, ww, _L in rows if ww.rstrip("太") == w) for w in WIRE.values()}
 fig.text(RX / 420, yy / 297, "合計：" + "、".join(f"{w} ×{cnt[w]} 本（{tot[w]:.0f} mm）" for w in WIRE.values() if cnt[w]), fontsize=5.6, va="top"); yy -= 3.6
 fig.text(RX / 420, yy / 297, "穴の位置は data/forest.json の xy_mm（3dm の座標）。穴の径はレーザーの焼け幅に合わせて模型のチャットで。", fontsize=5.4, va="top", color="#333333")
 

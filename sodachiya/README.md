@@ -31,7 +31,8 @@ pip install shapely rhino3dm matplotlib --break-system-packages
 python sodachiya/scripts/approachA.py      # → sodachiya/out/sodachiya_site_A_1-200.pdf / .png
 python sodachiya/scripts/export3dm.py      # → sodachiya/model/sodachiya_approachA_layers.3dm
 python sodachiya/scripts/forest_gen.py     # ホールの北山杉の林の配列 → data/forest.json の TREES
-python sodachiya/scripts/forest01.py       # → sodachiya/out/sodachiya_forest_01.pdf / .png
+python sodachiya/scripts/forest01.py       # → sodachiya/out/sodachiya_forest_01.pdf / .png（平面・断面・模型の表）
+python sodachiya/scripts/forest02.py       # → sodachiya/out/sodachiya_forest_02.pdf / .png（目の高さの景色・透け方のばら）
 ```
 
 フォントは Noto Sans CJK JP。出力先は環境変数 `OUT` で変えられる。
