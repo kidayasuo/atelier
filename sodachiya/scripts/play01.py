@@ -192,6 +192,8 @@ RG = D["ring"]; npt0 = Ww(D["net"]["u"], D["net"]["w"])
 RING = SPt(npt0).buffer(RG["outer_r"], 96).difference(SPt(npt0).buffer(RG["inner_r"], 96))
 bf, bt = D["bridge"]["from"], D["bridge"]["to"]
 BRIDGE = SP(rectw(bf[0], bt[0], bf[1] - D["bridge"]["width"] / 2, bf[1] + D["bridge"]["width"] / 2)).difference(SPt(npt0).buffer(RG["inner_r"], 96))
+T(Ww((bf[0] + bt[0]) / 2 + 0.6, bf[1] + 1.25), "橋\nh3.0", 5.2, c="#5a4026", z=13, bbox=dict(fc="white", ec="none", pad=0.6, alpha=0.85))
+T(Ww(D["net"]["u"] - RG["outer_r"] + 0.4, D["net"]["w"] + 1.6), "輪の通路 h3.0", 4.8, c="#5a4026", z=13, bbox=dict(fc="white", ec="none", pad=0.6, alpha=0.85))
 for g in (RING, BRIDGE):
     poly(g, "#E6D3B3", C["cat"], 0.6, 10.2, alpha=0.85); poly(g, "none", C["cat"], 0.0, 10.2, hatch="....")
 for k in range(RG["rods"]):
