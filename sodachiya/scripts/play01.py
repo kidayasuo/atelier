@@ -240,7 +240,19 @@ if MAPLE:   # the maple stands about 3 m north of the north window (outside this
     a0 = Ww(50.9, 1.6); a1 = Ww(51.6, 1.6)
     ax.add_patch(FancyArrowPatch(a0, a1, arrowstyle="-|>", mutation_scale=8, color="#B4553A", lw=0.8, zorder=9))
     T(Ww(49.6, 3.2), "→ 読書の庭のモミジ\n（北へ約 %.0f m）" % (MAPLE[0] - 51.0), 5.2, c="#8a3a2a")
-# east wall: peeking windows along the catwalk (dashed, overhead)
+# sound screen in front of the north mouth (L: closed to the south, open to the north), absorbent faces
+SC = D["screen"]
+poly(SP(rectw(SC["u0"], SC["u1"], SC["w"], SC["w"] + SC["t"])), "#C9B79A", "#5a4026", 0.7, 10.6)
+poly(SP(rectw(SC["u0"], SC["u0"] + SC["t"], SC["return_w"], SC["w"] + SC["t"])), "#C9B79A", "#5a4026", 0.7, 10.6)   # the south return: closes the south end
+for k in range(1, 12):
+    uu = SC["u0"] + (SC["u1"] - SC["u0"]) * k / 12
+    line([Ww(uu, SC["w"] + 0.02), Ww(uu, SC["w"] + SC["t"] - 0.02)], 0.3, "#5a4026", z=10.7)
+ax.add_patch(FancyArrowPatch(Ww(45.1, 0.75), Ww(47.2, 0.75), arrowstyle="-|>", mutation_scale=7, color="#C8372D", lw=0.8, zorder=13))
+ax.add_patch(FancyArrowPatch(Ww(47.2, 0.75), Ww(47.6, 2.4), arrowstyle="-|>", mutation_scale=7, color="#C8372D", lw=0.8, zorder=13))
+# sound-absorbing lining on the stair box's east face (the south passage)
+SA = D["south_passage_absorb"]
+line([Ww(SA["u0"] + 0.1, SA["w"] - 0.05), Ww(SA["u1"] - 0.1, SA["w"] - 0.05)], 2.2, "#B79B6B", z=8.2)
+# east wall: peeking windows along the catwalk (dashed, overhead) — fixed glass
 for (ua, ub) in [(36.4, 39.0), (39.6, 41.8), (47.0, 49.6)]:
     line([W(ua, -0.97), W(ub, -0.97)], 1.3, C["glass"], z=8.6, ls=(0, (2, 1)))
 # fans: phi 1.1 under the ridge lid (the void w 0–1.0), one per span, like the main building
@@ -257,7 +269,7 @@ line([Ww(30.0, lw_["w1"]), Ww(51.0, lw_["w1"])], 0.5, "#3d7fb0", ls=(0, (6, 3)),
 def arrow(a, b, c=C["red"], lw=1.1, z=13):
     ax.add_patch(FancyArrowPatch(a, b, arrowstyle="-|>", mutation_scale=9, color=c, lw=lw, zorder=z))
 arrow(Ww(30.4, 0.65), Ww(33.6, 0.65))
-arrow(W(45.1, 1.0), Ww(45.1, 2.2))
+arrow(W(45.1, 1.0), Ww(45.1, 0.4))
 T(Ww(29.55, 0.65), "ホール・東の帯から", 4.8, c=C["red"])
 T(W(45.1, 2.3), "西吹き抜けから", 4.8, c=C["red"])
 # open floor (area)
@@ -294,7 +306,9 @@ NUMS = [
     (Ww(43.3, 11.0), "北西の丸い角の丸いベンチ"),
     (Ww(47.0, 11.0), "搬入の大戸（幅 3.6×h3.0、ふだんは閉じる、避難口）"),
     (Ww(50.0, 1.6), "北の窓辺の腰掛け +300（窓 h350〜1200、座って読書の庭のモミジを見る）"),
-    (W(40.7, -1.35), "東の壁の覗き窓（キャットウォークの高さ、すき間越しに本館）"),
+    (W(40.7, -1.35), "東の壁の覗き窓（キャットウォークの高さ、すき間越しに本館）。はめ殺し（音を本館へ回さない）"),
+    (Ww(46.9, 2.0), "北の口のついたて（h2.4、長さ 3.0、吸音の面＋遊戯室側は掲示板）。南の端は閉じ、北へ抜ける（穴の底を避ける）。午睡の時間はすき間側に厚手の暖簾も"),
+    (Ww(31.0, 0.65), "南の口の通路：階段の箱の東の面を吸音の板張りに"),
     (Ww(FN["u"][1], 1.5), "天井扇 φ1.1 ×6（本館と同じ、越屋根の吹き抜け w 0–1.0 の真下、h6.0）"),
 ]
 for i, (p, s) in enumerate(NUMS, 1): num(p, i)
