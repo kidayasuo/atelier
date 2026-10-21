@@ -63,7 +63,7 @@ def garden_poly():
 
 def stream_lines():
     s = G["STREAM"]
-    return [s["line"], s["line2"]]
+    return [s["line"]]
 
 
 # ---------------- 地形 ----------------

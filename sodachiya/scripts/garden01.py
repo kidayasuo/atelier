@@ -189,19 +189,29 @@ poly(ax, P(list(HIDDEN.exterior.coords)) if HIDDEN.geom_type == "Polygon" else M
 # 小川
 s = G["STREAM"]
 line(ax, XS(s["culvert"]), lw=0.8, c=C["water"], ls=(0, (3, 2)), z=6)
-for ln in (s["line"], s["line2"]):
+for ln in (s["line"],):
     g = LineString(XS(ln)).buffer(s["w"] / 2, cap_style=1, join_style=1)
     poly(ax, g, fc=C["water"], ec="#4C8DB8", lw=0.3, z=6)
-poly(ax, P(ell_ad(G["POOL"]["c"], G["POOL"]["r"], G["POOL"]["rot"])), fc=C["waterL"], ec="#4C8DB8", lw=0.5, z=6)
-poly(ax, P(ell_ad(G["POOL"]["c"], [G["POOL"]["r"][0] + 0.35, G["POOL"]["r"][1] + 0.35], G["POOL"]["rot"])), fc="none", ec="#A7A08E", lw=1.6, z=5.9, alpha=0.6)
+# 床の噴水（上水、ためない）
+F = G["FOUNTAIN"]
+fpoly = P(ell_ad(F["c"], F["r"], F["rot"]))
+poly(ax, fpoly, fc="#E6E3DA", ec="#8C8677", lw=0.6, z=6)
+ca, sa_ = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
+nj = 0
+for i in np.arange(-F["r"][0], F["r"][0] + 0.01, F["jets"][0]):
+    for j in np.arange(-F["r"][1], F["r"][1] + 0.01, F["jets"][1]):
+        if (i / (F["r"][0] - 0.4)) ** 2 + (j / (F["r"][1] - 0.4)) ** 2 <= 1:
+            q = (F["c"][0] + i * ca - j * sa_, F["c"][1] + i * sa_ + j * ca)
+            ax.add_patch(Circle(X(*q), 0.11, fc="#4C8DB8", ec="none", zorder=6.3)); nj += 1
+dr = F["drain"]; line(ax, XS([F["c"], dr]), lw=0.5, c="#4C8DB8", ls=(0, (1.5, 1.5)), z=6.2)
+ax.add_patch(Rectangle(np.array(X(*dr)) - 0.25, 0.5, 0.5, fc="#8C8677", ec="none", zorder=6.4))
 bc = s["beach"]; poly(ax, Point(*X(bc[0], bc[1])).buffer(bc[2]), fc="#E6E1D4", ec="#A7A08E", lw=0.3, z=5.8, hatch="....")
 poly(ax, P(ell_ad(G["TANK"]["c"], G["TANK"]["r"], -30)), fc="none", ec="#4C8DB8", lw=0.35, ls=(0, (2, 1.5)), z=5.7)
-ax.add_patch(Circle(X(*G["PUMP"]), 0.28, fc="#4C8DB8", ec="white", lw=0.4, zorder=7))
 for b in G["BRIDGES"]:
     c = b["c"]
     if b["w"] > 0:
         # 小川の向きに直交する板
-        ln = LineString(s["line"] + s["line2"]); t0 = ln.project(Point(*c)); p0 = ln.interpolate(t0 - 0.4); p1 = ln.interpolate(t0 + 0.4)
+        ln = LineString(s["line"]); t0 = ln.project(Point(*c)); p0 = ln.interpolate(t0 - 0.4); p1 = ln.interpolate(t0 + 0.4)
         ta = np.array([p1.x - p0.x, p1.y - p0.y]); ta /= np.linalg.norm(ta)
         hw = 0.45 if b["w"] < 2 else 0.75
         q = [np.array(c) + ta * i * hw + np.array([-ta[1], ta[0]]) * j * b["w"] / 2 for i, j in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
@@ -255,7 +265,8 @@ for k, (a, d, txt) in enumerate(G["NICHES"], 1):
 # 場所の名前
 T(ax, X(39.4, 13.6), "原っぱ", 7.5, c="#6B5E3A", z=21)
 T(ax, X(48.6, 26.3), "しずかのもり", 9, c="#56704A", z=21, fontweight="bold")
-T(ax, X(30.0, 15.4), "みずべ", 7, c="#4C7A99", z=21)
+T(ax, X(29.0, 10.6), "床の噴水", 5.6, c="#3E6E8E", z=21, rot=-38)
+T(ax, X(23.6, 11.6), "みずべ", 7, c="#4C7A99", z=21)
 T(ax, X(16.0, 7.2), "北のもり", 6.5, c="#56704A", z=21, rot=-38)
 T(ax, X(51.8, 8.6), "おくのもり", 6.5, c="#56704A", z=21, rot=-38)
 T(ax, X(45.2, 15.6), "だいさんかく", 10, c="#6B5E3A", z=21, fontweight="bold", alpha=0.85, rot=-38)
@@ -299,7 +310,7 @@ T(ax, (sx + 13.5, sy + 0.25), "1/200", 6, ha="left", z=30)
 
 # ================= 見出しと凡例 =================
 fx = fig.text
-fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台", fontsize=15, ha="left", va="baseline")
+fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 2", fontsize=15, ha="left", va="baseline")
 fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-21　遊具を置かず、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
    fontsize=7.2, ha="left", color="#444444")
 fx(14 / PW, 1 - 30 / PH, "地形は GL（＝FL−300）からの高さ。等高線 0.2 m ごと（1 m を太く）。築山の位置と形はこの図で決め直した（Keynote の位置は前提にしていない）。",
@@ -322,6 +333,10 @@ def sw(y, kind, txt):
         lax.add_patch(Circle((5, y), 3.0, fc=C["tree"], ec=C["ink"], lw=0.6, ls=(0, (2, 1)), alpha=0.6))
     elif kind == "water":
         lax.add_patch(Rectangle((1, y - 1), 8, 2, fc=C["water"], ec="#4C8DB8", lw=0.3))
+    elif kind == "jets":
+        lax.add_patch(Rectangle((1, y - 2), 8, 4, fc="#E6E3DA", ec="#8C8677", lw=0.4))
+        for xx in (2.6, 5, 7.4):
+            lax.add_patch(Circle((xx, y), 0.45, fc="#4C8DB8", ec="none"))
     elif kind == "culvert":
         lax.plot([1, 9], [y, y], c=C["water"], lw=0.9, ls=(0, (3, 2)))
     elif kind == "sand":
@@ -339,7 +354,7 @@ def sw(y, kind, txt):
 y = 4
 lax.text(0, y, "凡例", fontsize=8, fontweight="bold", va="center"); y += 8
 rows = [("tree", TT["big"]["名"] + "／" + TT["mid"]["名"]), ("fruit", TT["fruit"]["名"]), ("ever", TT["ever"]["名"]),
-        ("climb", TT["climb"]["名"]), ("water", "小川（幅 0.5、岸は急、底は平らで浅い）・たまり・水浴び場"), ("culvert", "暗渠（用水路から北の角を通って、みなもとまで）"),
+        ("climb", TT["climb"]["名"]), ("water", "小川（幅 0.5、岸は急、底は平らで浅い）・水浴び場"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は小川へ）"), ("culvert", "暗渠（用水路から北の角を通って、みなもとまで）"),
         ("sand", "砂場・粒の遊び場（1〜2 mm）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
@@ -360,7 +375,7 @@ for b in G["BUMPS"]:
     bvol += float(gc.bump_h(AA, DD, b).sum() * STEP * STEP)
 bankv = float((gc.bank_h(AA, DD)).sum() * STEP * STEP)
 bowlv = float(-gc.bowl_h(AA, DD).sum() * STEP * STEP)
-s_len = sum(LineString(XS(ln)).length for ln in (s["line"], s["line2"]))
+s_len = LineString(XS(s["line"])).length
 hid_a = HIDDEN.area
 NUM = dict(garden=ga, shizu=sa, mfoot=mfoot, mvol=mvol, fill=mvol + bvol + bankv, cut=bowlv, stream=s_len, trees=len(G["TREES"]), hidden=hid_a,
            hut=(a_1 - a_0) * (d_1 - d_0), wc=(H["split_a"] - a_0) * (d_1 - d_0), store=(a_1 - H["split_a"]) * (d_1 - d_0))
@@ -369,6 +384,7 @@ for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²�
           f"築山：頂 +{G['MOUND']['h']} m、裾の広さ 約 {mfoot:.0f} m²、土 約 {mvol:.0f} m³。起伏・土手を足すと盛る土は 約 {NUM['fill']:.0f} m³",
           "　→ 基礎・小川・すりばち・遊戯室の穴の底を掘った土で足りる量（外から運び込まない、外へ出さない）",
           f"小川：地上の長さ 約 {s_len:.0f} m、川床 GL−0.15 → −0.40（勾配 約 1/200）。木 {len(G['TREES'])} 本（下書き、種類はこれから）",
+          f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）。上水、排水は小川へ。雨水は小屋の床下のタンクから便所の洗浄・水やり・小川の足し水へ",
           f"小屋：{NUM['hut']:.1f} m²（便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
           f"死角：約 {hid_a:.0f} m²。築山の裏（隣家側）の植え込みと、北のもりの奥。植え込みは入らない所にする"]:
     lax.text(0, y, t, fontsize=6.0, va="center"); y += 6.0
@@ -379,7 +395,7 @@ for t in ["・高木は枝下 2 m 以上に仕立て、目の高さを見通す�
           "・毒・とげ・かぶれの木は使わない（キョウチクトウ・イチイ・アセビ・ピラカンサ・ハゼ など）。",
           "・ツバキ・サザンカは植えない（チャドクガ）。落葉樹が中心、落ち葉は遊びに使い、掃くのは小径と縁側の前だけ。",
           "・木登りの木は決めておく（2 本まで）。下は剪定の枝でつくった木のチップ（剪定 → チップ → 根もと、を園の中で回す）。",
-          "・水は浅く（小川 5〜10 cm、たまり 15 cm）、縁は平らな石。水のある所はどこも先生から見える。",
+          "・水は浅く（小川 5〜10 cm）、床の噴水は水がたまらない。子どもが手や口にふれる水は上水だけ（小川の水は飲まない、遊んだら足洗い場で洗う）。",
           "・縁側の前 1.5 m は木を植えない（出入りと見通し）。車の道の筋（幅 2.5）は木と起伏を置かない。"]:
     lax.text(0, y, t, fontsize=6.0, va="center"); y += 6.0
 
@@ -448,11 +464,7 @@ def section(key, y_mm, title, beyond=None, zmin=-5.6, zmax=6.0):
         sax.text(x0 + 4.5, -3.8, "河川敷（草）", fontsize=5.5, color=C["gray"])
         sax.text(x0 + 1.7, -1.9, "谷積みの石積み", fontsize=5, color=C["gray"], rotation=-72)
     # 小川・たまり
-    for ln in (s["line"], s["line2"]):
-        sl = LineString(ln)
-        for i in range(0, len(tt), 2):
-            pass
-    sl = LineString(s["line"] + s["line2"])
+    sl = LineString(s["line"])
     near = np.array([sl.distance(Point(*p)) for p in adv])
     for i in np.where(near < 0.06)[0][::6]:
         sax.add_patch(Rectangle((tt[i] - 0.25, -0.12), 0.5, 0.12, fc=C["water"], ec="#4C8DB8", lw=0.3, zorder=5))

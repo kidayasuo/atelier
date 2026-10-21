@@ -23,13 +23,13 @@ def put(a, d, kind, note=""):
 
 # 避ける所
 s = G["STREAM"]
-stream = LineString(s["line"] + s["line2"])
+stream = LineString(s["line"])
 veh = LineString(G["VEHICLE"]["line"])
 hut = Polygon([(G["HUT"]["a"][0] - 0.3, 0), (G["HUT"]["a"][1] + 0.3, 0), (G["HUT"]["a"][1] + 0.3, G["HUT"]["d"][1] + G["HUT"]["eave"] + 0.5), (G["HUT"]["a"][0] - 0.3, G["HUT"]["d"][1] + G["HUT"]["eave"] + 0.5)])
 m = G["MOUND"]; a0, d0 = m["top"]
 roll = Polygon([(a0 - 3.5, d0 + 0.5), (a0 + 7.5, d0 + 0.5), (a0 + 8.5, d0 + m["r_sw"] + 1.5), (a0 - 3.0, d0 + m["r_sw"] + 1.5)])   # 転がる斜面と原っぱの芯
 field = Polygon([(36.0, 12.5), (45.5, 11.5), (47.0, 17.0), (38.0, 17.5)])
-pool = Point(*G["POOL"]["c"]).buffer(2.8)
+pool = Point(*G["FOUNTAIN"]["c"]).buffer(G["FOUNTAIN"]["r"][0] + 0.6)
 sand = Polygon(G["SAND"]["poly"]).buffer(0.2)
 look = Point(*G["LOOKOUT"]["c"]).buffer(3.0)
 splash = Point(*G["SPLASH"]["c"]).buffer(2.6); grain = Point(*G["GRAIN"]["c"]).buffer(2.0)
@@ -96,6 +96,9 @@ for t in np.linspace(0.08, 0.9, 7):
 
 gp = Polygon(gc.XS([(12.5, 0), (56, 0), (56, 36)] + [(x, gc.d_edge(x)) for x in np.linspace(54, 12.5, 40)]))
 trees = [t for t in trees if gc.SITE.buffer(-1.0).contains(Point(*gc.X(t[0], t[1])))]
+F = G["FOUNTAIN"]; ca, sa = np.cos(np.radians(F["rot"])), np.sin(np.radians(F["rot"]))
+fpoly = Polygon([(F["c"][0] + F["r"][0] * np.cos(q) * ca - F["r"][1] * np.sin(q) * sa, F["c"][1] + F["r"][0] * np.cos(q) * sa + F["r"][1] * np.sin(q) * ca) for q in np.linspace(0, 2 * np.pi, 48)])
+trees = [t for t in trees if fpoly.distance(Point(t[0], t[1])) >= 0.8 and stream.distance(Point(t[0], t[1])) >= 0.9]
 G["TREES"] = trees
 json.dump(G, open(os.path.join(gc.ROOT, "data", "garden.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 from collections import Counter
