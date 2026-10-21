@@ -48,7 +48,7 @@ def h_at(a, d):
 
 # ---------------- 死角（先生の目から子どもの頭が見えない所） ----------------
 H = G["HUT"]
-HUT_AD = Polygon([(H["a"][0], H["d"][0]), (H["a"][1], H["d"][0]), (H["a"][1], H["d"][1]), (H["a"][0], H["d"][1])])
+HUT_AD = Polygon([(H["a"][0], H["d"][0]), (H["closed_a"], H["d"][0]), (H["closed_a"], H["d"][1]), (H["a"][0], H["d"][1])])   # 視線をさえぎるのは閉じた部屋だけ
 teachers = []
 for a, d, lab in G["TEACHERS"]["pts"]:
     if d is None:
@@ -258,22 +258,24 @@ poly(ax, P(ell_ad(G["SPLASH"]["c"], G["SPLASH"]["r"], G["SPLASH"]["rot"])), fc=C
 poly(ax, P(ell_ad(G["GRAIN"]["c"], G["GRAIN"]["r"], G["GRAIN"]["rot"])), fc="#EFE6CF", ec="#A88E58", lw=0.3, z=5.5, hatch="...")
 wl = G["WILLOW"]; ax.add_patch(Circle(X(*wl["c"]), wl["r"], fc="none", ec=C["treeE"], lw=0.9, ls=(0, (1, 1)), zorder=8))
 
-# 小屋
-a_0, a_1 = H["a"]; d_0, d_1 = H["d"]
-poly(ax, P([(a_0, d_0), (a_1, d_0), (a_1, d_1), (a_0, d_1)]), fc=C["hut"], ec=C["ink"], lw=0.8, z=9)
+# 小屋（ひとつの屋根：便所｜倉庫｜コンポスト）
+a_0, a_1 = H["a"]; d_0, d_1 = H["d"]; a_c = H["closed_a"]
+poly(ax, P([(a_0, d_0), (a_c, d_0), (a_c, d_1), (a_0, d_1)]), fc=C["hut"], ec=C["ink"], lw=0.8, z=9)
 line(ax, XS([(H["split_a"], d_0), (H["split_a"], d_1)]), lw=0.5, z=9.1)
+poly(ax, P([(a_c, d_0), (a_1, d_0), (a_1, d_1), (a_c, d_1)]), fc="#EFE6D2", ec=C["ink"], lw=0.4, ls=(0, (3, 2)), z=8.9)   # 壁のない間（屋根だけ）
+for q in ((a_c, d_0), (a_1 - 0.1, d_0), (a_1 - 0.1, d_1 - 0.1)):
+    ax.add_patch(Rectangle(np.array(X(*q)) - 0.06, 0.12, 0.12, fc=C["ink"], ec="none", zorder=9.1))
 poly(ax, P([(a_0 - 0.3, d_1), (a_1 + 0.3, d_1), (a_1 + 0.3, d_1 + H["eave"]), (a_0 - 0.3, d_1 + H["eave"])]), fc="none", ec=C["ink"], lw=0.4, ls=(0, (3, 2)), z=9)
 T(ax, X((a_0 + H["split_a"]) / 2, (d_0 + d_1) / 2), "便所", 5, rot=-38)
-T(ax, X((H["split_a"] + a_1) / 2, (d_0 + d_1) / 2), "倉庫", 5.5, rot=-38)
-# コンポスト（小屋の南西の軒の下、木枠 1×1 m×4：落ち葉・入れる・寝かせる・できた）
+T(ax, X((H["split_a"] + a_c) / 2, (d_0 + d_1) / 2), "倉庫", 5.5, rot=-38)
 CP = G["COMPOST"]
 for i in range(CP["n"]):
     q0 = CP["a0"] + i * CP["w"]
     poly(ax, P([(q0 + 0.05, CP["d0"]), (q0 + CP["w"] - 0.05, CP["d0"]), (q0 + CP["w"] - 0.05, CP["d0"] + CP["depth"]), (q0 + 0.05, CP["d0"] + CP["depth"])]),
          fc="#C9B48E", ec=C["wood"], lw=0.5, z=9.2)
     T(ax, X(q0 + CP["w"] / 2, CP["d0"] + CP["depth"] / 2), CP["labels"][i], 3.2, rot=-38, z=9.3)
-T(ax, X(CP["a0"] + CP["n"] * CP["w"] / 2, CP["d0"] + CP["depth"] + 0.6), "コンポスト", 4.4, c="#6B5A3A", rot=-38)
-T(ax, X((CP["a0"] + CP["n"] * CP["w"] + a_1) / 2, d_1 + 0.75), "足洗い・ベンチ", 3.8, c="#6B5A3A", rot=-38)
+T(ax, X(CP["a0"] + CP["n"] * CP["w"] / 2, CP["d0"] + CP["depth"] + 1.0), "コンポスト（屋根の下）", 4.4, c="#6B5A3A", rot=-38)
+T(ax, X((a_0 + a_c) / 2, d_1 + 0.75), "足洗い・ベンチ（軒の下）", 3.8, c="#6B5A3A", rot=-38)
 
 # のぞき
 lk = G["LOOKOUT"]; c = lk["c"]
@@ -373,7 +375,7 @@ ax.text(sx + 13.5, sy + 0.25, "1/200　高野川を下に（北は右上）", fo
 
 # ================= 見出しと凡例 =================
 fx = fig.text
-fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 6", fontsize=15, ha="left", va="baseline")
+fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 7", fontsize=15, ha="left", va="baseline")
 fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-21　遊具を置かず、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
    fontsize=7.2, ha="left", color="#444444")
 fx(14 / PW, 1 - 30 / PH, "地形は GL（＝FL−300）からの高さ。等高線 0.2 m ごと（1 m を太く）。築山の位置と形はこの図で決め直した（Keynote の位置は前提にしていない）。",
@@ -453,15 +455,15 @@ bowlv = float(-gc.bowl_h(AA, DD).sum() * STEP * STEP)
 s_len = LineString(XS(s["line"])).length
 hid_a = HIDDEN.area
 NUM = dict(garden=ga, shizu=sa, mfoot=mfoot, mvol=mvol, fill=mvol + bvol + bankv, cut=bowlv, stream=s_len, trees=len(G["TREES"]), hidden=hid_a,
-           hut=(a_1 - a_0) * (d_1 - d_0), wc=(H["split_a"] - a_0) * (d_1 - d_0), store=(a_1 - H["split_a"]) * (d_1 - d_0))
+           hut=(a_c - a_0) * (d_1 - d_0), wc=(H["split_a"] - a_0) * (d_1 - d_0), store=(a_c - H["split_a"]) * (d_1 - d_0), cbay=(a_1 - a_c) * (d_1 - d_0))
 lax.text(0, y, "数字（この図から）", fontsize=8, fontweight="bold", va="center"); y += 7
 for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²　うち しずかのもり 約 {sa:.0f} m²（3〜5 歳 70 人で 1 人 {(ga - sa) / 70:.1f} m²、基準は 3.3）",
           f"築山：頂 +{G['MOUND']['h']} m、裾の広さ 約 {mfoot:.0f} m²、土 約 {mvol:.0f} m³。起伏・土手を足すと盛る土は 約 {NUM['fill']:.0f} m³",
           "　→ 北のもりへの上り（最大 +0.45）も含む。基礎・小川・すりばち・遊戯室の穴の底を掘った土で足りる量（運び込まない、外へ出さない）",
           f"小川：地上の長さ 約 {s_len:.0f} m、川床 GL−0.15 → −0.40（勾配 約 1/200）。木 {len(G['TREES'])} 本（下書き、種類はこれから）",
           f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）＋シャワーの柱。上水、排水は雨の川へ。雨の川：屋根 約 880 m²、100 mm/h で南の端 約 24 L/s、溝 0.5×0.2・1/200 で 約 50 L/s（目安）",
-          f"小屋：{NUM['hut']:.1f} m²（便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
-          "コンポスト：小屋の南西の軒の下に木枠 4 つ（落ち葉・入れる・寝かせる・できた、全体 約 4.6×1.2）。4・5 歳の当番がキッチンから野菜くずをもらい、落ち葉と重ね、できた土を入口の前の菜園へ運ぶ（ユーザー）",
+          f"小屋：便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}＋コンポストの間 {NUM['cbay']:.1f} m²（一つの屋根）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
+          "コンポスト：小屋の倉庫の南東、屋根の下の壁のない間に木枠 4 つ（落ち葉・入れる・寝かせる・できた、全体 約 4.6×1.2）。4・5 歳の当番がキッチンから野菜くずをもらい、落ち葉と重ね、できた土を入口の前の菜園へ運ぶ（ユーザー）",
           f"死角：約 {hid_a:.0f} m²。築山の裏（隣家側）の植え込みと、北のもりの奥。植え込みは入らない所にする"]:
     y = para(y, t)
 y += 4
