@@ -230,11 +230,15 @@ def plan(ax, zcut, objs, roofs_dashed, label_rooms, level_z):
                 ax.text(p.x, p.y, f'{room_name(ob["layer"])}\n{g.area / 1e6:.1f} m²', ha='center', va='center',
                         fontsize=5.5, zorder=9, bbox=dict(fc='white', ec='none', pad=0.6, alpha=0.85))
 
+def unwrap(a):
+    """角度を π のまわりに（建物は中心の西、±π をまたぐので）"""
+    return np.pi + ((np.asarray(a) - np.pi + np.pi) % (2 * np.pi) - np.pi)
+
 def frames_from_columns():
     th = []
     for ob in OBJ:
         if ob['layer'].startswith('11a'):
-            c = ob['T'].reshape(-1, 3)[:, :2].mean(0) - C; th.append(math.atan2(c[1], c[0]))
+            c = ob['T'].reshape(-1, 3)[:, :2].mean(0) - C; th.append(unwrap(math.atan2(c[1], c[0])))
     th = np.unique(np.round(np.sort(th), 4))
     return th
 TH = frames_from_columns()
@@ -246,8 +250,12 @@ def sec_line(theta, r0=187000, r1=218000):
 
 # 断面の位置：スパン s の中央（s=1..19 は南から）。TH は角度の小さい方から
 TH_S = sorted(TH, key=lambda a: (C + 205000 * np.array([math.cos(a), math.sin(a)]))[1])   # 南（y 小）→ 北
-def span_mid(s): return 0.5 * (TH_S[s - 1] + TH_S[s])
-SECTIONS = [('A', 3, '0・1 歳'), ('B', 9, 'ホール・海峡・遊戯室'), ('C', 16, '4 歳・西館 2 階')]
+SGN = 1.0 if TH_S[1] > TH_S[0] else -1.0
+def theta_u(u_mm): return TH_S[0] + SGN * u_mm / 205000.0      # u：南の妻（架構 1）から北へ、r=205 m に沿って
+# 断面：A は保育室の中ほど（r=197 m、v=8）を弧に沿って切って展開（西を見る）、B・C は架構に平行な鉛直面（北を見る）
+SECTIONS = [('A', 'arc', 197000.0, '縦断（展開）：保育室の中ほど r=197 m、西を見る'),
+            ('B', 'u', 21750.0, '海峡（スパン 8+0.75）：南の入口・キッチン・2 階・縁側'),
+            ('C', 'u', 46500.0, '4 歳・遊戯室（スパン 16 の中央）')]
 
 def objs_for_plan(level):
     o1 = []
@@ -270,10 +278,17 @@ def make_plans():
         if num(ln) >= 70 or num(ln) < 2: ax.plot(P[:, 0], P[:, 1], color='0.55', lw=LW(0.09), zorder=1)
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
     plan(ax, 1200, objs1, roofs, True, 0)
-    for nm, s, _ in SECTIONS:
-        a, b = sec_line(span_mid(s))
-        ax.plot([a[0], b[0]], [a[1], b[1]], color='k', lw=LW(0.13), ls=(0, (12, 3, 2, 3)), zorder=10)
-        for q, sgn in ((a, 1), (b, -1)):
+    for nm, kind_, val, _ in SECTIONS:
+        if kind_ == 'u':
+            a, b = sec_line(theta_u(val))
+            ax.plot([a[0], b[0]], [a[1], b[1]], color='k', lw=LW(0.13), ls=(0, (12, 3, 2, 3)), zorder=10)
+            ends = (a, b)
+        else:
+            th = np.linspace(theta_u(-9000), theta_u(62000), 200)
+            P = C + val * np.c_[np.cos(th), np.sin(th)]
+            ax.plot(P[:, 0], P[:, 1], color='k', lw=LW(0.13), ls=(0, (12, 3, 2, 3)), zorder=10)
+            ends = (P[0], P[-1])
+        for q in ends:
             ax.text(*q, nm, ha='center', va='center', fontsize=8, zorder=11, bbox=dict(boxstyle='circle,pad=0.2', fc='white', ec='k', lw=0.5))
     scalebar(ax, x0 + 2000, y0 + 1000)
     ax.annotate('', xy=(x1 - 2500, y1 - 1500), xytext=(x1 - 2500, y1 - 5000), arrowprops=dict(arrowstyle='-|>', lw=0.6, color='k'))
@@ -321,20 +336,61 @@ def section(ax, theta, depth=3200):
         segs = slice_tris(ob['T'], p0, u_t)
         S2 = [((X(s[0]), s[0][2]), (X(s[1]), s[1][2])) for s in segs]; pc = poche(S2)
         cut_draw(ax, ob, pc, S2)
-    ax.plot([-16000, 25000], [-300, -300], color='k', lw=LW(0.35), zorder=8)    # GL
+    ax.plot([-17000, 17500], [-300, -300], color='k', lw=LW(0.35), zorder=8)    # GL
+
+def section_arc(ax, Rc, depth=30000):
+    """円筒面 r=Rc で切って展開。横＝u（南の妻から北へ、r=Rc の弧長）、西を見る（奥＝r の大きい方）"""
+    def RTH(P):
+        d = P[..., :2] - C; return np.hypot(d[..., 0], d[..., 1]), unwrap(np.arctan2(d[..., 1], d[..., 0]))
+    X = lambda th: SGN * (th - TH_S[0]) * Rc
+    far, cut = [], []
+    for ob in OBJ:
+        if ob['layer'].startswith('47') or num(ob['layer']) >= 76: continue
+        T = ob['T']; rr, th = RTH(T)
+        if rr.max() < Rc or rr.min() > Rc + depth: continue
+        if rr.min() < Rc < rr.max(): cut.append((ob, rr, th))
+        keep = rr.max(1) >= Rc
+        T2 = np.stack([X(th[keep]), T[keep][:, :, 2]], -1)
+        if len(T2): far.append((max(0, rr.min() - Rc), ob, T2))
+    far.sort(key=lambda t: -t[0])
+    for dmin, ob, T2 in far:
+        k = kind(ob['layer'])
+        draw_geom(ax, silhouette(T2), fc='none' if k == 'glass' else 'white', ec='0.3', lw=0.1, z=2)
+    for ob, rr, th in cut:
+        f = rr - Rc; segs = []
+        for tri, ff, tt in zip(ob['T'], f, th):
+            sg = np.sign(np.where(np.abs(ff) < 1e-6, 1e-6, ff))
+            if sg.min() > 0 or sg.max() < 0: continue
+            pts = []
+            for i in range(3):
+                j = (i + 1) % 3
+                if sg[i] != sg[j]:
+                    t = ff[i] / (ff[i] - ff[j]); pts.append((X(tt[i] + (tt[j] - tt[i]) * t), tri[i][2] + (tri[j][2] - tri[i][2]) * t))
+            if len(pts) == 2: segs.append(pts)
+        cut_draw(ax, ob, poche(segs), segs)
+    ax.plot([-12000, 66000], [-300, -300], color='k', lw=LW(0.35), zorder=8)
+    for k in range(1, 20):                      # スパン番号（南から）
+        um = (k - 0.5) * 3000 * Rc / 205000
+        ax.text(um, -900, f'{k}', ha='center', va='center', fontsize=5.5, color='0.3')
+    ax.text(-1500, -900, 'スパン', ha='right', va='center', fontsize=5.5, color='0.3')
 
 def make_sections():
     W_, H_ = 841, 594
-    fig = sheet(W_, H_, '断面図 A・B・C　1/100（A1）')
-    ext = (-17000, 24000, -1500, 10500)
-    for i, (nm, s, cap_) in enumerate(SECTIONS):
-        ax = axes_at(fig, W_, H_, 30, H_ - 40 - (i + 1) * 170 + 20, ext)
-        section(ax, span_mid(s))
-        ax.text(ext[0] + 500, ext[3] - 300, f'断面 {nm}（スパン {s}：{cap_}）　見る向き：北', fontsize=9, va='top')
+    fig = sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
+    extA = (-10000, 62000, -1500, 10500)
+    ax = axes_at(fig, W_, H_, 30, H_ - 45 - 120, extA)
+    section_arc(ax, SECTIONS[0][2])
+    ax.text(extA[0] + 300, extA[3] - 200, f'断面 A　{SECTIONS[0][3]}', fontsize=9, va='top')
+    ax.text(extA[0] + 300, -1300, '← 南', fontsize=6); ax.text(extA[1] - 300, -1300, '北 →', fontsize=6, ha='right')
+    extX = (-17000, 17500, -1500, 10500)
+    for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
+        ax = axes_at(fig, W_, H_, 30 + i * (345 + 25), H_ - 45 - 120 - 60 - 120, extX)
+        section(ax, theta_u(val))
+        ax.text(extX[0] + 300, extX[3] - 200, f'断面 {nm}　{cap_}　北を見る', fontsize=9, va='top')
         for z_, t_ in ((0, 'FL±0'), (-300, 'GL−300')):
-            ax.text(ext[1] - 200, z_ + 60, t_, fontsize=5, ha='right', va='bottom')
-        ax.text(ext[0] + 500, -1300, '← 西', fontsize=6); ax.text(ext[1] - 500, -1300, '東 →', fontsize=6, ha='right')
-        if i == 2: scalebar(ax, ext[0] + 4000, -1300)
+            ax.text(extX[1] - 200, z_ + 60, t_, fontsize=5, ha='right', va='bottom')
+        ax.text(extX[0] + 300, -1300, '← 西', fontsize=6); ax.text(extX[1] - 300, -1300, '東 →', fontsize=6, ha='right')
+        if i == 0: scalebar(ax, extX[0] + 4000, -1300)
     return fig
 
 for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_sections_1-100', make_sections)):

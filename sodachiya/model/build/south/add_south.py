@@ -124,7 +124,7 @@ for a_,b_,c_ in np.array(_ec.triangulate_float64(_xy,np.array([len(_pts)],dtype=
 _M.Normals.ComputeNormals(); _M.Compact(); m.Objects.AddMesh(_M,attr(L_eave))
 # ---------- 外構 ----------
 L_f=layer('60_外構_柵（一本の線の延長）',(192,57,43)); L_se=layer('61_外構_南の縁側',hexc('F4EBDD'))
-L_g=layer('62_外構_みなみの三角（乳児の庭）',hexc('EEF4D2')); L_ev=layer('63_外構_避難の帯',(58,120,194)); L_po=layer('64_外構_ポーチ',hexc('F7D3B0'))
+L_g=layer('62_外構_みなみのさんかく（乳児の園庭）',hexc('EEF4D2')); L_ev=layer('63_外構_避難の帯',(58,120,194)); L_po=layer('64_外構_ポーチ',hexc('F7D3B0'))
 L_rp=layer('65_縁側の端のスロープ',(201,167,122)); L_ent=layer('66_入口（扉・背くらべの柱）',(62,122,46))
 kp=P(RK,th19); ray=LineString([kp,kp+t*20000])
 hits=[ray.intersection(LineString([pn,pe])),ray.intersection(LineString([E_,S_]))]

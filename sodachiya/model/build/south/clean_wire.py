@@ -71,7 +71,8 @@ def ring_curve(R, ring):
 
 def copy_attr(a0, grp=None):
     a = r.ObjectAttributes()
-    for k in ('LayerIndex', 'ColorSource', 'ObjectColor', 'MaterialSource', 'MaterialIndex', 'Name', 'Visible', 'PlotColorSource', 'PlotColor'):
+    a.LayerIndex = LMAP[a0.LayerIndex]
+    for k in ('ColorSource', 'ObjectColor', 'MaterialSource', 'MaterialIndex', 'Name', 'Visible', 'PlotColorSource', 'PlotColor'):
         try: setattr(a, k, getattr(a0, k))
         except Exception: pass
     a.WireDensity = -1
@@ -136,7 +137,32 @@ def trimmed(R, g):
 m = r.File3dm.Read(IN)
 out = r.File3dm()
 out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
-for l in m.Layers: out.Layers.Add(l)
+# ---- レイヤーの親（Rhino で親を消すと子もまとめて消える）。子は名前の順。
+import uuid, re
+PARENTS = [
+    ('A 屋根・越屋根', ('10', '20', '26', '28', '29', '30', '50a', '50b', '50c')),
+    ('B 頭上（ファン・天蓋・物干し）', ('51', '58')),
+    ('C 架構（柱・梁・桁）', ('11a', '11b', '11c', '22a', '22b', '22c', '22d')),
+    ('D 壁・建具（外壁・間仕切り・ガラス戸）', ('16', '17', '18', '19', '21', '24', '27', '35', '66')),
+    ('E 床・部屋の色', ('12', '13', '14', '15', '23', '25', '31', '32', '33', '34', '36', '41', '42', '43', '44', '45', '52', '53', '54', '56', '57', '59')),
+    ('F しつらえ（家具・水まわり・格子）', ('37', '38', '39', '40', '46', '47', '48', '49')),
+    ('G 外（本体）', ('60', '62', '63', '64', '67')),
+    ('H 外構（詳細設計）', ('70', '71', '72', '73', '74', '75', '76', '77')),
+    ('I 敷地', ('00', '01')),
+]
+def code(name):
+    mm_ = re.match(r'^(\d+[a-z]?)_', name); return mm_.group(1) if mm_ else None
+pid = {}
+for pname, codes in PARENTS:
+    p = r.Layer(); p.Name = pname; p.Id = uuid.uuid4(); p.Color = (90, 90, 90, 255)
+    out.Layers.Add(p); pid[pname] = p.Id
+LMAP = {}
+order = sorted(range(len(m.Layers)), key=lambda i: m.Layers[i].Name)
+for i in order:
+    l = m.Layers[i]; c = code(l.Name)
+    for pname, codes in PARENTS:
+        if c in codes: l.ParentLayerId = pid[pname]; break
+    LMAP[i] = len(out.Layers); out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
 for gr in m.Groups: out.Groups.Add(gr)
 stat = dict(prism=0, planes=0, keep=0, objs=0)
@@ -176,13 +202,14 @@ def submesh(W, T):
 
 for o in m.Objects:
     g = o.Geometry; a0 = o.Attributes
-    if not isinstance(g, r.Mesh) or m.Layers[a0.LayerIndex].FullPath.startswith(KEEP_MESH):
-        out.Objects.Add(g, a0); stat['keep'] += 1; continue
+    if not isinstance(g, r.Mesh) or m.Layers[a0.LayerIndex].Name.startswith(KEEP_MESH):
+        a1 = a0.Duplicate() if hasattr(a0, 'Duplicate') else a0; a1.LayerIndex = LMAP[a0.LayerIndex]
+        out.Objects.Add(g, a1); stat['keep'] += 1; continue
     W, T0 = mesh_arrays(g)
     if len(T0) == 0: continue
     geo = []
     for T in components(T0):
-        k, gs = process(W, T, 'ルーバー' not in m.Layers[a0.LayerIndex].FullPath); stat[k] += 1; geo += gs
+        k, gs = process(W, T, 'ルーバー' not in m.Layers[a0.LayerIndex].Name); stat[k] += 1; geo += gs
     grp = None
     if len(geo) > 1:
         grp = len(out.Groups); out.Groups.Add(r.Group())
@@ -190,7 +217,7 @@ for o in m.Objects:
         at = copy_attr(a0, grp)
         if isinstance(x, r.Extrusion): out.Objects.AddExtrusion(x, at)
         elif isinstance(x, r.Brep): out.Objects.AddBrep(x, at)
-        else: out.Objects.AddMesh(x, a0 if grp is None else at)
+        else: out.Objects.AddMesh(x, at)
         stat['objs'] += 1
 print(stat)
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))

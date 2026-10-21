@@ -8,17 +8,18 @@ data/wnew.pkl を /tmp/claude-0/t/exact/wnew.pkl に置く。pip install rhino3d
   python3 south/add_monitor_west.py OUT/s1.3dm OUT/s2.3dm  # 西館の浮いた蓋・すき間の蓋・ファン
   python3 south/add_floor.py OUT/s2.3dm OUT/s3.3dm         # 床・縁側・海峡・東のガラス戸（鴨居 2270）
   python3 shitsu/add_shitsurae.py sodachiya/scripts OUT/s3.3dm OUT/s4.3dm   # plan01/02/04 のしつらえ
-  python3 south/finish.py OUT/s4.3dm model/sodachiya_exact_mesh.3dm model/sodachiya_approachA_layers.3dm
+  python3 south/finish.py OUT/s4.3dm OUT/s5.3dm model/sodachiya_approachA_layers.3dm
+  python3 south/add_west_south.py OUT/s5.3dm model/sodachiya_exact_mesh.3dm             # 西館の南（キッチン・更衣・はれのま・東の帯・南の入口・海峡の延長）
   python3 south/clean_wire.py model/sodachiya_exact_mesh.3dm model/sodachiya_exact.3dm   # Rhino 用（ワイヤフレームの筋なし）
   python3 south/draw100.py model/sodachiya_exact_mesh.3dm model/drawings                 # 1/100 平面・断面（モデルを直したら毎回）
 finish.py：レイヤー統合・00〜69 に番号整理・ガラス材質（透明 0.8／すり 0.4）・外構を -300 で取り込み。
 z=0 は本館 FL（GL = -300）。
 
 2 つの 3dm
-- `sodachiya_exact.3dm`：Rhino で開く版。平らな面ごとにまとめ直し、立体は押し出し（穴つき）、その他はトリム平面（グループ）。アイソカーブ非表示。形のずれは 3 mm 以内。南の縁側（14）と弧に沿うルーバー（50c）はメッシュのまま。
-- `sodachiya_exact_mesh.3dm`：スクリプトが読む版（すべて三角形のメッシュ）。図やほかのスクリプトはこちらを読む。
+- `sodachiya_exact.3dm`：Rhino で開く版。レイヤーは親（A 屋根・越屋根／B 頭上／C 架構／D 壁・建具／E 床・部屋の色／F しつらえ／G 外（本体）／H 外構／I 敷地）の下にまとめてある。親を消すと子もまとめて消える。平らな面ごとにまとめ直し、立体は押し出し（穴つき）、その他はトリム平面（グループ）。アイソカーブ非表示。形のずれは 3 mm 以内。南の縁側（14）と弧に沿うルーバー（50c）はメッシュのまま。
+- `sodachiya_exact_mesh.3dm`：スクリプトが読む版（すべて三角形のメッシュ、レイヤーは親なしの平らな一覧）。図やほかのスクリプトはこちらを読む。
 
 1/100 の図（`model/drawings/`）
 - `sodachiya_plan_1-100`：1 階平面（FL+1200 で切断）＋西館 2 階、A1 縦。部屋名と面積は床の板から。
-- `sodachiya_sections_1-100`：断面 A（スパン 3）・B（スパン 9）・C（スパン 16）、架構に沿う鉛直面、奥 3.2 m まで見えがかり、A1 横。
+- `sodachiya_sections_1-100`：A1 横。断面 A＝縦断（保育室の中ほど r=197 m の弧で切って展開、西を見る：19 スパンの架構の並び・越屋根・南の軒・奥に西館）、B＝海峡（u 21.75：西館の南の入口・キッチン・2 階・すき間・本館・縁側）、C＝4 歳・遊戯室（u 46.5）。B・C は架構に平行な鉛直面で北を見る、奥 3.2 m まで見えがかり。
 - 切断面は塗り（構造・壁は黒、家具は灰、ガラスは白）、見えがかりは高いもの・手前のものから隠す（物ごとの外形）。
