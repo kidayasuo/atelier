@@ -431,18 +431,41 @@ for i, (h1, s1) in enumerate([
     cx = rx + (i % 2) * (cw + 6)
     cy = top - 18 - ch - (i // 2) * (ch + 6)
     box(ax, cx, cy, cw, ch, h1, "小さな図＋\n" + s1, fill="#FAF8FF")
-# 配置図 1/200
+# 配置図 1/200（高野川の辺を下辺に水平：川向こうから見る向き、ユーザー案）
+from shapely import affinity
+_site = max([o for o in L("00_") if o["kind"] == "curve"], key=lambda o: len(o["V"]))
+_S = to_s(_site["V"])
+_riv = to_s(np.vstack([o["V"] for o in L("02_")])).mean(0)
+_best = None
+for i in range(len(_S) - 1):
+    p, q = _S[i], _S[i + 1]
+    if np.linalg.norm(q - p) < 5:
+        continue
+    dd = np.linalg.norm((p + q) / 2 - _riv)
+    if _best is None or dd < _best[0]:
+        _best = (dd, p, q)
+_e = _best[2] - _best[1]
+ROT = -np.degrees(np.arctan2(_e[1], _e[0]))
+for cand in (ROT, ROT + 180):
+    r = np.radians(cand)
+    if (_riv @ np.array([np.sin(r), np.cos(r)])) < (_S @ np.array([np.sin(r), np.cos(r)])).mean():
+        ROT = cand
+        break
+rot = lambda g: affinity.rotate(g, ROT, origin=(0, 0)) if g is not None else None
+_Q = np.array(rot(Polygon(_S)).exterior.coords)
+QX0, QY0 = _Q.min(0)
+QX1, QY1 = _Q.max(0)
 sx, sy = M + 6, M + 8
 sw, sh = 460, 322
-title(ax, sx, sy + sh + 4, "配置図", "1/200　周辺の道路・樹木・高野川・駐車")
-pad = 4
-x0s, y0s = SX0 - pad, SY0 - pad
-xf = xform(sx, sy, 200, x0s, y0s)
+title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き）")
+pad = 6
+xf = xform(sx + (sw - (QX1 - QX0 + 2 * pad) * 5) / 2, sy, 200, QX0 - pad, QY0 - pad)
 rp = clip_rect(ax, sx, sy, sw, sh)
 st = len(ax.patches); stl = len(ax.lines)
 for ln, g in site_items:
     if g is None:
         continue
+    g = rot(g)
     if ln.startswith("02_"):
         draw_shape(ax, g, xf, fc="#DCE8EE", ec="#8FB0C0", lw=0.15, z=0)
     elif ln.startswith("00_"):
@@ -451,21 +474,28 @@ for ln, g in site_items:
         draw_shape(ax, g, xf, ec="#666666", lw=0.3, z=3)
     else:
         draw_shape(ax, g, xf, fc="none" if g.geom_type.endswith("String") else "#EEF2E8", ec="#7D8C70", lw=0.12, z=2)
-draw_shape(ax, roofs_plan, xf, fc="#9A9A9A", ec="#444444", lw=0.25, z=5)
-for a in ax.patches[st:] + ax.lines[stl:]:
-    a.set_clip_path(rp)
-g0 = xf(np.array([[BX0 + 14, SY0 + 5]]))[0]
-g1 = xf(np.array([[BX0 + 62, BY0 - 1]]))[0]
-box(ax, g0[0], g0[1], g1[0] - g0[0], g1[1] - g0[1], "園庭（だいさんかく・しずかのもり）",
-    "園庭のチャットの図（garden_01、1/200）を\nここに重ねる：築山の等高線・小川・木", fill="none")
-north(ax, sx + sw - 20, sy + sh - 24)
+draw_shape(ax, rot(roofs_plan), xf, fc="#9A9A9A", ec="#444444", lw=0.25, z=5)
+for a_ in ax.patches[st:] + ax.lines[stl:]:
+    a_.set_clip_path(rp)
+_gd = Polygon(_S).difference(roofs_plan.buffer(3))
+_gd = max(getattr(_gd, "geoms", [_gd]), key=lambda g: g.area)
+draw_shape(ax, rot(_gd), xf, fc="none", ec=NOTE, lw=0.6, ls=(0, (3, 2)), z=6)
+_c = xf(np.array([rot(_gd).representative_point().coords[0]]))[0]
+T(ax, _c[0], _c[1] + 3, "園庭（だいさんかく）", 3.6, NOTE, bold=True, ha="center")
+T(ax, _c[0], _c[1] - 3, "園庭のチャットの図（1/200）を重ねる", 2.6, NOTE, ha="center")
+_nv = north_s / np.linalg.norm(north_s)
+_r = np.radians(ROT)
+_nv = np.array([_nv[0] * np.cos(_r) - _nv[1] * np.sin(_r), _nv[0] * np.sin(_r) + _nv[1] * np.cos(_r)])
+_nx, _ny = sx + sw - 20, sy + sh - 30
+ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
+T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
 scalebar(ax, sx + 6, sy + 6, 200, 20)
-dimnote(ax, sx + 130, sy + 6, f"敷地 {info['site'][0]}×{info['site'][1]} m → 1/200 で {info['site'][0]*5:.0f}×{info['site'][1]*5:.0f} mm（入る）")
+dimnote(ax, sx + 130, sy + 6, f"高野川の辺を水平にすると敷地は {QX1-QX0:.0f}×{QY1-QY0:.0f} m → 1/200 で {(QX1-QX0)*5:.0f}×{(QY1-QY0)*5:.0f} mm（入る）。建物は約 {abs(ROT):.0f}° 傾く")
 # 右の列：模型写真 2 枚
 px = W - M - 6 - 297
 box(ax, px, top - 8 - 210, 297, 210, "模型写真　A4（入口の一枚）",
     "園庭からこどもの目線（模型で約 10 mm）\n縁側・深い庇・比叡の方向を見る\n選抜で最初に目に入る位置")
-box(ax, px, M + 8, 297, 300, "模型写真　鳥瞰", "敷地と高野川・崖・公園・西の道\n配置図と同じ向き（北が右）にそろえる")
+box(ax, px, M + 8, 297, 300, "模型写真　鳥瞰", "敷地と高野川・崖・公園・西の道\n配置図と同じ向き（高野川を手前）にそろえる")
 figs.append(fig)
 
 # ================================================================ 2　こどもの一日（1 階平面）
