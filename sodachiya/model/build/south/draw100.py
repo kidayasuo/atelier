@@ -108,6 +108,7 @@ def num(ln):
 def kind(ln):
     n = num(ln)
     if n == 35: return 'volume'
+    if 80 <= n <= 88: return 'furn'
     if any(k in ln for k in ('ガラス', '室内窓')) and 'ルーバー' not in ln: return 'glass'
     if n in (37, 39, 40, 46, 51, 75) or 'しつらえ' in ln: return 'furn'
     if n in (35,): return 'volume'
@@ -371,7 +372,7 @@ print('frames', len(TH))
 
 SECTIONS = [('A', 'arc', 197000.0, '縦断（展開）　保育室の中ほど r=197 m の弧で切って平らに伸ばす、西を見る'),
             ('B', 'u', 21750.0, '海峡（スパン 8+0.75）　南の入口・キッチン・2 階・すき間・本館・縁側、北を見る'),
-            ('C', 'u', 46500.0, '4 歳・遊戯室（スパン 16 の中央）　北を見る')]
+            ('C', 'u', 42600.0, '4 歳・遊戯室の摺鉢ネット（スパン 15+0.6）　北を見る')]
 
 def plan_grid(A):
     """通り芯：架構 1〜20（放射）と W（西の柱 r=205 m）・E（東の柱 r=193 m）、スパンの寸法"""
@@ -493,13 +494,14 @@ def section_u(A, theta, depth=3200):
     D = lambda P: (P - p0) @ u_t
     far, cuts = [], []
     for ob in OBJ:
-        if ob['layer'].startswith('47') or num(ob['layer']) >= 76: continue
+        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77): continue
         T = ob['T']; d = D(T.reshape(-1, 3)).reshape(-1, 3)
         if d.max() < 0 or d.min() > depth: continue
         if d.min() < 0 < d.max():
             segs = slice_tris(T, p0, u_t)
             S2 = [((X(s[0]), s[0][2]), (X(s[1]), s[1][2])) for s in segs]
             cuts.append((ob, poche(S2), S2))
+        if num(ob['layer']) == 2: continue                    # 川の護岸は切り口だけ（見えがかりは長くなりすぎる）
         keep = (d.max(1) >= 0) & (d.min(1) <= depth)
         T2 = np.stack([X(T[keep].reshape(-1, 3)).reshape(-1, 3), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, d.min()), ob, silhouette(T2)))
@@ -521,7 +523,7 @@ def section_arc(A, Rc, depth=30000):
     X = lambda th: SGN * (th - TH_S[0]) * Rc
     far, cuts = [], []
     for ob in OBJ:
-        if ob['layer'].startswith('47') or num(ob['layer']) >= 76: continue
+        if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77): continue
         T = ob['T']; rr, th = RTH(T)
         if rr.max() < Rc or rr.min() > Rc + depth: continue
         if rr.min() < Rc < rr.max():
@@ -536,13 +538,14 @@ def section_arc(A, Rc, depth=30000):
                         t = ff[i] / (ff[i] - ff[j]); pts.append((X(tt[i] + (tt[j] - tt[i]) * t), tri[i][2] + (tri[j][2] - tri[i][2]) * t))
                 if len(pts) == 2: segs.append(pts)
             cuts.append((ob, poche(segs), segs))
+        if num(ob['layer']) == 2: continue                    # 川の護岸は切り口だけ
         keep = rr.max(1) >= Rc
         T2 = np.stack([X(th[keep]), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, rr.min() - Rc), ob, silhouette(T2)))
     occ = draw_cut(A, cuts)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
-    A.lines([[(-12000, -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
+    A.lines([[(-5000, -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
     cutb = {}
     for ob, pc, S2 in cuts:
         if not S2: continue
@@ -558,16 +561,17 @@ def section_arc(A, Rc, depth=30000):
 def make_sections():
     W_, H_ = 841, 594
     S = Sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
-    extA = (-9000, 69500, -2600, 10500)
-    A = S.axes(30, H_ - 40 - 131, extA)
+    extA = (-14500, 65500, -5600, 10500)
+    A = S.axes(30, H_ - 40 - 161, extA)
     cutb = section_arc(A, SECTIONS[0][2])
     levels(A, cutb, 64300, True)
     A.text(extA[0] + 300, extA[3] - 200, f'断面 A　{SECTIONS[0][3]}', 9, '80_図名・縮尺・方位', ha='left', va='top')
-    A.text(extA[0] + 300, -2400, '← 南', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
+    A.text(extA[0] + 300, -5400, '← 南（高野川）', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
     A.text(56000, -2400, '北 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')
+    A.text(-9000, -4900, '高野川の護岸（現況、寸法は仮）', 5, '80_図名・縮尺・方位', ha='center', va='bottom', color='0.35')
     extX = (-17500, 21500, -2600, 10500)
     for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
-        A = S.axes(30 + i * (390 + 15), H_ - 40 - 131 - 50 - 131, extX)
+        A = S.axes(30 + i * (390 + 15), H_ - 40 - 161 - 45 - 131, extX)
         cutb = section_u(A, theta_u(val))
         westx = min([b[0] for k, b in cutb.items() if k.startswith('21_')] or [-900])
         chain_dims(A, [westx, -900, 0, 1600, 12000, 13500, 15000], -900)

@@ -141,14 +141,63 @@ OPEN = [  # (足元の形, 下, 上)  上=None は天端まで
     (R(28.5, 29.3, -14.5, -12.3), 0, 2100),       # 調理の職員の外からの戸（西の面）
     (R(44.1, 46.1, -1.4, -0.5), 0, 2400),         # 遊戯室の口②
 ]
+# ---- 遊戯室の開口（data/play.json、遊戯室のスレッドの寸法）
+import json, os
+PJ = os.path.join(os.path.dirname(os.path.dirname(WNPKL)), 'data', 'play.json') if WNPKL.endswith('wnew.pkl') else None
+PANES = []      # (足元の形, 下, 上, レイヤー)
+L_DOOR = layer('89_遊戯室_搬入の大戸（閉じた状態）', (150, 110, 70))
+def face_v(u):
+    """u の放射線と西館の外形の、いちばん西の交点の v"""
+    ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WN.exterior)
+    pts = [x] if x.geom_type == 'Point' else list(getattr(x, 'geoms', []))
+    return min(uv(p.x, p.y)[1] for p in pts)
+if PJ and os.path.exists(PJ):
+    P = json.load(open(PJ, encoding='utf-8'))
+    for a, b in [(36.4, 39.0), (39.6, 41.8), (47.0, 49.6)]:        # 東の壁：覗き窓（キャットウォークの高さ）と東の高窓（同じ柱の間と仮定）
+        for k in ('east_peek', 'east_high'):
+            fp = R(a, b, -1.4, -0.5); OPEN.append((fp, P[k]['h0'] * 1000, P[k]['h1'] * 1000)); PANES.append((fp, P[k]['h0'] * 1000, P[k]['h1'] * 1000, L_GL))
+    nw = P['north_window']                                           # 北の窓辺（読書の庭のモミジを見る）
+    fp = R(50.3, 51.8, -0.9 - nw['w1'], -0.9 - nw['w0']); OPEN.append((fp, nw['h0'] * 1000, nw['h1'] * 1000)); PANES.append((fp, nw['h0'] * 1000, nw['h1'] * 1000, L_GL))
+    N_ = P['niche']
+    for ua, ub in P['niches']:                                       # ひだ：くぼみの奥の覗き窓
+        pc = (ua + ub) / 2; vf = face_v(pc)
+        fp = R(pc - N_['peek'][2] / 2, pc + N_['peek'][2] / 2, vf - 0.6, vf + 0.6)
+        OPEN.append((fp, N_['peek'][0] * 1000, N_['peek'][1] * 1000)); PANES.append((fp, N_['peek'][0] * 1000, N_['peek'][1] * 1000, L_GL))
+    for (a0, a1), (b0, b1) in zip(P['niches'], P['niches'][1:]):       # くぼみのあいだの柱の両脇に地窓
+        c = (a1 + b0) / 2; vf = face_v(c)
+        for u0_, u1_ in ((c - 0.45, c - 0.15), (c + 0.15, c + 0.45)):
+            fp = R(u0_, u1_, vf - 0.6, vf + 0.6); OPEN.append((fp, 50, N_['jimado_h'] * 1000)); PANES.append((fp, 50, N_['jimado_h'] * 1000, L_GL))
+    # 搬入の大戸：北西の斜めの面、u 45 と u 48 の西の柱のあいだ、幅 3.6×h3.0
+    cols = []
+    for o in m.Objects:
+        if LN.get(o.Attributes.LayerIndex, '').startswith('22a'):
+            bb = o.Geometry.GetBoundingBox(); cx_, cy_ = (bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2
+            cols.append((uv(cx_, cy_), np.array([cx_, cy_])))
+    pick = []
+    for uc in P['big_door']['u_cols']:
+        cand = [c for c in cols if abs(c[0][0] - uc) < 0.8]
+        if cand: pick.append(min(cand, key=lambda c: c[0][1])[1])
+    if len(pick) == 2:
+        mid = (pick[0] + pick[1]) / 2; d = (pick[1] - pick[0]) / np.linalg.norm(pick[1] - pick[0])
+        hw = P['big_door']['width'] * 500; hh = P['big_door']['height'] * 1000
+        # 柱の線から外の壁の線へ寄せる（足元の形は壁の厚さを十分に覆う）
+        fp = LineString([mid - d * hw, mid + d * hw]).buffer(900, cap_style=2)
+        OPEN.append((fp, 0, hh)); PANES.append((fp, 0, hh, L_DOOR))
+        print('big door between columns', [tuple(np.round(uv(*p), 2)) for p in pick])
 WALLC = None
 base = wall_ring.difference(unary_union([o[0] for o in OPEN]))
 mesh_prism(base, 0.0, ztop, L_WALL)
-for fp, zb, zt in OPEN:
+GRP = {}                                         # 同じ足元の開口（覗き窓と高窓など）はまとめて、残る壁を上下に分ける
+for fp, zb, zt in OPEN: GRP.setdefault(id(fp), [fp, []])[1].append((zb, zt))
+for fp, iv in GRP.values():
     piece = wall_ring.intersection(fp)
     if piece.is_empty: continue
-    if zb > 0: mesh_prism(piece, 0.0, const(zb), L_WALL)
-    if zt is not None: mesh_prism(piece, float(zt), ztop, L_WALL)
+    iv = sorted(iv); z = 0.0
+    for zb, zt in iv:
+        if zb > z: mesh_prism(piece, z, const(float(zb)), L_WALL)
+        if zt is None: z = None; break
+        z = float(zt)
+    if z is not None: mesh_prism(piece, z, ztop, L_WALL)
 
 # ガラス・建具（厚さ 30、壁の中ほど）
 def pane_u(u, v0, v1, z0, z1, t=0.03):
@@ -157,6 +206,10 @@ uS = 21.0 + 0.075 / 1.0 * 1.0   # 南の面の壁の中（外面 u=21、厚さ 1
 pane_u(21.06, -1.90, -0.95, 0, 2270); pane_u(21.10, -2.75, -1.80, 0, 2270)   # 引き戸 2 枚
 pane_u(21.075, -4.4, -3.5, 450, 1050)                                         # 今日のごはんの窓
 pane_u(21.075, -9.6, -4.6, 800, 2270)                                         # キッチンの南のガラス
+# 遊戯室の窓・大戸：壁の厚さの中ほどの薄い板
+mid_ring = WN.buffer(-60, join_style=2).difference(WN.buffer(-90, join_style=2))
+for fp, z0, z1, li in PANES:
+    mesh_prism(mid_ring.intersection(fp), float(z0), const(float(z1)), li)
 # すき間の南の端のガラス：海峡の床 −150 から すき間の蓋の下まで
 lid = []
 for o in new.Objects:

@@ -148,7 +148,8 @@ PARENTS = [
     ('F しつらえ（家具・水まわり・格子）', ('37', '38', '39', '40', '46', '47', '48', '49')),
     ('G 外（本体）', ('60', '62', '63', '64', '67')),
     ('H 外構（詳細設計）', ('70', '71', '72', '73', '74', '75', '76', '77')),
-    ('I 敷地', ('00', '01')),
+    ('I 敷地', ('00', '01', '02')),
+    ('J 遊戯室の遊具・しつらえ（data/play.json）', ('80', '81', '82', '83', '84', '85', '86', '87', '88', '89')),
 ]
 def code(name):
     mm_ = re.match(r'^(\d+[a-z]?)_', name); return mm_.group(1) if mm_ else None
@@ -209,7 +210,7 @@ for o in m.Objects:
     if len(T0) == 0: continue
     geo = []
     for T in components(T0):
-        k, gs = process(W, T, 'ルーバー' not in m.Layers[a0.LayerIndex].Name); stat[k] += 1; geo += gs
+        k, gs = process(W, T, not any(t in m.Layers[a0.LayerIndex].Name for t in ('ルーバー', 'ネット', '切り株'))); stat[k] += 1; geo += gs
     grp = None
     if len(geo) > 1:
         grp = len(out.Groups); out.Groups.Add(r.Group())
