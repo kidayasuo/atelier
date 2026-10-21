@@ -26,7 +26,7 @@ def Wm(u, v):
     th = TH_S - u / RW; r = RW - v
     return np.array((CX + r * math.cos(th), CY + r * math.sin(th)))
 
-NOGO = unary_union([R(U0 - 1, P["FOOD"][0], V0 - 1, P["FOOD"][1])]
+NOGO = unary_union([R(U0 - 1, P["FOOD"][0], V0 - 1, P["FOOD"][1]), R(*P["SLALOM"]["box"])]
                    + [R(uf - P["FRAME_OFF"], uf + P["FRAME_OFF"], V0 - 1, V1 + 1) for uf in P["FRAMES"]])
 COLS = [(uf, vc) for uf in (21, 24, 27, 30) for vc in (0, 12)]
 
@@ -83,6 +83,20 @@ def grow(seed):
     ph = [(rng.uniform(0.6, 1.4) * s1, rng.uniform(0.6, 1.4) * s2, rng.uniform(0, 6.28)) for s1, s2 in [(1.1, 0.4), (0.3, 0.9), (0.8, -0.7)]]
     trees = []
     if P["NUSHI"]["on"]: trees.append((*P["NUSHI"]["c"], P["NUSHI"]["d"], "ぬし"))
+    for row in P["SLALOM"]["rows"]:                                  # 減速の茂み：あき 0.7 の口を左右互い違いに開けた列
+        u = row["u"]; v = row["v"][0]
+        while v <= row["v"][1] + 1e-9:
+            if row["open"][0] - 0.03 < v < row["open"][1] + 0.03:
+                v = row["open"][1] + 0.03; continue
+            k = rng.choice([1, 2, 2, 3]); d = rng.choice(P["PAIR_D"])
+            span = k * d
+            if v + span > row["v"][1] + d or (v < row["open"][0] < v + span + 0.4 and v + span > row["open"][0] - 0.0):
+                k = 1; span = d
+            if not (v + span <= row["open"][0] or v >= row["open"][1]):
+                v = row["open"][1] + 0.03; continue
+            for j in range(k):
+                trees.append((u, v + d / 2 + j * d, d, "減速の茂み" + ("・株立ち" if k > 1 else "")))
+            v += span + P["GAP"] + 0.01
     for g in P["GROUPS"]:
         pts, ea = lattice(g, rng)
         for (u, v, r) in pts:
@@ -137,6 +151,35 @@ def find_channel(trees):
     pts = [(us[i], vs[j]) for i, j in path[::-1]]
     return LineString(pts).simplify(0.25)
 
+def find_slalom(trees):
+    """内縁側のホールの南の端（減速の茂み）：北から南へ、大人がけがの子を抱えて通れるあき 0.7 の道。
+    茂みの列（東西）を横切るので、抜く木が少ない経路はおのずと曲がる。"""
+    S = P["SLALOM"]; h = 0.05
+    us = np.arange(S["u"][0], S["u"][1] + 1e-9, h); vs = np.arange(S["v"][0], S["v"][1] + 1e-9, h)
+    UU, VV = np.meshgrid(us, vs, indexing="ij"); cost = np.ones(UU.shape)
+    for (a, b, dd, *_) in trees:
+        cost[(UU - a) ** 2 + (VV - b) ** 2 < (S["clear"] / 2 + dd / 2) ** 2] += S["w_tree"]
+    for (a, b) in COLS:
+        cost[(UU - a) ** 2 + (VV - b) ** 2 < (0.2 + S["clear"] / 2) ** 2] = 1e6
+    cost[VV > 13.5 - S["clear"] / 2] = 1e6                          # ガラス戸から 0.35
+    dist = np.full(cost.shape, np.inf); prev = {}; pq = []
+    top_i = len(us) - 1
+    for j in range(len(vs)): dist[top_i, j] = cost[top_i, j]; heapq.heappush(pq, (dist[top_i, j], top_i, j))
+    nb = [(1, 0, 1), (-1, 0, 1), (0, 1, 1), (0, -1, 1), (1, 1, 1.414), (1, -1, 1.414), (-1, 1, 1.414), (-1, -1, 1.414)]
+    end = None
+    while pq:
+        dcur, i, j = heapq.heappop(pq)
+        if dcur > dist[i, j]: continue
+        if i == 0: end = (i, j); break
+        for di, dj, sc in nb:
+            a, b = i + di, j + dj
+            if 0 <= a < len(us) and 0 <= b < len(vs):
+                nd = dcur + cost[a, b] * sc
+                if nd < dist[a, b]: dist[a, b] = nd; prev[(a, b)] = (i, j); heapq.heappush(pq, (nd, a, b))
+    path = [end]
+    while path[-1] in prev: path.append(prev[path[-1]])
+    return LineString([(us[i], vs[j]) for i, j in path[::-1]]).simplify(0.02)
+
 def longest_run(trees, body=0.3):
     REGION = R(22.6, 29.9, -0.0, 13.3).difference(R(U0 - 1, P["FOOD"][0], V0 - 1, P["FOOD"][1]))
     obst = unary_union([Point(a, b).buffer(dd / 2 + body, 10) for a, b, dd, *_ in trees])
@@ -175,11 +218,14 @@ if __name__ == "__main__":
         band = ch.buffer(P["CHANNEL"]["clear"] / 2)
         removed = [x for x in t if band.distance(Point(x[0], x[1])) < x[2] / 2 and x[3] != "ぬし"]
         t2 = [x for x in t if x not in removed]
+        sl = find_slalom(t2); sband = sl.buffer(P["SLALOM"]["clear"] / 2)
+        srem = [x for x in t2 if sband.distance(Point(x[0], x[1])) < x[2] / 2]
+        t2 = [x for x in t2 if x not in srem]
         L, g = longest_run(t2)
-        res.append((round(L * 2) / 2, len(removed), -len(t2), seed, t2, ch, removed, L, g))
+        res.append((round(L * 2) / 2, len(removed), -len(t2), seed, t2, ch, removed, L, g, sl, srem))
         print(seed, len(t2), "removed", len(removed), "run", round(L, 2), "channel", round(ch.length, 1))
     res.sort(key=lambda r: (r[0], r[1], r[2]))
-    _, nrem, _, seed, trees, ch, removed, L, g = res[0]
+    _, nrem, _, seed, trees, ch, removed, L, g, sl, srem = res[0]
     gang = {gg["name"]: gg["ang"] for gg in P["GROUPS"]}
     out = []
     for a, b, dd, grp in trees:
@@ -189,6 +235,12 @@ if __name__ == "__main__":
         t["xy_mm"] = [round(c * 1000, 1) for c in Wm(a, b)]
         out.append(t)
     F["TREES"] = out
+    RM = P["REMOVABLE"]
+    for t in out:
+        t["removable"] = bool(RM["u"][0] <= t["u"] <= RM["u"][1] and RM["v"][0] <= t["v"] <= RM["v"][1]
+                              and not any(t["group"].startswith(x) for x in RM["exclude"]) and t["d"] <= 0.1)
+    F["SLALOM"] = {"line_uv": [[round(x, 2), round(y, 2)] for x, y in sl.coords], "length": round(sl.length, 2),
+                   "removed": [[round(a, 2), round(b, 2), dd] for a, b, dd, *_ in srem]}
     F["CHANNEL"] = {"line_uv": [[round(x, 2), round(y, 2)] for x, y in ch.coords], "length": round(ch.length, 2),
                     "removed": [[round(a, 2), round(b, 2), dd] for a, b, dd, *_ in removed]}
     F["RESULT"] = {"seed": seed, "n": len(trees), "removed_for_channel": nrem, "longest_run": round(L, 2),

@@ -33,6 +33,7 @@ python sodachiya/scripts/export3dm.py      # → sodachiya/model/sodachiya_appro
 python sodachiya/scripts/forest_gen.py     # ホールの北山杉の林の配列 → data/forest.json の TREES
 python sodachiya/scripts/forest01.py       # → sodachiya/out/sodachiya_forest_01.pdf / .png（平面・断面・模型の表）
 python sodachiya/scripts/forest02.py       # → sodachiya/out/sodachiya_forest_02.pdf / .png（目の高さの景色・透け方のばら）
+python sodachiya/scripts/forest03.py       # → sodachiya/out/sodachiya_forest_03.pdf / .png（幹の頭と足もと 1/5）
 ```
 
 フォントは Noto Sans CJK JP。出力先は環境変数 `OUT` で変えられる。

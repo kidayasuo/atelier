@@ -100,6 +100,9 @@ poly([W(u, v) for u, v in band.exterior.coords], "#FFF6E6", "none", 0, 2)
 line(chl, lw=0.5, c="#B07A2A", ls=(0, (4, 2)), z=3)
 for (u, v, d) in CH["removed"]:
     x, y = W(u, v); ax.plot([x - 0.12, x + 0.12], [y - 0.12, y + 0.12], lw=0.4, color="#B07A2A", zorder=9); ax.plot([x - 0.12, x + 0.12], [y + 0.12, y - 0.12], lw=0.4, color="#B07A2A", zorder=9)
+SL = F["SLALOM"]["line_uv"]
+line(SL, lw=0.9, c="#C0392B", ls=(0, (3, 1.5)), z=10)
+T(SL[len(SL) // 2][0] + 0.2, SL[len(SL) // 2][1] - 0.9, "抱えて通れる道\n（あき 0.7、S 字）", 4.4, c="#C0392B", z=12)
 for (r, u, v) in F["RESULT"]["pockets_r_u_v"]:
     if r < 0.8: continue
     poly([W(u + (r - 0.05) * math.cos(a), v + (r - 0.05) * math.sin(a)) for a in np.linspace(0, 2 * math.pi, 60)], "none", "#B08D57", 0.35, 3, ls=(0, (1, 2)))
@@ -114,6 +117,8 @@ for t_ in TR:
         poly([W(*(np.array([u, v]) + ea * sx * hw + eb * sy * ht)) for sx, sy in [(-1, -1), (1, -1), (1, 1), (-1, 1)]], DCOL[d], "black", 0.2, 9)
     else:
         ax.add_patch(Circle((x, y), d / 2, fc=DCOL[d], ec="black", lw=0.2, zorder=9))
+    if t_.get("removable"):
+        ax.add_patch(Circle((x, y), d / 2 + 0.09, fc="none", ec="#2E6FA8", lw=0.4, zorder=9))
 
 # group labels (row direction)
 for g in P["GROUPS"]:
@@ -140,7 +145,7 @@ ax.text(nx + northv[0] * 1.55, ny + northv[1] * 1.55, "N", fontsize=6, ha="cente
 
 n = len(TR); nd = {dd: sum(1 for t_ in TR if t_["d"] == dd) for dd in DCOL}
 nclump = sum(1 for t_ in TR if "株立ち" in t_["group"])
-fig.text(PL / 420, 290 / 297, "ホールの北山杉の林　平面 1/100（たたき台・4 版）", fontsize=11, weight="bold", va="top")
+fig.text(PL / 420, 290 / 297, "ホールの北山杉の林　平面 1/100（たたき台・5 版）", fontsize=11, weight="bold", va="top")
 fig.text(PL / 420, 282 / 297, f"スパン 8–10（西吹き抜け・内縁側を含む）　間伐材 {n} 本（φ50 ×{nd[0.05]}・φ70 ×{nd[0.07]}・φ100 ×{nd[0.1]}・φ200 ×{nd[0.2]}、うち株立ち {nclump} 本）。"
          f"幹と幹のあき {P['GAP']} 以上。うすい帯＝置いたあとで見つけた東西の筋（あき 0.9、× は抜いた木）。点線の輪＝できた空き地（決めない）", fontsize=6.2, va="top")
 
@@ -188,7 +193,9 @@ para("考え方（3 版）", [
     "疎密：北西（西吹き抜けの奥）がいちばん密な茂み、南東（縁側・海峡の側）に向かって疎ら。そこにゆるいむらを重ねる。",
     "見る向きで景色が変わる（KAIT 工房に学ぶ）：3 つの群で列の向きを変え（西の群＝東西、海峡の群＝南北、縁側の群＝比叡山の向き）、株立ちを列の向きに並べる。列に沿うと透け、横切ると詰まる。",
     "どこにでも生やす：西吹き抜け（越屋根の光の中へ伸びる）と内縁側にも。生やさないのは海峡・東の帯・配膳の道だけ。架構の線の上も区別しない：立った位置がたまたま梁（2 枚組）のあいだなら、そのまま抜けて屋根まで（梁の板に当たる位置なら少しずらす）。",
-    "内縁側のホールの南の端は茂みにする：ここから南は 0〜2 歳の場所なので、ここで減速（あき 0.4 は守るので先生は通れる）。",
+    "内縁側のホールの南の端は減速の茂み（ここから南は 0〜2 歳の場所）：東西の列を 3 本、あき 0.7 の口を左右互い違いに開けた。大人はけがの子を抱えたまま S 字に抜けられ（赤の点線）、内縁側がそのまま医務への運ぶ道になる。こどもは走ったままでは抜けられない。",
+    f"抜ける幹（青い輪、{sum(1 for t in TR if t.get('removable'))} 本）：ホールの中ほどの幹は、足もとのピンを抜いてくるっと回し、持ち上げて外せる（3 枚目）。全部外すとホールの中ほどが空く（行事・大掃除）。",
+    "掃除：床は平らなので、お掃除ロボットが株と株のあいだ（0.4）を回れる。"
     "よじ登ってよい：2 本のあいだで背と足を突っ張って登れる（ユーザー）。"
     f"東西に抜ける筋：全体を置いてから、東の帯の側から縁側のガラス戸まで、抜く木が少なく短い経路を探し（折れてよい）、幅 0.9 にかかる木を抜いた（{len(F['CHANNEL']['removed'])} 本、長さ {F['CHANNEL']['length']:.1f} m）。床に印は付けない。",
     f"まっすぐ走れる線（幅 0.6）：最長 {F['RESULT']['longest_run']:.1f} m。",
@@ -219,7 +226,7 @@ lx = PL; ly = 104
 for k, (dd, s) in enumerate([(0.05, "φ50（ピアノ線 0.5）"), (0.07, "φ70（0.7）"), (0.1, "φ100（1.0）"), (0.2, "φ200（丸棒 2.0）")]):
     fig.patches.append(matplotlib.patches.Circle(((lx + 3 + k * 34) / 420, ly / 297), 1.0 / 420, transform=fig.transFigure, fc=DCOL[dd], ec="black", lw=0.3))
     fig.text((lx + 6 + k * 34) / 420, ly / 297, s, fontsize=5.6, va="center")
-fig.text((lx + 142) / 420, ly / 297, "四角＝太鼓落とし　緑：配膳の道　点線：梁（上）・越屋根の縁", fontsize=5.6, va="center", color="#444444")
+fig.text((lx + 142) / 420, ly / 297, "四角＝太鼓落とし　青い輪＝抜ける幹　緑：配膳の道　赤の点線：抱えて通れる道　点線：梁（上）", fontsize=5.6, va="center", color="#444444")
 
 os.makedirs(OUT, exist_ok=True)
 for ext in ("pdf", "png"):
