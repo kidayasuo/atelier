@@ -78,7 +78,7 @@ def render(ax, p, fwd, eye, title, fov=110):
     items.sort(key=lambda x: -x[0])
     for D, rel, w, t_ in items:
         half = math.degrees(math.atan2(w / 2, D))
-        b = math.degrees(math.atan2(-eye, D)); tp = math.degrees(math.atan2(top(t_["v"], t_["u"], t_["d"]) - eye, D))
+        b = math.degrees(math.atan2(-eye, D)); tp = math.degrees(math.atan2(t_["h"] - eye, D))
         shade = min(1, 2.2 / D)
         ax.add_patch(Polygon([(rel - half, b), (rel + half, b), (rel + half, tp), (rel - half, tp)],
                              fc=DCOL[t_["d"]], ec="none", alpha=0.45 + 0.55 * shade, zorder=3 + 1 / D))
@@ -94,9 +94,9 @@ def render(ax, p, fwd, eye, title, fov=110):
 
 MM = 1 / 25.4
 fig = plt.figure(figsize=(420 * MM, 297 * MM))
-fig.text(14 / 420, 288 / 297, "ホールの北山杉の林　こどもの目の高さ（0.9 m）から見た景色　（たたき台・5 版）", fontsize=11, weight="bold", va="top")
+fig.text(14 / 420, 288 / 297, "ホールの北山杉の林　こどもの目の高さ（0.9 m）から見た景色　（たたき台・6 版：すべて自立）", fontsize=11, weight="bold", va="top")
 fig.text(14 / 420, 281 / 297, "円筒投影（横＝方位 110°、縦＝仰角）。幹は北山杉（φ50 は磨き丸太、群の φ70・100 は太鼓落とし＝両側を平らに挽いた丸太、平らな面を列の向きにそろえる）。"
-         "奥の色：うす緑＝縁側のガラス越しの園庭、ベージュ＝壁、橙＝キッチンのガラス、灰＝海峡", fontsize=6.2, va="top")
+         "奥の色：うす緑＝縁側のガラス越しの園庭、ベージュ＝壁、橙＝キッチンのガラス、灰＝海峡。低い木（0.85〜1.1）はこどもの目の高さを隠し、高い木は屋根の近くまで", fontsize=6.2, va="top")
 VIEWS = [
     ("A　海峡から北を見る（登園のこども）", (22.2, 8.6), (1, 0), 0.75),
     ("B　外縁側から西を見る（園庭から入ってくる）", (25.6, 14.2), (0, -1), 0.9),

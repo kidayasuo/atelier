@@ -78,6 +78,10 @@ def beam_fix(u, half):
         return None
     return u
 
+CLUMP = [0]
+def cid():
+    CLUMP[0] += 1; return f"#{CLUMP[0]}"
+
 def grow(seed):
     rng = random.Random(seed)
     ph = [(rng.uniform(0.6, 1.4) * s1, rng.uniform(0.6, 1.4) * s2, rng.uniform(0, 6.28)) for s1, s2 in [(1.1, 0.4), (0.3, 0.9), (0.8, -0.7)]]
@@ -88,14 +92,15 @@ def grow(seed):
         while v <= row["v"][1] + 1e-9:
             if row["open"][0] - 0.03 < v < row["open"][1] + 0.03:
                 v = row["open"][1] + 0.03; continue
-            k = rng.choice([1, 2, 2, 3]); d = rng.choice(P["PAIR_D"])
+            k = rng.choice([2, 2, 3]); d = rng.choice(P["PAIR_D"])
             span = k * d
             if v + span > row["v"][1] + d or (v < row["open"][0] < v + span + 0.4 and v + span > row["open"][0] - 0.0):
                 k = 1; span = d
             if not (v + span <= row["open"][0] or v >= row["open"][1]):
                 v = row["open"][1] + 0.03; continue
+            tag = cid() if k > 1 else ""
             for j in range(k):
-                trees.append((u, v + d / 2 + j * d, d, "減速の茂み" + ("・株立ち" if k > 1 else "")))
+                trees.append((u, v + d / 2 + j * d, d, "減速の茂み" + ("・株立ち" + tag if k > 1 else "")))
             v += span + P["GAP"] + 0.01
     for g in P["GROUPS"]:
         pts, ea = lattice(g, rng)
@@ -107,11 +112,12 @@ def grow(seed):
                 u = beam_fix(u, abs(ea[0]) * (k - 1) * d / 2 + d / 2)
                 if u is None: continue
                 if ok(u, v, k * d, trees):
+                    tag = cid()
                     for j in range(k):
                         o = (j - (k - 1) / 2) * d
-                        trees.append((u + ea[0] * o, v + ea[1] * o, d, g["name"] + "・株立ち"))
+                        trees.append((u + ea[0] * o, v + ea[1] * o, d, g["name"] + "・株立ち" + tag))
                 continue
-            d = rng.choices(P["D"], weights=g["dw"])[0]
+            d = rng.choices(P["D_SINGLE"], weights=g["dw"])[0]
             u = beam_fix(u, d / 2)
             if u is None: continue
             if ok(u, v, d, trees): trees.append((u, v, d, g["name"]))
@@ -180,6 +186,14 @@ def find_slalom(trees):
     while path[-1] in prev: path.append(prev[path[-1]])
     return LineString([(us[i], vs[j]) for i, j in path[::-1]]).simplify(0.02)
 
+def roof_under(u, v, d):
+    """その位置の屋根の下（垂木の下端＝梁の天端）。梁（2 枚組）の真下なら梁の下端、西吹き抜けは越屋根の中。"""
+    for uf in P["FRAMES"]:
+        x = abs(u - uf)
+        if not (x - d / 2 >= 0.185 or x + d / 2 <= 0.085): return 4.0 - max(0.0, v) / 12.0 - 0.6
+    if v < 1.6: return 4.6
+    return 4.0 - v / 12.0
+
 def longest_run(trees, body=0.3):
     REGION = R(22.6, 29.9, -0.0, 13.3).difference(R(U0 - 1, P["FOOD"][0], V0 - 1, P["FOOD"][1]))
     obst = unary_union([Point(a, b).buffer(dd / 2 + body, 10) for a, b, dd, *_ in trees])
@@ -235,10 +249,31 @@ if __name__ == "__main__":
         t["xy_mm"] = [round(c * 1000, 1) for c in Wm(a, b)]
         out.append(t)
     F["TREES"] = out
+    # 高さ：すべて自立（片持ち）。根元の曲げ＝横の力×掛かる高さ。手が届く・登れる高さ＝幹の高さとみて、
+    # その太さ（株は締めた本数の和）が耐える高さを超えない。届けば屋根の近くまで（高い木）、届かなければ大人の目線より低く
+    H = P["HEIGHT"]; hr = random.Random(seed + 77)
+    cnt = {}
+    for t in out:
+        if "#" in t["group"]: cnt[t["group"]] = cnt.get(t["group"], 0) + 1
+    hc = {}
+    for t in out:
+        k = cnt.get(t["group"], 1) if "#" in t["group"] else 1
+        Z = k * math.pi * (t["d"] * 1000) ** 3 / 32                               # mm³（締めた株は 1 本ずつの和で安全側）
+        a_max = Z * H["f_allow"] / (H["F"] * 1e3) / 1000                           # m
+        roof = roof_under(t["u"], t["v"], t["d"]) - H["top_gap"]
+        if "#" in t["group"] and t["group"] in hc: h = hc[t["group"]]
+        elif a_max >= roof: h = roof
+        else: h = max(H["min_h"], min(a_max, H["low_max"]) * hr.uniform(0.8, 1.0))
+        if "#" in t["group"]: hc[t["group"]] = h if t["group"] not in hc else hc[t["group"]]
+        t["h"] = round(min(h, roof), 2); t["tall"] = bool(a_max >= roof); t["a_max"] = round(a_max, 2)
+    for t in out:                                                                  # 株は全部同じ高さ（いちばん低い所の屋根に合わせる）
+        if "#" in t["group"]:
+            t["h"] = min(x["h"] for x in out if x["group"] == t["group"])
     RM = P["REMOVABLE"]
     for t in out:
         t["removable"] = bool(RM["u"][0] <= t["u"] <= RM["u"][1] and RM["v"][0] <= t["v"] <= RM["v"][1]
-                              and not any(t["group"].startswith(x) for x in RM["exclude"]) and t["d"] <= 0.1)
+                              and not any(t["group"].startswith(x) for x in RM["exclude"])
+                              and t["h"] <= roof_under(t["u"], t["v"], t["d"]) - H["lift"])
     F["SLALOM"] = {"line_uv": [[round(x, 2), round(y, 2)] for x, y in sl.coords], "length": round(sl.length, 2),
                    "removed": [[round(a, 2), round(b, 2), dd] for a, b, dd, *_ in srem]}
     F["CHANNEL"] = {"line_uv": [[round(x, 2), round(y, 2)] for x, y in ch.coords], "length": round(ch.length, 2),

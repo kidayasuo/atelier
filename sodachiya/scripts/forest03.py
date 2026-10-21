@@ -1,159 +1,145 @@
-# ホールの北山杉の林：幹の頭と足もとの納まり 1/5（A3 横）、外し方
-# 寸法は data/forest.json の DETAIL。垂木・野地・床の構成は仮（木造に確認）。
-import json, os, math
+# ホールの北山杉の林：幹の足もと（深いさや）と頂部 1/5、外し方、高さの決め方（A3 横）。6 版（すべて自立）
+# 寸法は data/forest.json の DETAIL・PARAMS.HEIGHT。床の構成は仮（木造に確認）。
+import json, os, math, textwrap
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Polygon, Circle, FancyArrowPatch
+from matplotlib.patches import Rectangle, Polygon, Circle, FancyArrowPatch, Wedge
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.environ.get("OUT", os.path.join(ROOT, "out"))
 plt.rcParams["font.family"] = "Noto Sans CJK JP"
 F = json.load(open(os.path.join(ROOT, "data", "forest.json")))
-D = F["DETAIL"]
+D = F["DETAIL"]; H = F["PARAMS"]["HEIGHT"]; TR = F["TREES"]
 
 MM = 1 / 25.4
 fig = plt.figure(figsize=(420 * MM, 297 * MM))
-fig.text(14 / 420, 288 / 297, "ホールの北山杉の林　幹の頭と足もと 1/5（たたき台）", fontsize=11, weight="bold", va="top")
-fig.text(14 / 420, 281 / 297, "頭は深いさやに差すだけ（上下に逃げがあるので、屋根のたわみも雪も幹に掛からない＝構造ではない）。足もとは差して回すと抜けない金物。"
-         "抜ける幹も抜けない幹も同じ金物で、抜けない幹はピンを固定ねじにするだけ。垂木・野地・床の構成は仮（木造に確認）。", fontsize=6.2, va="top")
-
-WOOD = "#E8D2A6"; STEEL = "#8C8C8C"; TRUNK = "#C9A27A"; INS = "#F3E9C9"; CON = "#D5D5D5"
+fig.text(14 / 420, 288 / 297, "ホールの北山杉の林　足もとと頂部 1/5・高さの決め方（たたき台・6 版：すべて自立）", fontsize=11, weight="bold", va="top")
+fig.text(14 / 420, 281 / 297, "上は留めない。幹は床から自立する片持ちで、根元の深いさやが曲げを受ける。高さは太さで決め（右下の表）、頂部は丸く削る。"
+         "抜ける幹は差して回す金物で、真上に抜く。床の構成は仮（木造に確認）。", fontsize=6.2, va="top")
+WOOD = "#E8D2A6"; STEEL = "#8C8C8C"; TRUNK = "#C9A27A"; CON = "#D5D5D5"
 
 def ax_at(x, y, w, h, scale=5):
-    """紙の上の mm で置き、中は実寸 mm（scale 分の 1）"""
     ax = fig.add_axes([x / 420, y / 297, w / 420, h / 297]); ax.set_xlim(0, w * scale); ax.set_ylim(0, h * scale)
     ax.set_aspect("equal"); ax.axis("off"); return ax
 def rect(ax, x, y, w, h, fc, ec="black", lw=0.5, hatch=None, z=2):
     ax.add_patch(Rectangle((x, y), w, h, fc=fc, ec=ec, lw=lw, hatch=hatch, zorder=z))
-def dim(ax, x0, y0, x1, y1, s, off=0, side="r", fs=5.2):
-    ax.annotate("", (x0, y0), (x1, y1), arrowprops=dict(arrowstyle="<->", lw=0.4, color="#333333"))
-    xm, ym = (x0 + x1) / 2, (y0 + y1) / 2
-    ax.text(xm + (off if side == "r" else -off), ym, s, fontsize=fs, ha="left" if side == "r" else "right", va="center", color="#333333")
-def note(ax, x, y, tx, ty, s, fs=5.4):
+def note(ax, x, y, tx, ty, s, fs=5.2):
     ax.annotate(s, (x, y), (tx, ty), fontsize=fs, arrowprops=dict(arrowstyle="-", lw=0.35, color="#555555"), va="center", color="#222222")
 
-d = D["d"]                        # 図は φ70 で描く
-# ---------------------------------------------------------------- A: head (section across the rafters, 1/5)
-A = ax_at(14, 150, 200, 122)      # 1000 × 610 mm
-ra = D["rafter"]; nj = D["noji_t"]
-y_noji = 400                      # 野地の下端（図の座標）
-rect(A, 0, y_noji, 1000, nj, WOOD)                              # 野地
-rect(A, 0, y_noji + nj, 1000, D["ins_t"], INS, hatch="////")    # 断熱
-rect(A, 0, y_noji + nj + D["ins_t"], 1000, 12, "#B0B0B0")       # 屋根の仕上げ（仮）
-for x in (20, 20 + ra["pitch"], 20 + ra["pitch"] + 260):
-    rect(A, x, y_noji - ra["h"], ra["b"], ra["h"], WOOD)        # 垂木（3 本目は②の説明のため間隔を詰めて描く）
-A.text(1000, y_noji + nj + D["ins_t"] / 2, "断熱（仮）", fontsize=5.2, ha="right", va="center")
-A.text(1000, y_noji + nj / 2, "野地（仮） ", fontsize=5.2, ha="right", va="center")
-# case 1: between rafters → cup on 野地
-cx = 20 + ra["b"] + (ra["pitch"] - ra["b"]) / 2
-cup = D["cup"]
-rect(A, cx - cup["plate"] / 2, y_noji - cup["plate_t"], cup["plate"], cup["plate_t"], STEEL, z=4)
-rect(A, cx - (d / 2 + cup["clear"] + cup["wall"]), y_noji - cup["plate_t"] - cup["depth"], cup["wall"], cup["depth"], STEEL, z=4)
-rect(A, cx + d / 2 + cup["clear"], y_noji - cup["plate_t"] - cup["depth"], cup["wall"], cup["depth"], STEEL, z=4)
-t_top = y_noji - cup["plate_t"] - cup["depth"] + cup["insert"]
-rect(A, cx - d / 2, 0, d, t_top, TRUNK, z=3)
-rect(A, cx - d / 2 - 1, t_top - cup["insert"] + 10, d + 2, 12, "#333333", lw=0, z=5)            # ゴムの輪
-for sx in (-1, 1): A.plot([cx + sx * cup["plate"] / 2 * 0.7] * 2, [y_noji - cup["plate_t"], y_noji + nj * 0.8], lw=0.8, color="#333333", zorder=5)
-dim(A, cx + 60, t_top, cx + 60, y_noji - cup["plate_t"], f"逃げ {y_noji - cup['plate_t'] - t_top:.0f}", off=6)
-dim(A, cx + 100, y_noji - cup["plate_t"] - cup["depth"], cx + 100, t_top, f"差し込み {cup['insert']}", off=6)
-note(A, cx - 30, y_noji - 4, 10, y_noji - 200, f"鋼板 {cup['plate']}×{cup['plate']} t{cup['plate_t']}\n木ねじ 4 本で野地に（野地を貫かない）")
-note(A, cx - d / 2 - cup["clear"] - cup["wall"], y_noji - 90, 10, y_noji - 260, f"さや：鋼管 内径 φ{d + 2 * cup['clear']}・深さ {cup['depth']}（黒の焼付）")
-note(A, cx - d / 2, t_top - cup["insert"] + 16, 10, y_noji - 310, "ゴムの輪（がたつき止め）")
-A.text(cx, 150, f"幹 φ{d}", fontsize=5.4, ha="center", rotation=90)
-A.text(cx + 40, 60, "①垂木と垂木のあいだ：\n野地に留める", fontsize=5.8, ha="center", weight="bold", color="#8a5a2b")
-# case 2: under a rafter → plate on the rafter's underside
-cx2 = 20 + ra["pitch"] + ra["b"] / 2 + 260
-for x in (20 + ra["pitch"] + 260,): pass
-yb = y_noji - ra["h"]
-rect(A, cx2 - cup["plate"] / 2, yb - cup["plate_t"], cup["plate"], cup["plate_t"], STEEL, z=4)
-rect(A, cx2 - (d / 2 + cup["clear"] + cup["wall"]), yb - cup["plate_t"] - cup["depth"], cup["wall"], cup["depth"], STEEL, z=4)
-rect(A, cx2 + d / 2 + cup["clear"], yb - cup["plate_t"] - cup["depth"], cup["wall"], cup["depth"], STEEL, z=4)
-t2 = yb - cup["plate_t"] - cup["depth"] + cup["insert"]
-rect(A, cx2 - d / 2, 0, d, t2, TRUNK, z=3)
-A.text(cx2 + 40, 60, "②垂木の真下に来たら：\n垂木の下面に留める", fontsize=5.8, ha="left", weight="bold", color="#8a5a2b")
-A.text(1000, 590, "A　頭（垂木を横に切る断面）1/5", fontsize=7.5, weight="bold", va="top", ha="right")
-A.text(1000, 565, f"垂木 {ra['b']}×{ra['h']}＠{ra['pitch']}（南北、梁と梁のあいだ 3 m に掛ける：仮）", fontsize=5.2, va="top", ha="right", color="#555555")
+d = D["d"]; so = D["socket"]; fl = D["floor"]; pier = D["pier"]; fe = D["ferrule"]
 
-# ---------------------------------------------------------------- B: foot (section, 1/5)
-B = ax_at(222, 150, 184, 122)     # 920 × 610
-fl = D["floor"]; so = D["socket"]
-y_fl = 420
-rect(B, 0, y_fl - fl["board"], 920, fl["board"], WOOD)                                   # 床板
-rect(B, 0, y_fl - fl["board"] - fl["base"], 920, fl["base"], "#EFE6D2", hatch="..")      # 下地（仮）
-rect(B, 0, y_fl - fl["board"] - fl["base"] - fl["slab"], 920, fl["slab"], CON, hatch="xx")  # 土間コンクリート
-B.text(5, y_fl - fl["board"] - fl["base"] - fl["slab"] - 18, f"床板 スギ t{fl['board']}／下地 {fl['base']}／土間コンクリート t{fl['slab']}（仮）", fontsize=5.2, va="top")
-cx = 300
-# socket (steel pipe with bayonet L-slot), anchored to the slab
+# ---------------------------------------------------------------- B: foot (section 1/5)
+B = ax_at(14, 112, 200, 160)        # 1000 × 800 mm
+y_fl = 640
+rect(B, 0, y_fl - fl["board"], 1000, fl["board"], WOOD)
+rect(B, 0, y_fl - fl["board"] - fl["base"], 1000, fl["base"], "#EFE6D2", hatch="..")
+y_slab = y_fl - fl["board"] - fl["base"]
+rect(B, 0, y_slab - fl["slab"], 1000, fl["slab"], CON, hatch="xx")
+B.add_patch(Polygon([(0, y_slab - fl["slab"]), (1000, y_slab - fl["slab"]), (1000, 0), (0, 0)], fc="#EDE3D0", ec="none", zorder=1))   # 地盤
+cx = 330
+rect(B, cx - pier["d"] / 2, y_slab - fl["slab"] - pier["h"], pier["d"], pier["h"], CON, hatch="xx", z=2)   # 小さな基礎（杭）
 sx0 = cx - d / 2 - so["clear"] - so["wall"]; sx1 = cx + d / 2 + so["clear"]
 rect(B, sx0, y_fl - so["depth"], so["wall"], so["depth"], STEEL, z=4)
 rect(B, sx1, y_fl - so["depth"], so["wall"], so["depth"], STEEL, z=4)
-rect(B, sx0, y_fl - so["depth"] - 8, sx1 + so["wall"] - sx0, 8, STEEL, z=4)                # 底板
-rect(B, sx0 - 40, y_fl - so["depth"] - 8 - 6, sx1 + so["wall"] - sx0 + 80, 6, STEEL, z=4)  # 受けの鋼板（スラブにアンカー）
-for ax_ in (sx0 - 25, sx1 + so["wall"] + 25): rect(B, ax_ - 5, y_fl - so["depth"] - 120, 10, 110, "#555555", lw=0, z=4)
-# L slot (drawn on the far wall as a dashed L)
-B.plot([sx1 + so["wall"] / 2] * 2, [y_fl, y_fl - so["slot"]], lw=0.6, color="white", zorder=6)
-# trunk with ferrule and lug
-fe = D["ferrule"]
-rect(B, cx - d / 2, y_fl - so["depth"] + 4, d, 600 - (y_fl - so["depth"] + 4), TRUNK, z=3)
-rect(B, cx - d / 2 - 1, y_fl - so["depth"] + 4, d + 2, fe["h"], "#9A9A9A", z=5)              # 鋼の口金
-B.add_patch(Circle((cx + d / 2 + 3, y_fl - so["slot"] + 10), 5, fc="#333333", ec="none", zorder=6))   # 爪（溝にかかる）
-# brass ring + spring pin
+rect(B, sx0, y_fl - so["depth"] - 8, sx1 + so["wall"] - sx0, 8, STEEL, z=4)
+for k in range(3):                                                       # さやの外のリブ（コンクリートに効かせる）
+    yy_ = y_fl - so["depth"] + 40 + k * 80
+    rect(B, sx0 - 25, yy_, 25, 6, STEEL, lw=0.3, z=4); rect(B, sx1 + so["wall"], yy_, 25, 6, STEEL, lw=0.3, z=4)
+rect(B, cx - d / 2, y_fl - so["depth"] + 4, d, 800 - (y_fl - so["depth"] + 4), TRUNK, z=3)
+rect(B, cx - d / 2 - 1, y_fl - so["depth"] + 4, d + 2, fe["h"], "#9A9A9A", z=5)
+B.add_patch(Circle((cx + d / 2 + 3, y_fl - so["slot"] + 10), 5, fc="#333333", ec="none", zorder=6))
 rect(B, sx0 - 18, y_fl - 6, (sx1 + so["wall"] - sx0) + 36, 6, "#C9A45A", z=6)
 B.add_patch(Circle((sx1 + so["wall"] + 8, y_fl - 3), 3, fc="#333333", ec="none", zorder=7))
-note(B, sx1 + so["wall"] + 8, y_fl - 3, sx1 + 160, y_fl + 130, "ばね付きのピン（六角レンチで押し下げると回せる）\n抜けない幹は、ここを固定ねじに", fs=5.2)
-note(B, sx0 - 10, y_fl - 3, 10, y_fl + 60, "真鍮の輪（床と面一）", fs=5.2)
-note(B, cx + d / 2 + 3, y_fl - so["slot"] + 10, sx1 + 160, y_fl + 60, f"口金の爪 2 か所が、さやの L 字の溝（深さ {so['slot']}）にかかる\n差して 90° 回すと抜けない", fs=5.2)
-note(B, sx0, y_fl - so["depth"] + 20, 10, y_fl + 120, f"さや：鋼管 内径 φ{d + 2 * so['clear']}・深さ {so['depth']}\n受けの鋼板をスラブにアンカー", fs=5.2)
-note(B, cx - d / 2, y_fl - so["depth"] + fe["h"] / 2, 10, y_fl + 175, f"鋼の口金 h{fe['h']}（幹の根元にかぶせてピンで留める）", fs=5.2)
-dim(B, cx + 120, y_fl - so["depth"], cx + 120, y_fl, f"{so['depth']}", off=5)
-B.text(920, 600, "B　足もと（断面）1/5", ha="right", fontsize=7.5, weight="bold", va="top")
-# plug (when removed), small inset
-px, py = 730, 330
-rect(B, px, py, 120, fl["board"], WOOD); rect(B, px + 30, py - so["depth"] + fl["board"], 60, so["depth"] - fl["board"], STEEL, lw=0.3)
-rect(B, px + 32, py - 8, 56, fl["board"] + 8, "#D9B880", z=5)
-B.text(px + 60, py + 120, "外したあと：スギの栓で\nふさぐ（床と面一）", fontsize=5.0, ha="center")
+note(B, sx1 + so["wall"] + 8, y_fl - 3, 520, y_fl + 110, "ばね付きのピン（六角レンチで押し下げると回せる）\n抜けない幹は、ここを固定ねじに")
+note(B, sx0 - 10, y_fl - 3, 20, y_fl + 70, "真鍮の輪（床と面一）")
+note(B, cx + d / 2 + 3, y_fl - so["slot"] + 10, 520, y_fl + 50, f"口金の爪 2 か所が、さやの L 字の溝（上端から {so['slot']}）にかかる。差して 90° 回すと抜けない")
+note(B, sx1 + so["wall"], y_fl - so["depth"] / 2, 520, 385, f"さや：鋼管 内径 φ{d + 2 * so['clear']}・深さ {so['depth']}、外にリブ。\n床の下地・土間コンクリートを貫いて小さな基礎に埋める")
+note(B, cx + pier["d"] / 2, y_slab - fl["slab"] - pier["h"] / 2, 520, 250,
+     f"小さな基礎：φ{pier['d']}×{pier['h']}（コンクリート、土間とつなぐ）。株立ちは一つの基礎に 2〜3 本のさや")
+note(B, cx + d / 2, y_fl - so["depth"] + fe["h"] / 2, 520, 320, f"鋼の口金 h{fe['h']}（幹の根元にかぶせてピンで留める）")
+B.text(520, 180, f"床板 スギ t{fl['board']}／下地 {fl['base']}／土間コンクリート t{fl['slab']}（仮）", fontsize=5.0, va="top")
+B.annotate("", (cx - 80, y_fl), (cx - 80, y_fl - so["depth"]), arrowprops=dict(arrowstyle="<->", lw=0.4))
+B.text(cx - 88, y_fl - so["depth"] / 2, f"{so['depth']}", fontsize=5.2, ha="right", va="center")
+B.text(1000, 790, "B　足もと（断面）1/5", fontsize=7.5, weight="bold", va="top", ha="right")
+# plug inset
+px, py = 820, 560
+rect(B, px, py, 140, fl["board"], WOOD); rect(B, px + 40, py - 120, 60, 120, STEEL, lw=0.3)
+rect(B, px + 42, py - 10, 56, fl["board"] + 10, "#D9B880", z=5)
+B.text(px + 70, py + 70, "外したあと：\nスギの栓（床と面一）", fontsize=5.0, ha="center")
 
-# ---------------------------------------------------------------- C: how to remove (pictograms)
-steps = [("①", "六角レンチで\nピンを押し下げる"), ("②", "幹を 90° 回す\n（爪が溝から外れる）"), ("③", f"持ち上げる\n（頭がさやの奥へ {D['cup']['depth'] - D['cup']['insert']} 逃げる）"),
-         ("④", "足を手前に振り出し\n下ろして頭を抜く"), ("⑤", "床の穴に栓")]
-fig.text(14 / 420, 140 / 297, "C　外し方（付けるときは逆）", fontsize=7.5, weight="bold", va="top")
+# ---------------------------------------------------------------- A: top (elevation 1/5)
+A = ax_at(222, 172, 184, 100)       # 920 × 500
+def trunk_top(ax, x, base, top, dd, label):
+    r = dd / 2
+    rect(ax, x - r, base, dd, top - base - r, TRUNK, z=3)
+    ax.add_patch(Wedge((x, top - r), r, 0, 180, fc=TRUNK, ec="black", lw=0.5, zorder=3))
+    ax.plot([x - r, x - r], [base, top - r], lw=0.5, color="black", zorder=4); ax.plot([x + r, x + r], [base, top - r], lw=0.5, color="black", zorder=4)
+    ax.text(x, base - 25, label, fontsize=5.2, ha="center", va="top")
+trunk_top(A, 120, 60, 420, 70, "低い木 φ70\n頂部 h0.85〜1.1")
+trunk_top(A, 300, 60, 420, 100, "高い木 φ100")
+# clump of 3 φ50 with steel bands
+for k in range(3):
+    trunk_top(A, 470 + k * 50, 60, 420, 50, "" if k != 1 else "株立ち φ50×3\n（締めて一体、同じ高さ）")
+for yb in (150, 330):
+    rect(A, 445, yb, 150, 18, "#9A9A9A", lw=0.4, z=5)
+A.text(605, 330, "金輪（ステンレスの帯、\n何か所か）", fontsize=5.0, va="center")
+# tall tree under the rafter
+ra = D["rafter"]
+rect(A, 700, 440, ra["b"] * 2.5, 60, WOOD); A.text(780, 480, "垂木（の下端）", fontsize=5.0, ha="center")
+trunk_top(A, 780, 60, 440 - H["top_gap"] * 1000 * 0.25, 100, "高い木の頂部\n屋根の下 0.1 で止める")
+A.annotate("", (840, 440), (840, 440 - H["top_gap"] * 1000 * 0.25), arrowprops=dict(arrowstyle="<->", lw=0.4))
+A.text(848, 428, "100（図は縮めて描いた）", fontsize=4.6, va="center")
+A.text(0, 495, "A　頂部（立面）1/5　すべて丸く（半球）削り、面を取る。ぶつかっても痛くない", fontsize=7.5, weight="bold", va="top")
+
+# ---------------------------------------------------------------- C: removal
+steps = [("①", "六角レンチで\nピンを押し下げる"), ("②", "幹を 90° 回す\n（爪が溝から外れる）"), ("③", f"真上に {so['depth'] // 10 + 5} cm 持ち上げて\n抜く（低い木だけ）"), ("④", "床の穴に栓")]
+fig.text(222 / 420, 166 / 297, "C　外し方（付けるときは逆）", fontsize=7.5, weight="bold", va="top")
 for k, (n, s) in enumerate(steps):
-    x0 = 14 + k * 50
-    ax = fig.add_axes([x0 / 420, 70 / 297, 44 / 420, 62 / 297]); ax.set_xlim(0, 44); ax.set_ylim(0, 62); ax.axis("off")
-    ax.plot([2, 42], [8, 8], lw=0.8, color="black"); ax.plot([2, 42], [56, 56], lw=0.8, color="black")
-    ax.add_patch(Rectangle((19, 50), 6, 6, fc=STEEL, ec="none"))
-    if k <= 1: ax.add_patch(Rectangle((20.5, 8), 3, 44, fc=TRUNK, ec="black", lw=0.3))
-    if k == 0: ax.annotate("", (26, 9), (32, 16), arrowprops=dict(arrowstyle="-|>", lw=0.6))
-    if k == 1: ax.add_patch(FancyArrowPatch((15, 30), (29, 30), connectionstyle="arc3,rad=-0.5", arrowstyle="-|>", mutation_scale=6, lw=0.6))
+    x0 = 222 + k * 46
+    ax = fig.add_axes([x0 / 420, 112 / 297, 40 / 420, 48 / 297]); ax.set_xlim(0, 40); ax.set_ylim(0, 48); ax.axis("off")
+    ax.plot([2, 38], [10, 10], lw=0.8, color="black")
+    ax.add_patch(Rectangle((18, 4), 4, 6, fc=STEEL, ec="none"))
+    if k <= 1: ax.add_patch(Rectangle((18.5, 5), 3, 30, fc=TRUNK, ec="black", lw=0.3)); ax.add_patch(Circle((20, 35), 1.5, fc=TRUNK, ec="black", lw=0.3))
+    if k == 0: ax.annotate("", (23, 10.5), (29, 17), arrowprops=dict(arrowstyle="-|>", lw=0.6))
+    if k == 1: ax.add_patch(FancyArrowPatch((14, 24), (26, 24), connectionstyle="arc3,rad=-0.5", arrowstyle="-|>", mutation_scale=6, lw=0.6))
     if k == 2:
-        ax.add_patch(Rectangle((20.5, 11), 3, 44, fc=TRUNK, ec="black", lw=0.3)); ax.annotate("", (22, 58), (22, 40), arrowprops=dict(arrowstyle="-|>", lw=0.6))
-    if k == 3:
-        ax.add_patch(Polygon([(20.5, 54), (23.5, 54), (31, 12), (28, 12)], fc=TRUNK, ec="black", lw=0.3))
-        ax.add_patch(FancyArrowPatch((26, 10), (36, 14), arrowstyle="-|>", mutation_scale=6, lw=0.6))
-    if k == 4: ax.add_patch(Rectangle((19, 7), 6, 2, fc="#D9B880", ec="black", lw=0.3))
-    ax.text(1, 61, n, fontsize=7, va="top", weight="bold")
-    fig.text((x0 + 22) / 420, 66 / 297, s, fontsize=5.6, ha="center", va="top")
+        ax.add_patch(Rectangle((18.5, 13), 3, 30, fc=TRUNK, ec="black", lw=0.3)); ax.add_patch(Circle((20, 43), 1.5, fc=TRUNK, ec="black", lw=0.3))
+        ax.annotate("", (26, 44), (26, 30), arrowprops=dict(arrowstyle="-|>", lw=0.6))
+    if k == 3: ax.add_patch(Rectangle((17.5, 9), 5, 2, fc="#D9B880", ec="black", lw=0.3))
+    ax.text(1, 47, n, fontsize=7, va="top", weight="bold")
+    fig.text((x0 + 20) / 420, 110 / 297, s, fontsize=5.6, ha="center", va="top")
 
-# ---------------------------------------------------------------- D: notes
-yy = 140
-fig.text(272 / 420, yy / 297, "D　決めたこと・確かめること", fontsize=7.5, weight="bold", va="top"); yy -= 6
-import textwrap
-W = [(t["d"]) for t in F["TREES"]]
+# ---------------------------------------------------------------- D: how the heights are set (table + notes)
+fig.text(14 / 420, 100 / 297, "D　高さの決め方（片持ちの略算）", fontsize=7.5, weight="bold", va="top")
+fs = H["f_allow"]; Fk = H["F"]
+rows = [("幹", "断面係数 Z（mm³）", "根元で耐える曲げ（kN·m）", f"{Fk} kN を掛けてよい高さ", "高さ（6 版）")]
+def zz(dd, k=1): return k * math.pi * (dd * 1000) ** 3 / 32
+for lab, dd, k, rule in [("φ50 1 本", 0.05, 1, "使わない（杭の高さ止まり）"), ("φ50 ×2 の株", 0.05, 2, "低い木 0.85〜1.1"), ("φ50 ×3 の株", 0.05, 3, "低い木 0.85〜1.1"),
+                         ("φ70 1 本", 0.07, 1, "低い木 0.85〜1.1"), ("φ70 ×2 の株", 0.07, 2, "高い木（屋根の低い東側）／低い木"), ("φ70 ×3 の株", 0.07, 3, "高い木"),
+                         ("φ100 1 本", 0.1, 1, "高い木（屋根の下 0.1）"), ("φ200 1 本", 0.2, 1, "高い木")]:
+    Z = zz(dd, k); M = Z * fs / 1e6; a = M / Fk
+    rows.append((lab, f"{Z:,.0f}", f"{M:.2f}", f"{a:.1f} m まで", rule))
+cw = [24, 30, 36, 34, 62]
+for i, r in enumerate(rows):
+    x = 14
+    for j, c in enumerate(r):
+        fig.text(x / 420, (93 - i * 4.0) / 297, c, fontsize=5.6, va="top", weight="bold" if i == 0 else "normal", color="#222222")
+        x += cw[j]
+nt = sum(1 for t in TR if t.get("tall")); nl = len(TR) - nt
 notes = [
-    f"抜ける幹は {sum(1 for t in F['TREES'] if t.get('removable'))} 本（平面図の青い輪）。重さの目安（スギ 4 m）：φ50 約 3 kg、φ70 約 6 kg（先生 1 人）、φ100 約 12 kg（2 人）。",
-    "頭のさやは、幹の頭が上下に逃げられる長さにしてある。屋根がたわんでも（雪・人）幹は押されず、幹は屋根を支えない（構造ではない）。地震で屋根が横に動いても、細い幹はしなって追従する。",
-    "頭に掛かる力は横向きだけ（こどもが揺らす・ぶら下がる、0.5 kN 程度）。鋼板を木ねじ 4 本で野地か垂木に留めれば足りる（野地は貫かない＝断熱・防水に触らない）。",
-    "株立ち（2〜3 本が触れあう）は、足もとのさやを 1 枚の鋼板に 2〜3 本まとめ、頭のさやも 1 枚の鋼板にまとめる。株ごと外す。",
-    "立った位置がたまたま梁（2 枚組）のあいだなら、幹はそのまま抜けて上の野地に留まる。",
-    "こどもが外さないように：ピンは六角レンチでしか動かない。抜けない幹は同じ金物でピンを固定ねじに替えるだけ（あとで抜ける幹に変えられる）。",
-    "確かめること（木造へ）：垂木の向き・寸法・間隔、野地の厚さ、床の構成（スギ板＋下地＋土間コンクリート）は仮。",
+    f"根元の曲げ＝横の力×力の掛かる高さ。こどもは幹のどこにでも手を掛けられ、登れるので、力は頂部に掛かるとみる。横の力はこどもが押す・引く・ぶら下がって揺らす 0.3 kN（仮）。スギの無等級材の曲げ Fb 22.2 N/mm² の 2/3 ＝ 短期の許容 {fs} N/mm²。",
+    "株は金輪で締めても、1 本ずつの断面係数の和で数えた（安全側）。",
+    f"耐える高さが屋根の下まで届けば高い木（{nt} 本）、届かなければ低い木（{nl} 本、0.85〜1.1）。低い木はこどもの目の高さ（0.9〜1.0）を隠し、先生の目の高さ（約 1.55）からはこどもの頭が上越しに見える。",
+    "揺れの目安：φ100 の 3.5 m の木を 1.2 m の高さで 0.3 kN 押すと、手もとで約 5 mm（E＝7 kN/mm²）。気にならず、生きている感じがする程度。",
+    "高い木は真上に抜く余裕がないので抜けない木にする（同じ金物で、ピンを固定ねじに）。",
 ]
+yy = 93 - len(rows) * 4.0 - 2
 for s in notes:
-    for i, ln in enumerate(textwrap.wrap(s, 50)):
-        fig.text((272 + (0 if i == 0 else 2.5)) / 420, yy / 297, ("・" if i == 0 else "") + ln, fontsize=5.6, va="top", color="#333333"); yy -= 3.0
-    yy -= 0.8
+    for i, ln in enumerate(textwrap.wrap(s, 98)):
+        fig.text((14 + (0 if i == 0 else 2.5)) / 420, yy / 297, ("・" if i == 0 else "") + ln, fontsize=5.6, va="top", color="#333333"); yy -= 3.0
+    yy -= 0.6
 
 os.makedirs(OUT, exist_ok=True)
 for ext in ("pdf", "png"):
