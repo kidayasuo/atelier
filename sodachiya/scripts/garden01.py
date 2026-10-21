@@ -205,12 +205,27 @@ for i in np.arange(-F["r"][0], F["r"][0] + 0.01, F["jets"][0]):
             ax.add_patch(Circle(X(*q), 0.11, fc="#4C8DB8", ec="none", zorder=6.3)); nj += 1
 dr = F["drain"]; line(ax, XS([F["c"], dr]), lw=0.5, c="#4C8DB8", ls=(0, (1.5, 1.5)), z=6.2)
 ax.add_patch(Rectangle(np.array(X(*dr)) - 0.25, 0.5, 0.5, fc="#8C8677", ec="none", zorder=6.4))
-of = s["outfall"]
-line(ax, XS(of["pipe"]), lw=0.8, c=C["water"], ls=(0, (3, 2)), z=6)
-poly(ax, Point(*X(*of["drop"])).buffer(0.45), fc="#D8D2C2", ec="#6B655B", lw=0.4, z=6.6)
-T(ax, X(of["drop"][0] - 0.6, of["drop"][1] - 1.6), "落ち口 → 暗渠で高野川へ", 4.4, c="#4C8DB8", rot=-38)
-sh = G["SHOWER"]; ax.add_patch(Rectangle(np.array(X(*sh["c"])) - 0.45, 0.9, 0.9, fc="#CFE6F3", ec="#4C8DB8", lw=0.5, zorder=6.6))
-T(ax, np.array(X(*sh["c"])) + np.array([1.2, -0.6]), "外のシャワー（温水）", 4.4, c="#3E6E8E", ha="left")
+# 護岸の溝（小川はここを滑り落ちて高野川へ）
+gv = s["groove"]; ga_ = np.array(X(*gv["at"]))
+line(ax, [X(54.2, 15.4), tuple(ga_)], lw=2.4, c=C["water"], z=6.5)
+ax.add_patch(Rectangle(ga_ - 0.25, 0.5, 0.5, fc=C["water"], ec="#2F6E95", lw=0.5, zorder=8.6))
+T(ax, X(53.4, 13.4), "護岸の溝を滑り落ちて高野川へ", 4.4, c="#3E6E8E", rot=-38)
+# 雨落ちの溝（本館の東の軒の真下、樋なし）・雨の枝・大雨の樋
+AM = G["AMAOCHI"]
+uu = np.linspace(AM["u"][0], AM["u"][1], 80)
+trench = Polygon([UV(u, G["EDGE_V"]) for u in uu] + [UV(u, G["EDGE_V"] + AM["w"]) for u in uu[::-1]])
+poly(ax, trench, fc="#D9D4C6", ec="#8C8677", lw=0.3, z=5.6, hatch="oo")
+for b0, b1 in AM["branches"]:
+    line(ax, XS([b0, b1]), lw=1.2, c="#8C8677", z=5.65)
+    line(ax, XS([b0, b1]), lw=0.5, c=C["water"], z=5.66)
+line(ax, XS(AM["overflow"]), lw=0.6, c="#2F6E95", ls=(0, (1, 2)), z=5.5)
+T(ax, X(46.5, 22.4), "大雨の樋（地中）", 4.2, c="#2F6E95", rot=-38)
+# シャワーの柱（床の噴水の北の端）
+sh = G["SHOWER"]; shp = np.array(X(*sh["c"]))
+ax.add_patch(Rectangle(shp - 0.55, 1.1, 1.1, fc="none", ec=C["wood"], lw=0.8, zorder=6.8))
+for k in (-0.3, 0.3):
+    ax.add_patch(Circle(shp + np.array([k, 0.0]), 0.22, fc="#CFE6F3", ec="#2F6E95", lw=0.5, zorder=6.9))
+T(ax, shp + np.array([1.0, 0.9]), "シャワーの柱（上から＋ハンド、温水）", 4.4, c="#3E6E8E", ha="left")
 poly(ax, P(ell_ad(G["TANK"]["c"], G["TANK"]["r"], -30)), fc="none", ec="#4C8DB8", lw=0.35, ls=(0, (2, 1.5)), z=5.7)
 for b in G["BRIDGES"]:
     c = b["c"]
@@ -302,7 +317,7 @@ top_xy = np.array(X(a0, d0))
 SEC["A"] = (top_xy - dirv * 27.0, top_xy + dirv * 12.0)
 p0 = np.array(X(a0 - 1.5, d0 - 0.6)); p1 = np.array(X(*lk["c"]))
 dv = (p1 - p0) / np.linalg.norm(p1 - p0)
-SEC["B"] = (p0 - dv * 4.0, p1 + dv * 15.0)
+SEC["B"] = (p0 + dv * 1.0, p1 + dv * 20.0)
 for k, (q0, q1) in SEC.items():
     seg = LineString([tuple(q0), tuple(q1)]).intersection(Rectangle((0, 0), 1, 1) and Polygon([(X0, Y0), (X1, Y0), (X1, Y1), (X0, Y1)]))
     cc = np.array(seg.coords)
@@ -322,7 +337,7 @@ T(ax, (sx + 13.5, sy + 0.25), "1/200", 6, ha="left", z=30)
 
 # ================= 見出しと凡例 =================
 fx = fig.text
-fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 3", fontsize=15, ha="left", va="baseline")
+fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 4", fontsize=15, ha="left", va="baseline")
 fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-21　遊具を置かず、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
    fontsize=7.2, ha="left", color="#444444")
 fx(14 / PW, 1 - 30 / PH, "地形は GL（＝FL−300）からの高さ。等高線 0.2 m ごと（1 m を太く）。築山の位置と形はこの図で決め直した（Keynote の位置は前提にしていない）。",
@@ -345,6 +360,8 @@ def sw(y, kind, txt):
         lax.add_patch(Circle((5, y), 3.0, fc=C["tree"], ec=C["ink"], lw=0.6, ls=(0, (2, 1)), alpha=0.6))
     elif kind == "water":
         lax.add_patch(Rectangle((1, y - 1), 8, 2, fc=C["water"], ec="#4C8DB8", lw=0.3))
+    elif kind == "trench":
+        lax.add_patch(Rectangle((1, y - 1.2), 8, 2.4, fc="#D9D4C6", ec="#8C8677", lw=0.3, hatch="oo"))
     elif kind == "jets":
         lax.add_patch(Rectangle((1, y - 2), 8, 4, fc="#E6E3DA", ec="#8C8677", lw=0.4))
         for xx in (2.6, 5, 7.4):
@@ -366,7 +383,7 @@ def sw(y, kind, txt):
 y = 4
 lax.text(0, y, "凡例", fontsize=8, fontweight="bold", va="center"); y += 8
 rows = [("tree", TT["big"]["名"] + "／" + TT["mid"]["名"]), ("fruit", TT["fruit"]["名"]), ("ever", TT["ever"]["名"]),
-        ("climb", TT["climb"]["名"]), ("water", "小川（幅 0.5、岸は急、底は平らで浅い）・水浴び場・外のシャワー"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は小川へ）"), ("culvert", "暗渠（用水路から北の角を通って、みなもとまで／落ち口から高野川へ）"),
+        ("climb", TT["climb"]["名"]), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる）・水浴び場"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は小川へ）"), ("culvert", "暗渠（用水路から北の角を通って、みなもとまで）。点線は大雨の樋"), ("trench", "雨落ちの溝（本館の雨は樋なしで落とす、玉石）と雨の枝（小川へ）"),
         ("sand", "砂場・粒の遊び場（1〜2 mm）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
@@ -396,7 +413,7 @@ for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²�
           f"築山：頂 +{G['MOUND']['h']} m、裾の広さ 約 {mfoot:.0f} m²、土 約 {mvol:.0f} m³。起伏・土手を足すと盛る土は 約 {NUM['fill']:.0f} m³",
           "　→ 北のもりへの上り（最大 +0.45）も含む。基礎・小川・すりばち・遊戯室の穴の底を掘った土で足りる量（運び込まない、外へ出さない）",
           f"小川：地上の長さ 約 {s_len:.0f} m、川床 GL−0.15 → −0.40（勾配 約 1/200）。木 {len(G['TREES'])} 本（下書き、種類はこれから）",
-          f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）。上水、排水は小川へ。雨水は小屋の床下のタンクから便所の洗浄・水やり・小川の足し水へ",
+          f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）＋シャワーの柱。上水、排水は小川へ。本館の雨は雨落ちの溝から小川へ（雨の日は小川が太る）",
           f"小屋：{NUM['hut']:.1f} m²（便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
           f"死角：約 {hid_a:.0f} m²。築山の裏（隣家側）の植え込みと、北のもりの奥。植え込みは入らない所にする"]:
     lax.text(0, y, t, fontsize=6.0, va="center"); y += 6.0
@@ -407,7 +424,7 @@ for t in ["・高木は枝下 2 m 以上に仕立て、目の高さを見通す�
           "・毒・とげ・かぶれの木は使わない（キョウチクトウ・イチイ・アセビ・ピラカンサ・ハゼ など）。",
           "・ツバキ・サザンカは植えない（チャドクガ）。落葉樹が中心、落ち葉は遊びに使い、掃くのは小径と縁側の前だけ。",
           "・木登りの木は決めておく（2 本まで）。下は剪定の枝でつくった木のチップ（剪定 → チップ → 根もと、を園の中で回す）。",
-          "・水は浅く（小川 5〜10 cm）、床の噴水は水がたまらず外縁側に接する（濡れたまま縁側へ、シャワーとすのこ）。子どもが手や口にふれる水は上水だけ（小川の水は飲まない、遊んだら足洗い場で洗う）。",
+          "・水は浅く（小川 5〜10 cm）、床の噴水は水がたまらず外縁側のすぐ前（濡れたまま縁側へ、シャワーの柱）。子どもが手や口にふれる水は上水だけ（小川の水は飲まない、遊んだら足洗い場で洗う）。",
           "・縁側の前 1.5 m は木を植えない（出入りと見通し）。車の道の筋（幅 2.5）は木と起伏を置かない。"]:
     lax.text(0, y, t, fontsize=6.0, va="center"); y += 6.0
 
@@ -536,6 +553,11 @@ def deco_B(sax, tt, z, adv, person, bld):
     if not len(i0):
         return
     x0 = tt[i0[0]]
+    # 小川が護岸の溝を滑り落ちて、河川敷の細い溝で高野川へ
+    iw = np.where((e > -0.6) & (e < 12.0))[0]
+    zw = np.where(e[iw] < 1.0, np.minimum(z[iw], -0.12), z[iw]) + 0.06   # 立ち上がりは溝で切る
+    sax.plot(tt[iw], zw, c="#2F6E95", lw=1.6, zorder=8, solid_capstyle="round")
+    sax.text(x0 + 2.6, -2.9, "護岸の溝を\n滑り落ちる", fontsize=5.6, color="#2F6E95")
     # のぞきの段と子ども
     person(x0 - 0.3, 0.0, 1.05)
     eye = (x0 - 0.3, 0.95)
