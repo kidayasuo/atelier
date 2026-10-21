@@ -120,11 +120,19 @@ def axes_mm(x, y, w, h):
 
 
 # ================= 配置 1/200 =================
-X0, X1, Y0, Y1 = 1.0, 38.0, -69.0, -6.0               # m（3dm の xy）
+# 図の向き：高野川（川沿いの辺）を下に（ユーザー）。3dm の xy を ROT 度回して描く（北は右上）
+from shapely import affinity
+from matplotlib.transforms import Affine2D
+import matplotlib.text as mtext
+ROT = G["VIEW_ROT"]["deg"]
+_gr = affinity.rotate(GARDEN, ROT, origin=(0, 0)).bounds
+VX0, VY0, VX1, VY1 = _gr[0] - 6.0, _gr[1] - 6.0, _gr[2] + 3.0, _gr[3] + 3.0     # 回した後の見える範囲（m）
 SC = 1000 / 200                                       # 1 m = 5 mm
-ax = axes_mm(14, 40, (X1 - X0) * SC, (Y1 - Y0) * SC)
-ax.set_xlim(X0, X1); ax.set_ylim(Y0, Y1); ax.set_aspect("equal"); ax.axis("off")
-clip = Rectangle((X0, Y0), X1 - X0, Y1 - Y0, transform=ax.transData)
+PLAN_W, PLAN_H = (VX1 - VX0) * SC, (VY1 - VY0) * SC
+ax = axes_mm(14, 40, PLAN_W, PLAN_H)
+ax.set_aspect("equal"); ax.axis("off")
+VIEW = affinity.rotate(Polygon([(VX0, VY0), (VX1, VY0), (VX1, VY1), (VX0, VY1)]), -ROT, origin=(0, 0))   # 元の xy での見える範囲
+X0, Y0, X1, Y1 = VIEW.bounds
 
 # 敷地・川
 poly(ax, gc.SITE, fc="white", ec=C["ink"], lw=0.9, z=0.5)
@@ -257,6 +265,15 @@ line(ax, XS([(H["split_a"], d_0), (H["split_a"], d_1)]), lw=0.5, z=9.1)
 poly(ax, P([(a_0 - 0.3, d_1), (a_1 + 0.3, d_1), (a_1 + 0.3, d_1 + H["eave"]), (a_0 - 0.3, d_1 + H["eave"])]), fc="none", ec=C["ink"], lw=0.4, ls=(0, (3, 2)), z=9)
 T(ax, X((a_0 + H["split_a"]) / 2, (d_0 + d_1) / 2), "便所", 5, rot=-38)
 T(ax, X((H["split_a"] + a_1) / 2, (d_0 + d_1) / 2), "倉庫", 5.5, rot=-38)
+# コンポスト（小屋の南西の軒の下、木枠 1×1 m×4：落ち葉・入れる・寝かせる・できた）
+CP = G["COMPOST"]
+for i in range(CP["n"]):
+    q0 = CP["a0"] + i * CP["w"]
+    poly(ax, P([(q0 + 0.05, CP["d0"]), (q0 + CP["w"] - 0.05, CP["d0"]), (q0 + CP["w"] - 0.05, CP["d0"] + CP["w"]), (q0 + 0.05, CP["d0"] + CP["w"])]),
+         fc="#C9B48E", ec=C["wood"], lw=0.5, z=9.2)
+    T(ax, X(q0 + CP["w"] / 2, CP["d0"] + CP["w"] / 2), CP["labels"][i], 3.2, rot=-38, z=9.3)
+T(ax, X(CP["a0"] + CP["n"] * CP["w"] / 2, CP["d0"] + CP["w"] + 0.6), "コンポスト", 4.4, c="#6B5A3A", rot=-38)
+T(ax, X((CP["a0"] + CP["n"] * CP["w"] + a_1) / 2, d_1 + 0.75), "足洗い・ベンチ", 3.8, c="#6B5A3A", rot=-38)
 
 # のぞき
 lk = G["LOOKOUT"]; c = lk["c"]
@@ -323,36 +340,53 @@ p0 = np.array(X(a0 - 1.5, d0 - 0.6)); p1 = np.array(X(*lk["c"]))
 dv = (p1 - p0) / np.linalg.norm(p1 - p0)
 SEC["B"] = (p0 + dv * 1.0, p1 + dv * 20.0)
 for k, (q0, q1) in SEC.items():
-    seg = LineString([tuple(q0), tuple(q1)]).intersection(Rectangle((0, 0), 1, 1) and Polygon([(X0, Y0), (X1, Y0), (X1, Y1), (X0, Y1)]))
+    seg = LineString([tuple(q0), tuple(q1)]).intersection(VIEW)
     cc = np.array(seg.coords)
     line(ax, cc, lw=0.5, c="#555555", ls=(0, (8, 2, 1, 2)), z=18)
     for e in (cc[0], cc[-1]):
         ax.add_patch(Circle(e, 0.9, fc="#555555", ec="none", zorder=23)); T(ax, e, k, 6.5, c="white", z=24, fontweight="bold")
 
-# 方位・縮尺
-nx, ny = X1 - 3.0, Y1 - 4.5
-ax.add_patch(FancyArrowPatch((nx, ny - 2.2), (nx, ny + 1.6), arrowstyle="-|>", mutation_scale=10, lw=0.8, color=C["ink"], zorder=30))
-T(ax, (nx, ny + 2.6), "N", 8, z=30)
-sx, sy = X0 + 1.0, Y0 + 1.5
+# 回す（描いたものを全部 ROT 度回す。文字は向きも足す）
+TR = Affine2D().rotate_deg(ROT) + ax.transData
+for art in list(ax.patches) + list(ax.lines) + list(ax.collections) + list(ax.texts):
+    art.set_transform(TR)
+    if isinstance(art, mtext.Text):
+        r0 = art.get_rotation() % 360
+        if any(abs(r0 - q) < 1.0 or abs(r0 - q - 360) < 1.0 for q in (0.0, 322.0, 52.0)):     # 園庭の文字は回した図で水平に（建物の文字だけ建物に沿わせる）
+            art.set_rotation(0)
+        else:
+            art.set_rotation((r0 + ROT) % 360)
+gclip2 = MPoly(np.array(GARDEN.exterior.coords), closed=True, transform=TR)
+cs.set_clip_path(gclip2)
+ax.set_xlim(VX0, VX1); ax.set_ylim(VY0, VY1)
+
+# 方位・縮尺（回した後の図に）
+nv = np.array([-math.sin(math.radians(ROT)), math.cos(math.radians(ROT))])
+nc = np.array([VX1 - 4.0, VY0 + 3.2])
+ax.add_patch(FancyArrowPatch(tuple(nc - nv * 2.0), tuple(nc + nv * 2.0), arrowstyle="-|>", mutation_scale=10, lw=0.8, color=C["ink"], zorder=30))
+ax.text(*(nc + nv * 3.0), "N", fontsize=8, ha="center", va="center", zorder=30)
+sx, sy = VX0 + 1.0, VY0 + 1.2
 for i in range(5):
     ax.add_patch(Rectangle((sx + i * 2, sy), 2, 0.5, fc="black" if i % 2 == 0 else "white", ec="black", lw=0.4, zorder=30))
-T(ax, (sx, sy - 1.0), "0", 5, z=30); T(ax, (sx + 10, sy - 1.0), "10 m", 5, z=30)
-T(ax, (sx + 13.5, sy + 0.25), "1/200", 6, ha="left", z=30)
+ax.text(sx, sy - 1.0, "0", fontsize=5, ha="center", va="center"); ax.text(sx + 10, sy - 1.0, "10 m", fontsize=5, ha="center", va="center")
+ax.text(sx + 13.5, sy + 0.25, "1/200　高野川を下に（北は右上）", fontsize=6, ha="left", va="center")
 
 # ================= 見出しと凡例 =================
 fx = fig.text
-fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 5", fontsize=15, ha="left", va="baseline")
+fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 6", fontsize=15, ha="left", va="baseline")
 fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-21　遊具を置かず、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
    fontsize=7.2, ha="left", color="#444444")
 fx(14 / PW, 1 - 30 / PH, "地形は GL（＝FL−300）からの高さ。等高線 0.2 m ごと（1 m を太く）。築山の位置と形はこの図で決め直した（Keynote の位置は前提にしていない）。",
    fontsize=6.0, ha="left", color="#666666")
 
-LX = 210; LY = 42
+LX = 14 + PLAN_W + 8; LY = 42; LW = 406 - LX
+import textwrap
+WRAP = int((LW - 14) / 2.2)
 def L(y, s, size=6.4, c=C["ink"], w="normal", x=LX):
     fx(x / PW, 1 - y / PH, s, fontsize=size, color=c, ha="left", va="top", fontweight=w)
 
 # 凡例の小さな見本
-lax = axes_mm(LX, LY, 196, 300); lax.set_xlim(0, 196); lax.set_ylim(300, 0); lax.axis("off")
+lax = axes_mm(LX, LY, LW, 300); lax.set_xlim(0, LW); lax.set_ylim(300, 0); lax.axis("off")
 def sw(y, kind, txt):
     if kind == "tree":
         lax.add_patch(Circle((5, y), 3.0, fc=C["tree"], ec=C["treeE"], lw=0.4, alpha=0.4))
@@ -382,7 +416,14 @@ def sw(y, kind, txt):
         lax.add_patch(Rectangle((1, y - 2), 8, 4, fc="none", ec="#B7A98C", lw=0.5, ls=(0, (4, 2))))
     elif kind == "cont":
         lax.plot([1, 9], [y - 1, y - 1], c=C["cont"], lw=0.3); lax.plot([1, 9], [y + 1, y + 1], c=C["cont"], lw=0.6)
-    lax.text(13, y, txt, fontsize=6.2, va="center", ha="left")
+    lines = textwrap.wrap(txt, WRAP)
+    lax.text(13, y - (len(lines) - 1) * 1.3, "\n".join(lines), fontsize=6.2, va="center", ha="left", linespacing=1.15)
+    return len(lines)
+
+def para(y, t, size=6.0, indent=0):
+    lines = textwrap.wrap(t, WRAP + 6, subsequent_indent="　" if t.startswith("・") else "")
+    lax.text(indent, y, "\n".join(lines), fontsize=size, va="top", ha="left", linespacing=1.25)
+    return y + len(lines) * 2.65 + 1.2
 
 y = 4
 lax.text(0, y, "凡例", fontsize=8, fontweight="bold", va="center"); y += 8
@@ -391,12 +432,13 @@ rows = [("tree", TT["big"]["名"] + "／" + TT["mid"]["名"]), ("fruit", TT["fru
         ("sand", "砂場・粒の遊び場（1〜2 mm）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
-    sw(y, k, t); y += 7.2
+    n = sw(y, k, t); y += 5.2 + 2.6 * n
 y += 3
 lax.text(0, y, "ニッチ（静かに遊べる・ひとりになれる所）", fontsize=8, fontweight="bold", va="center"); y += 7
 for k, (a, d, txt) in enumerate(G["NICHES"], 1):
     lax.add_patch(Circle((5, y), 2.4, fc="white", ec=C["ink"], lw=0.5)); lax.text(5, y, str(k), fontsize=5.6, ha="center", va="center")
-    lax.text(13, y, txt, fontsize=6.2, va="center"); y += 6.2
+    lines = textwrap.wrap(txt, WRAP)
+    lax.text(13, y - 1.2, "\n".join(lines), fontsize=6.2, va="top", linespacing=1.2); y += 3.6 + 2.6 * len(lines)
 y += 4
 
 # 数字
@@ -419,8 +461,9 @@ for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²�
           f"小川：地上の長さ 約 {s_len:.0f} m、川床 GL−0.15 → −0.40（勾配 約 1/200）。木 {len(G['TREES'])} 本（下書き、種類はこれから）",
           f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）＋シャワーの柱。上水、排水は雨の川へ。雨の川：屋根 約 880 m²、100 mm/h で南の端 約 24 L/s、溝 0.5×0.2・1/200 で 約 50 L/s（目安）",
           f"小屋：{NUM['hut']:.1f} m²（便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
+          "コンポスト：小屋の軒の下に木枠 1×1 m×4（落ち葉・入れる・寝かせる・できた）。4・5 歳の当番がキッチンから野菜くずをもらい、落ち葉と重ね、できた土を畑へ運ぶ（ユーザー）",
           f"死角：約 {hid_a:.0f} m²。築山の裏（隣家側）の植え込みと、北のもりの奥。植え込みは入らない所にする"]:
-    lax.text(0, y, t, fontsize=6.0, va="center"); y += 6.0
+    y = para(y, t)
 y += 4
 lax.text(0, y, "保母さんが困らないように（木と地形の約束）", fontsize=8, fontweight="bold", va="center"); y += 7
 for t in ["・高木は枝下 2 m 以上に仕立て、目の高さを見通す。低木は 60 cm 以下（大人は上から見える、子どもは隠れられる）。",
@@ -430,7 +473,7 @@ for t in ["・高木は枝下 2 m 以上に仕立て、目の高さを見通す�
           "・木登りの木は決めておく（2 本まで）。下は剪定の枝でつくった木のチップ（剪定 → チップ → 根もと、を園の中で回す）。",
           "・水は浅く（小川 5〜10 cm）、床の噴水は水がたまらず外縁側のすぐ前（濡れたまま縁側へ、シャワーの柱）。子どもが手や口にふれる水は上水だけ（小川の水は飲まない、遊んだら足洗い場で洗う）。",
           "・縁側の前 1.5 m は木を植えない（出入りと見通し）。車の道の筋（幅 2.5）は木と起伏を置かない。"]:
-    lax.text(0, y, t, fontsize=6.0, va="center"); y += 6.0
+    y = para(y, t)
 
 # ================= 断面 1/100 =================
 SCS = 1000 / 100                                      # 1 m = 10 mm
@@ -580,7 +623,7 @@ def deco_B(sax, tt, z, adv, person, bld):
     sax.text(x0 + 0.3, -0.25, "小段", fontsize=4.6, color=C["gray"])
 
 
-sa_y = 40 + (Y1 - Y0) * SC + 22
+sa_y = 40 + PLAN_H + 22
 section("A", sa_y, "断面 A–A　ホールから築山の頂を通って比叡山の向きへ　1/100", deco_A, zmin=-1.0, zmax=6.6)
 section("B", sa_y + 92, "断面 B–B　築山から原っぱ・のぞき（生垣の口）を通って高野川へ　1/100（崖・河川敷の寸法は仮）", deco_B, zmin=-5.2, zmax=4.6)
 
