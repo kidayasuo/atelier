@@ -1,9 +1,11 @@
-"""3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）と断面 3 つ
+"""3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）と断面 3 つ（A 縦断・B 海峡・C 4 歳と遊戯室）
 使い方: python3 draw100.py MODEL_MESH.3dm OUTDIR
-- 平面：FL+1200 で切る。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）、下に見えるものは
-  上のものから順に白で塗って外形を描く（隠れ線の処理）。屋根の外形は破線。
-- 断面：本館の架構に直交する（中心 C を通る）鉛直面で切り、奥 3.2 m までを見えがかりで描く。
-用紙は A1（平面は縦、断面は横）。PDF と PNG。
+- 平面：FL+1200 で切る。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
+  見えがかりは近いもの（高いもの）から順に、手前の形で後ろの線を切って描く（隠れ線を消した線だけ）。
+  屋根の外形と、2 階で切れる梁は破線。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
+- 断面：A は円筒面 r=197 m で切って展開（西を見る）。B・C は架構に平行な鉛直面（北を見る）、奥 3.2 m まで。
+  通り芯、幅の寸法、高さの記号（GL・FL・2FL・屋根・越屋根の蓋・西館の最高）。
+出力：PDF・PNG と DXF（レイヤー分け、1/100 の図を 1:1 の mm で。Rhino・LayOut で開いて手を入れる用）。
 """
 import sys, os, math, re, numpy as np, rhino3dm as r
 import matplotlib; matplotlib.use('Agg')
@@ -105,6 +107,7 @@ def num(ln):
     mm_ = re.match(r'(\d+)', ln); return int(mm_.group(1)) if mm_ else -1
 def kind(ln):
     n = num(ln)
+    if n == 35: return 'volume'
     if any(k in ln for k in ('ガラス', '室内窓')) and 'ルーバー' not in ln: return 'glass'
     if n in (37, 39, 40, 46, 51, 75) or 'しつらえ' in ln: return 'furn'
     if n in (35,): return 'volume'
@@ -147,88 +150,207 @@ def silhouette(T2):
     u = unary_union(ps)
     return u.buffer(0.5, join_style=2).buffer(-0.5, join_style=2)
 
-def draw_geom(ax, geom, fc='white', ec='k', lw=0.13, ls='-', z=1, alpha=1.0):
-    if geom is None or geom.is_empty: return
-    for g in getattr(geom, 'geoms', [geom]):
-        if g.geom_type != 'Polygon' or g.area < 1: continue
-        verts, codes = [], []
-        for ring in [g.exterior] + list(g.interiors):
-            c = np.asarray(ring.coords); verts += c.tolist(); codes += [Path.MOVETO] + [Path.LINETO] * (len(c) - 2) + [Path.CLOSEPOLY]
-        ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec=ec, lw=LW(lw), ls=ls, zorder=z, alpha=alpha, joinstyle='miter'))
+# ================================================================ ここから描画（draw100_core.py の後に続く）
+# 図は PDF・PNG と DXF（レイヤー分け、1:1 の mm）を同時に出す。DXF は Rhino・LayOut で開いて手を入れる用。
+import ezdxf, subprocess, datetime
+from ezdxf.enums import TextEntityAlignment
+from matplotlib.collections import LineCollection
+from shapely.geometry import Point
 
-def outline(ax, geom, ec='k', lw=0.13, ls='-', z=1):
-    draw_geom(ax, geom, fc='none', ec=ec, lw=lw, ls=ls, z=z)
+KIND_BEAM = ('11b', '11c', '22b', '22c', '22d')
+def is_beam(ln): return ln.split('_')[0] in KIND_BEAM
 
-def cut_draw(ax, ob, pc, segs):
-    """切断面：塗り＋切り口の線（閉じていないメッシュでも線は出る）"""
-    k = kind(ob['layer'])
-    lw_line = {'glass': 0.1, 'furn': 0.15, 'volume': 0.3}.get(k, 0.3)
-    if k == 'glass': draw_geom(ax, pc, fc='white', ec='k', lw=0.1, z=5)
-    elif k == 'furn': draw_geom(ax, pc, fc='0.6', ec='k', lw=0.13, z=5)
-    elif k == 'volume': draw_geom(ax, pc, fc='white', ec='k', lw=0.3, z=5)
-    else: draw_geom(ax, pc, fc='k', ec='k', lw=0.18, z=6)
-    from matplotlib.collections import LineCollection
-    if segs: ax.add_collection(LineCollection([np.asarray(q) for q in segs], colors='k', linewidths=LW(lw_line), zorder=6))
+# DXF のレイヤー：名前 → (色 ACI, 線の太さ 1/100 mm, 線種)
+DL = {
+    '01_切断（構造・壁）': (7, 35, 'Continuous'),
+    '02_切断（家具）': (8, 18, 'Continuous'),
+    '03_切断（ガラス）': (5, 13, 'Continuous'),
+    '04_切断（機械室などの塊）': (7, 35, 'Continuous'),
+    '10_見えがかり': (7, 13, 'Continuous'),
+    '11_見えがかり（家具）': (8, 9, 'Continuous'),
+    '12_見えがかり（ガラス）': (5, 9, 'Continuous'),
+    '20_上部（屋根の外形・梁）': (8, 9, 'DASHED'),
+    '30_敷地・外構': (8, 9, 'Continuous'),
+    '40_通り芯': (1, 9, 'DASHDOT'),
+    '41_通り芯の符号': (1, 13, 'Continuous'),
+    '50_寸法': (3, 9, 'Continuous'),
+    '51_高さ': (3, 9, 'Continuous'),
+    '60_部屋名・面積': (7, 13, 'Continuous'),
+    '70_断面の位置': (6, 13, 'DASHDOT'),
+    '80_図名・縮尺・方位': (7, 18, 'Continuous'),
+    '90_図枠': (7, 25, 'Continuous'),
+}
+PT2MM = 0.3528   # 1 pt = 0.3528 mm（紙の上）
 
-# ---------------------------------------------------------------- 用紙
-def sheet(w_mm, h_mm, title):
-    fig = plt.figure(figsize=(w_mm * MM, h_mm * MM))
-    fig.text(1 - 15 / w_mm, 12 / h_mm, title, ha='right', va='bottom', fontsize=11)
-    fig.text(1 - 15 / w_mm, 7 / h_mm, 'こどもたちの育ち舎　3dm（sodachiya_exact.3dm）から自動で作図', ha='right', va='bottom', fontsize=6.5, color='0.35')
-    return fig
+def git_stamp():
+    try:
+        h = subprocess.run(['git', '-C', os.path.dirname(os.path.abspath(IN)), 'rev-parse', '--short', 'HEAD'],
+                           capture_output=True, text=True).stdout.strip()
+    except Exception: h = '?'
+    t = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M')
+    return f'{t}（atelier {h} の次の版の 3dm）' if h else t
+STAMP = git_stamp()
 
-def axes_at(fig, w_mm, h_mm, x_mm, y_mm, ext, scale=100):
-    """ext=(x0,x1,y0,y1) mm（モデル）を用紙の (x_mm, y_mm) から 1/scale で置く"""
-    x0, x1, y0, y1 = ext
-    ww, hh = (x1 - x0) / scale, (y1 - y0) / scale
-    ax = fig.add_axes([x_mm / w_mm, y_mm / h_mm, ww / w_mm, hh / h_mm])
-    ax.set_xlim(x0, x1); ax.set_ylim(y0, y1); ax.set_aspect('equal'); ax.axis('off')
-    return ax
+class Sheet:
+    """用紙（mm）。DXF は用紙の 100 倍＝1/100 の図を 1:1 の mm で置く（Rhino で 1/100 のレイアウトにそのまま使える）"""
+    def __init__(s, w, h, title, scale=100):
+        s.w, s.h, s.k = w, h, scale
+        s.fig = plt.figure(figsize=(w * MM, h * MM))
+        s.doc = ezdxf.new('R2018', setup=True); s.msp = s.doc.modelspace()
+        s.doc.header['$INSUNITS'] = 4      # mm
+        for name, (c, lw, lt) in DL.items():
+            s.doc.layers.add(name, color=c, lineweight=lw, linetype=lt)
+        s.doc.styles.add('JP', font='NotoSansCJKjp-Regular.otf')
+        k = s.k
+        s.msp.add_lwpolyline([(0, 0), (w * k, 0), (w * k, h * k), (0, h * k)], close=True, dxfattribs={'layer': '90_図枠'})
+        s.msp.add_lwpolyline([(10 * k, 10 * k), ((w - 10) * k, 10 * k), ((w - 10) * k, (h - 10) * k), (10 * k, (h - 10) * k)], close=True, dxfattribs={'layer': '90_図枠'})
+        s.fig.patches.append(plt.Rectangle((10 / w, 10 / h), 1 - 20 / w, 1 - 20 / h, transform=s.fig.transFigure, fill=False, lw=LW(0.25), ec='k'))
+        s.text_paper(w - 15, 18, title, 11, ha='right')
+        s.text_paper(w - 15, 13, 'こどもたちの育ち舎　3dm（sodachiya_exact.3dm）から自動で作図　' + STAMP, 6.0, ha='right', color='0.35')
+    def text_paper(s, x_mm, y_mm, t, pt, ha='left', va='bottom', color='k', layer='80_図名・縮尺・方位'):
+        s.fig.text(x_mm / s.w, y_mm / s.h, t, ha=ha, va=va, fontsize=pt, color=color)
+        dxf_text(s.msp, x_mm * s.k, y_mm * s.k, t, pt * PT2MM * s.k, layer, ha, va)
+    def axes(s, x_mm, y_mm, ext):
+        return Ax(s, x_mm, y_mm, ext)
+    def save(s, base):
+        s.fig.savefig(base + '.pdf'); s.fig.savefig(base + '.png', dpi=110); plt.close(s.fig)
+        s.doc.saveas(base + '.dxf')
 
-def scalebar(ax, x, y, unit=1000, n=5):
-    for i in range(n):
-        ax.add_patch(plt.Rectangle((x + i * unit, y), unit, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
-    for i in (0, n):
-        ax.text(x + i * unit, y + 300, f'{i}', ha='center', va='bottom', fontsize=5)
-    ax.text(x + n * unit + 300, y + 300, 'm', ha='left', va='bottom', fontsize=5)
+def dxf_text(msp, x, y, t, h, layer, ha='left', va='bottom', rot=0):
+    att = {('left', 'top'): 1, ('center', 'top'): 2, ('right', 'top'): 3, ('left', 'center'): 4, ('center', 'center'): 5,
+           ('right', 'center'): 6, ('left', 'bottom'): 7, ('center', 'bottom'): 8, ('right', 'bottom'): 9}[(ha, va)]
+    mt = msp.add_mtext(t.replace('\n', '\\P'), dxfattribs={'layer': layer, 'style': 'JP', 'char_height': h * 0.75,
+                                                          'attachment_point': att, 'rotation': rot})
+    mt.dxf.insert = (x, y)
+
+class Ax:
+    """モデルの座標（mm）で描く。matplotlib と DXF の両方へ"""
+    def __init__(s, sh, x_mm, y_mm, ext):
+        s.sh = sh; x0, x1, y0, y1 = ext; k = sh.k
+        s.ax = sh.fig.add_axes([x_mm / sh.w, y_mm / sh.h, (x1 - x0) / k / sh.w, (y1 - y0) / k / sh.h])
+        s.ax.set_xlim(x0, x1); s.ax.set_ylim(y0, y1); s.ax.set_aspect('equal'); s.ax.axis('off')
+        s.ox, s.oy = x_mm * k - x0, y_mm * k - y0
+    def P(s, x, y): return (x + s.ox, y + s.oy)
+    def lines(s, segs, layer, lw=0.13, color='k', ls='-', z=3):
+        segs = [np.asarray(q, float) for q in segs if len(q) >= 2]
+        if not segs: return
+        s.ax.add_collection(LineCollection(segs, colors=color, linewidths=LW(lw), linestyles=ls, zorder=z, capstyle='butt'))
+        for q in segs:
+            s.sh.msp.add_lwpolyline([s.P(*p) for p in q], dxfattribs={'layer': layer})
+    def geom_lines(s, g, layer, **kw):
+        if g is None or g.is_empty: return
+        segs = []
+        for gg in getattr(g, 'geoms', [g]):
+            if gg.geom_type in ('LineString', 'LinearRing'): segs.append(list(gg.coords))
+            elif gg.geom_type == 'Polygon':
+                segs += [list(gg.exterior.coords)] + [list(h.coords) for h in gg.interiors]
+            elif hasattr(gg, 'geoms'):
+                for g3 in gg.geoms:
+                    if g3.geom_type in ('LineString', 'LinearRing'): segs.append(list(g3.coords))
+        s.lines(segs, layer, **kw)
+    def fill(s, g, layer, fc='k', z=4):
+        if g is None or g.is_empty: return
+        for gg in getattr(g, 'geoms', [g]):
+            if gg.geom_type != 'Polygon' or gg.area < 1: continue
+            verts, codes = [], []
+            for ring in [gg.exterior] + list(gg.interiors):
+                c = np.asarray(ring.coords); verts += c.tolist(); codes += [Path.MOVETO] + [Path.LINETO] * (len(c) - 2) + [Path.CLOSEPOLY]
+            s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='none', zorder=z))
+            h = s.sh.msp.add_hatch(color=7 if fc == 'k' else 8, dxfattribs={'layer': layer})
+            h.paths.add_polyline_path([s.P(*p) for p in list(gg.exterior.coords)[:-1]], is_closed=True, flags=1)
+            for ring in gg.interiors:
+                h.paths.add_polyline_path([s.P(*p) for p in list(ring.coords)[:-1]], is_closed=True, flags=0)
+    def text(s, x, y, t, pt, layer, ha='center', va='center', rot=0, color='k', box=False):
+        kw = dict(bbox=dict(fc='white', ec='none', pad=0.5, alpha=0.85)) if box else {}
+        s.ax.text(x, y, t, ha=ha, va=va, fontsize=pt, rotation=rot, color=color, zorder=12, **kw)
+        dxf_text(s.sh.msp, *s.P(x, y), t, pt * PT2MM * s.sh.k, layer, ha, va, rot)
+    def bubble(s, x, y, t, layer='41_通り芯の符号', rad=450, pt=6.5):
+        th = np.linspace(0, 2 * np.pi, 33)
+        s.lines([np.c_[x + rad * np.cos(th), y + rad * np.sin(th)]], layer, lw=0.13, color='#B03030', z=11)
+        s.ax.add_patch(plt.Circle((x, y), rad, fc='white', ec='none', zorder=10.5))
+        s.text(x, y, t, pt, layer, color='#B03030')
+
+# ---------------------------------------------------------------- 隠れ線（近いものから、手前の形で後ろの線を切る）
+LAYER_OF = {'struct': ('01_切断（構造・壁）', '10_見えがかり'), 'other': ('01_切断（構造・壁）', '10_見えがかり'),
+            'furn': ('02_切断（家具）', '11_見えがかり（家具）'), 'glass': ('03_切断（ガラス）', '12_見えがかり（ガラス）'),
+            'volume': ('04_切断（機械室などの塊）', '10_見えがかり')}
+def merged(segs, pc):
+    """切り口の細かい線分をつなぐ（DXF で手を入れやすいように）。塗りがあればその輪郭、なければ線をつないだもの"""
+    if pc is not None and not pc.is_empty:
+        out = []
+        for g in getattr(pc, 'geoms', [pc]):
+            if g.geom_type == 'Polygon': out += [list(g.exterior.coords)] + [list(h.coords) for h in g.interiors]
+        rest = unary_union([LineString(q) for q in segs if len(q) == 2 and np.hypot(*(np.subtract(q[1], q[0]))) > 1]).difference(pc.boundary.buffer(2)) if segs else None
+    else:
+        out, rest = [], unary_union([LineString(q) for q in segs if np.hypot(*(np.subtract(q[1], q[0]))) > 1e-3]) if segs else None
+    if rest is not None and not rest.is_empty:
+        rest = linemerge(rest) if rest.geom_type == 'MultiLineString' else rest
+        for g in getattr(rest, 'geoms', [rest]):
+            if g.geom_type == 'LineString' and g.length > 1: out.append(list(g.coords))
+    return out
+
+def draw_cut(A, items):
+    """items=[(ob, poche, segs)] → 塗りと切り口。返り値＝隠す形（ガラス以外）"""
+    occ = []
+    for ob, pc, segs in items:
+        k = kind(ob['layer']); lay = LAYER_OF[k][0]
+        segs = merged(segs, pc)
+        if k == 'glass':
+            A.lines(segs, lay, lw=0.1, z=6)
+        elif k == 'furn':
+            A.fill(pc, lay, fc='0.62', z=5); A.lines(segs, lay, lw=0.15, z=6)
+        elif k == 'volume':
+            A.lines(segs, lay, lw=0.3, z=6)
+        else:
+            A.fill(pc, lay, fc='k', z=6); A.lines(segs, lay, lw=0.25, z=6)
+        if pc is not None and k != 'glass': occ.append(pc.buffer(0))
+    return unary_union(occ) if occ else None
+
+def draw_visible(A, items, occ):
+    """items=[(ob, silhouette)] 近い順。見える線だけ描く"""
+    occ = occ if occ is not None else Polygon()
+    for i, (ob, sil) in enumerate(items):
+        if sil is None or sil.is_empty: continue
+        k = kind(ob['layer']); lay = LAYER_OF[k][1]
+        vis = sil.boundary.difference(occ.buffer(2)) if not occ.is_empty else sil.boundary
+        A.geom_lines(vis, lay, lw={'furn': 0.1, 'glass': 0.09}.get(k, 0.13), color={'glass': '#3d6f9a', 'furn': '0.25'}.get(k, 'k'), z=3)
+        if k != 'glass':
+            occ = unary_union([occ, sil]) if not occ.is_empty else sil
+            if i % 40 == 39: occ = occ.simplify(1)
+    return occ
 
 # ---------------------------------------------------------------- 平面
-ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-46]|59)_', ln))
+ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)_', ln))
 def room_name(ln):
     s = re.sub(r'^\d+[a-z]?_', '', ln); s = re.sub(r'^(1F|2F)_', '', s); return re.sub(r'（.*?）', '', s)
 
-def plan(ax, zcut, objs, roofs_dashed, label_rooms, level_z):
+def plan(A, zcut, objs, overhead, level_z):
     below, cut = [], []
     for ob in objs:
+        if ROOM_LAYERS(ob['layer']): continue
         z = ob['T'][:, :, 2]
         if z.min() >= zcut: continue
+        if z.max() > zcut and is_beam(ob['layer']): overhead.append(ob); continue      # 梁は上部（破線）
         if z.max() > zcut: cut.append(ob)
-        below.append(ob)
-    below.sort(key=lambda ob: ob['T'][:, :, 2].max())
-    for ob in below:
-        if ROOM_LAYERS(ob['layer']): continue
-        sil = silhouette(ob['T'][:, :, :2])
-        fc = 'white'
-        if kind(ob['layer']) == 'glass': fc = 'none'
-        draw_geom(ax, sil, fc=fc, ec='0.25', lw=0.1, z=2)
+        else: below.append(ob)
+    items = []
     for ob in cut:
         segs = slice_tris(ob['T'], np.array([0, 0, zcut]), np.array([0, 0, 1.]))
-        S2 = [(s[0][:2], s[1][:2]) for s in segs]; pc = poche(S2)
-        cut_draw(ax, ob, pc, S2)
-    for ob in roofs_dashed:
-        outline(ax, silhouette(ob['T'][:, :, :2]), ec='0.3', lw=0.1, ls=(0, (6, 3)), z=7)
-    if label_rooms:
-        for ob in objs:
-            if not ROOM_LAYERS(ob['layer']): continue
-            z = ob['T'][:, :, 2]
-            if abs(z.max() - level_z) > 1200: continue
-            sil = silhouette(ob['T'][:, :, :2])
-            if sil is None: continue
-            for g in getattr(sil, 'geoms', [sil]):
-                if g.area < 4e6: continue
-                p = g.representative_point()
-                ax.text(p.x, p.y, f'{room_name(ob["layer"])}\n{g.area / 1e6:.1f} m²', ha='center', va='center',
-                        fontsize=5.5, zorder=9, bbox=dict(fc='white', ec='none', pad=0.6, alpha=0.85))
+        S2 = [(s[0][:2], s[1][:2]) for s in segs]; items.append((ob, poche(S2), S2))
+    occ = draw_cut(A, items)
+    below.sort(key=lambda ob: -ob['T'][:, :, 2].max())
+    draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below], occ)
+    for ob in overhead:
+        A.geom_lines(silhouette(ob['T'][:, :, :2]), '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
+    # 部屋名と面積（床の板から）
+    for ob in objs:
+        if not ROOM_LAYERS(ob['layer']): continue
+        if abs(ob['T'][:, :, 2].max() - level_z) > 1200: continue
+        sil = silhouette(ob['T'][:, :, :2])
+        for g in getattr(sil, 'geoms', [sil]) if sil is not None else []:
+            if g.area < 4e6: continue
+            p = g.representative_point()
+            A.text(p.x, p.y, f'{room_name(ob["layer"])}\n{g.area / 1e6:.1f} m²', 5.5, '60_部屋名・面積', box=True)
 
 def unwrap(a):
     """角度を π のまわりに（建物は中心の西、±π をまたぐので）"""
@@ -238,163 +360,229 @@ def frames_from_columns():
     th = []
     for ob in OBJ:
         if ob['layer'].startswith('11a'):
-            c = ob['T'].reshape(-1, 3)[:, :2].mean(0) - C; th.append(unwrap(math.atan2(c[1], c[0])))
-    th = np.unique(np.round(np.sort(th), 4))
-    return th
+            c = ob['T'].reshape(-1, 3)[:, :2].mean(0) - C; th.append(float(unwrap(math.atan2(c[1], c[0]))))
+    return np.unique(np.round(np.sort(th), 4))
 TH = frames_from_columns()
+TH_S = sorted(TH, key=lambda a: (C + 205000 * np.array([math.cos(a), math.sin(a)]))[1])   # 架構 1（南の妻）→ 20（北の端）
+SGN = 1.0 if TH_S[1] > TH_S[0] else -1.0
+def theta_u(u_mm): return TH_S[0] + SGN * u_mm / 205000.0      # u：南の妻から北へ、r=205 m に沿って
+def at(r_, th): return C + r_ * np.array([math.cos(th), math.sin(th)])
 print('frames', len(TH))
 
-def sec_line(theta, r0=187000, r1=218000):
-    u = np.array([math.cos(theta), math.sin(theta)])
-    return C + u * r0, C + u * r1
+SECTIONS = [('A', 'arc', 197000.0, '縦断（展開）　保育室の中ほど r=197 m の弧で切って平らに伸ばす、西を見る'),
+            ('B', 'u', 21750.0, '海峡（スパン 8+0.75）　南の入口・キッチン・2 階・すき間・本館・縁側、北を見る'),
+            ('C', 'u', 46500.0, '4 歳・遊戯室（スパン 16 の中央）　北を見る')]
 
-# 断面の位置：スパン s の中央（s=1..19 は南から）。TH は角度の小さい方から
-TH_S = sorted(TH, key=lambda a: (C + 205000 * np.array([math.cos(a), math.sin(a)]))[1])   # 南（y 小）→ 北
-SGN = 1.0 if TH_S[1] > TH_S[0] else -1.0
-def theta_u(u_mm): return TH_S[0] + SGN * u_mm / 205000.0      # u：南の妻（架構 1）から北へ、r=205 m に沿って
-# 断面：A は保育室の中ほど（r=197 m、v=8）を弧に沿って切って展開（西を見る）、B・C は架構に平行な鉛直面（北を見る）
-SECTIONS = [('A', 'arc', 197000.0, '縦断（展開）：保育室の中ほど r=197 m、西を見る'),
-            ('B', 'u', 21750.0, '海峡（スパン 8+0.75）：南の入口・キッチン・2 階・縁側'),
-            ('C', 'u', 46500.0, '4 歳・遊戯室（スパン 16 の中央）')]
+def plan_grid(A):
+    """通り芯：架構 1〜20（放射）と W（西の柱 r=205 m）・E（東の柱 r=193 m）、スパンの寸法"""
+    for k, th in enumerate(TH_S, 1):
+        a, b = at(188200, th), at(207600, th)
+        A.lines([[a, b]], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
+        A.bubble(*at(186900, th), str(k))
+    for nm, rr in (('W', 205000), ('E', 193000)):
+        ths = np.linspace(theta_u(-1500), theta_u(58500), 120)
+        A.lines([np.array([at(rr, t) for t in ths])], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
+        A.bubble(*at(rr, theta_u(-2200)), nm)
+    # スパンの寸法（背骨 r=205 m で 3,000）
+    rd = 185300
+    for k in range(19):
+        t0, t1 = TH_S[k], TH_S[k + 1]
+        A.lines([np.array([at(rd, t) for t in np.linspace(t0, t1, 8)])], '50_寸法', lw=0.09, color='#2E7D32')
+        for t in (t0, t1): A.lines([[at(rd - 250, t), at(rd + 250, t)]], '50_寸法', lw=0.09, color='#2E7D32')
+        p = at(rd - 450, (t0 + t1) / 2)
+        ang = math.degrees((t0 + t1) / 2) + 90
+        A.text(p[0], p[1], '3,000', 4.5, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
+    p = at(rd - 1300, (TH_S[0] + TH_S[-1]) / 2)
+    A.text(p[0], p[1], '19 × 3,000 = 57,000（背骨 r=205 m で）', 5.5, '50_寸法', rot=((math.degrees((TH_S[0] + TH_S[-1]) / 2) + 180) % 180) - 90, color='#2E7D32')
+
+def plan_section_marks(A):
+    for nm, kind_, val, _ in SECTIONS:
+        if kind_ == 'u':
+            th = theta_u(val); a, b = at(184000, th), at(222000, th)
+            A.lines([[a, b]], '70_断面の位置', lw=0.13, ls=(0, (12, 3, 2, 3)), z=10)
+            tdir = at(205000, theta_u(val + 1)) - at(205000, th); tdir /= np.linalg.norm(tdir)
+            ends = (a, b)
+        else:
+            ths = np.linspace(theta_u(-9000), theta_u(62000), 200)
+            P = np.array([at(val, t) for t in ths])
+            A.lines([P], '70_断面の位置', lw=0.13, ls=(0, (12, 3, 2, 3)), z=10)
+            ends = (P[0], P[-1])
+        for q in ends:
+            if kind_ == 'arc':
+                d = q - C; tdir = -d / np.linalg.norm(d)      # 西（r の大きい方）を見る
+                tdir = d / np.linalg.norm(d)
+            A.lines([[q, q + tdir * 1600]], '70_断面の位置', lw=0.35, z=11)
+            A.lines([[q + tdir * 1600 + np.array([-tdir[1], tdir[0]]) * 300, q + tdir * 2100, q + tdir * 1600 - np.array([-tdir[1], tdir[0]]) * 300]], '70_断面の位置', lw=0.35, z=11)
+            A.text(q[0], q[1], nm, 8, '70_断面の位置', box=True)
 
 def objs_for_plan(level):
-    o1 = []
+    out = []
     for ob in OBJ:
         n = num(ob['layer'])
         if ob['layer'].startswith('47'): continue
         if level == 1 and n in (41, 42, 43, 44, 45, 23): continue
-        o1.append(ob)
-    return o1
+        out.append(ob)
+    return out
 
 def make_plans():
     W_, H_ = 594, 841
-    fig = sheet(W_, H_, '1 階平面図・西館 2 階平面図　1/100（A1）')
+    S = Sheet(W_, H_, '1 階平面図・西館 2 階平面図　1/100（A1）')
     objs1 = objs_for_plan(1)
     allp = np.vstack([ob['T'].reshape(-1, 3) for ob in objs1 if num(ob['layer']) < 70])
     x0, y0 = allp[:, :2].min(0) - 2000; x1, y1 = allp[:, :2].max(0) + 2000
-    ext = (x0, x1, y0, y1)
-    ax = axes_at(fig, W_, H_, 25, 40, ext)
+    x1 += 2500                                     # 東の通り芯の符号と寸法の分
+    A = S.axes(25, 40, (x0, x1, y0, y1))
     for ln, P in CURVES:
-        if num(ln) >= 70 or num(ln) < 2: ax.plot(P[:, 0], P[:, 1], color='0.55', lw=LW(0.09), zorder=1)
+        if num(ln) >= 70 or num(ln) < 2: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.55', z=1)
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
-    plan(ax, 1200, objs1, roofs, True, 0)
-    for nm, kind_, val, _ in SECTIONS:
-        if kind_ == 'u':
-            a, b = sec_line(theta_u(val))
-            ax.plot([a[0], b[0]], [a[1], b[1]], color='k', lw=LW(0.13), ls=(0, (12, 3, 2, 3)), zorder=10)
-            ends = (a, b)
-        else:
-            th = np.linspace(theta_u(-9000), theta_u(62000), 200)
-            P = C + val * np.c_[np.cos(th), np.sin(th)]
-            ax.plot(P[:, 0], P[:, 1], color='k', lw=LW(0.13), ls=(0, (12, 3, 2, 3)), zorder=10)
-            ends = (P[0], P[-1])
-        for q in ends:
-            ax.text(*q, nm, ha='center', va='center', fontsize=8, zorder=11, bbox=dict(boxstyle='circle,pad=0.2', fc='white', ec='k', lw=0.5))
-    scalebar(ax, x0 + 2000, y0 + 1000)
-    ax.annotate('', xy=(x1 - 2500, y1 - 1500), xytext=(x1 - 2500, y1 - 5000), arrowprops=dict(arrowstyle='-|>', lw=0.6, color='k'))
-    ax.text(x1 - 2500, y1 - 1000, 'N', ha='center', va='bottom', fontsize=8)
-    ax.text(x0 + 2000, y1 - 1500, '1 階平面図　FL+1200 で切断　1/100', fontsize=9, va='top')
+    plan(A, 1200, objs1, list(roofs), 0)
+    plan_grid(A); plan_section_marks(A)
+    # 縮尺・方位
+    for i in range(5):
+        A.ax.add_patch(plt.Rectangle((x0 + 2000 + i * 1000, y0 + 1000), 1000, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
+    A.text(x0 + 2000, y0 + 1500, '0', 5, '80_図名・縮尺・方位'); A.text(x0 + 7000, y0 + 1500, '5 m', 5, '80_図名・縮尺・方位')
+    A.lines([[(x1 - 2500, y1 - 5000), (x1 - 2500, y1 - 1500)]], '80_図名・縮尺・方位', lw=0.25)
+    A.lines([[(x1 - 2800, y1 - 2100), (x1 - 2500, y1 - 1500), (x1 - 2200, y1 - 2100)]], '80_図名・縮尺・方位', lw=0.25)
+    A.text(x1 - 2500, y1 - 1000, 'N', 8, '80_図名・縮尺・方位', va='bottom')
+    A.text(x0 + 2000, y1 - 1500, '1 階平面図　FL+1200 で切断　1/100', 9, '80_図名・縮尺・方位', ha='left', va='top')
     # 西館 2 階：右の空きに
-    objs2 = [ob for ob in OBJ if not ob['layer'].startswith('47')]
     west = np.vstack([ob['T'].reshape(-1, 3) for ob in OBJ if num(ob['layer']) in (21, 23)])
     wx0, wy0 = west[:, :2].min(0) - 1500; wx1, wy1 = west[:, :2].max(0) + 1500
     used_w = (x1 - x0) / 100
-    if 25 + used_w + 10 + (wx1 - wx0) / 100 < W_ - 10:
-        ax2 = axes_at(fig, W_, H_, 25 + used_w + 10, H_ - 30 - (wy1 - wy0) / 100, (wx0, wx1, wy0, wy1))
-    else:
-        ax2 = axes_at(fig, W_, H_, W_ - 15 - (wx1 - wx0) / 100, H_ - 60 - (wy1 - wy0) / 100, (wx0, wx1, wy0, wy1))
-    o2 = [ob for ob in objs2 if (ob['T'][:, :, :2].reshape(-1, 2).min(0) > [wx0, wy0]).all() and (ob['T'][:, :, :2].reshape(-1, 2).max(0) < [wx1, wy1]).all()]
+    xm = 25 + used_w + 10 if 25 + used_w + 10 + (wx1 - wx0) / 100 < W_ - 12 else W_ - 15 - (wx1 - wx0) / 100
+    A2 = S.axes(xm, H_ - 40 - (wy1 - wy0) / 100, (wx0, wx1, wy0, wy1))
+    o2 = [ob for ob in OBJ if not ob['layer'].startswith('47')]
+    o2 = [ob for ob in o2 if (ob['T'][:, :, :2].reshape(-1, 2).min(0) > [wx0, wy0]).all() and (ob['T'][:, :, :2].reshape(-1, 2).max(0) < [wx1, wy1]).all()]
     o2 = [ob for ob in o2 if ob['T'][:, :, 2].max() > 3000 or num(ob['layer']) in (21, 22, 25)]
-    plan(ax2, 3250 + 1200, o2, [ob for ob in OBJ if num(ob['layer']) == 20], True, 3250)
-    ax2.text(wx0, wy1, '西館 2 階平面図　2FL+1200 で切断　1/100', fontsize=9, va='bottom')
-    return fig
+    plan(A2, 3250 + 1200, o2, [ob for ob in OBJ if num(ob['layer']) == 20], 3250)
+    A2.text(wx0, wy1, '西館 2 階平面図　2FL+1200 で切断　1/100（梁は破線）', 9, '80_図名・縮尺・方位', ha='left', va='bottom')
+    return S
 
 # ---------------------------------------------------------------- 断面
-def section(ax, theta, depth=3200):
+def levels(A, cutb, x_text, has_west):
+    """高さの記号。cutb：レイヤー → 切断面の (xmin, zmin, xmax, zmax)"""
+    L = [('GL', -300), ('FL', 0)]
+    if has_west: L.append(('2FL', 3250))
+    def zmax(prefixes, xmin=None):
+        zs = [b[3] for k, b in cutb.items() if k.startswith(prefixes) and (xmin is None or b[2] > xmin)]
+        return max(zs) if zs else None
+    z = zmax(('10_',)); z and L.append(('本館 屋根の最高', z))
+    z = zmax(('50a',)); z and L.append(('本館 越屋根の蓋', z))
+    if has_west:
+        z = zmax(('20_', '28_')); z and L.append(('西館 最高', z))
+    L.sort(key=lambda t: t[1]); last = -1e9
+    for nm, z in L:
+        zt = max(z, last + 420); last = zt
+        A.lines([[(x_text - 300, z), (x_text, z + 260), (x_text - 600, z + 260), (x_text - 300, z)]], '51_高さ', lw=0.1, color='#2E7D32')
+        A.lines([[(x_text - 900, z), (x_text + 200, z)]], '51_高さ', lw=0.09, color='#2E7D32')
+        A.text(x_text + 300, zt + 60, f'{nm}　{"+" if z > 0 else "±" if z == 0 else "−"}{abs(z):,.0f}', 5, '51_高さ', ha='left', va='bottom', color='#2E7D32')
+
+def chain_dims(A, xs, y, label_fmt='{:,.0f}'):
+    xs = sorted(xs)
+    A.lines([[(xs[0], y), (xs[-1], y)]], '50_寸法', lw=0.09, color='#2E7D32')
+    for x in xs: A.lines([[(x, y - 200), (x, y + 200)]], '50_寸法', lw=0.09, color='#2E7D32')
+    for a, b in zip(xs, xs[1:]):
+        if b - a > 300: A.text((a + b) / 2, y + 150, label_fmt.format(b - a), 4.8, '50_寸法', va='bottom', color='#2E7D32')
+
+def section_u(A, theta, depth=3200):
     u_r = np.array([math.cos(theta), math.sin(theta), 0.])
     u_t = np.array([-math.sin(theta), math.cos(theta), 0.])
-    if (C + 205000 * np.array([math.cos(theta + 0.01), math.sin(theta + 0.01)]))[1] < (C + 205000 * u_r[:2])[1]:
-        u_t = -u_t                                       # 北（y の大きい方）を奥に
+    if at(205000, theta + 0.01)[1] < at(205000, theta)[1]: u_t = -u_t      # 北を奥に
     p0 = np.array([C[0], C[1], 0.])
-    X = lambda P: 205000 - (P - p0) @ u_r                # 西の外壁の線 r=205 m から東へ（右が東）
+    X = lambda P: 205000 - (P - p0) @ u_r                # v（西の外壁の線 r=205 m から東へ、mm）、右が東
     D = lambda P: (P - p0) @ u_t
-    far, cut = [], []
+    far, cuts = [], []
     for ob in OBJ:
         if ob['layer'].startswith('47') or num(ob['layer']) >= 76: continue
-        T = ob['T']; P = T.reshape(-1, 3); d = D(P)
+        T = ob['T']; d = D(T.reshape(-1, 3)).reshape(-1, 3)
         if d.max() < 0 or d.min() > depth: continue
-        if d.min() < 0 < d.max(): cut.append(ob)
-        dt = D(T.reshape(-1, 3)).reshape(-1, 3)
-        keep = (dt.max(1) >= 0) & (dt.min(1) <= depth)
+        if d.min() < 0 < d.max():
+            segs = slice_tris(T, p0, u_t)
+            S2 = [((X(s[0]), s[0][2]), (X(s[1]), s[1][2])) for s in segs]
+            cuts.append((ob, poche(S2), S2))
+        keep = (d.max(1) >= 0) & (d.min(1) <= depth)
         T2 = np.stack([X(T[keep].reshape(-1, 3)).reshape(-1, 3), T[keep][:, :, 2]], -1)
-        if len(T2): far.append((max(0, d.min()), ob, T2))
-    far.sort(key=lambda t: -t[0])
-    for dmin, ob, T2 in far:
-        k = kind(ob['layer'])
-        draw_geom(ax, silhouette(T2), fc='none' if k == 'glass' else 'white', ec='0.3', lw=0.1, z=2)
-    for ob in cut:
-        segs = slice_tris(ob['T'], p0, u_t)
-        S2 = [((X(s[0]), s[0][2]), (X(s[1]), s[1][2])) for s in segs]; pc = poche(S2)
-        cut_draw(ax, ob, pc, S2)
-    ax.plot([-17000, 17500], [-300, -300], color='k', lw=LW(0.35), zorder=8)    # GL
+        if len(T2): far.append((max(0, d.min()), ob, silhouette(T2)))
+    occ = draw_cut(A, cuts)
+    far.sort(key=lambda t: t[0])
+    draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
+    A.lines([[(-17500, -300), (17800, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)   # GL
+    cutb = {}
+    for ob, pc, S2 in cuts:
+        if not S2: continue
+        P = np.vstack([np.asarray(q) for q in S2]); b = (P[:, 0].min(), P[:, 1].min(), P[:, 0].max(), P[:, 1].max())
+        o = cutb.get(ob['layer']); cutb[ob['layer']] = b if o is None else (min(o[0], b[0]), min(o[1], b[1]), max(o[2], b[2]), max(o[3], b[3]))
+    return cutb
 
-def section_arc(ax, Rc, depth=30000):
+def section_arc(A, Rc, depth=30000):
     """円筒面 r=Rc で切って展開。横＝u（南の妻から北へ、r=Rc の弧長）、西を見る（奥＝r の大きい方）"""
     def RTH(P):
         d = P[..., :2] - C; return np.hypot(d[..., 0], d[..., 1]), unwrap(np.arctan2(d[..., 1], d[..., 0]))
     X = lambda th: SGN * (th - TH_S[0]) * Rc
-    far, cut = [], []
+    far, cuts = [], []
     for ob in OBJ:
         if ob['layer'].startswith('47') or num(ob['layer']) >= 76: continue
         T = ob['T']; rr, th = RTH(T)
         if rr.max() < Rc or rr.min() > Rc + depth: continue
-        if rr.min() < Rc < rr.max(): cut.append((ob, rr, th))
+        if rr.min() < Rc < rr.max():
+            f = rr - Rc; segs = []
+            for tri, ff, tt in zip(T, f, th):
+                sg = np.sign(np.where(np.abs(ff) < 1e-6, 1e-6, ff))
+                if sg.min() > 0 or sg.max() < 0: continue
+                pts = []
+                for i in range(3):
+                    j = (i + 1) % 3
+                    if sg[i] != sg[j]:
+                        t = ff[i] / (ff[i] - ff[j]); pts.append((X(tt[i] + (tt[j] - tt[i]) * t), tri[i][2] + (tri[j][2] - tri[i][2]) * t))
+                if len(pts) == 2: segs.append(pts)
+            cuts.append((ob, poche(segs), segs))
         keep = rr.max(1) >= Rc
         T2 = np.stack([X(th[keep]), T[keep][:, :, 2]], -1)
-        if len(T2): far.append((max(0, rr.min() - Rc), ob, T2))
-    far.sort(key=lambda t: -t[0])
-    for dmin, ob, T2 in far:
-        k = kind(ob['layer'])
-        draw_geom(ax, silhouette(T2), fc='none' if k == 'glass' else 'white', ec='0.3', lw=0.1, z=2)
-    for ob, rr, th in cut:
-        f = rr - Rc; segs = []
-        for tri, ff, tt in zip(ob['T'], f, th):
-            sg = np.sign(np.where(np.abs(ff) < 1e-6, 1e-6, ff))
-            if sg.min() > 0 or sg.max() < 0: continue
-            pts = []
-            for i in range(3):
-                j = (i + 1) % 3
-                if sg[i] != sg[j]:
-                    t = ff[i] / (ff[i] - ff[j]); pts.append((X(tt[i] + (tt[j] - tt[i]) * t), tri[i][2] + (tri[j][2] - tri[i][2]) * t))
-            if len(pts) == 2: segs.append(pts)
-        cut_draw(ax, ob, poche(segs), segs)
-    ax.plot([-12000, 66000], [-300, -300], color='k', lw=LW(0.35), zorder=8)
-    for k in range(1, 20):                      # スパン番号（南から）
-        um = (k - 0.5) * 3000 * Rc / 205000
-        ax.text(um, -900, f'{k}', ha='center', va='center', fontsize=5.5, color='0.3')
-    ax.text(-1500, -900, 'スパン', ha='right', va='center', fontsize=5.5, color='0.3')
+        if len(T2): far.append((max(0, rr.min() - Rc), ob, silhouette(T2)))
+    occ = draw_cut(A, cuts)
+    far.sort(key=lambda t: t[0])
+    draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
+    A.lines([[(-12000, -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
+    cutb = {}
+    for ob, pc, S2 in cuts:
+        if not S2: continue
+        P = np.vstack([np.asarray(q) for q in S2]); b = (P[:, 0].min(), P[:, 1].min(), P[:, 0].max(), P[:, 1].max())
+        o = cutb.get(ob['layer']); cutb[ob['layer']] = b if o is None else (min(o[0], b[0]), min(o[1], b[1]), max(o[2], b[2]), max(o[3], b[3]))
+    # 通り芯（架構 1〜20）
+    for k, t in enumerate(TH_S, 1):
+        x = X(t)
+        A.lines([[(x, -1200), (x, 9800)]], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
+        A.bubble(x, -1750, str(k))
+    return cutb
 
 def make_sections():
     W_, H_ = 841, 594
-    fig = sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
-    extA = (-10000, 62000, -1500, 10500)
-    ax = axes_at(fig, W_, H_, 30, H_ - 45 - 120, extA)
-    section_arc(ax, SECTIONS[0][2])
-    ax.text(extA[0] + 300, extA[3] - 200, f'断面 A　{SECTIONS[0][3]}', fontsize=9, va='top')
-    ax.text(extA[0] + 300, -1300, '← 南', fontsize=6); ax.text(extA[1] - 300, -1300, '北 →', fontsize=6, ha='right')
-    extX = (-17000, 17500, -1500, 10500)
+    S = Sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
+    extA = (-9000, 69500, -2600, 10500)
+    A = S.axes(30, H_ - 40 - 131, extA)
+    cutb = section_arc(A, SECTIONS[0][2])
+    levels(A, cutb, 64300, True)
+    A.text(extA[0] + 300, extA[3] - 200, f'断面 A　{SECTIONS[0][3]}', 9, '80_図名・縮尺・方位', ha='left', va='top')
+    A.text(extA[0] + 300, -2400, '← 南', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
+    A.text(56000, -2400, '北 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')
+    extX = (-17500, 21500, -2600, 10500)
     for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
-        ax = axes_at(fig, W_, H_, 30 + i * (345 + 25), H_ - 45 - 120 - 60 - 120, extX)
-        section(ax, theta_u(val))
-        ax.text(extX[0] + 300, extX[3] - 200, f'断面 {nm}　{cap_}　北を見る', fontsize=9, va='top')
-        for z_, t_ in ((0, 'FL±0'), (-300, 'GL−300')):
-            ax.text(extX[1] - 200, z_ + 60, t_, fontsize=5, ha='right', va='bottom')
-        ax.text(extX[0] + 300, -1300, '← 西', fontsize=6); ax.text(extX[1] - 300, -1300, '東 →', fontsize=6, ha='right')
-        if i == 0: scalebar(ax, extX[0] + 4000, -1300)
-    return fig
+        A = S.axes(30 + i * (390 + 15), H_ - 40 - 131 - 50 - 131, extX)
+        cutb = section_u(A, theta_u(val))
+        westx = min([b[0] for k, b in cutb.items() if k.startswith('21_')] or [-900])
+        chain_dims(A, [westx, -900, 0, 1600, 12000, 13500, 15000], -900)
+        for nm2, x in (('W', 0), ('E', 12000)):
+            A.lines([[(x, -1200), (x, 9800)]], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
+            A.bubble(x, -1750, nm2)
+        levels(A, cutb, 17300, westx < -2000)
+        A.text(extX[0] + 300, extX[3] - 200, f'断面 {nm}　{cap_}', 9, '80_図名・縮尺・方位', ha='left', va='top')
+        A.text(extX[0] + 300, -2400, '← 西', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
+        A.text(16000, -2400, '東 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')
+        if i == 0:
+            for j in range(5):
+                A.ax.add_patch(plt.Rectangle((-9000 + j * 1000, -2450), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
+            A.text(-9000, -2050, '0', 5, '80_図名・縮尺・方位'); A.text(-4000, -2050, '5 m', 5, '80_図名・縮尺・方位')
+    return S
 
 for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_sections_1-100', make_sections)):
-    fig = mk()
-    fig.savefig(os.path.join(OUTD, name + '.pdf'))
-    fig.savefig(os.path.join(OUTD, name + '.png'), dpi=110)
-    plt.close(fig); print('written', name)
+    S = mk(); S.save(os.path.join(OUTD, name)); print('written', name)
