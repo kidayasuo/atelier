@@ -1,0 +1,21 @@
+exec(open('/tmp/claude-0/t/ideas/case3.py').read().replace("model.Write(","_w=(").replace("print('written')",""))
+import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon as MPo, Circle
+plt.rcParams['font.family']='IPAGothic'
+fig,ax=plt.subplots(figsize=(8,7))
+ax.add_patch(MPo(list(site.exterior.coords),fc='#eef5e6',ec='k'))
+ax.add_patch(MPo(list(setb.exterior.coords),fc='none',ec='#aaa',ls='--'))
+ax.add_patch(MPo(list(mainP.exterior.coords),fc='#e6e1d6',ec='#888'))
+ax.add_patch(MPo(list(W.exterior.coords),fc='#dfe8f2',ec='#555'))
+ax.add_patch(MPo(list(tri.exterior.coords),fc='#f6f0d8',ec='#c9a',ls=':'))
+ax.add_patch(Circle((cx,cy),RD,fc='#bdbab3',ec='k'))
+for g in getattr(yard,'geoms',[yard]): ax.add_patch(MPo(list(g.exterior.coords),fc='#888',ec='k',alpha=.6))
+ax.text(cx,cy,'機械室\n約30㎡',ha='center',va='center',fontsize=9)
+yc=yard.centroid; ax.text(yc.x,yc.y,'室外機',ha='center',va='center',fontsize=8,color='w')
+ax.text(-9000,-4500,'北の道路（大学側）',rotation=38,fontsize=9,ha='center')
+ax.text(6500,-6500,'隣家',rotation=-51,fontsize=9,ha='center')
+ax.text(2500,-17000,'本館の北端',fontsize=9,ha='center',color='#666'); ax.text(-15000,-17000,'西館の北端',fontsize=9,ha='center',color='#666')
+ax.text(tri.centroid.x+2500,tri.centroid.y-3000,'三角形の空き地\n%.0f㎡'%(tri.area/1e6),fontsize=8,color='#a68')
+ax.set_xlim(-22000,12000); ax.set_ylim(-22000,4000); ax.set_aspect('equal'); ax.axis('off')
+ax.set_title('本館の北の空き地に丸い機械室（隣家から約 %.1f m、室外機は道路側）'%(best[0]/1000),fontsize=10)
+plt.tight_layout(); plt.savefig('/home/claude/plans/rhino/machine_drum_north.png',dpi=80)

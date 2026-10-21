@@ -1,0 +1,10 @@
+exec(open('/tmp/claude-0/t/ideas/case3.py').read().split('# ---------- model')[0].replace("print(","(lambda *a:None)("))
+NEl=SL([(0,0),(34860,-43830)]); NWl=SL([(-25830,-20540),(0,0)])
+mainP=band(bm,0,19,-3000,12200)
+a_=np.array(world(bm,thf(0),-40000,0)[:2]); b_=np.array(world(bm,thf(0),60000,0)[:2]); t_=(b_-a_)/np.linalg.norm(b_-a_); n_=np.array([-t_[1],t_[0]])
+if np.dot(n_,np.array(world(bm,thf(0),5000,0)[:2])-np.array(world(bm,thf(3),5000,0)[:2]))<0: n_=-n_
+north=SP([tuple(a_),tuple(b_),tuple(b_+n_*60000),tuple(a_+n_*60000)])
+T0=site.intersection(north).difference(unary_union([mainP,W]))
+T0=max(getattr(T0,'geoms',[T0]),key=lambda g:g.area)
+print('tri area',T0.area/1e6, [tuple(round(v/1000,1) for v in c) for c in T0.exterior.coords][:12])
+print('main north frame at road: dist NW',NWl.distance(mainP)/1000,'NE',NEl.distance(mainP)/1000)

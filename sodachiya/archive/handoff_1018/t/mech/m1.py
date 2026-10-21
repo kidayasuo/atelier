@@ -1,0 +1,8 @@
+exec(open('/tmp/claude-0/t/ideas/case3.py').read().split('# ---------- model')[0].replace("print(","(lambda *a:None)("))
+NEl=SL([(0,0),(34860,-43830)]); NWl=SL([(-25830,-20540),(0,0)])
+ext=band(bm,-1,0,-3000,12200); body=band(bm,-1,0,0,12200)
+print('ext area',ext.area/1e6,'outside setb',ext.difference(setb).area/1e6,'outside site',ext.difference(site).area/1e6)
+print('dist NE edge',NEl.distance(ext)/1000,'dist NW road',NWl.distance(ext)/1000)
+main=band(bm,0,19,-3000,12200)
+print('current main dist NE',NEl.distance(main)/1000,'NW',NWl.distance(main)/1000)
+print('C params',C if 'C' in dir() else None)
