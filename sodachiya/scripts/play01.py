@@ -125,11 +125,13 @@ T(Ww(29.5, 6.5), "はれのま（仮）", 6, c="#8a5a2b")
 # 2nd floor above (dashed) and the low cave
 CV = D["cave"]
 poly(SP(rectw(CV["u0"], CV["u1"], CV["w0"], 13.5)).intersection(PLAY), C["cave"], "none", 0, 1.5)
-poly(F2.intersection(SP(rect(29.6, 33.2, -0.9, -30))), "none", "#7a4fa0", 0.8, 9, ls=(0, (4, 2)))
-pf = CV["platform"]
-poly(SP(rectw(CV["u0"] + 0.1, CV["u1"] - 0.1, pf[0], pf[1])).intersection(PLAY), "#D9C49A", "#8a6a44", 0.45, 4)
-T(Ww(31.5, (pf[0] + pf[1]) / 2), "+%d" % int(pf[2] * 1000), 4.6, c="#5a4a30")
+poly(F2.intersection(SP(rect(30.0, 33.2, -0.9, -30))), "none", "#7a4fa0", 0.8, 9, ls=(0, (4, 2)))
 poly(SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY), "#CDBB98", "#555555", 0.45, 4, hatch="////")
+poly(SP(rectw(CV["u0"] + 0.05, CV["u1"], CV["store"][0] - 0.06, CV["store"][0])), "#333333", "#333333", 0.3, 6)      # storage front (sliding doors)
+for (ua, ub) in [(30.3, 31.6), (31.4, 32.7)]:
+    line([Ww(ua, CV["store"][0] - 0.12), Ww(ub, CV["store"][0] - 0.12)], 0.9, "#8a5a2b", z=6.5)
+# partition to はれのま (u 30, from w 2.5 to the west face, up to the 2F floor)
+poly(SP(rectw(CV["wall_u"] - 0.06, CV["wall_u"] + 0.06, CV["wall_w0"], 30)).intersection(WB), "#333333", "#333333", 0.3, 7.5)
 # stair
 poly(STAIR, "#888888", "#333333", 0.5, 6); T(Ww(31.5, 2.7), "階段\n（2 階へ）", 5, c="white")
 line([Ww(33.0, 1.3), Ww(33.0, 4.1)], 0.9, "#333333", z=7)                       # rail between stair top and the room
@@ -280,8 +282,8 @@ T(W(52.2, -15.0), "スパン", 5.2, c="#666666")
 NUMS = [
     (Ww(33.25, 0.65), "南の口（ホール・東の帯から、階段の東を抜ける）。口①はここにまとめた"),
     (W(46.5, 0.8), "北の口（口②、西吹き抜けから、すき間を渡る）"),
-    (Ww(30.6, 5.0), "洞（2 階の下、梁の下 h2.23・床の裏 h3.17）。木のてっぺんが 2 階の床に届く。西に腰掛けの台 +300"),
-    (Ww(31.5, 12.0), "道具入れ 約 %.1f m²（西の低い隅、発表会の椅子など。倉庫 30 m² の一つに数える）" % SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY).area),
+    (Ww(30.6, 5.0), "洞（2 階の下、梁の下 h2.23・床の裏 h3.17）。木のてっぺんが 2 階の床に届く。南は はれのま との壁（u 30、2 階の床まで）"),
+    (Ww(31.5, 12.0), "道具入れ 約 %.1f m²（西の低い隅、東向きの引き戸。発表会の椅子など。倉庫 30 m² の一つに数える）" % SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY).area),
     (Ww(st["u"] + 1.9, st["w"] + 1.6), "枝付きの切り株（幹 φ1.0、枝の広がり φ4.0）。頭は 2 階の床の下、北の枝は天井の高い側へ出る。行事の日は木の前が舞台"),
     (Ww(dk["u0"] + 0.4, 2.3), "デッキ h1.2（下はマット・ボールの道具入れ）。南に家具階段 +300／600／900、東の壁に登り壁 → キャットウォーク"),
     (Ww(44.0, 0.7), "キャットウォーク h3.0、幅 0.9（東の壁と北の角に沿う、手すり h1.1）。ネットの輪から北の側へ橋（幅 0.9）を渡し、空中の輪にする"),
@@ -406,6 +408,7 @@ P3([(QU0, -0.3), (QU1, -0.3), (QU1, -0.65), (QU0, -0.65)], "#DDD6C8", "none", 0,
 P3([(QU0, 0), (QU1, 0), (QU1, -0.12), (QU0, -0.12)], "#C8B48C", "none")
 P3([(29.88, 0), (30.0, 0), (30.0, CV["slab"]), (29.88, CV["slab"])], "#333333", "#333333", 0.3, 6)       # wall to はれのま
 T3(29.7, 1.2, "はれのま", 4.4, c="#777777", rotation=90)
+T3(30.15, 2.75, "壁 u30", 4.0, c="#333333", ha="left")
 P3([(QU0, CV["slab"]), (33.0, CV["slab"]), (33.0, CV["slab_top"] + 0.05), (QU0, CV["slab_top"] + 0.05)], "#555555", "none", z=6)  # 2F floor
 for ub in CV["beams_u"]:
     P3([(ub - 0.09, CV["beam_bottom"]), (ub + 0.09, CV["beam_bottom"]), (ub + 0.09, CV["slab"]), (ub - 0.09, CV["slab"])], "#8a6a44", "#5a4026", 0.4, 6)
@@ -422,12 +425,11 @@ for (dx, z_) in BR:
     ax3.plot([tu + dx * 0.1, xm, tu + dx], [1.05, zm, z_], lw=2.6 if abs(dx) < 1.2 else 2.0, color=C["stump"], zorder=7, solid_capstyle="round")
 P3([(tu - st["soft_r"], 0.0), (tu + st["soft_r"], 0.0), (tu + st["soft_r"], 0.04), (tu - st["soft_r"], 0.04)], "#E9A97A", "none", z=3)
 # platform (beyond, west) and kids
-P3([(30.1, 0), (32.9, 0), (32.9, CV["platform"][2]), (30.1, CV["platform"][2])], "none", "#8a6a44", 0.4, 3, ls=(0, (2, 1.5)))
 def kid3(x, z0, h=1.05, c="#555555"):
     hd = h * 0.13; ax3.add_patch(Circle((x, z0 + h - hd), hd, fc="white", ec=c, lw=0.5, zorder=10))
     L3([(x, z0 + h - 2 * hd), (x, z0 + h * 0.45)], 0.6, c, z=10); L3([(x - 0.12, z0), (x, z0 + h * 0.45), (x + 0.12, z0)], 0.6, c, z=10)
     L3([(x - 0.15, z0 + h * 0.62), (x, z0 + h * 0.72), (x + 0.15, z0 + h * 0.62)], 0.6, c, z=10)
-kid3(tu - 0.9, 1.25, 1.0); kid3(tu + 1.3, 1.45, 1.0); kid3(34.6, 0); kid3(35.4, 0, 1.6, "#777777")
+kid3(tu - 0.9, 1.25, 1.0); kid3(tu + 1.3, 1.45, 1.0); kid3(30.7, 0, 1.0); kid3(34.6, 0); kid3(35.4, 0, 1.6, "#777777")
 T3(33.0, -0.5, "2 階の床の縁", 4.2, c="#7a4fa0")
 L3([(33.0, -0.35), (33.0, -0.2)], 0.4, "#7a4fa0")
 for z_, s_ in [(CV["beam_bottom"], "梁の下 2.23"), (CV["slab"], "床の裏 3.17")]:
