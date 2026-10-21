@@ -20,7 +20,8 @@ LAY = {}
 NAMES = {90: ("90_園庭_地形（GL からの起伏、メッシュ）", (196, 186, 150)), 91: ("91_園庭_等高線（0.2 m、名前に高さ）", (138, 122, 92)),
          92: ("92_園庭_水（小川・雨の川・床の噴水・水浴び場・護岸の溝）", (76, 141, 184)), 93: ("93_園庭_小屋（便所・倉庫・コンポストの間）", (155, 118, 83)),
          94: ("94_園庭_木（幹・樹冠、名前＝種類）", (111, 143, 87)), 95: ("95_園庭_遊び場（砂場・粒・すりばち・柳の家）", (168, 142, 88)),
-         96: ("96_園庭_石（関守石・橋・飛び石・バルブます）", (110, 104, 92)), 97: ("97_園庭_車の道・生垣", (183, 169, 140))}
+         96: ("96_園庭_石（関守石・橋・飛び石・バルブます）", (110, 104, 92)), 97: ("97_園庭_車の道・生垣", (183, 169, 140)),
+         98: ("98_園庭_等高線の板（閉じた形：+は高さ L 以上、−は L 以下のくぼみ）", (200, 120, 60))}
 for k, (n, c) in NAMES.items():
     l = r.Layer(); l.Name = n; l.Color = (*c, 255); LAY[k] = m.Layers.Add(l)
 
@@ -105,6 +106,47 @@ for lev, segs in zip(cs.levels, cs.allsegs):
                 continue
             curve_ad(list(pp.coords), 91, f"{lev:+.1f} m", z=float(lev), drape=False); nc += 1
 
+# ---- 98 等高線の板（閉じた形） ----
+from shapely.geometry import MultiPolygon
+from shapely.ops import unary_union
+from shapely import affinity as _aff
+
+
+def _polys(cs):
+    """contourf の 1 段ぶんを shapely に（穴は偶奇で）"""
+    out = []
+    for segs in cs.allsegs:
+        ring = Polygon()
+        for seg in segs:
+            if len(seg) < 4:
+                continue
+            pg = Polygon(seg).buffer(0)
+            ring = ring.symmetric_difference(pg)
+        out.append(ring)
+    return out
+
+
+PLATES = []
+for lev in [l for l in levels if l > 0]:
+    cf = plt.contourf(AA, DD, HH, levels=[lev, 99.0]); plt.close("all")
+    g = unary_union(_polys(cf)).buffer(0.05).buffer(-0.05).intersection(gpoly).simplify(0.03)
+    PLATES.append((lev, g))
+for lev in [l for l in levels if l < 0]:
+    cf = plt.contourf(AA, DD, HH, levels=[-99.0, lev]); plt.close("all")
+    g = unary_union(_polys(cf)).intersection(gpoly).simplify(0.03)
+    PLATES.append((lev, g))
+npl = 0
+for lev, g in PLATES:
+    for pg in (g.geoms if hasattr(g, "geoms") else [g]):
+        if pg.is_empty or pg.area < 0.05:
+            continue
+        curve_ad(list(pg.exterior.coords)[:-1], 98, f"{lev:+.1f} m の板（外形）", close=True, z=float(lev), drape=False); npl += 1
+        for hole in pg.interiors:
+            curve_ad(list(hole.coords)[:-1], 98, f"{lev:+.1f} m の板（穴）", close=True, z=float(lev), drape=False)
+curve_ad(list(gpoly.exterior.coords)[:-1], 98, "園庭の外形（GL ±0 の板）", close=True, z=0.0, drape=False)
+import json as _js
+_js.dump({f"{lev:+.1f}": round(g.area, 1) for lev, g in PLATES}, open(os.path.join(gc.ROOT, "out", "garden_plates.json"), "w"), ensure_ascii=False)
+
 # ---- 92 水 ----
 s = G["STREAM"]; L = LineString(s["line"])
 z0, z1 = s["bed"] if "bed" in s else (0.2, -0.4)
@@ -178,4 +220,4 @@ curve_ad([(56.0 - 0.15 - lk["hedge_w"], h0d), (56.0 - 0.15 - lk["hedge_w"], h1d)
 
 out = os.path.join(gc.ROOT, "model", "sodachiya_garden_layers.3dm")
 m.Write(out, 7)
-print("wrote", out, "contours", nc, "trees", len(G["TREES"]))
+print("wrote", out, "contours", nc, "plates", npl, "trees", len(G["TREES"]))
