@@ -130,7 +130,8 @@ K.tube([*c_net, nt['bottom_h'] * 1000 - 20], [*c_net, nt['bottom_h'] * 1000 + 20
 # ---------------------------------------------------------------- 吊り材 φ16（重さは西館の梁へ。梁の位置 u 36〜48、3.0 ごと）
 beams_u = [36.0, 39.0, 42.0, 45.0, 48.0]
 for u in beams_u:                                               # キャットウォークの外側の縁
-    if u >= cw['u_start']:
+    if u >= cw['u_start'] - 0.5:
+        u = max(u, cw['u_start'] + 0.1)
         p = X(u, cw['inset'] + cw['width'] - 0.05); K.tube([*p, H], [*p, under_roof(*p)], 8, 8, L_NET, STEEL, n=6)
 vs = P['support']['v_spread'] * 1000
 for k in range(rg['rods']):                                     # 輪：ハの字 3 組、上は梁 u 39・42・45
