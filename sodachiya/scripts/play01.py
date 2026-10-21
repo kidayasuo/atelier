@@ -124,13 +124,12 @@ poly(WB.intersection(SP(rect(29.0, 30.0, -0.9, -30))), "#F7D3B0", "none", 0, 1) 
 T(Ww(29.5, 6.5), "はれのま（仮）", 6, c="#8a5a2b")
 # 2nd floor above (dashed) and the low cave
 CV = D["cave"]
-poly(SP(rectw(CV["u0"], CV["u1"], 4.1, 13.5)).intersection(PLAY), C["cave"], "none", 0, 1.5)
+poly(SP(rectw(CV["u0"], CV["u1"], CV["w0"], 13.5)).intersection(PLAY), C["cave"], "none", 0, 1.5)
 poly(F2.intersection(SP(rect(29.6, 33.2, -0.9, -30))), "none", "#7a4fa0", 0.8, 9, ls=(0, (4, 2)))
-for (ua, ub, h) in CV["steps"]:
-    poly(SP(rectw(ua, ub, CV["w0"], CV["w1"])), "#D9C49A", "#8a6a44", 0.45, 4)
-    T(Ww((ua + ub) / 2, CV["w1"] - 0.6), f"+{int(h*1000)}", 4.6, c="#5a4a30")
-poly(SP(rectw(CV["store"][0], CV["store"][1], CV["w0"], CV["w1"])), "#CDBB98", "#555555", 0.45, 4, hatch="////")
-line([Ww(33.0, 4.1), Ww(33.0, 12.3)], 1.2, "#B03A6A", ls=(0, (1.5, 1.2)), z=8)        # curtain at the 2F edge
+pf = CV["platform"]
+poly(SP(rectw(CV["u0"] + 0.1, CV["u1"] - 0.1, pf[0], pf[1])).intersection(PLAY), "#D9C49A", "#8a6a44", 0.45, 4)
+T(Ww(31.5, (pf[0] + pf[1]) / 2), "+%d" % int(pf[2] * 1000), 4.6, c="#5a4a30")
+poly(SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY), "#CDBB98", "#555555", 0.45, 4, hatch="////")
 # stair
 poly(STAIR, "#888888", "#333333", 0.5, 6); T(Ww(31.5, 2.7), "階段\n（2 階へ）", 5, c="white")
 line([Ww(33.0, 1.3), Ww(33.0, 4.1)], 0.9, "#333333", z=7)                       # rail between stair top and the room
@@ -156,8 +155,8 @@ for s in (da, db): line([tuple(s), tuple(s + nrm * 0.25)], 0.6, C["red"], z=8.4)
 # ---------------------------------------------------------------- play elements
 # soft ring and stump
 st = D["stump"]
-circ(Ww(st["u"], st["w"]), st["soft_r"], fc=C["soft"], ec="#B79B6B", lw=0.4, z=2, ls=(0, (3, 2)))
-circ(Ww(st["u"], st["w"]), st["crown_r"], fc="none", ec=C["stump"], lw=0.5, z=6, ls=(0, (1, 1.2)))
+poly(SPt(Ww(st["u"], st["w"])).buffer(st["soft_r"], 64).intersection(PLAY), C["soft"], "#B79B6B", 0.4, 2, ls=(0, (3, 2)))
+poly(SPt(Ww(st["u"], st["w"])).buffer(st["crown_r"], 64).intersection(PLAY), "none", C["stump"], 0.5, 6, ls=(0, (1, 1.2)))
 cpt = np.array(Ww(st["u"], st["w"]))
 up = np.array(Ww(st["u"] + 1, st["w"])) - cpt; up = up / np.linalg.norm(up); rt = np.array([up[1], -up[0]])
 for (ang, L) in st["branches"]:
@@ -170,6 +169,11 @@ for rr in (0.15, 0.3, 0.42): circ(tuple(cpt), rr, fc="none", ec="#6a5030", lw=0.
 dk = D["deck"]
 poly(SP(rectw(dk["u0"], dk["u1"], dk["w0"], dk["w1"])), C["deck"], "#5a4026", 0.6, 5)
 T(Ww((dk["u0"] + dk["u1"]) / 2, 1.95), "デッキ +1200\n下は道具入れ", 4.8, c="#3a2a1a")
+ds = D["deck_steps"]; n_ = len(ds["hs"])
+for k, h in enumerate(ds["hs"]):
+    ua = ds["u0"] + (ds["u1"] - ds["u0"]) * k / n_; ub = ds["u0"] + (ds["u1"] - ds["u0"]) * (k + 1) / n_
+    poly(SP(rectw(ua, ub, ds["w0"], ds["w1"])), "#E3CDA6", "#5a4026", 0.45, 5)
+    T(Ww((ua + ub) / 2, (ds["w0"] + ds["w1"]) / 2), "+%d" % int(h * 1000), 4.2, c="#3a2a1a")
 cl = D["climb"]
 for k in range(6):
     uu = cl["u0"] + (cl["u1"] - cl["u0"]) * k / 5
@@ -229,12 +233,16 @@ if MAPLE:   # the maple stands about 3 m north of the north window (outside this
 # east wall: peeking windows along the catwalk (dashed, overhead)
 for (ua, ub) in [(36.4, 39.0), (39.6, 41.8), (47.0, 49.6)]:
     line([W(ua, -0.97), W(ub, -0.97)], 1.3, C["glass"], z=8.6, ls=(0, (2, 1)))
-# fans
-for (u, w) in D["fans"]:
-    p = Ww(u, w); circ(p, D["fan_d"] / 2, fc="none", ec=C["fan"], lw=0.5, z=12, ls=(0, (3, 2)))
+# fans: phi 1.1 under the ridge lid (the void w 0–1.0), one per span, like the main building
+FN = D["fans"]
+for u in FN["u"]:
+    p = Ww(u, FN["w"]); circ(p, FN["d"] / 2, fc="none", ec=C["fan"], lw=0.5, z=12, ls=(0, (3, 2)))
     for a in (0, 120, 240):
-        aa = math.radians(a + 20); line([p, (p[0] + 1.1 * math.cos(aa), p[1] + 1.1 * math.sin(aa))], 0.9, C["fan"], z=12)
-    circ(p, 0.12, fc=C["fan"], ec="none", z=12.5)
+        aa = math.radians(a + 20); line([p, (p[0] + 0.5 * math.cos(aa), p[1] + 0.5 * math.sin(aa))], 0.8, C["fan"], z=12)
+    circ(p, 0.08, fc=C["fan"], ec="none", z=12.5)
+# the ridge lid (overhead): the void under it
+lw_ = D["lid"]
+line([Ww(30.0, lw_["w1"]), Ww(51.0, lw_["w1"])], 0.5, "#3d7fb0", ls=(0, (6, 3)), z=8.8)
 # circulation arrows
 def arrow(a, b, c=C["red"], lw=1.1, z=13):
     ax.add_patch(FancyArrowPatch(a, b, arrowstyle="-|>", mutation_scale=9, color=c, lw=lw, zorder=z))
@@ -246,6 +254,7 @@ T(W(45.1, 2.3), "西吹き抜けから", 4.8, c=C["red"])
 fixed = unary_union([SP(rectw(30.0, 33.0, 0, 30)),                      # cave + stair + passage zone
                      SP(rectw(dk["u0"], dk["u1"], dk["w0"], dk["w1"])),
                      SPt(Ww(st["u"], st["w"])).buffer(st["soft_r"]),
+                     SP(rectw(ds["u0"], ds["u1"], ds["w0"], ds["w1"])),
                      SPt(npt).buffer(pt["r"] + 0.3),
                      rbz] + [SP(rectw(ua, ub, west_w(ua) - D["niche_depth"], 30)) for ua, ub in D["niches"]])
 OPEN = PLAY.difference(fixed)
@@ -263,10 +272,10 @@ T(W(52.2, -15.0), "スパン", 5.2, c="#666666")
 NUMS = [
     (Ww(33.25, 0.65), "南の口（ホール・東の帯から、階段の東を抜ける）。口①はここにまとめた"),
     (W(46.5, 0.8), "北の口（口②、西吹き抜けから、すき間を渡る）"),
-    (Ww(31.7, 9.5), "洞（2 階の下、h 約 2.6）：段々 +150／300／450。行事の日は舞台、2 階の床の縁に幕"),
-    (Ww(30.3, 11.0), "道具入れ（発表会の椅子・幕）"),
-    (Ww(st["u"] - 1.2, st["w"] + 1.3), "枝付きの切り株（幹 φ1.0、枝の広がり φ4.0）。まわりはやわらかい床"),
-    (Ww(dk["u0"] + 0.4, 2.3), "デッキ h1.2（下はマット・ボールの道具入れ）。東の壁に登り壁 → キャットウォーク"),
+    (Ww(30.6, 5.0), "洞（2 階の下、梁の下 h2.23・床の裏 h3.17）。木のてっぺんが 2 階の床に届く。西に腰掛けの台 +300"),
+    (Ww(31.5, 12.0), "道具入れ 約 %.1f m²（西の低い隅、発表会の椅子など。倉庫 30 m² の一つに数える）" % SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY).area),
+    (Ww(st["u"] + 1.9, st["w"] + 1.6), "枝付きの切り株（幹 φ1.0、枝の広がり φ4.0）。頭は 2 階の床の下、北の枝は天井の高い側へ出る。行事の日は木の前が舞台"),
+    (Ww(dk["u0"] + 0.4, 2.3), "デッキ h1.2（下はマット・ボールの道具入れ）。南に家具階段 +300／600／900、東の壁に登り壁 → キャットウォーク"),
     (Ww(44.0, 0.7), "キャットウォーク h3.0、幅 0.9（東の壁と北の角に沿う、手すり h1.1）"),
     (Ww(nt["u"] - 2.4, nt["w"] + 0.8), "摺鉢ネット（上の輪 φ4.2 を h3.0 に、下の口 φ0.6 が h0.5）"),
     (Ww(nt["u"] + 1.2, nt["w"] - 0.2), "穴の底（φ3.2、−450、マット 100）"),
@@ -276,7 +285,7 @@ NUMS = [
     (Ww(47.0, 11.0), "搬入の大戸（幅 3.6×h3.0、ふだんは閉じる、避難口）"),
     (Ww(50.6, 1.6), "北の地窓（読書の庭のモミジを見る）"),
     (W(40.7, -1.35), "東の壁の覗き窓（キャットウォークの高さ、すき間越しに本館）"),
-    (Ww(fx := D["fans"][0][0], 8.8 + 1.6), "大きな羽根の天井扇 φ2.4（下端 h4.6、2 台）"),
+    (Ww(FN["u"][1], 1.5), "天井扇 φ1.1 ×6（本館と同じ、越屋根の吹き抜け w 0–1.0 の真下、h6.0）"),
 ]
 for i, (p, s) in enumerate(NUMS, 1): num(p, i)
 
@@ -304,9 +313,11 @@ T2(1.95, 3.1, "縦格子", 4.6, c="#8a5a2b", ha="left")
 roofz = lambda v: 4.0 - (v - 1.6) / 12 if v > 1.6 else 4.0
 L2([(1.6, 4.0), (SX1, roofz(SX1))], 1.2, "#333333", z=6)
 P2([(-0.12, 4.0), (1.6, 4.0), (1.6, 4.15), (-0.12, 4.15)], "#555555", "none", z=6)
-P2([(-0.2, 4.45), (1.95, 4.45), (1.95, 4.51), (-0.2, 4.51)], "#E8EEF2", "#3d7fb0", 0.4, 7)       # lid (west void)
-P2([(-0.9, 4.45), (-0.2, 4.45), (-0.2, 4.51), (-0.9, 4.51)], "#E8EEF2", "#3d7fb0", 0.4, 7)       # gap lid
-T2(0.8, 4.75, "浮いた蓋", 4.6, c="#3d7fb0")
+# the main building's floating lid continues west over the gap to the west building's wall ("すき間の蓋", 3dm 50a: z 4.30 at v 1.95 → 4.60 at v −0.9)
+lidz = lambda v: 4.30 + (1.95 - v) / 2.85 * 0.30
+P2([(1.95, lidz(1.95) - 0.06), (-0.9, lidz(-0.9) - 0.06), (-0.9, lidz(-0.9)), (1.95, lidz(1.95))], "#E8EEF2", "#3d7fb0", 0.4, 7)
+T2(1.0, 4.95, "浮いた蓋（本館）→ すき間の蓋（西館の壁まで）", 4.4, c="#3d7fb0")
+
 T2(0.8, 1.2, "西吹き\n抜け", 4.6, c="#666666")
 T2(3.6, 1.6, "便・倉庫（スパン 14）", 4.8, c="#666666")
 # gap
@@ -340,11 +351,10 @@ for side in (-1, 1):
     xs_ = np.linspace(rr, br, 20); zz = nt["bottom_h"] + (cw["h"] - nt["bottom_h"]) * ((xs_ - br) / (rr - br)) ** 1.6
     L2([(cx + side * x_, z_) for x_, z_ in zip(xs_, zz)], 1.0, C["net"], z=9)
 L2([(cx - rr, cw["h"]), (cx + rr, cw["h"])], 0.4, C["net"], ls=(0, (1, 1)), z=9)
-# fan
-fw = 8.8
-L2([(X(fw) - 1.2, D["fan_h"]), (X(fw) + 1.2, D["fan_h"])], 1.6, C["fan"], z=9)
-L2([(X(fw), D["fan_h"]), (X(fw), z_roof(fw))], 0.5, C["fan"], z=9)
-T2(X(fw), D["fan_h"] - 0.35, "天井扇 φ2.4", 4.6, c=C["fan"])
+# fan under the lid (seen beyond, u 43.5)
+L2([(X(FN["w"]) - FN["d"] / 2, FN["h"]), (X(FN["w"]) + FN["d"] / 2, FN["h"])], 1.6, C["fan"], z=9)
+L2([(X(FN["w"]), FN["h"]), (X(FN["w"]), 8.3)], 0.5, C["fan"], z=9)
+T2(X(FN["w"]) - 0.7, FN["h"], "天井扇 φ1.1", 4.6, c=C["fan"], ha="right")
 # west wall: low window
 P2([(X(west_face), 0.0), (X(west_face) + WT, 0.0), (X(west_face) + WT, 0.6), (X(west_face), 0.6)], "#CFE0EA", C["glass"], 0.6, 7)
 T2(X(west_face) + 0.3, 0.9, "地窓", 4.6, c=C["glass"])
@@ -369,10 +379,50 @@ for xx, s in [(X(0), "西館の東の線"), (0, "本館の西の外壁")]:
 T2(X(west_face / 2), 0.35, "遊戯室（西館）", 6, c="#7a5a1a")
 T2(2.6, 0.35, "本館", 5.2, c="#555555")
 
+# ---------------------------------------------------------------- section 2 (N–S through the tree, looking west)
+s2w = D["section2_w"]
+QU0, QU1, QZ0, QZ1 = 29.5, 36.3, -0.7, 6.6
+ax3 = fig.add_axes([226 / 297, 34 / 420, (QU1 - QU0) * 10 / 297, (QZ1 - QZ0) * 10 / 420])
+ax3.set_xlim(QU0, QU1); ax3.set_ylim(QZ0, QZ1); ax3.set_aspect("equal"); ax3.axis("off")
+def P3(pts, fc="none", ec="black", lw=0.45, z=2, ls="-", hatch=None): poly(pts, fc, ec, lw, z, ls, 1, ax3, hatch)
+def L3(pts, lw=0.45, c="black", ls="-", z=5): line(pts, lw, c, ls, z, ax3)
+def T3(x, y, s_, size=4.8, c="#222222", ha="center", **kw): ax3.text(x, y, s_, fontsize=size, color=c, ha=ha, va="center", zorder=12, **kw)
+P3([(QU0, -0.3), (QU1, -0.3), (QU1, -0.65), (QU0, -0.65)], "#DDD6C8", "none", 0, 1, hatch="////")
+P3([(QU0, 0), (QU1, 0), (QU1, -0.12), (QU0, -0.12)], "#C8B48C", "none")
+P3([(29.88, 0), (30.0, 0), (30.0, CV["slab"]), (29.88, CV["slab"])], "#333333", "#333333", 0.3, 6)       # wall to はれのま
+T3(29.7, 1.2, "はれのま", 4.4, c="#777777", rotation=90)
+P3([(QU0, CV["slab"]), (33.0, CV["slab"]), (33.0, CV["slab_top"] + 0.05), (QU0, CV["slab_top"] + 0.05)], "#555555", "none", z=6)  # 2F floor
+for ub in CV["beams_u"]:
+    P3([(ub - 0.09, CV["beam_bottom"]), (ub + 0.09, CV["beam_bottom"]), (ub + 0.09, CV["slab"]), (ub - 0.09, CV["slab"])], "#8a6a44", "#5a4026", 0.4, 6)
+T3(31.5, 3.55, "2 階（会議室・ホール）", 4.6, c="#7a4fa0")
+zr = 8.0 - (8.0 - 4.65) * s2w / west_face
+L3([(33.0, zr), (QU1, zr)], 1.6, "#333333", z=6)
+T3(34.6, zr + 0.25, "屋根 h%.1f（東から %.1f の高さ）" % (zr, s2w), 4.4)
+# tree: trunk, branches reaching the slab between the beams, the north ones out into the tall side
+tu = st["u"]; th_ = st["height"]
+P3([(tu - 0.5, 0), (tu + 0.5, 0), (tu + 0.42, 1.1), (tu - 0.42, 1.1)], "#A88456", "#5a4026", 0.6, 7)
+BR = [(-1.6, 2.15), (-1.0, 2.9), (-0.3, 3.1), (0.5, 3.1), (1.0, 2.2), (1.6, 3.4), (2.1, 3.0)]
+for (dx, z_) in BR:
+    xm = tu + dx * 0.45; zm = 1.1 + (z_ - 1.1) * 0.55
+    ax3.plot([tu + dx * 0.1, xm, tu + dx], [1.05, zm, z_], lw=2.6 if abs(dx) < 1.2 else 2.0, color=C["stump"], zorder=7, solid_capstyle="round")
+P3([(tu - st["soft_r"], 0.0), (tu + st["soft_r"], 0.0), (tu + st["soft_r"], 0.04), (tu - st["soft_r"], 0.04)], "#E9A97A", "none", z=3)
+# platform (beyond, west) and kids
+P3([(30.1, 0), (32.9, 0), (32.9, CV["platform"][2]), (30.1, CV["platform"][2])], "none", "#8a6a44", 0.4, 3, ls=(0, (2, 1.5)))
+def kid3(x, z0, h=1.05, c="#555555"):
+    hd = h * 0.13; ax3.add_patch(Circle((x, z0 + h - hd), hd, fc="white", ec=c, lw=0.5, zorder=10))
+    L3([(x, z0 + h - 2 * hd), (x, z0 + h * 0.45)], 0.6, c, z=10); L3([(x - 0.12, z0), (x, z0 + h * 0.45), (x + 0.12, z0)], 0.6, c, z=10)
+    L3([(x - 0.15, z0 + h * 0.62), (x, z0 + h * 0.72), (x + 0.15, z0 + h * 0.62)], 0.6, c, z=10)
+kid3(tu - 0.9, 1.25, 1.0); kid3(tu + 1.3, 1.45, 1.0); kid3(34.6, 0); kid3(35.4, 0, 1.6, "#777777")
+T3(33.0, -0.5, "2 階の床の縁", 4.2, c="#7a4fa0")
+L3([(33.0, -0.35), (33.0, -0.2)], 0.4, "#7a4fa0")
+for z_, s_ in [(CV["beam_bottom"], "梁の下 2.23"), (CV["slab"], "床の裏 3.17")]:
+    T3(QU0 + 0.05, z_ - 0.18, s_, 4.2, ha="left", c="#555555")
+fig.text(226 / 297, 112 / 420, "南北の断面（木の中心、東から %.1f で切る、西を見る）\n左＝南（はれのま）、右＝北" % s2w, fontsize=5.6, weight="bold")
+
 # ---------------------------------------------------------------- titles, legend
 fig.text(12 / 297, 408 / 420, "育ち舎　遊戯室（スパン 11–17）　たたき台", fontsize=13, weight="bold")
 fig.text(12 / 297, 400 / 420, "1/100（A3）　2026-10-21　上が北（本館の背骨に沿って回した）。西館の東西は「東から」（v = −0.9 の線から西へ）。寸法は data/play.json。"
-         "破線の紫＝2 階の床（上）、破線の円＝枝の広がり・扇、点の帯＝キャットウォーク（頭上 h3.0）。",
+         "破線の紫＝2 階の床（上）、青の破線＝越屋根の吹き抜け（上）、破線の円＝枝の広がり・扇、点の帯＝キャットウォーク（頭上 h3.0）。",
          fontsize=6.2, color="#444444")
 fig.text(12 / 297, 395 / 420, "面積（概算）：遊戯室 %.0f m²（うち洞・階段・南の口のスパン 11 は %.0f m²）　あけておく床 約 %.0f m²" % (A_play, SP(rectw(30, 33, 0, 30)).intersection(PLAY).area, A_open),
          fontsize=6.2, color="#444444")
@@ -382,7 +432,7 @@ for i, (_, s) in enumerate(NUMS, 1):
     fig.text(lx / 297, (ly - 5 - (i - 1) * 9.2) / 420, f"{i}", fontsize=6, weight="bold")
     import textwrap
     fig.text((lx + 5) / 297, (ly - 5 - (i - 1) * 9.2) / 420, "\n".join(textwrap.wrap(s, 21)), fontsize=5.6, va="top")
-fig.text(lx / 297, 168 / 420, "遊び方の輪：南の口 → 切り株の枝 → デッキ → 登り壁 →\nキャットウォーク → ネットで降りる（穴の底）／すべり台 →\n北の口から西吹き抜けへ。洞は低く暗い、中央は広い、\n東は高く明るい（越屋根の光が東の壁を落ちる）。",
+fig.text(lx / 297, 168 / 420, "遊び方の輪：南の口 → 家具階段 → デッキ → 登り壁 →\nキャットウォーク → ネットで降りる（穴の底）／すべり台 →\n北の口から西吹き抜けへ。木は低い洞に：てっぺんが\n2 階の床に届き、枝の先が高い側へ出る。",
          fontsize=5.6, color="#7a4a1a", va="top")
 
 os.makedirs(OUT, exist_ok=True)
