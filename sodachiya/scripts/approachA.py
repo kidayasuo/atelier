@@ -31,7 +31,7 @@ SETB = [(-0.16, -1.41), (33.45, -43.67), (-14.28, -81.64), (-20.93, -73.27), (-2
 PARK = [(-14.44, -83.04), (-21.91, -73.65), (-12.52, -66.18), (-5.05, -75.57)]
 WN = pickle.load(open(os.path.join(ROOT, "data", "wnew.pkl"), "rb"))["WN"]
 WN = af.scale(WN, 0.001, 0.001, origin=(0, 0))
-WB = WN.difference(SP([W(23.5, -0.5), W(20.3, -3.4), W(20.3, -0.5)]))      # chamfer in the doma strip only
+WB = WN                                                                    # 10-21: no chamfer (south face = frame 12, u = 21)
 
 # road frame: s m along the road from the park corner (north +), d m into the site (east +)
 A0 = np.array((-21.91, -73.65)); B0 = np.array((-25.83, -20.54))
@@ -130,29 +130,30 @@ for u in [6.6, 7.5, 8.4]:
     ax.add_patch(Circle(W(u, -0.02), 0.17, fc=C["blue"], ec="none", zorder=7))
 # overhead: south eave, monitor cap along the west face
 roof([W(0, -1.0), W(0, 15), W(-1.8, 15), W(-4.2, -1.0)], z=9)
-line([W(0, -0.9), W(36, -0.9)], lw=0.45, c=C["roof"], ls=(0, (5, 2.5)), z=9)
+line([W(0, -LID_OUT), W(21, -LID_OUT)], lw=0.45, c=C["roof"], ls=(0, (5, 2.5)), z=9)     # floating lid, 350 out (north of u21 it spans the gap to the west building)
 
 # ---------------------------------------------------------------- west building: kitchen (south corner) + eating doma
 poly(WB, fc="#F6E3A4", ec="none", z=4)
-for (u0, u1, fc, s) in [(20, 26, C["kit"], "キッチン"), (26, 32, C["eat"], "食べる土間")]:
+for (u0, u1, fc, s) in [(21, 27, C["kit"], "キッチン"), (27, 30, C["eat"], "食べる土間")]:
     g = SP(rect(u0, u1, -3.4, -22)).intersection(WB); poly(g, fc=fc, ec="none", z=4.2)
     T(W((u0 + u1) / 2, -9.5), s, 6.3, rot=-3)
 poly(WB, fc="none", ec="black", lw=0.9, z=4.6)
-for ln, kw in [(SL([W(26, -3.4), W(26, -30)]), dict(lw=0.45)), (SL([W(20.6, -3.4), W(36, -3.4)]), dict(lw=0.35, c="#777777"))]:
+for ln, kw in [(SL([W(27, -3.4), W(27, -30)]), dict(lw=0.45)), (SL([W(22.5, -3.4), W(36, -3.4)]), dict(lw=0.35, c="#777777")), (SL([W(30, -3.4), W(30, -30)]), dict(lw=0.45))]:
     g = ln.intersection(WB)
     for q in getattr(g, "geoms", [g]):
         if not q.is_empty: line(list(q.coords), z=4.5, **kw)
 T(W(28.5, -2.0), "土間", 5, rot=87)
-# kitchen south glass toward the plaza (straight part of the south face)
-glass = SL(Q([(S_KIT - 0.6, 4.1), (S_KIT - 0.6, 10.6)]))
-pa = SL([P(25, 4.1), P(33, 4.1)]).intersection(WB.exterior); pb = SL([P(25, 10.4), P(33, 10.4)]).intersection(WB.exterior)
-pa = min(getattr(pa, "geoms", [pa]), key=lambda q: q.distance(SPt(P(25, 4.1)))); pb = min(getattr(pb, "geoms", [pb]), key=lambda q: q.distance(SPt(P(25, 10.4))))
-line([(pa.x, pa.y), (pb.x, pb.y)], lw=2.2, c=C["blue"], z=6)
-# 'today's lunch' window on the chamfer
-line([W(23.2, -0.75), W(20.6, -3.1)], lw=3.0, c="#D85A30", z=6)
-# canopy over the strait mouth (monitor cap extended to the west building)
-roof([W(20.0, 0.0), W(24.5, 0.0), W(24.5, -1.0), W(20.0, -3.6)], z=9)
-
+# the strait continues across the gap into the west building's doma (土足 −150); entrance on the west building's south face
+poly(rect(21, 22.5, -3.4, -0.05), fc="#D9CBB4", ec="none", z=4.7)
+line([W(22.5, -3.4), W(22.5, -0.9)], lw=0.5, c="#777777", ls=(0, (2, 1.5)), z=4.8)          # 框 to the barefoot doma
+T(W(21.75, -2.0), "海峡", 4.2, rot=-3, z=12)
+ent = [W(21, -0.1), W(21, -3.4)]
+line(ent, lw=1.6, c="white", z=4.9)
+line([W(21, -0.95), W(21, -2.75)], lw=0.9, c="#555555", ls=(0, (2, 1)), z=5)                # entrance: sliding doors 1.8
+line([W(21, -0.15), W(21, -0.85)], lw=1.6, c=C["blue"], z=5)                                # glass across the gap
+# kitchen south glass (straight part of the south face) and the 'today's lunch' window next to the entrance
+line([W(21, -4.6), W(21, -9.6)], lw=2.2, c=C["blue"], z=6)
+line([W(21, -3.5), W(21, -4.4)], lw=3.0, c="#D85A30", z=6)
 # ---------------------------------------------------------------- parking (outside the line)
 poly(srect(12.2, 17.7, 0.0, HEDGE_D - HW), fc="#F0F0EE", ec="none", z=2)            # aisle 5.5
 def stall(s0, s1, d0, d1, lab="P"):
@@ -238,10 +239,10 @@ sband(S_PATH0 - 0.4, 29.5, HEDGE_D + HW, WALL_D + 0.3, C["arai"])
 sband(S_PATH0, S_PATH1, HEDGE_D + HW, HEDGE_D + HW + 0.3, "#C9DDB0", z=2.6)
 for s in np.arange(S_PATH0 + 0.2, S_PATH1, 0.6):
     ax.add_patch(Circle(P(s, HEDGE_D + HW + 0.15), 0.1, fc=C["green"], ec="none", zorder=2.7, alpha=0.6))
-sband(S_PATH0, 29.5, 12.3, 12.6, C["gravel"], z=2.6)
+sband(S_PATH0, 29.5, AMAOCHI[0], WALL_D, C["gravel"], z=2.6)                           # 雨落ち under the floating lid (350 out)
 for s in np.arange(S_PATH0, 29.4, 0.35):
-    ax.add_patch(Circle(P(s, 12.45), 0.05, fc="#8f877a", ec="none", zorder=2.7))
-sband(S_PATH0, 29.5, 12.6, WALL_D, "#E6E0D4", z=2.8)                                  # 犬走り under the cap (dry, in front of the peek windows)
+    for dd in (AMAOCHI[0] + 0.15, AMAOCHI[0] + 0.35):
+        ax.add_patch(Circle(P(s, dd), 0.05, fc="#8f877a", ec="none", zorder=2.7))
 T(P(12.8, 11.55), "見送りの小径", 6.2, c=C["path"], rot=ROT + 90, weight="bold")
 for s in [9.0, 12.0, 15.0]:
     ax.add_patch(Circle(P(s, 10.95), 0.09, fc="#E8B33A", ec="#8a6a1a", lw=0.3, zorder=8))
@@ -282,14 +283,15 @@ for b in BEDS:
 ax.add_patch(Circle(P(22.4, 6.9), 0.1, fc=C["blue"], ec="none", zorder=8))
 
 # tea engawa under a lean-to off the kitchen south wall: 縁台 ×2, tea shelf with tap (kitchen plumbing nearby)
-s0, s1, d0, d1 = LEAN
-poly(srect(s0, s1, d0, d1), fc="#E7D6BB", ec="none", z=2.4)
-roof(srect(s0, s1, d0, d1))
-for d in (d0 + 0.25, (d0 + d1) / 2, d1 - 0.25): post(P(s0 + 0.25, d))
-for (da, db) in [(5.0, 6.8), (7.7, 9.5)]:
-    poly(srect(27.0, 27.9, da, db), fc="#B98E5E", ec=C["wood"], lw=0.4, z=9)             # 縁台 0.9 x 1.8
-poly(srect(26.8, 28.4, 3.75, 4.2), fc="#8a6a44", ec="none", z=9)                 # tea shelf
-ax.add_patch(Circle(P(28.1, 3.97), 0.09, fc=C["blue"], ec="none", zorder=9.2))
+u0, u1, v0, v1 = LEAN_UV
+poly(rect(u0, u1, v0, v1), fc="#E7D6BB", ec="none", z=2.4)
+roof(rect(u0, u1, v0, v1))
+LEAN_POSTS = [W(u0 + 0.25, v) for v in (-9.7, -6.4, -3.1, -0.3)]
+for p in LEAN_POSTS: post(p)
+for (va, vb) in [(-9.0, -7.2), (-6.6, -4.8)]:
+    poly(rect(19.6, 20.5, va, vb, 2), fc="#B98E5E", ec=C["wood"], lw=0.4, z=9)             # 縁台 0.9 x 1.8
+poly(rect(19.3, 20.8, -9.95, -9.5, 2), fc="#8a6a44", ec="none", z=9)                     # tea shelf
+ax.add_patch(Circle(W(20.55, -9.72), 0.09, fc=C["blue"], ec="none", zorder=9.2))
 
 # kamado (events): masonry 1.0 x 1.0, earth apron, wood rack on the board fence
 s0, s1, d0, d1 = KAM
@@ -297,12 +299,12 @@ ax.add_patch(Circle(P((s0 + s1) / 2, (d0 + d1) / 2), 1.3, fc="#E3D3B8", ec="none
 poly(srect(s0, s1, d0, d1), fc="#C9A97A", ec="#6b4b2a", lw=0.6, z=8)
 for dd in (3.85, 4.35):
     ax.add_patch(Circle(P(s1 - 0.3, dd), 0.15, fc="#4a3826", ec="none", zorder=8.1))
-poly(srect(26.8, 28.4, FENCE_D + 0.1, FENCE_D + 0.55), fc="#a07a4c", ec=C["wood"], lw=0.3, z=8)   # 薪棚 (under the lean-to, dry)
-for s in np.arange(26.95, 28.4, 0.3):
+poly(srect(26.0, 27.6, FENCE_D + 0.1, FENCE_D + 0.55), fc="#a07a4c", ec=C["wood"], lw=0.3, z=8)   # 薪棚 on the board fence
+for s in np.arange(26.15, 27.6, 0.3):
     ax.add_patch(Circle(P(s, FENCE_D + 0.33), 0.1, fc="none", ec="#5a3f22", lw=0.3, zorder=8.1))
 
 # the tree at the inlet (deciduous)
-tree(P(25.0, 11.3), 1.9)
+tree(P(24.4, 9.6), 1.9)
 
 # ---------------------------------------------------------------- delivery path (outside the line), kitchen back door + small roof
 poly(srect(*DEL), fc="#E6E6E3", ec="none", z=2.3)
@@ -314,15 +316,15 @@ T(P(26.0, 2.1), "搬入路 1.6", 4.6, c="#555555", rot=ROT + 90)
 # ---------------------------------------------------------------- walking lines (light)
 def walk(pts, c=C["path"], lw=0.9):
     line(pts, lw=lw, c=c, ls=(0, (3, 2)), z=15)
-walk([E(0.9, -1.6), E(0.9, 1.0), P(8.0, 11.6), P(17.0, 11.7), P(19.35, 12.3), P(25.0, 12.9), W(21.75, -0.2)])
+walk([E(0.9, -1.6), E(0.9, 1.0), P(8.0, 11.6), P(17.0, 11.7), P(19.35, 12.3), P(25.0, 12.9), W(20.6, -1.85), W(21.3, -1.85)])
 walk([E(0.9, 1.0), W(-0.6, -0.4), W(-0.6, 0.8), W(0.0, 0.8)], c="#b08a5b", lw=0.7)
 walk([P(15.0, 3.0), P(12.6, 9.45), P(7.4, 9.45), E(0.9, -1.0)], c="#b08a5b", lw=0.7)          # visitors from the car
 walk([P(4.3, 1.0), P(4.3, 6.0), E(1.4, -2.2), E(0.9, -1.6)], c="#b08a5b", lw=0.7)            # from the bikes
 
 # ---------------------------------------------------------------- numbers
 N = [(E(0.9, -2.6), 1), (W(-2.4, 0.4), 2), (E(5.2, -1.3), 3), (W(3.0, 3.0), 4), (P(9.6, 11.7), 5), (W(7.5, 1.0), 6),
-     (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (P(27.3, 5.2), 9), (P(24.2, 6.0), 10), (P(25.0, 9.0), 11),
-     (W(21.75, 1.5), 12), (W(23.8, -2.8), 13), (P(29.9, 7.6), 14), (P(31.2, 0.2), 15), (P(14.95, -1.4), 16),
+     (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (W(20.1, -10.9), 9), (P(24.2, 6.0), 10), (P(24.4, 9.6), 11),
+     (W(19.6, -2.0), 12), (W(19.4, -3.95), 13), (W(19.6, -7.0), 14), (P(31.2, 0.2), 15), (P(14.95, -1.4), 16),
      (P(10.0, 9.45), 17), (P(3.6, -1.2), 18), (P(23.6, 2.2), 19)]
 for p, k in N: num(p, k)
 
@@ -350,11 +352,11 @@ legend = [
     ("6", "0・1歳の覗き窓（子どもの目の高さ）"),
     ("7", "手水（屋根 2.7×2.7、石の鉢と筧）"),
     ("8", "菜園（畝 0.9×3.1 ×3、南の日なた）"),
-    ("9", "お茶の縁台（キッチンの下屋の下）"),
+    ("9", "お茶の縁台（西館の南の下屋の下）"),
     ("10", "かまど（行事のとき）、薪棚は下屋の下"),
     ("11", "入江の木（落葉樹）"),
-    ("12", "海峡の口（3〜5歳はここでバイバイ）"),
-    ("13", "「今日のごはん」の窓"),
+    ("12", "西館の南の入口→海峡（3〜5歳はここでバイバイ）"),
+    ("13", "「今日のごはん」の窓（入口の脇）"),
     ("14", "キッチンの南のガラス"),
     ("15", "勝手口と庇、搬入路 1.6（線の外）"),
     ("16", "駐車5台・乗入れ1か所・スピードバンプ"),
@@ -377,10 +379,10 @@ for i, (k, u, v, t) in enumerate(infant200.ITEMS):
 for (k, u, v, t) in infant200.ITEMS:
     q = W(u, v); ax.add_patch(Circle(q, 0.55, fc="white", ec="black", lw=0.35, zorder=20)); T(q, str(k), 4.6, z=21)
 
-notes = ("見送りの小径：生垣 h1.2（常緑、中にメッシュ柵 h1.2）／下草 0.3／洗い出し 1.4（平ら、ベビーカー可）／雨落ち 0.3／犬走り 0.8（キャップの下、覗き窓の前）。\n"
+notes = ("見送りの小径：生垣 h1.2（常緑、中にメッシュ柵 h1.2）／下草 0.3／洗い出し 2.0（平ら、ベビーカー可）／雨落ち 0.5（越屋根の蓋の出 0.35 の下）。\n"
          "アーチの棚：生垣の側に柱（本館の架構に合わせて 3 m ごと）、梁は 1.5 m ごとに本館の壁へ。木戸の屋根 → 棚 → 手水の屋根 → ひろば（ひらける）。\n"
          "車路：道路から 0.5 m にスピードバンプ（幅 0.5）、車室の口はそこから奥（道路から 1.3 m 以上）。来客の門はなし、来客も公園の木戸から。\n"
-         "ひろば（線の内側、真砂土）約 %d m²。菜園は南の日なた、縁台はキッチンの下屋の下（水まわりが近い）。かまどは下屋から約 2 m、建物から 4 m 以上（行事のときだけ）。\n"
+         "ひろば（線の内側、真砂土）約 %d m²。菜園は南の日なた、縁台は西館の南の下屋（入口の前まで一続き）の下。かまどは下屋から約 2 m、建物から 4 m 以上（行事のときだけ）。\n"
          "搬入は線の外：搬入の車室の後ろから搬入路（幅1.6、約7 m）を手押しで勝手口へ。")
 plaza_area = plz.area
 fig.text(PL / 297, 104 / 420, notes % round(plaza_area), fontsize=6.1, va="top", color="#333333", linespacing=1.65)
@@ -412,21 +414,22 @@ axs.add_patch(matplotlib.patches.Ellipse((10.3, 0.62), 0.66, 1.24, fc=C["hedge"]
 sl([(10.3, 0), (10.3, 1.2)], lw=0.4, c="#3f5a2a", ls=(0, (1, 1)), z=4)
 # path layers
 sp([(10.6, 0), (10.9, 0), (10.9, 0.08), (10.6, 0.08)], fc="#C9DDB0", ec="none")
-sp([(10.9, -0.03), (12.3, -0.03), (12.3, 0.03), (10.9, 0.03)], fc=C["arai"], ec="#888888", lw=0.3)
-sp([(12.3, -0.08), (12.6, -0.08), (12.6, 0.0), (12.3, 0.0)], fc=C["gravel"], ec="#888888", lw=0.3)
-sp([(12.6, 0.0), (13.4, 0.0), (13.4, 0.06), (12.6, 0.06)], fc="#E9E4DA", ec="#888888", lw=0.3)
-# wall, peek window, floor, monitor cap (heights schematic)
-sp([(13.4, 0), (13.55, 0), (13.55, 4.0), (13.4, 4.0)], fc="#cccccc", ec="black", lw=0.5)
+sp([(10.9, -0.03), (12.9, -0.03), (12.9, 0.03), (10.9, 0.03)], fc=C["arai"], ec="#888888", lw=0.3)
+sp([(12.9, -0.08), (13.4, -0.08), (13.4, 0.0), (12.9, 0.0)], fc=C["gravel"], ec="#888888", lw=0.3)
+# wall, peek window, floor (FL = GL+300), floating lid of the monitor (top FL+4.6 at the west edge, 350 out, 1/12)
+sp([(13.4, 0), (13.55, 0), (13.55, 4.45), (13.4, 4.45)], fc="#cccccc", ec="black", lw=0.5)
 sp([(13.38, 0.75), (13.57, 0.75), (13.57, 1.15), (13.38, 1.15)], fc="#9cc3e0", ec=C["blue"], lw=0.5, z=5)
 sl([(13.55, 0.3), (16.3, 0.3)], lw=0.6)
 sp([(13.55, 0.3), (15.0, 0.3), (15.0, 0.6), (13.55, 0.6)], fc="#E6EFC2", ec="#777777", lw=0.3)
 st((14.3, 0.45), "小上がり", 4.2)
-sl([(13.4, 4.0), (16.3, 3.8)], lw=0.6)
-sp([(12.5, 5.15), (15.3, 5.15), (15.3, 5.3), (12.5, 5.3)], fc="#888888", ec="black", lw=0.4)
-sl([(13.55, 4.0), (13.55, 5.15)], lw=0.4, c="#777777", ls=(0, (2, 1)))
-st((13.9, 5.55), "越屋根のキャップ（出 0.9）", 4.8)
-sl([(12.5, 5.15), (12.5, 0.2)], lw=0.3, c="#9aa", ls=(0, (1, 2)))
-st((12.38, 4.2), "軒先の線", 4.2, rot=90, c="#778")
+sl([(15.0, 4.3), (16.3, 4.19)], lw=0.6)
+x0, x1 = 13.4 - LID_OUT, 13.4 + 1.6 + LID_OUT
+sp([(x0, 4.9), (x1, 4.9 - (x1 - x0) / 12), (x1, 4.84 - (x1 - x0) / 12), (x0, 4.84)], fc="#cfe3ee", ec="black", lw=0.4)
+for xl in np.arange(13.6, 15.0, 0.22):
+    sl([(xl, 4.47), (xl + 0.12, 4.78)], lw=0.35, c=C["wood"])
+st((14.3, 5.25), "越屋根の浮いた蓋（出 0.35、上端 FL+4.6）", 4.6)
+sl([(x0, 4.84), (x0, 0.2)], lw=0.3, c="#9aa", ls=(0, (1, 2)))
+st((x0 - 0.12, 3.6), "軒先の線", 4.2, rot=90, c="#778")
 # figures: adult on the path, child inside at the window
 def figure(x, h, c="#555555"):
     axs.add_patch(Circle((x, h - 0.12), 0.12, fc="none", ec=c, lw=0.5, zorder=6))
@@ -440,14 +443,14 @@ def dim(x0, x1, y, s):
     sl([(x0, y), (x1, y)], lw=0.35, c="#333333")
     for x in (x0, x1): sl([(x, y - 0.08), (x, y + 0.08)], lw=0.35, c="#333333")
     st(((x0 + x1) / 2, y + 0.17), s, 4.3)
-for (x0, x1, s) in [(10.0, 10.6, "600"), (10.6, 10.9, "300"), (10.9, 12.3, "1400"), (12.3, 12.6, "300"), (12.6, 13.4, "800")]:
+for (x0, x1, s) in [(10.0, 10.6, "600"), (10.6, 10.9, "300"), (10.9, 12.9, "2000"), (12.9, 13.4, "500")]:
     sl([(x0, -0.3), (x1, -0.3)], lw=0.3, c="#333333")
     for x in (x0, x1): sl([(x, -0.36), (x, -0.24)], lw=0.3, c="#333333")
     st(((x0 + x1) / 2, -0.17 if s != "300" else -0.17), s, 3.9)
 dim(10.6, 13.4, 1.95, "見送りの小径 2800")
 sl([(9.85, 0), (9.85, 1.2)], lw=0.3, c="#333333"); st((9.7, 0.6), "1200", 3.9, rot=90)
 st((10.3, 1.42), "生垣＋メッシュ柵", 4.4)
-st((11.3, 0.18), "洗い出し", 4.0, c="#555555")
+st((11.4, 0.18), "洗い出し", 4.0, c="#555555"); st((13.15, 0.18), "雨落ち", 3.6, c="#555555")
 st((13.9, 1.35), "覗き窓", 4.4, c=C["blue"])
 fig.text(sx0 / 297, 80 / 420, "A–A　見送りの小径の断面　1/100（高さは略図、北を見る）", fontsize=7, weight="medium", va="top")
 # section mark on the plan

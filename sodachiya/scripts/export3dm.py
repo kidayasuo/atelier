@@ -26,12 +26,17 @@ def pl(pts, z=0.0, close=False):
     return r.Polyline([P3(p, z) for p in pts]).ToNurbsCurve()
 def add_curve(pts, lay, z=0.0, close=False):
     m.Objects.AddCurve(pl(pts, z, close), attr(lay))
+def up(c, h, cap):                                             # Extrusion.Create follows the curve's normal: force +Z
+    e = r.Extrusion.Create(c, h * MM, cap)
+    z0 = c.PointAtStart.Z
+    if e and e.GetBoundingBox().Max.Z < z0 + h * MM * 0.5:
+        e = r.Extrusion.Create(c, -h * MM, cap)
+    return e
 def wall(pts, h, lay, z0=0.0):                                 # vertical strip along a polyline
-    e = r.Extrusion.Create(pl(pts, z0), h * MM, False)
+    e = up(pl(pts, z0), h, False)
     if e: m.Objects.AddExtrusion(e, attr(lay))
 def slab(pts, z0, t, lay):                                     # closed outline extruded upward t
-    c = pl(pts, z0, True)
-    e = r.Extrusion.Create(c, t * MM, True)
+    e = up(pl(pts, z0, True), t, True)
     if e: m.Objects.AddExtrusion(e, attr(lay))
 def post(p, h, s=0.12, lay="72_外構_柱"):
     x, y = p; q = [(x - s / 2, y - s / 2), (x + s / 2, y - s / 2), (x + s / 2, y + s / 2), (x - s / 2, y + s / 2)]
@@ -50,14 +55,13 @@ wall([E(0, 0), E(A.GA0, 0)], 1.8, "70_外構_生垣・塀・格子")
 # 71 roofs (flat placeholders, 100 thick): kido 2.6, temizu 2.7, lean-to 2.6, back-door canopy 2.6
 slab(A.KR, 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 slab(srect(*A.TEM), 2.7, 0.1, "71_外構_屋根（木戸・手水・下屋）")
-slab(srect(*A.LEAN), 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
+slab(A.rect(*A.LEAN_UV, 4), 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 slab(srect(28.6, 31.2, 1.3, 3.0), 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 # 72 posts
 for p in [E(-0.05, -0.15), E(2.35, -0.15), E(-0.05, 2.6), E(2.35, 2.6)]: post(p, 2.6)
 s0, s1, d0, d1 = A.TEM
 for p in [P(s0 + 0.3, d0 + 0.3), P(s1 - 0.3, d0 + 0.3), P(s0 + 0.3, d1 - 0.3), P(s1 - 0.3, d1 - 0.3)]: post(p, 2.7)
-s0, s1, d0, d1 = A.LEAN
-for d in (d0 + 0.25, (d0 + d1) / 2, d1 - 0.25): post(P(s0 + 0.25, d), 2.6)
+for p in A.LEAN_POSTS: post(p, 2.6)
 # 73 arched trellis: posts at the frames, 桁, arched beams every ~1.5 m (spring 2.25, rise 0.28) to the wall
 PG_D = A.HEDGE_D + A.HW + 0.15
 s_fr = [A.inv(W(u, 0))[0] for u in (0.75, 3, 6, 9)]; s_a, s_b = s_fr[0], A.TEM[0]
@@ -80,8 +84,8 @@ for kind, a, b in A.BIKES:
 # 75 plaza furniture
 for b in A.BEDS: slab(srect(*b), 0, 0.4, "75_外構_ひろばの家具")
 slab(srect(*A.KAM), 0, 0.8, "75_外構_ひろばの家具")
-for (da, db) in [(5.0, 6.8), (7.7, 9.5)]: slab(srect(27.0, 27.9, da, db), 0, 0.42, "75_外構_ひろばの家具")
-slab(srect(26.8, 28.4, 3.75, 4.2), 0, 0.9, "75_外構_ひろばの家具")
+for (va, vb) in [(-9.0, -7.2), (-6.6, -4.8)]: slab(A.rect(19.6, 20.5, va, vb, 2), 0, 0.42, "75_外構_ひろばの家具")
+slab(A.rect(19.3, 20.8, -9.95, -9.5, 2), 0, 0.9, "75_外構_ひろばの家具")
 slab(srect(18.9, 19.8, 10.7, 11.25), 0, 0.7, "75_外構_ひろばの家具")        # temizu basin
 for k in range(5):                                                           # strollers (outline)
     u0 = -4.0 + 0.7 * k; add_curve(A.rect(u0 + 0.06, u0 + 0.64, -0.85, 0.15, 2), "75_外構_ひろばの家具", close=True)

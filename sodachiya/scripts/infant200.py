@@ -31,7 +31,8 @@ def draw(ax, W, z0=4.0):
     fill(6, 13.6, 0, 1.0, C_ROOF); fill(9, 13.6, 1.0, 1.6, C_ROOF)
     fill(6, 9, 1.0, 1.6, "#DCE7B0", 1)
     fill(0, 12, 12, 15, C_ROOF)
-    sw = [W(0, 1.6), W(-2.4, 1.6)] + [W(-2.4 * (11.5 - v) / 9.9, v) for v in [3, 5, 7, 9, 11.5]] + [W(0, 11.5)]
+    sw = south_engawa_uv()
+    sw = [W(u, v) for u, v in sw] if sw else [W(0, 1.6), W(-2.4, 1.6)] + [W(-2.4 * (11.5 - v) / 9.9, v) for v in [3, 5, 7, 9, 11.5]] + [W(0, 11.5)]
     ax.add_patch(Polygon(sw, closed=True, fc=C_ROOF, ec="black", lw=0.45 * K, zorder=z0 + 0.12))
     # columns
     for uf in [0, 3, 6, 9, 12, 15, 18]:
@@ -75,8 +76,9 @@ def draw(ax, W, z0=4.0):
     box(9.15, 11.85, 0.95, 1.6, lw=0.5, fc="#EEF5F7", z=4)
     for vp in [0.4, 1.2]:
         line([(6.2, vp), (17.8, vp)], lw=0.5, ls=(0, (5, 1.5, 1, 1.5)), c="#3d6f8a", z=7)
-    # engawa: glass doors + lattice railing h900 + gates with two steps (0-1 and 2)
-    line([(0, 14.7), (18, 14.7)], lw=0.4)
+    # engawa: insulated glass doors in the middle (r = 191.5, v = 13.5; same as 3-5, 3dm 10-21), outer half is shoes-on (−150)
+    fill(0, 18, 13.5, 15, "#E9E2D4", 1)
+    line([(0, 13.5), (18, 13.5)], lw=0.9, c="#3d7fb0", z=6)
     for a, b in [(0, 2.2), (3.2, 8.4), (9.4, 15.0), (16.0, 18.0)]:
         box(a, b, 14.9, 15.0, lw=0.3, fc="#bbbbbb", z=5)
     for g0, g1 in [(2.2, 3.2), (8.4, 9.4), (15.0, 16.0)]:
@@ -126,6 +128,29 @@ def draw(ax, W, z0=4.0):
     txt(9.0, 7.3, "1歳", 6.5, color="#4d6b1f")
     txt(15.0, 5.0, "2歳", 6.5, color="#3d5a1a")
 
+def south_engawa_uv():
+    """南の縁側（ぽってり、すべて凸）の輪郭を 3dm から読む（14_本館_外縁側 の u<0 の部分）。読めなければ None。"""
+    try:
+        import os, rhino3dm as r
+        from shapely.geometry import MultiPoint
+        CX, CY, RW = 194.66293237, -41.34826335, 205.0177
+        TH_S = math.atan2(-65.17347495 - CY, -8.9654788 - CX) % (2 * math.pi)
+        f = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "model", "sodachiya_exact.3dm")
+        m = r.File3dm.Read(f)
+        lay = {l.Index: l.FullPath for l in m.Layers}
+        for o in m.Objects:
+            if lay[o.Attributes.LayerIndex].startswith("14_") and isinstance(o.Geometry, r.Mesh):
+                pts = []
+                for vtx in o.Geometry.Vertices:
+                    x, y = vtx.X / 1000, vtx.Y / 1000
+                    th = math.atan2(y - CY, x - CX) % (2 * math.pi)
+                    pts.append(((TH_S - th) * RW, RW - math.hypot(x - CX, y - CY)))
+                if max(p[0] for p in pts) <= 0.01:
+                    return list(MultiPoint(pts).convex_hull.exterior.coords)
+    except Exception:
+        return None
+    return None
+
 # items for the legend: (number, u, v, text)
 ITEMS = [
     (20, 3.9, 8.1, "ねどこ（ベビーベッド×6、囲い h900、布の天蓋）"),
@@ -138,7 +163,7 @@ ITEMS = [
     (27, 13.6, 3.3, "2歳のトイレ（座る便器×3）・手洗い"),
     (28, 16.9, 10.6, "2歳の山（頂上 h900、中はかくれ家）"),
     (29, 17.0, 6.0, "ままごとの家（柱と低い屋根）・くぼみ・記録台"),
-    (30, 6.0, 13.5, "縁側（ガラス戸＋格子の高欄 h900）、高欄の戸と二段の縁"),
+    (30, 6.0, 14.25, "縁側：中ほどに断熱ガラス戸、外の半分は土足（−150）"),
     (31, -1.0, 4.4, "南の縁側（外気浴）と這い出せる一点"),
     (32, -3.45, 3.4, "外の物置（散歩車・砂場の道具）"),
     (33, 5.5, 19.9, "朝の庭（粒の遊び場、土手＋生垣）"),
