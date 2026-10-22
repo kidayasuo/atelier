@@ -2,6 +2,8 @@
 前提：archive/handoff_1018/t を /tmp/claude-0/t に展開し、この build/ の south/ shitsu/ ideas/roof_geo.py を上書きコピーする。
 data/wnew.pkl を /tmp/claude-0/t/exact/wnew.pkl に置く。pip install rhino3dm shapely scipy matplotlib mapbox_earcut
 
+まとめて：`bash model/build/run_all.sh OUT`（取り込み用ファイルや data/*.json が変わっただけなら、これで 3dm・Rhino 版・図が全部作り直される）
+
 手順（OUT は任意のフォルダ）
   python3 south/run_exact_new.py OUT/base_wnew.3dm        # 架構・西館（wnew 輪郭）
   python3 south/add_south.py OUT/base_wnew.3dm OUT/s1.3dm  # 南端・受け取り土間・本館の浮いた蓋・外部
