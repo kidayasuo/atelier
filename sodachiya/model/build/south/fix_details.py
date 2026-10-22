@@ -229,6 +229,15 @@ for o in m.Objects:
         Vt = V[top]; Vt[ok, 2] = np.maximum(Vt[ok, 2], zb[ok] - 5.0); V[top] = Vt; mesh_set(g, V); g.Normals.ComputeNormals(); n_t += 1
 log.append(f'本館：西の外壁 {n_t} 片の天端を屋根の下面まで')
 
+# ================================================================ 外構：柵 h1.2（60）の南の端を門の柱で止める（詳細設計の依頼 10-22 夕 2）
+L60 = lidx('60_')
+for o in m.Objects:
+    g = o.Geometry
+    if o.Attributes.LayerIndex == L60 and isinstance(g, r.Mesh):
+        u0, u1, v0, v1, z0, z1 = bbox_uv(g)
+        if u0 < -8.45: map_mesh_uv(g, lambda u, v, z: (max(u, -8.45), v, z)); log.append('外構：柵の南の端を u −8.45 に')
+FENCE_RET = (R(-8.57, -8.45, 0.96, 1.40, 0.05), -300.0, 900.0)
+
 # ================================================================ 書き出し（桁を差し替え、腰壁を足す）
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
@@ -242,5 +251,6 @@ ZF2 = 3250.0
 K.prism(R(21.16, 32.95, -1.96, -1.90, 0.1), ZF2, ZF2 + 1100.0, L38)       # 2 階の東の縁（東の帯への吹き抜け）
 K.prism(R(32.97, 33.03, -5.0, -1.96, 0.02), ZF2, ZF2 + 1100.0, L38)       # 2 階の北の口（遊戯室の吹き抜け）
 log.append('西館：2 階の腰壁 h1100（東の縁 u 21.2–33、北の口 u 33）')
+K.prism(FENCE_RET[0], FENCE_RET[1], FENCE_RET[2], L60); log.append('外構：柵を門の柱（u −8.45・v 0.96）へ折り返した')
 out.Write(OUT, 8)
 print('\n'.join(log)); print('written', OUT, len(out.Objects))
