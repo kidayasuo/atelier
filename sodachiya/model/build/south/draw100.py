@@ -59,19 +59,28 @@ def cap(rings):
 def tri_extrusion(g):
     T = []
     for k in range(g.ProfileCount):
-        c0, c1 = g.Profile3d(k, 0.0), g.Profile3d(k, 1.0)
-        if c0 is None or c1 is None: continue
-        p0, p1 = A3(curve_pts(c0)), A3(curve_pts(c1))
+        c0 = g.Profile3d(k, 0.0)
+        if c0 is None: continue
+        dvec = np.array([g.PathEnd.X - g.PathStart.X, g.PathEnd.Y - g.PathStart.Y, g.PathEnd.Z - g.PathStart.Z])
+        p0 = A3(curve_pts(c0)); p1 = p0 + dvec           # まっすぐな押し出し：上の輪は下の輪を道の分だけ動かしたもの（始点のずれでねじれない）
         for i in range(len(p0) - 1):
             T += [np.array([p0[i], p0[i + 1], p1[i + 1]]), np.array([p0[i], p1[i + 1], p1[i]])]
+    dvec = np.array([g.PathEnd.X - g.PathStart.X, g.PathEnd.Y - g.PathStart.Y, g.PathEnd.Z - g.PathStart.Z])
     for s in (0.0, 1.0):
         rings = []
         for k in range(g.ProfileCount):
-            c = g.Profile3d(k, s)
+            c = g.Profile3d(k, 0.0)
             if c is not None:
-                q = A3(curve_pts(c)); rings.append(q[:-1] if np.allclose(q[0], q[-1]) else q)
+                q = A3(curve_pts(c)) + dvec * s; rings.append(q[:-1] if np.allclose(q[0], q[-1]) else q)
         if rings and g.IsClosed(0) if hasattr(g, 'IsClosed') else rings:
-            try: T += cap(rings)
+            try:
+                # 輪の 0 番が外形、その中にある輪は穴。外にある輪（離れた別の形）は別に塞ぐ
+                P_ = np.vstack(rings); mu_ = P_.mean(0); _, _, Vt_ = np.linalg.svd(P_ - mu_); B_ = Vt_[:2]
+                pol = [Polygon((rg - mu_) @ B_.T).buffer(0) for rg in rings]
+                inner = [rings[0]] + [rg for rg, pg in zip(rings[1:], pol[1:]) if pol[0].contains(pg.representative_point())]
+                T += cap(inner)
+                for rg, pg in zip(rings[1:], pol[1:]):
+                    if not pol[0].contains(pg.representative_point()): T += cap([rg])
             except Exception: pass
     return np.array(T) if T else np.zeros((0, 3, 3))
 

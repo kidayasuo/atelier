@@ -13,7 +13,8 @@ data/wnew.pkl を /tmp/claude-0/t/exact/wnew.pkl に置く。pip install rhino3d
   python3 south/add_play.py OUT/s6.3dm OUT/s7.3dm data/play.json data/wnew.pkl          # 遊戯室の遊具・しつらえ（レイヤー 80〜89、寸法は遊戯室のスレッドの data/play.json）
   python3 south/add_play_import.py OUT/s7.3dm OUT/s7p.3dm model/sodachiya_play_layers.3dm   # 80〜88 を遊戯室のチャットの取り込み用ファイル（scripts/play3d.py）で置き換える（89 の大戸・開口・床の穴は上のまま）
   python3 south/add_hall.py OUT/s7p.3dm OUT/s7b.3dm data/forest.json                     # ホールの北山杉の林（55、木ごとの h、頂部は半球）・スパン 11 の静養室／記録の机／園長室・2 階の更衣・ロッカー（43b）
-  python3 south/add_site.py OUT/s7b.3dm OUT/s8.3dm model/sodachiya_garden_layers.3dm   # 護岸（02、公園の角で GL−5.0）＋園庭の取り込み（90〜98、98 は隠す）
+  python3 south/fix_details.py OUT/s7b.3dm OUT/s7c.3dm data/wnew.pkl                     # 納まりの整理：本館の西の外壁 420（柱・桁を中に）、北の妻、西館の柱・梁・桁を壁の内側に、2 階の間仕切りを屋根まで、2 階の腰壁
+  python3 south/add_site.py OUT/s7c.3dm OUT/s8.3dm model/sodachiya_garden_layers.3dm   # 護岸（02、公園の角で GL−5.0）＋園庭の取り込み（90〜98、98 は隠す）
   python3 south/add_context.py OUT/s8.3dm model/sodachiya_exact_mesh.3dm data/context_plateau.json          # 周辺の道路（03）と建物（04、LOD1）。敷地の中の今の家と道は入れない
   # data/context_plateau.json は context/plateau_fetch.py で PLATEAU（京都市 2025）から作る。位置合わせは data/georef.json
   python3 south/clean_wire.py model/sodachiya_exact_mesh.3dm model/sodachiya_exact.3dm   # Rhino 用（ワイヤフレームの筋なし）

@@ -133,11 +133,23 @@ const = lambda z: (lambda x, y: z)
 # ---------------------------------------------------------------- 外壁（厚さ 150）と開口
 T_W = 150.0
 wall_ring = WN.difference(WN.buffer(-T_W, join_style=2))
+# すき間の蓋（50a）の下端：西館の東の面の、ホールの範囲（u 21–30）
+_lid = []
+for o in m.Objects:
+    if LN.get(o.Attributes.LayerIndex, '').startswith('50a') and isinstance(o.Geometry, r.Mesh):
+        g = o.Geometry
+        for i in range(len(g.Vertices)):
+            p = g.Vertices[i]; uu, vv = uv(p.X, p.Y)
+            if 21 < uu < 30 and -1.2 < vv < -0.4: _lid.append(p.Z)
+ZLID_E = min(_lid) if _lid else 4400.0
+FP_HALL = R(21.15, 30.0, -1.4, -0.5)          # 南の壁の角（u 21–21.15）は残す
+HB_SILL = ZLID_E + 350.0; HB_HEAD = HB_SILL + 1200.0   # 2 階の東の高窓（蓋の上の外壁に横長の窓、はめ殺し）
 OPEN = [  # (足元の形, 下, 上)  上=None は天端まで
     (R(20.6, 21.4, -2.75, -0.95), 0, 2270),       # 入口の引き戸 1.8
     (R(20.6, 21.4, -4.4, -3.5), 450, 1050),       # 今日のごはんの窓（子どもの高さ）
     (R(20.6, 21.4, -9.6, -4.6), 800, 2270),       # キッチンの南のガラス
-    (R(21.0, 30.0, -1.4, -0.5), 0, None),         # ホールの範囲：東の面は開く（ひと続き）
+    (FP_HALL, 0, ZLID_E),                         # ホールの範囲：東の面はすき間の蓋の下まで開く（ひと続き）。蓋より上は外壁
+    (FP_HALL, HB_SILL, HB_HEAD),                  # その上の 2 階に横長の高窓（本館の屋根越しに東の空）
     (R(28.5, 29.3, -14.5, -12.3), 0, 2100),       # 調理の職員の外からの戸（西の面）
     (R(44.1, 46.1, -1.4, -0.5), 0, 2400),         # 遊戯室の口②
 ]
@@ -207,6 +219,10 @@ pane_u(21.06, -1.90, -0.95, 0, 2270); pane_u(21.10, -2.75, -1.80, 0, 2270)   # �
 pane_u(21.075, -4.4, -3.5, 450, 1050)                                         # 今日のごはんの窓
 pane_u(21.075, -9.6, -4.6, 800, 2270)                                         # キッチンの南のガラス
 # 遊戯室の窓・大戸：壁の厚さの中ほどの薄い板
+PANES.append((FP_HALL, HB_SILL, HB_HEAD, L_GL))
+L_WD = layer('19b_西館_外の戸（木、開き戸）', (150, 110, 70))
+PANES.append((R(28.5, 29.3, -14.5, -12.3), 0, 2100, L_WD))     # 調理の職員の外からの戸（開口だけで戸が無かった）
+print('hall face: open to lid', round(ZLID_E), 'high window', round(HB_SILL), round(HB_HEAD))
 mid_ring = WN.buffer(-60, join_style=2).difference(WN.buffer(-90, join_style=2))
 for fp, z0, z1, li in PANES:
     mesh_prism(mid_ring.intersection(fp), float(z0), const(float(z1)), li)
