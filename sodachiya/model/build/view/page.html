@@ -1,0 +1,37 @@
+<!doctype html><html><body style="margin:0;background:#fff"><canvas id=c></canvas>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const P=new URLSearchParams(location.search);
+const W=+P.get('w')||1600,H=+P.get('h')||1000;
+const R=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true,preserveDrawingBuffer:true});
+R.setSize(W,H);R.setClearColor(0xffffff);
+const S=new THREE.Scene();S.add(new THREE.HemisphereLight(0xffffff,0x888877,1.6));
+const d=new THREE.DirectionalLight(0xffffff,1.6);d.position.set(-40,80,30);S.add(d);
+const d2=new THREE.DirectionalLight(0xffffff,0.5);d2.position.set(50,30,-40);S.add(d2);
+// model (x,y,z) → three (x, z, -y)
+const v=(a)=>new THREE.Vector3(a[0],a[2],-a[1]);
+const eye=JSON.parse(P.get('eye')),tgt=JSON.parse(P.get('tgt'));
+const fov=+P.get('fov')||40, ortho=P.get('ortho');
+let cam;
+if(ortho){const s=+ortho;cam=new THREE.OrthographicCamera(-s*W/H,s*W/H,s,-s,0.1,2000);}else cam=new THREE.PerspectiveCamera(fov,W/H,0.05,2000);
+cam.position.copy(v(eye));cam.up.set(0,1,0);cam.lookAt(v(tgt));
+const hide=(P.get('hide')||'').split(',').filter(x=>x);
+const clipz=P.get('clipz'); // 水平の切断（この高さより上を消す）
+if(clipz){R.clippingPlanes=[new THREE.Plane(new THREE.Vector3(0,-1,0),+clipz)];}
+new GLTFLoader().load(P.get('glb'),g=>{
+  g.scene.traverse(o=>{
+    if(o.isMesh){ if(!o.geometry.attributes.color){} 
+      const nm=(o.parent&&o.parent.name)||o.name; const n2=o.name;
+      const key=(n2.split('|')[0]||'')+'';
+      if(hide.some(h=>n2.startsWith(h)||nm.startsWith(h))){o.visible=false;return;}
+      o.geometry=o.geometry.toNonIndexed?o.geometry.toNonIndexed():o.geometry; o.geometry.computeVertexNormals();
+      const glass=/ガラス|窓/.test(o.geometry.name||'')||/ガラス/.test(n2);
+      o.material=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,transparent:glass,opacity:glass?0.35:1,depthWrite:!glass});
+      const e=new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry,25),new THREE.LineBasicMaterial({color:0x333333,transparent:true,opacity:0.5}));
+      o.add(e);
+    }});
+  S.add(g.scene);R.render(S,cam);document.title='done';
+});
+</script></body></html>

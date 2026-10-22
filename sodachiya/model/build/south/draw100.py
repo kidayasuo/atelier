@@ -1,8 +1,9 @@
-"""3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）と断面 3 つ（A 縦断・B 海峡・C 4 歳と遊戯室）
+"""3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）、断面 3 つ（A 縦断・B 海峡・C 4 歳と遊戯室）、立面 4 つ
 使い方: python3 draw100.py MODEL_MESH.3dm OUTDIR
 - 平面：FL+1200 で切る。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
   見えがかりは近いもの（高いもの）から順に、手前の形で後ろの線を切って描く（隠れ線を消した線だけ）。
   屋根の外形と、2 階で切れる梁は破線。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
+- 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
 - 断面：A は円筒面 r=197 m で切って展開（西を見る）。B・C は架構に平行な鉛直面（北を見る）、奥 3.2 m まで。
   通り芯、幅の寸法、高さの記号（GL・FL・2FL・屋根・越屋根の蓋・西館の最高）。
 出力：PDF・PNG と DXF（レイヤー分け、1/100 の図を 1:1 の mm で。Rhino・LayOut で開いて手を入れる用）。
@@ -276,7 +277,7 @@ class Ax:
                 for g3 in gg.geoms:
                     if g3.geom_type in ('LineString', 'LinearRing'): segs.append(list(g3.coords))
         s.lines(segs, layer, **kw)
-    def fill(s, g, layer, fc='k', z=4, hatch=None):
+    def fill(s, g, layer, fc='k', z=4, hatch=None, seam=False):
         if g is None or g.is_empty: return
         if s.phi: g = shp_affinity.rotate(g, s.phi, origin=(0, 0), use_radians=True)
         for gg in getattr(g, 'geoms', [g]):
@@ -284,7 +285,7 @@ class Ax:
             verts, codes = [], []
             for ring in [gg.exterior] + list(gg.interiors):
                 c = np.asarray(ring.coords); verts += c.tolist(); codes += [Path.MOVETO] + [Path.LINETO] * (len(c) - 2) + [Path.CLOSEPOLY]
-            s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='#777777' if hatch else 'none', lw=LW(0.05), hatch=hatch, zorder=z))
+            s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='#777777' if hatch else (fc if seam else 'none'), lw=LW(0.05), hatch=hatch, zorder=z))
             h = s.sh.msp.add_hatch(color=7 if fc == 'k' else 8, dxfattribs={'layer': layer})
             if hatch: h.set_pattern_fill('ANSI31', scale=20.0)
             h.paths.add_polyline_path([s.P(*p) for p in list(gg.exterior.coords)[:-1]], is_closed=True, flags=1)
@@ -678,5 +679,168 @@ def make_sections():
             A.text(-9000, -2050, '0', 5, '80_図名・縮尺・方位'); A.text(-4000, -2050, '5 m', 5, '80_図名・縮尺・方位')
     return S
 
-for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_sections_1-100', make_sections)):
+# ---------------------------------------------------------------- 立面
+# 建物の軸に合わせた 5 面（ユーザー：東西南北より建物の軸に沿って）。どれも水平な視線の正投影。
+#   園庭の側＝円弧の中心の方向から（本館の弧の真ん中 u 28.5 に正対）／道路の側＝その反対／
+#   高野川の側＝川の向こうから川の辺に直角に／南の妻＝架構 1 に正対／北の妻＝架構 20 に正対。
+# 描くのは建物（レイヤー 05〜69 と 89 の大戸）だけ。敷地・園庭・外構・周辺・室内の家具は描かない（GL の線だけ）。
+def _unit(v): v = np.asarray(v, float); return v / np.linalg.norm(v)
+def _tangent(u_mm): return _unit(at(205000, theta_u(u_mm + 500)) - at(205000, theta_u(u_mm - 500)))   # 北（u の大きい方）へ
+def _river_dir():
+    site = None
+    for ln, P in CURVES:
+        if num(ln) == 0 and len(P) > 3:
+            pg = Polygon(P[:, :2])
+            if pg.is_valid and (site is None or pg.area > Polygon(site).area): site = P[:, :2]
+    def uvp(p):
+        d = p - C; th = float(unwrap(math.atan2(d[1], d[0]))); return SGN * (th - TH_S[0]) * 205000, 205000 - math.hypot(*d)
+    UV = [uvp(p) for p in site[:-1]]
+    a = site[max(range(len(UV)), key=lambda i: UV[i][1])]; b = site[min(range(len(UV)), key=lambda i: UV[i][0])]
+    d = _unit(b - a); n = np.array([-d[1], d[0]])
+    if np.dot(n, site[:-1].mean(0) - (a + b) / 2) < 0: n = -n          # 川から敷地の中へ
+    return n
+_garden = _unit(at(205000, theta_u(28500)) - C)                         # 円弧の中心から弧の真ん中へ（西向き）
+ELEV_VIEWS = [('garden', '園庭の側の立面図', '円弧の中心の方向から、弧の真ん中に正対', _garden, 'long'),
+              ('road', '道路の側の立面図', '西の道路から、園庭の側の反対', -_garden, 'long'),
+              ('river', '高野川の側の立面図', '川の向こうから、川の辺に直角に', _river_dir(), 'long'),
+              ('south', '南の妻の立面図', '架構 1 に正対', _tangent(0), 'end'),
+              ('north', '北の妻の立面図', '架構 20 に正対', -_tangent(57000), 'end')]
+def _compass(v):
+    a = (math.degrees(math.atan2(v[0], v[1])) + 360) % 360           # 北から時計回り
+    return ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][int((a + 22.5) // 45) % 8]
+ELEV = {}
+for key_, ttl, cap_, vd, _ in ELEV_VIEWS:
+    rt = np.array([vd[1], -vd[0]])
+    ELEV[key_] = (ttl, (lambda P, rt=rt: P[:, :2] @ rt), (lambda P, vd=vd: P[:, :2] @ vd),
+                  f'{cap_}。{_compass(vd)}を見る、右が{_compass(rt)}')
+def elev_objs():
+    out = []
+    for ob in OBJ:
+        n = num(ob['layer']); k = kind(ob['layer'])
+        if not (5 <= n <= 69 or n == 89): continue
+        if ob['layer'].startswith('47') or n in (62, 63, 64): continue          # 地面の板・避難の帯
+        if k == 'furn' or ROOM_LAYERS(ob['layer']): continue
+        if n == 55 or '外構' in ob['layer']: continue                           # ホールの林（室内）・柵などの外構
+        z = ob['T'][:, :, 2]
+        if z.max() - z.min() < 60 and z.max() < -200: continue                   # 地面に張り付いた板
+        out.append(ob)
+    return out
+ELEV_FILL = lambda ob: ('#DCE9F2' if kind(ob['layer']) == 'glass' else
+                        '#BDBDBD' if num(ob['layer']) in (10, 20, 26, 28) else
+                        '#E9DCC4' if num(ob['layer']) in (11, 22, 18, 30, 50) or ob['layer'].startswith(('16', '19b', '89')) and kind(ob['layer']) != 'glass' else
+                        'white')
+def elevation(A, mode, objs):
+    _, H, D, _ = ELEV[mode]
+    items = []
+    for ob in objs:
+        T = ob['T']
+        if num(ob['layer']) in (10, 20):
+            # 屋根（厚みの無い面）：見る人の側へ下がっている三角形だけ（向こうへ下がる面は棟の向こうで見えない）
+            P3 = T.reshape(-1, 3)
+            Q = np.concatenate([np.stack([H(P3).reshape(-1, 3), D(P3).reshape(-1, 3)], -1), T[:, :, 2:3]], -1)
+            nrm = np.cross(Q[:, 1] - Q[:, 0], Q[:, 2] - Q[:, 0]); nrm *= np.sign(nrm[:, 2:3] + 1e-12)
+            keep = nrm[:, 1] < -1e-6 * np.linalg.norm(nrm, axis=1)      # 上向きの法線が見る人（奥行きの小さい側）を向く
+            T = T[keep]
+            if not len(T): continue
+        P = T.reshape(-1, 3); h = H(P).reshape(-1, 3); d = D(P).reshape(-1, 3)
+        T2 = np.stack([h, T[:, :, 2]], -1)
+        # 長いもの（弧に沿う桁・壁・屋根）は 3 m ごとに分けて、手前・奥の順を部分ごとに（建物が弧なので端が手前に来る）
+        key = np.floor(h.mean(1) / 3000.0) if h.max() - h.min() > 4000 else np.zeros(len(h))
+        whole = silhouette(T2) if len(np.unique(key)) > 1 else None
+        for kk in np.unique(key):
+            sel = key == kk
+            sil = silhouette(T2[sel])
+            edge = None
+            if whole is not None and sil is not None:          # 線は全体の外形から（分け目の線は描かない）
+                edge = whole.boundary.intersection(sil.buffer(3))
+            items.append((d[sel].min(), (ob, edge), sil))
+    items.sort(key=lambda t: t[0])
+    occ = Polygon()
+    for i, (_, (ob, edge0), sil) in enumerate(items):
+        if sil is None or sil.is_empty: continue
+        k = kind(ob['layer'])
+        vis = sil.difference(occ) if not occ.is_empty else sil
+        if vis.is_empty: continue
+        lay = LAYER_OF[k][1]
+        fc = ELEV_FILL(ob)
+        if fc != 'white': A.fill(vis, lay, fc=fc, z=1, seam=True)
+        eb = edge0 if edge0 is not None else sil.boundary
+        edge = eb.difference(occ.buffer(2)) if not occ.is_empty else eb
+        A.geom_lines(edge, lay, lw={'glass': 0.09}.get(k, 0.13), color={'glass': '#3d6f9a'}.get(k, 'k'), z=3)
+        if k != 'glass':
+            occ = unary_union([occ, sil]) if not occ.is_empty else sil
+            if i % 40 == 39: occ = occ.simplify(1)
+    return items
+
+def elev_marks(A, mode, objs, h0, h1, with_levels=True):
+    """GL の線、高さの記号、通り芯（東・西は架構 1〜20、南・北は W・E）"""
+    _, H, D, right = ELEV[mode]
+    A.lines([[(h0 - 2500, -300), (h1 + 2500, -300)]], '01_切断（構造・壁）', lw=0.4, z=8)
+    zs = {}
+    for ob in objs:
+        n = num(ob['layer']); zt = ob['T'][:, :, 2].max()
+        key = '本館 屋根の最高' if n == 10 else '本館 越屋根の蓋' if n == 50 else '西館 最高' if n in (20, 28) else None
+        if key: zs[key] = max(zs.get(key, -1e9), zt)
+    L = [('GL', -300), ('FL', 0), ('2FL', 3250)] + sorted(zs.items(), key=lambda t: t[1])
+    L.sort(key=lambda t: t[1]); x_text = h1 + 1800; last = -1e9
+    for nm, z in (L if with_levels else []):
+        zt = max(z, last + 420); last = zt
+        A.lines([[(x_text - 300, z), (x_text, z + 260), (x_text - 600, z + 260), (x_text - 300, z)]], '51_高さ', lw=0.1, color='#2E7D32')
+        A.lines([[(x_text - 900, z), (x_text + 200, z)]], '51_高さ', lw=0.09, color='#2E7D32')
+        A.text(x_text + 300, zt + 60, f'{nm}　{"+" if z > 0 else "±" if z == 0 else "−"}{abs(z):,.0f}', 5, '51_高さ', ha='left', va='bottom', color='#2E7D32')
+    if mode in ('garden', 'road', 'river'):
+        for k, th in enumerate(TH_S, 1):
+            x = float(H(np.array([at(205000, th)]))[0])
+            A.lines([[(x, -1300), (x, -400)]], '40_通り芯', lw=0.09, color='#B03030', z=2)
+            A.bubble(x, -1800, str(k), rad=380, pt=5.5)
+    else:
+        th = theta_u(0 if mode == 'south' else 57000)
+        for nm, rr in (('W', 205000), ('E', 193000)):
+            x = float(H(np.array([at(rr, th)]))[0])
+            A.lines([[(x, -1300), (x, -400)]], '40_通り芯', lw=0.09, color='#B03030', z=2)
+            A.bubble(x, -1800, nm, rad=380, pt=5.5)
+
+def make_elevations(views, title, note_row):
+    """views=[(mode, row, x の位置 'center' か mm, 高さの記号を描くか)]、row は上から 0, 1, 2"""
+    W_, H_ = 841, 594
+    S = Sheet(W_, H_, title)
+    objs = elev_objs()
+    allP = np.vstack([ob['T'].reshape(-1, 3) for ob in objs])
+    ztop = max(ob['T'][:, :, 2].max() for ob in objs)
+    zr = (-2300, ztop + 900); hgt = (zr[1] - zr[0]) / 100
+    nrow = 1 + max(v[1] for v in views)
+    gap = min(45, (H_ - 60 - nrow * hgt) / max(1, nrow - 1))
+    top = H_ - 30 - hgt
+    first = True
+    for mode, row, xpos, lv in views:
+        ttl, H, D, cap_ = ELEV[mode]; h = H(allP)
+        ext = (h.min() - 1500, h.max() + (8500 if lv else 1500), *zr)
+        x_mm = (W_ - (ext[1] - ext[0]) / 100) / 2 if xpos == 'center' else xpos
+        y_mm = top - row * (hgt + gap)
+        A = S.axes(x_mm, y_mm, ext)
+        elevation(A, mode, objs); elev_marks(A, mode, objs, h.min(), h.max(), lv)
+        A.text(ext[0] + 300, zr[1] - 100, f'{ttl}　1/100　（{cap_}）', 8.5, '80_図名・縮尺・方位', ha='left', va='top')
+        if first:
+            sx = h.max() + 2000
+            for j in range(5):
+                A.ax.add_patch(plt.Rectangle((sx + j * 1000, -2150), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
+            A.text(sx, -1750, '0', 5, '80_図名・縮尺・方位'); A.text(sx + 5000, -1750, '5 m', 5, '80_図名・縮尺・方位')
+            first = False
+    S.text_paper(W_ - 15, 26, '描いているのは建物だけ（園庭・外構（柵など）・樹木・室内の家具は省いた）。灰色は屋根の面、薄い青はガラス（奥が透けて見える）。'
+                 + note_row, 6, ha='right', color='0.35')
+    return S
+
+ELEV_SHEETS = [('sodachiya_elevations_1-100', lambda: make_elevations(
+                    [('garden', 0, 'center', True), ('road', 1, 'center', True), ('south', 2, 'center', True)],
+                    '立面図 1　園庭の側・道路の側・南の妻　1/100（A1）',
+                    '\n園庭の側と道路の側は本館の弧の真ん中に正対（平面と同じ向き、架構の番号は下の丸）。南の妻は架構 1 に正対。')),
+               ('sodachiya_elevations2_1-100', lambda: make_elevations(
+                    [('river', 0, 'center', True), ('north', 1, 'center', True)],
+                    '立面図 2　高野川の側・北の妻　1/100（A1）',
+                    '\n高野川の側は川の向こうから川の辺に直角に、北の妻は架構 20 に正対。'))]
+
+ONLY = os.environ.get('DRAW_ONLY', '')
+for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_sections_1-100', make_sections),
+                 *ELEV_SHEETS):
+    if ONLY and ONLY not in name: continue
     S = mk(); S.save(os.path.join(OUTD, name)); print('written', name)
