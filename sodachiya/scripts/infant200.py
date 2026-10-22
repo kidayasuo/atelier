@@ -88,7 +88,6 @@ def draw(ax, W, z0=4.0):
     # south outside: bassinets, crawl-out mound + two steps, shed on the garden side of the fence
     for vc in [2.4, 3.4]:
         ell(-1.0, vc, 0.5, 0.8, lw=0.3)
-    ell(-2.4, 7.2, 2.4, 2.0, fc="#DCE7B0", lw=0.4, z=0)
     box(-2.1, -1.65, 4.6, 5.6, lw=0.3, z=2); box(-2.55, -2.1, 4.6, 5.6, lw=0.3, z=2)
     box(-4.3, -2.6, 1.7, 2.75, lw=0.5, fc="#EDE6D6", z=3)
     line([(-4.3, 1.7), (-2.6, 2.75)], lw=0.2); line([(-4.3, 2.75), (-2.6, 1.7)], lw=0.2)

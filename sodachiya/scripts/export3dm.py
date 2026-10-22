@@ -15,7 +15,8 @@ def layer(name, rgb):
     l = r.Layer(); l.Name = name; l.Color = (*rgb, 255); LAY[name] = m.Layers.Add(l)
 for n, c in [("70_外構_生垣・塀・格子", (90, 122, 58)), ("71_外構_屋根（木戸・手水・下屋）", (80, 80, 80)), ("72_外構_柱", (20, 20, 20)),
              ("73_外構_アーチの棚", (122, 90, 54)), ("74_外構_駐車・駐輪・バンプ", (130, 130, 130)), ("75_外構_ひろばの家具", (185, 142, 94)),
-             ("76_外構_舗装の区分", (200, 190, 170)), ("77_外構_樹木", (90, 140, 60))]:
+             ("76_外構_舗装の区分", (200, 190, 170)), ("77_外構_樹木", (90, 140, 60)),
+             ("78_外構_みなみのさんかく（丘・小径・砂場・水）", (176, 138, 90)), ("79_外構_みなみのさんかく（木・ハーブ）", (110, 154, 78))]:
     layer(n, c)
 def attr(name):
     a = r.ObjectAttributes(); a.LayerIndex = LAY[name]; return a
@@ -99,5 +100,43 @@ for q in [srect(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D), srect(*A.DEL
 for (p, rr) in [(P(25.0, 11.3), 1.9), ((-13.6, -75.2), 3.4)]:
     c = r.Circle(P3(p, 3.0), rr * MM).ToNurbsCurve(); m.Objects.AddCurve(c, attr("77_外構_樹木"))
     m.Objects.AddLine(P3(p, 0), P3(p, 3.0), attr("77_外構_樹木"))
+# 78・79 みなみのさんかく（data/minami.json、minami_common.py）。平面の (x, y)＝(v, u) を本館の W(u, v) で 3dm の xy へ
+import minami_common as MN
+def mw(g): return [W(y, x) for x, y in list(g.exterior.coords)[:-1]]
+L78, L79 = "78_外構_みなみのさんかく（丘・小径・砂場・水）", "79_外構_みなみのさんかく（木・ハーブ）"
+# 丘：楕円の中を三角形のメッシュに（z は mound_z）
+rings = MN.mound_rings()
+mesh = r.Mesh(); vid = []
+for ring in rings:
+    ids = []
+    for x, y in ring:
+        p = W(y, x); ids.append(mesh.Vertices.Add(p[0] * MM, p[1] * MM, MN.mound_z(x, y) * MM))
+    vid.append(ids)
+N = len(vid[0])
+for a_, b_ in zip(vid, vid[1:]):
+    for i in range(N): mesh.Faces.AddFace(a_[i], a_[(i + 1) % N], b_[(i + 1) % N], b_[i])
+cpt = W(*MN.D["MOUND"]["c"]); ci = mesh.Vertices.Add(cpt[0] * MM, cpt[1] * MM, MN.D["MOUND"]["h"] * MM)
+for i in range(N): mesh.Faces.AddFace(vid[-1][i], vid[-1][(i + 1) % N], ci)
+mesh.Normals.ComputeNormals(); mesh.Compact()
+o = m.Objects.AddMesh(mesh, attr(L78))
+# はだしの小径（面一、厚さ 0.02 の板で区分ごとに）
+for name, g in MN.loop_parts():
+    for q in ([g] if g.geom_type == "Polygon" else list(g.geoms)):
+        if q.geom_type == "Polygon": slab(mw(q.simplify(0.01)), 0, 0.02, L78)
+# 砂場：縁 h0.15（幅 0.1）と砂の面
+sb = MN.SAND
+wall(mw(sb) + [mw(sb)[0]], MN.D["SAND"]["h_rim"], L78)
+wall(mw(sb.buffer(-0.1)) + [mw(sb.buffer(-0.1))[0]], MN.D["SAND"]["h_rim"], L78)
+slab(mw(sb.buffer(-0.1)), 0, 0.02, L78)
+# 水のテーブル（石の水盤 h0.45）
+slab(mw(MN.WATER), 0, MN.D["WATER"]["h"], L78)
+# 79 ハーブの帯（h0.3 の塊）、木（幹と樹冠の円）
+slab(mw(MN.HERB), 0, 0.3, L79)
+tp = W(*MN.D["TREE"]["c"])
+m.Objects.AddLine(P3(tp, 0), P3(tp, 4.5), attr(L79))
+for zc, rr in ((MN.D["TREE"]["under"], MN.D["TREE"]["r"] * 0.8), (3.4, MN.D["TREE"]["r"]), (4.5, MN.D["TREE"]["r"] * 0.6)):
+    m.Objects.AddCurve(r.Circle(P3(tp, zc), rr * MM).ToNurbsCurve(), attr(L79))
+sph = r.Sphere(P3(tp, 3.4), MN.D["TREE"]["r"] * MM).ToBrep()
+m.Objects.AddBrep(sph, attr(L79))
 m.Write(OUTF, 7)
 print("wrote", OUTF, len(m.Objects), "objects")

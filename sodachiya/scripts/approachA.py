@@ -102,8 +102,17 @@ tree((-13.6, -75.2), 3.4)
 T((-13.4, -80.2), "公園（12 × 12 m）\n待ち合わせの木", 6)
 kid = SP(SITE).difference(SP(PARK)).intersection(SP(rect(-14, 40, 1.6, 40))).difference(SP(rect(0, 40, 0, 15)))
 poly(kid, fc=C["kid"], ec="none", z=1)
-T(W(-5.0, 8), "乳児の庭", 6.5, c=C["green"])
 line([W(0, 1.6), FENCE_END], lw=1.1, c="#6b5a3a", z=6)              # infant-garden fence h1.2
+# みなみのさんかくの中身（data/minami.json、minami01.py のたたき台を 1/200 で）
+import minami_common as MN
+def _mw(g): return SP([W(y, x) for x, y in g.exterior.coords])
+for _n, _g in MN.loop_parts(): poly(_mw(_g), fc="#D8C3A0", ec="#9a8060", lw=0.2, z=2.2)
+poly(_mw(MN.MOUND), fc="#C9DDA8", ec="#6a8a4a", lw=0.3, z=2.3)
+poly(_mw(MN.SAND), fc="#EADBB0", ec="#8a7040", lw=0.4, z=2.3)
+poly(_mw(MN.HERB), fc="#A9C98A", ec="none", z=2.3)
+poly(_mw(MN.WATER), fc="#9CC9E6", ec="#3d7fb0", lw=0.4, z=2.3)
+tree(W(*MN.D["TREE"]["c"]), MN.D["TREE"]["r"])
+T(W(-8.3, 5.2), "みなみのさんかく", 6.0, c=C["green"], rot=-32)
 
 # ---------------------------------------------------------------- main building (south half)
 COL = {"01": "#E6EFC2", "2": "#C5DE9A", "med": "#F7F3EA", "hall": "#E3C08D", "off": "#E9DCC4", "3": "#9FCB84"}
