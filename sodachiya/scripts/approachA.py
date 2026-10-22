@@ -46,7 +46,8 @@ TIP = np.array(inv(PARK[2])); PK3 = np.array(inv(PARK[3]))
 EE = (PK3 - TIP) / np.linalg.norm(PK3 - TIP)          # along the park edge, toward SE
 EN = np.array([-EE[1], EE[0]]);  EN = EN if EN[1] > 0 else -EN   # into the site
 def E(a, b): q = TIP + EE * a + EN * b; return P(*q)   # a along the edge from the tip, b into the site
-FENCE_END = W(-9.0, 1.6)                               # infant-garden fence meets the park edge
+import minami_common as MN
+FENCE_END = W(MN.GATE_POST_W[1], MN.GATE_POST_W[0])      # corner post of the west gate (infant fence + park lattice meet, data/minami.json)
 
 # ---------------------------------------------------------------- key dimensions (m) -> data/approachA.json
 import json
@@ -102,9 +103,8 @@ tree((-13.6, -75.2), 3.4)
 T((-13.4, -80.2), "公園（12 × 12 m）\n待ち合わせの木", 6)
 kid = SP(SITE).difference(SP(PARK)).intersection(SP(rect(-14, 40, 1.6, 40))).difference(SP(rect(0, 40, 0, 15)))
 poly(kid, fc=C["kid"], ec="none", z=1)
-line([W(0, 1.6), FENCE_END], lw=1.1, c="#6b5a3a", z=6)              # infant-garden fence h1.2
+line([W(0, 1.6), W(MN.D["FENCE_END_U"], 1.45), FENCE_END], lw=1.1, c="#6b5a3a", z=6)   # infant-garden fence h1.2
 # みなみのさんかくの中身（data/minami.json、minami01.py のたたき台を 1/200 で）
-import minami_common as MN
 def _mw(g): return SP([W(y, x) for x, y in g.exterior.coords])
 for _n, _g in MN.loop_parts(): poly(_mw(_g), fc="#D8C3A0", ec="#9a8060", lw=0.2, z=2.2)
 poly(_mw(MN.MOUND), fc="#C9DDA8", ec="#6a8a4a", lw=0.3, z=2.3)
@@ -113,6 +113,10 @@ poly(_mw(MN.HERB), fc="#A9C98A", ec="none", z=2.3)
 poly(_mw(MN.WATER), fc="#9CC9E6", ec="#3d7fb0", lw=0.4, z=2.3)
 tree(W(*MN.D["TREE"]["c"]), MN.D["TREE"]["r"])
 T(W(-8.3, 5.2), "みなみのさんかく", 6.0, c=C["green"], rot=-32)
+for _n, _h, _e, _hh, _deg in MN.gates():                          # 木戸（東 h0.9）・非常用の門（西 h1.8）
+    _o = MN.leaf_at(_h, _e, _deg)
+    line([W(_h[1], _h[0]), W(_e[1], _e[0])], lw=1.4, c=C["wood"], z=7.6)
+    line([W(_h[1], _h[0]), W(_o[1], _o[0])], lw=0.3, c=C["wood"], ls=(0, (2, 1.5)), z=7.6)
 
 # ---------------------------------------------------------------- main building (south half)
 COL = {"01": "#E6EFC2", "2": "#C5DE9A", "med": "#F7F3EA", "hall": "#E3C08D", "off": "#E9DCC4", "3": "#9FCB84"}

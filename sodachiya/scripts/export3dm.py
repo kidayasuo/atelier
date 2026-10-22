@@ -130,6 +130,10 @@ wall(mw(sb.buffer(-0.1)) + [mw(sb.buffer(-0.1))[0]], MN.D["SAND"]["h_rim"], L78)
 slab(mw(sb.buffer(-0.1)), 0, 0.02, L78)
 # 水のテーブル（石の水盤 h0.45）
 slab(mw(MN.WATER), 0, MN.D["WATER"]["h"], L78)
+# 78 木戸（閉じた位置の扉の板、厚さ 40 の帯として壁で）と柱 120 角
+for name, h, e, hh, deg in MN.gates():
+    wall([W(h[1], h[0]), W(e[1], e[0])], hh, L78, 0.05)
+    hp = W(h[1], h[0]); post(hp, hh + 0.1, 0.12, L78)
 # 79 ハーブの帯（h0.3 の塊）、木（幹と樹冠の円）
 slab(mw(MN.HERB), 0, 0.3, L79)
 tp = W(*MN.D["TREE"]["c"])

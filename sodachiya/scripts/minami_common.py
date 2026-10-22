@@ -80,3 +80,29 @@ def mound_rings(N=48, fs=(1.0, 0.75, 0.5, 0.25, 0.0)):   # same N points per rin
         a = M["a"] * f + M["top"] * (1 - f); b = a * M["b"] / M["a"]
         out.append([tuple(c + DIR * a * math.cos(t) + NRM * b * math.sin(t)) for t in _np.linspace(0, 2 * math.pi, N, endpoint=False)])
     return out
+
+# ---- 木戸（GATES）：東＝v 15 の線、西＝公園の北東の辺（川に直交）
+PE0, PE1 = (np.array(xy(p)) for p in D["PARK_EDGE"])
+PDIR = (PE1 - PE0) / np.linalg.norm(PE1 - PE0)
+def park_pt(dist):                                           # point on the park edge at `dist` m from the river edge
+    t_r = float((R0 - PE0) @ PDIR)                          # park edge meets the river edge here (approx.)
+    return tuple(PE0 + PDIR * (np.linalg.norm(PE1 - PE0) - dist * 1.0))
+def _ang(v): return math.degrees(math.atan2(v[1], v[0]))
+def gates():
+    """[(name, hinge, closed_end, h, swing_deg)]  swing_deg > 0 = counter-clockwise (plan, x east / y north)"""
+    g = D["GATES"]; E_, Wg = g["EAST"], g["WEST"]
+    e0, e1, es = (15.0, E_["posts_u"][0]), (15.0, E_["posts_u"][1]), (15.0, E_["split_u"])
+    w0, w1, ws = park_pt(Wg["d_post"][0]), park_pt(Wg["d_post"][1]), park_pt(Wg["d_split"])
+    def cr(a, b): return a[0] * b[1] - a[1] * b[0]
+    park_side = np.sign(cr(PDIR, np.array([-1.0, 0.0])))   # the park lies west of its north-east edge
+    def outward(h, e):
+        p = np.array(leaf_at(h, e, 90.0)) - np.array(h)
+        return 180.0 if np.sign(cr(PDIR, p)) == park_side else -180.0
+    return [("東の木戸・子扉", e0, es, E_["h"], -90.0), ("東の木戸・親扉", e1, es, E_["h"], ((_ang(-DIR) - 90.0) % 360)),
+            ("西の門・子扉", w0, ws, Wg["h"], outward(w0, ws) / 2), ("西の門・親扉", w1, ws, Wg["h"], outward(w1, ws))]
+def leaf_at(hinge, end, deg):
+    h = np.array(hinge); v = np.array(end) - h; c, s_ = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+    return tuple(h + np.array([c * v[0] - s_ * v[1], s_ * v[0] + c * v[1]]))
+GATE_POST_W = park_pt(D["GATES"]["WEST"]["d_post"][1])        # corner post: lattice (park edge) + fence 60 meet here
+def clear_width(p, q):                                       # opening measured across the vehicle direction (DIR)
+    v = np.array(q) - np.array(p); return abs(v[0] * DIR[1] - v[1] * DIR[0])

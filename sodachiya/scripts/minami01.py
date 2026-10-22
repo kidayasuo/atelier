@@ -78,7 +78,27 @@ line(sorted(ex, key=lambda p: p[0]), lw=0.6, c=C["roof"], ls=(0, (6, 2, 1, 2)), 
 T((9.0, -2.55), "南の軒の先（一点鎖線）", 6.2, c=C["roof"], rot=-11)
 
 # fence (one line)
-line([(D["FENCE_V"], 0.0), (1.4, -8.8)], lw=1.6, c=C["red"], z=6)
+fu = D["FENCE_END_U"]; gp = G.GATE_POST_W
+line([(D["FENCE_V"], 0.0), (1.41, fu), (gp[0], gp[1])], lw=1.6, c=C["red"], z=6)
+# lattice h1.8 along the park edge (security line), from the gate post toward the park gate
+lat = [tuple(np.array(gp) - G.PDIR * 3.2), gp]
+line(lat, lw=1.6, c="#7a5a36", z=6)
+T(tuple(np.array(gp) - G.PDIR * 2.4 + np.array([-0.35, 0])), "格子 h1.8（公園との境）", 6, c="#7a5a36", rot=math.degrees(math.atan2(-G.PDIR[1], -G.PDIR[0])) - 180)
+# gates: closed leaf (thick), swing arc (dashed), open position (thin)
+from matplotlib.patches import Arc
+for name, h, e, hh, deg in G.gates():
+    line([h, e], lw=2.6, c="#5a3a1a", z=8)
+    for p in (h,): ax.add_patch(MP([(p[0] - 0.07, p[1] - 0.07), (p[0] + 0.07, p[1] - 0.07), (p[0] + 0.07, p[1] + 0.07), (p[0] - 0.07, p[1] + 0.07)], fc="#333", ec="none", zorder=9))
+    o = G.leaf_at(h, e, deg); line([h, o], lw=0.6, c="#5a3a1a", z=8)
+    r_ = float(np.linalg.norm(np.array(e) - np.array(h)))
+    a0 = math.degrees(math.atan2(e[1] - h[1], e[0] - h[0]))
+    t1, t2 = (a0, a0 + deg) if deg > 0 else (a0 + deg, a0)
+    ax.add_patch(Arc(h, 2 * r_, 2 * r_, theta1=t1, theta2=t2, lw=0.45, color="#5a3a1a", ls=(0, (3, 2)), zorder=8))
+T((15.35, -1.75), "東の木戸 h0.9\n子扉 0.9（ふだん）\n親扉 2.2（車のとき）", 6.3, ha="left", c="#5a3a1a")
+wm = np.array(G.park_pt(1.4))
+T(tuple(wm + np.array([-1.55, -0.2])), "西の門 h1.8\n（非常用、外開き）\n子扉 1.2・親扉 1.55", 6.3, c="#5a3a1a")
+T((16.0, -5.2), "しずかのもり →", 7, c="#4a6a3a")
+T((-0.2, -10.6), "公園", 7, c="#4a6a3a")
 T((1.0, -6.4), "柵 h1.2（一本の線の延長）", 6.5, c=C["red"], rot=90)
 
 # herbs, tree, sand, mound, loop, water
@@ -217,7 +237,8 @@ notes = [
  ("水のテーブル", "石の水盤 1.2×0.6、h0.45（1・2 歳が立って手が届く）、水深 5 cm、上水（先生が開ける蛇口）。軒の下の東の端、外縁側のスロープの脇。排水はすぐ東の雨の川へ（園庭）。使わないときは乾かす。"),
  ("ハーブの帯", "柵の内側に幅 0.55：レモンバーム・タイム・ラムズイヤー（ふわふわの葉）・ミント（鉢を埋めて広がりを止める）・這うローズマリー。触ってちぎって香る。柵の固さを和らげる。"),
  ("軒の下", "縁側と軒の先のあいだ（約 1〜2 m）は夏の日陰。0 歳はここにござを敷いて寝ころぶ、外気浴。"),
- ("東の端", "しずかのもり（園庭）とは雨の川（雨落ちの溝）をはさんで続く。戸や柵は描いていない（要確認：分けるかどうか）。"),
+ ("東の木戸", "しずかのもりとの境を木戸で分ける（ユーザー）。v 15 の線、本館の南東の角から川の柵まで 約 3.2 m。親子の両開き：子扉 0.9 をふだん使い（西へ開く）、車のときだけ親扉 2.2（足に戸車、落とし棒）も開けて、車の向きに直角に測って あき %.2f m（帯 2.5 より広い）。親扉は西へ約 120° 回して川の柵に沿わせて畳む。h0.9、スギの縦格子（すき間 80 以下、横桟なし）、掛け金は上の框の 2 段（h0.95 以上、2 歳の手が届かない）。すぐ東は雨の川（車は石の蓋で渡る）。" % G.clear_width((15, D["GATES"]["EAST"]["posts_u"][0] - 0.05), (15, D["GATES"]["EAST"]["posts_u"][1] + 0.05))),
+ ("西の門", "非常用の門（避難の帯の出口）。公園の北東の辺（川に直交）の上で、川の柵から 約 2.85 m。親子の両開き：子扉 1.2（避難車が通る、外へ 90° で川の柵に沿う）＋親扉 1.55（外へ 180° で格子に沿う）、あき %.2f m。格子と同じ h1.8。内側からは鍵なしで開く（取っ手 h1.3 以上、二段の掛け金）、開くと事務に知らせる、公園の側からは鍵（セキュリティの線）。柵 h1.2 は南の端を 約 0.35 m 縮めて門の柱へ折り返す。" % G.clear_width(G.park_pt(0.15), G.park_pt(2.8))),
  ("模型", "丘は 3 mm（h0.3）の板 1 枚か、紙粘土。砂場・小径は彩色。木は園庭と同じ作り方。3dm のレイヤー 78（地形・遊び場）・79（植物）。"),
 ]
 y = PH - 40
