@@ -1,11 +1,11 @@
-"""納まりの整理（見せる架構は全部見せ、隠すものは全部隠す）
+"""納まりの整理（外皮は架構の外に連続させ、架構は室内に見せる）
 使い方: python3 fix_details.py IN.3dm OUT.3dm data/wnew.pkl
 本館
-- 西の外壁（r=205 m の線、厚さ 150 で柱の真ん中を通っていた）を柱の奥行き 400 と同じ厚さ 420 にし、柱と桁を壁の中に納める
-  （西吹き抜けの西の内壁は「白い反射面」＝柱の出っ張りなしの平らな面。外にも柱・桁は出ない）。
-- 北の妻壁（厚さ 120 で柱 180 の真ん中）を柱の幅 180 にそろえ、柱を壁の中に。外側の梁は南の妻と同じく外に見せ、屋根を 0.3 延ばして覆う。
-- 桁（楕円 200×400）：西の桁は北の妻壁の中で止める（外へ 0.6 突き出ていた）。東の桁は北の端を外側の梁の外面まで。南の端はそのまま（南の軒の下で見せる）。
-- 縁側の妻のガラス（16、u=0・57 の v 12–13.5）を柱の面から始める。
+- 西の外壁（r=205 m の線、厚さ 150 で柱の真ん中を通っていた）を柱の外（v −0.35〜−0.20）へ。柱・桁は西吹き抜けに見せる。窓も壁の中へ。
+- 北の妻壁（厚さ 120 で柱の真ん中、外の梁は外に出ていた）を北の端の架構の外（u 57.19〜57.34）へ。縁側の妻のガラスも同じ線へ。
+- 屋根を西 v −0.45・北 u 57.45 まで延ばして外皮を覆う。
+- 桁（楕円 200×400）：北の端を架構の外面（u 57.19）で止める（外へ 0.6 突き出ていた）。南の端はそのまま（南の軒の下で見せる）。
+- 南の妻（ガラスは 2 枚の梁のあいだ、決定事項）のガラスは柱の面から。
 西館
 - 南の端の架構（u≈21、梁の片方と 2 階の床梁が南の壁の中に埋まり、西の柱が外に出ていた）を北へ寄せて壁の内側に。
 - 柱が外壁に 30〜130 mm めり込んでいたのを、壁の内面に接するまで内へ寄せる（柱はすべて室内に見せる）。
@@ -57,24 +57,32 @@ L20 = lidx('20_'); L24 = lidx('24_'); L38 = lidx('38_')
 log = []
 
 # ================================================================ 本館
-n_w = n_g = 0
+# 外皮（壁・ガラス）は架構の外に連続させる（木造の標準：断熱・防水の層を柱で切らない、柱と桁は室内に見せる）
+VW0, VW1 = -0.35, -0.20          # 西の外壁（厚さ 150）：柱の外面 v −0.20 の外
+UG0, UG1 = 57.19, 57.34          # 北の妻壁（厚さ 150）：北の端の架構（外の梁の外面 u 57.19）の外
+L48 = lidx('48_')
+n_w = n_g = n_o = 0
 for o in m.Objects:
     g = o.Geometry; li = o.Attributes.LayerIndex
-    if li == L17 and isinstance(g, r.Mesh):
+    if not isinstance(g, r.Mesh): continue
+    if li == L17:
         u0, u1, v0, v1, z0, z1 = bbox_uv(g)
-        if v0 > -0.09 and v1 < 0.09 and u1 - u0 > 0.2:                     # 西の外壁（r=205 の線）
-            map_mesh_uv(g, lambda u, v, z: (u, v * 0.21 / 0.075, z)); n_w += 1
+        if v0 > -0.09 and v1 < 0.09 and u1 - u0 > 0.2 and z0 < 3700:          # 西の外壁（越屋根の立ち上がりはそのまま）
+            map_mesh_uv(g, lambda u, v, z: (u, v - 0.275, z)); n_w += 1
         elif 56.9 < u0 and u1 < 57.1 and v0 > -0.05 and v1 > 11.5:            # 北の妻壁
-            map_mesh_uv(g, lambda u, v, z: (57.0 + (u - 57.0) * 1.5, v, z)); n_g += 1
-    if li == L10 and isinstance(g, r.Mesh):                                   # 屋根：北の端を 0.3 延ばす
+            map_mesh_uv(g, lambda u, v, z: (UG0 + (u - 56.94) / 0.12 * (UG1 - UG0), VW0 if v < 0.01 else v, z)); n_g += 1
+    if li == L48:                                                             # 西の外壁の窓：壁の中へ
         u0, u1, v0, v1, z0, z1 = bbox_uv(g)
-        if u1 > 56.9: map_mesh_uv(g, lambda u, v, z: (57.30 if u > 56.98 else u, v, z))
-    if li == L16 and isinstance(g, r.Mesh):                                   # 縁側の妻のガラス：柱の面から
+        if v0 > -0.05 and v1 < 0.05 and 0.5 < u0 and u1 < 56.5:
+            map_mesh_uv(g, lambda u, v, z: (u, v - 0.275, z)); n_o += 1
+    if li == L10:                                                             # 屋根：西の端と北の端を外皮の外まで
+        map_mesh_uv(g, lambda u, v, z: (57.45 if u > 56.98 else u, -0.45 if v < -0.15 else v, z))
+    if li == L16:                                                             # 縁側の妻のガラス
         u0, u1, v0, v1, z0, z1 = bbox_uv(g)
-        if (u1 - u0) < 0.1 and v0 > 11.9 and v0 < 12.1 and v1 > 13:
-            map_mesh_uv(g, lambda u, v, z: (u, max(v, 12.2), z))
-log.append(f'本館：西の外壁 {n_w} 片を厚さ 420 に、北の妻壁 {n_g} 片を 180 に、屋根の北の端 u 57.3')
-# 西の柱の頭の、桁を抱く膨らみ（v −0.28 まで）が壁の外に出るので、壁の外面 v −0.20 で平らに（桁も壁の中なので抱く形は見えない）
+        if (u1 - u0) < 0.1 and 11.9 < v0 < 12.1 and v1 > 13:
+            if u0 > 56: map_mesh_uv(g, lambda u, v, z: (u + 0.245, v, z))       # 北：妻壁の線（外の梁の外）へ
+            else: map_mesh_uv(g, lambda u, v, z: (u, max(v, 12.2), z))        # 南：柱の面から（妻は 2 枚の梁のあいだのまま）
+log.append(f'本館：西の外壁 {n_w} 片を柱の外（v −0.35〜−0.20）へ、窓 {n_o} 枚も。北の妻壁 {n_g} 片を架構の外（u 57.19〜57.34）へ。屋根を西 v −0.45・北 u 57.45 まで')
 def welded_mesh(T):
     mm = r.Mesh(); idx = {}
     def vid(p):
@@ -85,6 +93,8 @@ def welded_mesh(T):
         a_, b_, c_ = vid(t[0]), vid(t[1]), vid(t[2])
         if len({a_, b_, c_}) == 3: mm.Faces.AddFace(a_, b_, c_)
     return mm
+
+# 西の柱の頭の、桁を抱く膨らみ（v −0.28 まで）が壁の中へ 80 mm 入るので、柱の外面 v −0.20 で平らに
 L11A = lidx('11a'); col_new = []; col_drop = set()
 for o in m.Objects:
     if o.Attributes.LayerIndex != L11A: continue
@@ -92,7 +102,7 @@ for o in m.Objects:
     if U[:, 1].mean() > 1 or U[:, 1].min() > -0.205: continue
     mm = welded_mesh(T); map_mesh_uv(mm, lambda u, v, z: (u, max(v, -0.20), z)); mm.Compact()
     col_new.append((mm, o.Attributes)); col_drop.add(str(o.Attributes.Id))
-log.append(f'本館：西の柱 {len(col_new)} 本の頭の膨らみを壁の外面で平らに')
+log.append(f'本館：西の柱 {len(col_new)} 本の頭の膨らみを柱の外面（壁の内面）で平らに')
 
 # 桁（Brep）→ メッシュで作り直す（楕円 幅 200×高さ 400、弧に沿って）
 def ellipse_tube(vc, zc, ua, ub, li, name):
@@ -115,7 +125,7 @@ new_objs = []; drop = set()
 for o in m.Objects:
     if o.Attributes.LayerIndex == L11C:
         u0, u1, v0, v1, z0, z1 = bbox_uv(o.Geometry); vc = (v0 + v1) / 2; zc = (z0 + z1) / 2
-        ub = 57.0 if vc < 6 else 57.2                    # 西の桁は北の妻壁の中で止める、東は外側の梁の外面まで
+        ub = 57.19                                       # 北の端の架構（外の梁の外面）で止める（妻壁の内側）
         new_objs.append(ellipse_tube(vc, zc, u0, ub, L11C, '桁（西）' if vc < 6 else '桁（東）')); drop.add(str(o.Attributes.Id))
 
 # ================================================================ 西館の架構
@@ -222,12 +232,23 @@ for o in m.Objects:
     g = o.Geometry
     if o.Attributes.LayerIndex != L17 or not isinstance(g, r.Mesh): continue
     u0, u1, v0, v1, z0, z1 = bbox_uv(g)
-    if not (v0 > -0.22 and v1 < 0.22 and z1 < 3950 and u1 - u0 > 0.2): continue
-    V = mesh_V(g); top = V[:, 2] > z1 - 5; zb = roof10_bottom(V[top])
-    ok = ~np.isnan(zb)
+    west = v0 > -0.36 and v1 < -0.19 and z1 < 3950 and u1 - u0 > 0.2
+    gable = u0 > 57.1 and v1 > 11.5
+    if not (west or gable): continue
+    V = mesh_V(g); top = V[:, 2] > V[:, 2].max() - 5 if west else V[:, 2] > 1000
+    zb = roof10_bottom(V[top]); ok = ~np.isnan(zb)
     if ok.any():
-        Vt = V[top]; Vt[ok, 2] = np.maximum(Vt[ok, 2], zb[ok] - 5.0); V[top] = Vt; mesh_set(g, V); g.Normals.ComputeNormals(); n_t += 1
-log.append(f'本館：西の外壁 {n_t} 片の天端を屋根の下面まで')
+        Vt = V[top]; Vt[ok, 2] = (np.maximum(Vt[ok, 2], zb[ok] - 5.0) if west else zb[ok] - 5.0); V[top] = Vt
+        mesh_set(g, V); g.Normals.ComputeNormals(); n_t += 1
+log.append(f'本館：西の外壁・北の妻壁 {n_t} 片の天端を屋根の下面に合わせた')
+
+# すき間の南の端のガラス（19）：本館の西の外壁の外面（v −0.35）まで
+L19 = lidx('19_')
+for o in m.Objects:
+    g = o.Geometry
+    if o.Attributes.LayerIndex == L19 and isinstance(g, r.Mesh):
+        u0, u1, v0, v1, z0, z1 = bbox_uv(g)
+        if 20.9 < u0 and u1 < 21.1 and v1 > -0.3: map_mesh_uv(g, lambda u, v, z: (u, min(v, -0.35), z))
 
 # ================================================================ 外構：柵 h1.2（60）の南の端を門の柱で止める（詳細設計の依頼 10-22 夕 2）
 L60 = lidx('60_')
