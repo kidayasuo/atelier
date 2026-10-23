@@ -100,6 +100,14 @@ for q in [srect(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D), srect(*A.DEL
 for (p, rr) in [(P(25.0, 11.3), 1.9), ((-13.6, -75.2), 3.4)]:
     c = r.Circle(P3(p, 3.0), rr * MM).ToNurbsCurve(); m.Objects.AddCurve(c, attr("77_外構_樹木"))
     m.Objects.AddLine(P3(p, 0), P3(p, 3.0), attr("77_外構_樹木"))
+# 75・76 西館の西の軒の雨：南の雨水樽（円柱）と鎖樋（線）、北の雨庭（輪郭）と鎖樋
+R = A.RAIN
+rb = R["S_BARREL"]; c = r.Circle(P3(P(rb[0], rb[1]), 0), rb[2] * MM).ToNurbsCurve()
+e = up(c, rb[3], True)
+if e: m.Objects.AddExtrusion(e, attr("75_外構_ひろばの家具"))
+m.Objects.AddLine(P3(P(*R["S_CHAIN"]), 0.9), P3(P(*R["S_CHAIN"]), 2.6), attr("75_外構_ひろばの家具"))
+add_curve(srect(*R["N_GARDEN"]), "76_外構_舗装の区分", close=True)
+m.Objects.AddLine(P3(P(*R["N_DOWN"]), 0.1), P3(P(*R["N_DOWN"]), 4.0), attr("76_外構_舗装の区分"))
 # 78・79 みなみのさんかく（data/minami.json、minami_common.py）。平面の (x, y)＝(v, u) を本館の W(u, v) で 3dm の xy へ
 import minami_common as MN
 def mw(g): return [W(y, x) for x, y in list(g.exterior.coords)[:-1]]
