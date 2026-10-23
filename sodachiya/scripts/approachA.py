@@ -181,7 +181,7 @@ for s in np.arange(12.6, 17.6, 0.6):
     poly(srect(s, s + 0.3, *BUMP), fc="#333333", ec="none", z=3.3)
 T(P(14.95, 5.0), "車路 5.5", 5.2, c="#777777", rot=ROT)
 # planting strip along the road in front of the stalls / delivery path
-for (s0, s1) in [(7.2, 12.2), (17.7, 22.7), (22.7, 29.4)]:
+for (s0, s1) in [(7.2, 12.2), (17.7, 22.7), (STAFF_BIKE["road_gap"][1], 29.4)]:
     poly(srect(s0, s1, 0.15, STALL_D0 - 0.1), fc="#E3ECD6", ec="none", z=2)
 # visitors' walk: aisle -> along the hedge (outside) -> park gate
 poly(srect(*VWALK), fc=C["arai"], ec="none", z=2.2)
@@ -201,12 +201,23 @@ for kind, a, b in BIKES:
         line(Q([(a, b + 0.35), (a + 1.85, b + 0.35)]), lw=1.0, c="#6b5a3a", z=3.6)
         line(Q([(a + 0.95, b + 0.12), (a + 0.95, b + 0.58)]), lw=0.4, c="#6b5a3a", z=3.6)
 N_BIKE = len(BIKES)
+# staff bikes in the pocket off the delivery path (outside the line), staggered high/low racks at 0.5
+poly(srect(*STAFF_BIKE["pocket"]), fc="#ECE8E0", ec="none", z=2.35)
+STAFF_N = 0
+for _k, _s in enumerate(np.arange(STAFF_BIKE["pocket"][0] + 0.3, STAFF_BIKE["pocket"][1] - 0.15, STAFF_BIKE["pitch"])):
+    _d0 = STAFF_BIKE["pocket"][2] + (0.05 if _k % 2 == 0 else 0.2)
+    line(Q([(_s, _d0), (_s, _d0 + 1.75)]), lw=1.0, c="#6b5a3a", z=3.6)
+    line(Q([(_s - 0.22, _d0 + 0.85), (_s + 0.22, _d0 + 0.85)]), lw=0.4, c="#6b5a3a", z=3.6)
+    STAFF_N += 1
+T(P(24.0, 2.1), "職員の自転車", 4.2, c="#555555", rot=ROT + 90)
+T(P(26.55, 3.45), "通用口", 4.2, c="#555555", rot=ROT + 90)
 
 # ---------------------------------------------------------------- security line: hedges, fences, lattice, gate
 def band(pts, w, fc, ec, z=7):
     g = SL(Q(pts)).buffer(w, cap_style=2, join_style=2)
     poly(g, fc=fc, ec=ec, lw=0.4, z=z)
-HEDGE = [[(22.7, FENCE_D), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D)]]
+SB = STAFF_BIKE; PS0, PS1, PD0, PD = SB["pocket"]; GD0, GD1 = SB["gate"][1], SB["gate"][2]
+HEDGE = [[(22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D)]]
 for h in HEDGE:
     band(h, HW, C["hedge"], C["green"])
     line(Q(h), lw=0.35, c="#3f5a2a", ls=(0, (1.2, 1.2)), z=7.2)
@@ -215,11 +226,14 @@ for h in HEDGE:
         q = g.interpolate(t); ax.add_patch(Circle((q.x, q.y), 0.22, fc="none", ec=C["green"], lw=0.3, zorder=7.1))
 line([P(S_PATH0, HEDGE_D), P(*TIP)], lw=1.0, c=C["green"], z=7)
 # board fence h1.8 on the road side of the plaza
-fence = SL(Q([(22.7, FENCE_D), (32.0, FENCE_D)]))
+fence = SL(Q([(PS1, FENCE_D), (32.0, FENCE_D)]))
 fx = fence.intersection(WB.exterior)
-fx = min(getattr(fx, "geoms", [fx]), key=lambda q: q.distance(SPt(P(22.7, FENCE_D))))
+fx = min(getattr(fx, "geoms", [fx]), key=lambda q: q.distance(SPt(P(PS1, FENCE_D))))
 FENCE_S1 = inv((fx.x, fx.y))[0]
-line([P(22.7, FENCE_D), (fx.x, fx.y)], lw=1.8, c=C["wood"], z=7.5)
+line([P(22.7, PD), P(PS1, PD), P(PS1, GD1)], lw=1.8, c=C["wood"], z=7.5)             # board fence steps east around the staff bike pocket
+line([P(PS1, GD0), P(PS1, FENCE_D), (fx.x, fx.y)], lw=1.8, c=C["wood"], z=7.5)
+line([P(PS1, GD0), P(PS1 + (GD1 - GD0), GD0)], lw=0.4, c="#555555", z=7.6)               # staff gate leaf (opens into the plaza)
+ax.add_patch(Circle(P(PS1, (GD0 + GD1) / 2), 0.16, fc="#555555", ec="white", lw=0.4, zorder=14))
 # park gate (kido) 1.2 wide just SE of the park tip; lattice h1.8 from the gate to the infant fence
 GA0, GA1 = 0.3, 1.5
 line([E(0, 0), E(GA0, 0)], lw=1.6, c=C["wood"], z=7.5)
@@ -229,7 +243,7 @@ for a in np.arange(GA1 + 0.15, La, 0.25):
     line([E(a, -0.12), E(a, 0.12)], lw=0.3, c=C["wood"], z=7.6)
 ax.add_patch(Arc(E(GA0, 0), 2.4, 2.4, angle=math.degrees(math.atan2(*(np.array(E(1, 0)) - np.array(E(0, 0)))[::-1])),
                  theta1=0, theta2=90, lw=0.35, color="#555555", zorder=7.6))
-LINE = Q([(FENCE_S1, FENCE_D), (22.7, FENCE_D), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D), tuple(TIP)]) + [FENCE_END]
+LINE = Q([(FENCE_S1, FENCE_D), (PS1, FENCE_D), (PS1, PD), (22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D), tuple(TIP)]) + [FENCE_END]
 line(LINE, lw=0.5, c=C["red"], ls=(0, (6, 2)), z=13)
 ax.add_patch(Circle(E((GA0 + GA1) / 2, 0), 0.32, fc=C["red"], ec="white", lw=0.5, zorder=14))
 
@@ -274,10 +288,10 @@ if PERGOLA:
         ax.add_patch(Circle(P(s, (PG_D + WALL_D) / 2 + 0.3 * math.sin(s * 2.1)), 0.55, fc="#9DBE7A", ec="none", zorder=10.3, alpha=0.28))
 
 # ---------------------------------------------------------------- plaza
-plz = clipWB(SP(Q([(22.7, FENCE_D), (FENCE_S1 + 0.6, FENCE_D), (31.0, WALL_D + 0.3), (17.7, WALL_D + 0.3), (17.7, NHEDGE_D), (22.7, NHEDGE_D)])))
+plz = clipWB(SP(Q([(22.7, PD), (PS1, PD), (PS1, FENCE_D), (FENCE_S1 + 0.6, FENCE_D), (31.0, WALL_D + 0.3), (17.7, WALL_D + 0.3), (17.7, NHEDGE_D), (22.7, NHEDGE_D)])))
 poly(plz, fc=C["plaza"], ec="none", z=2.2)
 sband(17.7, 29.5, HEDGE_D + HW, WALL_D + 0.3, C["arai"], z=2.3)
-T(P(24.7, 7.4), "ひろば", 8, c="#8a5a2b", rot=ROT, weight="bold")
+T(P(23.2, 8.6), "ひろば", 8, c="#8a5a2b", rot=ROT, weight="bold")
 
 # temizu (roofed 2.7 x 2.7): stone basin + bamboo spout, the walk passes under it
 s0, s1, d0, d1 = TEM
@@ -316,11 +330,11 @@ ax.add_patch(Circle(W(20.55, -9.72), 0.09, fc=C["blue"], ec="none", zorder=9.2))
 s0, s1, d0, d1 = KAM
 ax.add_patch(Circle(P((s0 + s1) / 2, (d0 + d1) / 2), 1.3, fc="#E3D3B8", ec="none", zorder=2.5))
 poly(srect(s0, s1, d0, d1), fc="#C9A97A", ec="#6b4b2a", lw=0.6, z=8)
-for dd in (3.85, 4.35):
+for dd in (d0 + 0.25, d0 + 0.75):
     ax.add_patch(Circle(P(s1 - 0.3, dd), 0.15, fc="#4a3826", ec="none", zorder=8.1))
-poly(srect(26.0, 27.6, FENCE_D + 0.1, FENCE_D + 0.55), fc="#a07a4c", ec=C["wood"], lw=0.3, z=8)   # 薪棚 on the board fence
-for s in np.arange(26.15, 27.6, 0.3):
-    ax.add_patch(Circle(P(s, FENCE_D + 0.33), 0.1, fc="none", ec="#5a3f22", lw=0.3, zorder=8.1))
+poly(srect(*WOOD), fc="#a07a4c", ec=C["wood"], lw=0.3, z=8)   # 薪棚 on the plaza side of the pocket fence, next to the kamado
+for s in np.arange(WOOD[0] + 0.15, WOOD[1], 0.3):
+    ax.add_patch(Circle(P(s, (WOOD[2] + WOOD[3]) / 2), 0.1, fc="none", ec="#5a3f22", lw=0.3, zorder=8.1))
 
 # the tree at the inlet (deciduous)
 tree(P(24.4, 9.6), 1.9)
@@ -330,7 +344,7 @@ poly(srect(*DEL), fc="#E6E6E3", ec="none", z=2.3)
 door = [P(30.4, 1.51), P(29.69, 2.18)]
 line(door, lw=2.4, c="white", z=6); line(door, lw=0.9, c="#555555", z=6.1)
 roof(srect(28.6, 31.2, 1.3, 3.0))
-T(P(26.0, 2.1), "搬入路 1.6", 4.6, c="#555555", rot=ROT + 90)
+T(P(27.4, 2.1), "搬入路 1.6", 4.6, c="#555555", rot=ROT + 90)
 
 # ---------------------------------------------------------------- walking lines (light)
 def walk(pts, c=C["path"], lw=0.9):
@@ -342,9 +356,9 @@ walk([P(4.3, 1.0), P(4.3, 6.0), E(1.4, -2.2), E(0.9, -1.6)], c="#b08a5b", lw=0.7
 
 # ---------------------------------------------------------------- numbers
 N = [(E(0.9, -2.6), 1), (W(-2.4, 0.4), 2), (E(5.2, -1.3), 3), (W(3.0, 3.0), 4), (P(9.6, 11.7), 5), (W(7.5, 1.0), 6),
-     (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (W(20.1, -10.9), 9), (P(24.2, 6.0), 10), (P(24.4, 9.6), 11),
+     (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (W(20.1, -10.9), 9), (P(23.6, 6.6), 10), (P(24.4, 9.6), 11),
      (W(19.6, -2.0), 12), (W(19.4, -3.95), 13), (W(19.6, -7.0), 14), (P(31.2, 0.2), 15), (P(14.95, -1.4), 16),
-     (P(10.0, 9.45), 17), (P(3.6, -1.2), 18), (P(23.6, 2.2), 19)]
+     (P(10.0, 9.45), 17), (P(3.6, -1.2), 18), (P(26.2, 0.6), 19)]
 for p, k in N: num(p, k)
 
 # north arrow + scale (1/200)
@@ -372,7 +386,7 @@ legend = [
     ("7", "手水（屋根 2.7×2.7、石の鉢と筧）"),
     ("8", "菜園（畝 0.9×3.1 ×3、南の日なた）"),
     ("9", "お茶の縁台（西館の南の下屋の下）"),
-    ("10", "かまど（行事のとき）、薪棚は下屋の下"),
+    ("10", "かまど（行事のとき）と薪棚"),
     ("11", "入江の木（落葉樹）"),
     ("12", "西館の南の入口→海峡（3〜5歳はここでバイバイ）"),
     ("13", "「今日のごはん」の窓（入口の脇）"),
@@ -398,7 +412,8 @@ for i, (k, u, v, t) in enumerate(infant200.ITEMS):
 for (k, u, v, t) in infant200.ITEMS:
     q = W(u, v); ax.add_patch(Circle(q, 0.55, fc="white", ec="black", lw=0.35, zorder=20)); T(q, str(k), 4.6, z=21)
 
-notes = ("西館の西の軒の雨：南の端は鎖樋でふた付きの雨水樽（約0.5m³、蛇口 h0.5、菜園の水やり、あふれは浸透桝）へ、北の端は鎖樋で道路側の雨庭（浸透、約4.1×0.7）へ。\n"
+notes = ("職員の自転車：板塀をひろばの西で東へ2.0下げた線の外のポケット（搬入路から、植栽帯に自転車の口 幅1.0）に%d台（高低ずらし0.5ピッチ）。北の返しに職員の通用口 0.9（鍵、ひろばへ開く）。かまどと薪棚はひろばの中へ移した。\n" % STAFF_N + 
+         "西館の西の軒の雨：南の端は鎖樋でふた付きの雨水樽（約0.5m³、蛇口 h0.5、菜園の水やり、あふれは浸透桝）へ、北の端は鎖樋で道路側の雨庭（浸透、約4.1×0.7）へ。\n"
          "見送りの小径：生垣 h1.2（常緑、中にメッシュ柵 h1.2）／下草 0.3／洗い出し 1.9（平ら、ベビーカー可）／砂利 0.2（壁の足もとの跳ね返り止め。屋根と越屋根の蓋は東へ流れる）。\n"
          "アーチの棚：生垣の側に柱（本館の架構に合わせて 3 m ごと）、梁は 1.5 m ごとに本館の壁へ。木戸の屋根 → 棚 → 手水の屋根 → ひろば（ひらける）。\n"
          "車路：道路から 0.5 m にスピードバンプ（幅 0.5）、車室の口はそこから奥（道路から 1.3 m 以上）。来客の門はなし、来客も公園の木戸から。\n"

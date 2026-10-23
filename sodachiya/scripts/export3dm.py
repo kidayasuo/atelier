@@ -50,7 +50,14 @@ P, Q, srect, E, W = A.P, A.Q, A.srect, A.E, A.W
 # 70 hedges (h1.2), board fence (h1.8), lattice (h1.8)
 for h in A.HEDGE: wall(Q(h), 1.2, "70_外構_生垣・塀・格子")
 wall([P(A.S_PATH0, A.HEDGE_D), P(*A.TIP)], 1.2, "70_外構_生垣・塀・格子")
-wall([P(22.7, A.FENCE_D), P(A.FENCE_S1, A.FENCE_D)], 1.8, "70_外構_生垣・塀・格子")
+_ps0, _ps1, _pd0, _pd = A.STAFF_BIKE["pocket"]; _g0, _g1 = A.STAFF_BIKE["gate"][1], A.STAFF_BIKE["gate"][2]
+wall([P(22.7, _pd), P(_ps1, _pd), P(_ps1, _g1)], 1.8, "70_外構_生垣・塀・格子")          # board fence around the staff bike pocket
+wall([P(_ps1, _g0), P(_ps1, A.FENCE_D), P(A.FENCE_S1, A.FENCE_D)], 1.8, "70_外構_生垣・塀・格子")
+wall([P(_ps1, _g0 + 0.03), P(_ps1, _g1 - 0.03)], 1.8, "72_外構_柱")                        # staff gate leaf (closed), same height as the fence
+for _k, _s in enumerate(np.arange(_ps0 + 0.3, _ps1 - 0.15, A.STAFF_BIKE["pitch"])):     # staff bikes (outlines on the ground)
+    _d0 = _pd0 + (0.05 if _k % 2 == 0 else 0.2)
+    add_curve([P(_s - 0.15, _d0), P(_s + 0.15, _d0), P(_s + 0.15, _d0 + 1.75), P(_s - 0.15, _d0 + 1.75)], "74_外構_駐車・駐輪・バンプ", close=True)
+slab(srect(*A.WOOD), 0, 1.2, "75_外構_ひろばの家具")                                      # wood rack next to the kamado
 wall([E(A.GA1, 0), A.FENCE_END], 1.8, "70_外構_生垣・塀・格子")
 wall([E(0, 0), E(A.GA0, 0)], 1.8, "70_外構_生垣・塀・格子")
 # 71 roofs (flat placeholders, 100 thick): kido 2.6, temizu 2.7, lean-to 2.6, back-door canopy 2.6
