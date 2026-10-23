@@ -151,6 +151,10 @@ def poche(segs2d):
         # 端の閉じていない板（屋根のメッシュは小口が無い）：上下 2 本の線の端をつないで閉じる
         lm = linemerge(merged) if merged.geom_type == 'MultiLineString' else merged
         gs = [g for g in getattr(lm, 'geoms', [lm]) if g.geom_type == 'LineString' and g.length > 60]     # 柱（幅約190）も閉じる（押し出しの小口の面が無く、平行な 2 本の線になる）
+        # ほぼ閉じた輪（メッシュの継ぎ目のわずかなすき間で端が 10 mm 以内に戻る。遊戯室の西の外壁など）は閉じる
+        rings = [Polygon(g.coords).buffer(0) for g in gs if len(g.coords) > 3 and np.hypot(*(np.asarray(g.coords[0]) - np.asarray(g.coords[-1]))) < 10]
+        rings = [r for r in rings if r.area > 0]
+        if rings and len(rings) == len(gs): return unary_union(rings)
         if len(gs) == 2:
             a_, b_ = [np.asarray(g.coords) for g in gs]
             if np.hypot(*(a_[0] - b_[0])) > np.hypot(*(a_[0] - b_[-1])): b_ = b_[::-1]
