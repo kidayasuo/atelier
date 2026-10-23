@@ -69,12 +69,21 @@ for o in m.Objects:
         objs.append(dict(layer=ln, kind="mesh", V=V, F=np.array(F)))
     elif isinstance(g, r.Extrusion):
         P = []
+        prof, prof_closed = None, True
         for s in (0.0, 1.0):
             c = g.Profile3d(0, s)
             if c is not None:
-                P += curve_pts(c, 24)
+                if isinstance(c, r.NurbsCurve) and c.Degree == 1:
+                    pts = [(c.Points[i].X, c.Points[i].Y, c.Points[i].Z) for i in range(len(c.Points))]
+                else:
+                    pts = curve_pts(c, 64)
+                P += pts
+                if prof is None:
+                    prof = np.array(pts) / 1000
+                    prof_closed = c.IsClosed
         if P:
-            objs.append(dict(layer=ln, kind="solid", V=np.array(P) / 1000))
+            # 平面は押し出しの断面（下の輪郭）そのもので描く。凸包にすると折れた塀などが大きな三角になる
+            objs.append(dict(layer=ln, kind="solid", V=np.array(P) / 1000, prof=prof, prof_closed=prof_closed))
     elif isinstance(g, r.Brep):
         for fi in range(len(g.Faces)):
             mm = g.Faces[fi].GetMesh(r.MeshType.Any)
@@ -142,6 +151,13 @@ def shape(o, mode):
         if not polys:
             return None
         return unary_union(polys).buffer(0)
+    if o["kind"] == "solid" and mode == "plan" and o.get("prof") is not None:
+        if not o.get("prof_closed"):             # 開いた線の押し出し＝塀・格子などの面。平面では線
+            return LineString(to_s(o["prof"])) if len(o["prof"]) > 1 else None
+        if len(o["prof"]) >= 3:
+            pg = Polygon(to_s(o["prof"])).buffer(0)
+            if pg.area > 1e-5:
+                return pg
     if o["kind"] == "solid":
         h = MultiPoint([tuple(p) for p in P]).convex_hull
         return h if h.area > 1e-5 else None
