@@ -188,6 +188,7 @@ DL = {
     '03_切断（ガラス）': (5, 13, 'Continuous'),
     '04_切断（機械室などの塊）': (7, 35, 'Continuous'),
     '05_断熱（仮）': (2, 9, 'Continuous'),
+    '09_立面の外形': (7, 30, 'Continuous'),
     '10_見えがかり': (7, 13, 'Continuous'),
     '11_見えがかり（家具）': (8, 9, 'Continuous'),
     '12_見えがかり（ガラス）': (5, 9, 'Continuous'),
@@ -714,6 +715,27 @@ def chain_dims(A, xs, y, label_fmt='{:,.0f}'):
     for a, b in zip(xs, xs[1:]):
         if b - a > 300: A.text((a + b) / 2, y + 150, label_fmt.format(b - a), 4.8, '50_寸法', va='bottom', color='#2E7D32')
 
+# 細かい繰り返し（越屋根の木のルーバー：板が 9 mm おきに重なる）は、1/100 で一枚ずつ線を引くと黒い帯に潰れる。
+# 見えがかり・立面では層ごとに一つの外形にまとめる（切り口は一枚ずつのまま）。
+FINE_LAYERS = ('50c_',)
+def merge_fine_far(far):
+    out, grp = [], {}
+    for dd, ob, sil in far:
+        if ob['layer'].startswith(FINE_LAYERS): grp.setdefault(ob['layer'], []).append((dd, ob, sil))
+        else: out.append((dd, ob, sil))
+    for ln, L in grp.items():
+        ss = [t[2] for t in L if t[2] is not None and not t[2].is_empty]
+        if ss: out.append((min(t[0] for t in L), L[0][1], unary_union(ss).buffer(1, join_style=2).buffer(-1, join_style=2)))
+    return out
+def merge_fine_objs(objs):
+    out, grp = [], {}
+    for ob in objs:
+        if ob['layer'].startswith(FINE_LAYERS): grp.setdefault(ob['layer'], []).append(ob)
+        else: out.append(ob)
+    for ln, L in grp.items():
+        out.append(dict(L[0], T=np.concatenate([o['T'] for o in L]), name='（まとめて外形）'))
+    return out
+
 def section_u(A, theta, depth=3200):
     u_r = np.array([math.cos(theta), math.sin(theta), 0.])
     u_t = np.array([-math.sin(theta), math.cos(theta), 0.])
@@ -735,6 +757,7 @@ def section_u(A, theta, depth=3200):
         T2 = np.stack([X(T[keep].reshape(-1, 3)).reshape(-1, 3), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, d.min()), ob, silhouette(T2)))
     occ = draw_cut(A, cuts, insul=True)
+    far = merge_fine_far(far)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
     A.lines([[(-17500, -300), (17800, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)   # GL
@@ -772,6 +795,7 @@ def section_arc(A, Rc, depth=30000):
         T2 = np.stack([X(th[keep]), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, rr.min() - Rc), ob, silhouette(T2)))
     occ = draw_cut(A, cuts, insul=True)
+    far = merge_fine_far(far)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
     A.lines([[(-5000, -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
@@ -890,7 +914,7 @@ def elev_objs():
         z = ob['T'][:, :, 2]
         if z.max() - z.min() < 60 and z.max() < -200: continue                   # 地面に張り付いた板
         out.append(ob)
-    return out
+    return merge_fine_objs(out)
 ELEV_FILL = lambda ob: ('#DCE9F2' if kind(ob['layer']) == 'glass' else
                         '#BDBDBD' if num(ob['layer']) in (10, 20, 26, 28) else
                         '#E9DCC4' if num(ob['layer']) in (11, 22, 18, 30, 50) or ob['layer'].startswith(('16', '19b', '89')) and kind(ob['layer']) != 'glass' else
@@ -921,7 +945,7 @@ def elevation(A, mode, objs):
                 edge = whole.boundary.intersection(sil.buffer(3))
             items.append((d[sel].min(), (ob, edge), sil))
     items.sort(key=lambda t: t[0])
-    occ = Polygon()
+    occ = Polygon(); gocc = Polygon()
     for i, (_, (ob, edge0), sil) in enumerate(items):
         if sil is None or sil.is_empty: continue
         k = kind(ob['layer'])
@@ -932,10 +956,25 @@ def elevation(A, mode, objs):
         if fc != 'white': A.fill(vis, lay, fc=fc, z=1, seam=True)
         eb = edge0 if edge0 is not None else sil.boundary
         edge = eb.difference(occ.buffer(2)) if not occ.is_empty else eb
-        A.geom_lines(edge, lay, lw={'glass': 0.09}.get(k, 0.13), color={'glass': '#3d6f9a'}.get(k, 'k'), z=3)
+        if k != 'glass' and not gocc.is_empty and edge.intersects(gocc):
+            # ガラスの奥に透けて見える線は細く淡く（手前の形が読めるように。弧なので妻からは奥の架構が全部透ける）
+            A.geom_lines(edge.difference(gocc), lay, lw=0.13, color='k', z=3)
+            A.geom_lines(edge.intersection(gocc), lay, lw=0.06, color='0.55', z=3)
+        else:
+            A.geom_lines(edge, lay, lw={'glass': 0.09}.get(k, 0.13), color={'glass': '#3d6f9a'}.get(k, 'k'), z=3)
         if k != 'glass':
             occ = unary_union([occ, sil]) if not occ.is_empty else sil
             if i % 40 == 39: occ = occ.simplify(1)
+        else:
+            gv = vis.buffer(-2)
+            if not gv.is_empty: gocc = unary_union([gocc, gv]) if not gocc.is_empty else gv
+            if i % 40 == 39 and not gocc.is_empty: gocc = gocc.simplify(1)
+    # 建物の外形（空との境）を太い線に：見えがかり 0.13 の中で建物の形が読めるように（線の強弱）
+    allocc = unary_union([g_ for g_ in (occ, gocc) if not g_.is_empty]) if not (occ.is_empty and gocc.is_empty) else occ
+    if not allocc.is_empty:
+        allocc = allocc.buffer(3, join_style=2).buffer(-3, join_style=2)
+        ext = [LineString(p.exterior.coords) for p in getattr(allocc, 'geoms', [allocc]) if p.geom_type == 'Polygon' and p.area > 2e5]
+        if ext: A.geom_lines(unary_union(ext), '09_立面の外形', lw=0.3, color='k', z=3.5)
     return items
 
 def elev_marks(A, mode, objs, h0, h1, with_levels=True):
@@ -992,7 +1031,7 @@ def make_elevations(views, title, note_row):
                 A.ax.add_patch(plt.Rectangle((sx + j * 1000, -2150), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
             A.text(sx, -1750, '0', 5, '80_図名・縮尺・方位'); A.text(sx + 5000, -1750, '5 m', 5, '80_図名・縮尺・方位')
             first = False
-    S.text_paper(W_ - 15, 26, '描いているのは建物だけ（園庭・外構（柵など）・樹木・室内の家具は省いた）。灰色は屋根の面、薄い青はガラス（奥が透けて見える）。'
+    S.text_paper(W_ - 15, 26, '描いているのは建物だけ（園庭・外構（柵など）・樹木・室内の家具は省いた）。灰色は屋根の面、薄い青はガラス（奥は細い灰色の線で透けて見える）。建物の外形は太い線。'
                  + note_row, 6, ha='right', color='0.35')
     return S
 
