@@ -787,6 +787,31 @@ def section_arc(A, Rc, depth=30000):
         A.bubble(x, -1750, str(k))
     return cutb
 
+def airflow(A, playroom=False):
+    """換気の道（ユーザー 10-23夜）：東の地袋・腰の無双窓 → 部屋 → 屋根に沿って梁間を西へ上る → 西の壁の上（縦格子・開いた所）
+    → 西吹き抜け → 越屋根のすき間。playroom：夏の夜は西館の東の覗き窓を開け、遊戯室の吹き抜けを上って西館の越屋根へ（高低差が大きい）。
+    略図（断面の線は 3dm、矢印は考え方）。x＝v（mm、東が右）、z＝FL からの高さ"""
+    roof = lambda v: 4000 - v / 12.0
+    col = '#2F6FB0'
+    def arrow(P, ls='-', lw=0.18):
+        P = np.array(P, float)
+        A.lines([P], '45_換気', lw=lw, color=col, ls=ls, z=9)
+        d = P[-1] - P[-2]; d = d / np.linalg.norm(d); n = np.array([-d[1], d[0]])
+        A.lines([[P[-1] - d * 260 + n * 120, P[-1], P[-1] - d * 260 - n * 120]], '45_換気', lw=lw, color=col, z=9)
+    day = [(14700, 350), (12600, 700), (10500, roof(10500) - 450), (6000, roof(6000) - 320), (1700, roof(1700) - 320),
+           (700, 3950), (-150, 4400)]
+    arrow(day + [(-150, 4420), (-700, 4700)] if not playroom else day + [(-300, 4430)])
+    if playroom:
+        arrow([(-300, 4430), (-650, 4430), (-750, 4250), (-1250, 4100)], ls=(0, (5, 3)))
+        arrow([(-1300, 4400), (-1450, 6000), (-1400, 7600), (-1400, 8900)], ls=(0, (5, 3)))
+        A.text(-1700, 9050, '夏の夜：遊戯室の吹き抜けを上って西館の越屋根へ（覗き窓を夜だけ開ける）', 5, '45_換気', ha='right', va='bottom', color=col)
+        A.text(400, 5300, '昼（中間期）は本館の越屋根のすき間から外へ', 5, '45_換気', ha='left', va='bottom', color=col)
+    else:
+        A.text(400, 5300, '本館の越屋根のすき間から外へ', 5, '45_換気', ha='left', va='bottom', color=col)
+    A.text(6500, roof(6500) - 560, '梁間（梁と梁と屋根のあいだ）を西へ上る', 5, '45_換気', ha='center', va='top', color=col)
+    A.text(14600, 600, '地袋・腰の無双窓', 5, '45_換気', ha='right', va='bottom', color=col)
+
+
 def make_sections():
     W_, H_ = 841, 594
     S = Sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
@@ -810,6 +835,7 @@ def make_sections():
             A.lines([[(x, -1200), (x, 9800)]], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
             A.bubble(x, -1750, nm2)
         levels(A, cutb, 17300, westx < -2000)
+        airflow(A, playroom=(nm == 'C'))
         A.text(extX[0] + 300, extX[3] - 200, f'断面 {nm}　{cap_}', 9, '80_図名・縮尺・方位', ha='left', va='top')
         A.text(extX[0] + 300, -2400, '← 西', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
         A.text(16000, -2400, '東 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')

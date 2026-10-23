@@ -73,10 +73,11 @@ TA, TB, TC = TR[:, 0], TR[:, 1], TR[:, 2]
 TMIN = TR[:, :, :2].min(axis=1); TMAX = TR[:, :, :2].max(axis=1)
 print('walls_spec: surfaces above', len(TR))
 
-def hit(x, y, z0, nobeam=False):
+def hit(x, y, z0, nobeam=False, onlybeam=False):
     """(x, y) の真上で z0 より上のいちばん低い面の高さ（無ければ None）。nobeam：梁・桁を除く"""
     sel = (TMIN[:, 0] <= x) & (TMAX[:, 0] >= x) & (TMIN[:, 1] <= y) & (TMAX[:, 1] >= y)
     if nobeam: sel &= ~TBM
+    if onlybeam: sel &= TBM
     if not sel.any(): return None
     a, b, c = TA[sel], TB[sel], TC[sel]
     v0 = b[:, :2] - a[:, :2]; v1 = c[:, :2] - a[:, :2]; v2 = np.array([x, y]) - a[:, :2]
@@ -131,6 +132,28 @@ def thicken(V, fp, t):
                 V2[k, :2] = V[k, :2] + nrm[best[1]] * d; moved += 1
     return V2, moved
 
+# ---------------------------------------------------------------- 換気の道（ユーザー 10-23夜）
+# 本館の梁間（2 枚組の梁と梁、屋根に囲まれた空間）は、東の地袋・腰の無双窓から入った空気が屋根に沿って西へ上り、
+# 西の壁の上の縦格子を抜けて西吹き抜け → 越屋根のすき間へ出る道。これを横切る壁（梁と平行に走る壁）は梁の下端で止める。
+from uv import xy
+from shapely.geometry import MultiPoint
+def in_honkan(p):
+    u_, v_ = uv(*p); return -0.5 <= u_ <= 57.5 and -0.1 <= v_ <= 12.5
+def flow_dir(p):
+    u_, v_ = uv(*p); d = xy(u_, v_ + 0.01) - xy(u_, v_); return d / np.linalg.norm(d)
+def beam_bottom(p, z0):
+    """本館の梁の下端の高さ（同じ v で、いちばん近い架構の線の 2 枚の梁）"""
+    u_, v_ = uv(*p); uf = min(57.0, max(0.0, round(u_ / 3.0) * 3.0))
+    hs = [hit(*xy(uf + k, v_), z0, onlybeam=True) for k in (0.135, -0.135)]
+    hs = [h for h in hs if h is not None]
+    return min(hs) if hs else None
+# 壁の上にある格子・ガラス（48・49）：保育室などの西の壁の上の縦格子（裏にガラス、上部が開く）。その下の壁は高さを変えない
+OVER = []
+for ob in ns['OBJ']:
+    if re.match(r'^(48|49)_', ob['layer']):
+        P = ob['T'].reshape(-1, 3)
+        if len(P) >= 3: OVER.append((MultiPoint([tuple(q) for q in P[:, :2]]).convex_hull.buffer(5), P[:, 2].min()))
+
 # ---------------------------------------------------------------- 高さ：A・B
 def top_line(fp, t, zfloor):
     """片の長さの軸に沿う上端の直線 (原点, 軸, z(s)=c0+c1*s) と種類"""
@@ -158,6 +181,18 @@ def top_line(fp, t, zfloor):
         hA = max(hs) if all(h is not None for h in hs) and max(hs) < h0 - 150 else None    # 両脇とも低い＝梁のあいだの下
         hc.append((s, h0, hr, hA))
     if not hc: return None
+    cross = in_honkan(c) and abs(float(np.dot(ax, flow_dir(c)))) < 0.94     # 梁と平行（流れを横切る）・斜めの壁
+    if cross:
+        pts = []
+        for s_ in S:
+            p = c + ax * s_
+            q = nearest_points(core, Point(*p))[0]; p = np.array(q.coords[0])
+            hb = beam_bottom(p, z0)
+            if hb is not None: pts.append((s_, hb))
+        if pts:
+            A_ub = [[1, s_] for s_, h in pts]; b_ub = [h for s_, h in pts]
+            res = linprog(c=[-2, 0], A_ub=A_ub, b_ub=b_ub, bounds=[(None, None), (-0.4, 0.4)])
+            if res.success: return c, ax, res.x[0], res.x[1], 'X'
     nA = sum(1 for x in hc if x[3] is not None)
     nUnder = sum(1 for x in hc if x[1] < x[2] - 150)        # 芯の真上が梁（梁の下を沿って走る）
     if nA >= max(1, len(hc) // 2):
@@ -174,7 +209,26 @@ def top_line(fp, t, zfloor):
     if not res.success: return None
     return c, ax, res.x[0], res.x[1], kind
 
-stats = {'thick': 0, 'A': 0, 'B': 0, 'skip': 0}
+# ---------------------------------------------------------------- 閉じる部屋の天井（ユーザー 10-23夜）
+# 静養室（換気は別系統：具合の悪い子の空気をほかへ流さない）と大人の便所 2 室（音とプライバシー）は、
+# 梁の下端の高さに天井を張って閉じ、換気扇で外へ出す。天井の上の梁間は換気の道として開いたまま。
+from shapely.ops import triangulate
+CEIL_ROOMS = ('59_1F_静養室', '59_1F_多目的便所', '59_1F_便所（職員）')
+L38 = [i for i, n in LN.items() if n.startswith('38_')][0]
+CEIL_G = {}
+for rn in CEIL_ROOMS:
+    polys = []
+    for ob in ns['OBJ']:
+        if ob['layer'] == rn:
+            for T in ob['T']:
+                Pg = Polygon(T[:, :2])
+                if Pg.area > 1: polys.append(Pg.buffer(0.5))
+    if polys:
+        G = unary_union(polys).buffer(-0.5)
+        CEIL_G[rn] = max(getattr(G, 'geoms', [G]), key=lambda g: g.area).simplify(5)
+CLOSED = unary_union(list(CEIL_G.values())) if CEIL_G else Polygon()
+
+stats = {'thick': 0, 'A': 0, 'B': 0, 'X': 0, 'grille': 0, 'skip': 0, 'ceil': 0, 'westline': 0}
 log = []
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
@@ -190,7 +244,14 @@ for o in m.Objects:
                 if mv: stats['thick'] += 1
                 zmin, zmax = V[:, 2].min(), V[:, 2].max()
                 zfloor = 3260 if zmin >= 3200 else 0
-                if zmax - zfloor >= 2350 and not (zfloor == 0 and zmax >= 3100):     # 西館の 1 階で 2 階の床の下まである壁はそのまま
+                fb = fp.buffer(80)
+                gs = [hull.intersection(fb) for hull, zg in OVER if abs(zg - zmax) < 80 and hull.intersects(fb)]
+                under_grille = bool(gs) and unary_union(gs).area > 0.3 * fp.area
+                if under_grille: stats['grille'] += 1
+                cu0 = uv(*fp.centroid.coords[0])
+                west_line = zfloor == 0 and 1.3 <= cu0[1] <= 1.9 and 0 <= cu0[0] <= 57.5 and not fp.buffer(150).intersects(CLOSED)
+                if west_line: stats['westline'] += 1        # 保育室などの西の壁の線（v1.6、「一本の線」）：下 2.4 は壁、上は縦格子か開いたまま（西吹き抜けへの換気の出口）。閉じる部屋の壁だけ天井まで
+                if zmax - zfloor >= 2350 and not (zfloor == 0 and zmax >= 3100) and not under_grille and not west_line:     # 西館の 1 階で 2 階の床の下まである壁、格子の下の壁はそのまま
                     tl = top_line(fp, t, zfloor)
                     if tl:
                         c, ax, c0, c1, kind = tl
@@ -205,6 +266,27 @@ for o in m.Objects:
                 for i in range(len(V2)): g.Vertices.SetPoint3dAt(i, r.Point3d(*map(float, V2[i])))
                 g.Normals.ComputeNormals()
     out.Objects.Add(g, o.Attributes)
+for rn, G in CEIL_G.items():
+    tris = [t for t in triangulate(G) if G.buffer(1).contains(t.centroid) and t.area > 10]
+    M = r.Mesh(); TH_C = 30
+    def zt(x, y):
+        h = beam_bottom((x, y), 1500); return h if h is not None else 2400.0
+    for t in tris:
+        pts = list(t.exterior.coords)[:3]
+        i0 = len(M.Vertices)
+        for (x, y) in pts: M.Vertices.Add(float(x), float(y), float(zt(x, y)))
+        for (x, y) in pts: M.Vertices.Add(float(x), float(y), float(zt(x, y) - TH_C))
+        M.Faces.AddFace(i0, i0 + 1, i0 + 2); M.Faces.AddFace(i0 + 3, i0 + 5, i0 + 4)
+    ring = list(G.exterior.coords)[:-1]
+    for k in range(len(ring)):
+        (x1, y1), (x2, y2) = ring[k], ring[(k + 1) % len(ring)]
+        i0 = len(M.Vertices)
+        M.Vertices.Add(x1, y1, zt(x1, y1)); M.Vertices.Add(x2, y2, zt(x2, y2))
+        M.Vertices.Add(x2, y2, zt(x2, y2) - TH_C); M.Vertices.Add(x1, y1, zt(x1, y1) - TH_C)
+        M.Faces.AddFace(i0, i0 + 1, i0 + 2, i0 + 3)
+    M.Normals.ComputeNormals(); M.Compact()
+    a = r.ObjectAttributes(); a.LayerIndex = L38; a.Name = '天井（' + rn.split('_')[-1] + '、閉じて換気扇で外へ。上の梁間は換気の道）'
+    out.Objects.Add(M, a); stats['ceil'] += 1
 out.Write(OUT, 8)
 import collections
 print('walls_spec:', stats, '→', OUT)
