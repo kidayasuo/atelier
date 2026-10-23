@@ -366,7 +366,7 @@ def draw_cut(A, items, insul=False):
             A.fill(pc, lay, fc='k', z=6); A.lines(segs, lay, lw=0.25, z=6)
         if pc is not None and k != 'glass': occ.append(pc.buffer(0))
         n = num(ob['layer'])
-        if insul and n in (10, 20) and segs:      # 屋根（3dm では厚みの無い面）：面の下 50〜200 に断熱（垂木の間 150、仮）
+        if insul and re.match(r'^(10|20)_', ob['layer']) and segs:   # 屋根の本体だけ（10t・10p などの光の筋・太陽光の面には描かない）      # 屋根（3dm では厚みの無い面）：面の下 50〜200 に断熱（垂木の間 150、仮）
             ls_ = unary_union([LineString(q) for q in segs if len(q) >= 2])
             ls_ = linemerge(ls_) if ls_.geom_type == 'MultiLineString' else ls_
             bands = []

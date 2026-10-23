@@ -16,7 +16,7 @@ cp $B/view/* $T/view/
 mkdir -p /home/claude/plans/rhino /tmp/claude-0/mock2
 cp $B/vendor/plans_rhino/* /home/claude/plans/rhino/
 cp -r $B/vendor/mock2/. /tmp/claude-0/mock2/
-pip install --break-system-packages -q rhino3dm shapely scipy matplotlib mapbox_earcut ezdxf trimesh remotezip 2>&1 | tail -1 || true
+pip install --break-system-packages -q rhino3dm shapely scipy matplotlib mapbox_earcut ezdxf trimesh rtree remotezip 2>&1 | tail -1 || true
 if ! fc-list | grep -q "Noto Sans CJK"; then
   (apt-get install -y -q fonts-noto-cjk >/dev/null 2>&1 || pip install --break-system-packages -q fonts-noto-cjk) || echo "日本語の字が入らなかった（図の字が化ける）"
 fi
