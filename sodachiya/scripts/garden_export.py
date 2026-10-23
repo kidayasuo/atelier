@@ -92,7 +92,7 @@ m.Objects.AddMesh(mesh, at(90, "園庭の地形（GL からの起伏）"))
 STEP = 0.1
 GA = np.arange(10.0, 57.01, STEP); GD = np.arange(-1.0, 37.01, STEP)
 AA, DD = np.meshgrid(GA, GD); HH = gc.height(AA, DD)
-levels = [round(v, 1) for v in np.arange(-0.4, 2.21, 0.2) if abs(v) > 1e-6]
+levels = [round(v, 1) for v in np.arange(-0.4, float(HH.max()) + 0.01, 0.2) if abs(v) > 1e-6]
 cs = plt.contour(AA, DD, HH, levels=levels)
 nc = 0
 for lev, segs in zip(cs.levels, cs.allsegs):
