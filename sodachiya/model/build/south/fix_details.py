@@ -304,14 +304,16 @@ FENCE_RET = (R(-8.57, -8.45, 0.96, 1.40, 0.05), -300.0, 900.0)
 # ================================================================ 本館：光の筋（トップライト）と屋根材型の太陽光（本館係、10-23夜）
 # 決定事項（ユーザー、10-23）：トップライトは架構の線に沿う（スパンごとに同じ、部屋の使い方に合わせない）。
 # 2 枚の梁のあいだ（180）の上を開け、垂木はそれぞれ自分の側の梁に載せる（垂木を切らない）ので、すき間がそのまま光の筋になる。
-# 範囲は西の吹き抜けから約 2〜8 m（v 3.6〜9.6、保育室の暗い帯）。乳白ガラス（東向きの緩い屋根で直射が入るため）。
+# 範囲は全長（ユーザー、10-23夜：途中で止める設計上の理由が無ければ全体に）：越屋根の東の立ち上がり（v 1.66）から東の軒先（v 15.0）まで。
+# 西は越屋根の光の帯から、東は軒先へ抜けて、架構の線がそのまま光の線になる。乳白ガラス（東向きの緩い屋根で直射が入るため）。
+# 断熱ガラス戸の線（v 13.5）で外皮を切るので、筋の中（2 枚の梁のあいだ）に固定ガラス（屋根の面の 250 下から筋のガラスの下まで）。
 # 架構 2〜19（u 3〜54、両妻の架構は除く）、ホールも同じ（スケルトンを揃える）。
 # 3dm の屋根は厚みの無い面（z = 4150 − v/12）。筋の両側に立ち上がり 60（幅 60、水はガラスの上を東へ流れる）、
 # その上に乳白ガラス t12（幅 300、v 3.5〜9.7）。筋の内側は垂木の小口をふさぐ板（屋根の面から 150 下まで）。
 # 屋根の仕上げは屋根材型の太陽光（金属の屋根と一体）：越屋根の蓋の東の縁（v 1.95）から東の軒先の手前（v 13.2）まで、
 # 筋の周りを除く。3dm では屋根の面の 20 上に黒い面を置く（色だけ、目地は描かない）。
 import mapbox_earcut as _ec
-SL_U = [3.0 * k for k in range(1, 19)]; SL_V = (3.6, 9.6); SL_HALF = 0.09
+SL_U = [3.0 * k for k in range(1, 19)]; SL_V = (1.76, 15.0); SL_GL = 13.5; SL_HALF = 0.09
 ROOF_Z = lambda v: 4150.0 - v * 1000.0 / 12.0
 def zuv(x, y): return ROOF_Z(uv(x, y)[1])
 def sheet(poly, dz, li, col=None, mat=None):
@@ -376,18 +378,26 @@ if src is not None:
     at_g = r.ObjectAttributes(); at_g.LayerIndex = L10T
     if MAT_FROST >= 0: at_g.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; at_g.MaterialIndex = MAT_FROST
     for u in SL_U:
-        for mm in slab(R(u - 0.15, u - SL_HALF, SL_V[0] - 0.1, SL_V[1] + 0.1, 0.2), 0.0, 60.0): new_objs.append((mm, a10))    # 立ち上がり（南）
-        for mm in slab(R(u + SL_HALF, u + 0.15, SL_V[0] - 0.1, SL_V[1] + 0.1, 0.2), 0.0, 60.0): new_objs.append((mm, a10))    # 立ち上がり（北）
+        for mm in slab(R(u - 0.15, u - SL_HALF, SL_V[0] - 0.1, SL_V[1], 0.2), 0.0, 60.0): new_objs.append((mm, a10))          # 立ち上がり（南）
+        for mm in slab(R(u + SL_HALF, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), 0.0, 60.0): new_objs.append((mm, a10))          # 立ち上がり（北）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_V[0] - 0.1, SL_V[0], 0.05), 0.0, 60.0): new_objs.append((mm, a10))      # 立ち上がり（西の端）
-        for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, SL_V[1] + 0.1, 0.2), 60.0, 72.0): new_objs.append((mm, at_g))     # 乳白ガラス t12
+        for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), 60.0, 72.0): new_objs.append((mm, at_g))           # 乳白ガラス t12（東は軒先で止める、水はそのまま落ちる）
+        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス
         for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（垂木の小口をふさぐ）
             for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), -150.0, 0.0): new_objs.append((mm, a10))
     pv = R(0.3, 57.15, 1.95, 13.2, 0.25).intersection(RP).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
     for mm in sheet(pv, 20.0, L10P): new_objs.append((mm, a_pv))
-    log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}、乳白ガラス）、'
+    log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から軒先まで、乳白ガラス）、'
                f'屋根材型の太陽光 {pv.area / 1e6:.0f} m²（10p）')
     PV_AREA = pv.area / 1e6
+    # 閉じる部屋の換気扇の出口（連携 10-23夜9、本館係）：天井（梁の下端）の換気扇からダクト φ100 を垂木のあいだに真上へ、
+    # 屋根の上の低い換気の頭（ベントキャップ、350 角・高さ 200、屋根の金属と同じ黒）。西の外壁へ横に引くと西吹き抜けを横切るので、真上に抜く。
+    VENTS = [(19.5, 3.0, '静養室'), (32.2, 3.1, '多目的便所'), (41.3, 3.0, '職員の個室')]
+    for uu, vv, nm in VENTS:
+        a_v = r.ObjectAttributes(); a_v.LayerIndex = L10; a_v.Name = f'換気の頭（{nm}の換気扇、φ100）'
+        for mm in slab(R(uu - 0.175, uu + 0.175, vv - 0.175, vv + 0.175, 0.05), 20.0, 220.0): new_objs.append((mm, a_v))
+    log.append(f'本館：閉じる部屋の換気の頭 {len(VENTS)} 個（屋根の上）')
 # 機械室（おむすび）に蓄電池の場所（ユーザー、10-23：夜と停電のときに使う、園は災害時の拠点にもなる）。
 # 機械室は 3dm では塊なので、中に箱を置いて場所だけ示す（約 1.2×2.0 = 2.4 m²、h1.6、家具程度）。
 L35 = lidx('35_')
