@@ -21,7 +21,8 @@ FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"; FONTB = "/usr/s
 for f in (FONT, FONTB): matplotlib.font_manager.fontManager.addfont(f)
 plt.rcParams['font.family'] = FontProperties(fname=FONT).get_name()
 P = json.load(open(os.path.join(ROOT, 'data', 'play.json'), encoding='utf-8'))
-WN = pickle.load(open(os.path.join(ROOT, 'data', 'wnew.pkl'), 'rb'))['WN']
+_D = pickle.load(open(os.path.join(ROOT, 'data', 'wnew.pkl'), 'rb')); WN_S = _D['WN']   # 架構の輪郭（遊具はこれに沿う）
+WN = _D.get('WS', WN_S)                    # 外皮（外壁・床）。北西の斜めの外壁は後退の線まで（10-23）
 WNi = WN.buffer(-150, join_style=2)
 src = r.File3dm.Read(os.path.join(ROOT, 'model', 'sodachiya_exact_mesh.3dm'))
 SLN = {i: l.Name for i, l in enumerate(src.Layers)}
@@ -146,7 +147,7 @@ for rr in (6, 10, 14, 18): ax.add_patch(Circle(cn, rr, fc='none', ec=C['net'], l
 ax.add_patch(Circle(cn, 3, fc='none', ec=C['net'], lw=0.5, zorder=9))
 # 上の遊具（h3.0／h2.0、淡く）
 cw = P['catwalk']; sp = cw['steps']
-band = WN.buffer(-cw['inset'] * 1000, join_style=1).difference(WN.buffer(-(cw['inset'] + cw['width']) * 1000, join_style=1))
+band = WN_S.buffer(-cw['inset'] * 1000, join_style=1).difference(WN_S.buffer(-(cw['inset'] + cw['width']) * 1000, join_style=1))
 CAT = band.intersection(unary_union([RW(cw['u_start'], 60, -0.5, 1.6), RW(cw['north_u'], 60, -0.5, cw['west_w'])]))
 ring_in = Point(xy(nt['u'], -0.9 - nt['w'])).buffer(rg['inner_r'] * 1000, resolution=64)
 RING = Point(xy(nt['u'], -0.9 - nt['w'])).buffer(rg['outer_r'] * 1000, resolution=64).difference(ring_in)
@@ -173,14 +174,16 @@ for u in (36.3, 39.0, 42.0, 45.0, 48.0):
 for k in range(rg['rods']):
     a = 2 * math.pi * (k + 0.5) / rg['rods']; rr_ = (rg['inner_r'] + rg['outer_r']) / 2 * 10
     ax.add_patch(Circle(cn + rr_ * np.array([math.cos(a), math.sin(a)]), 0.45, fc=C['hang'], ec='none', zorder=9))
-# 大戸（外開き 2 枚）
+# 大戸（外付けの引き戸 2 枚、外皮の外面に沿って左右へ引く）
 c45, c48 = Mp(bd['u_cols'][0] + 0.45, face_w(bd['u_cols'][0] + 0.45) + 0.15), Mp(bd['u_cols'][1] - 0.15, face_w(bd['u_cols'][1] - 0.15) + 0.15)
-mid = (c45 + c48) / 2; dv = (c48 - c45); half = np.linalg.norm(dv) / 2; nd = np.array([dv[1], -dv[0]]) / np.linalg.norm(dv)
+mid = (c45 + c48) / 2; dv = (c48 - c45); half = np.linalg.norm(dv) / 2; du_ = dv / np.linalg.norm(dv); nd = np.array([dv[1], -dv[0]]) / np.linalg.norm(dv)
 if np.dot(nd, mid - cn) < 0: nd = -nd
-for pp, sgn in ((c45, 1), (c48, -1)):
-    tip = pp + nd * half; ax.plot(*np.array([pp, tip]).T, lw=0.4, c=C['ink'], zorder=7)
-    a0 = math.degrees(math.atan2(*(dv * sgn)[::-1])); a1 = math.degrees(math.atan2(nd[1], nd[0]))
-    ax.add_patch(Arc(pp, 2 * half, 2 * half, theta1=min(a0, a1) if abs(a0 - a1) < 180 else max(a0, a1), theta2=max(a0, a1) if abs(a0 - a1) < 180 else min(a0, a1) + 360, lw=0.25, color=C['ink'], ls=(0, (2, 1.5)), zorder=7))
+lw_ = bd.get('leaf', 1.85) * 10
+for sgn in (-1, 1):
+    a_ = mid + nd * 0.7; b_ = a_ + du_ * sgn * lw_
+    ax.add_patch(MP(np.array([a_, b_, b_ + nd * 0.45, a_ + nd * 0.45]), closed=True, fc='#8a6a44', ec=C['ink'], lw=0.3, zorder=7))
+    o_ = du_ * sgn * lw_                                                        # 開けた位置（破線）
+    ax.add_patch(MP(np.array([a_ + o_, b_ + o_, b_ + o_ + nd * 0.45, a_ + o_ + nd * 0.45]), closed=True, fc='none', ec=C['ink'], lw=0.25, ls=(0, (2, 1.5)), zorder=7))
 # 番号
 NUM = [(1, Mp(31.2, 9.5)), (2, Mp(37.0, 3.4)), (3, Mp(40.0, 4.6)), (4, Mp(46.2, 4.9)), (5, Mp(48.3, 2.7)),
        (6, Mp(38.0, face_w(38.0) - 1.6)), (7, Mp(44.0, 2.3)), (8, (c45 + c48) / 2 + nd * 4)]
@@ -330,7 +333,7 @@ T(LX, ly, '平面は FL+1.2 で切る。淡い茶は\nキャットウォーク�
 T(LX, ly, '遊び方', 5.6, bold=True, va='top'); ly -= 7
 LEG = ['洞とクスノキ\nてっぺんが 2 階の床に届く', 'デッキと登り壁\n→ キャットウォーク h3.0', '摺鉢ネットと穴の底\nネットからも輪へ登れる',
        '輪 → 網の吊り橋 → 踊り場 h2.0\n空中で一周する', '北の段 3.0→2.0・はしご・\nすべり台（落下 2.0 m 以下）', 'ひだ：くぼみ・丸いベンチ・\n窓辺の腰掛け（モミジを見る）',
-       '北の口のついたて（吸音）', '搬入の大戸（外開き）']
+       '北の口のついたて（吸音）', '搬入の大戸（外付けの引き戸）']
 for i, s_ in enumerate(LEG):
     ax.add_patch(Circle((LX + 2.0, ly - 1.6), 2.0, fc='white', ec=C['ink'], lw=0.4)); T(LX + 2.0, ly - 1.75, str(i + 1), 4.4, ha='center', va='center', bold=True)
     T(LX + 5.5, ly, s_, 4.2, va='top', linespacing=1.25); ly -= 9.5
