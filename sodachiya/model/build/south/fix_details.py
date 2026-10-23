@@ -403,6 +403,128 @@ if not mech.is_empty:
         for o2 in tmp.Objects: new_objs.append((o2.Geometry, a35))
         log.append(f'機械室：蓄電池の箱（u {cu:.1f}・v {cv:.1f}、2.0×1.2×h1.6、35b）')
 
+# ================================================================ 西館：光の筋と屋根材型の太陽光（西館係、10-23夜、本館係の依頼 連携10-23夜5の6）
+# 本館と同じ考えと寸法：架構の線ごとに、2 枚の梁のあいだ（180）の上を開けて光の筋にする（垂木はそれぞれ自分の側の梁に載せる）。
+# 筋の両側と東の端（高い側、水は西へ流れる）に立ち上がり 60、その上に乳白ガラス t12（幅 300）、筋の内側に垂木の小口をふさぐ板 150。
+# 範囲：越屋根の吹き抜けの西（東から 2.5、v −3.4）から、外壁の 1.5 手前まで（遊戯室・2 階の奥の暗い帯）。南の端の架構（u≈21）は除く。
+# 遊戯室の吊り材の受け（2 枚の梁に渡した鋼の板）は筋の下に影を落とす。
+# 屋根は東 8.15 → 西 4.65 を幅いっぱいに流すねじれた面なので、高さは元の屋根（RM20）に鉛直の線を当てて 0.5 m の格子ごとに取る。
+# 太陽光：越屋根の蓋の西の縁（v −2.25）から軒先の 0.3 手前まで、筋の周り ±0.25 を除く。屋根の面の 20 上の黒い面（20p）。
+WS_W = pickle.load(open(WNPKL, 'rb')).get('WS', WN)
+def roof_z(P):
+    P = np.asarray(P, float); z = roof_bottom(P)
+    if np.isnan(z).any():
+        vv = RM20.vertices; bad = np.where(np.isnan(z))[0]
+        for k in bad: z[k] = vv[np.argmin(((vv[:, :2] - P[k, :2]) ** 2).sum(1)), 2]
+    return z
+def drape(poly, dz0, dz1=None, cell=500.0):
+    """平面形を屋根の面に沿わせる（cell の格子で切って高さを取る）。dz1 があれば dz0〜dz1 の板（格子ごとの小さな角柱の集まり）"""
+    from shapely.geometry import box
+    out_ = r.Mesh()
+    if poly.is_empty: return out_
+    x0, y0, x1, y1 = poly.bounds
+    for gx in np.arange(x0, x1, cell):
+        for gy in np.arange(y0, y1, cell):
+            pc = poly.intersection(box(gx, gy, gx + cell, gy + cell))
+            for p in ([pc] if pc.geom_type == 'Polygon' else [q for q in getattr(pc, 'geoms', []) if q.geom_type == 'Polygon']):
+                if p.area < 50: continue
+                p = p.simplify(0.5)
+                rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
+                V2 = np.vstack(rings); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+                T = _ec.triangulate_float64(V2, ends).reshape(-1, 3); zr = roof_z(V2)
+                b = len(out_.Vertices); n = len(V2)
+                if dz1 is None:
+                    for (x, y), z in zip(V2, zr): out_.Vertices.Add(float(x), float(y), float(z + dz0))
+                    for a, b2, c in T: out_.Faces.AddFace(int(a + b), int(b2 + b), int(c + b))
+                else:
+                    for dz in (dz0, dz1):
+                        for (x, y), z in zip(V2, zr): out_.Vertices.Add(float(x), float(y), float(z + dz))
+                    for a, b2, c in T:
+                        out_.Faces.AddFace(int(a + b), int(c + b), int(b2 + b)); out_.Faces.AddFace(int(a + b + n), int(b2 + b + n), int(c + b + n))
+                    k0 = 0
+                    for ring in rings:
+                        L_ = len(ring)
+                        for i in range(L_):
+                            i0 = k0 + i; i1 = k0 + (i + 1) % L_
+                            out_.Faces.AddFace(int(b + i0), int(b + i1), int(b + i1 + n), int(b + i0 + n))
+                        k0 += L_
+    out_.Normals.ComputeNormals(); out_.Compact()
+    return out_
+# 架構の線（2 枚の梁のあいだの芯）を梁から求める
+bm = {str(at.Id): mm for mm, at in beam_new}
+lines_ = []
+for o in m.Objects:
+    if o.Attributes.LayerIndex != L22B: continue
+    g = bm.get(str(o.Attributes.Id), o.Geometry)
+    P = tris(g).reshape(-1, 3)[:, :2]
+    if len(P) < 3: continue
+    c = P.mean(0); X = P - c; w_, vec = np.linalg.eigh(X.T @ X); ax = vec[:, -1]
+    lines_.append((c, ax if ax[0] >= 0 else -ax))
+pairs = []; used = set()
+for i, (c1, a1) in enumerate(lines_):
+    if i in used: continue
+    nrm = np.array([-a1[1], a1[0]])
+    js = [j for j, (c2, a2) in enumerate(lines_) if j != i and j not in used and abs(np.dot(c2 - c1, nrm)) < 400]
+    if not js: continue
+    j = min(js, key=lambda j: abs(np.dot(lines_[j][0] - c1, nrm))); used |= {i, j}
+    c2, a2 = lines_[j]; ax = (a1 + a2); ax /= np.linalg.norm(ax)
+    off = np.dot(c2 - c1, np.array([-ax[1], ax[0]])) / 2.0
+    cc = c1 + np.array([-ax[1], ax[0]]) * off
+    pairs.append((cc, ax))
+WSL = WS_W.buffer(-1500.0, join_style=2)
+EASTV = -3.4
+slits = []
+for cc, ax in pairs:
+    uc, vc = uv(*cc)
+    if uc < 22.0 or uc > 50.5: continue
+    nrm = np.array([-ax[1], ax[0]])
+    p0 = cc - ax * 20000; p1 = cc + ax * 20000
+    band = Polygon([p0 - nrm * 90, p1 - nrm * 90, p1 + nrm * 90, p0 + nrm * 90])
+    zone = WSL.intersection(Polygon([xy(uc - 3, EASTV), xy(uc + 3, EASTV), xy(uc + 3, -30), xy(uc - 3, -30)]))
+    s_ = band.intersection(zone)
+    if s_.geom_type != 'Polygon' or s_.area < 1e5: continue
+    # 筋の長さの両端（t0：西の端、t1：東の端）
+    T_ = [np.dot(np.array(pt) - cc, ax) for pt in s_.exterior.coords]
+    slits.append((cc, ax, nrm, min(T_), max(T_)))
+def strip(cc, ax, nrm, t0, t1, a, b_):
+    return Polygon([cc + ax * t0 + nrm * a, cc + ax * t1 + nrm * a, cc + ax * t1 + nrm * b_, cc + ax * t0 + nrm * b_])
+if slits:
+    L20T = new_layer('20t_西館_光の筋（乳白ガラス、架構の線）', (225, 236, 242), MAT_FROST if MAT_FROST >= 0 else None)
+    L20P = new_layer('20p_西館_屋根材型の太陽光（金属の屋根と一体）', (45, 49, 58))
+    a20 = r.ObjectAttributes(); a20.LayerIndex = L20
+    at_g2 = r.ObjectAttributes(); at_g2.LayerIndex = L20T
+    if MAT_FROST >= 0: at_g2.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; at_g2.MaterialIndex = MAT_FROST
+    SL20 = unary_union([strip(cc, ax, nrm, t0, t1, -90, 90) for cc, ax, nrm, t0, t1 in slits])
+    # 屋根の本体（20 の面それぞれ）から筋を抜く
+    roofs20 = []
+    for o in m.Objects:
+        if o.Attributes.LayerIndex != L20 or not isinstance(o.Geometry, r.Mesh): continue
+        fp = foot(o.Geometry)
+        if fp is None: continue
+        roofs20.append(fp)
+        if fp.intersection(SL20).area < 1e4: continue
+        drop.add(str(o.Attributes.Id))
+        new_objs.append((drape(fp.difference(SL20), 0.0), o.Attributes))
+    RP20 = unary_union(roofs20)
+    for cc, ax, nrm, t0, t1 in slits:
+        uc_ = uv(*cc)[0]; e = 1 if np.dot(ax, np.array(xy(uc_, EASTV)) - np.array(xy(uc_, -10))) > 0 else -1     # 東（高い側）の向き
+        tE = t1 if e > 0 else t0; tW = t0 if e > 0 else t1
+        lo, hi = min(tW, tE + e * 100), max(tW, tE + e * 100)
+        new_objs.append((drape(strip(cc, ax, nrm, lo, hi, -150, -90), 0.0, 60.0), a20))     # 立ち上がり
+        new_objs.append((drape(strip(cc, ax, nrm, lo, hi, 90, 150), 0.0, 60.0), a20))
+        new_objs.append((drape(strip(cc, ax, nrm, min(tE, tE + e * 100), max(tE, tE + e * 100), -90, 90), 0.0, 60.0), a20))  # 東の端
+        glo, ghi = min(tW - e * 100, tE + e * 100), max(tW - e * 100, tE + e * 100)
+        new_objs.append((drape(strip(cc, ax, nrm, glo, ghi, -150, 150), 60.0, 72.0), at_g2))    # 乳白ガラス t12
+        for a_, b_ in ((-102, -90), (90, 102)):                                                  # 筋の内側の板
+            new_objs.append((drape(strip(cc, ax, nrm, t0, t1, a_, b_), -150.0, 0.0), a20))
+    pv20 = RP20.buffer(-300.0, join_style=2)
+    pv20 = pv20.difference(Polygon([xy(u_, 1.0) for u_ in np.arange(19, 53.1, 0.5)] + [xy(u_, -2.25) for u_ in np.arange(53, 18.9, -0.5)]))
+    pv20 = pv20.difference(unary_union([strip(cc, ax, nrm, t0 - 200, t1 + 200, -250, 250) for cc, ax, nrm, t0, t1 in slits]))
+    a_pv2 = r.ObjectAttributes(); a_pv2.LayerIndex = L20P
+    new_objs.append((drape(pv20, 20.0), a_pv2))
+    log.append(f'西館：光の筋 {len(slits)} 本（u ' + '・'.join(f'{uv(*s[0])[0]:.0f}' for s in slits) +
+               f'、2 枚の梁のあいだ 180、東から 2.5〜外壁の 1.5 手前、乳白ガラス、20t）、屋根材型の太陽光 {pv20.area / 1e6:.0f} m²（20p）')
+
 # ================================================================ 書き出し（桁を差し替え、腰壁を足す）
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)

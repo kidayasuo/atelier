@@ -343,7 +343,7 @@ T(LX, ly, '手すりは縦格子 h1.1・すき間 90\n（頭が通らない、�
 T(LX, ly, '支え方', 5.4, bold=True, va='top'); ly -= 6
 T(LX, ly, '重さは梁から吊る（梁のあいだを\n通す）。横の揺れは壁とハの字の\n吊り材で止め、吊り橋だけ揺れる。\n梁 90×700×2 は満員でも持つ\n（略算：曲げ 8.0／11.0 N/mm²）', 4.0, va='top', linespacing=1.3); ly -= 26
 T(LX, ly, '音', 5.4, bold=True, va='top'); ly -= 6
-T(LX, ly, '階段の箱がホールとの衝立。\n北の口に吸音のついたて、\n東の覗き窓ははめ殺し', 4.0, va='top', linespacing=1.3)
+T(LX, ly, '階段の箱がホールとの衝立。\n北の口に吸音のついたて、\n東の覗き窓は夜だけ開く', 4.0, va='top', linespacing=1.3)
 
 out = os.path.join(ROOT, 'out', 'sodachiya_play_present')
 fig.savefig(out + '.pdf'); fig.savefig(out + '.png', dpi=200)

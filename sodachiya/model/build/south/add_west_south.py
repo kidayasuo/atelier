@@ -8,9 +8,8 @@
 - 海峡を東の帯の南端まで延ばす（u 21–22.5、v −0.2〜−3.4、−150）、u 22.5 に框
 - 西館 1 階の間仕切り（キッチン・更衣・はれのま、h3170＝2 階の床の下まで）：配膳口・返却口・戸・見える台所の窓、
   オープンキッチン（東の面に h450〜2270 のガラス）、更衣・前室・便所ははれのまの西の端（西の面に外への戸）、収納とカウンター
-- スパン 7（10-21 午後）：事務を西の壁に寄せる（v 0〜4.5、西吹き抜けを含む）、医務 v 4.5〜12。
-  海峡の側：事務は開ける（低いカウンター「おはようの窓口」＋開いた口、框 150）、医務は壁。境は引き込み戸。
-  海峡に飛び石 1 つ（u 21.75、v 3.4、径 0.9、上面 ±0）
+- スパン 7：医務 v 4.5〜12 の床と海峡の側の壁、框 150、医務との引き込み戸。窓口の帯（v 0〜1.6）・静養室（v 1.6〜4.5）・
+  カウンター・飛び石は add_hall.py の「スパン 7」の節（本館係、10-23夜）。
 """
 import sys, math, pickle, numpy as np, rhino3dm as r
 from shapely.geometry import Polygon, Point, LineString, MultiPolygon
@@ -43,6 +42,7 @@ rename('33_', '33_1F_東の帯（はだし ±0、ホールと一続き）')
 L_MED = lidx('59_1F_医務'); L_WV = lidx('59_1F_西吹き抜け'); L_FURN = lidx('37_')
 L_OFF7 = layer('59_1F_事務（スパン 7、おはようの窓口）', hexc('E9DCC4'))
 L_DOOR = layer('89_遊戯室_搬入の大戸（閉じた状態）', (150, 110, 70))   # レイヤー表を new へ写す前に作る（後で作ると大戸が 00 に落ちる）
+L_RAIN = layer('21g_西館_軒樋・鎖樋（道路の側）', (120, 120, 125))     # 同じく写す前に
 WV = []
 # ガラスの材質は本館のガラス戸（16）と同じ
 mi = m.Layers[lidx('16_')].RenderMaterialIndex
@@ -333,8 +333,9 @@ wall_u(28.25, CB, -20, [(-11.3, -11.95, 0, 2100), (-12.4, -12.95, 0, 2100)])    
 wall_v(-12.2, KN, 28.25)                                                            # 前室｜便所
 mesh_prism(store.intersection(WNi), 0.0, const(2100.0), L_FURN, (210, 190, 160))   # はれのまの収納（延長の箱・季節の棚）
 mesh_prism(R(KN + 0.07, KN + 0.47, -10.4, -3.6, 0.05), 0.0, const(600.0), L_FURN, (196, 160, 110))   # カウンター h600（子どもの流し・おやつの台）
+mesh_prism(R(26.5, 27.15, -3.38, -2.98, 0.05), 0.0, const(500.0), L_FURN, (196, 160, 110))   # 生ごみの受け取り台 h500（返却口の北隣、東の帯の側。3〜5歳のコンポスト当番）
 
-# ---------------------------------------------------------------- スパン 7：事務・医務・おはようの窓口・飛び石
+# ---------------------------------------------------------------- スパン 7：医務・框（中身は add_hall.py）
 def mesh_poly(g):
     V = np.array([[g.Vertices[i].X, g.Vertices[i].Y] for i in range(len(g.Vertices))])
     ps = []
@@ -343,16 +344,31 @@ def mesh_poly(g):
     return unary_union([p.buffer(1) for p in ps if p.area > 0]).buffer(-1)
 for g in WV:                                   # 西吹き抜けの板からスパン 7 を抜く
     flat(mesh_poly(g).difference(R(18.0, 21.0, -0.3, 1.9)), 10, L_WV)
-flat(R(18.0, 21.0, 0.0, 4.5), 10, L_OFF7)
+# 事務の板・おはようの窓口のカウンター・飛び石は add_hall.py の「スパン 7」の節で作る（窓口の帯 v 0–1.6・静養室 v 1.6–4.5、本館係 10-23夜）
 flat(R(18.0, 21.0, 4.5, 12.0), 10, L_MED)
 mesh_prism(R(20.95, 21.05, 4.5, 12.0, 0.02), 0.0, const(2400.0), L_KAMA)            # 医務｜海峡の壁
 mesh_prism(R(20.95, 21.05, 0.0, 4.5, 0.02), -150.0, const(0.0), L_KAMA, (150, 110, 70))   # 框 150（海峡 −150 → ±0）
-mesh_prism(R(20.60, 20.95, 0.2, 2.3, 0.05), 0.0, const(700.0), L_FURN, (196, 160, 110))   # おはようの窓口（低いカウンター）、その北が開いた口（v 2.4〜4.4）
-for a_, b_ in ((18.0, 19.0), (20.4, 21.0)):                                         # 事務｜医務（引き込み戸 u 19.0–20.4、ふだんは開けておく）
+for a_, b_ in ((18.0, 19.0), (20.4, 21.0)):                                         # 静養室｜医務（引き込み戸 u 19.0–20.4）
     mesh_prism(R(a_, b_, 4.45, 4.55), 0.0, const(2400.0), L_KAMA)
 mesh_prism(R(19.0, 20.4, 4.45, 4.55), 2100.0, const(2400.0), L_KAMA)
-_t = np.linspace(0, 2 * math.pi, 41)[:-1]                                            # 飛び石：流れに沿うレンズ形 0.4×1.0、上面 ±0
-mesh_prism(Polygon([xy(21.75 + 0.2 * math.sin(a) * (1 - 0.15 * math.cos(a) ** 2), 3.4 + 0.5 * math.cos(a)) for a in _t]),
-           -150.0, const(0.0), L_KAMA, (165, 160, 150))
+
+# ---------------------------------------------------------------- 西の軒の軒樋と鎖樋（アプローチ係が決めた形、連携10-23夜3）
+# 屋根は西へ流れ、西の縁（外壁の外面＝WS、z 4650）から落ちる。軒樋（120×120）を西の面のまっすぐな所の北の端から
+# 南西の丸みに沿って下屋の西の端まで、外壁の外面に沿わせて水平に回す。鎖樋は 2 本：北＝西の面のまっすぐな所の北の端、
+# 南＝下屋の西の端（下屋の樋もここへ集める）。行き先（雨水樽・北の雨庭）は外構（75・76）。
+ringS = WS.exterior
+def _s(u, v): return ringS.project(Point(*xy(u, v)))
+sN, sS = _s(40.6, -14.99), _s(21.0, -10.1)
+from shapely.ops import substring
+gpath = substring(ringS, min(sN, sS), max(sN, sS))
+gut = gpath.buffer(130, cap_style=2).difference(WS.buffer(10))
+mesh_prism(gut, 4470.0, const(4590.0), L_RAIN)
+for sp in (sN, sS):
+    q = ringS.interpolate(sp); q2 = ringS.interpolate(sp + 50)
+    t_ = np.array([q2.x - q.x, q2.y - q.y]); t_ /= np.linalg.norm(t_); nrm_ = np.array([t_[1], -t_[0]])
+    c_ = np.array([q.x, q.y]) + nrm_ * 70
+    if WS.contains(Point(*c_)): c_ = np.array([q.x, q.y]) - nrm_ * 70
+    mesh_prism(Point(*c_).buffer(18, 8), -300.0, const(4470.0), L_RAIN)
+print('rain: gutter %.1f m, chains 2' % (gpath.length / 1000))
 
 new.Write(OUT, 8); print('written', OUT, len(new.Objects))
