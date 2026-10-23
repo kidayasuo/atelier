@@ -26,7 +26,9 @@ TENON_W = J['柱']['ほぞ']['幅']            # 2.4
 TENON_L = 5.5                             # 布基礎 3＋中の層 3 より短く
 FLOOR_CLR = J['床']['柱の穴のあき']         # 0.1
 KETA = (2.0, 4.0)                         # 平竹ひご 2×4
-KETA_VARIANTS = {'A': 0.05, 'B': 0.10, 'C': 0.15, 'D': 0.20}
+# 描く穴の寸法（短辺×長辺）。ひごの実測 10-23：短辺 1.97〜1.99（節で 2.03〜2.05）、長辺 約 3.90。
+# レーザーの切り幅（約 0.1〜0.2）で、切れた穴はこれより大きくなる。
+KETA_VARIANTS = {'A': (1.95, 3.85), 'B': (2.00, 3.90), 'C': (2.05, 3.95), 'D': (2.10, 4.00)}
 MORTISE_T = 1.70                          # ほぞ穴の幅（柱の厚さ方向、試し切りで決める）
 MORTISE_W = TENON_W + 0.10
 
@@ -72,7 +74,46 @@ def clean(u, min_area=0.5e6):
     return unary_union(gs).simplify(5)
 
 # ---------- 架構（20 本とも同じ形） ----------
-cols = objs('11a_本館_柱'); beams = objs('11b_本館_梁')
+class _Pt:
+    def __init__(self, x, y): self.X, self.Y, self.Z = x, y, 0.0
+
+class MeshCol:
+    """メッシュになった柱（10-23 から西の柱）を、押し出しと同じように扱うための包み"""
+    def __init__(self, g):
+        V, F = g.Vertices, g.Faces
+        P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
+        th = np.arctan2(P[:, 1] - CY, P[:, 0] - CX); ac = th.mean()
+        et = np.array([-math.sin(ac), math.cos(ac)])
+        # 側面だけのメッシュ（ふたが無い）：各面の手前側（接線方向の +側）の辺が、立面の輪郭の線分になる
+        from shapely.ops import polygonize, linemerge
+        from shapely.geometry import LineString, MultiLineString
+        tt = (P[:, :2] - [CX, CY]) @ et; tmax = tt.max()
+        segs = set()
+        for fi in range(len(F)):
+            f = F[fi]; idx = list(dict.fromkeys([f[0], f[1], f[2], f[3]]))
+            fr = [i for i in idx if abs(tt[i] - tmax) < 2]
+            if len(fr) == 2:
+                p, q = [(round(math.hypot(P[i, 0] - CX, P[i, 1] - CY), 1), round(P[i, 2], 1)) for i in fr]
+                if p != q: segs.add(tuple(sorted((p, q))))
+        polys = list(polygonize(MultiLineString([list(sg) for sg in segs])))
+        polys.sort(key=lambda x: -x.area)
+        u = polys[0]
+        if not u.interiors:
+            hole = next(pg for pg in polys[1:] if Polygon(u.exterior).contains(pg.centroid))
+            u = u.difference(hole)
+        self.outer = np.array(u.exterior.coords)[:-1]
+        self.hole = np.array(max(u.interiors, key=lambda i: Polygon(i).area).coords)[:-1]
+        self.PathStart = _Pt(*P[tt.argmin(), :2]); self.PathEnd = _Pt(*P[tt.argmax(), :2])
+        self.ProfileCount = 2
+
+_profile_rz = profile_rz
+def profile_rz(g, k):
+    if isinstance(g, MeshCol):
+        return g.outer if k == 0 else g.hole
+    return _profile_rz(g, k)
+
+cols = [g if isinstance(g, r.Extrusion) else MeshCol(g) for g in objs('11a_本館_柱')]
+beams = [g for g in objs('11b_本館_梁') if isinstance(g, r.Extrusion)]
 col_e = next(g for g in cols if profile_rz(g, 0)[:, 0].max() < 194000)
 col_w = next(g for g in cols if profile_rz(g, 0)[:, 0].max() > 204000)
 beam = beams[0]
@@ -96,22 +137,23 @@ def column_part(g, clr):
     P = to_model(profile_rz(g, 0))
     poly = Polygon(P).buffer(0)
     xmin, xmax = P[:, 0].min(), P[:, 0].max()
-    foot = [x for x, y in P if y < (0 - GL) * S + 0.01]           # FL の高さの足元の 2 点
+    foot = [x for x, y in P if y < (1500 - GL) * S]                # 柱の下の方の幅（足元の小さな面取りは無視）
     x0, x1 = min(foot), max(foot)
+    poly = unary_union([poly, box(x0, (0 - GL) * S, x1, (1500 - GL) * S)])
     # FL から GL まで延ばす（肩が GL に乗る）、その下にほぞ
     ext = box(x0, 0, x1, (0 - GL) * S + 0.01)
     xc = (x0 + x1) / 2
     ten = box(xc - TENON_W / 2, -TENON_L, xc + TENON_W / 2, 0.01)
     part = unary_union([poly, ext, ten])
     hc = to_model(np.array([hole_center(g, 1)]))[0]
-    part = part.difference(stadium(hc[0], hc[1], KETA[0] + clr, KETA[1] + clr))
+    part = part.difference(stadium(hc[0], hc[1], clr[0], clr[1]))
     return part, hc
 
 def beam_part(clr, centers):
     P = to_model(profile_rz(beam, 0))
     part = Polygon(P).buffer(0)
     for hc in centers:
-        part = part.difference(stadium(hc[0], hc[1], KETA[0] + clr, KETA[1] + clr))
+        part = part.difference(stadium(hc[0], hc[1], clr[0], clr[1]))
     return part
 
 # ---------- 書き出し ----------
@@ -193,7 +235,7 @@ def test_sheets():
     for i, (k, c) in enumerate(KETA_VARIANTS.items()):
         x = 6 + i * 11
         s.add(box(x - 4, 22, x + 5, 40))
-        s.add(stadium(x + 0.5, 31, KETA[0] + c, KETA[1] + c))
+        s.add(stadium(x + 0.5, 31, c[0], c[1]))
         for l in label_num(k, x - 0.5, 23.5): s.add(l, 'eng')
     s.add(box(50, 22, 70, 42))                                   # 20 mm 角
     for j in range(4):                                           # 柱の足：幅 4.0、ほぞ 2.4×5.5
