@@ -14,7 +14,9 @@ from uv import xy, uv
 from meshkit import Kit, RW
 
 P = json.load(open(os.path.join(ROOT, 'data', 'play.json'), encoding='utf-8'))
-WN = pickle.load(open(os.path.join(ROOT, 'data', 'wnew.pkl'), 'rb'))['WN']
+_D = pickle.load(open(os.path.join(ROOT, 'data', 'wnew.pkl'), 'rb')); WN = _D['WN']
+WS = _D.get('WS', WN)                     # 外皮（北西の斜めの外壁は後退の線まで、10-23）。遊具は架構の輪郭 WN に沿い、柱に留める
+WSi = WS.buffer(-150, join_style=2)
 WNi = WN.buffer(-150, join_style=2)
 PLAY = WNi.intersection(RW(30.0, 60.0, -30.0, 0.0) if False else WNi)
 src = r.File3dm.Read(os.path.join(ROOT, 'model', 'sodachiya_exact_mesh.3dm'))
@@ -97,7 +99,7 @@ LAND = LAND.intersection(WN.buffer(-cw['inset'] * 1000, join_style=1))   # 壁�
 K.prism(LAND.difference(LOW), ld['h'] * 1000 - TH, ld['h'] * 1000, L_CW, WOOD)
 # 手すり（縦格子 h1.1 の面として、厚さ 30）：通路の縁のうち壁に沿わない所
 def rail(walk, z, skip=None):
-    e = walk.boundary.difference(WN.buffer(-cw['inset'] * 1000 + 20).exterior.buffer(60))
+    e = walk.boundary.difference(WS.buffer(-cw['inset'] * 1000 + 20).exterior.buffer(60))   # 外皮の壁に沿う縁だけ手すりを省く（北西の斜めは外壁まで約0.7あくので手すり）
     if skip is not None: e = e.difference(skip)
     g = e.buffer(15, cap_style=2).intersection(walk.buffer(16))
     if not g.is_empty: K.prism(g, z, z + RAIL, L_CW)
@@ -167,7 +169,7 @@ for sgn in (1, -1):
     slab(s0 + off, s1 + off, z0s, z1s, 15, 200)
 # ---------------------------------------------------------------- ひだ
 def face_w(u):
-    ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WN.exterior)
+    ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WS.exterior)
     pts = [x] if x.geom_type == 'Point' else list(getattr(x, 'geoms', []))
     return max(-0.9 - uv(p.x, p.y)[1] for p in pts) - 0.15
 N_ = P['niche']; b_ = N_['board']
@@ -178,7 +180,7 @@ for ua, ub in P['niches']:
     for uu in (ua - b_, ub):
         K.prism(RWw(uu, uu + b_, w0, wa), 0.0, N_['top_h'] * 1000, L_HD)
 rb = P['round_bench']
-K.prism(WNi.difference(WNi.buffer(-rb['depth'] * 1000, join_style=1)).intersection(RWw(rb['u0'], rb['u1'], 6.5, 20)), 0.0, 350.0, L_HD)
+K.prism(WSi.difference(WSi.buffer(-rb['depth'] * 1000, join_style=1)).intersection(RWw(rb['u0'], rb['u1'], 6.5, 20)), 0.0, 350.0, L_HD)
 nw = P['north_window']
 K.prism(RWw(51.0 - 0.15 - nw['seat_d'], 51.0 - 0.15, nw['w0'], nw['w1']).intersection(WNi), 0.0, nw['seat_h'] * 1000, L_HD)
 # ---------------------------------------------------------------- 天井扇（中心は東から1.2：羽根の先と壁の内面のあいだ約0.45。設計監修10-23）

@@ -15,6 +15,7 @@
 import sys, math, pickle, numpy as np, rhino3dm as r
 from shapely.geometry import Polygon, Point, LineString, MultiPolygon
 from shapely.ops import unary_union
+from shapely import affinity
 import mapbox_earcut as earcut
 sys.path.insert(0, '/tmp/claude-0/t/south')
 from uv import xy, uv
@@ -47,7 +48,8 @@ WV = []
 mi = m.Layers[lidx('16_')].RenderMaterialIndex
 if mi >= 0: m.Layers[L_GL].RenderMaterialIndex = mi
 
-WN = pickle.load(open(WNPKL, 'rb'))['WN']
+_D = pickle.load(open(WNPKL, 'rb')); WN = _D['WN']
+WS = _D.get('WS', WN)          # 外皮の輪郭（外壁・屋根）。北西の斜めの外壁は壁面後退の線まで（10-23、西館係）。架構と間仕切りは WN
 
 # ---------------------------------------------------------------- 消す：西館の外壁（一枚の面）・床の板 32/33/34
 ztop_src = None
@@ -75,9 +77,24 @@ for x, y, z in ztop_src:
     k = (round(x), round(y)); top[k] = max(top.get(k, -1e9), z)
 S = np.array([ring.project(Point(k)) for k in top]); Z = np.array(list(top.values()))
 o_ = np.argsort(S); S, Z = S[o_], Z[o_]
-def ztop(x, y):
+def ztop_old(x, y):
     s = ring.project(Point(x, y))
     return float(np.interp(s, S, Z, period=ring.length))
+# 屋根（20）の上面：WS が WN の外へ出た所は、屋根の面をそのまま延ばす（近くの屋根の点で平面を当てはめる）
+L_ROOF = lidx('20_')
+RP = np.vstack([np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))])
+                for o in m.Objects for g in [o.Geometry] if o.Attributes.LayerIndex == L_ROOF and isinstance(g, r.Mesh)])
+RPu = np.unique(np.round(RP), axis=0)
+def roof_z(x, y, k=40):
+    d = np.hypot(RPu[:, 0] - x, RPu[:, 1] - y); i = np.argsort(d)[:k]
+    A = np.c_[RPu[i, 0] - x, RPu[i, 1] - y, np.ones(len(i))]
+    c, *_ = np.linalg.lstsq(A, RPu[i, 2], rcond=None)
+    return float(c[2])
+def ztop(x, y):
+    p = Point(x, y)
+    if WN.exterior.distance(p) < 40 or WN.buffer(-40).contains(p): return ztop_old(x, y)
+    q = WN.exterior.interpolate(WN.exterior.project(p))                 # 元の外壁の天端と屋根の差をそのまま保つ
+    return roof_z(x, y) + (ztop_old(q.x, q.y) - roof_z(q.x, q.y))
 
 # ---------------------------------------------------------------- 形の道具
 def mesh_prism(poly, z0, zfun, li, col=None):
@@ -133,7 +150,7 @@ const = lambda z: (lambda x, y: z)
 
 # ---------------------------------------------------------------- 外壁（厚さ 150）と開口
 T_W = 150.0
-wall_ring = WN.difference(WN.buffer(-T_W, join_style=2))
+wall_ring = WS.difference(WS.buffer(-T_W, join_style=2))
 # すき間の蓋（50a）の下端：西館の東の面の、ホールの範囲（u 21–30）
 _lid = []
 for o in m.Objects:
@@ -160,7 +177,7 @@ PJ = os.path.join(os.path.dirname(os.path.dirname(WNPKL)), 'data', 'play.json') 
 PANES = []      # (足元の形, 下, 上, レイヤー)
 def face_v(u):
     """u の放射線と西館の外形の、いちばん西の交点の v"""
-    ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WN.exterior)
+    ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WS.exterior)
     pts = [x] if x.geom_type == 'Point' else list(getattr(x, 'geoms', []))
     return min(uv(p.x, p.y)[1] for p in pts)
 if PJ and os.path.exists(PJ):
@@ -192,10 +209,41 @@ if PJ and os.path.exists(PJ):
     if len(pick) == 2:
         mid = (pick[0] + pick[1]) / 2; d = (pick[1] - pick[0]) / np.linalg.norm(pick[1] - pick[0])
         hw = P['big_door']['width'] * 500; hh = P['big_door']['height'] * 1000
-        # 柱の線から外の壁の線へ寄せる（足元の形は壁の厚さを十分に覆う）
-        fp = LineString([mid - d * hw, mid + d * hw]).buffer(900, cap_style=2)
-        OPEN.append((fp, 0, hh)); PANES.append((fp, 0, hh, L_DOOR))
-        print('big door between columns', [tuple(np.round(uv(*p), 2)) for p in pick])
+        # 開口は外皮（WS）の壁に。柱の線から外へ約0.7出た壁まで、足元の形で覆う
+        fp = LineString([mid - d * hw, mid + d * hw]).buffer(1500, cap_style=2)
+        OPEN.append((fp, 0, hh))
+        # 外付けの引き戸 2 枚（10-23、監修の提案：外開きだと扉の先が北西の道路に出る＝建築基準法44条）。閉じた状態を描く
+        nrm = np.array([-d[1], d[0]])
+        if WS.contains(Point(*(mid + nrm * 2000))): nrm = -nrm                   # 外向き
+        hit = LineString([mid, mid + nrm * 4000]).intersection(WS.exterior)
+        t_out = min(np.linalg.norm(np.array(g.coords[0]) - mid) for g in getattr(hit, 'geoms', [hit]))
+        lw = P['big_door'].get('leaf', 1.85) * 1000; tl = 40.0; gap = 30.0
+        for sgn in (-1, 1):                                                        # 戸 2 枚（真ん中で合わさる）
+            a_ = mid + d * sgn * 0.0; b_ = mid + d * sgn * lw
+            leaf = LineString([a_, b_]).buffer(tl / 2, cap_style=2)
+            leaf = affinity.translate(leaf, *(nrm * (t_out + gap + tl / 2)))
+            mesh_prism(leaf, 0.0, const(hh + 50.0), L_DOOR)
+        rail = affinity.translate(LineString([mid - d * (hw + 3700 - 1800), mid + d * (hw + 3700 - 1800)]).buffer(60, cap_style=2), *(nrm * (t_out + 70)))
+        mesh_prism(rail, hh + 50.0, const(hh + 200.0), L_DOOR, (90, 90, 90))      # 上の吊りレール（引きしろ 1.8 ずつ）
+        print('big door between columns', [tuple(np.round(uv(*p), 2)) for p in pick], 'wall out %.2f' % (t_out / 1000))
+# ---------------------------------------------------------------- 外皮が架構の輪郭（WN）より外へ出た所：屋根を延ばし、床を足す（10-23、西館係）
+EXT = WS.difference(WN).buffer(-1).buffer(1)
+def surf(poly, zfun, li, col=None):
+    for p in ([poly] if poly.geom_type == 'Polygon' else list(poly.geoms)):
+        if p.area < 1e4: continue
+        p = Polygon(np.asarray(p.exterior.coords)).buffer(0).segmentize(250)
+        V2 = np.asarray(p.exterior.coords)[:-1]; tri = earcut.triangulate_float64(V2, np.array([len(V2)], dtype=np.uint32)).reshape(-1, 3)
+        mm = r.Mesh()
+        for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zfun(x, y)))
+        for a, b, c in tri: mm.Faces.AddFace(int(a), int(b), int(c))
+        mm.Normals.ComputeNormals(); mm.Compact()
+        at = r.ObjectAttributes(); at.LayerIndex = li
+        if col is not None: at.ColorSource = r.ObjectColorSource.ColorFromObject; at.ObjectColor = (*col, 255)
+        new.Objects.AddMesh(mm, at)
+if EXT.area > 1e5:
+    surf(EXT.buffer(20).intersection(WS), roof_z, L_ROOF)                       # 屋根の面をそのまま延ばす（重なり 20）
+    flat(EXT.buffer(20).intersection(WS), 10, lidx('31_'))                      # 遊戯室の床の板
+    print('skin beyond WN: %.2f m2, roof z at the new eave %.0f' % (EXT.area / 1e6, min(roof_z(*c) for c in np.asarray(EXT.exterior.coords))))
 WALLC = None
 base = wall_ring.difference(unary_union([o[0] for o in OPEN]))
 mesh_prism(base, 0.0, ztop, L_WALL)
@@ -223,7 +271,7 @@ PANES.append((FP_HALL, HB_SILL, HB_HEAD, L_GL))
 L_WD = layer('19b_西館_外の戸（木、開き戸）', (150, 110, 70))
 PANES.append((R(28.5, 29.3, -14.5, -12.3), 0, 2100, L_WD))     # 調理の職員の外からの戸（開口だけで戸が無かった）
 print('hall face: open to lid', round(ZLID_E), 'high window', round(HB_SILL), round(HB_HEAD))
-mid_ring = WN.buffer(-60, join_style=2).difference(WN.buffer(-90, join_style=2))
+mid_ring = WS.buffer(-60, join_style=2).difference(WS.buffer(-90, join_style=2))
 for fp, z0, z1, li in PANES:
     mesh_prism(mid_ring.intersection(fp), float(z0), const(float(z1)), li)
 # すき間の南の端のガラス：海峡の床 −150 から すき間の蓋の下まで
