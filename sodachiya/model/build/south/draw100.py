@@ -110,7 +110,7 @@ for o in m.Objects:
     elif isinstance(g, r.Brep): T = tri_brep(g)
     elif isinstance(g, r.Curve): CURVES.append((ln, A3(curve_pts(g, 96)))); continue
     else: continue
-    if len(T): OBJ.append(dict(layer=ln, T=T, col=lcol(o)))
+    if len(T): OBJ.append(dict(layer=ln, T=T, col=lcol(o), name=o.Attributes.Name or ''))
 print('objects', len(OBJ), 'curves', len(CURVES))
 
 def num(ln):
@@ -150,12 +150,12 @@ def poche(segs2d):
     if not polys:
         # 端の閉じていない板（屋根のメッシュは小口が無い）：上下 2 本の線の端をつないで閉じる
         lm = linemerge(merged) if merged.geom_type == 'MultiLineString' else merged
-        gs = [g for g in getattr(lm, 'geoms', [lm]) if g.geom_type == 'LineString' and g.length > 200]
+        gs = [g for g in getattr(lm, 'geoms', [lm]) if g.geom_type == 'LineString' and g.length > 60]     # 柱（幅約190）も閉じる（押し出しの小口の面が無く、平行な 2 本の線になる）
         if len(gs) == 2:
             a_, b_ = [np.asarray(g.coords) for g in gs]
             if np.hypot(*(a_[0] - b_[0])) > np.hypot(*(a_[0] - b_[-1])): b_ = b_[::-1]
             P = Polygon(np.vstack([a_, b_[::-1]])).buffer(0)
-            if P.area > 0 and P.area < 400 * max(gs[0].length, gs[1].length): return P
+            if P.area > 0 and P.area < 1000 * max(gs[0].length, gs[1].length): return P
         return None
     # 入れ子（穴）は偶奇で
     polys.sort(key=lambda p: -p.area); out = None
@@ -408,9 +408,11 @@ def room_name(ln):
     s = re.sub(r'^\d+[a-z]?_', '', ln); s = re.sub(r'^(1F|2F)_', '', s); return re.sub(r'（.*?）', '', s)
 
 def plan(A, zcut, objs, overhead, level_z):
-    below, cut = [], []
+    below, cut, swings, stairs = [], [], [], []
     for ob in objs:
         if ROOM_LAYERS(ob['layer']): continue
+        if ob['layer'].startswith('19d') and '開き戸' in ob.get('name', ''): swings.append(ob); continue   # 開き戸は開いた形と弧で（下）
+        if num(ob['layer']) == 25: stairs.append(ob); continue                                                   # 階段は踏面の線と矢印で（下）
         z = ob['T'][:, :, 2]
         if num(ob['layer']) == 94 and z.max() > zcut: overhead.append(ob); continue   # 園庭の木：樹冠を破線で
         if z.min() >= zcut: continue
@@ -426,6 +428,60 @@ def plan(A, zcut, objs, overhead, level_z):
     draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below], occ)
     for ob in overhead:
         A.geom_lines(silhouette(ob['T'][:, :, :2]), '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
+    # 階段：踏面の輪郭（切断より下は実線、上は破線）、上り口からの矢印と「上」（2 階では降り口から「下」）
+    for ob in stairs:
+        T = ob['T']; flat = [t for t in T if np.ptp(t[:, 2]) < 1]
+        lv = {}
+        for t in flat: lv.setdefault(round(t[0, 2]), []).append(Polygon(t[:, :2]).buffer(0.5))
+        steps = []
+        for zz in sorted(lv):
+            g = unary_union(lv[zz]).buffer(-0.5)
+            if g.is_empty or g.area < 5e4: continue
+            steps.append((zz, g))
+            on2 = level_z > 1000
+            if on2 or zz + 180 <= zcut: A.geom_lines(g.boundary, '45_階段', lw=0.1, z=6)
+            elif zz <= zcut + 400: A.geom_lines(g.boundary, '45_階段', lw=0.08, color='0.4', ls=(0, (4, 2)), z=6)
+        if len(steps) >= 3:
+            path = np.array([np.array(g.centroid.coords[0]) for zz, g in steps if g.area < 1.0e6])
+            if level_z > 1000:
+                path = path[::-1]; lab = '下'
+            else:
+                lab = '上'
+                # 切断の線（踏面の途中を斜めに切る）
+                k = max(1, sum(1 for zz, g in steps if zz <= zcut) - 1)
+                gk = steps[k][1]; c0 = np.array(gk.centroid.coords[0]); bb = np.array(gk.minimum_rotated_rectangle.exterior.coords)[:4]
+                A.lines([[bb[0] + (bb[2] - bb[0]) * 0.15, bb[2] - (bb[2] - bb[0]) * 0.15]], '45_階段', lw=0.18, z=7)
+            A.lines([path], '45_階段', lw=0.13, z=7)
+            d_ = path[-1] - path[-2]; d_ = d_ / max(np.linalg.norm(d_), 1e-6); nn = np.array([-d_[1], d_[0]])
+            A.lines([[path[-1] - d_ * 250 + nn * 120, path[-1], path[-1] - d_ * 250 - nn * 120]], '45_階段', lw=0.13, z=7)
+            A.text(path[0][0], path[0][1], lab, 5.5, '45_階段', box=True)
+    # 吹抜（2 階）：西館の 1 階の部屋の上で、2 階の床の無い所。対角の細い線と「吹抜」
+    if level_z > 1000:
+        f1 = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^(31|32|33|34|36|57)_', ob['layer'])]
+        f2 = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^(23|25)_', ob['layer'])]
+        f1 = unary_union([g for g in f1 if g is not None]); f2 = unary_union([g for g in f2 if g is not None])
+        void = f1.difference(f2.buffer(30))
+        for g in getattr(void, 'geoms', [void]):
+            if g.geom_type != 'Polygon' or g.area < 3e6: continue
+            mr = np.array(g.minimum_rotated_rectangle.exterior.coords)[:4]
+            for a_, b_ in ((mr[0], mr[2]), (mr[1], mr[3])):
+                A.geom_lines(LineString([a_, b_]).intersection(g), '45_吹抜', lw=0.07, color='0.45', z=5)
+            from shapely.ops import polylabel as _pl
+            q = _pl(g, 50)
+            A.text(q.x, q.y, '吹抜' + ('（遊戯室）' if g.area > 50e6 else ''), 6, '45_吹抜', box=True)
+    # 開き戸：開いた位置の板（90°）と、閉じた位置からの弧（3dm の戸の板の名前に吊元と開く向き、add_inner.py）
+    for ob in swings:
+        if abs(ob['T'][:, :, 2].min() - level_z) > 600: continue
+        mm_ = re.search(r'W(\d+) 吊元 (-?[\d.]+),(-?[\d.]+) 開く (-?[\d.]+),(-?[\d.]+)', ob['name'])
+        if not mm_: continue
+        Wd = float(mm_.group(1)); hp = np.array([float(mm_.group(2)), float(mm_.group(3))]); od = np.array([float(mm_.group(4)), float(mm_.group(5))])
+        P_ = ob['T'][:, :, :2].reshape(-1, 2); far = P_[np.argmax(np.linalg.norm(P_ - hp, axis=1))]
+        cd = (far - hp) / max(np.linalg.norm(far - hp), 1e-6)
+        R_ = Wd - 10
+        arc = [hp + (cd * math.cos(t_) + od * math.sin(t_)) * R_ for t_ in np.linspace(0, math.pi / 2, 30)]
+        A.lines([np.array(arc)], '40_建具', lw=0.08, color='0.25', z=6)
+        leaf = Polygon([hp - cd * 18, hp + cd * 18, hp + cd * 18 + od * R_, hp - cd * 18 + od * R_])
+        A.fill(leaf, '40_建具', fc='k', z=6)
     # 部屋名と面積（床の板から、壁芯。面積表 areas.py と同じ数え方：その階の床から 2.4 m までにある壁を除き、接する壁の半分を足す）
     WL = []
     for ob in objs:
@@ -459,8 +515,15 @@ def plan(A, zcut, objs, overhead, level_z):
             if W_LV is not None:
                 inner = g.difference(W_LV); a = inner.area + 0.5 * W_LV.intersection(inner.buffer(250)).area
             if len(parts) == 1 and ln_ in TAB: a = TAB[ln_] * 1e6
-            p = g.representative_point()
-            A.text(p.x, p.y, f'{room_name(ob["layer"])}\n{a / 1e6:.1f} m²', 5.5, '60_部屋名・面積', box=True)
+            from shapely.ops import polylabel as _pl
+            p = _pl(g.buffer(-150) if g.buffer(-150).geom_type == 'Polygon' and not g.buffer(-150).is_empty else g, 20)   # 壁からいちばん遠い点（線に重ならない）
+            nm_ = room_name(ob["layer"])
+            # 字の幅（1/100、5.5pt ≒ 1 字 0.19 m）が部屋の短い方の幅の 8 割を超えたら「・」で折る
+            mr_ = np.array(g.minimum_rotated_rectangle.exterior.coords); wmin = min(np.linalg.norm(mr_[1] - mr_[0]), np.linalg.norm(mr_[2] - mr_[1]))
+            if len(nm_) * 190 > 0.8 * wmin and '・' in nm_:
+                i_ = nm_.index('・', len(nm_) // 3) if '・' in nm_[len(nm_) // 3:] else nm_.index('・')
+                nm_ = nm_[:i_ + 1] + '\n' + nm_[i_ + 1:]
+            A.text(p.x, p.y, f'{nm_}\n{a / 1e6:.1f} m²', 5.5, '60_部屋名・面積', box=True)
 
 def unwrap(a):
     """角度を π のまわりに（建物は中心の西、±π をまたぐので）"""
@@ -504,6 +567,21 @@ def plan_grid(A):
         A.text(p[0], p[1], '3,000', 4.5, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
     p = at(rd - 1300, (TH_S[0] + TH_S[-1]) / 2)
     A.text(p[0], p[1], '19 × 3,000 = 57,000（背骨 r=205 m で）', 5.5, '50_寸法', rot=((math.degrees((TH_S[0] + TH_S[-1]) / 2) + 180) % 180) - 90, color='#2E7D32')
+
+def plan_vdims(A):
+    """本館の幅の寸法（南の妻の外、放射の向き）：西の外壁の外面・W 通り・西吹き抜け・E 通り・内縁側・軒先"""
+    th = theta_u(-4300)
+    vs = [-0.35, 0.0, 1.6, 12.0, 13.5, 15.0]
+    pts = [at(205000 - v * 1000, th) for v in vs]
+    A.lines([[pts[0], pts[-1]]], '50_寸法', lw=0.09, color='#2E7D32')
+    d_ = (pts[-1] - pts[0]) / np.linalg.norm(pts[-1] - pts[0]); nn = np.array([-d_[1], d_[0]])
+    for q in pts: A.lines([[q - nn * 250, q + nn * 250]], '50_寸法', lw=0.09, color='#2E7D32')
+    ang = math.degrees(math.atan2(d_[1], d_[0]))
+    for v0, v1, q0, q1 in zip(vs, vs[1:], pts, pts[1:]):
+        mid = (q0 + q1) / 2 + nn * 450 * (1 if (v1 - v0) > 1 else 2.2)
+        A.text(mid[0], mid[1], f'{round((v1 - v0) * 1000):,}', 4.5, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
+    q = (pts[0] + pts[-1]) / 2 - nn * 900
+    A.text(q[0], q[1], f'{round((vs[-1] - vs[0]) * 1000):,}（西の外壁の外面〜軒先）', 5, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
 
 def plan_section_marks(A):
     for nm, kind_, val, _ in SECTIONS:
@@ -575,7 +653,7 @@ def make_plans():
     plan_context(A, (x0, x1, y0, y1))
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
     plan(A, 1200, objs1, list(roofs), 0)
-    plan_grid(A); plan_section_marks(A)
+    plan_grid(A); plan_vdims(A); plan_section_marks(A)
     # 縮尺・方位（紙の上の座標＝回した後の座標で）
     for i in range(5):
         A.ax.add_patch(plt.Rectangle((x0 + 2000 + i * 1000, y0 + 1000), 1000, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1), zorder=12))
