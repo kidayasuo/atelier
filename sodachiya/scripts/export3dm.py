@@ -50,11 +50,11 @@ P, Q, srect, E, W = A.P, A.Q, A.srect, A.E, A.W
 # 70 hedges (h1.2), board fence (h1.8), lattice (h1.8)
 for h in A.HEDGE: wall(Q(h), 1.2, "70_外構_生垣・塀・格子")
 wall([P(A.S_PATH0, A.HEDGE_D), P(*A.TIP)], 1.2, "70_外構_生垣・塀・格子")
-_ps0, _ps1, _pd0, _pd = A.STAFF_BIKE["pocket"]; _g0, _g1 = A.STAFF_BIKE["gate"][1], A.STAFF_BIKE["gate"][2]
-wall([P(22.7, _pd), P(_ps1, _pd), P(_ps1, _g1)], 1.8, "70_外構_生垣・塀・格子")          # board fence around the staff bike pocket
-wall([P(_ps1, _g0), P(_ps1, A.FENCE_D), P(A.FENCE_S1, A.FENCE_D)], 1.8, "70_外構_生垣・塀・格子")
-wall([P(_ps1, _g0 + 0.03), P(_ps1, _g1 - 0.03)], 1.8, "72_外構_柱")                        # staff gate leaf (closed), same height as the fence
-for _k, _s in enumerate(np.arange(_ps0 + 0.3, _ps1 - 0.15, A.STAFF_BIKE["pitch"])):     # staff bikes (outlines on the ground)
+_pd0, _pd = A.STAFF_BIKE["pocket"][2], A.STAFF_BIKE["pocket"][3]; _g0, _g1 = A.STAFF_BIKE["gate"]
+wall([P(22.7, _pd), P(_g0, _pd)], 1.8, "70_外構_生垣・塀・格子")          # board fence: east side of the staff bike pocket
+wall([P(_g1, _pd), P(A.SX, _pd)], 1.8, "70_外構_生垣・塀・格子")
+wall([P(_g0 + 0.03, _pd), P(_g1 - 0.03, _pd)], 1.8, "72_外構_柱")                          # staff gate leaf (closed)
+for _k, _s in enumerate(A.STAFF_POS):                                                    # staff bikes (outlines on the ground)
     _d0 = _pd0 + (0.05 if _k % 2 == 0 else 0.2)
     add_curve([P(_s - 0.15, _d0), P(_s + 0.15, _d0), P(_s + 0.15, _d0 + 1.75), P(_s - 0.15, _d0 + 1.75)], "74_外構_駐車・駐輪・バンプ", close=True)
 slab(srect(*A.WOOD), 0, 1.2, "75_外構_ひろばの家具")                                      # wood rack next to the kamado
@@ -92,8 +92,8 @@ for kind, a, b in A.BIKES:
 # 75 plaza furniture
 for b in A.BEDS: slab(srect(*b), 0, 0.4, "75_外構_ひろばの家具")
 slab(srect(*A.KAM), 0, 0.8, "75_外構_ひろばの家具")
-for (va, vb) in [(-9.0, -7.2), (-6.6, -4.8)]: slab(A.rect(19.6, 20.5, va, vb, 2), 0, 0.42, "75_外構_ひろばの家具")
-slab(A.rect(19.3, 20.8, -9.95, -9.5, 2), 0, 0.9, "75_外構_ひろばの家具")
+for (va, vb) in A.TEA["benches_v"]: slab(A.rect(19.6, 20.5, va, vb, 2), 0, 0.42, "75_外構_ひろばの家具")
+slab(A.rect(19.3, 20.8, *A.TEA["shelf_v"], 2), 0, 0.9, "75_外構_ひろばの家具")
 slab(srect(18.9, 19.8, 10.7, 11.25), 0, 0.7, "75_外構_ひろばの家具")        # temizu basin
 for k in range(5):                                                           # strollers (outline)
     u0 = -4.0 + 0.7 * k; add_curve(A.rect(u0 + 0.06, u0 + 0.64, -0.85, 0.15, 2), "75_外構_ひろばの家具", close=True)

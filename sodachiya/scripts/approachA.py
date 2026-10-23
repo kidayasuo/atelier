@@ -202,21 +202,28 @@ for kind, a, b in BIKES:
         line(Q([(a + 0.95, b + 0.12), (a + 0.95, b + 0.58)]), lw=0.4, c="#6b5a3a", z=3.6)
 N_BIKE = len(BIKES)
 # staff bikes in the pocket off the delivery path (outside the line), staggered high/low racks at 0.5
-poly(srect(*STAFF_BIKE["pocket"]), fc="#ECE8E0", ec="none", z=2.35)
+_sb = STAFF_BIKE; _pk = _sb["pocket"]
+POCKET = SP(srect(*_pk)).difference(WB)
+_dl = SL(Q([(_pk[0], _pk[3]), (_pk[1], _pk[3])])).intersection(WB.exterior)
+_dl = min(getattr(_dl, "geoms", [_dl]), key=lambda q: q.distance(SPt(P(_pk[0], _pk[3]))))
+SX = inv((_dl.x, _dl.y))[0]                                        # the east fence of the pocket meets the west building here
+_lean_s = inv(W(LEAN_UV[0] + 0.25, -9.7))[0]                     # west post of the lean-to stands in the pocket
+STAFF_POS = [x for x in np.arange(_sb["bikes"][0], _sb["bikes"][1] + 0.01, _sb["pitch"]) if abs(x - _lean_s) > 0.28 and P(x, STAFF_BIKE["pocket"][2] + 1.0) and not WB.intersects(SL(Q([(x, STAFF_BIKE["pocket"][2]), (x, STAFF_BIKE["pocket"][2] + 1.95)])).buffer(0.23))]
+poly(POCKET, fc="#ECE8E0", ec="none", z=2.35)
 STAFF_N = 0
-for _k, _s in enumerate(np.arange(STAFF_BIKE["pocket"][0] + 0.3, STAFF_BIKE["pocket"][1] - 0.15, STAFF_BIKE["pitch"])):
-    _d0 = STAFF_BIKE["pocket"][2] + (0.05 if _k % 2 == 0 else 0.2)
+for _k, _s in enumerate(STAFF_POS):
+    _d0 = _pk[2] + (0.05 if _k % 2 == 0 else 0.2)
     line(Q([(_s, _d0), (_s, _d0 + 1.75)]), lw=1.0, c="#6b5a3a", z=3.6)
     line(Q([(_s - 0.22, _d0 + 0.85), (_s + 0.22, _d0 + 0.85)]), lw=0.4, c="#6b5a3a", z=3.6)
     STAFF_N += 1
-T(P(24.0, 2.1), "職員の自転車", 4.2, c="#555555", rot=ROT + 90)
-T(P(26.55, 3.45), "通用口", 4.2, c="#555555", rot=ROT + 90)
+T(P(25.0, 2.1), "職員の自転車", 4.2, c="#555555", rot=ROT + 90)
+T(P(23.3, 6.15), "通用口", 4.2, c="#555555", rot=ROT)
 
 # ---------------------------------------------------------------- security line: hedges, fences, lattice, gate
 def band(pts, w, fc, ec, z=7):
     g = SL(Q(pts)).buffer(w, cap_style=2, join_style=2)
     poly(g, fc=fc, ec=ec, lw=0.4, z=z)
-SB = STAFF_BIKE; PS0, PS1, PD0, PD = SB["pocket"]; GD0, GD1 = SB["gate"][1], SB["gate"][2]
+SB = STAFF_BIKE; PS0, PS1, PD0, PD = SB["pocket"]; G0, G1 = SB["gate"]
 HEDGE = [[(22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D)]]
 for h in HEDGE:
     band(h, HW, C["hedge"], C["green"])
@@ -226,14 +233,14 @@ for h in HEDGE:
         q = g.interpolate(t); ax.add_patch(Circle((q.x, q.y), 0.22, fc="none", ec=C["green"], lw=0.3, zorder=7.1))
 line([P(S_PATH0, HEDGE_D), P(*TIP)], lw=1.0, c=C["green"], z=7)
 # board fence h1.8 on the road side of the plaza
-fence = SL(Q([(PS1, FENCE_D), (32.0, FENCE_D)]))
+fence = SL(Q([(25.0, FENCE_D), (32.0, FENCE_D)]))
 fx = fence.intersection(WB.exterior)
-fx = min(getattr(fx, "geoms", [fx]), key=lambda q: q.distance(SPt(P(PS1, FENCE_D))))
+fx = min(getattr(fx, "geoms", [fx]), key=lambda q: q.distance(SPt(P(25.0, FENCE_D))))
 FENCE_S1 = inv((fx.x, fx.y))[0]
-line([P(22.7, PD), P(PS1, PD), P(PS1, GD1)], lw=1.8, c=C["wood"], z=7.5)             # board fence steps east around the staff bike pocket
-line([P(PS1, GD0), P(PS1, FENCE_D), (fx.x, fx.y)], lw=1.8, c=C["wood"], z=7.5)
-line([P(PS1, GD0), P(PS1 + (GD1 - GD0), GD0)], lw=0.4, c="#555555", z=7.6)               # staff gate leaf (opens into the plaza)
-ax.add_patch(Circle(P(PS1, (GD0 + GD1) / 2), 0.16, fc="#555555", ec="white", lw=0.4, zorder=14))
+line([P(22.7, PD), P(G0, PD)], lw=1.8, c=C["wood"], z=7.5)             # board fence: east side of the staff bike pocket, up to the building
+line([P(G1, PD), P(SX, PD)], lw=1.8, c=C["wood"], z=7.5)
+line([P(G0, PD), P(G0, PD + (G1 - G0))], lw=0.4, c="#555555", z=7.6)    # staff gate leaf (opens into the plaza)
+ax.add_patch(Circle(P((G0 + G1) / 2, PD), 0.16, fc="#555555", ec="white", lw=0.4, zorder=14))
 # park gate (kido) 1.2 wide just SE of the park tip; lattice h1.8 from the gate to the infant fence
 GA0, GA1 = 0.3, 1.5
 line([E(0, 0), E(GA0, 0)], lw=1.6, c=C["wood"], z=7.5)
@@ -243,7 +250,7 @@ for a in np.arange(GA1 + 0.15, La, 0.25):
     line([E(a, -0.12), E(a, 0.12)], lw=0.3, c=C["wood"], z=7.6)
 ax.add_patch(Arc(E(GA0, 0), 2.4, 2.4, angle=math.degrees(math.atan2(*(np.array(E(1, 0)) - np.array(E(0, 0)))[::-1])),
                  theta1=0, theta2=90, lw=0.35, color="#555555", zorder=7.6))
-LINE = Q([(FENCE_S1, FENCE_D), (PS1, FENCE_D), (PS1, PD), (22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D), tuple(TIP)]) + [FENCE_END]
+LINE = Q([(SX, PD), (22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D), tuple(TIP)]) + [FENCE_END]
 line(LINE, lw=0.5, c=C["red"], ls=(0, (6, 2)), z=13)
 ax.add_patch(Circle(E((GA0 + GA1) / 2, 0), 0.32, fc=C["red"], ec="white", lw=0.5, zorder=14))
 
@@ -288,7 +295,7 @@ if PERGOLA:
         ax.add_patch(Circle(P(s, (PG_D + WALL_D) / 2 + 0.3 * math.sin(s * 2.1)), 0.55, fc="#9DBE7A", ec="none", zorder=10.3, alpha=0.28))
 
 # ---------------------------------------------------------------- plaza
-plz = clipWB(SP(Q([(22.7, PD), (PS1, PD), (PS1, FENCE_D), (FENCE_S1 + 0.6, FENCE_D), (31.0, WALL_D + 0.3), (17.7, WALL_D + 0.3), (17.7, NHEDGE_D), (22.7, NHEDGE_D)])))
+plz = clipWB(SP(Q([(22.7, PD), (SX + 0.6, PD), (31.0, WALL_D + 0.3), (17.7, WALL_D + 0.3), (17.7, NHEDGE_D), (22.7, NHEDGE_D)])))
 poly(plz, fc=C["plaza"], ec="none", z=2.2)
 sband(17.7, 29.5, HEDGE_D + HW, WALL_D + 0.3, C["arai"], z=2.3)
 T(P(23.2, 8.6), "ひろば", 8, c="#8a5a2b", rot=ROT, weight="bold")
@@ -321,10 +328,10 @@ ax.add_patch(Circle(P(_rb[0], _rb[1]), _rb[2], fc="#BFD9EA", ec="#3d7fb0", lw=0.
 line([P(*RAIN["S_CHAIN"]), P(_rb[0], _rb[1])], lw=0.6, c="#3d7fb0", ls=(0, (1, 1)), z=8)
 ax.add_patch(Circle(P(*RAIN["S_CHAIN"]), 0.08, fc="#3d7fb0", ec="none", zorder=8.1))
 T(P(_rb[0] - 0.2, _rb[1] + 1.05), "雨水樽", 4.6, c="#2a5f8a")
-for (va, vb) in [(-9.0, -7.2), (-6.6, -4.8)]:
+for (va, vb) in TEA["benches_v"]:
     poly(rect(19.6, 20.5, va, vb, 2), fc="#B98E5E", ec=C["wood"], lw=0.4, z=9)             # 縁台 0.9 x 1.8
-poly(rect(19.3, 20.8, -9.95, -9.5, 2), fc="#8a6a44", ec="none", z=9)                     # tea shelf
-ax.add_patch(Circle(W(20.55, -9.72), 0.09, fc=C["blue"], ec="none", zorder=9.2))
+poly(rect(19.3, 20.8, *TEA["shelf_v"], 2), fc="#8a6a44", ec="none", z=9)                     # tea shelf
+ax.add_patch(Circle(W(20.55, sum(TEA["shelf_v"]) / 2), 0.09, fc=C["blue"], ec="none", zorder=9.2))
 
 # kamado (events): masonry 1.0 x 1.0, earth apron, wood rack on the board fence
 s0, s1, d0, d1 = KAM
@@ -356,7 +363,7 @@ walk([P(4.3, 1.0), P(4.3, 6.0), E(1.4, -2.2), E(0.9, -1.6)], c="#b08a5b", lw=0.7
 
 # ---------------------------------------------------------------- numbers
 N = [(E(0.9, -2.6), 1), (W(-2.4, 0.4), 2), (E(5.2, -1.3), 3), (W(3.0, 3.0), 4), (P(9.6, 11.7), 5), (W(7.5, 1.0), 6),
-     (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (W(20.1, -10.9), 9), (P(23.6, 6.6), 10), (P(24.4, 9.6), 11),
+     (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (W(20.1, -10.9), 9), (P(25.0, 8.1), 10), (P(24.4, 9.6), 11),
      (W(19.6, -2.0), 12), (W(19.4, -3.95), 13), (W(19.6, -7.0), 14), (P(31.2, 0.2), 15), (P(14.95, -1.4), 16),
      (P(10.0, 9.45), 17), (P(3.6, -1.2), 18), (P(26.2, 0.6), 19)]
 for p, k in N: num(p, k)
@@ -412,7 +419,7 @@ for i, (k, u, v, t) in enumerate(infant200.ITEMS):
 for (k, u, v, t) in infant200.ITEMS:
     q = W(u, v); ax.add_patch(Circle(q, 0.55, fc="white", ec="black", lw=0.35, zorder=20)); T(q, str(k), 4.6, z=21)
 
-notes = ("職員の自転車：板塀をひろばの西で東へ2.0下げた線の外のポケット（搬入路から、植栽帯に自転車の口 幅1.0）に%d台（高低ずらし0.5ピッチ）。北の返しに職員の通用口 0.9（鍵、ひろばへ開く）。かまどと薪棚はひろばの中へ移した。\n" % STAFF_N + 
+notes = ("職員の自転車：板塀をひろばの西で東へ2.0下げ、建物ぎわまで線の外のポケットに（搬入路から、植栽帯に自転車の口 幅1.0）%d台（高低ずらし0.5ピッチ、北の端は下屋の下）。東の塀の南の端に職員の通用口 0.9（鍵、ひろばへ開く）。縁台と棚は1.6東へ、かまど・薪棚・雨水樽はひろばの中へ。\n" % STAFF_N + 
          "西館の西の軒の雨：南の端は鎖樋でふた付きの雨水樽（約0.5m³、蛇口 h0.5、菜園の水やり、あふれは浸透桝）へ、北の端は鎖樋で道路側の雨庭（浸透、約4.1×0.7）へ。\n"
          "見送りの小径：生垣 h1.2（常緑、中にメッシュ柵 h1.2）／下草 0.3／洗い出し 1.9（平ら、ベビーカー可）／砂利 0.2（壁の足もとの跳ね返り止め。屋根と越屋根の蓋は東へ流れる）。\n"
          "アーチの棚：生垣の側に柱（本館の架構に合わせて 3 m ごと）、梁は 1.5 m ごとに本館の壁へ。木戸の屋根 → 棚 → 手水の屋根 → ひろば（ひらける）。\n"
