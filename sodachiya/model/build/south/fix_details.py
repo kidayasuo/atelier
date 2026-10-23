@@ -310,7 +310,7 @@ FENCE_RET = (R(-8.57, -8.45, 0.96, 1.40, 0.05), -300.0, 900.0)
 # 架構 2〜19（u 3〜54、両妻の架構は除く）、ホールも同じ（スケルトンを揃える）。
 # 3dm の屋根は厚みの無い面（z = 4150 − v/12）。筋の両側に立ち上がり 60（幅 60、水はガラスの上を東へ流れる）、
 # その上に乳白ガラス t12（幅 300、v 3.5〜9.7）。筋の内側は垂木の小口をふさぐ板（屋根の面から 150 下まで）。
-# 屋根の仕上げは屋根材型の太陽光（金属の屋根と一体）：越屋根の蓋の東の縁（v 1.95）から東の軒先の手前（v 13.2）まで、
+# 屋根の仕上げは屋根材型の太陽光（金属の屋根と一体）：越屋根の蓋の東の縁（v 1.95）から東の軒先の水切りの手前（v 14.85、ユーザー 10-24：庇の先まで）まで、
 # 筋の周りを除く。3dm では屋根の面の 20 上に黒い面を置く（色だけ、目地は描かない）。
 import mapbox_earcut as _ec
 SL_U = [3.0 * k for k in range(1, 19)]; SL_V = (1.76, 15.0); SL_GL = 13.5; SL_HALF = 0.09
@@ -385,7 +385,7 @@ if src is not None:
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス
         for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（垂木の小口をふさぐ）
             for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), -150.0, 0.0): new_objs.append((mm, a10))
-    pv = R(0.3, 57.15, 1.95, 13.2, 0.25).intersection(RP).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
+    pv = R(0.3, 57.15, 1.95, 14.85, 0.25).intersection(RP).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
     for mm in sheet(pv, 20.0, L10P): new_objs.append((mm, a_pv))
     log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から軒先まで、乳白ガラス）、'
