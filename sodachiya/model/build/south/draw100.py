@@ -437,15 +437,28 @@ def plan(A, zcut, objs, overhead, level_z):
             fp = silhouette(ob['T'][:, :, :2])
             if fp is not None: WL.append(fp)
     W_LV = unary_union(WL) if WL else None
+    BYL = {}                                     # 同じ部屋（レイヤー）の床の板はまとめてから名前を付ける（足した床の帯に別の名前が付かないように）
     for ob in objs:
         if not ROOM_LAYERS(ob['layer']): continue
         if abs(ob['T'][:, :, 2].max() - level_z) > 1200: continue
         sil = silhouette(ob['T'][:, :, :2])
-        for g in getattr(sil, 'geoms', [sil]) if sil is not None else []:
-            if g.area < 4e6: continue
+        if sil is not None and not sil.is_empty: BYL.setdefault(ob['layer'], []).append(sil.buffer(5, join_style=2))
+    # 面積は面積表（areas.py → sodachiya_areas.json）の数を使う（図と表を必ず一致させる）。表に無いときと、一つのレイヤーに部屋が二つ以上あるときは同じ数え方でここで測る
+    TAB = {}
+    try:
+        import json as _json
+        TAB = _json.load(open(os.path.join(OUTD, 'sodachiya_areas.json'), encoding='utf-8')).get('layers', {})
+    except Exception:
+        TAB = {}
+    for ln_, sils in BYL.items():
+        ob = {'layer': ln_}
+        sil = unary_union(sils).buffer(-5, join_style=2)
+        parts = [g for g in getattr(sil, 'geoms', [sil]) if g.area >= 4e6]
+        for g in parts:
             a = g.area
             if W_LV is not None:
                 inner = g.difference(W_LV); a = inner.area + 0.5 * W_LV.intersection(inner.buffer(250)).area
+            if len(parts) == 1 and ln_ in TAB: a = TAB[ln_] * 1e6
             p = g.representative_point()
             A.text(p.x, p.y, f'{room_name(ob["layer"])}\n{a / 1e6:.1f} m²', 5.5, '60_部屋名・面積', box=True)
 
