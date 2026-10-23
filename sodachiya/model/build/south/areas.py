@@ -1,8 +1,10 @@
 """面積表：3dm（メッシュの版）の部屋の床から、課題の所要室と延床面積を測る
 使い方: python3 areas.py MODEL_MESH.3dm DATA_DIR OUTDIR
 出力：OUTDIR/sodachiya_areas.json（数値、プレゼンの準備などが読む）・.csv・.pdf・.png（A3 横の表）
-- 部屋の面積＝その部屋の床の板（レイヤー 31〜36・41〜45・52〜59）を上から見た形の面積（内法に近い。壁芯ではない）。
-- 延床面積＝1 階の床（本館の床・内縁側・海峡と各部屋の床の和）＋西館 2 階の床（23）。外縁側（14、土足の軒下）は含めない。
+- 部屋の面積は壁芯（ユーザー、10-23）：その部屋の床の板（レイヤー 31〜36・41〜45・52〜59）を上から見た形から壁を除き、
+  その部屋に接する壁（外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38）の半分を足す。
+  床の板の端が壁の外面・真ん中・内面のどこにあっても、壁の真ん中で数えたのと同じになる（設計監修、10-23）。
+- 延床面積＝1 階の床（本館の床・内縁側・海峡と各部屋の床の和）＋西館 2 階の床（23）。これも壁芯（床の下の間仕切りは全部、外壁は半分を数える）。外縁側（14、土足の軒下）は含めない。
 - 園庭＝園庭の地形（90、だいさんかく・しずかのもり）＋みなみのさんかく（data/minami.json の AREA）。
 - 駐車は決定事項_外構の台数（南 3・北 2）。駐輪は決まっていない。
 課題の所要室は 2026-09-28 の課題文から。
@@ -41,7 +43,33 @@ for o in m.Objects:
     T = tris(o.Geometry)
     if not len(T): continue
     FP.setdefault(ln, []).append(footprint(T))
-A = {k: unary_union(v) for k, v in FP.items()}
+A0 = {k: unary_union(v) for k, v in FP.items()}          # 床の板そのもの
+# 壁（上から見た形）：外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38
+WE, WI = [], []
+for o in m.Objects:
+    ln = LAY[o.Attributes.LayerIndex].Name
+    if not re.match(r'^(17|21|24|38)_', ln): continue
+    if ln.startswith('38_'):
+        b = o.Geometry.GetBoundingBox()
+        if b.Max.Z - b.Min.Z < 2000: continue
+    T = tris(o.Geometry)
+    if len(T): (WE if re.match(r'^(17|21)_', ln) else WI).append(footprint(T))
+W_EXT, W_INT = unary_union(WE), unary_union(WI)
+W_ALL = unary_union([W_EXT, W_INT])
+NEAR = 250        # 部屋に接する壁を拾う幅（mm、いちばん厚い壁より広く）
+def wall_center(g):
+    """床の板 g を壁芯の面積に：壁を除き、接する壁の半分を足す"""
+    if g.is_empty: return g
+    inner = g.difference(W_ALL)
+    half = W_ALL.intersection(inner.buffer(NEAR))
+    return inner, half
+class WC:
+    def __init__(s, g):
+        s.g = g
+        if g.is_empty: s.area = 0.0
+        else:
+            inner, half = wall_center(g); s.area = inner.area + 0.5 * half.area
+A = {k: (WC(g) if not re.match(r'^(1[2-5]|23|90)[a-z]?_', k) else g) for k, g in A0.items()}
 area = lambda g: g.area / 1e6
 def S(*prefixes):
     """名前の頭がそろうレイヤーの面積の和（m²）と内訳"""
@@ -90,11 +118,15 @@ for keys, label in ((('59_1F_ホール', '41_'), 'ホール（1・2 階）'), ((
     a, _ = S(*keys); OTHER.append(dict(room=label, planned=round(a, 1)))
 
 # ---------------------------------------------------------------- 延床面積
-F1 = unary_union([g for k, g in A.items() if re.match(r'^(12|13|15|3[1-6]|5[2-9])[a-z]?_', k) and not k.startswith('35_')])
-F1m = unary_union([F1, A.get(next((k for k in A if k.startswith('35_')), ''), Polygon())])
-F2 = unary_union([g for k, g in A.items() if k.startswith('23_')])
+def floor_wc(F):
+    """床の広がり F を壁芯の延床に：外壁を除いて間仕切りの下を足し、接する外壁の半分を足す"""
+    inner = unary_union([F, W_INT.intersection(F.buffer(NEAR))]).difference(W_EXT)
+    return Polygon() if F.is_empty else type('X', (), {'area': inner.area + 0.5 * W_EXT.intersection(inner.buffer(NEAR)).area})()
+F1r = unary_union([g for k, g in A0.items() if re.match(r'^(12|13|15|3[1-6]|5[2-9])[a-z]?_', k) and not k.startswith('35_')])
+F1m = floor_wc(unary_union([F1r, A0.get(next((k for k in A0 if k.startswith('35_')), ''), Polygon())]))
+F2 = floor_wc(unary_union([g for k, g in A0.items() if k.startswith('23_')]))
 TOTAL = dict(floor1=round(area(F1m), 1), floor2=round(area(F2), 1), total=round(area(F1m) + area(F2), 1), limit=2000,
-             building_area_note='床の板から（内法に近い）。外縁側（土足の軒下）は含めない。機械室を含む。')
+             building_area_note='壁芯（床の板から自動）。外縁側（土足の軒下）は含めない。機械室を含む。')
 
 def stamp():
     h = subprocess.run(['git', '-C', os.path.dirname(os.path.abspath(IN)), 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
@@ -119,7 +151,7 @@ W_, H_ = 420, 297
 fig = plt.figure(figsize=(W_ / 25.4, H_ / 25.4)); ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, W_); ax.set_ylim(0, H_); ax.axis('off')
 T = lambda x, y, t, pt=7, **kw: ax.text(x, y, t, fontsize=pt, va='center', **kw)
 T(15, H_ - 15, '面積表　こどもたちの育ち舎', 13)
-T(15, H_ - 22, '3dm（sodachiya_exact_mesh.3dm）の部屋の床から自動で測った値（m²、内法に近い）。要求は課題文（2026-09-28）の「所要室と面積」。', 6.5, color='0.35')
+T(15, H_ - 22, '3dm（sodachiya_exact_mesh.3dm）の部屋の床から自動で測った値（m²、壁芯）。要求は課題文（2026-09-28）の「所要室と面積」。', 6.5, color='0.35')
 cols = [15, 33, 75, 105, 130, 145, 290]
 y = H_ - 34
 for x, h in zip(cols, ['部門', '室', '要求', '計画', '判定', '内訳', '注']): T(x, y, h, 7, color='0.4')
