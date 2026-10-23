@@ -426,15 +426,28 @@ def plan(A, zcut, objs, overhead, level_z):
     draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below], occ)
     for ob in overhead:
         A.geom_lines(silhouette(ob['T'][:, :, :2]), '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
-    # 部屋名と面積（床の板から）
+    # 部屋名と面積（床の板から、壁芯。面積表 areas.py と同じ数え方：その階の床から 2.4 m までにある壁を除き、接する壁の半分を足す）
+    WL = []
+    for ob in objs:
+        ln = ob['layer']
+        if not re.match(r'^(17|21|24|38)_', ln): continue
+        z = ob['T'][:, :, 2]
+        if ln.startswith('38_') and z.max() - z.min() < 2000: continue
+        if z.min() < level_z + 2400 and z.max() > level_z + 100:
+            fp = silhouette(ob['T'][:, :, :2])
+            if fp is not None: WL.append(fp)
+    W_LV = unary_union(WL) if WL else None
     for ob in objs:
         if not ROOM_LAYERS(ob['layer']): continue
         if abs(ob['T'][:, :, 2].max() - level_z) > 1200: continue
         sil = silhouette(ob['T'][:, :, :2])
         for g in getattr(sil, 'geoms', [sil]) if sil is not None else []:
             if g.area < 4e6: continue
+            a = g.area
+            if W_LV is not None:
+                inner = g.difference(W_LV); a = inner.area + 0.5 * W_LV.intersection(inner.buffer(250)).area
             p = g.representative_point()
-            A.text(p.x, p.y, f'{room_name(ob["layer"])}\n{g.area / 1e6:.1f} m²', 5.5, '60_部屋名・面積', box=True)
+            A.text(p.x, p.y, f'{room_name(ob["layer"])}\n{a / 1e6:.1f} m²', 5.5, '60_部屋名・面積', box=True)
 
 def unwrap(a):
     """角度を π のまわりに（建物は中心の西、±π をまたぐので）"""

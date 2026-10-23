@@ -41,6 +41,7 @@ L_COOK = layer('57_1F_調理の更衣・便所・前室', hexc('E3DAF0'))
 rename('33_', '33_1F_東の帯（はだし ±0、ホールと一続き）')
 L_MED = lidx('59_1F_医務'); L_WV = lidx('59_1F_西吹き抜け'); L_FURN = lidx('37_')
 L_OFF7 = layer('59_1F_事務（スパン 7、おはようの窓口）', hexc('E9DCC4'))
+L_DOOR = layer('89_遊戯室_搬入の大戸（閉じた状態）', (150, 110, 70))   # レイヤー表を new へ写す前に作る（後で作ると大戸が 00 に落ちる）
 WV = []
 # ガラスの材質は本館のガラス戸（16）と同じ
 mi = m.Layers[lidx('16_')].RenderMaterialIndex
@@ -157,7 +158,6 @@ OPEN = [  # (足元の形, 下, 上)  上=None は天端まで
 import json, os
 PJ = os.path.join(os.path.dirname(os.path.dirname(WNPKL)), 'data', 'play.json') if WNPKL.endswith('wnew.pkl') else None
 PANES = []      # (足元の形, 下, 上, レイヤー)
-L_DOOR = layer('89_遊戯室_搬入の大戸（閉じた状態）', (150, 110, 70))
 def face_v(u):
     """u の放射線と西館の外形の、いちばん西の交点の v"""
     ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WN.exterior)

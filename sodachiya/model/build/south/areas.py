@@ -36,40 +36,48 @@ def footprint(T):
     ps = [p for p in ps if p.area > 1.0]
     return unary_union(ps) if ps else Polygon()
 
-FP = {}
+FP, FZ = {}, {}
 for o in m.Objects:
     ln = LAY[o.Attributes.LayerIndex].Name
     if not re.match(r'^(1[2-5]|23|3[1-6]|4[1-5]b?|5[2-9]|90)[a-z]?_', ln): continue
     T = tris(o.Geometry)
     if not len(T): continue
-    FP.setdefault(ln, []).append(footprint(T))
+    FP.setdefault(ln, []).append(footprint(T)); FZ[ln] = max(FZ.get(ln, -1e9), float(T[:, :, 2].max()))
 A0 = {k: unary_union(v) for k, v in FP.items()}          # 床の板そのもの
 # 壁（上から見た形）：外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38
-WE, WI = [], []
+# 壁は、その階の人のいる高さ（床から 2.4 m まで）にあるものだけ（2 階の間仕切りや、すき間の蓋より上の外壁が 1 階の部屋を削らないように）
+WL = []           # (上から見た形, 下端, 上端, 外壁か)
 for o in m.Objects:
     ln = LAY[o.Attributes.LayerIndex].Name
     if not re.match(r'^(17|21|24|38)_', ln): continue
-    if ln.startswith('38_'):
-        b = o.Geometry.GetBoundingBox()
-        if b.Max.Z - b.Min.Z < 2000: continue
+    b = o.Geometry.GetBoundingBox()
+    if ln.startswith('38_') and b.Max.Z - b.Min.Z < 2000: continue
     T = tris(o.Geometry)
-    if len(T): (WE if re.match(r'^(17|21)_', ln) else WI).append(footprint(T))
-W_EXT, W_INT = unary_union(WE), unary_union(WI)
-W_ALL = unary_union([W_EXT, W_INT])
+    if len(T): WL.append((footprint(T), b.Min.Z, b.Max.Z, bool(re.match(r'^(17|21)_', ln))))
+BAND = 2400
+_WC = {}
+def walls_at(zf):
+    """床の高さ zf の階の壁：(外壁, 間仕切り, 全部)"""
+    k = round(zf / 500)
+    if k not in _WC:
+        sel = [w for w in WL if w[1] < zf + BAND and w[2] > zf + 100]
+        we = unary_union([w[0] for w in sel if w[3]]); wi = unary_union([w[0] for w in sel if not w[3]])
+        _WC[k] = (we, wi, unary_union([we, wi]))
+    return _WC[k]
 NEAR = 250        # 部屋に接する壁を拾う幅（mm、いちばん厚い壁より広く）
-def wall_center(g):
+def wall_center(g, zf):
     """床の板 g を壁芯の面積に：壁を除き、接する壁の半分を足す"""
-    if g.is_empty: return g
+    W_ALL = walls_at(zf)[2]
     inner = g.difference(W_ALL)
     half = W_ALL.intersection(inner.buffer(NEAR))
     return inner, half
 class WC:
-    def __init__(s, g):
+    def __init__(s, g, zf):
         s.g = g
         if g.is_empty: s.area = 0.0
         else:
-            inner, half = wall_center(g); s.area = inner.area + 0.5 * half.area
-A = {k: (WC(g) if not re.match(r'^(1[2-5]|23|90)[a-z]?_', k) else g) for k, g in A0.items()}
+            inner, half = wall_center(g, zf); s.area = inner.area + 0.5 * half.area
+A = {k: (WC(g, FZ[k]) if not re.match(r'^(1[2-5]|23|90)[a-z]?_', k) else g) for k, g in A0.items()}
 area = lambda g: g.area / 1e6
 def S(*prefixes):
     """名前の頭がそろうレイヤーの面積の和（m²）と内訳"""
@@ -118,13 +126,15 @@ for keys, label in ((('59_1F_ホール', '41_'), 'ホール（1・2 階）'), ((
     a, _ = S(*keys); OTHER.append(dict(room=label, planned=round(a, 1)))
 
 # ---------------------------------------------------------------- 延床面積
-def floor_wc(F):
+def floor_wc(F, zf):
     """床の広がり F を壁芯の延床に：外壁を除いて間仕切りの下を足し、接する外壁の半分を足す"""
+    W_EXT, W_INT, _ = walls_at(zf)
     inner = unary_union([F, W_INT.intersection(F.buffer(NEAR))]).difference(W_EXT)
     return Polygon() if F.is_empty else type('X', (), {'area': inner.area + 0.5 * W_EXT.intersection(inner.buffer(NEAR)).area})()
 F1r = unary_union([g for k, g in A0.items() if re.match(r'^(12|13|15|3[1-6]|5[2-9])[a-z]?_', k) and not k.startswith('35_')])
-F1m = floor_wc(unary_union([F1r, A0.get(next((k for k in A0 if k.startswith('35_')), ''), Polygon())]))
-F2 = floor_wc(unary_union([g for k, g in A0.items() if k.startswith('23_')]))
+F1m = floor_wc(unary_union([F1r, A0.get(next((k for k in A0 if k.startswith('35_')), ''), Polygon())]), 0.0)
+Z2 = max((z for k, z in FZ.items() if k.startswith('23_')), default=3170.0)
+F2 = floor_wc(unary_union([g for k, g in A0.items() if k.startswith('23_')]), Z2)
 TOTAL = dict(floor1=round(area(F1m), 1), floor2=round(area(F2), 1), total=round(area(F1m) + area(F2), 1), limit=2000,
              building_area_note='壁芯（床の板から自動）。外縁側（土足の軒下）は含めない。機械室を含む。')
 
