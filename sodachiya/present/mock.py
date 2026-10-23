@@ -488,7 +488,20 @@ frame(ax, 1, "敷地と園庭", "この案が敷地から生まれたこと（�
 top = H - M - 16
 T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
 # 設計趣旨はpresent/設計趣旨.txt（ユーザーが編集する）。改行は無視してつなぐ
-concept = "".join(l.strip() for l in open(os.path.join(HERE, "設計趣旨.txt"), encoding="utf-8").read().splitlines() if not l.strip().startswith("#"))
+# 設計趣旨は present/設計趣旨.txt（ユーザーが編集する）。「#」の行は読まない。空行で段落を分け、段落の中の改行はつなぐ
+_paras, _cur = [], []
+for _l in open(os.path.join(HERE, "設計趣旨.txt"), encoding="utf-8").read().splitlines():
+    _l = _l.strip()
+    if _l.startswith("#"):
+        continue
+    if not _l:
+        if _cur:
+            _paras.append("".join(_cur)); _cur = []
+        continue
+    _cur.append(_l)
+if _cur:
+    _paras.append("".join(_cur))
+concept = "".join(_paras)
 import textwrap
 def jwrap(t, width=40.0):
     """全角1・半角0.5で数えて折り返す。句読点は行頭に置かない（ぶら下げ）"""
@@ -503,10 +516,13 @@ def jwrap(t, width=40.0):
     return out + ([cur] if cur else [])
 
 
-lines = jwrap(concept, 40)
-for i, s in enumerate(lines):
-    T(ax, M + 6, top - 28 - i * 6.0, s, 3.6)
-dimnote(ax, M + 6, top - 28 - len(lines) * 6.0 - 1, f"設計趣旨 約{len(concept.replace(' ', ''))}字（課題は300字程度）。文字3.6 mmなら1 m離れて読める")
+_y = top - 28
+for _p in _paras:
+    for s in jwrap("　" + _p, 40):     # 段落の頭は全角1字下げ
+        T(ax, M + 6, _y, s, 3.6)
+        _y -= 6.0
+    _y -= 2.0                         # 段落のあいだ
+dimnote(ax, M + 6, _y + 1, f"設計趣旨 約{len(concept.replace(' ', ''))}字（課題は300字程度）。文字3.6 mmなら1 m離れて読める")
 # 立地と応答（趣旨の右、2×2）
 rx = M + 6 + 250
 title(ax, rx, top - 12, "立地と応答")
