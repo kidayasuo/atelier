@@ -488,7 +488,7 @@ frame(ax, 1, "敷地と園庭", "この案が敷地から生まれたこと（�
 top = H - M - 16
 T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
 # 設計趣旨はpresent/設計趣旨.txt（ユーザーが編集する）。改行は無視してつなぐ
-concept = "".join(l.strip() for l in open(os.path.join(HERE, "設計趣旨.txt"), encoding="utf-8").read().splitlines())
+concept = "".join(l.strip() for l in open(os.path.join(HERE, "設計趣旨.txt"), encoding="utf-8").read().splitlines() if not l.strip().startswith("#"))
 import textwrap
 def jwrap(t, width=40.0):
     """全角1・半角0.5で数えて折り返す。句読点は行頭に置かない（ぶら下げ）"""
