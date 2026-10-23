@@ -323,13 +323,40 @@ def merged(segs, pc):
             if g.geom_type == 'LineString' and g.length > 1: out.append(list(g.coords))
     return out
 
+JOIN_CLOSE = 60          # 壁の角の欠け・すき間をふさぐ幅の半分（mm）。開口（800 以上）はふさがない
+def wall_group(ob):
+    """壁としてまとめて描くもの：構造・外壁・間仕切り（struct）と、しつらえの間仕切り・腰壁（38）"""
+    k = kind(ob['layer'])
+    if k in ('struct', 'other') and num(ob['layer']) in (17, 21, 24, 18, 38): return 'wall'
+    if num(ob['layer']) == 38: return 'partition'
+    return None
+def joined(polys):
+    """同じ種類の壁の切り口をひとつにし、角の欠けとすき間を閉じる（設計監修 10-23：角で壁がぶつかるだけになっていた）"""
+    g = unary_union([p.buffer(0) for p in polys if p is not None and not p.is_empty])
+    if g.is_empty: return g
+    return g.buffer(JOIN_CLOSE, join_style=2, mitre_limit=3).buffer(-JOIN_CLOSE, join_style=2, mitre_limit=3).union(g)
+
 def draw_cut(A, items, insul=False):
-    """items=[(ob, poche, segs)] → 塗りと切り口。返り値＝隠す形（ガラス以外）"""
+    """items=[(ob, poche, segs)] → 塗りと切り口。返り値＝隠す形（ガラス以外）
+    壁（外壁・間仕切り・しつらえの間仕切り）は種類ごとにひとつにまとめて、角をつないだ輪郭を一本で描く。"""
     occ = []
+    groups = {}
+    for ob, pc, segs in items:
+        gname = wall_group(ob)
+        if gname and pc is not None and not pc.is_empty: groups.setdefault(gname, []).append(pc)
+    for gname, polys in groups.items():
+        g = joined(polys)
+        lay = LAYER_OF['struct'][0] if gname == 'wall' else LAYER_OF['furn'][0]
+        if gname == 'wall': A.fill(g, lay, fc='k', z=6); A.geom_lines(g.boundary, lay, lw=0.25, z=6)
+        else: A.fill(g, lay, fc='0.62', z=5); A.geom_lines(g.boundary, lay, lw=0.15, z=6)
+        occ.append(g)
     for ob, pc, segs in items:
         k = kind(ob['layer']); lay = LAYER_OF[k][0]
+        grouped = wall_group(ob) is not None and pc is not None and not pc.is_empty
         segs = merged(segs, pc)
-        if k == 'glass':
+        if grouped:
+            pass
+        elif k == 'glass':
             A.lines(segs, lay, lw=0.1, z=6)
         elif k == 'furn':
             A.fill(pc, lay, fc='0.62', z=5); A.lines(segs, lay, lw=0.15, z=6)
