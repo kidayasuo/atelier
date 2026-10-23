@@ -286,6 +286,7 @@ class Ax:
             for ring in [gg.exterior] + list(gg.interiors):
                 c = np.asarray(ring.coords); verts += c.tolist(); codes += [Path.MOVETO] + [Path.LINETO] * (len(c) - 2) + [Path.CLOSEPOLY]
             s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='#777777' if hatch else (fc if seam else 'none'), lw=LW(0.05), hatch=hatch, zorder=z))
+            if fc == 'w' and not hatch: continue                 # 白抜き（間仕切り）は DXF では塗らない（線だけ）
             h = s.sh.msp.add_hatch(color=7 if fc == 'k' else 8, dxfattribs={'layer': layer})
             if hatch: h.set_pattern_fill('ANSI31', scale=20.0)
             h.paths.add_polyline_path([s.P(*p) for p in list(gg.exterior.coords)[:-1]], is_closed=True, flags=1)
@@ -327,8 +328,9 @@ JOIN_CLOSE = 60          # 壁の角の欠け・すき間をふさぐ幅の半�
 def wall_group(ob):
     """壁としてまとめて描くもの：構造・外壁・間仕切り（struct）と、しつらえの間仕切り・腰壁（38）"""
     k = kind(ob['layer'])
-    if k in ('struct', 'other') and num(ob['layer']) in (17, 21, 24, 18, 38): return 'wall'
-    if num(ob['layer']) == 38: return 'partition'
+    n = num(ob['layer'])
+    if n in (17, 21): return 'wall'                 # 外壁：黒く塗る
+    if n in (24, 18, 38): return 'partition'        # 間仕切り（間柱＋スギ板の軽い壁、10-23夜の構法 A・B・C）：白抜きの二本線
     return None
 def joined(polys):
     """同じ種類の壁の切り口をひとつにし、角の欠けとすき間を閉じる（設計監修 10-23：角で壁がぶつかるだけになっていた）"""
@@ -344,12 +346,19 @@ def draw_cut(A, items, insul=False):
     for ob, pc, segs in items:
         gname = wall_group(ob)
         if gname and pc is not None and not pc.is_empty: groups.setdefault(gname, []).append(pc)
-    for gname, polys in groups.items():
-        g = joined(polys)
-        lay = LAYER_OF['struct'][0] if gname == 'wall' else LAYER_OF['furn'][0]
-        if gname == 'wall': A.fill(g, lay, fc='k', z=6); A.geom_lines(g.boundary, lay, lw=0.25, z=6)
-        else: A.fill(g, lay, fc='0.62', z=5); A.geom_lines(g.boundary, lay, lw=0.15, z=6)
+    GW = {gname: joined(polys) for gname, polys in groups.items()}
+    if 'wall' in GW and 'partition' in GW:         # 角をつなぐのは外壁と間仕切りをいっしょに（間仕切りは外壁に突き当たる）
+        d_ = joined(groups['wall'] + groups['partition']).difference(GW['wall'])
+        GW['partition'] = unary_union([x for x in getattr(d_, 'geoms', [d_]) if x.geom_type in ('Polygon', 'MultiPolygon') and x.area > 100])
+    lay = LAYER_OF['struct'][0]
+    if 'partition' in GW:
+        g = GW['partition']
+        A.fill(g, lay, fc='w', z=5.5)
+        edge = g.boundary.difference(GW['wall'].buffer(1)) if 'wall' in GW else g.boundary
+        A.geom_lines(edge, lay, lw=0.2, z=6.2)
         occ.append(g)
+    if 'wall' in GW:
+        g = GW['wall']; A.fill(g, lay, fc='k', z=6); A.geom_lines(g.boundary, lay, lw=0.25, z=6); occ.append(g)
     for ob, pc, segs in items:
         k = kind(ob['layer']); lay = LAYER_OF[k][0]
         grouped = wall_group(ob) is not None and pc is not None and not pc.is_empty
