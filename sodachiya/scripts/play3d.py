@@ -75,7 +75,7 @@ for k, h in enumerate(ds['hs']):
 # ---------------------------------------------------------------- 北の口のついたて（L 字、h2.4、吸音）
 sc = P['screen']
 K.prism(RWw(sc['u0'], sc['u1'], sc['w'], sc['w'] + sc['t']), 0.0, sc['h'] * 1000, L_DK)
-K.prism(RWw(sc['u0'], sc['u0'] + sc['t'], 0.0, sc['w'] + sc['t']), 0.0, sc['h'] * 1000, L_DK)
+K.prism(RWw(sc['u0'], sc['u0'] + sc['t'], 0.15, sc['w'] + sc['t']), 0.0, sc['h'] * 1000, L_DK)   # 折り返しは東の壁の内面（東から0.15）まで（設計監修10-23）
 # ---------------------------------------------------------------- キャットウォーク（東 h3.0 → 北の段 → h2.0）・輪・踊り場
 cw = P['catwalk']; H = cw['h'] * 1000; TH = 100.0; RAIL = cw['rail'] * 1000; sp = cw['steps']
 band = WN.buffer(-cw['inset'] * 1000, join_style=1).difference(WN.buffer(-(cw['inset'] + cw['width']) * 1000, join_style=1))
@@ -93,6 +93,7 @@ rg = P['ring']; ring_in = Point(c_net).buffer(rg['inner_r'] * 1000, resolution=4
 RING = Point(c_net).buffer(rg['outer_r'] * 1000, resolution=48).difference(ring_in)
 K.prism(RING.difference(HIGH), H - TH, H, L_CW, WOOD)
 ld = P['landing']; c_ld = X(ld['u'], ld['w']); LAND = Point(c_ld).buffer(ld['r'] * 1000, resolution=3)
+LAND = LAND.intersection(WN.buffer(-cw['inset'] * 1000, join_style=1))   # 壁から0.1手前で止める（キャットウォークと同じ線。設計監修10-23：北西の斜めの壁を突き抜けていた）
 K.prism(LAND.difference(LOW), ld['h'] * 1000 - TH, ld['h'] * 1000, L_CW, WOOD)
 # 手すり（縦格子 h1.1 の面として、厚さ 30）：通路の縁のうち壁に沿わない所
 def rail(walk, z, skip=None):
@@ -140,10 +141,11 @@ for k in range(rg['rods']):                                     # 輪：ハの�
     uu, vv = uv(*p); ub = min([39.0, 42.0, 45.0], key=lambda b: abs(b - uu))
     q = np.array(xy(ub, vv)); along = X(ub, 0.0) - X(ub, 1.0); along /= np.linalg.norm(along)
     q = q + along * vs * (1 if k % 2 else -1)
+    if -0.9 - uv(*q)[1] < 0.25: q = np.array(xy(ub, -0.9 - 0.25))   # 上端は壁の内面（東から0.15）より0.1内側まで（設計監修10-23：東の壁に入っていた）
     K.tube([*p, H], [*q, under_roof(*q)], 8, 8, L_NET, STEEL, n=6)
 # 輪を東の柱へ突っ張る水平材（輪の東の端 → 東の壁）
 pe = c_net + np.array(X(nt['u'], 0.0) - c_net) / np.linalg.norm(X(nt['u'], 0.0) - c_net) * rg['outer_r'] * 1000
-K.tube([*pe, H - 60], [*X(nt['u'], -0.05), H - 60], 40, 40, L_NET, STEEL, n=8)
+K.tube([*pe, H - 60], [*X(nt['u'], 0.15), H - 60], 40, 40, L_NET, STEEL, n=8)   # 柱の内面（＝壁の内面、東から0.15）で止める（設計監修10-23）
 # ---------------------------------------------------------------- はしご（踊り場へ、段 200）
 la = P['ladder']; b0 = X(*la['base']); b1 = X(*la['top']); dl = (b1 - b0) / np.linalg.norm(b1 - b0); nl = np.array([-dl[1], dl[0]]) * la['width'] * 500
 zl = la['h'] * 1000
@@ -179,7 +181,7 @@ rb = P['round_bench']
 K.prism(WNi.difference(WNi.buffer(-rb['depth'] * 1000, join_style=1)).intersection(RWw(rb['u0'], rb['u1'], 6.5, 20)), 0.0, 350.0, L_HD)
 nw = P['north_window']
 K.prism(RWw(51.0 - 0.15 - nw['seat_d'], 51.0 - 0.15, nw['w0'], nw['w1']).intersection(WNi), 0.0, nw['seat_h'] * 1000, L_HD)
-# ---------------------------------------------------------------- 天井扇
+# ---------------------------------------------------------------- 天井扇（中心は東から1.2：羽根の先と壁の内面のあいだ約0.45。設計監修10-23）
 fn = P['fans']
 for u in fn['u']:
     c = X(u, fn['w'])
