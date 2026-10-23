@@ -181,14 +181,14 @@ for coll in ([cs] if hasattr(cs, "set_clip_path") else cs.collections):
 # 斜面の向き（転がる斜面）
 m = G["MOUND"]; a0, d0 = m["top"]
 ax.add_patch(Circle(X(a0, d0), 0.22, fc=C["cont"], ec="none", zorder=4))
-T(ax, X(a0 + 1.6, d0 - 0.4), "+2.2", 6.5, c=C["cont"], z=21, fontweight="bold")
+T(ax, X(a0 + 1.6, d0 - 0.4), f"+{G['MOUND']['h']}", 6.5, c=C["cont"], z=21, fontweight="bold")
 for dd, txt in ((3.2, "1:3"), ):
     pass
 T(ax, X(a0 + 0.6, d0 + 4.4), "転がる斜面\n1:3〜1:4（芝）", 5.2, c=C["cont"], rot=-38)
 T(ax, X(a0 - 0.6, d0 - 2.3), "裏の斜面 1:1.5\n（植え込み、入らない）", 4.4, c=C["cont"], rot=-38)
 T(ax, X(17.4, 3.2), "+0.6", 5, c=C["cont"])
-T(ax, X(50.6, 4.2), "+0.7", 5, c=C["cont"])
-T(ax, X(47.0, 21.9), "土手 +0.7", 5, c=C["cont"], rot=-38)
+T(ax, X(50.6, 4.2), "+1.0", 5, c=C["cont"])
+T(ax, X(47.0, 21.9), f"土手 +{G['BANK']['h']}", 5, c=C["cont"], rot=-38)
 T(ax, X(G["BOWL"]["c"][0], G["BOWL"]["c"][1] + 0.1), "−0.4", 4.6, c=C["cont"])
 
 # 死角
@@ -487,13 +487,13 @@ CALC = json.load(open(os.path.join(gc.ROOT, "out", "garden_calc.json"), encoding
 lax.text(0, y, "数字（この図から）", fontsize=8, fontweight="bold", va="center"); y += 7
 for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²　うち しずかのもり 約 {sa:.0f} m²（3〜5 歳 70 人で 1 人 {(ga - sa) / 70:.1f} m²、基準は 3.3）",
           f"築山：頂 +{G['MOUND']['h']} m、裾の広さ 約 {mfoot:.0f} m²、土 約 {mvol:.0f} m³。起伏・土手を足すと盛る土は 約 {NUM['fill']:.0f} m³",
-          f"　→ 北のもりへの上り（最大 +0.45）も含めて締め固め 約 {CALC['soil']['fill_m3']} m³。運び込まない。建物の基礎は浅く（布基礎＋土間、根切りは基礎の下だけ）して掘る量を減らす案：掘る土 約 {CALC['soil']['B_total_cut_m3']} m³、使う土 約 {CALC['soil']['B_total_use_m3']} m³（築山の芯・床の下の埋め戻し・築山と林床の表土）でほぼ釣り合う（ベタ基礎なら 約 {CALC['soil']['A_surplus_m3']} m³ 余る）",
+          f"　→ 北のもりへの上り（最大 +0.7）・おくのもりの林床・土手 +1.0 も含めて締め固め 約 {CALC['soil']['fill_m3']} m³。運び込まない。本館の床は床下空間（根切り GL−0.6、ユーザー）で、掘る土は 約 {CALC['soil']['total_cut_m3']} m³（本館 約 {CALC['soil']['honkan_cut_m3']}、西館ほか 約 {CALC['soil']['west_cut_m3']}、園庭 約 {CALC['soil']['garden_cut_m3']}）",
           f"小川：地上の長さ 約 {s_len:.0f} m、川床 +0.20 → −0.40（勾配 約 1/{1 / CALC['stream']['slope']:.0f}）。水深 3〜5 cm で 約 {CALC['stream']['rows'][0]['Q_Ls']:.0f}〜{CALC['stream']['rows'][1]['Q_Ls']:.0f} L/s（流れ 0.3〜0.4 m/s）。用水路の口の堰板で加減、大雨は水門を閉じる",
           f"木 {len(G['TREES'])} 本（{len(_cnt)} 種）。噴水の夏の日陰（7 月下旬）：9 時 {CALC['fountain_shade_jul'][0]['shaded']:.0%}、10〜13 時 約 {sum(r['shaded'] for r in CALC['fountain_shade_jul'][1:5]) / 4:.0%}（南東のケヤキ）、15 時 {CALC['fountain_shade_jul'][6]['shaded']:.0%}、16 時 {CALC['fountain_shade_jul'][7]['shaded']:.0%}（本館の影）。休むのは縁側の庇の下",
           f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）＋シャワーの柱。上水、排水は雨の川へ。雨の川：屋根 約 880 m²、100 mm/h で南の端 約 24 L/s、溝 0.5×0.2・1/200 で 約 50 L/s（目安）",
           f"小屋：便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}＋コンポストの間 {NUM['cbay']:.1f} m²（一つの屋根）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
           "コンポスト：小屋の倉庫の南東、屋根の下の壁のない間に木枠 4 つ（落ち葉・入れる・寝かせる・できた、全体 約 4.6×1.2）。4・5 歳の当番がキッチンから野菜くずをもらい、落ち葉と重ね、できた土を入口の前の菜園へ運ぶ（ユーザー）",
-          f"土の使い道：建物の下の表土 約 {CALC['soil']['B_topsoil_m3']} m³ は剥いでおき、築山の表面 0.2（約 {CALC['soil']['B_topsoil_cap_m3']}）と木の下の林床 0.15（約 {CALC['soil']['B_woods_m2']} m² に 約 {CALC['soil']['B_topsoil_forest_m3']}）へ。残り 約 {CALC['soil']['B_topsoil_left_m3']} m³ は菜園の土の入れ替えに。下の土は築山の芯と床の下へ",
+          f"土の使い道（ユーザー：無理なく使える分だけ）：表土 約 {CALC['soil']['topsoil_m3']} m³ は全部敷地に残す（築山の表面 0.2・木の下の林床 0.15 約 {CALC['soil']['woods_m2']} m²・菜園）。下の土は築山の芯・土手・林床の盛り・西館の床の下へ。外へ出すのは下の土 約 {CALC['soil']['out_subsoil_m3']} m³（近くの工事へ）",
           f"死角：約 {hid_a:.0f} m²。築山の裏（隣家側）の植え込みと、北のもりの奥。植え込みは入らない所にする"]:
     y = para(y, t)
 y += 4
