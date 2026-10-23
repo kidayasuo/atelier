@@ -12,6 +12,10 @@ mkdir -p $T/ideas $T/exact $T/view
 cp $B/ideas/roof_geo.py $T/ideas/
 cp $A/data/wnew.pkl $T/exact/wnew.pkl
 cp $B/view/* $T/view/
+# 作業場の外にあった部品（架構の元のスクリプトと、Rhino の代わりの部品）。run_exact_new.py がこの場所を読む
+mkdir -p /home/claude/plans/rhino /tmp/claude-0/mock2
+cp $B/vendor/plans_rhino/* /home/claude/plans/rhino/
+cp -r $B/vendor/mock2/. /tmp/claude-0/mock2/
 pip install --break-system-packages -q rhino3dm shapely scipy matplotlib mapbox_earcut ezdxf trimesh remotezip 2>&1 | tail -1 || true
 if ! fc-list | grep -q "Noto Sans CJK"; then
   (apt-get install -y -q fonts-noto-cjk >/dev/null 2>&1 || pip install --break-system-packages -q fonts-noto-cjk) || echo "日本語の字が入らなかった（図の字が化ける）"

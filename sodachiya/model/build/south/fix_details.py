@@ -232,7 +232,7 @@ for o in m.Objects:
     g = o.Geometry
     if o.Attributes.LayerIndex != L17 or not isinstance(g, r.Mesh): continue
     u0, u1, v0, v1, z0, z1 = bbox_uv(g)
-    west = v0 > -0.36 and v1 < -0.19 and z1 < 3950 and u1 - u0 > 0.2
+    west = v0 > -0.36 and v1 < -0.19 and 3500 < z1 < 3950 and u1 - u0 > 0.2   # 窓・口の下の腰の片（z1 が低い）は上げない
     gable = u0 > 57.1 and v1 > 11.5
     if not (west or gable): continue
     V = mesh_V(g); top = V[:, 2] > V[:, 2].max() - 5 if west else V[:, 2] > 1000
@@ -241,6 +241,48 @@ for o in m.Objects:
         Vt = V[top]; Vt[ok, 2] = (np.maximum(Vt[ok, 2], zb[ok] - 5.0) if west else zb[ok] - 5.0); V[top] = Vt
         mesh_set(g, V); g.Normals.ComputeNormals(); n_t += 1
 log.append(f'本館：西の外壁・北の妻壁 {n_t} 片の天端を屋根の下面に合わせた')
+
+# 6) 越屋根の西の立ち上がりを外皮の線へ（監修の指摘 10-23 朝2 の 3b）
+# 外壁を柱の外へ移したあとも、越屋根の西の立ち上がり（v −0.06〜0.06、h 約 3.9〜4.3）が元の線に残り、
+# 柱の頭と桁に食い込んでいた。外皮は一枚に続ける：西の外壁をそのまま立ち上がりの上端まで立ち上げ、
+# 元の立ち上がりと、その外の屋根の細い帯（v −0.45〜0、外壁の上に載っていた）を消す。
+# 立ち上がりの上端と蓋のあいだのすき間 150（換気）はそのまま。
+UPS = []
+for o in m.Objects:
+    g = o.Geometry
+    if o.Attributes.LayerIndex != L17 or not isinstance(g, r.Mesh): continue
+    u0, u1, v0, v1, z0, z1 = bbox_uv(g)
+    if v0 > -0.09 and v1 < 0.09 and z0 >= 3700: UPS.append(z1); drop.add(str(o.Attributes.Id))
+UP_TOP = max(UPS) if UPS else None
+n_e = 0
+for o in m.Objects:                                                           # 越屋根の南北の妻の立ち上がり：西の端を外壁の外面まで、北は北の妻壁の線へ
+    g = o.Geometry
+    if o.Attributes.LayerIndex != L17 or not isinstance(g, r.Mesh): continue
+    u0, u1, v0, v1, z0, z1 = bbox_uv(g)
+    if not (z0 >= 3700 and v0 < 0 and v1 > 1.5 and u1 - u0 < 0.2): continue
+    if u0 > 56.5: map_mesh_uv(g, lambda u, v, z: (UG0 + (u - 56.94) / 0.12 * (UG1 - UG0), VW0 if v < 0.01 else v, z))
+    else: map_mesh_uv(g, lambda u, v, z: (u, VW0 if v < 0.01 else v, z))
+    n_e += 1
+log.append(f'本館：越屋根の南北の妻の立ち上がり {n_e} 片を外皮の線へ')
+for o in m.Objects:
+    g = o.Geometry
+    if o.Attributes.LayerIndex != L10 or not isinstance(g, r.Mesh): continue
+    T = tris(g); c = to_uv_arr(T.mean(1))
+    if c[:, 0].max() - c[:, 0].min() < 50: continue                           # 本館の屋根の本体だけ（南の軒などは触らない）
+    keep = c[:, 1] >= 0.0
+    if keep.all(): continue
+    mm = welded_mesh(T[keep]); mm.Normals.ComputeNormals(); new_objs.append((mm, o.Attributes)); drop.add(str(o.Attributes.Id))
+    log.append(f'本館：屋根の西の細い帯（越屋根の外、三角形 {int((~keep).sum())}）を消した')
+# 7) 西の外壁を立ち上がりの上端まで（窓・口の下の腰の片はそのまま）
+# 前の版では 5) で窓・口の下の腰の片まで屋根の下面へ上げてしまい、窓 4 つと遊戯室の口②が埋まっていた（監修の指摘 3a）。
+n_up = 0
+for o in m.Objects:
+    g = o.Geometry
+    if o.Attributes.LayerIndex != L17 or not isinstance(g, r.Mesh) or UP_TOP is None: continue
+    u0, u1, v0, v1, z0, z1 = bbox_uv(g)
+    if not (v0 > -0.36 and v1 < -0.19 and u1 - u0 > 0.2 and 3500 < z1 < 4400): continue
+    V = mesh_V(g); V[V[:, 2] > z1 - 5, 2] = UP_TOP; mesh_set(g, V); g.Normals.ComputeNormals(); n_up += 1
+log.append(f'本館：西の外壁 {n_up} 片を越屋根の立ち上がりの上端（{UP_TOP:.0f}）まで立ち上げた（元の立ち上がり {len(UPS)} 片は消した）')
 
 # すき間の南の端のガラス（19）：本館の西の外壁の外面（v −0.35）まで
 L19 = lidx('19_')

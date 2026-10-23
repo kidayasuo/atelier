@@ -1,6 +1,7 @@
 # sodachiya_exact.3dm の生成スクリプト（3dm 担当）
 前提（新しいセッションや、作業場が片付けられた後）：`bash model/build/setup.sh` を一度。
-（archive/handoff_1018/t を /tmp/claude-0/t に広げ、build/ のスクリプトで上書き、data/wnew.pkl を置き、道具を入れる。）
+（archive/handoff_1018/t を /tmp/claude-0/t に広げ、build/ のスクリプトで上書き、data/wnew.pkl を置き、道具を入れる。
+作業場の外にあった部品 2 つ（架構の元のスクリプト `vendor/plans_rhino/sodachiya_frames_gh.py` と Rhino の代わり `vendor/mock2/`）も、元の場所 `/home/claude/plans/rhino/`・`/tmp/claude-0/mock2/` へ置く。）
 
 まとめて：`bash model/build/run_all.sh`（取り込み用ファイルや data/*.json が変わっただけなら、これで 3dm・Rhino 版・図・面積表が全部作り直される。約 7 分）。
 更新のチャット（3dm と図の更新係）はこれを走らせるだけ。スクリプトを直すのは木造幼稚園建築設計のチャット。
