@@ -29,8 +29,9 @@ KETA = (2.0, 4.0)                         # 平竹ひご 2×4
 # 描く穴の寸法（短辺×長辺）。ひごの実測 10-23：短辺 1.97〜1.99（節で 2.03〜2.05）、長辺 約 3.90。
 # レーザーの切り幅（約 0.1〜0.2）で、切れた穴はこれより大きくなる。
 KETA_VARIANTS = {'A': (1.95, 3.85), 'B': (2.00, 3.90), 'C': (2.05, 3.95), 'D': (2.10, 4.00)}
-MORTISE_T = 1.70                          # ほぞ穴の幅（柱の厚さ方向、試し切りで決める）
-MORTISE_W = TENON_W + 0.10
+FLOOR_T = 1.89                             # 床の柱の穴の幅（柱の厚さ方向、試し切りで決める）
+MORTISE_T = 1.79                          # ほぞ穴の幅（柱の厚さ方向、試し切りで決める）
+MORTISE_W = TENON_W           # 描く寸法はほぞと同じ（切り幅の分だけすき間ができる）
 
 m = r.File3dm.Read(M3)
 LAY = {l.Name: i for i, l in enumerate(m.Layers)}
@@ -245,21 +246,21 @@ def test_sheets():
     texts += [(50, 18, '20mm 角：ノギスで測る', 2), (40, 2, '柱の足 4 枚（2 枚ずつ貼る）', 2)]
     s.save(texts)
     # T2：シナ 3（ほぞ穴 4 種）
-    s = Sheet('01_試し切り_T2_シナ3', 60, 20, 'シナ 3 mm：ほぞ穴（布基礎・中の層）幅 1.60〜1.75 × 2.50')
+    s = Sheet('01_試し切り_T2_シナ3', 60, 20, 'シナ 3 mm：ほぞ穴（布基礎・中の層）幅 1.65〜1.86 × 2.40')
     s.add(box(0, 0, 60, 20))
     for i, t in enumerate(J['柱']['ほぞ穴の幅_試し']):
         x = 8 + i * 13
         s.add(box(x, 8, x + MORTISE_W, 8 + t))
         for l in label_num(i + 1, x + 0.4, 3): s.add(l, 'eng')
-    s.save([(1, 21, 'ほぞ穴 1=1.60 2=1.65 3=1.70 4=1.75', 2)])
+    s.save([(1, 21, 'ほぞ穴 1=1.65 2=1.72 3=1.79 4=1.86', 2)])
     # T3：シナ 1.7（床の柱の穴 4 種）
-    s = Sheet('01_試し切り_T3_シナ1.7', 60, 20, 'シナ 1.7 mm：床の柱の穴 4.1 × 1.65〜1.80')
+    s = Sheet('01_試し切り_T3_シナ1.7', 60, 20, 'シナ 1.7 mm：床の柱の穴 4.0 × 1.75〜1.96')
     s.add(box(0, 0, 60, 20))
-    for i, t in enumerate([1.65, 1.70, 1.75, 1.80]):
+    for i, t in enumerate(J['床']['柱の穴_試し']):
         x = 8 + i * 13
-        s.add(box(x, 8, x + 4.0 + FLOOR_CLR, 8 + t))
+        s.add(box(x, 8, x + 4.0, 8 + t))
         for l in label_num(i + 1, x + 1, 3): s.add(l, 'eng')
-    s.save([(1, 21, '床の穴 1=1.65 2=1.70 3=1.75 4=1.80（柱の厚さ方向）', 2)])
+    s.save([(1, 21, '床の穴 1=1.75 2=1.82 3=1.89 4=1.96（柱の厚さ方向）', 2)])
     # T4：彫りの試し（谷積みの目地、畑の線、点）
     s = Sheet('01_試し切り_T4_彫り', 70, 30, 'KROMA 1 か シナ：彫りの出力の試し（谷積みの目地 45°、畑の平行線、点）')
     s.add(box(0, 0, 70, 30))
@@ -342,7 +343,7 @@ def floors():
     upper = clean(hadashi, 1e5)
     lower = clean(close(unary_union([hadashi, dosoku])).intersection(A), 1e5)
     found = clean(unary_union([hadashi, dosoku, doma]).buffer(30).buffer(-30), 1e5)
-    col_hole = [col_rect(g, 4.0 + FLOOR_CLR, 1.75) for g in cols]
+    col_hole = [col_rect(g, 4.0, FLOOR_T) for g in cols]
     mortise = [col_rect(g, MORTISE_W, MORTISE_T) for g in cols]
     opn = lambda g: g.buffer(-25, join_style=2).buffer(25, join_style=2)       # 細いひげを取る
     upper, lower, found = opn(upper), opn(lower), opn(found)
@@ -369,13 +370,13 @@ def floor_sheets():
     found_s = to_sheet(found, ang, (0, 0))
     U, Lw, F = norm(upper), norm(lower), norm(found)
     b = F.bounds; w, h = b[2], b[3]
-    s = Sheet('04_本館の床_シナ1.7', 841, 594, 'シナ 1.7 A1：本館の床 上の層（はだし）と下の層（はだし＋土足）。柱の穴 4.1×1.75')
+    s = Sheet('04_本館の床_シナ1.7', 841, 594, 'シナ 1.7 A1：本館の床 上の層（はだし）と下の層（はだし＋土足）。柱の穴 4.0×1.89')
     s.add(box(0, 0, 841, 594), 'ref')
     s.add(affinity.translate(U, 8, 8))
     s.add(affinity.translate(Lw, 8, 8 + h + 8))
     s.save([(8, 8 + 2 * (h + 8) + 4, '下：上の層（はだし ±0）　上：下の層（はだし＋外縁側・海峡）　受け取り土間は 2 枚とも無し', 4),
             (8, 8 + 2 * (h + 8) + 10, f'3 段目（{h:.0f} mm）は屋根の下の層のために空けておく', 4)])
-    s = Sheet('05_本館の布基礎_シナ3', 841, 594, 'シナ 3 A1：本館の布基礎（床の外形＋受け取り土間）。ほぞ穴 2.5×1.70')
+    s = Sheet('05_本館の布基礎_シナ3', 841, 594, 'シナ 3 A1：本館の布基礎（床の外形＋受け取り土間）。ほぞ穴 2.4×1.79')
     s.add(box(0, 0, 841, 594), 'ref')
     s.add(affinity.translate(F, 8, 8))
     s.save([(8, h + 16, f'本館の布基礎（{w:.0f}×{h:.0f} mm）。残りは敷地・西館の布基礎に使う', 4)])
