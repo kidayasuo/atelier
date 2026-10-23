@@ -301,6 +301,108 @@ for o in m.Objects:
         if u0 < -8.45: map_mesh_uv(g, lambda u, v, z: (max(u, -8.45), v, z)); log.append('外構：柵の南の端を u −8.45 に')
 FENCE_RET = (R(-8.57, -8.45, 0.96, 1.40, 0.05), -300.0, 900.0)
 
+# ================================================================ 本館：光の筋（トップライト）と屋根材型の太陽光（本館係、10-23夜）
+# 決定事項（ユーザー、10-23）：トップライトは架構の線に沿う（スパンごとに同じ、部屋の使い方に合わせない）。
+# 2 枚の梁のあいだ（180）の上を開け、垂木はそれぞれ自分の側の梁に載せる（垂木を切らない）ので、すき間がそのまま光の筋になる。
+# 範囲は西の吹き抜けから約 2〜8 m（v 3.6〜9.6、保育室の暗い帯）。乳白ガラス（東向きの緩い屋根で直射が入るため）。
+# 架構 2〜19（u 3〜54、両妻の架構は除く）、ホールも同じ（スケルトンを揃える）。
+# 3dm の屋根は厚みの無い面（z = 4150 − v/12）。筋の両側に立ち上がり 60（幅 60、水はガラスの上を東へ流れる）、
+# その上に乳白ガラス t12（幅 300、v 3.5〜9.7）。筋の内側は垂木の小口をふさぐ板（屋根の面から 150 下まで）。
+# 屋根の仕上げは屋根材型の太陽光（金属の屋根と一体）：越屋根の蓋の東の縁（v 1.95）から東の軒先の手前（v 13.2）まで、
+# 筋の周りを除く。3dm では屋根の面の 20 上に黒い面を置く（色だけ、目地は描かない）。
+import mapbox_earcut as _ec
+SL_U = [3.0 * k for k in range(1, 19)]; SL_V = (3.6, 9.6); SL_HALF = 0.09
+ROOF_Z = lambda v: 4150.0 - v * 1000.0 / 12.0
+def zuv(x, y): return ROOF_Z(uv(x, y)[1])
+def sheet(poly, dz, li, col=None, mat=None):
+    """平面形（穴あり可）を屋根の面から dz 上に、屋根と平行な面で"""
+    ms = []
+    for p in ([poly] if poly.geom_type == 'Polygon' else list(poly.geoms)):
+        if p.area < 1e3: continue
+        p = p.simplify(1.0)
+        rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
+        V2 = np.vstack(rings); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+        tri_ = _ec.triangulate_float64(V2, ends).reshape(-1, 3)
+        mm = r.Mesh()
+        for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zuv(x, y) + dz))
+        for a, b, c in tri_: mm.Faces.AddFace(int(a), int(b), int(c))
+        mm.Normals.ComputeNormals(); mm.Compact(); ms.append(mm)
+    return ms
+def slab(poly, dz0, dz1):
+    """屋根の面から dz0〜dz1（屋根と平行）の板"""
+    out_ = []
+    for p in ([poly] if poly.geom_type == 'Polygon' else list(poly.geoms)):
+        p = p.simplify(0.5); V2 = np.asarray(p.exterior.coords)[:-1]; n = len(V2)
+        tri_ = _ec.triangulate_float64(V2, np.array([n], dtype=np.uint32)).reshape(-1, 3)
+        mm = r.Mesh()
+        for dz in (dz0, dz1):
+            for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zuv(x, y) + dz))
+        for a, b, c in tri_: mm.Faces.AddFace(int(a), int(c), int(b)); mm.Faces.AddFace(int(a + n), int(b + n), int(c + n))
+        for i in range(n):
+            j = (i + 1) % n; mm.Faces.AddFace(i, j, j + n, i + n)
+        mm.Normals.ComputeNormals(); mm.Compact(); out_.append(mm)
+    return out_
+def new_layer(name, rgb, mat=None):
+    for i, l in enumerate(m.Layers):
+        if l.Name == name: return i
+    L = r.Layer(); L.Name = name; L.Color = (*rgb, 255)
+    if mat is not None: L.RenderMaterialIndex = mat
+    return m.Layers.Add(L)
+MAT_FROST = next((i for i, mt in enumerate(m.Materials) if mt.Name == '乳白ガラス'), -1)
+L10T = new_layer('10t_本館_光の筋（乳白ガラス、架構の線）', (225, 236, 242), MAT_FROST if MAT_FROST >= 0 else None)
+L10P = new_layer('10p_本館_屋根材型の太陽光（金属の屋根と一体）', (45, 49, 58))
+# 屋根の本体（u 0〜57.45 の大きな面）を、筋を抜いた面に作り直す
+SLOTS = unary_union([R(u - SL_HALF, u + SL_HALF, SL_V[0], SL_V[1], 0.2) for u in SL_U])
+def roof_main_poly(g):
+    T = tris(g); ps = [Polygon(t[:, :2]).buffer(0) for t in T]
+    return unary_union([q.buffer(0.5) for q in ps if q.area > 1]).buffer(-0.5)
+cand = [(i, mm, at) for i, (mm, at) in enumerate(new_objs) if at.LayerIndex == L10 and len(mm.Vertices) > 60]
+src = None
+if cand: i0, g0, at0 = cand[0]; src = ('new', i0, g0, at0)
+else:
+    for o in m.Objects:
+        g = o.Geometry
+        if o.Attributes.LayerIndex == L10 and isinstance(g, r.Mesh) and str(o.Attributes.Id) not in drop:
+            c = to_uv_arr(tris(g).mean(1))
+            if c[:, 0].max() - c[:, 0].min() > 50: src = ('old', None, g, o.Attributes); break
+if src is not None:
+    kind_, i0, g0, at0 = src
+    RP = roof_main_poly(g0)
+    roof_new = sheet(RP.difference(SLOTS), 0.0, L10)
+    if kind_ == 'new': new_objs.pop(i0)
+    else: drop.add(str(at0.Id))
+    for mm in roof_new: new_objs.append((mm, at0))
+    a10 = r.ObjectAttributes(); a10.LayerIndex = L10
+    at_g = r.ObjectAttributes(); at_g.LayerIndex = L10T
+    if MAT_FROST >= 0: at_g.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; at_g.MaterialIndex = MAT_FROST
+    for u in SL_U:
+        for mm in slab(R(u - 0.15, u - SL_HALF, SL_V[0] - 0.1, SL_V[1] + 0.1, 0.2), 0.0, 60.0): new_objs.append((mm, a10))    # 立ち上がり（南）
+        for mm in slab(R(u + SL_HALF, u + 0.15, SL_V[0] - 0.1, SL_V[1] + 0.1, 0.2), 0.0, 60.0): new_objs.append((mm, a10))    # 立ち上がり（北）
+        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_V[0] - 0.1, SL_V[0], 0.05), 0.0, 60.0): new_objs.append((mm, a10))      # 立ち上がり（西の端）
+        for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, SL_V[1] + 0.1, 0.2), 60.0, 72.0): new_objs.append((mm, at_g))     # 乳白ガラス t12
+        for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（垂木の小口をふさぐ）
+            for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), -150.0, 0.0): new_objs.append((mm, a10))
+    pv = R(0.3, 57.15, 1.95, 13.2, 0.25).intersection(RP).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
+    a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
+    for mm in sheet(pv, 20.0, L10P): new_objs.append((mm, a_pv))
+    log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}、乳白ガラス）、'
+               f'屋根材型の太陽光 {pv.area / 1e6:.0f} m²（10p）')
+    PV_AREA = pv.area / 1e6
+# 機械室（おむすび）に蓄電池の場所（ユーザー、10-23：夜と停電のときに使う、園は災害時の拠点にもなる）。
+# 機械室は 3dm では塊なので、中に箱を置いて場所だけ示す（約 1.2×2.0 = 2.4 m²、h1.6、家具程度）。
+L35 = lidx('35_')
+mech = [foot(o.Geometry) for o in m.Objects if o.Attributes.LayerIndex == L35]
+mech = unary_union([g for g in mech if g is not None])
+if not mech.is_empty:
+    c = mech.centroid; cu, cv = uv(c.x, c.y)
+    bat = R(cu - 1.0, cu + 1.0, cv - 0.6, cv + 0.6, 0.1)
+    if mech.buffer(-300).contains(bat):
+        L35B = new_layer('35b_機械室_蓄電池（家具程度、約 2.4 m²）', (70, 110, 90))
+        a35 = r.ObjectAttributes(); a35.LayerIndex = L35B; a35.Name = '蓄電池（屋根材型の太陽光、夜と停電のとき）'
+        tmp = r.File3dm(); Kt = Kit(tmp); Kt.prism(bat, 0.0, 1600.0, L35B)
+        for o2 in tmp.Objects: new_objs.append((o2.Geometry, a35))
+        log.append(f'機械室：蓄電池の箱（u {cu:.1f}・v {cv:.1f}、2.0×1.2×h1.6、35b）')
+
 # ================================================================ 書き出し（桁を差し替え、腰壁を足す）
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
