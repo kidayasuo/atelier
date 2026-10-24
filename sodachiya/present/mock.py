@@ -646,8 +646,8 @@ for i, (h1, s1) in enumerate([
     box(ax, rx + (i + 1) * (cw + 5), cy, cw, ch, h1, "小さな図＋\n" + s1, fill="#FAF8FF")
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
-VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -10.0, QY1 + 2.0   # 川と橋は端だけ（ユーザー）
-sx, sy = M + 6, M + 8 + 50.0                                    # 下の50 mmは縮尺と注
+VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -10.0, QY1 + 10.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
+sx, sy = M + 6, M + 8 + 26.0                                    # 下の26 mmは縮尺と注
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
 xf = xform(sx, sy, 200, VX0, VY0)
@@ -751,7 +751,7 @@ def _face_road(b):
             best = diff
     b2 = affinity.rotate(b, best, origin="centroid")
     bmin = min((np.array(p_) - SITE_C["NW"]) @ _oW for p_ in b2.exterior.coords)
-    return affinity.translate(b2, *(-(bmin - (RW_W + 0.5)) * _oW))
+    return affinity.translate(b2, *(-(bmin - (RW_W + 1.0)) * _oW))
 
 
 _P_BLD = [_face_road(b) if any(b is x for x in _front) else b for b in _P_BLD]
@@ -822,7 +822,9 @@ if _n @ (SITE_C["NW"] - SITE_C["E"]) < 0:
     _n = -_n                                                                  # 敷地の外（西）へ向く
 _tree = SITE_C["NW"] + TREE_A * _u + (RW_W + 1.0) * _n
 _tq = xf(R3(_tree))[0]
-ax.add_patch(plt.Circle(tuple(_tq), 4.5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.85, zorder=31))
+_tc = xf(R3(_tree - 2.0 * _n))[0]                                          # 枝は道の上へ張り出す（ユーザー：地図に出るくらい）
+ax.add_patch(plt.Circle(tuple(_tc), 3.6 * 5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.6, zorder=31))
+ax.add_patch(plt.Circle(tuple(_tq), 1.4, fc="#5E7F45", ec="none", zorder=32))
 lab(ax, xf, _tree, "突き出た木（住宅とアパートの境、西の折れ目と\n北の交差点の中ほど）：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (sx + 3 - _tq[0], -14), ha="left")
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
 _hq = SITE_C["NW"] + 13.0 * _u + (RW_W + 4.0) * _n
@@ -836,8 +838,9 @@ lab(ax, xf, np.array(gc.PARK.centroid.coords[0]), "小竹薮公園（残す）",
 _nx, _ny = sx + 14, sy + sh - 20
 ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
 T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
-scalebar(ax, sx + 6, sy - 16, 200, 20)
+scalebar(ax, sx + 6, sy - 20, 200, 20)
 T(ax, sx + 6, sy - 6, "災害時は地下水をくみ上げて、近隣に水を届ける", 2.8)
+lab(ax, xf, SITE_C["NW"] + 0.45 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
 # 園庭の筋（配置図の右、上から下へ）
@@ -867,7 +870,7 @@ for k_, s_ in enumerate(["配置図の注", "・駐車5台・搬入は南（川�
                          "・セキュリティの線の出入口は公園の木戸だけ",
                          "・園庭への搬入は公園の東の縁から川沿いの帯を通って",
                          "・敷地の境から：北東の隣家1 m（厳守）、ほかは1 m"]):
-    T(ax, sx + 150, sy - 6 - k_ * 5.2, s_, 2.6 if k_ else 3.0, bold=(k_ == 0))   # 配置図の下の余白に
+    T(ax, sx + 150, sy - 3 - k_ * 4.4, s_, 2.4 if k_ else 2.8, bold=(k_ == 0))   # 配置図の下の余白に
 figs.append(fig)
 
 # ================================================================ 2　すべての人の一日（1階平面）
