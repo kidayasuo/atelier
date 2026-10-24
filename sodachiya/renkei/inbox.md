@@ -17,5 +17,3 @@
 **ユーザーへの問い（返事待ち）**：なし
 
 （各チャットは`python3 renkei/inbox.py mine <係>`で自分あての項の中身を読む）
-
-（今回 done/ へ移した項：20261023-2300-kanshu.md・20261024-0900-nishikan.md・20261024-1130-approach.md・20261024-1200-kanshu.md）
