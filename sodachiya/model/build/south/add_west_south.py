@@ -63,6 +63,40 @@ for o in m.Objects:
     if li == L_WV and isinstance(g, r.Mesh):
         WV.append(g); continue
     keep.append((g, o.Attributes))
+# ---------------------------------------------------------------- 西館の屋根の面（10-24午後、ユーザー：軒は水平のまま、南北の端の屋根の形がヘンテコなのを直す）
+# 決まり：棟（東の縁 v −0.9）は 8.15、外周の軒は 4.65 で水平、架構の向き（u 一定の放射の線）に沿ってまっすぐ下る。
+# 前は、その線が外周（角の丸み R 付き）と交わる所を軒とした。角の丸みが南北の妻（放射の線そのもの）に接する所では、
+# 線の長さが急に変わり（接する点では変わり方が無限大）、南北の端で面がねじれて谷やしわになっていた。
+# 今：軒の線は、南北の妻に接する角（南西・北）だけ丸めない外形（軒の辺と妻の辺を延ばして交わらせた形）で決める。
+# 直線の辺と西の面・北西の面のあいだの角は前と同じ。南西・北の角では、妻（けらば）の勾配のまま丸みを回って軒へ下りる。
+# 北西の斜めの面と北の妻のあいだは、線の長さが直線的に変わるなめらかな面（ねじれは一様）。
+import roofw
+_RW = roofw.make(WN); roof_f = _RW['roof_f']; VRIDGE = _RW['VRIDGE']; _corners = _RW['corners']
+# 前の屋根（比べるため）と置き換え
+_old = [g for g, a in keep if a.LayerIndex == lidx('20_') and isinstance(g, r.Mesh) and len(g.Vertices) > 200]
+_P = np.vstack([np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))]) for g in _old])
+from scipy.interpolate import LinearNDInterpolator
+_zo = LinearNDInterpolator(_P[:, :2], _P[:, 2])
+keep = [(g, a) for g, a in keep if not (a.LayerIndex == lidx('20_') and isinstance(g, r.Mesh) and len(g.Vertices) > 200)]
+_v_out = _RW['v_out']
+_us = np.unique(np.r_[np.arange(21.0, 23.6, 0.05), np.arange(23.6, 40.4, 0.25), np.arange(40.4, 44.1, 0.05), np.arange(44.1, 49.9, 0.25), np.arange(49.9, 51.0001, 0.02)])
+_us[0] += 0.0005; _us[-1] -= 0.0005
+_NV = 40
+rm = r.Mesh()
+for u in _us:
+    ve, vw = _v_out(u)
+    for t in np.linspace(0, 1, _NV + 1):
+        v = ve + (vw - ve) * t; x, y = xy(u, v); rm.Vertices.Add(float(x), float(y), float(roof_f(x, y)))
+for i in range(len(_us) - 1):
+    for j in range(_NV):
+        a0 = i * (_NV + 1) + j; b0 = (i + 1) * (_NV + 1) + j
+        rm.Faces.AddFace(a0, b0, b0 + 1, a0 + 1)
+rm.Normals.ComputeNormals(); rm.Compact()
+_ar = r.ObjectAttributes(); _ar.LayerIndex = lidx('20_'); keep.append((rm, _ar))
+_n_def = 0                                         # 架構（押し出し）は fix_details.py の「屋根の面に合わせる」で動かす
+_dmax = max(abs(roof_f(x, y) - float(_zo(x, y))) for x, y in np.asarray(WN.buffer(-50).exterior.coords) if np.isfinite(float(_zo(x, y))))
+print('roof: level eave by the unrounded outline (corners %d), %d strips, frame verts moved %d, max change at the edge %.0f' % (len(_corners), len(_us) - 1, _n_def, _dmax))
+
 new = r.File3dm()
 new.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: new.Layers.Add(l)
@@ -78,12 +112,13 @@ for x, y, z in ztop_src:
 S = np.array([ring.project(Point(k)) for k in top]); Z = np.array(list(top.values()))
 o_ = np.argsort(S); S, Z = S[o_], Z[o_]
 def ztop_old(x, y):
-    s = ring.project(Point(x, y))
-    return float(np.interp(s, S, Z, period=ring.length))
+    q = ring.interpolate(ring.project(Point(x, y)))       # 10-24午後：外壁の天端は新しい屋根の面の縁（前は元の外壁の天端）
+    q2 = WN.buffer(-30).exterior.interpolate(WN.buffer(-30).exterior.project(q))
+    return float(roof_f(q2.x, q2.y))
 # 屋根（20）の上面：WS が WN の外へ出た所は、屋根の面をそのまま延ばす（近くの屋根の点で平面を当てはめる）
 L_ROOF = lidx('20_')
 RP = np.vstack([np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))])
-                for o in m.Objects for g in [o.Geometry] if o.Attributes.LayerIndex == L_ROOF and isinstance(g, r.Mesh)])
+                for o in new.Objects for g in [o.Geometry] if o.Attributes.LayerIndex == L_ROOF and isinstance(g, r.Mesh)])
 RPu = np.unique(np.round(RP), axis=0)
 def roof_z(x, y, k=40):
     d = np.hypot(RPu[:, 0] - x, RPu[:, 1] - y); i = np.argsort(d)[:k]
