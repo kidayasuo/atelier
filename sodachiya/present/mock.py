@@ -922,8 +922,9 @@ _ny0, _ny1 = sy + sh + 12, top - 8
 _nw = W - M - 6 - _nbx
 ax.add_patch(Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5))
 T(ax, _nbx + 3, _ny1 - 6, "松ヶ崎の用水の網　高野川の堰から借りて、川へ返す", 3.4, C_NAT, bold=True)
+T(ax, _nbx + 6, _ny1 - 16, "N↑", 3.0, bold=True)
 YS = json.load(open(os.path.join(HERE, "matsugasaki_yousui.json"), encoding="utf-8"))
-_ang = np.arctan2(_nv[1], _nv[0]) - np.pi / 2           # 図の北（上）を配置図の北の向きへ
+_ang = 0.0                                               # 広域の図は北が上（ユーザー）
 _ca, _sa = np.cos(_ang), np.sin(_ang)
 _yr = lambda P: np.c_[np.asarray(P, float)[:, 0] * _ca + np.asarray(P, float)[:, 1] * _sa,
                       np.asarray(P, float)[:, 0] * _sa - np.asarray(P, float)[:, 1] * _ca]   # 画素（y下向き）→ 回した座標
@@ -936,18 +937,19 @@ for pl in YS["water_fills"]:
     q = _ym(pl); ax.fill(q[:, 0], q[:, 1], fc="#BFDDF2", ec="none", zorder=3)
 for ln_ in YS["water_lines"]:
     q = _ym(ln_); ax.plot(q[:, 0], q[:, 1], color=C_NAT, lw=0.6, zorder=4, solid_capstyle="round")
-for (px_, py_), t_, dx_, dy_ in [((272, 76), "井出ヶ鼻井堰（高野川の堰）", 2, 2), ((127, 55), "宝が池", 2, 2),
-                                  ((200, 151), "東松ヶ崎の井戸", 2, 2), ((170, 182), "前川", 1, 1), ((163, 216), "橋上川", 1, 1),
-                                  ((133, 231), "正田川", 1, 1), ((113, 248), "久土川", 1, 1), ((118, 318), "高野川", 2, -4)]:
+for (px_, py_), t_, dx_, dy_, ha_ in [((272, 76), "井出ヶ鼻井堰（高野川の堰）", 3, -1, "left"), ((127, 55), "宝が池", 2, 2, "left"),
+                                       ((200, 151), "東松ヶ崎の井戸", -2, 1.5, "right"), ((247, 148), "樋ノ上川", 3, -2, "left"),
+                                       ((170, 182), "前川", 1, 1, "left"), ((163, 216), "橋上川", 1, 1, "left"),
+                                       ((133, 231), "正田川", 1, 1, "left"), ((113, 248), "久土川", 1, 1, "left"), ((118, 318), "高野川", 2, -4, "left")]:
     q = _ym([(px_, py_)])[0]
-    T(ax, q[0] + dx_, q[1] + dy_, t_, 2.2, C_NAT if "川" in t_ or "堰" in t_ or "池" in t_ else INK, zorder=6)
+    T(ax, q[0] + dx_, q[1] + dy_, t_, 2.2, C_NAT if ("川" in t_ or "堰" in t_ or "池" in t_) and "井戸" not in t_ else INK, ha=ha_, zorder=6)
 _wq = _ym([(272, 76)])[0]; ax.plot([_wq[0]], [_wq[1]], marker="v", ms=4, color=C_NAT, zorder=7)
 _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", mec=INK, zorder=7)
-_sq = _ym([(163, 255)])[0]
+_sq = _ym([(184, 242)])[0]                     # 樋ノ上川より下、高野川に沿う支流のあたり（ユーザー）
 ax.add_patch(plt.Circle(tuple(_sq), 2.4, fc="#E0904A", ec="none", zorder=7))
-T(ax, _sq[0] + 3, _sq[1] - 4, "敷地（位置は目安）", 2.4, "#8A5A2B", bold=True, zorder=7)
-_tx = _nbx + _nw - 92
-for k_, s_ in enumerate(["高野川の上の井出ヶ鼻井堰で取った水が、", "北東から南西へゆるく下りながら、松ヶ崎の", "田を網のように潤してきた。", "江戸時代には高野川の水をめぐって、", "川向こうの一乗寺村と争った。", "網の端が敷地の北の角に来て、小川になり、", "高野川へ返る。", "地下の水も豊か（涌泉寺・東松ヶ崎の井戸）。"]):
+T(ax, _sq[0] + 3, _sq[1] - 4, "敷地（高野川に沿う支流のあたり）", 2.4, "#8A5A2B", bold=True, zorder=7)
+_tx = _fx0 + (_hi[0] - _lo[0]) * _k + 70
+for k_, s_ in enumerate(["高野川の上の井出ヶ鼻井堰で取った水が、", "北東から南西へゆるく下りながら、松ヶ崎の", "田を網のように潤してきた。", "江戸時代には高野川の水をめぐって、", "川向こうの一乗寺村と争った。", "堰から間もない樋ノ上川より下、高野川に沿う", "支流が敷地の北の角に来て、小川になり、", "高野川へ返る。", "地下の水も豊か（涌泉寺・東松ヶ崎の井戸）。"]):
     T(ax, _tx, _ny1 - 16 - k_ * 4.6, s_, 2.5)
 T(ax, _tx, _ny0 + 4, "図：ksdobokuisan「宝ヶ池」の図をなぞって描き直し", 1.8, NOTE)
 figs.append(fig)
