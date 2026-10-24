@@ -43,6 +43,10 @@ L_MED = lidx('59_1F_医務'); L_WV = lidx('59_1F_西吹き抜け'); L_FURN = lid
 L_OFF7 = layer('59_1F_事務（スパン 7、おはようの窓口）', hexc('E9DCC4'))
 L_DOOR = layer('89_遊戯室_搬入の大戸（閉じた状態）', (150, 110, 70))   # レイヤー表を new へ写す前に作る（後で作ると大戸が 00 に落ちる）
 L_RAIN = layer('21g_西館_軒樋・鎖樋（道路の側）', (120, 120, 125))     # 同じく写す前に
+L_STG_T = layer('59_1F_倉庫（すき間、先生の道）', hexc('D9D3EC'))      # 10-25：本館と西館のすき間の倉庫（写す前に）
+L_STG_P = layer('59_1F_倉庫（すき間、遊戯室）', hexc('D9D3EC'))
+L_SLD = layer('19c_西館_室内の引き戸（木）', (165, 120, 75))
+L_19D = layer('19d_建具_室内の戸（木）', (165, 120, 75))       # 自動の戸（add_inner.py）と同じレイヤー：ここに置いた開口には自動の戸が出ない
 WV = []
 # ガラスの材質は本館のガラス戸（16）と同じ
 mi = m.Layers[lidx('16_')].RenderMaterialIndex
@@ -50,6 +54,11 @@ if mi >= 0: m.Layers[L_GL].RenderMaterialIndex = mi
 
 _D = pickle.load(open(WNPKL, 'rb')); WN = _D['WN']
 WS = _D.get('WS', WN)          # 外皮の輪郭（外壁・屋根）。北西の斜めの外壁は壁面後退の線まで（10-23、西館係）。架構と間仕切りは WN
+# すき間の倉庫（10-25、ユーザー・監修）：本館の西の外壁（外面 v−0.35）と西館の東の壁（外面 v−0.90）のあいだ 0.55。
+# 南 u30〜40 は先生の道の側から（本館の西の外壁の引き戸は本館係）、北は遊戯室の側から（西館の東の壁の下に引き違いの口）。
+# 口②（u45.6〜47.6）とその引き戸が北へ走る所（〜49.75）は除く。棚は本館の側に留め、西館の壁とは 80 あける。
+GAP_T = [(30.10, 39.95)]
+GAP_P = [(40.05, 41.85), (42.15, 44.85), (49.80, 50.70)]
 
 # ---------------------------------------------------------------- 消す：西館の外壁（一枚の面）・床の板 32/33/34
 ztop_src = None
@@ -223,6 +232,8 @@ def face_v(u):
 if PJ and os.path.exists(PJ):
     P = json.load(open(PJ, encoding='utf-8'))
     _nm = P['north_mouth']; OPEN.append((R(_nm['u0'], _nm['u1'], -1.4, -0.5), 0, 2400))   # 遊戯室の口②（10-24：柱 u45・48 のあいだ）
+    for a, b in GAP_P:                                               # すき間の倉庫（遊戯室の側）の口（10-25、柱 u42・45 を避ける）
+        OPEN.append((R(a, b, -1.4, -0.5), 0, 2100))
     for a, b in [(36.4, 39.0), (39.6, 41.8), (47.0, 49.6)]:        # 東の壁：覗き窓（キャットウォークの高さ）と東の高窓（同じ柱の間と仮定）
         for k in ('east_peek',) + (() if P['east_high'].get('band') else ('east_high',)):
             fp = R(a, b, -1.4, -0.5); OPEN.append((fp, P[k]['h0'] * 1000, P[k]['h1'] * 1000)); PANES.append((fp, P[k]['h0'] * 1000, P[k]['h1'] * 1000, L_GL))
@@ -507,5 +518,36 @@ if len(gut_line) > 3:
     pS = np.array([_qS.x, _qS.y]); chain_at(pS)
     print('eave: %d strips, low %.1f m / gutter %.1f m, lowest %.0f, chains N(u %.1f) S(u %.1f v %.1f)' %
           (n_eave, len(seg) * Ls / NS / 1000, gpath.length / 1000, g_top, uv(qN.x, qN.y)[0], *uv(*pS)))
+
+# ---------------------------------------------------------------- 調理の更衣・便所の戸（10-25、監修の指摘）
+# u28.25 の壁の2つの口（v−11.1〜−11.95 と v−12.14〜−13.18）は、自動の戸だとあいだの細い壁（0.19）の両側を吊元にして
+# 同じ向きに開き、弧がぶつかる。北の口（v−11.1〜−11.95）だけ吊元を反対の端（v−11.105）にする。
+_hp = tuple(float(v_) for v_ in np.ravel(xy(28.25, -11.105)))
+_at = r.ObjectAttributes(); _at.LayerIndex = L_19D
+_at.Name = '開き戸 W840 吊元 %.0f,%.0f 開く 0.0213,0.9998' % _hp
+_mmd = r.Mesh()
+_pd = R(28.232, 28.268, -11.945, -11.105, 0.05)
+_tm = __import__('trimesh').creation.extrude_polygon(_pd, 2040.0)
+for x_, y_, z_ in _tm.vertices: _mmd.Vertices.Add(float(x_), float(y_), float(z_) + 10.0)
+for a_, b_, c_ in _tm.faces: _mmd.Faces.AddFace(int(a_), int(b_), int(c_))
+_mmd.Normals.ComputeNormals(); new.Objects.AddMesh(_mmd, _at)
+
+# ---------------------------------------------------------------- すき間の倉庫（10-25）
+from meshkit import Kit
+_K = Kit(new); _nshelf = 0
+for rngs, li in ((GAP_T, L_STG_T), ([(40.05, 45.45), (49.80, 50.70)], L_STG_P)):
+    for a, b in rngs:
+        _K.flat(R(a, b, -0.90, -0.35, 0.1), 10.0, li)                                # 床の板（面積の板）
+        n_ = max(1, int(math.ceil((b - a) / 0.9)))
+        for k in range(n_ + 1):                                                     # 縦の仕切り（t25、約0.9ごと）
+            uu = a + (b - a) * k / n_; uu = min(max(uu, a + 0.0125), b - 0.0125)
+            mesh_prism(R(uu - 0.0125, uu + 0.0125, -0.82, -0.40, 0.05), 0.0, const(2400.0), L_FURN); _nshelf += 1
+        for zb in (100.0, 500.0, 900.0, 1300.0, 1700.0, 2100.0, 2375.0):            # 棚板（t25、奥行き0.42）
+            mesh_prism(R(a, b, -0.82, -0.40, 0.1), zb, const(zb + 25.0), L_FURN)
+for a, b in GAP_P:                                                                  # 遊戯室の側の口に引き違いの戸（2枚、t30、壁の厚みの中）
+    m_ = (a + b) / 2
+    mesh_prism(R(a, m_ + 0.02, -0.96, -0.93, 0.05), 10.0, const(2090.0), L_SLD)
+    mesh_prism(R(m_ - 0.02, b, -1.00, -0.97, 0.05), 10.0, const(2090.0), L_SLD)
+print('gap storage: %.1f m2 (先生の道 %.1f、遊戯室 %.1f)' % (sum((b - a) * 0.55 for a, b in GAP_T + [(40.05, 45.45), (49.80, 50.70)]), sum((b - a) * 0.55 for a, b in GAP_T), sum((b - a) * 0.55 for a, b in [(40.05, 45.45), (49.80, 50.70)])))
 
 new.Write(OUT, 8); print('written', OUT, len(new.Objects))

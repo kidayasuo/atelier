@@ -223,6 +223,18 @@ log.append(f'西館：南西・北の角の屋根の面に合わせて、柱・�
 # 足し合わせて一つの閉じた立体にする（開口はそのまま残る）。厚さ：間仕切り120、階段の踏み板・蹴込み40、ガラス12。
 import manifold3d as _mf
 _THK = {lidx('24_'): 120.0, lidx('25_'): 40.0, lidx('27_'): 12.0}
+# 階段の下の倉庫（10-25、ユーザー・監修）：上の段（西の半分）と踊り場の下。床 u30.06〜32.94・v−3.45〜−4.94、戸は箱の西の面に遊戯室へ
+# 階段を細く（10-25、ユーザー・監修：遊戯室の南の口のあきを約1.1 → 約1.7）：西の面 v−5.0 はそのまま、東の面 v−2.2 → −2.75。
+# 階段の箱・階段・階段の床の v を一次で縮める（一本の幅 約1.2 → 約0.96）。
+ST_V0, ST_V1, ST_V1N = -5.0, -2.2, -2.75
+def stair_v(v): return ST_V0 + (v - ST_V0) * (ST_V1N - ST_V0) / (ST_V1 - ST_V0) if ST_V0 - 0.1 <= v <= ST_V1 + 0.1 else v
+def stair_narrow(T):
+    P = T.reshape(-1, 3).copy(); Q = to_uv_arr(P)
+    for i, (u_, v_) in enumerate(Q):
+        x_, y_ = xy(u_, stair_v(v_)); P[i, 0], P[i, 1] = float(np.ravel(x_)[0]) if np.ndim(x_) else x_, float(np.ravel(y_)[0]) if np.ndim(y_) else y_
+    return P.reshape(T.shape)
+_n_stair = 0
+STAIR_STG = (30.06, 32.94, -4.94, round(stair_v(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
 _n_thk = 0
 for o in m.Objects:
     li_ = o.Attributes.LayerIndex
@@ -231,6 +243,8 @@ for o in m.Objects:
     if not len(T): continue
     U = to_uv_arr(T.reshape(-1, 3))
     if (U[:, 1] > -0.9).any(): continue                                  # 西館だけ
+    if li_ in (lidx('24_'), lidx('25_')) and U[:, 0].min() > 29.9 and U[:, 0].max() < 33.1 and U[:, 1].min() > -5.05 and U[:, 1].max() < -2.15:
+        T = stair_narrow(T); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
     tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
     if tm_.is_watertight: continue
     h_ = _THK[li_] / 2; ms_ = []
@@ -244,13 +258,57 @@ for o in m.Objects:
         if M_.is_empty(): M_ = _mf.Manifold(_mf.Mesh(vert_properties=V_, tri_verts=F_[:, ::-1].copy()))
         if not M_.is_empty(): ms_.append(M_)
     if not ms_: continue
-    MM = _mf.Manifold.batch_boolean(ms_, _mf.OpType.Add); g_ = MM.to_mesh()
+    MM = _mf.Manifold.batch_boolean(ms_, _mf.OpType.Add)
+    if li_ == lidx('24_') and (U[:, 1] < -4.9).any() and (U[:, 1] > -2.3).any() and T[:, :, 2].max() > 7000:   # 階段の箱：西の面に階段の下の倉庫の戸（10-25）
+        _tb = trimesh.creation.extrude_polygon(R(*STAIR_DOOR, -5.3, -4.7, 0.05), 1750.0)
+        MM = MM - _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
+    g_ = MM.to_mesh()
     mm = r.Mesh()
     for x_, y_, z_ in np.asarray(g_.vert_properties)[:, :3]: mm.Vertices.Add(float(x_), float(y_), float(z_))
     for a_, b_, c_ in np.asarray(g_.tri_verts): mm.Faces.AddFace(int(a_), int(b_), int(c_))
     mm.Normals.ComputeNormals(); mm.Compact()
     beam_new.append((mm, o.Attributes)); beam_drop.add(str(o.Attributes.Id)); _n_thk += 1
 log.append(f'西館：面だけの間仕切り・階段・室内窓 {_n_thk} 個に厚みを付けて閉じた')
+log.append(f'西館：階段と階段の箱 {_n_stair} 個を細くした（東の面 v−2.2 → −2.75、南の口のあき 約1.7）')
+
+# 3d) 外壁ぎわの柱の外の面を、足もとから頭まで外壁の内面にそろえる（10-25、ユーザーの問い・監修）。
+# 柱（22a）は縦の断面が先細り（頭が桁を抱いて膨らむ）で、頭だけが壁の内面に届き、足もとでは壁から約0.14離れて
+# 遊戯室に下が広いV字のすき間ができていた（腕や頭が挟まる）。高さごとにいちばん外の点（外の面）だけを壁の内面まで出す
+# （内の面の先細りの形はそのまま）。本館の柱（外の面が平ら、壁の内面に接する）と同じ納まり。
+_bn2 = {str(at.Id): i for i, (mm, at) in enumerate(beam_new)}
+_n_col = 0; _gmax = 0.0; _log_cols = []
+for o in m.Objects:
+    if o.Attributes.LayerIndex != L22A: continue
+    k_ = str(o.Attributes.Id)
+    mm = beam_new[_bn2[k_]][0] if k_ in _bn2 else closed_mesh(o.Geometry)
+    V = mesh_V(mm); c = V[:, :2].mean(0)
+    q = nearest_points(WNi.exterior, Point(*c))[0]; d = np.array([q.x, q.y]) - c; t = np.linalg.norm(d)
+    if t < 1 or t > 600: continue
+    n = d / t; sp = (V[:, :2] - c) @ n
+    from scipy.spatial import ConvexHull as _CH
+    P2 = np.c_[sp, V[:, 2]]
+    try: H = _CH(P2)
+    except Exception: continue
+    hv = P2[H.vertices]; zlo, zhi = hv[:, 1].min(), hv[:, 1].max()
+    zs_ = np.linspace(zlo, zhi, 200)                               # 外の縁（高さごとの外側の包絡）
+    env = []
+    for z_ in zs_:
+        xs_ = []
+        for e_ in H.simplices:
+            (s0, z0_), (s1, z1_) = P2[e_[0]], P2[e_[1]]
+            if min(z0_, z1_) - 1e-6 <= z_ <= max(z0_, z1_) + 1e-6:
+                xs_.append(s0 if abs(z1_ - z0_) < 1e-6 else s0 + (s1 - s0) * (z_ - z0_) / (z1_ - z0_))
+        env.append(max(xs_) if xs_ else -1e9)
+    env = np.array(env)
+    gap = float(t - env[1:-1].min())                                  # 足もとのすき間など、いちばん広い所
+    _log_cols.append((round(float(to_uv_arr(V[:1])[0][0]), 2), round(float(to_uv_arr(V[:1])[0][1]), 2), round(gap)))
+    if gap < 5.0 or gap > 250.0: continue                            # 壁から離れて立つ柱（角など）は動かさない
+    on_ = sp >= np.interp(V[:, 2], zs_, env) - 2.0                  # 外の縁の上の点
+    V[on_, :2] += np.outer(t - 2.0 - sp[on_], n)
+    mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact()
+    if k_ not in _bn2: beam_new.append((mm, o.Attributes)); beam_drop.add(k_)
+    _n_col += 1; _gmax = max(_gmax, gap)
+log.append(f'西館：外壁ぎわの柱 {_n_col} 本の外の面を足もとから頭まで壁の内面にそろえた（いちばん大きいすき間 {_gmax:.0f} mm）')
 
 # ================================================================ 屋根の下面（西館 20・本館 10）
 def roof_mesh(li):
@@ -632,6 +690,13 @@ if slits:
                f'、2 枚の梁のあいだ 180、越屋根から軒先まで、乳白ガラス、20t）、屋根材型の太陽光 {pv20.area / 1e6:.0f} m²（20p）')
 
 # ================================================================ 書き出し（桁を差し替え、腰壁を足す）
+_stg0 = R(STAIR_STG[0], STAIR_STG[1], STAIR_STG[2], STAIR_STG[3], 0.05); _F36 = []    # 階段の床（36）から倉庫の分を除く（10-25）
+for _o in m.Objects:
+    if LN[_o.Attributes.LayerIndex].startswith('36_'):
+        _f = foot(_o.Geometry)
+        if _f is not None and _f.intersects(_stg0):
+            _f = Polygon([xy(_uu, stair_v(_vv)) for _uu, _vv in (uv(*c_) for c_ in _f.exterior.coords)]).buffer(0)   # 階段を細くした分（10-25）
+            _F36.append((_f, _o.Attributes.LayerIndex)); drop.add(str(_o.Attributes.Id))
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
@@ -641,6 +706,14 @@ for o in m.Objects:
 for mm, at in new_objs + col_new + beam_new: out.Objects.AddMesh(mm, at)
 K = Kit(out)
 ZF2 = 3250.0
+# 階段の下の倉庫（10-25）：床の板 36b、階段の床（36）からその分を除く、戸（遊戯室の側の片引き、h1.75）
+_L36B = out.Layers.Add(r.Layer()); out.Layers[_L36B].Name = '36b_1F_倉庫（階段の下）'; out.Layers[_L36B].Color = (217, 211, 236, 255)
+_stg = R(STAIR_STG[0], STAIR_STG[1], STAIR_STG[2], STAIR_STG[3], 0.05)
+K.flat(_stg, 10.0, _L36B)
+for _f, _li in _F36: K.flat(_f.difference(_stg.buffer(1)), 10.0, _li)
+_L19C_ = [i for i, l in enumerate(out.Layers) if l.Name.startswith('19c_')]
+if _L19C_: K.prism(R(STAIR_DOOR[0] - 0.05, STAIR_DOOR[1] + 0.05, -5.12, -5.09, 0.05), 10.0, 1750.0, _L19C_[0])
+log.append('西館：階段の下の倉庫 %.1f m²（36b、戸は階段の箱の西の面 u%.2f〜%.2f）' % (_stg.area / 1e6, *STAIR_DOOR))
 K.prism(R(21.16, 32.95, -1.96, -1.90, 0.1), ZF2, ZF2 + 1100.0, L38)       # 2 階の東の縁（東の帯への吹き抜け）
 K.prism(R(32.97, 33.03, -5.0, -1.96, 0.02), ZF2, ZF2 + 1100.0, L38)       # 2 階の北の口（遊戯室の吹き抜け）
 log.append('西館：2 階の腰壁 h1100（東の縁 u 21.2–33、北の口 u 33）')

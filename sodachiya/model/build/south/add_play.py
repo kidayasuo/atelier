@@ -82,8 +82,9 @@ cv = P['cave']
 if 'platform' in cv:                                    # 腰掛けの台（10-21 夜 9 でやめた。キーがあれば作る）
     pf = cv['platform']
     K.prism(RW(cv['u0'] + 0.1, cv['u1'] - 0.1, pf[0], pf[1]).intersection(PLAY), 0.0, pf[2] * 1000, L_DK)
-store = RW(cv['u0'], cv['u1'], cv['store'][0], cv['store'][1]).intersection(PLAY)
-K.prism(store, 0.0, cv['beam_bottom'] * 1000, L_SO)
+if 'store' in cv:                                   # 10-25：洞の道具入れの箱はやめた（play.json に store が無い）
+    store = RW(cv['u0'], cv['u1'], cv['store'][0], cv['store'][1]).intersection(PLAY)
+    K.prism(store, 0.0, cv['beam_bottom'] * 1000, L_SO)
 # ---------------------------------------------------------------- デッキ・家具階段
 dk = P['deck']
 K.prism(RW(dk['u0'], dk['u1'], dk['w0'], dk['w1']), 0.0, dk['h'] * 1000, L_DK)

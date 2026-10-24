@@ -74,10 +74,7 @@ poly([(30, 4.1, cv['slab']), (UC, 4.1, cv['slab']), (UC, WW, cv['slab']), (30, W
 for w in np.arange(4.4, WW, 0.45): ln([(30, w, cv['slab'] - 0.001), (UC, w, cv['slab'] - 0.001)], '#BCA17A', 0.3, 2.12)
 t_ = 0.18
 poly([(30 + t_ / 2, 4.1, cv['beam_bottom']), (30 + t_ / 2, WW, cv['beam_bottom']), (30 + t_ / 2, WW, cv['slab']), (30 + t_ / 2, 4.1, cv['slab'])], '#C9AE84', INK, 0.5, 2.3)
-poly([(30, 11.0, 0), (UC, 11.0, 0), (UC, 11.0, cv['beam_bottom']), (30, 11.0, cv['beam_bottom'])], '#E2D3B7', INK, 0.5, 2.3)
-for u in (31.0, 32.0): ln([(u, 11.0, 0.05), (u, 11.0, cv['beam_bottom'] - 0.05)], INK, 0.35, 2.31)
-poly([(30, 11.0, cv['beam_bottom']), (UC, 11.0, cv['beam_bottom']), (UC, WW, cv['beam_bottom']), (30, WW, cv['beam_bottom'])], '#D9C9AA', INK, 0.4, 2.29)
-a = proj(31.0, 11.0, 1.5)[0]; ax.text(a[0], a[1], '道具入れ', fontproperties=FontProperties(fname=FONT, size=5.2), color='#6b6156', ha='center', va='center', zorder=6)
+# 10-25：西の低い隅の道具入れの箱はやめた（遊戯室の道具はすき間の倉庫と階段の下の倉庫へ）
 
 # ---------------------------------------------------------------- クスノキ・こども（奥から描く）
 segs = []

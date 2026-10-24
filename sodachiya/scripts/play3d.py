@@ -65,7 +65,7 @@ for a_, b_, c_ in TF: tm.Faces.AddFace(int(a_), int(b_), int(c_))
 K.add(tm, L_ST, (150, 112, 72))
 # ---------------------------------------------------------------- 洞の道具入れ
 cv = P['cave']
-K.prism(RWw(cv.get('store_u0', cv['u0']), cv['u1'], cv['store'][0], cv['store'][1]).intersection(WNi), 0.0, cv['beam_bottom'] * 1000, L_SO)
+if 'store' in cv: K.prism(RWw(cv.get('store_u0', cv['u0']), cv['u1'], cv['store'][0], cv['store'][1]).intersection(WNi), 0.0, cv['beam_bottom'] * 1000, L_SO)   # 10-25：道具入れの箱はやめた
 # ---------------------------------------------------------------- デッキ・家具階段
 dk = P['deck']; K.prism(RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1']), 0.0, dk['h'] * 1000, L_DK)
 ds = P['deck_steps']; n_ = len(ds['hs'])

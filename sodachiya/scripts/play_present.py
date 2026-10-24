@@ -98,7 +98,7 @@ for g in objs('22a_'):
 # はれのまとの壁（u 30）・階段の箱・2 階の床の縁
 cv = P['cave']
 fillg(M(RW(cv['wall_u'] - 0.06, cv['wall_u'] + 0.06, cv['wall_w0'], 16)).intersection(M(WN)), C['wall'], z=6)
-stair = M(RW(30.0, 33.0, 1.3, 4.1))
+stair = M(RW(30.0, 33.0, 1.85, 4.1))   # 10-25：階段を細くした（南の口のあき約1.7）
 lineg(stair, 0.6, C['wall'], z=6)
 for k in range(1, 12):
     uu = 30.0 + 3.0 * k / 12; lineg(M(LineString([xy(uu, -0.9 - 1.35), xy(uu, -0.9 - 2.5)])), 0.2, '#777777', z=5)
@@ -108,8 +108,9 @@ lineg(M(LineString([xy(33.0, -0.9 - 4.1), xy(33.0, -0.9 - 13.0)])).intersection(
 T(*(Mp(33.15, 10.6)), '2 階の床の縁（上は会議室）', 3.4, '#555555', va='center', rotation=90)
 T(*(Mp(30.8, 11.4)), 'はれのま', 4.2, '#9a9a9a', ha='center', va='center')
 # 洞：道具入れ・クスノキ・やわらかい床
-store = M(RW(cv['u0'] + 0.05, cv['u1'] - 0.05, cv['store'][0], cv['store'][1]).intersection(WNi))
-fillg(store, '#E4DccB', C['ink'], 0.3, z=4); T(*store.centroid.coords[0], '道具入れ', 3.6, ha='center', va='center', zorder=8)
+if 'store' in cv:
+    store = M(RW(cv['u0'] + 0.05, cv['u1'] - 0.05, cv['store'][0], cv['store'][1]).intersection(WNi))
+    fillg(store, '#E4DccB', C['ink'], 0.3, z=4); T(*store.centroid.coords[0], '道具入れ', 3.6, ha='center', va='center', zorder=8)
 st = P['stump']; cst = Mp(st['u'], st['w'])
 fillg(M(Point(xy(st['u'], -0.9 - st['w'])).buffer(st['soft_r'] * 1000, resolution=48).intersection(WNi)), C['soft'], z=2.5)
 upv = Mp(st['u'] + 1, st['w']) - cst; upv /= np.linalg.norm(upv); eav = Mp(st['u'], st['w'] - 1) - cst; eav /= np.linalg.norm(eav)

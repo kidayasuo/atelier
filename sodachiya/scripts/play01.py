@@ -126,15 +126,16 @@ T(Ww(29.5, 6.5), "はれのま（仮）", 6, c="#8a5a2b")
 CV = D["cave"]
 poly(SP(rectw(CV["u0"], CV["u1"], CV["w0"], 13.5)).intersection(PLAY), C["cave"], "none", 0, 1.5)
 poly(F2.intersection(SP(rect(30.0, 33.2, -0.9, -30))), "none", "#7a4fa0", 0.8, 9, ls=(0, (4, 2)))
-poly(SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY), "#CDBB98", "#555555", 0.45, 4, hatch="////")
-poly(SP(rectw(CV["u0"] + 0.05, CV["u1"], CV["store"][0] - 0.06, CV["store"][0])), "#333333", "#333333", 0.3, 6)      # storage front (sliding doors)
-for (ua, ub) in [(30.3, 31.6), (31.4, 32.7)]:
-    line([Ww(ua, CV["store"][0] - 0.12), Ww(ub, CV["store"][0] - 0.12)], 0.9, "#8a5a2b", z=6.5)
+if "store" in CV:
+    poly(SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY), "#CDBB98", "#555555", 0.45, 4, hatch="////")
+    poly(SP(rectw(CV["u0"] + 0.05, CV["u1"], CV["store"][0] - 0.06, CV["store"][0])), "#333333", "#333333", 0.3, 6)      # storage front (sliding doors)
+    for (ua, ub) in [(30.3, 31.6), (31.4, 32.7)]:
+        line([Ww(ua, CV["store"][0] - 0.12), Ww(ub, CV["store"][0] - 0.12)], 0.9, "#8a5a2b", z=6.5)
 # partition to はれのま (u 30, from w 2.5 to the west face, up to the 2F floor)
 poly(SP(rectw(CV["wall_u"] - 0.06, CV["wall_u"] + 0.06, CV["wall_w0"], 30)).intersection(WB), "#333333", "#333333", 0.3, 7.5)
 # stair
-poly(STAIR, "#888888", "#333333", 0.5, 6); T(Ww(31.5, 2.7), "階段\n（2 階へ）", 5, c="white")
-line([Ww(33.0, 1.3), Ww(33.0, 4.1)], 0.9, "#333333", z=7)                       # rail between stair top and the room
+poly(STAIR, "#888888", "#333333", 0.5, 6); T(Ww(31.5, 3.0), "階段\n（2 階へ）", 5, c="white")
+line([Ww(33.0, 1.85), Ww(33.0, 4.1)], 0.9, "#333333", z=7)                       # rail between stair top and the room
 # west building outline, columns
 poly(WB.intersection(clip), "none", "black", 1.3, 7)
 for (u, v) in COLS:
@@ -316,7 +317,7 @@ NUMS = [
     (Ww(33.25, 0.65), "南の口（ホール・東の帯から、階段の東を抜ける）。口①はここにまとめた"),
     (W(46.5, 0.8), "北の口（口②、西吹き抜けから、すき間を渡る）"),
     (Ww(30.6, 5.0), "洞（2 階の下、梁の下 h2.23・床の裏 h3.17）。木のてっぺんが 2 階の床に届く。南は はれのま との壁（u 30、2 階の床まで）"),
-    (Ww(31.5, 12.0), "道具入れ 約 %.1f m²（西の低い隅、東向きの引き戸。発表会の椅子など。倉庫 30 m² の一つに数える）" % SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY).area),
+    (Ww(31.5, 3.4), "階段の下の倉庫 約4.3 m²（平均台・跳び箱・積んだマット。戸は階段の箱の西の面、遊戯室へ）。遊戯室の東の壁の下にはすき間の倉庫の口（マット・ボール・フープ）"),
     (Ww(st["u"] + 1.9, st["w"] + 1.6), "枝付きのクスノキ（幹 φ1.0、約1mで太い枝5本に分かれ、肘で折れて横へうねる。本物のライブオークの枝ぶりに学んだ。樟脳の香り）。3本は2階の床の裏に届き、北の太い枝は天井の高い側へ横に張る（h1.5〜2.0）。西の枝は h約1.0の腰掛け、北東の低い枝は h約0.8。行事の日は木の前が舞台"),
     (Ww(dk["u0"] + 0.4, 2.3), "デッキ h1.2（下はマット・ボールの道具入れ）。南に家具階段 +300／600／900、東の壁に登り壁 → キャットウォーク"),
     (Ww(44.0, 0.7), "キャットウォーク 幅 0.9：東の壁は板の床 h3.0、北の壁で段（200×5）を下りて北西の踊り場 h2.0 へ。手すりは縦格子 h1.1（すき間 90、横桟なし）。ネットの輪から踊り場へは網の吊り橋（3.0→2.0、真ん中が垂れる）。空中で一周。支え方：重さは吊り材で屋根へ、横は壁の受け材で止める。吊り橋だけ揺れてよい"),
