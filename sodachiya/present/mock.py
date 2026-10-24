@@ -551,7 +551,7 @@ figs = []
 # ================================================================ 1　敷地と応答
 fig, ax = page()
 frame(ax, 1, "敷地と自然環境・地域", "周囲の自然環境との関係（用水を借りる・山から川へ・比叡と高野川のうつし・北山杉と地下水）と地域環境への配慮",
-      "タイトルと趣旨 → 配置図 → 上の青い4つ（自然環境）→ 右の茶の5つ（地域）→ 用水のネットワーク")
+      "タイトルと趣旨 → 真ん中の配置図 → 左右の箱（青＝自然環境、茶＝地域）→ 用水のネットワーク")
 top = H - M - 16
 T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
 # 設計趣旨はpresent/設計趣旨.txt（ユーザーが編集する）。改行は無視してつなぐ
@@ -630,23 +630,19 @@ def lab(ax, xfun, P3, text, dxy=(0, 0), size=2.6, color=INK, ha="left", lead=Tru
         T(ax, t[0] + (1 if ha == "left" else -1), t[1] + 1 - k_ * (size + 1.2), s_, size, color, ha=ha, bold=bold)
 
 
-# 周囲の自然環境との関係（趣旨の右、1列に4つ、青）。配置図の点へ線で引く（ユーザー、10-24夜の構成）
-rx = M + 6 + 258
+# 周囲の自然環境との関係（青）と地域環境への配慮（茶）。配置図を真ん中に置き、左右の箱から引き出し線で点へ（ユーザー、10-24夜）
 C_NAT, C_COM = "#2F6FA0", "#8A5A2B"
-title(ax, rx, top - 12, "周囲の自然環境との関係")
-cw, ch = (W - M - 6 - rx - 3 * 5) / 4, 66
-cy = top - 18 - ch
 NAT = [("用水を借りる", ["松ヶ崎の用水のネットワークから水を借りる。北の道の下の暗渠から敷地の北の角へ、北のもりのみなもとに湧き出す。"]),
        ("山から川へ", ["みなもとから縁側の前・原っぱを流れ、護岸の溝を滑り落ちて高野川に合流するまでを、こどもが追える。", "雨は樋に隠さず、雨の川から同じ溝で川へ。"]),
        ("比叡と高野川のうつし", ["築山は比叡のうつし。ホールから頂の向こうに比叡が見える。", "小川は高野川のうつし。足もとを掘った土で築山を盛る。"]),
        ("木と地下水も借りる", ["京都北山の北山杉の間伐材141本を、ホールの林に立てる。", "松ヶ崎の豊かな地下水も借りる（物語）。"])]
-for i_, (h1, ls_) in enumerate(NAT):
-    ibox(ax, rx + i_ * (cw + 5), cy, cw, ch, f"{i_ + 1}　{h1}", ls_, C_NAT, "#F6FAFD")
+cy = M + 8 + 26.0 + 400                          # 上の段の下端の目安（配置図の上）
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
 VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
 sx, sy = M + 6, M + 8 + 26.0                                    # 下の26 mmは縮尺と注
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
+sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
 title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
 xf = xform(sx, sy, 200, VX0, VY0)
 rp = clip_rect(ax, sx, sy, sw, sh)
@@ -866,99 +862,63 @@ lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止�
 lab(ax, xf, R3inv([33.5, 58.8])[0], "用水路（北から来て、ここから暗渠で敷地の北の角へ）", (-4, 9), size=2.6, color="#1F6FB2", ha="right")
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
-# 自然環境の4つの箱から配置図の点へ（貼った園庭の図の上に出るよう、最後にPDFの上に描く）
+# 引き出しの点（紙のmm）
 Rs = lambda P: np.c_[np.atleast_2d(P)[:, 0] * np.cos(_rr) - np.atleast_2d(P)[:, 1] * np.sin(_rr),
                      np.atleast_2d(P)[:, 0] * np.sin(_rr) + np.atleast_2d(P)[:, 1] * np.cos(_rr)]   # sの座標 → 回した座標
 P3p = lambda P: xf(R3(P))[0]                       # 3dmのm → 紙
 Psp = lambda P: xf(Rs(np.asarray(P, float)))[0]    # sの座標 → 紙
 _stl = gc.XS([tuple(p) for p in GJ["STREAM"]["line"]])
-_nat_pts = [[P3p(_stl[0])],
-            [P3p(_stl[len(_stl) // 2]), P3p(_stl[-1])],
-            [Psp(np.array(GD["mound"].centroid.coords[0]))],
-            [Psp(np.array(GD["mound"].centroid.coords[0])) * 0 + Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.startswith("59_1F_ホール")]).centroid.coords[0]))]]
-_k = 0
-for i_, pts in enumerate(_nat_pts):
-    bx_ = rx + i_ * (cw + 5) + 12 + 6 * len(pts)
-    for j_, q_ in enumerate(pts):
-        bxx = bx_ - 6 * j_
-        yv = cy - 2.0 - 1.3 * _k                     # 箱の下から少し下りて左へ
-        topline(1, q_, (bxx, cy), C_NAT, via=[(bxx, yv), (q_[0], yv)])     # 横へ、点の真上から下りる
-        _k += 1
-
-# 地域環境への配慮（配置図の右、茶）。左の端から配置図の点へ
-gx = sx + sw + 6
-cwid = 205
+_cen = lambda pre: Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.startswith(pre)]).centroid.coords[0]))
+ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts) for i_, ((h1, ls_), pts) in enumerate(zip(NAT, [
+    [P3p(_stl[0])], [P3p(_stl[len(_stl) // 2]), P3p(_stl[-1])], [Psp(np.array(GD["mound"].centroid.coords[0]))], [_cen("59_1F_ホール")]]))]
 COM = [("車は西の道の真ん中より南で", ["西の道は突き出た木で見通しが悪い。外からの車の出入り（駐車・搬入）は、西の道の真ん中より南（川の側）にまとめた。"],
-        P3p(SITE_C["NW"] + 0.78 * _LW * _u - 3.0 * _n)),
-       ("向かいの住宅へ", ["狭い道をはさんで向き合う住宅に対し、西館の西の端は1階の高さに抑えた。"], P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)),
-       ("東の隣家へ", ["視線と音に配慮：境から1 m、木の帯、園庭の小屋が声の衝立になる。"], P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)),
-       ("小竹薮公園を残す", ["地域の記憶の公園をそのまま残し、園の入口の前庭にする。"], P3p(np.array(gc.PARK.centroid.coords[0]))),
-       ("災害時に水を届ける", ["地下水をくみ上げて、災害時に近隣に水を届ける。屋根材型の太陽光と蓄電池で停電の時も動く。"],
-        Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.startswith("35_")] or [Polygon([(0, 0), (1, 0), (1, 1)])]).centroid.coords[0])))]
-title(ax, gx, cy - 17, "地域環境への配慮")
-by_ = cy - 22
-for i_, (h1, ls_, q_) in enumerate(COM):
-    nl = sum(len(jwrap(t_, (cwid - 6) / (3.2 / 0.72))) for t_ in ls_)
-    _ch2 = 18 + nl * (3.2 / 0.72 + 1.2)
-    by_ -= _ch2
-    ibox(ax, gx, by_, cwid, _ch2, f"{i_ + 1}　{h1}", ls_, C_COM, "#FBF7F2")
-    topline(1, q_, (gx, by_ + _ch2 / 2), C_COM)
-    by_ -= 8
-_notes_y = by_
+        [P3p(SITE_C["NW"] + 0.78 * _LW * _u - 3.0 * _n)]),
+       ("向かいの住宅へ", ["狭い道をはさんで向き合う住宅に対し、西館の西の端は1階の高さに抑えた。"], [P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)]),
+       ("東の隣家へ", ["視線と音に配慮：境から1 m、木の帯、園庭の小屋が声の衝立になる。"], [P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)]),
+       ("小竹薮公園を残す", ["地域の記憶の公園をそのまま残し、園の入口の前庭にする。"], [P3p(np.array(gc.PARK.centroid.coords[0]))]),
+       ("災害時に水を届ける", ["地下水をくみ上げて、災害時に近隣に水を届ける。屋根材型の太陽光と蓄電池で停電の時も動く。"], [_cen("35_")])]
+ITEMS += [(f"地域{i_ + 1}　" + h1, ls_, C_COM, "#FBF7F2", pts) for i_, (h1, ls_, pts) in enumerate(COM)]
+# 点の左右で振り分け、それぞれ点の高さの順に積む（引き出し線が交わらないように）
+_mid = sx + sw / 2
+LCX, LCW = M + 6, sx - (M + 6) - 8
+RCX = sx + sw + 8
+RCW = W - M - 6 - RCX
+COL_TOP, COL_BOT = sy + sh + 2, M + 8
+for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
+    its = [it for it in ITEMS if (np.mean([q[0] for q in it[4]]) < _mid) == (side == "L")]
+    its.sort(key=lambda it: -np.mean([q[1] for q in it[4]]))
+    hs = [16 + sum(len(jwrap(t_, (colw - 6) / (3.0 / 0.72))) for t_ in it[1]) * (3.0 / 0.72 + 1.2) + 1.5 * len(it[1]) for it in its]
+    gap = max(5.0, min(14.0, (COL_TOP - COL_BOT - sum(hs)) / max(1, len(its) - 1)))
+    # 理想の位置＝点の高さを中心に。上から順に、重ならないよう下へずらし、はみ出したら下から詰め直す
+    want = [np.mean([q[1] for q in it[4]]) for it in its]
+    tops = []
+    cur = COL_TOP
+    for w_, h_ in zip(want, hs):
+        t_ = min(cur, w_ + h_ / 2)
+        tops.append(t_)
+        cur = t_ - h_ - gap
+    over = (COL_BOT) - (tops[-1] - hs[-1]) if tops else 0
+    if over > 0:
+        cur = COL_BOT
+        for k in range(len(tops) - 1, -1, -1):
+            tops[k] = max(tops[k], cur + hs[k])
+            cur = tops[k] + gap
+    for (head, ls_, col, fill, pts), t_, h_ in zip(its, tops, hs):
+        ibox(ax, colx, t_ - h_, colw, h_, head, ls_, col, fill, size=3.0)
+        ex_ = colx + colw if side == "L" else colx
+        for k_, q_ in enumerate(pts):
+            topline(1, q_, (ex_, t_ - h_ / 2 + (k_ - (len(pts) - 1) / 2) * 6), col)
 
-# 用水のネットワークと北山（小さな地図、右の列）
-mbx = gx + cwid + 8
-mbw = W - M - 6 - mbx
-mx0, mx1, my0, my1 = -75.0, 105.0, -45.0, 95.0
-msc = (mx1 - mx0) * 1000 / (mbw - 6)
-msc = next(s_ for s_ in (1000, 1250, 1500, 2000, 2500, 3000) if s_ >= msc)
-mbh = (my1 - my0) * 1000 / msc + 40
-mby = cy - 22 - mbh
-ax.add_patch(Rectangle((mbx, mby), mbw, mbh, fc="#FAFCFF", ec="#7FA6C8", lw=0.5))
-T(ax, mbx + 3, mby + mbh - 6, "借りぐらし　用水のネットワークと北山", 3.2, C_NAT, bold=True)
-mw, mh = (mx1 - mx0) * 1000 / msc, (my1 - my0) * 1000 / msc
-mox, moy = mbx + (mbw - mw) / 2, mby + 26
-mxf = xform(mox, moy, msc, mx0, my0)
-mrp = clip_rect(ax, mox, moy, mw, mh)
-st = len(ax.patches); stl = len(ax.lines)
-for ln, g in CTX:
-    if g is None:
-        continue
-    g = rot(g)
-    if ln.startswith("03_"):
-        draw_shape(ax, g, mxf, fc="#EEEEEE", ec="none", z=1)
-    else:
-        draw_shape(ax, g, mxf, fc="#E2E2E2", ec="#C8C8C8", lw=0.05, z=2)
-for ln, g in site_items:
-    if g is not None and ln.startswith("02_"):
-        draw_shape(ax, rot(g), mxf, fc="#DCE8EE", ec="none", z=1)
-draw_shape(ax, rot(Polygon(_S)), mxf, fc="#F3F7EC", ec=INK, lw=0.35, z=3)
-draw_shape(ax, rot(roofs_plan), mxf, fc="#B9B2A6", ec="none", z=4)
-_cn = mxf(R3(WT["canal"]))
-ax.plot(_cn[:, 0], _cn[:, 1], color=C_NAT, lw=1.2, zorder=6)
-_cv = mxf(np.vstack([R3(WT["canal"][-1]), R3(gc.XS([tuple(p) for p in GJ["STREAM"]["culvert"]]))]))
-ax.plot(_cv[:, 0], _cv[:, 1], color=C_NAT, lw=0.7, ls=(0, (2, 1.5)), zorder=6)
-_st = mxf(R3(_stl))
-ax.plot(_st[:, 0], _st[:, 1], color=C_NAT, lw=0.9, zorder=6)
-_rv = mxf(R3(WT["river"]))
-ax.plot(_rv[:, 0], _rv[:, 1], color=C_NAT, lw=1.8, zorder=5, alpha=0.8)
-for a_ in ax.patches[st:] + ax.lines[stl:]:
-    a_.set_clip_path(mrp)
-T(ax, _cn[0, 0] + 1, min(_cn[0, 1], moy + mh) - 3, "松ヶ崎の用水路", 2.4, C_NAT)
-T(ax, _cv[-1, 0] + 1.5, _cv[-1, 1] + 1.5, "暗渠", 2.2, C_NAT)
-T(ax, mox + mw * 0.62, moy + 4, "高野川", 2.6, C_NAT, bold=True)
-_nwv = np.array([_nv[0] * np.cos(np.pi / 4) - _nv[1] * np.sin(np.pi / 4), _nv[0] * np.sin(np.pi / 4) + _nv[1] * np.cos(np.pi / 4)])
-_a0 = np.array([mox + 9, moy + mh - 14])
-ax.annotate("", xy=tuple(_a0 + _nwv * 10), xytext=tuple(_a0), arrowprops=dict(arrowstyle="-|>", lw=0.7, color="#6B4A2B"))
-T(ax, mox + 2, moy + mh - 4, "京都北山へ（北山杉の間伐材）", 2.3, "#6B4A2B")
-T(ax, mbx + 3, mby + 15, f"1/{msc}　用水路 → 暗渠 → みなもと → 小川 → 高野川", 2.4)
-T(ax, mbx + 3, mby + 9.5, "北の角で用水から水を借り、川へ返す", 2.4)
-T(ax, mbx + 3, mby + 4, "（用水路と川は敷地図の線をなぞった、精度は数m）", 1.8, NOTE)
+# 上の段：配置図の注と、用水のネットワーク全体の図（場所の確保。涌泉寺からの水の道、平安京の外の条里の地割のまま）
+NTX = M + 6 + 250
 for k_, s_ in enumerate(["配置図の注", "・駐車5台・搬入は南（川側）。行事の日は駐車場を駐輪に",
                          "・セキュリティの線の出入口は公園の木戸だけ",
                          "・園庭への搬入は公園の東の縁から川沿いの帯を通って",
                          "・敷地の境から：北東の隣家1 m（厳守）、ほかは1 m"]):
-    T(ax, gx, _notes_y - 4 - k_ * 5.4, s_, 2.9 if k_ else 3.4, bold=(k_ == 0))   # 地域の箱の下に
+    T(ax, NTX, top - 20 - k_ * 5.4, s_, 2.9 if k_ else 3.4, bold=(k_ == 0))
+_nbx = NTX + 175
+box(ax, _nbx, sy + sh + 12, W - M - 6 - _nbx, top - 8 - (sy + sh + 12), "松ヶ崎の用水のネットワーク（全体）",
+    "涌泉寺のあたりの湧き水から、地域の用水の網を通って敷地の北の角へ\n網の目は平安京の外の条里の地割のまま\n（地図の元が要る：ユーザーに確認）", color=C_NAT, fill="#F6FAFD")
 figs.append(fig)
 
 # 図のPDF（3dmから自動の図）
