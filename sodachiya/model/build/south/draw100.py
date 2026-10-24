@@ -2,7 +2,7 @@
 使い方: python3 draw100.py MODEL_MESH.3dm OUTDIR
 - 平面：FL+1200 で切る。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
   見えがかりは近いもの（高いもの）から順に、手前の形で後ろの線を切って描く（隠れ線を消した線だけ）。
-  屋根の外形と、2 階で切れる梁は破線。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
+  屋根の外形は破線（梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
 - 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
 - 断面：A は円筒面 r=197 m で切って展開（西を見る）。B・C は架構に平行な鉛直面（北を見る）、奥 3.2 m まで。
   通り芯、幅の寸法、高さの記号（GL・FL・2FL・屋根・越屋根の蓋・西館の最高）。
@@ -195,6 +195,7 @@ DL = {
     '03_切断（ガラス）': (5, 13, 'Continuous'),
     '04_切断（機械室などの塊）': (7, 35, 'Continuous'),
     '05_断熱（仮）': (2, 9, 'Continuous'),
+    '06_部屋の色': (8, 0, 'Continuous'),
     '09_立面の外形': (7, 30, 'Continuous'),
     '10_見えがかり': (7, 13, 'Continuous'),
     '11_見えがかり（家具）': (8, 9, 'Continuous'),
@@ -296,6 +297,7 @@ class Ax:
             s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='#777777' if hatch else (fc if seam else 'none'), lw=LW(0.05), hatch=hatch, zorder=z))
             if fc == 'w' and not hatch: continue                 # 白抜き（間仕切り）は DXF では塗らない（線だけ）
             h = s.sh.msp.add_hatch(color=7 if fc == 'k' else 8, dxfattribs={'layer': layer})
+            if isinstance(fc, str) and fc.startswith('#') and len(fc) == 7: h.rgb = tuple(int(fc[i:i + 2], 16) for i in (1, 3, 5))
             if hatch: h.set_pattern_fill('ANSI31', scale=20.0)
             h.paths.add_polyline_path([s.P(*p) for p in list(gg.exterior.coords)[:-1]], is_closed=True, flags=1)
             for ring in gg.interiors:
@@ -421,6 +423,17 @@ def draw_visible(A, items, occ):
 
 # ---------------------------------------------------------------- 平面
 ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_', ln))
+# 部屋の色（決定事項（共通）の「色」、ユーザー10-24：0〜5歳は淡いベージュから緑へ）。廊下・縁側・階段は塗らない
+ROOM_COLOR = [('0・1歳', '#EFE3C3'), ('2歳', '#D6D9A6'), ('3歳', '#B5CC8F'), ('4歳', '#92BB7D'), ('5歳', '#6FA96E'),
+              ('便所', '#D5EBEE'), ('医務', '#F7F3EA'), ('静養室', '#F7F3EA'), ('事務', '#E9DCC4'), ('園長室', '#E9DCC4'),
+              ('遊戯室', '#F6E3A4'), ('キッチン', '#F0B98A'), ('受け取り土間', '#F0B98A'), ('食べる土間', '#F7D3B0'), ('はれのま', '#F7D3B0'),
+              ('2F_', '#E3DAF0'), ('ホール', '#E3C08D')]
+def room_color(ln):
+    if re.search(r'西吹き抜け|東の帯|階段|縁側|海峡', ln): return None
+    for k, c in ROOM_COLOR:
+        if k in ln: return c
+    return None
+
 def room_name(ln):
     s = re.sub(r'^\d+[a-z]?_', '', ln); s = re.sub(r'^(1F|2F)_', '', s); return re.sub(r'（.*?）', '', s)
 
@@ -433,7 +446,7 @@ def plan(A, zcut, objs, overhead, level_z):
         z = ob['T'][:, :, 2]
         if num(ob['layer']) == 94 and z.max() > zcut: overhead.append(ob); continue   # 園庭の木：樹冠を破線で
         if z.min() >= zcut: continue
-        if z.max() > zcut and is_beam(ob['layer']): overhead.append(ob); continue      # 梁は上部（破線）
+        if is_beam(ob['layer']): continue                                                # 梁は描かない（平面の切断より上、ユーザー10-24：梁は見えない）
         if z.max() > zcut: cut.append(ob)
         else: below.append(ob)
     items = []
@@ -443,7 +456,15 @@ def plan(A, zcut, objs, overhead, level_z):
     occ = draw_cut(A, items)
     below.sort(key=lambda ob: -ob['T'][:, :, 2].max())
     draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below], occ)
+    # 上部：屋根は片をまとめた外形だけ（片の継ぎ目・光の筋・太陽光の線は部屋を横切るので描かない、10-24）、木の樹冠は一本ずつ
+    roof_sil = [silhouette(ob['T'][:, :, :2]) for ob in overhead if num(ob['layer']) in (10, 20) and re.match(r'^(10|20)_', ob['layer'])]
+    roof_sil = [g.buffer(30) for g in roof_sil if g is not None and not g.is_empty]
+    if roof_sil:
+        ru = unary_union(roof_sil).buffer(-30)
+        ru = unary_union([Polygon(g.exterior) for g in getattr(ru, 'geoms', [ru]) if g.geom_type == 'Polygon'])   # 光の筋の穴は外形に入れない
+        A.geom_lines(ru.boundary, '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
     for ob in overhead:
+        if num(ob['layer']) in (10, 20): continue
         A.geom_lines(silhouette(ob['T'][:, :, :2]), '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
     # 階段：踏面の輪郭（切断より下は実線、上は破線）、上り口からの矢印と「上」（2 階では降り口から「下」）
     for ob in stairs:
@@ -523,6 +544,9 @@ def plan(A, zcut, objs, overhead, level_z):
         TAB = _json.load(open(os.path.join(OUTD, 'sodachiya_areas.json'), encoding='utf-8')).get('layers', {})
     except Exception:
         TAB = {}
+    for ln_, sils in BYL.items():
+        fc_ = room_color(ln_)
+        if fc_: A.fill(unary_union(sils).buffer(-5, join_style=2), '06_部屋の色', fc=fc_, z=0.8)
     for ln_, sils in BYL.items():
         ob = {'layer': ln_}
         sil = unary_union(sils).buffer(-5, join_style=2)
@@ -693,7 +717,7 @@ def make_plans():
     o2 = [ob for ob in o2 if inside(ob)]
     o2 = [ob for ob in o2 if ob['T'][:, :, 2].max() > 3000 or num(ob['layer']) in (21, 22, 25)]
     plan(A2, 3250 + 1200, o2, [ob for ob in OBJ if num(ob['layer']) == 20], 3250)
-    A2.text(wx0, wy1, '西館 2 階平面図　2FL+1200 で切断　1/100（梁は破線）', 9, '80_図名・縮尺・方位', ha='left', va='bottom', raw=True)
+    A2.text(wx0, wy1, '西館 2 階平面図　2FL+1200 で切断　1/100', 9, '80_図名・縮尺・方位', ha='left', va='bottom', raw=True)
     return S
 
 # ---------------------------------------------------------------- 断面
@@ -724,7 +748,7 @@ def chain_dims(A, xs, y, label_fmt='{:,.0f}'):
 
 # 細かい繰り返し（越屋根の木のルーバー：板が 9 mm おきに重なる）は、1/100 で一枚ずつ線を引くと黒い帯に潰れる。
 # 見えがかり・立面では層ごとに一つの外形にまとめる（切り口は一枚ずつのまま）。
-FINE_LAYERS = ('50c_',)
+FINE_LAYERS = ('50c_', '30_')
 def merge_fine_far(far):
     out, grp = [], {}
     for dd, ob, sil in far:
