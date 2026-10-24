@@ -155,7 +155,15 @@ row('管理', '医務室', '約 30', 27, ('59_1F_医務', '59_1F_静養室'))
 row('管理', '調理室', '約 60', 54, ('32_', '57_'), '給食室・食品庫。調理の更衣・便所・前室を含む')
 row('管理', '便所（大人用）', '適宜', None, ('42_', '59_1F_多目的便所', '59_1F_便所（職員）'), '1 階：多目的便所（スパン 11）・職員の個室（スパン 14）、2 階：便所・湯沸。3 か所とも性別なし。ほかに調理の便所')
 row('管理', '機械室', '約 30', 27, ('35_',), '本館の北の外')
-row('管理', '倉庫', '約 30', None, ('59_1F_倉庫',), '1 階のスパン 14・17 の倉庫（教材庫）。要求の約 30 に足りない（検討中、10-25）。ほかに遊戯室の道具入れ・園庭の小屋の倉庫・外の物置（家具・外なので数えていない）')
+# 倉庫：道具入れとして確保した場所は全部数える（ユーザー、10-25）。建物の中の倉庫（教材庫）＋園庭の小屋の倉庫（data/garden.json の HUT、閉じた部屋）
+_gd = json.load(open(os.path.join(DATA, 'garden.json'), encoding='utf-8')).get('HUT', {})
+a_hut = (_gd['closed_a'] - _gd['split_a']) * (_gd['d'][1] - _gd['d'][0]) if all(k in _gd for k in ('closed_a', 'split_a', 'd')) else 0.0
+a_st, p_st = S('59_1F_倉庫')
+p_st = sorted(p_st) + ([('園庭の小屋の倉庫', a_hut)] if a_hut else [])
+a_st += a_hut
+ROWS.append(dict(group='管理', room='倉庫', required='約 30', planned=round(a_st, 1),
+                 parts=' ＋ '.join(f'{nm(k)} {v:.1f}' for k, v in p_st), judge='○' if a_st >= 27 else '',                                   # 足りない間は判定を空ける（検討中、ユーザーと相談、10-25）
+                 note='道具入れとして確保した場所は全部数える（ユーザー 10-25）：1 階のスパン 14・17 の倉庫（教材庫）、園庭の小屋の倉庫。遊戯室の道具入れは遊戯室に数えている。約 30 に足りない間は判定を空けている（検討中）'))
 ROWS.append(dict(group='管理', room='駐車場', required='5 台以上', planned=None, parts='南 3 台・北 2 台（うち 1 台は搬入）', judge='○', note='決定事項_外構'))
 ROWS.append(dict(group='管理', room='駐輪スペース', required='適宜', planned=None, parts='', judge='', note='未定'))
 # その他（課題文：自由に加えてよい）
