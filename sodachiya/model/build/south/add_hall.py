@@ -39,6 +39,12 @@ L_MPT = layer('59_1F_多目的便所', hexc('D5EBEE'))
 L_SWC = layer('59_1F_便所（職員）', hexc('D5EBEE'))
 L_OFF7 = lidx('59_1F_事務（スパン 7'); L_WCROOM = lidx('59_1F_便所・倉庫')
 L_FURN = lidx('37_'); L_FIX = lidx('39_')
+# 3・4 歳、4・5 歳のあいだ（スパン 14・17）の「便所・倉庫」の床を、便所（東、こども）と倉庫（西、教材庫）に分ける（ユーザー 10-25：
+# トイレ・倉庫・廊下に分かれる。廊下＝通り抜けは add_shitsurae で分けてある）。板の重心が v 6.0 より東なら便所（設計監修 10-25）
+L_KWC = layer('59_1F_便所（こども）', hexc('D5EBEE'))
+L_STORE = layer('59_1F_倉庫（教材庫）', hexc('D9D3EC'))
+def wc_or_store(poly):
+    c = poly.centroid; return L_KWC if uv(c.x, c.y)[1] > 6.0 else L_STORE
 
 def mesh_uv_box(g):
     V = np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))])
@@ -53,7 +59,7 @@ out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
 kaigi = []
-wcroom14 = None
+wcroom14 = []                                   # スパン 14 の「便所・倉庫」の床の板（10-24夜から通り抜けを分けて二枚以上ある）
 for o in m.Objects:
     g = o.Geometry; li = o.Attributes.LayerIndex
     if isinstance(g, r.Mesh):
@@ -77,7 +83,8 @@ for o in m.Objects:
         if li == L_WCROOM:
             u0, u1, v0, v1, _ = mesh_uv_box(g)
             if 38.9 < u0 and u1 < 42.1:
-                wcroom14 = mesh_poly(g); continue                       # スパン 14 の床の板から職員の個室を抜く
+                wcroom14.append(mesh_poly(g)); continue                 # スパン 14 の床の板から職員の個室を抜く（前は一枚だけ残して、便所の床 約9 m² が消えていた、設計監修 10-25）
+            o.Attributes.LayerIndex = wc_or_store(mesh_poly(g))        # スパン 17：便所と倉庫に分ける
     out.Objects.Add(g, o.Attributes)
 K = Kit(out)
 
@@ -159,8 +166,10 @@ K.prism(Polygon([xy(21.75 + 0.2 * math.sin(a) * (1 - 0.15 * math.cos(a) ** 2), 0
         -150.0, 0.0, L_PART, (165, 160, 150))
 
 # ---------------------------------------------------------------- スパン 14：職員用の個室（10-23夜）
-if wcroom14 is not None:
-    K.flat(wcroom14.difference(R(40.5, 42.0, 1.6, 3.6, 0.05).buffer(1)), 10, L_WCROOM)
+for _g in wcroom14:
+    _d = _g.difference(R(40.5, 42.0, 1.6, 3.6, 0.05).buffer(1))
+    for _p in getattr(_d, 'geoms', [_d]):
+        if _p.geom_type == 'Polygon' and _p.area > 5e4: K.flat(_p, 10, wc_or_store(_p))
 K.flat(R(40.5, 42.0, 1.6, 3.6), 10, L_SWC)
 wall_u(40.5, 1.65, 5.0, [(3.75, 4.75, 0, 2100)])                    # 路地｜個室・教材庫（教材庫の口を北へ移す、路地の形は同じ）
 wall_v(1.6, 40.5, 42.0, [(41.15, 41.95, 0, 2100)])                  # 西吹き抜け｜個室：戸

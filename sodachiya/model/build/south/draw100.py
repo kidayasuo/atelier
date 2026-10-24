@@ -535,10 +535,10 @@ def room_color(ln):
     if n in ('33', '56', '41') or re.search(r'1F_(ホール|西吹き抜け|通り抜け)', ln): return C_STREET
     if n in ('52',): return C_DOSOKU
     if n in ('32', '57'): return C_ADULT2
-    if re.search(r'便所・倉庫|多目的便所', ln): return C_WATER
+    if re.search(r'便所・倉庫|多目的便所|便所（こども）', ln): return C_WATER
     for k, c in KIDS:
         if k in ln: return c
-    if n in ('36', '35', '42', '43', '43b', '44', '45') or re.search(r'事務|医務|静養室|園長室|応接|便所（職員）', ln): return C_ADULT
+    if n in ('36', '35', '42', '43', '43b', '44', '45') or re.search(r'事務|医務|静養室|園長室|応接|便所（職員）|倉庫（教材庫）', ln): return C_ADULT
     return None
 # 床の板（部屋の層でない）の色：本館の床・内縁側は通りの色（部屋の色がその上に重なる）、外縁側・海峡は土足
 SLAB_COLOR = {'12': C_STREET, '13': C_STREET, '14': C_DOSOKU, '15': C_DOSOKU}
@@ -748,12 +748,13 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=()):
     for ln_, sils in BYL.items():
         ob = {'layer': ln_}
         sil = unary_union(sils).buffer(-5, join_style=2)
-        parts = [g for g in getattr(sil, 'geoms', [sil]) if g.area >= 4e6]
+        allp = [g for g in getattr(sil, 'geoms', [sil]) if g.area >= 0.5e6]
+        parts = [g for g in allp if g.area >= 2e6]                    # 2 m² 以上の部屋に名前（教材庫 約3.5 など、10-25）
         for g in parts:
             a = g.area
             if W_LV is not None:
                 inner = g.difference(W_LV); a = inner.area + 0.5 * W_LV.intersection(inner.buffer(250)).area
-            if len(parts) == 1 and ln_ in TAB: a = TAB[ln_] * 1e6
+            if len(allp) == 1 and ln_ in TAB: a = TAB[ln_] * 1e6          # 一つのレイヤーに部屋が二つ以上なら、それぞれを測る（表の数は合計）
             from shapely.ops import polylabel as _pl
             p = _pl(g.buffer(-150) if g.buffer(-150).geom_type == 'Polygon' and not g.buffer(-150).is_empty else g, 20)   # 壁からいちばん遠い点（線に重ならない）
             nm_ = room_name(ob["layer"])

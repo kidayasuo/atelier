@@ -368,8 +368,11 @@ if _RJ is not None and _LWC is not None:
         V = [_uv_of(g.Vertices[i].X, g.Vertices[i].Y) for i in range(len(g.Vertices))]
         tris = []
         for f in g.Faces:
-            q = SP([V[f[0]], V[f[1]], V[f[2]]])
-            if q.area > 1e-6: tris.append(q)
+            # 四角の面（f[3] != f[2]）は二つの三角に分ける（前は f[0..2] だけを見て、四角の面の半分が抜けていた：
+            # スパン14の便所の床 約9 m² が消えた、設計監修 10-25）
+            for tri in ((f[0], f[1], f[2]),) + (((f[0], f[2], f[3]),) if f[3] != f[2] else ()):
+                q = SP([V[tri[0]], V[tri[1]], V[tri[2]]])
+                if q.is_valid and q.area > 1e-6: tris.append(q)
         foot = _uu(tris).buffer(0)
         if foot.is_empty or not foot.intersects(_RJ): continue
         _del.append(_id); _n += 1
