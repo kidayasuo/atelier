@@ -34,6 +34,17 @@ L_kam=layer('18_本館_鴨居・建具枠（木）',(150,110,70))
 wall_along(gl,lambda x,y:0,lambda x,y:KAMOI,40,L_gl)                       # 引き戸
 wall_along(gl,lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)               # 鴨居
 wall_along(gl,lambda x,y:KAMOI+60,ZUND,20,L_gl)                             # 固定ガラス
+# 10-24：床下の風の道（決定事項（共通）の「床下の風の道」）。外縁側（−150）から内縁側（±0）への段の蹴込みにガラリ
+# （夏の夜の外気 → 床下、防虫網・ごみよけ・防犯の格子・ダンパー）。ガラス戸は腰の無いシンプルな引き戸（上のまま）。海峡の口は除く。
+from shapely.geometry import Point
+L_gal=layer('16b_本館_蹴込みのガラリ（夏の夜の外気を床下へ）',(90,90,90))
+_kb=kai.buffer(300)
+_gp=[P(RG-15,a) for a in np.linspace(TH[0],th19,240)]
+_run=[]
+for p_ in _gp+[None]:
+    if p_ is not None and not _kb.contains(Point(*p_)): _run.append(p_); continue
+    if len(_run)>=2: wall_along(_run,lambda x,y:-130,lambda x,y:-20,20,L_gal)
+    _run=[]
 for a_ in (TH[0],th19):                                         # 内縁側の南北の端もガラスで閉じる
     wall_along([P(RG,a_),P(RC,a_)],lambda x,y:0,ZUND,30,L_gl)
 # --- 室の色の板（スパン 7〜19。1〜6 は add_south の 0・1 歳／2 歳） ---

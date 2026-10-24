@@ -441,6 +441,21 @@ if not mech.is_empty:
         tmp = r.File3dm(); Kt = Kit(tmp); Kt.prism(bat, 0.0, 1600.0, L35B)
         for o2 in tmp.Objects: new_objs.append((o2.Geometry, a35))
         log.append(f'機械室：蓄電池の箱（u {cu:.1f}・v {cv:.1f}、2.0×1.2×h1.6、35b）')
+    # 機械室の戸（アプローチ係の依頼 10-24昼の1）：北西の面（道路側）のまっすぐな所の真ん中に両開き約1.6、外開き、h2.1。
+    # 位置は外構の data/approachA.json の NORTH.MECH_DOOR（北西の道路から測る t、面は n=1.16）。戸の板を外面の 20 外に。
+    import os as _os, json as _json
+    _N = _json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(sys.argv[3])), 'approachA.json'), encoding='utf-8'))['NORTH']
+    _B0, _N0 = np.array((-25.83, -20.54)), np.array((0.0, 0.0))
+    _t2 = (_N0 - _B0) / np.linalg.norm(_N0 - _B0); _n2 = np.array([_t2[1], -_t2[0]]); _n2 = _n2 if _n2[1] < 0 else -_n2
+    _TT = lambda t, n: (_B0 + _t2 * t + _n2 * n) * 1000.0
+    t0, t1 = _N['MECH_DOOR']['t']; tm = (t0 + t1) / 2
+    L35D = new_layer('35d_機械室_戸（両開き1.6、外開き）', (120, 90, 60))
+    for a_, b_, nm in ((t0, tm - 0.005, '左'), (tm + 0.005, t1, '右')):
+        door = Polygon([_TT(a_, 1.10), _TT(b_, 1.10), _TT(b_, 1.14), _TT(a_, 1.14)])
+        a35d = r.ObjectAttributes(); a35d.LayerIndex = L35D; a35d.Name = f'機械室の戸（{nm}の扉、外開き）'
+        tmp = r.File3dm(); Kt = Kit(tmp); Kt.prism(door, 0.0, 2100.0, L35D)
+        for o2 in tmp.Objects: new_objs.append((o2.Geometry, a35d))
+    log.append('機械室：北西の面に両開きの戸1.6（35d）')
 
 # ================================================================ 西館：光の筋と屋根材型の太陽光（西館係、10-23夜、本館係の依頼 連携10-23夜5の6）
 # 本館と同じ考えと寸法：架構の線ごとに、2 枚の梁のあいだ（180）の上を開けて光の筋にする（垂木はそれぞれ自分の側の梁に載せる）。

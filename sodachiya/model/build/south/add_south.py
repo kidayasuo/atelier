@@ -133,7 +133,8 @@ kp=P(RK,th19); ray=LineString([kp,kp+t*20000])
 hits=[ray.intersection(LineString([pn,pe])),ray.intersection(LineString([E_,S_]))]
 hits=[np.array(h.coords[0]) for h in hits if not h.is_empty]; fh=min(hits,key=lambda h:np.linalg.norm(h-kp))
 fh_in=fh-t*300
-wall_along([kp,fh_in],lambda x,y:-300,lambda x,y:900,60,L_f)
+EO_S=2450   # 柵は南の外縁側（u −2.42 まで）の外の縁で止める（10-24、外縁側と重なっていた）
+wall_along([kp+t*EO_S,fh_in],lambda x,y:-300,lambda x,y:900,60,L_f)
 bldg=quad(RE,RO,TH[K0],th19,40)
 south=Polygon([P(RE,th19),P(RO,th19),P(RO,th19)+t*30000,P(RE,th19)+t*30000]).intersection(site).difference(park).difference(bldg)
 west=Polygon([kp,fh,fh+np.array([-30000,-5000]),kp+np.array([-30000,10000])])

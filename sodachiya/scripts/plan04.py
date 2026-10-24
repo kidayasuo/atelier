@@ -341,18 +341,27 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
     ax.text(xs, ys, "しずかな角", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- loft in the other west bay (+ den / cot storage below), furniture stair
     bx(3.15, W - 0.1, 1.68, 3.6, fc="#EADBB8", lw=0.7, ls=(0, (6, 2, 1, 2)), ec="#8a5a2b", z=3)
-    for k in range(3):
-        bx(3.4, 4.2, 3.6 + 0.3 * k, 3.9 + 0.3 * k, fc=WOOD, lw=0.35, z=4)
+    for k in range(5):                                                          # 家具階段 1段0.2×5（10-24：0.3は3歳に高い）
+        bx(3.4, 4.2, 3.6 + 0.25 * k, 3.85 + 0.25 * k, fc=WOOD, lw=0.35, z=4)
     xs, ys = pt(4.6, 2.55)
     ax.text(xs, ys, "ロフト h1200\n下はデンと\nコット収納", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- teacher's seat: back to the desk-side partition, faces the room; screens h1100 in front and on the active (east) side
     tv0, tv1 = 1.6 + 2.6 + max(Lp, 0) + 0.3, 1.6 + 2.6 + max(Lp, 0) + 1.3
-    bx(0.1, 0.55, tv0 + 0.25, tv0 + 0.75, fc="white", lw=0.35, z=4)            # chair
-    bx(0.6, 1.15, tv0, tv1, fc=WOOD, lw=0.45, z=4)                              # desk h700
-    line([(S(1.2), tv0), (S(1.2), tv1)], lw=1.3, c="#8a5a2b", z=5)              # front screen
-    line([(S(0.06), tv1), (S(1.2), tv1)], lw=1.3, c="#8a5a2b", z=5)             # side screen (east)
-    xs, ys = pt(1.85, (tv0 + tv1) / 2)
-    ax.text(xs, ys, "先生の席", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
+    # ---- 10-24（ユーザー）：西の半分を架構の線で二つの巣に、東の半分は二つのクラスで共有
+    bx(2.94, 3.06, 1.6, 6.2, fc="#555555", lw=0.3, z=5)                        # 腰の壁 h1100＋上は梁の下まで格子
+    bx(2.75, 3.25, 6.25, 6.95, fc=WOOD, lw=0.45, z=4)                          # 先生の机 h700（腰の壁の東の端、三つの場所の要）
+    bx(2.78, 3.22, 7.0, 7.42, fc="white", lw=0.35, z=4)                        # 先生の椅子（西を向く）
+    xs, ys = pt(3.0, 6.6)
+    ax.text(xs, ys, "先生", fontsize=3.6, ha="center", va="center", zorder=8, color="#333333")
+    for s0 in (1.2, 4.8):
+        bx(s0 - 0.175, s0 + 0.175, 6.6, 7.8, fc="white", lw=0.5, z=4)          # 移動式の低い腰壁（両面の棚 h700、キャスター）
+    bx(0.3, 2.7, 2.0, 5.6, fc="none", lw=0.5, ls=(0, (1, 1.2)), ec="#1f7a8c", z=6)   # 布の天蓋（吊り桟から）
+    for vv in [2.0 + 0.9 * k for k in range(11)]:                               # 吊り桟 h2400（脚立で楽に届く）、ロフトの上は除く
+        for s0, s1 in ((0.1, 2.9), (3.1, W - 0.1)):
+            if s0 > 3 and vv < 3.7: continue
+            line([(S(s0), vv), (S(s1), vv)], lw=0.3, ls=(0, (2, 1.5)), c="#1f7a8c", z=6)
+    xs, ys = pt(1.5, 4.9); ax.text(xs, ys, "巣", fontsize=5.0, ha="center", va="center", zorder=8, color="#2b4a66")
+    xs, ys = pt(4.5, 5.6); ax.text(xs, ys, "巣", fontsize=5.0, ha="center", va="center", zorder=8, color="#2b4a66")
     # ---- lockers on the opposite partition; play shelves after the teacher on the desk-side partition
     bx(W - 0.4, W - 0.06, 5.2, 8.4, fc="white", lw=0.4)
     for i in range(1, 10):
@@ -361,9 +370,12 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
     bx(0.06, 0.4, tv1 + 0.4, tv1 + 2.2, fc="white", lw=0.4)
     xs, ys = pt(0.8, tv1 + 1.3); ax.text(xs, ys, "遊びの棚", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- gathering rug + nap + tables
-    ax.add_patch(Ellipse(P(a + W / 2, 6.9), 2.6, 2.4, fc="#F4E9F0", ec="#9b6f8c", lw=0.4, zorder=2))
-    t(a + W / 2, 6.9, "あつまり", size=4.3)
-    cots(a + 0.6, b - 0.6, 4.7, 8.7, 7, 3, n_cot)
+    ax.add_patch(Ellipse(P(a + W / 2, 7.85), 1.8, 2.6, fc="#F4E9F0", ec="#9b6f8c", lw=0.4, zorder=2))
+    t(a + W / 2, 7.95, "あつまり", size=4.3)
+    k1 = min(n_cot, 9); k2 = min(n_cot - k1, 9); k3 = n_cot - k1 - k2          # 午睡：架構の線（腰の壁）をまたがない
+    cots(a + 0.3, a + 2.5, 5.0, 8.6, 3, 3, k1)
+    cots(b - 2.5, b - 0.3, 5.0, 8.6, 3, 3, k2)
+    cots(a + 2.73, a + 3.27, 7.55, 9.75, 1, 2, k3)
     for uc in [a + 1.6, a + 4.4]:
         for vc in [9.5, 11.1]:
             table(uc, vc, 1.2, 0.75, 3)
@@ -380,7 +392,7 @@ for a0, b0 in [(37.0, 38.2), (48.6, 49.8)]:                      # reading niche
     box(a0, b0, 0.08, 0.7, fc="#F3E7CF", lw=0.45, z=5)
     line([(a0, 0.72), (b0, 0.72)], lw=1.4, c="#9b6f8c", ls=(0, (1.5, 1)), z=6)
     ax.add_patch(Ellipse(P((a0 + b0) / 2, 0.5), 0.3, 0.8, fc="#E8D7E6", ec="#9b6f8c", lw=0.3, zorder=6))
-for a0, b0 in [(30.6, 32.6), (44.1, 46.1)]:                     # openings to the play hall (west building)
+for a0, b0 in [(30.6, 32.6), (45.6, 47.6)]:                     # openings to the play hall (west building)
     box(a0, b0, -0.08, 0.08, fc="white", lw=0.0, ec="white", z=6)
     t((a0 + b0) / 2, -0.55, "遊戯室へ", size=4.4)
 # reading room at the north dead end ("本の奥"): no shelves

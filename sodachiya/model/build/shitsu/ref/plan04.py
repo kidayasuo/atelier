@@ -1,3 +1,6 @@
+import os as _os
+ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+OUT = _os.environ.get("OUT", _os.path.join(ROOT, "out"))
 import math
 import matplotlib
 matplotlib.use("Agg")
@@ -178,14 +181,14 @@ for (a, b, v) in [(31, 50.4, 1.0), (56.4, 31, 12.75)]:
 txt(36.0, 10.6, "3歳", size=10, color="#4d6b1f", weight="medium")
 txt(45.0, 10.6, "4歳", size=10, color="#4d6b1f", weight="medium")
 txt(54.0, 10.6, "5歳", size=10, color="#4d6b1f", weight="medium")
-txt(31.5, 6.8, "事務", size=6.5, color="#777777")
+txt(31.5, 9.8, "園長室・応接", size=5.2, color="#777777")
 txt(29.0, 0.8, "↓ ホール・海峡", size=5.5, color="#777777")
 labels = [(35, 0.8, 1), (34.2, 12.75, 2), (54.0, 0.75, 4), (34.2, 14.3, 14), (36.0, 13.9, 15), (37.6, 12.0, 16)] + blk_labels
 for u, v, n in labels:
     num(u, v, n)
 
 # frames / dims
-for uf, f in zip(range(30, 58, 3), range(9, -1, -1)):
+for uf, f in zip(range(30, 58, 3), range(11, 21)):
     x, y = P(uf, -1.2)
     ax.text(x, y, f"架構{f}", fontsize=5, ha="center", va="center")
     line([(uf, -0.35), (uf, -0.85)], lw=0.25)
@@ -241,7 +244,7 @@ legend = [
     "5　手洗い×5 h500（折れ目の溜まり。斜めのカウンター）",
     "6　便所：座る便器×4（仕切りと扉 h1300）",
     "7　汚物流し（先生用）",
-    "8　教材庫 約6.6 m²（路地から。天井 h2.4、その上は吹き抜け）",
+    "8　教材庫（路地から。天井 h2.4、その上は吹き抜け）。スパン14は西の端を職員用の個室に（10-23夜）",
     "11　路地の出口：暖簾は裾 h1200（子どもは下から先が見える）、角は隅切り＋小さな丸い鏡",
     "12　保育室から路地への戸（南の部屋は西寄り、北の部屋は東寄り）",
     "13　トップライト：路地と便所の上を屋根まで吹き抜けに（天袋なし）。東の端に低い窓",
@@ -338,18 +341,27 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
     ax.text(xs, ys, "しずかな角", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- loft in the other west bay (+ den / cot storage below), furniture stair
     bx(3.15, W - 0.1, 1.68, 3.6, fc="#EADBB8", lw=0.7, ls=(0, (6, 2, 1, 2)), ec="#8a5a2b", z=3)
-    for k in range(3):
-        bx(3.4, 4.2, 3.6 + 0.3 * k, 3.9 + 0.3 * k, fc=WOOD, lw=0.35, z=4)
+    for k in range(5):                                                          # 家具階段 1段0.2×5（10-24：0.3は3歳に高い）
+        bx(3.4, 4.2, 3.6 + 0.25 * k, 3.85 + 0.25 * k, fc=WOOD, lw=0.35, z=4)
     xs, ys = pt(4.6, 2.55)
     ax.text(xs, ys, "ロフト h1200\n下はデンと\nコット収納", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- teacher's seat: back to the desk-side partition, faces the room; screens h1100 in front and on the active (east) side
     tv0, tv1 = 1.6 + 2.6 + max(Lp, 0) + 0.3, 1.6 + 2.6 + max(Lp, 0) + 1.3
-    bx(0.1, 0.55, tv0 + 0.25, tv0 + 0.75, fc="white", lw=0.35, z=4)            # chair
-    bx(0.6, 1.15, tv0, tv1, fc=WOOD, lw=0.45, z=4)                              # desk h700
-    line([(S(1.2), tv0), (S(1.2), tv1)], lw=1.3, c="#8a5a2b", z=5)              # front screen
-    line([(S(0.06), tv1), (S(1.2), tv1)], lw=1.3, c="#8a5a2b", z=5)             # side screen (east)
-    xs, ys = pt(1.85, (tv0 + tv1) / 2)
-    ax.text(xs, ys, "先生の席", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
+    # ---- 10-24（ユーザー）：西の半分を架構の線で二つの巣に、東の半分は二つのクラスで共有
+    bx(2.94, 3.06, 1.6, 6.2, fc="#555555", lw=0.3, z=5)                        # 腰の壁 h1100＋上は梁の下まで格子
+    bx(2.75, 3.25, 6.25, 6.95, fc=WOOD, lw=0.45, z=4)                          # 先生の机 h700（腰の壁の東の端、三つの場所の要）
+    bx(2.78, 3.22, 7.0, 7.42, fc="white", lw=0.35, z=4)                        # 先生の椅子（西を向く）
+    xs, ys = pt(3.0, 6.6)
+    ax.text(xs, ys, "先生", fontsize=3.6, ha="center", va="center", zorder=8, color="#333333")
+    for s0 in (1.2, 4.8):
+        bx(s0 - 0.175, s0 + 0.175, 6.6, 7.8, fc="white", lw=0.5, z=4)          # 移動式の低い腰壁（両面の棚 h700、キャスター）
+    bx(0.3, 2.7, 2.0, 5.6, fc="none", lw=0.5, ls=(0, (1, 1.2)), ec="#1f7a8c", z=6)   # 布の天蓋（吊り桟から）
+    for vv in [2.0 + 0.9 * k for k in range(11)]:                               # 吊り桟 h2400（脚立で楽に届く）、ロフトの上は除く
+        for s0, s1 in ((0.1, 2.9), (3.1, W - 0.1)):
+            if s0 > 3 and vv < 3.7: continue
+            line([(S(s0), vv), (S(s1), vv)], lw=0.3, ls=(0, (2, 1.5)), c="#1f7a8c", z=6)
+    xs, ys = pt(1.5, 4.9); ax.text(xs, ys, "巣", fontsize=5.0, ha="center", va="center", zorder=8, color="#2b4a66")
+    xs, ys = pt(4.5, 5.6); ax.text(xs, ys, "巣", fontsize=5.0, ha="center", va="center", zorder=8, color="#2b4a66")
     # ---- lockers on the opposite partition; play shelves after the teacher on the desk-side partition
     bx(W - 0.4, W - 0.06, 5.2, 8.4, fc="white", lw=0.4)
     for i in range(1, 10):
@@ -358,9 +370,12 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
     bx(0.06, 0.4, tv1 + 0.4, tv1 + 2.2, fc="white", lw=0.4)
     xs, ys = pt(0.8, tv1 + 1.3); ax.text(xs, ys, "遊びの棚", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- gathering rug + nap + tables
-    ax.add_patch(Ellipse(P(a + W / 2, 6.9), 2.6, 2.4, fc="#F4E9F0", ec="#9b6f8c", lw=0.4, zorder=2))
-    t(a + W / 2, 6.9, "あつまり", size=4.3)
-    cots(a + 0.6, b - 0.6, 4.7, 8.7, 7, 3, n_cot)
+    ax.add_patch(Ellipse(P(a + W / 2, 7.85), 1.8, 2.6, fc="#F4E9F0", ec="#9b6f8c", lw=0.4, zorder=2))
+    t(a + W / 2, 7.95, "あつまり", size=4.3)
+    k1 = min(n_cot, 9); k2 = min(n_cot - k1, 9); k3 = n_cot - k1 - k2          # 午睡：架構の線（腰の壁）をまたがない
+    cots(a + 0.3, a + 2.5, 5.0, 8.6, 3, 3, k1)
+    cots(b - 2.5, b - 0.3, 5.0, 8.6, 3, 3, k2)
+    cots(a + 2.73, a + 3.27, 7.55, 9.75, 1, 2, k3)
     for uc in [a + 1.6, a + 4.4]:
         for vc in [9.5, 11.1]:
             table(uc, vc, 1.2, 0.75, 3)
@@ -377,7 +392,7 @@ for a0, b0 in [(37.0, 38.2), (48.6, 49.8)]:                      # reading niche
     box(a0, b0, 0.08, 0.7, fc="#F3E7CF", lw=0.45, z=5)
     line([(a0, 0.72), (b0, 0.72)], lw=1.4, c="#9b6f8c", ls=(0, (1.5, 1)), z=6)
     ax.add_patch(Ellipse(P((a0 + b0) / 2, 0.5), 0.3, 0.8, fc="#E8D7E6", ec="#9b6f8c", lw=0.3, zorder=6))
-for a0, b0 in [(30.6, 32.6), (44.1, 46.1)]:                     # openings to the play hall (west building)
+for a0, b0 in [(30.6, 32.6), (45.6, 47.6)]:                     # openings to the play hall (west building)
     box(a0, b0, -0.08, 0.08, fc="white", lw=0.0, ec="white", z=6)
     t((a0 + b0) / 2, -0.55, "遊戯室へ", size=4.4)
 # reading room at the north dead end ("本の奥"): no shelves
@@ -396,5 +411,46 @@ ax.add_patch(Circle(P(54.4, -2.3), 1.3, fc="none", ec="#5a7a3a", lw=0.5, zorder=
 ax.add_patch(Circle(P(54.4, -2.3), 0.1, fc="#5a7a3a", ec="none", zorder=3))
 t(56.75, -2.6, "読書の庭（モミジ・苔）", size=4.2)
 t(54.4, 0.85, "", size=4)
-fig.savefig("/home/claude/sodachiya_35_furniture.pdf")
-fig.savefig("/home/claude/sodachiya_35_furniture.png", dpi=220)
+
+# ---------- 大人のトイレ（10-23夜、ユーザー：3か所とも性別を示さない個室）----------
+box(30.6, 32.6, -0.075, 0.075, lw=0.5, fc="#444444", z=7)      # 口①は閉じた（10-21、南の口へまとめた）
+box(30.62, 32.58, -0.75, -0.35, fc="white", lw=0, ec="white", z=9)   # 「遊戯室へ」の字を消す
+# スパン11：多目的便所（v1.6–4.3）｜記録・連絡の机（4.3–7.6）｜園長室・応接（7.6–12）
+fill(30.0, 33.0, 1.6, 4.3, C_WC, z=1.5)
+for vv in (4.3, 7.6):
+    wall(30.0, 33.0, vv - 0.05, vv + 0.05)
+wall(29.95, 30.05, 1.6, 4.3); wall(29.95, 30.05, 7.6, 12.0)
+box(30.9, 32.0, 1.5, 1.7, fc=C_WC, lw=0, ec=C_WC, z=6)             # 引き戸 1.1（西吹き抜けから）
+line([(30.9, 1.45), (32.1, 1.45)], lw=1.0, c="#3d7fb0", z=7)
+box(30.3, 31.1, 7.55, 7.65, fc="white", lw=0, ec="white", z=6)     # 記録の机｜園長室の戸
+box(32.30, 32.70, 3.60, 4.25, lw=0.35)                           # 便器
+ax.add_patch(Ellipse(P(32.5, 3.75), 0.32, 0.42, fc="white", ec="black", lw=0.3, zorder=4))
+line([(32.9, 3.1), (32.9, 4.2)], lw=0.8, c="#666666", z=6)       # L形の手すり
+line([(32.05, 3.4), (32.05, 4.2)], lw=0.8, c="#666666", z=6)     # 跳ね上げの手すり
+box(30.05, 30.55, 2.40, 2.95, lw=0.35, fc="#EEF5F7")               # 手洗い
+box(30.05, 30.45, 3.30, 4.20, lw=0.35, fc="#F3E7CF", ls=(0, (2, 1)))   # おむつ替え台（折りたたみ）
+box(32.55, 32.95, 1.80, 2.40, lw=0.35, fc="#EEF5F7")               # オストメイトの流し
+ax.add_patch(Circle(P(31.3, 2.6), 0.75, fc="none", ec="#3d7fb0", lw=0.3, ls=(0, (2, 2)), zorder=4))   # 回転の円 φ1.5
+txt(31.4, 3.5, "多目的便所", size=4.8)
+txt(31.5, 5.95, "記録・連絡の机", size=4.8, color="#777777")
+# スパン14：職員用の個室（教材庫の西の端、u40.5–42・v1.6–3.6）。路地の形はそのまま、教材庫の口を北へ
+fill(40.5, 42.0, 1.65, 3.6, C_WC, z=1.5)
+box(40.44, 40.56, 2.35, 3.45, lw=0.5, fc="#444444", z=6)            # 路地｜個室（前の教材庫の口をふさぐ）
+box(40.44, 40.56, 3.75, 4.75, fc=C_LOOP, lw=0, ec=C_LOOP, z=6)     # 教材庫の新しい口
+wall(40.5, 42.0, 3.55, 3.65)
+box(41.15, 41.95, 1.5, 1.7, fc=C_WC, lw=0, ec=C_WC, z=7)           # 戸（西吹き抜けから、内側から鍵）
+line([(41.15, 1.65), (41.85, 2.3)], lw=0.4, z=7)
+box(40.65, 41.05, 2.90, 3.55, lw=0.35)
+ax.add_patch(Ellipse(P(40.85, 3.1), 0.3, 0.38, fc="white", ec="black", lw=0.3, zorder=4))
+box(41.55, 41.95, 3.10, 3.55, lw=0.35, fc="#EEF5F7")
+txt(41.25, 2.3, "職員", size=4.2)
+# 換気扇（天井、梁の下端の高さ）→ ダクトを真上へ、屋根の上の換気の頭（連携 10-23夜9）。給気は戸の下のすき間から西吹き抜けの空気
+for uu, vv in ((32.2, 3.1), (41.3, 3.0)):
+    box(uu - 0.15, uu + 0.15, vv - 0.15, vv + 0.15, lw=0.35, fc="white", z=8)
+    line([(uu - 0.15, vv - 0.15), (uu + 0.15, vv + 0.15)], lw=0.3, z=8); line([(uu - 0.15, vv + 0.15), (uu + 0.15, vv - 0.15)], lw=0.3, z=8)
+txt(32.2, 2.75, "換気扇→越屋根", size=3.6, color="#3d7fb0")
+txt(41.3, 3.4, "換気扇→越屋根", size=3.2, color="#3d7fb0")
+fig.text(25 / 297, 15 / 420, "大人のトイレ（10-23夜）：多目的便所（スパン11）・職員用の個室（スパン14）・2階の便所の3か所、どれも性別を示さない個室。閉じる部屋は天井の換気扇から越屋根の東の口へ（⊠）",
+         fontsize=5.2, va="top", color="#3d7fb0")
+fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.pdf"))
+fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.png"), dpi=220)
