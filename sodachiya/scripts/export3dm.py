@@ -157,5 +157,16 @@ for zc, rr in ((MN.D["TREE"]["under"], MN.D["TREE"]["r"] * 0.8), (3.4, MN.D["TRE
     m.Objects.AddCurve(r.Circle(P3(tp, zc), rr * MM).ToNurbsCurve(), attr(L79))
 sph = r.Sphere(P3(tp, 3.4), MN.D["TREE"]["r"] * MM).ToBrep()
 m.Objects.AddBrep(sph, attr(L79))
+# 70・72・76・77 西館の周りと北（north_common.py、data/approachA.json の NORTH）
+import north_common as NC
+def polys(g): return [q for q in getattr(g, "geoms", [g]) if q.geom_type == "Polygon" and not q.is_empty]
+for f in NC.FENCE: wall(f, NC.N["FENCE_H"], "70_外構_生垣・塀・格子")                   # 読書の庭の板塀
+wall([NC.GATE[0], NC.GATE[1]], NC.N["KOMICHI_GATE"]["h"], "72_外構_柱", 0.05)          # 北の小径の木戸（閉じた位置）
+for q in NC.GATE: post(q, NC.N["KOMICHI_GATE"]["h"] + 0.1)
+for g in (NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.GRAVEL, NC.KOMICHI):
+    for q in polys(g): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)
+for g in (NC.PLANT, NC.MSTRIP):                                                          # 低木と下草（h0.3〜0.6 の塊を h0.45 で）
+    for q in polys(g): slab(list(q.simplify(0.02).exterior.coords)[:-1], 0, 0.45, "77_外構_樹木")
+slab(list(NC.READ.simplify(0.02).exterior.coords)[:-1], 0, 0.03, "77_外構_樹木")        # 読書の庭の苔
 m.Write(OUTF, 7)
 print("wrote", OUTF, len(m.Objects), "objects")
