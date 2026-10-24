@@ -319,8 +319,16 @@ ax.add_patch(Circle(P(22.4, 6.9), 0.1, fc=C["blue"], ec="none", zorder=8))
 # tea engawa under a lean-to off the kitchen south wall: 縁台 ×2, tea shelf with tap (kitchen plumbing nearby)
 u0, u1, v0, v1 = LEAN_UV
 poly(rect(u0, u1, v0, v1), fc="#E7D6BB", ec="none", z=2.4)
-roof(rect(u0, u1, v0, v1))
-LEAN_POSTS = [W(u0 + 0.25, v) for v in (-9.7, -6.4, -3.1, -0.3)]
+_HK = SP(rect(-0.1, 57.34, -0.35, 13.5, 96)).buffer(0.005)                              # 本館の外壁の外面（v −0.35）で止める
+_LX = LEAN_EXT
+_band = WB.buffer(_LX["depth"], resolution=32).difference(WB).intersection(SP(SITE).buffer(-_LX["margin"])).intersection(SP(srect(26.0, _LX["cut_s"], -1, 3.7)))
+_band = max(getattr(_band, "geoms", [_band]), key=lambda q: q.area)
+LEAN_ROOF = SP(rect(u0, u1, v0, v1)).difference(_HK).difference(WB).union(_band).buffer(0.01).buffer(-0.01)   # 下屋＋南西の丸みへの回り込み
+roof(list(LEAN_ROOF.exterior.coords))
+LEAN_GUTTER = LEAN_ROOF.exterior.difference(WB.buffer(0.05)).difference(_HK.buffer(0.05))
+for _g in getattr(LEAN_GUTTER, "geoms", [LEAN_GUTTER]): line(list(_g.coords), lw=0.5, c="#3d7fb0", ls=(0, (1, 1)), z=10.5)
+ax.add_patch(Circle(P(*_LX["rain_head"]), 0.1, fc="#3d7fb0", ec="none", zorder=10.6))
+LEAN_POSTS = [W(u0 + 0.25, v) for v in (-9.7, -6.4, -3.1, -0.5)] + [P(*_LX["post"])]   # 東の柱は本館の外壁の外（前は v −0.3 で壁とガラスに入っていた）
 for p in LEAN_POSTS: post(p)
 # 西館の西の軒の雨（南の端）：樋 → 下屋の西の端の鎖樋 → ふた付きの雨水樽（蛇口 h0.5、菜園の水やり）
 _rb = RAIN["S_BARREL"]
@@ -348,9 +356,8 @@ tree(P(24.4, 9.6), 1.9)
 
 # ---------------------------------------------------------------- delivery path (outside the line), kitchen back door + small roof
 poly(srect(*DEL), fc="#E6E6E3", ec="none", z=2.3)
-door = [P(30.4, 1.51), P(29.69, 2.18)]
+door = [W(21.06, -10.49), W(21.38, -11.41)]                           # 勝手口（plan05・3dm、外開き）
 line(door, lw=2.4, c="white", z=6); line(door, lw=0.9, c="#555555", z=6.1)
-roof(srect(28.6, 31.2, 1.3, 3.0))
 T(P(27.4, 2.1), "搬入路 1.6", 4.6, c="#555555", rot=ROT + 90)
 
 # ---------------------------------------------------------------- walking lines (light)
@@ -398,7 +405,7 @@ legend = [
     ("12", "西館の南の入口→海峡（3〜5歳はここでバイバイ）"),
     ("13", "「今日のごはん」の窓（入口の脇）"),
     ("14", "キッチンの南のガラス"),
-    ("15", "勝手口と庇、搬入路 1.6（線の外）"),
+    ("15", "勝手口（回り込む下屋の下）、搬入路 1.6（線の外）"),
     ("16", "駐車5台・乗入れ1か所・スピードバンプ"),
     ("17", "来客の歩道 1.1（車から公園の木戸へ）"),
     ("18", "駐輪 %d台（子乗せ 0.7 ピッチ）" % N_BIKE),
@@ -426,7 +433,7 @@ notes = ("職員の自転車：板塀をひろばの西で東へ2.0下げ、建�
          "アーチの棚：生垣の側に柱（本館の架構に合わせて 3 m ごと）、梁は 1.5 m ごとに本館の壁へ。木戸の屋根 → 棚 → 手水の屋根 → ひろば（ひらける）。\n"
          "車路：道路から 0.5 m にスピードバンプ（幅 0.5）、車室の口はそこから奥（道路から 1.3 m 以上）。来客の門はなし、来客も公園の木戸から。\n"
          "ひろば（線の内側、真砂土）約 %d m²。菜園は南の日なた、縁台は西館の南の下屋（入口の前まで一続き）の下。かまどは下屋から約 2 m、建物から 4 m 以上（行事のときだけ）。\n"
-         "搬入は線の外：搬入の車室の後ろから搬入路（幅1.6、約7 m）を手押しで勝手口へ。")
+         "搬入は線の外：搬入の車室の後ろから搬入路（幅1.6、約7 m）を手押しで勝手口へ。西館の南の下屋を南西の丸みへ回り込ませ（外皮から2.0、敷地の境の0.1手前まで）、勝手口と搬入路の終わりを覆う。西館の南の鎖樋は下屋の上の集水で受け、下屋の軒樋で南の縁の鎖樋から雨水樽へ。")
 plaza_area = plz.area
 fig.text(PL / 297, 108 / 420, notes % round(plaza_area), fontsize=6.1, va="top", color="#333333", linespacing=1.45)
 
