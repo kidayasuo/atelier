@@ -11,6 +11,7 @@
 | `drawings/` | 3dmから自動の1/100の図のPDF（平面・断面・立面1・2・面積表）。DXF・PNG・面積表のjsonは`model/drawings/` |
 | `presentation.pdf` | 提出のA1 5枚（`present/mock.py`が書く） |
 | `concept.txt` | 設計趣旨（ユーザーが書く。`present/mock.py`が読む、「#」の行は読まない） |
+| `logo/` | 園のロゴ（`sodachiya_logo.svg`が元：黒＝エッチング、透明＝ガラス。`.png`（透明）・`.pdf`は書き出し。ユーザーが書き換えてよい） |
 
 ## フォルダ
 
