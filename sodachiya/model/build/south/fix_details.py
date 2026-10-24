@@ -416,10 +416,10 @@ if not mech.is_empty:
 # ================================================================ 西館：光の筋と屋根材型の太陽光（西館係、10-23夜、本館係の依頼 連携10-23夜5の6）
 # 本館と同じ考えと寸法：架構の線ごとに、2 枚の梁のあいだ（180）の上を開けて光の筋にする（垂木はそれぞれ自分の側の梁に載せる）。
 # 筋の両側と東の端（高い側、水は西へ流れる）に立ち上がり 60、その上に乳白ガラス t12（幅 300）、筋の内側に垂木の小口をふさぐ板 150。
-# 範囲：越屋根の吹き抜けの西（東から 2.5、v −3.4）から、外壁の 1.5 手前まで（遊戯室・2 階の奥の暗い帯）。南の端の架構（u≈21）は除く。
+# 範囲：越屋根の西の立ち上がり（v −1.96）から西の軒先まで（10-24、ユーザー：本館と同じに全長）。軒先ではガラスを止め端の立ち上がりは付けない、外壁の内面の線に固定ガラス。南の端の架構（u≈21）は除く。
 # 遊戯室の吊り材の受け（2 枚の梁に渡した鋼の板）は筋の下に影を落とす。
 # 屋根は東 8.15 → 西 4.65 を幅いっぱいに流すねじれた面なので、高さは元の屋根（RM20）に鉛直の線を当てて 0.5 m の格子ごとに取る。
-# 太陽光：越屋根の蓋の西の縁（v −2.25）から軒先の 0.3 手前まで、筋の周り ±0.25 を除く。屋根の面の 20 上の黒い面（20p）。
+# 太陽光：越屋根の蓋の西の縁（v −2.25）から軒先の 0.15 手前まで（10-24）、筋の周り ±0.25 を除く。屋根の面の 20 上の黒い面（20p）。
 WS_W = pickle.load(open(WNPKL, 'rb')).get('WS', WN)
 def roof_z(P):
     P = np.asarray(P, float); z = roof_bottom(P)
@@ -481,8 +481,9 @@ for i, (c1, a1) in enumerate(lines_):
     off = np.dot(c2 - c1, np.array([-ax[1], ax[0]])) / 2.0
     cc = c1 + np.array([-ax[1], ax[0]]) * off
     pairs.append((cc, ax))
-WSL = WS_W.buffer(-1500.0, join_style=2)
-EASTV = -3.4
+WSL = WS_W.buffer(1.0)                 # 10-24（ユーザー、本館と同じ）：越屋根から軒先まで
+EASTV = -1.96                          # 越屋根の西の立ち上がりの外面
+WSi_W = WS_W.buffer(-150.0, join_style=2)   # 外壁の内面（外皮の線の固定ガラス）
 slits = []
 for cc, ax in pairs:
     uc, vc = uv(*cc)
@@ -519,21 +520,26 @@ if slits:
     for cc, ax, nrm, t0, t1 in slits:
         uc_ = uv(*cc)[0]; e = 1 if np.dot(ax, np.array(xy(uc_, EASTV)) - np.array(xy(uc_, -10))) > 0 else -1     # 東（高い側）の向き
         tE = t1 if e > 0 else t0; tW = t0 if e > 0 else t1
-        lo, hi = min(tW, tE + e * 100), max(tW, tE + e * 100)
+        lo, hi = min(tW, tE), max(tW, tE)
         new_objs.append((drape(strip(cc, ax, nrm, lo, hi, -150, -90), 0.0, 60.0), a20))     # 立ち上がり
         new_objs.append((drape(strip(cc, ax, nrm, lo, hi, 90, 150), 0.0, 60.0), a20))
-        new_objs.append((drape(strip(cc, ax, nrm, min(tE, tE + e * 100), max(tE, tE + e * 100), -90, 90), 0.0, 60.0), a20))  # 東の端
-        glo, ghi = min(tW - e * 100, tE + e * 100), max(tW - e * 100, tE + e * 100)
+        # 東の端は越屋根の西の立ち上がりがふさぐ（端の立ち上がりは足さない）
+        glo, ghi = min(tW, tE), max(tW, tE)                                    # ガラスは越屋根の立ち上がりから西の軒先まで（水はそのまま軒樋へ）
         new_objs.append((drape(strip(cc, ax, nrm, glo, ghi, -150, 150), 60.0, 72.0), at_g2))    # 乳白ガラス t12
+        _ln = LineString([cc + ax * (tW - 2000 * e), cc + ax * (tW + 4000 * e)]).intersection(WSi_W.exterior)
+        _pts = [_ln] if _ln.geom_type == 'Point' else list(getattr(_ln, 'geoms', []))
+        if _pts:
+            tS = min((np.dot(np.array([q.x, q.y]) - cc, ax) for q in _pts), key=lambda t: abs(t - tW))
+            new_objs.append((drape(strip(cc, ax, nrm, tS - 6, tS + 6, -90, 90), -250.0, 60.0), at_g2))   # 外皮の線の固定ガラス（2枚の梁のあいだ）
         for a_, b_ in ((-102, -90), (90, 102)):                                                  # 筋の内側の板
             new_objs.append((drape(strip(cc, ax, nrm, t0, t1, a_, b_), -150.0, 0.0), a20))
-    pv20 = RP20.buffer(-300.0, join_style=2)
+    pv20 = RP20.buffer(-150.0, join_style=2)                  # 軒先の水切り150を残す（10-24、本館と同じ）
     pv20 = pv20.difference(Polygon([xy(u_, 1.0) for u_ in np.arange(19, 53.1, 0.5)] + [xy(u_, -2.25) for u_ in np.arange(53, 18.9, -0.5)]))
     pv20 = pv20.difference(unary_union([strip(cc, ax, nrm, t0 - 200, t1 + 200, -250, 250) for cc, ax, nrm, t0, t1 in slits]))
     a_pv2 = r.ObjectAttributes(); a_pv2.LayerIndex = L20P
     new_objs.append((drape(pv20, 20.0), a_pv2))
     log.append(f'西館：光の筋 {len(slits)} 本（u ' + '・'.join(f'{uv(*s[0])[0]:.0f}' for s in slits) +
-               f'、2 枚の梁のあいだ 180、東から 2.5〜外壁の 1.5 手前、乳白ガラス、20t）、屋根材型の太陽光 {pv20.area / 1e6:.0f} m²（20p）')
+               f'、2 枚の梁のあいだ 180、越屋根から軒先まで、乳白ガラス、20t）、屋根材型の太陽光 {pv20.area / 1e6:.0f} m²（20p）')
 
 # ================================================================ 書き出し（桁を差し替え、腰壁を足す）
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem

@@ -303,7 +303,7 @@ KN = 27.25                     # キッチンの北の壁（60.5 m²）
 CB = -11.1                     # 調理の職員の更衣・便所・前室：はれのまの西の端、v −11.1 から西の面まで（外から直接）
 flat(R(21, KN, -20, -3.4).intersection(WN), 10, L_KIT)          # 面積は外形で（plan05 と同じ）
 cook = R(KN, 30, -20, CB).intersection(WN)
-store = R(KN, 30, CB, CB + 0.6)                                   # はれのまの収納（西の端の壁、奥行き 0.6）
+store = R(KN + 0.06, 30 - 0.06, CB + 0.06, CB + 0.6)                # はれのまの収納（西の端の壁、奥行き 0.6。まわりの壁の芯の半分＝60を避ける、監修10-24の4）
 flat(cook, 10, L_COOK)
 flat(R(KN, 30, CB, -3.4).intersection(WN).buffer(-5).buffer(5), 10, L_HARE)
 flat(unary_union([R(22.5, 30, -3.4, -0.9).intersection(WN), R(22.5, 30, -0.9, -0.2)]).buffer(1).buffer(-1), 10, L_BAND)

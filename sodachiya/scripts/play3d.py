@@ -67,7 +67,7 @@ for ang, Lb in st['branches']:
     K.tube([*mid, (950 + zt) / 2 + 300], [*tip, zt], 120, 60, L_ST, (138, 106, 68))
 # ---------------------------------------------------------------- 洞の道具入れ
 cv = P['cave']
-K.prism(RWw(cv['u0'], cv['u1'], cv['store'][0], cv['store'][1]).intersection(WNi), 0.0, cv['beam_bottom'] * 1000, L_SO)
+K.prism(RWw(cv.get('store_u0', cv['u0']), cv['u1'], cv['store'][0], cv['store'][1]).intersection(WNi), 0.0, cv['beam_bottom'] * 1000, L_SO)
 # ---------------------------------------------------------------- デッキ・家具階段
 dk = P['deck']; K.prism(RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1']), 0.0, dk['h'] * 1000, L_DK)
 ds = P['deck_steps']; n_ = len(ds['hs'])
