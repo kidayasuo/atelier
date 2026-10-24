@@ -475,6 +475,11 @@ def _wall_outline():
         if p.is_empty: continue
         for ring in [p.exterior] + list(p.interiors):
             ax.add_patch(Polygon([P(u, v) for u, v in ring.coords], closed=True, fc="none", ec="black", lw=0.5, zorder=5.5))
+# すき間の倉庫の口（10-25）：西の外壁の柱のあいだごとに引き違い戸（先生の道から）
+for _a, _b in [(30.1, 32.85), (33.15, 35.85), (36.15, 38.85), (39.15, 39.95)]:
+    box(_a, _b, -0.36, -0.19, fc="white", lw=0, ec="white", z=5.6)
+    line([(_a, -0.29), ((_a + _b) / 2 + 0.02, -0.29)], lw=0.6, z=5.7); line([((_a + _b) / 2 - 0.02, -0.26), (_b, -0.26)], lw=0.6, z=5.7)
+txt(36.5, -0.75, "すき間の倉庫（先生の道から）", size=4.4, color="#555555")
 _wall_outline()
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.png"), dpi=220)
