@@ -139,8 +139,8 @@ T(axP, 8.6, 36.35, '横木φ30＠450（梁の2枚のあいだ、光の筋の下�
 # ロフトの下の巣
 T(axP, 2.0, 37.1, 'ロフトの下の巣（h1.1、こどもだけ）', 6, c=ACC)
 T(axP, 6.3, 36.75, '先生の席（西を向く）', 6, c=ACC)
-T(axP, 7.95, 34.2, '移動式の低い腰壁（棚h0.7）', 5.8, c=ACC)
-T(axP, 7.95, 37.8, '移動式の低い腰壁', 5.8, c=ACC)
+T(axP, 6.65, 33.9, '移動式の低い腰壁（棚h0.7）', 5.8, c=ACC)
+T(axP, 6.65, 37.4, '移動式の低い腰壁', 5.8, c=ACC)
 # 区域の名前
 area = lambda g: g.area
 T(axP, 3.9, 34.2, '巣A', 9, ha='center', c='#2b4a66', weight='bold')
@@ -255,7 +255,7 @@ T(axB, 9.0, 1.8, '共有', 8, ha='center', c='#4b5e2a', weight='bold')
 
 # ---------- 右の欄 ----------
 tx = X0 + (V1 - V0) * S + 14
-fig.text(tx / W, 395 / H, '3歳の保育室の分け方（たたき台）', fontsize=15, weight='bold')
+fig.text(tx / W, 395 / H, '3歳の保育室の分け方', fontsize=15, weight='bold')
 fig.text(tx / W, 386 / H, '本館係　2026-10-24　スパン12–13（どの学年も同じ形）', fontsize=8, color='#555')
 notes = [
     ('ふたつの巣と共有の場所', [
@@ -303,7 +303,7 @@ fig.patches.append(Rectangle((tx / W, y / H), 8 / W, 4 / H, transform=fig.transF
 fig.text((tx + 11) / W, (y + 1) / H, '今の3dm（切り口）　灰の線＝今の家具・見えがかり', fontsize=7)
 y -= 7
 fig.patches.append(Rectangle((tx / W, y / H), 8 / W, 4 / H, transform=fig.transFigure, fc=ACC2, ec=ACC, lw=0.6))
-fig.text((tx + 11) / W, (y + 1) / H, 'この案で足すもの（3dmにはまだ入れていない）', fontsize=7, color=ACC)
+fig.text((tx + 11) / W, (y + 1) / H, 'この案で足したもの（3dmのスクリプトに入れた、更新係の作り直し待ち）', fontsize=7, color=ACC)
 y -= 7
 for fc, lab in (('#dfe9f2', '巣（静か）'), ('#eef3e2', '共有'), ('#f6f1e6', '内縁側')):
     fig.patches.append(Rectangle((tx / W, y / H), 8 / W, 4 / H, transform=fig.transFigure, fc=fc, ec='none'))
