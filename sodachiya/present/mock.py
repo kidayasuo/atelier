@@ -506,7 +506,26 @@ SX1, SY1 = site_s.max(0)
 info = dict(building=[round(BX1 - BX0, 1), round(BY1 - BY0, 1)], site=[round(SX1 - SX0, 1), round(SY1 - SY0, 1)])
 print("建物の外形（m）", info["building"], " 敷地（m）", info["site"])
 
-embeds = {i: [] for i in range(1, 6)}   # (src_pdf, page, clip_mm(x0,y0,x1,y1)|None, dest_mm(x,y,w,h)下原点, keep_ratio)
+embeds = {i: [] for i in range(1, 6)}
+TOPL = {i: [] for i in range(1, 6)}     # 貼った図の上に描く引き出し線（紙のmm）：(点, 箱の端, 色)
+
+
+def topline(sheet, p_pt, p_box, color, via=()):
+    """配置図の点p_ptから箱の端p_boxへ。viaは途中の折れ点（箱の側から）"""
+    TOPL[sheet].append(([tuple(p_box)] + [tuple(v) for v in via] + [tuple(p_pt)], color))
+
+
+def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2):
+    """説明の箱（見出し＋本文、左寄せ）"""
+    ax.add_patch(Rectangle((x, y), w, h, fc=fill, ec=color, lw=0.5))
+    T(ax, x + 3, y + h - 7, head, 3.8, color, bold=True)
+    yy = y + h - 14
+    for ln_ in lines:
+        for s_ in jwrap(ln_, (w - 6) / (size / 0.72)):
+            T(ax, x + 3, yy, s_, size)
+            yy -= size / 0.72 + 1.2
+        yy -= 1.5
+   # (src_pdf, page, clip_mm(x0,y0,x1,y1)|None, dest_mm(x,y,w,h)下原点, keep_ratio)
 SEC = os.path.join(ROOT, "drawings", "sodachiya_sections_1-100.pdf")
 CLIP_A = (25, 38, 841, 201)
 CLIP_B = (25, 244, 410, 377)
@@ -531,8 +550,8 @@ figs = []
 
 # ================================================================ 1　敷地と応答
 fig, ax = page()
-frame(ax, 1, "敷地と自然環境", "周囲の自然環境との関係（用水・比叡と高野川のうつし・河川敷）と地域への配慮、屋外遊戯場としての園庭",
-      "模型写真（入口の一枚）→ タイトルと趣旨 → 配置図と園庭 → 園庭の筋 → 自然環境と地域")
+frame(ax, 1, "敷地と自然環境・地域", "周囲の自然環境との関係（用水を借りる・山から川へ・比叡と高野川のうつし・北山杉と地下水）と地域環境への配慮",
+      "タイトルと趣旨 → 配置図 → 上の青い4つ（自然環境）→ 右の茶の5つ（地域）→ 用水のネットワーク")
 top = H - M - 16
 T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
 # 設計趣旨はpresent/設計趣旨.txt（ユーザーが編集する）。改行は無視してつなぐ
@@ -611,60 +630,18 @@ def lab(ax, xfun, P3, text, dxy=(0, 0), size=2.6, color=INK, ha="left", lead=Tru
         T(ax, t[0] + (1 if ha == "left" else -1), t[1] + 1 - k_ * (size + 1.2), s_, size, color, ha=ha, bold=bold)
 
 
-# 自然環境と地域（趣旨の右、1列に4つ）
+# 周囲の自然環境との関係（趣旨の右、1列に4つ、青）。配置図の点へ線で引く（ユーザー、10-24夜の構成）
 rx = M + 6 + 258
-title(ax, rx, top - 12, "自然環境と地域")
-cw, ch = (W - M - 6 - rx - 3 * 5) / 4, 112
+C_NAT, C_COM = "#2F6FA0", "#8A5A2B"
+title(ax, rx, top - 12, "周囲の自然環境との関係")
+cw, ch = (W - M - 6 - rx - 3 * 5) / 4, 66
 cy = top - 18 - ch
-# 1：借りぐらしの小さな地図（用水路から敷地を通って高野川へ、北山の木）
-mx0, mx1, my0, my1 = -75.0, 105.0, -45.0, 95.0
-msc = max((mx1 - mx0) * 1000 / (cw - 4), (my1 - my0) * 1000 / (ch - 26))
-msc = next(s_ for s_ in (1500, 2000, 2500, 3000, 4000) if s_ >= msc)
-ax.add_patch(Rectangle((rx, cy), cw, ch, fc="#FAFCFF", ec="#7FA6C8", lw=0.5))
-T(ax, rx + 3, cy + ch - 6, "借りぐらし　水と木を借りる", 3.2, "#2F6FA0", bold=True)
-mw, mh = (mx1 - mx0) * 1000 / msc, (my1 - my0) * 1000 / msc
-mox, moy = rx + (cw - mw) / 2, cy + 18
-mxf = xform(mox, moy, msc, mx0, my0)
-mrp = clip_rect(ax, mox, moy, mw, mh)
-st = len(ax.patches); stl = len(ax.lines)
-for ln, g in CTX:
-    if g is None:
-        continue
-    g = rot(g)
-    if ln.startswith("03_"):
-        draw_shape(ax, g, mxf, fc="#EEEEEE", ec="none", z=1)
-    else:
-        draw_shape(ax, g, mxf, fc="#E2E2E2", ec="#C8C8C8", lw=0.05, z=2)
-for ln, g in site_items:
-    if g is not None and ln.startswith("02_"):
-        draw_shape(ax, rot(g), mxf, fc="#DCE8EE", ec="none", z=1)
-draw_shape(ax, rot(Polygon(_S)), mxf, fc="#F3F7EC", ec=INK, lw=0.35, z=3)
-draw_shape(ax, rot(roofs_plan), mxf, fc="#B9B2A6", ec="none", z=4)
-_cn = mxf(R3(WT["canal"]))
-ax.plot(_cn[:, 0], _cn[:, 1], color="#2F6FA0", lw=1.0, zorder=6)
-_cv = mxf(np.vstack([R3(WT["canal"][-1]), R3(gc.XS([tuple(p) for p in GJ["STREAM"]["culvert"]]))]))
-ax.plot(_cv[:, 0], _cv[:, 1], color="#2F6FA0", lw=0.6, ls=(0, (2, 1.5)), zorder=6)
-_st = mxf(R3(gc.XS([tuple(p) for p in GJ["STREAM"]["line"]])))
-ax.plot(_st[:, 0], _st[:, 1], color="#2F6FA0", lw=0.8, zorder=6)
-_rv = mxf(R3(WT["river"]))
-ax.plot(_rv[:, 0], _rv[:, 1], color="#2F6FA0", lw=1.6, zorder=5, alpha=0.8)
-for a_ in ax.patches[st:] + ax.lines[stl:]:
-    a_.set_clip_path(mrp)
-T(ax, _cn[0, 0] + 1, min(_cn[0, 1], moy + mh) - 3, "用水路", 2.2, "#2F6FA0")
-T(ax, _cv[-1, 0] + 1.5, _cv[-1, 1] + 1.5, "暗渠", 2.0, "#2F6FA0")
-T(ax, mox + mw * 0.62, moy + 4, "高野川", 2.4, "#2F6FA0", bold=True)
-_nwv = np.array([_nv[0] * np.cos(np.pi / 4) - _nv[1] * np.sin(np.pi / 4), _nv[0] * np.sin(np.pi / 4) + _nv[1] * np.cos(np.pi / 4)])
-_a0 = np.array([mox + 9, moy + mh - 12])
-ax.annotate("", xy=tuple(_a0 + _nwv * 8), xytext=tuple(_a0), arrowprops=dict(arrowstyle="-|>", lw=0.6, color="#6B4A2B"))
-T(ax, mox + 2, moy + mh - 4, "京都北山へ（北山杉の間伐材）", 2.0, "#6B4A2B")
-T(ax, rx + 3, cy + 12, f"1/{msc}　松ヶ崎の用水から水を、北山から木を借りる", 2.2)
-T(ax, rx + 3, cy + 7.5, "地下水の豊かな土地（物語）", 2.2)
-T(ax, rx + 3, cy + 3, "（用水路と川は敷地図の線をなぞった、精度は数m）", 1.8, NOTE)
-for i, (h1, s1) in enumerate([
-        ("山から川へ", "北のもりのみなもとから縁側の前・原っぱ\nを流れ、護岸の溝を滑り落ちて高野川へ\n築山＝比叡、小川＝高野川のうつし"),
-        ("河川敷とつなぐ", "のぞき（生垣の口から水面）\n小川と雨の川が護岸の溝で河川敷へ\n避難の帯・非常用の門から公園・河川敷へ"),
-        ("地域への配慮", "車は突き出た木より南（川側）で出入り\n西館の西端は1階の高さ（向かいの住宅）\n北東の隣家：1 m・木の帯・小屋が声の衝立\n小竹薮公園を残す")]):
-    box(ax, rx + (i + 1) * (cw + 5), cy, cw, ch, h1, "小さな図＋\n" + s1, fill="#FAF8FF")
+NAT = [("用水を借りる", ["松ヶ崎の用水のネットワークから水を借りる。北の道の下の暗渠から敷地の北の角へ、北のもりのみなもとに湧き出す。"]),
+       ("山から川へ", ["みなもとから縁側の前・原っぱを流れ、護岸の溝を滑り落ちて高野川に合流するまでを、こどもが追える。", "雨は樋に隠さず、雨の川から同じ溝で川へ。"]),
+       ("比叡と高野川のうつし", ["築山は比叡のうつし。ホールから頂の向こうに比叡が見える。", "小川は高野川のうつし。足もとを掘った土で築山を盛る。"]),
+       ("木と地下水も借りる", ["京都北山の北山杉の間伐材141本を、ホールの林に立てる。", "松ヶ崎の豊かな地下水も借りる（物語）。"])]
+for i_, (h1, ls_) in enumerate(NAT):
+    ibox(ax, rx + i_ * (cw + 5), cy, cw, ch, f"{i_ + 1}　{h1}", ls_, C_NAT, "#F6FAFD")
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
 VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
@@ -870,75 +847,214 @@ _tq = xf(R3(_tree))[0]
 _tc = xf(R3(_tree - 2.0 * _n))[0]                                          # 枝は道の上へ張り出す（ユーザー：地図に出るくらい）
 ax.add_patch(plt.Circle(tuple(_tc), 3.6 * 5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.6, zorder=31))
 ax.add_patch(plt.Circle(tuple(_tq), 1.4, fc="#5E7F45", ec="none", zorder=32))
-lab(ax, xf, _tree, "突き出た木（住宅とアパートの境、西の折れ目と\n北の交差点の中ほど）：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (sx + 3 - _tq[0], -14), ha="left")
+lab(ax, xf, _tree, "突き出た木（住宅とアパートの境）", (sx + 3 - _tq[0], -12), ha="left")
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
 _hq = SITE_C["NW"] + 13.0 * _u + (RW_W + 4.0) * _n
-lab(ax, xf, _hq, "向かいの住宅（木から北の三軒、道に沿って建つ。\n狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (sx + 3 - xf(R3(_hq))[0][0], 14), ha="left")
+lab(ax, xf, _hq, "向かいの住宅（木から北の三軒）", (sx + 3 - xf(R3(_hq))[0][0], 14), ha="left")
 lab(ax, xf, R3inv([-23.5, -5.0])[0], "二本の橋（車・人）へ", (4, -5), ha="left")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
 _uq = SITE_C["NW"] + 0.02 * _LN * _eN + (RW_N + 6.0) * _oN               # 大学の敷地の中（南の線の上に文字を置かない）
 lab(ax, xf, _uq, "北の道の向こうは京都工芸繊維大学", (-48, (sy + sh - 5) - xf(R3(_uq))[0][1]), ha="right")
 lab(ax, xf, R3inv([14.0, -5.6])[0], "高野川", (0, 0), size=3.0, color="#2F6FA0", bold=True)
-lab(ax, xf, np.array(gc.PARK.centroid.coords[0]), "小竹薮公園（残す）", (-4, -10), ha="right")
+lab(ax, xf, np.array(gc.PARK.centroid.coords[0]), "小竹薮公園", (0, 0), ha="center", lead=False)
 _nx, _ny = sx + 14, sy + sh - 20
 ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
 T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
 scalebar(ax, sx + 6, sy - 22, 200, 20)
-T(ax, sx + 6, sy - 13, "災害時は地下水をくみ上げて、近隣に水を届ける", 2.8)
 lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
 lab(ax, xf, R3inv([33.5, 58.8])[0], "用水路（北から来て、ここから暗渠で敷地の北の角へ）", (-4, 9), size=2.6, color="#1F6FB2", ha="right")
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
-# 園庭の筋（配置図の右、上から下へ）
+# 自然環境の4つの箱から配置図の点へ（貼った園庭の図の上に出るよう、最後にPDFの上に描く）
+Rs = lambda P: np.c_[np.atleast_2d(P)[:, 0] * np.cos(_rr) - np.atleast_2d(P)[:, 1] * np.sin(_rr),
+                     np.atleast_2d(P)[:, 0] * np.sin(_rr) + np.atleast_2d(P)[:, 1] * np.cos(_rr)]   # sの座標 → 回した座標
+P3p = lambda P: xf(R3(P))[0]                       # 3dmのm → 紙
+Psp = lambda P: xf(Rs(np.asarray(P, float)))[0]    # sの座標 → 紙
+_stl = gc.XS([tuple(p) for p in GJ["STREAM"]["line"]])
+_nat_pts = [[P3p(_stl[0])],
+            [P3p(_stl[len(_stl) // 2]), P3p(_stl[-1])],
+            [Psp(np.array(GD["mound"].centroid.coords[0]))],
+            [Psp(np.array(GD["mound"].centroid.coords[0])) * 0 + Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.startswith("59_1F_ホール")]).centroid.coords[0]))]]
+_k = 0
+for i_, pts in enumerate(_nat_pts):
+    bx_ = rx + i_ * (cw + 5) + 12 + 6 * len(pts)
+    for j_, q_ in enumerate(pts):
+        bxx = bx_ - 6 * j_
+        yv = cy - 2.0 - 1.3 * _k                     # 箱の下から少し下りて左へ
+        topline(1, q_, (bxx, cy), C_NAT, via=[(bxx, yv), (q_[0], yv)])     # 横へ、点の真上から下りる
+        _k += 1
+
+# 地域環境への配慮（配置図の右、茶）。左の端から配置図の点へ
 gx = sx + sw + 6
-gwid = W - M - 6 - 297 - 8 - gx
-gtop = cy - 8
-title(ax, gx, gtop, "園庭　本物に触れて遊ぶ")
-gcells = [
-    ("見立て", "築山＝比叡、小川＝高野川\nホールから頂の向こうに比叡\n足もとを掘った土で盛る"),
-    ("水の行方を隠さない", "用水→みなもと→小川\n→護岸の溝→高野川\n雨は樋なしで雨の川へ"),
-    ("土と世代のめぐり", "野菜くず→コンポスト\n→菜園→給食、余りは農家へ\n柳の家を上の子が編む"),
-    ("静かな場所と先生の目", "しずかのもり、ニッチ11か所\n死角は植え込みだけ\n取り除くのは命の危険だけ"),
-]
-gch = (gtop - 6 - (M + 8) - 3 * 5) / 4
-for i, (h1, s1) in enumerate(gcells):
-    cyy = gtop - 6 - (i + 1) * gch - i * 5
-    box(ax, gx, cyy, gwid, gch, h1, "小さな図＋\n" + s1, fill="#F5FAF0", color="#4E8A3A")
-# 右の列：模型写真（A4）・園庭の断面・配置図の注
-px = W - M - 6 - 297
-box(ax, px, gtop - 210, 297, 210, "模型写真　A4（入口の一枚）",
-    "園庭からこどもの目線（模型で約10 mm）\n縁側・深い庇・築山の向こうに比叡の方向\n選抜で最初に目に入る位置")
-_gy = gtop - 210 - 9
-title(ax, px, _gy, "園庭の断面", "1/200　A 比叡へ／B 高野川・河川敷へ")
-wG, hG = embed(1, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), (0, 313, 420, 522), px, _gy - 4 - 105, 0.5)
-_ny0 = _gy - 4 - 105 - 6
+cwid = 205
+COM = [("車は西の道の真ん中より南で", ["西の道は突き出た木で見通しが悪い。外からの車の出入り（駐車・搬入）は、西の道の真ん中より南（川の側）にまとめた。"],
+        P3p(SITE_C["NW"] + 0.78 * _LW * _u - 3.0 * _n)),
+       ("向かいの住宅へ", ["狭い道をはさんで向き合う住宅に対し、西館の西の端は1階の高さに抑えた。"], P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)),
+       ("東の隣家へ", ["視線と音に配慮：境から1 m、木の帯、園庭の小屋が声の衝立になる。"], P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)),
+       ("小竹薮公園を残す", ["地域の記憶の公園をそのまま残し、園の入口の前庭にする。"], P3p(np.array(gc.PARK.centroid.coords[0]))),
+       ("災害時に水を届ける", ["地下水をくみ上げて、災害時に近隣に水を届ける。屋根材型の太陽光と蓄電池で停電の時も動く。"],
+        Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.startswith("35_")] or [Polygon([(0, 0), (1, 0), (1, 1)])]).centroid.coords[0])))]
+title(ax, gx, cy - 17, "地域環境への配慮")
+by_ = cy - 22
+for i_, (h1, ls_, q_) in enumerate(COM):
+    nl = sum(len(jwrap(t_, (cwid - 6) / (3.2 / 0.72))) for t_ in ls_)
+    _ch2 = 18 + nl * (3.2 / 0.72 + 1.2)
+    by_ -= _ch2
+    ibox(ax, gx, by_, cwid, _ch2, f"{i_ + 1}　{h1}", ls_, C_COM, "#FBF7F2")
+    topline(1, q_, (gx, by_ + _ch2 / 2), C_COM)
+    by_ -= 8
+_notes_y = by_
+
+# 用水のネットワークと北山（小さな地図、右の列）
+mbx = gx + cwid + 8
+mbw = W - M - 6 - mbx
+mx0, mx1, my0, my1 = -75.0, 105.0, -45.0, 95.0
+msc = (mx1 - mx0) * 1000 / (mbw - 6)
+msc = next(s_ for s_ in (1000, 1250, 1500, 2000, 2500, 3000) if s_ >= msc)
+mbh = (my1 - my0) * 1000 / msc + 40
+mby = cy - 22 - mbh
+ax.add_patch(Rectangle((mbx, mby), mbw, mbh, fc="#FAFCFF", ec="#7FA6C8", lw=0.5))
+T(ax, mbx + 3, mby + mbh - 6, "借りぐらし　用水のネットワークと北山", 3.2, C_NAT, bold=True)
+mw, mh = (mx1 - mx0) * 1000 / msc, (my1 - my0) * 1000 / msc
+mox, moy = mbx + (mbw - mw) / 2, mby + 26
+mxf = xform(mox, moy, msc, mx0, my0)
+mrp = clip_rect(ax, mox, moy, mw, mh)
+st = len(ax.patches); stl = len(ax.lines)
+for ln, g in CTX:
+    if g is None:
+        continue
+    g = rot(g)
+    if ln.startswith("03_"):
+        draw_shape(ax, g, mxf, fc="#EEEEEE", ec="none", z=1)
+    else:
+        draw_shape(ax, g, mxf, fc="#E2E2E2", ec="#C8C8C8", lw=0.05, z=2)
+for ln, g in site_items:
+    if g is not None and ln.startswith("02_"):
+        draw_shape(ax, rot(g), mxf, fc="#DCE8EE", ec="none", z=1)
+draw_shape(ax, rot(Polygon(_S)), mxf, fc="#F3F7EC", ec=INK, lw=0.35, z=3)
+draw_shape(ax, rot(roofs_plan), mxf, fc="#B9B2A6", ec="none", z=4)
+_cn = mxf(R3(WT["canal"]))
+ax.plot(_cn[:, 0], _cn[:, 1], color=C_NAT, lw=1.2, zorder=6)
+_cv = mxf(np.vstack([R3(WT["canal"][-1]), R3(gc.XS([tuple(p) for p in GJ["STREAM"]["culvert"]]))]))
+ax.plot(_cv[:, 0], _cv[:, 1], color=C_NAT, lw=0.7, ls=(0, (2, 1.5)), zorder=6)
+_st = mxf(R3(_stl))
+ax.plot(_st[:, 0], _st[:, 1], color=C_NAT, lw=0.9, zorder=6)
+_rv = mxf(R3(WT["river"]))
+ax.plot(_rv[:, 0], _rv[:, 1], color=C_NAT, lw=1.8, zorder=5, alpha=0.8)
+for a_ in ax.patches[st:] + ax.lines[stl:]:
+    a_.set_clip_path(mrp)
+T(ax, _cn[0, 0] + 1, min(_cn[0, 1], moy + mh) - 3, "松ヶ崎の用水路", 2.4, C_NAT)
+T(ax, _cv[-1, 0] + 1.5, _cv[-1, 1] + 1.5, "暗渠", 2.2, C_NAT)
+T(ax, mox + mw * 0.62, moy + 4, "高野川", 2.6, C_NAT, bold=True)
+_nwv = np.array([_nv[0] * np.cos(np.pi / 4) - _nv[1] * np.sin(np.pi / 4), _nv[0] * np.sin(np.pi / 4) + _nv[1] * np.cos(np.pi / 4)])
+_a0 = np.array([mox + 9, moy + mh - 14])
+ax.annotate("", xy=tuple(_a0 + _nwv * 10), xytext=tuple(_a0), arrowprops=dict(arrowstyle="-|>", lw=0.7, color="#6B4A2B"))
+T(ax, mox + 2, moy + mh - 4, "京都北山へ（北山杉の間伐材）", 2.3, "#6B4A2B")
+T(ax, mbx + 3, mby + 15, f"1/{msc}　用水路 → 暗渠 → みなもと → 小川 → 高野川", 2.4)
+T(ax, mbx + 3, mby + 9.5, "北の角で用水から水を借り、川へ返す", 2.4)
+T(ax, mbx + 3, mby + 4, "（用水路と川は敷地図の線をなぞった、精度は数m）", 1.8, NOTE)
 for k_, s_ in enumerate(["配置図の注", "・駐車5台・搬入は南（川側）。行事の日は駐車場を駐輪に",
                          "・セキュリティの線の出入口は公園の木戸だけ",
                          "・園庭への搬入は公園の東の縁から川沿いの帯を通って",
                          "・敷地の境から：北東の隣家1 m（厳守）、ほかは1 m"]):
-    T(ax, sx + 150, sy - 3 - k_ * 4.4, s_, 2.4 if k_ else 2.8, bold=(k_ == 0))   # 配置図の下の余白に
+    T(ax, gx, _notes_y - 4 - k_ * 5.4, s_, 2.9 if k_ else 3.4, bold=(k_ == 0))   # 地域の箱の下に
 figs.append(fig)
 
-# ================================================================ 2　すべての人の一日（1階平面）
-# 課題の「食べる・寝る・遊ぶ」に答える。こどもだけでなく保育士・調理の職員の一日も重ねる（ユーザー、10-24）
+# 図のPDF（3dmから自動の図）
 DRW = os.path.join(ROOT, "drawings")   # 図のPDFは sodachiya/drawings/（10-24）
 PLAN = os.path.join(DRW, "sodachiya_plan_1-100.pdf")
 ELE1 = os.path.join(DRW, "sodachiya_elevations_1-100.pdf")
 ELE2 = os.path.join(DRW, "sodachiya_elevations2_1-100.pdf")
+
+# 面積表とinspired by（3枚目・5枚目で使う）
+AJ = json.load(open(os.path.join(ROOT, "model", "drawings", "sodachiya_areas.json"), encoding="utf-8"))
+
+
+def area_table(ax, tx, ty, tw, size=2.2):
+    title(ax, tx, ty, "面積表", "m²（壁芯、3dmから自動）")
+    T(ax, tx, ty - 8, "室", size, NOTE); T(ax, tx + tw * 0.55, ty - 8, "要求", size, NOTE); T(ax, tx + tw, ty - 8, "計画", size, NOTE, ha="right")
+    yy = ty - 14
+    for r_ in AJ["rooms"]:
+        if r_["planned"] is None and not r_["judge"]:
+            continue
+        nm = r_["room"].replace(" ", "")
+        T(ax, tx, yy, nm[:11], size)
+        T(ax, tx + tw * 0.55, yy, r_["required"].replace(" ", "")[:8], size)
+        T(ax, tx + tw, yy, f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"], size, ha="right")
+        yy -= size + 2.2
+    T(ax, tx, yy, "延床（2,000以内）", size, bold=True)
+    T(ax, tx + tw, yy, f"{AJ['floor']['total']:,.1f}", size, ha="right", bold=True)
+    return yy
+
+
+INSP = [("Asilo Nido Iride", "Mario Cucinella Architects・Guastalla・2015", "梁の列が並ぶ長細い本館と、外に付く付属の建物"),
+        ("Tamedia", "坂茂・Zürich・2013", "梁の端の楕円の頭と、それを貫く楕円の桁"),
+        ("レイモンド斑鳩こども園", "キノアーキテクツ・斑鳩・2026", "室内に木を立てる（ホールの北山杉）"),
+        ("KAIT工房", "石上純也・厚木・2008", "柱の配列：見る向きで景色が変わる並び"),
+        ("認定こども園らみどり", "はりゅうウッドスタジオ・須賀川・2026", "内と外の二重の縁側、遊具を置かない地形の園庭"),
+        ("仙田満の園舎", "環境デザイン研究所", "摺鉢のネット、キャットウォーク、ニッチ"),
+        ("Waldorf School of the Peninsula", "California", "遊戯室の切り株")]
+
+
+
+
+def inspired(ax, tx, ty, colw, rows=4):
+    T(ax, tx, ty, "inspired by", 3.0, bold=True)
+    for i, (n, src, what) in enumerate(INSP):
+        c_, r_ = divmod(i, rows)
+        x_, y2 = tx + c_ * colw, ty - 6 - r_ * 9.0
+        T(ax, x_, y2, n, 2.2, bold=True)
+        T(ax, x_, y2 - 3.3, src, 1.8, "#666666")
+        T(ax, x_ + 1.5, y2 - 6.4, "→ " + what, 1.9)
+
+
+# ================================================================ 2　景観（ユーザー、10-24夜の構成）
 fig, ax = page()
-frame(ax, 2, "すべての人の一日　1階平面", "こども・保育士・調理の職員が一日を過ごす場所としての平面（食べる・寝る・遊ぶ）",
-      "1階平面（家具・先生の席）→ 一日の帯（こども／保育士／調理）")
+frame(ax, 2, "景観", "高野川の側は低く、北の大学に向かって高く（地域の高低差の流れ）。同時に、伸びやかな梁・西館の立ち上がり・夜の水平の光で主張する",
+      "園庭の側の立面 → 縦断A（川から北へ）→ 道路の側の立面 → 高野川の側・夜")
+CLIP_E1 = (25, 36, 772, 153)               # 自動の立面図1：園庭の側
+CLIP_E2 = (25, 199, 772, 316)              # 自動の立面図1：道路の側
+CLIP_SA = (31, 50, 830, 206)               # 自動の断面図：縦断A
+CLIP_E3 = (112, 36, 712, 153)              # 自動の立面図2：高野川の側
+ex = M + 6
+y_ = H - M - 16 - 3
+title(ax, ex, y_ - 4, "園庭の側の立面図", "1/100　円弧の中心の方向から弧の真ん中に正対")
+y_ -= 7
+_, h_ = embed(2, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0)
+dimnote(ax, ex + 520, y_ + 3, "伸びやかな梁と縁側（梁の端・庇が3 mごとに並ぶ）。屋根は屋根材型の太陽光")
+y_ -= h_ + 2
+title(ax, ex, y_ - 4, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
+y_ -= 7
+_, h_ = embed(2, SEC, CLIP_SA, ex, y_ - (CLIP_SA[3] - CLIP_SA[1]), 1.0)
+dimnote(ax, ex + 330, y_ + 3, "左（南）の高野川の崖から右（北）の大学へ、低い本館 → 高い西館 → おむすび。地域の建物の高低の流れに沿う")
+dimnote(ax, ex + 330, y_ - 2, "（3dmの周辺の建物の箱（PLATEAU）を背景に薄く重ねる）")
+y_ -= h_ + 2
+title(ax, ex, y_ - 4, "道路の側の立面図", "1/100　西の道路から")
+y_ -= 7
+_, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0)
+dimnote(ax, ex + 520, y_ + 3, "西館の西端は1階の高さ（向かいの住宅を点線で描き足す）。西館の立ち上がりが北で主張する")
+y_ -= h_ + 3
+bh = y_ - (M + 8)
+w3, h3 = embed(2, ELE2, CLIP_E3, ex, M + 8, 0.5)
+title(ax, ex, M + 8 + h3 + 2, "高野川の側の立面図", "1/200　川の向こうから")
+bx3 = ex + w3 + 8
+box(ax, bx3, M + 8, 220, bh, "夜の立面（園庭の側）", "黒地に越屋根の東の縁の光の線だけ\n水平の光が一本、川向こうから見える\n（模型の夜景写真でもよい）")
+box(ax, bx3 + 228, M + 8, W - M - 6 - (bx3 + 228), bh, "模型写真　鳥瞰", "敷地と高野川・崖・公園・西の道・園庭\n配置図と同じ向き（高野川を手前）\n川側が低く北へ高くなる流れが見える角度で")
+dimnote(ax, bx3, M + 8 + bh + 2, "景観の約束：景観条例の基準（高さ・屋根の形・色）を守ることを一行で（地区の基準は確認）。小竹薮公園を残す")
+figs.append(fig)
+
+# ================================================================ 3　すべての人の一日（1階平面）
+# 課題の「食べる・寝る・遊ぶ」に答える。こどもだけでなく保育士・調理の職員の一日も重ねる（ユーザー、10-24）
+fig, ax = page()
+frame(ax, 3, "すべての人の一日　1階平面", "こども・保育士・調理の職員が一日を過ごす場所としての平面（食べる・寝る・遊ぶ）",
+      "1階平面（家具・先生の席）と面積表 → 一日の帯と動線（こども／保育士／調理）")
 CLIP_P1 = (15, 189, 752, 562)              # 自動の平面図の1階の部分（1/100、図の見出しを含む）
 px, top2 = M + 6, H - M - 16 - 4
-wP, hP = embed(2, PLAN, CLIP_P1, px, top2 - (CLIP_P1[3] - CLIP_P1[1]), 1.0)
+wP, hP = embed(3, PLAN, CLIP_P1, px, top2 - (CLIP_P1[3] - CLIP_P1[1]), 1.0)
 py = top2 - hP
-dimnote(ax, px + wP + 4, top2 - 6, "3dmから自動の平面図")
-dimnote(ax, px + wP + 4, top2 - 11, "（1/100、実寸）")
-for j, s_ in enumerate(["描き足す注記：", "・各保育室の先生の席", "　（机h700＋ついたて）", "・0・1歳の腰掛ける机",
-                        "・記録・連絡の机", "・オープンキッチンの", "　東面のガラス", "・生ごみの受け取り台",
-                        "・はれのま", "・2階の休憩室は4枚目"]):
-    dimnote(ax, px + wP + 4, top2 - 24 - j * 5, s_)
+area_table(ax, px + wP + 4, top2 - 4, W - M - 6 - (px + wP + 4), size=2.0)
+dimnote(ax, px + wP + 4, py + 4, "平面は3dmから自動（1/100）")
 
 
 def lcen(prefixes):
@@ -950,6 +1066,24 @@ _kit = lcen(["32_"])
 _hall = lcen(["59_1F_ホール"])
 _edge_y = GD["amaochi"].bounds[3] + 0.8
 _path = np.array([_kit, [_kit[0], _hall[1]], [_hall[0], _hall[1]], [_hall[0], _edge_y], [_hc[0], _edge_y], _hc])
+def _c(name):
+    """動線の点：部屋のレイヤーの頭か、園庭の名前（GD）か、公園"""
+    if name == "park":
+        return np.array(to_s(np.atleast_2d(np.array(gc.PARK.centroid.coords[0])))[0])
+    if name in GD:
+        return np.array(GD[name].centroid.coords[0])
+    return lcen([name])
+
+
+# 一日の帯の動線（ユーザー、10-24夜：時間ごとの図に線を加える）：こども（緑）・保育士（茶）・調理（青）
+FLOW = {
+    "登園 8:00": [["park", "15_", "59_1F_4歳"], ["59_1F_事務（スパン", "52_"], ["57_", "32_"]],
+    "外で遊ぶ 9:30": [["59_1F_4歳", "13_", "north"], ["59_1F_3歳", "14_"], []],
+    "食べる 11:30": [["59_1F_5歳", "34_"], ["32_", "33_", "59_1F_3歳"], ["32_", "33_"]],
+    "寝る 12:45": [["59_1F_5歳", "mound"], ["59_1F_3歳", "36_"], []],
+    "当番 15:00": [["32_", "59_1F_ホール", "13_", "hut", "compost"], ["compost", "north"], ["32_", "33_"]],
+    "降園 16:30": [["34_", "52_", "15_", "park"], ["34_", "52_"], ["57_", "52_"]],
+}
 frames_ = [
     ("登園 8:00", ["52_", "15_", "59_1F_ホール", "33_", "59_1F_事務（スパン"], (), None,
      ["公園→木戸→小径→海峡。0・1歳は受け取り土間", "おはようの窓口で挨拶、受け取り土間で手渡し", "検収と下処理（南のガラス越しに見える）"]),
@@ -983,154 +1117,106 @@ for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
     kxf = xform(kox, koy, ksc, kx0, ky0)
     draw_garden(ax, kxf, hi=ghi, thin=True)
     draw_plan(ax, kox, koy, ksc, kx0, ky0, kw_, kh_, keyhi=keys, thin=True)
-    if path is not None:
-        q = kxf(path)
-        ax.plot(q[:, 0], q[:, 1], color="#B5651D", lw=0.9, ls=(0, (2, 1.2)), zorder=8)
-        ax.annotate("", xy=tuple(q[-1]), xytext=tuple(q[-2]), arrowprops=dict(arrowstyle="-|>", lw=0.8, color="#B5651D"), zorder=8)
+    for (rn, rc), way in zip(ROLES, FLOW.get(h1, [])):
+        if len(way) < 2:
+            continue
+        q = kxf(np.array([_c(w_) for w_ in way]))
+        ax.plot(q[:, 0], q[:, 1], color=rc, lw=0.9, zorder=8, solid_capstyle="round")
+        ax.annotate("", xy=tuple(q[-1]), xytext=tuple(q[-1] + (q[-2] - q[-1]) * min(1.0, 3.0 / max(np.linalg.norm(q[-2] - q[-1]), 1e-6))),
+                    arrowprops=dict(arrowstyle="-|>", lw=0.8, color=rc), zorder=8)
     yy = fy + txt_h - 1
     for (rn, rc), s_ in zip(ROLES, lines3):
         T(ax, fx + 3, yy - 3.0, rn, 2.4, rc, bold=True)
         for k_, ln_ in enumerate(jwrap(s_, (fw - 16) / (2.3 / 0.72))[:2]):
             T(ax, fx + 13, yy - 3.0 - k_ * 3.3, ln_, 2.3)
         yy -= 3.4 + 2 * 3.3
-dimnote(ax, px + 230, py - 4.5, f"一日の帯：上は1/{ksc}の小さな配置（建物＋園庭）、下にこども・保育士・調理の三つの一日")
+dimnote(ax, px + 230, py - 4.5, f"一日の帯：上は1/{ksc}の小さな配置（建物＋園庭）と三者の動線（こども緑・保育士茶・調理青）、下にそれぞれの一日")
 figs.append(fig)
 
-# ================================================================ 3　景観
+# ================================================================ 4　こどもたちへの環境
+# こどもたちが地に足をつけて育つ場所（ユーザー：一言で言って、娘にこんな環境を与えたい）。園庭を中心に
 fig, ax = page()
-frame(ax, 3, "景観", "高野川の側は低く、北の大学に向かって高く（地域の高低差の流れ）。同時に、伸びやかな梁・西館の立ち上がり・夜の水平の光で主張する",
-      "園庭の側の立面 → 縦断A（川から北へ）→ 道路の側の立面 → 高野川の側・夜")
-CLIP_E1 = (25, 36, 772, 153)               # 自動の立面図1：園庭の側
-CLIP_E2 = (25, 199, 772, 316)              # 自動の立面図1：道路の側
-CLIP_SA = (31, 50, 830, 206)               # 自動の断面図：縦断A
-CLIP_E3 = (112, 36, 712, 153)              # 自動の立面図2：高野川の側
-ex = M + 6
-y_ = H - M - 16 - 3
-title(ax, ex, y_ - 4, "園庭の側の立面図", "1/100　円弧の中心の方向から弧の真ん中に正対")
-y_ -= 7
-_, h_ = embed(3, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0)
-dimnote(ax, ex + 520, y_ + 3, "伸びやかな梁と縁側（梁の端・庇が3 mごとに並ぶ）。屋根は屋根材型の太陽光")
-y_ -= h_ + 2
-title(ax, ex, y_ - 4, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
-y_ -= 7
-_, h_ = embed(3, SEC, CLIP_SA, ex, y_ - (CLIP_SA[3] - CLIP_SA[1]), 1.0)
-dimnote(ax, ex + 330, y_ + 3, "左（南）の高野川の崖から右（北）の大学へ、低い本館 → 高い西館 → おむすび。地域の建物の高低の流れに沿う")
-dimnote(ax, ex + 330, y_ - 2, "（3dmの周辺の建物の箱（PLATEAU）を背景に薄く重ねる）")
-y_ -= h_ + 2
-title(ax, ex, y_ - 4, "道路の側の立面図", "1/100　西の道路から")
-y_ -= 7
-_, h_ = embed(3, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0)
-dimnote(ax, ex + 520, y_ + 3, "西館の西端は1階の高さ（向かいの住宅を点線で描き足す）。西館の立ち上がりが北で主張する")
-y_ -= h_ + 3
-bh = y_ - (M + 8)
-w3, h3 = embed(3, ELE2, CLIP_E3, ex, M + 8, 0.5)
-title(ax, ex, M + 8 + h3 + 2, "高野川の側の立面図", "1/200　川の向こうから")
-bx3 = ex + w3 + 8
-box(ax, bx3, M + 8, 220, bh, "夜の立面（園庭の側）", "黒地に越屋根の東の縁の光の線だけ\n水平の光が一本、川向こうから見える\n（模型の夜景写真でもよい）")
-box(ax, bx3 + 228, M + 8, W - M - 6 - (bx3 + 228), bh, "模型写真　鳥瞰", "敷地と高野川・崖・公園・西の道・園庭\n配置図と同じ向き（高野川を手前）\n川側が低く北へ高くなる流れが見える角度で")
-dimnote(ax, bx3, M + 8 + bh + 2, "景観の約束：景観条例の基準（高さ・屋根の形・色）を守ることを一行で（地区の基準は確認）。小竹薮公園を残す")
+frame(ax, 4, "こどもたちへの環境", "こどもたちが地に足をつけて育つ場所：食べることを中心に命の循環を知り、季節を手と鼻と舌で知る園庭、遊戯室と北山杉の林",
+      "趣旨の言葉 → 園庭 → 内観 → 園庭の4つ → 遊戯室 → 林・洞 → 園庭の断面")
+top = H - M - 16 - 6
+T(ax, M + 6, top - 6, "地に足をつけて育つ", 6.0, bold=True)
+_q = _paras[1] if len(_paras) > 1 else concept
+for k_, s_ in enumerate(jwrap(_q, 150)):
+    T(ax, M + 6 + 75, top - 5 - k_ * 5.4, s_, 3.4)
+rt = top - 20                                   # 上の段の上端
+bt = M + 8 + 230 + 12                           # 下の段の上端
+# 園庭の図（園庭のチャットの配置図、1/250に縮めて）
+GSC = 0.8
+_gclip = (14, 40, 14 + _gw, 40 + _gh)
+title(ax, M + 6, rt - 4, "園庭　だいさんかく・しずかのもり", "1/250（園庭のチャットの配置1/200を縮小）")
+wGa, hGa = embed(4, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), _gclip, M + 6, rt - 8 - _gh * GSC, GSC)
+x_a4 = M + 6 + wGa + 8
+box(ax, x_a4, rt - 210, 297, 210, "内観（A4）", "ホールの北山杉の林・海峡と飛び石・オープンキッチン\n梁の見える天井・光の筋\nこどもの目の高さで（レンダリングか模型写真）")
+gx4 = x_a4 + 297 + 8
+gw4 = W - M - 6 - gx4
+GC4 = [("見立て", ["築山は比叡、小川は高野川。ホールから頂の向こうに比叡。足もとを掘った土で盛る。"]),
+       ("水の行方を隠さない", ["用水→みなもと→小川→護岸の溝→高野川。雨は樋なしで雨の川へ。"]),
+       ("土と命のめぐり", ["野菜を育て、野菜くずはこどもの手でコンポストへ、土に還す。土の中のミミズに驚く。"]),
+       ("季節を手と鼻と舌で", ["季節ごとに香る木と実のなる木。抱きつける木。とげの木は一本だけ、わざと。"]),
+       ("静かな場所と先生の目", ["しずかのもりは柵で囲まず、道の上の関守石で「ここからはしずかに」。取り除くのは命に関わる危険だけ。"])]
+gh4 = (rt - bt - 4 * 5) / len(GC4)
+for i_, (h1, ls_) in enumerate(GC4):
+    ibox(ax, gx4, rt - (i_ + 1) * gh4 - i_ * 5, gw4, gh4, h1, ls_, "#4E8A3A", "#F5FAF0", size=2.9)
+# 下の段：遊戯室・林と洞・園庭の断面
+by = M + 8
+PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
+wPl, hPl = embed(4, PLAYP, None, M + 6, by, 1.0)
+x2 = M + 6 + wPl + 8
+FOREST = os.path.join(ROOT, "out", "sodachiya_forest_02.pdf")
+title(ax, x2, bt - 4, "ホールの北山杉の林", "こどもの目の高さ（0.9 m）から")
+wF, hF = embed(4, FOREST, (0, 8, 420, 118), x2, bt - 10 - 105, fit=(230, 105))
+T(ax, x2, bt - 10 - hF - 5, "京都北山の北山杉の間伐材141本。こどもには林、先生には見渡せる", 2.6)
+CAVE = os.path.join(ROOT, "out", "sodachiya_play_cave.pdf")
+title(ax, x2, by + 112 + 4, "洞のクスノキ", "遊戯室の切り株、断面パース")
+embed(4, CAVE, None, x2, by, 1.0)
+x3 = x2 + 238
+title(ax, x3, bt - 4, "園庭の断面", "1/200　A 比叡へ／B 高野川・河川敷へ")
+embed(4, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), (0, 313, 420, 522), x3, bt - 10 - 105, 0.5)
 figs.append(fig)
 
-# ================================================================ 4　環境
+# ================================================================ 5　環境
 fig, ax = page()
-frame(ax, 4, "環境", "木造・パッシブ（床下・越屋根・光の筋）で空調を補う。エネルギー・資源・時間（S&I）まで",
+frame(ax, 5, "環境", "木造・パッシブ（床下・越屋根・光の筋）で空調を補う。屋根材型の太陽光と蓄電池、資源のめぐり、時間（S&I）",
       "断面C 1/50（昼と夏の夜の風、光の筋、床下）→ 運転表と4つの配慮 → 断面B → 2階（職員の側）")
 CLIP_C2 = (432, 252, 830, 382)
 hC = (CLIP_C2[3] - CLIP_C2[1]) * 2
 cx, cy = M + 6, H - M - 16 - 10 - hC
 title(ax, cx, cy + hC + 3, "断面図C　4歳・遊戯室の摺鉢ネット", "1/50（1/100の自動の図を2倍）　西の道路から園庭へ")
-wC, _ = embed(4, SEC, CLIP_C2, cx, cy, 2.0)
+wC, _ = embed(5, SEC, CLIP_C2, cx, cy, 2.0)
 dimnote(ax, cx + 470, cy + hC + 3, "矢印：昼の道（青）と夏の夜の道（紺）。床下の底板t200と断熱の帯。光の筋の光")
-oy_ = cy - 8 - 48
+oy_ = cy - 8 - 40
 cells4 = [("夏の昼", "庇で遮る・天井扇\n床下空調（底板の冷え）"), ("夏の夜", "縁側の段のガラリ→床下→梁間\n→越屋根・遊戯室の吹き抜け"),
           ("春・秋", "越屋根の換気口を開ける\n縁側を開け放す"), ("冬", "換気口を閉じる・熱交換\n基礎断熱・屋根の断熱"),
           ("パッシブ", "床下に冷えをためる\n越屋根の通風、光の筋の昼光"), ("エネルギー", "屋根材型の太陽光\n蓄電池（災害時の拠点）"),
           ("資源", "北山杉の間伐材（山の手入れを支える）\n地域のスギ、土・雨・生ごみを敷地で回す"), ("時間", "スケルトン＆インフィル\n水まわりはどのスパンにも")]
 cw4 = (W - 2 * M - 12 - 7 * 4) / 8
 for i, (h1, s1) in enumerate(cells4):
-    box(ax, cx + i * (cw4 + 4), oy_, cw4, 48, h1, s1, fill="#FAF8FF" if i < 4 else "#F5FAF0", color=NOTE if i < 4 else "#4E8A3A")
-T(ax, cx, oy_ + 50, "運転表", 3.2, bold=True)
-T(ax, cx + 4 * (cw4 + 4), oy_ + 50, "環境への配慮（LEED v5 Gold相当を目指す）", 3.2, bold=True)
+    box(ax, cx + i * (cw4 + 4), oy_, cw4, 40, h1, s1, fill="#FAF8FF" if i < 4 else "#F5FAF0", color=NOTE if i < 4 else "#4E8A3A")
+T(ax, cx, oy_ + 42, "運転表", 3.2, bold=True)
+T(ax, cx + 4 * (cw4 + 4), oy_ + 42, "環境への配慮（LEED v5 Gold相当を目指す）", 3.2, bold=True)
 by = M + 8
-wB, hB = embed(4, SEC, (25, 252, 422, 382), cx, by, 1.0)
+wB, hB = embed(5, SEC, (25, 252, 422, 382), cx, by, 1.0)
 title(ax, cx, by + hB + 3, "断面図B　海峡", "1/100　南の入口・キッチン・2階・すき間・本館・縁側")
 CLIP_P2 = (355, 28, 700, 185)
-w2, h2 = embed(4, PLAN, CLIP_P2, W - M - 6 - (CLIP_P2[2] - CLIP_P2[0]), by, 1.0)
+w2, h2 = embed(5, PLAN, CLIP_P2, W - M - 6 - (CLIP_P2[2] - CLIP_P2[0]), by, 1.0)
 title(ax, W - M - 6 - w2, by + h2 + 3, "西館2階平面図", "1/100　職員の側")
 dimnote(ax, W - M - 6 - w2, by + h2 + 9, "西館2階＝職員の側（休憩室・ぐったり休憩・会議室・更衣）。こどもから離れて休む")
-figs.append(fig)
-
-# ================================================================ 5　こどもたちへの環境
-fig, ax = page()
-frame(ax, 5, "こどもたちへの環境", "娘にこんな環境を与えたい、という空間：遊戯室・切り株・北山杉の林・組み方・変わり方",
-      "内観 → 遊戯室 → 同じ部屋の一日 → 林・洞 → 接合部 → S&I → 面積表 → inspired by")
-top = H - M - 16 - 6
-box(ax, M + 6, top - 210, 297, 210, "内観　ホール（A4）", "北山杉の林・海峡と飛び石・オープンキッチン\n梁の見える天井・光の筋・越屋根の光の線\n（レンダリングか模型写真）")
-PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
-wPl, hPl = embed(5, PLAYP, None, W - M - 6 - 290, top - 230, 1.0)
-x1 = M + 6 + 297 + 8
-title(ax, x1, top - 4, "同じ部屋の一日", "3〜5歳の保育室　断面")
-SEC35 = os.path.join(ROOT, "out", "sodachiya_35_section.pdf")
-CL35 = (30, 70, 360, 215)
-for i, t_ in enumerate([("10:00", "遊ぶ"), ("11:30", "食べる"), ("13:30", "寝る")]):
-    yy = top - 10 - (i + 1) * 72
-    embed(5, SEC35, CL35, x1 + 20, yy, 0.5)
-    T(ax, x1, yy + 40, t_[0], 3.0, bold=True)
-    T(ax, x1, yy + 34, t_[1], 2.8)
-dimnote(ax, x1, top - 10 - 3 * 72 - 5, "今は同じ図。部屋の分け方と天井の高低が決まったら描き分ける")
-by = M + 8
-bt = top - 238                     # 下の段の上端
-FOREST = os.path.join(ROOT, "out", "sodachiya_forest_02.pdf")
-title(ax, M + 6, bt - 4, "ホールの北山杉の林", "こどもの目の高さ（0.9 m）から")
-wF, hF = embed(5, FOREST, (0, 8, 420, 118), M + 6, bt - 10 - 105, fit=(230, 105))
-T(ax, M + 6, bt - 10 - hF - 5, "京都北山の北山杉の間伐材141本。こどもには林、先生には見渡せる（低い木は0.85〜1.1 m）", 2.6)
+# 木の組み方と時間（S&I）・inspired by（ユーザー、10-24夜：5枚目に）
+_bt5 = oy_ - 8                                   # 帯の上端
+_bb5 = by + max(hB, h2) + 22                     # 帯の下端（2階の見出しの上）
+_bh5 = _bt5 - _bb5
+box(ax, cx, _bb5, 175, _bh5, "スケルトン＆インフィル", "3 mスパンの架構（固定）と間仕切り・家具（可変）\n今 ／ 定員が変わる ／ 学童・地域の場")
+box(ax, cx + 183, _bb5, 140, _bh5, "光の筋と架構　1/20", "2枚の梁のあいだ180の上に乳白ガラス")
 JD = os.path.join(ROOT, "out", "joint_detail.pdf")
-title(ax, M + 6, bt - 10 - hF - 14, "接合部", "楕円の頭と桁、2枚の梁で柱を挟む（縮小）")
-embed(5, JD, None, M + 6, by, fit=(230, bt - 10 - hF - 20 - by))
-x2 = M + 6 + 238
-CAVE = os.path.join(ROOT, "out", "sodachiya_play_cave.pdf")
-title(ax, x2, bt - 4, "洞のクスノキ", "断面パース（遊戯室のチャット）")
-embed(5, CAVE, None, x2, bt - 10 - 112, 1.0)
-box(ax, x2, by, 160, bt - 10 - 112 - 8 - by, "光の筋と架構　1/20", "2枚の梁のあいだ180の上に\n乳白ガラスの光の筋\n垂木・楕円の桁と一枚で（作成）")
-x3 = x2 + 168
-box(ax, x3, by, 200, bt - 4 - by, "スケルトン＆インフィル", "3 mスパンの架構（固定）と\n間仕切りA・B・C、家具（可変）を色分け\nどのスパンにも上水・下水の口\n\n今 ／ 定員が変わる ／ 学童・地域の場\nの3コマ")
-tx = x3 + 208
-AJ = json.load(open(os.path.join(ROOT, "model", "drawings", "sodachiya_areas.json"), encoding="utf-8"))
-title(ax, tx, bt - 4, "面積表", "m²（壁芯、3dmから自動）")
-T(ax, tx, bt - 12, "室", 2.4, NOTE); T(ax, tx + 50, bt - 12, "要求", 2.4, NOTE); T(ax, W - M - 8, bt - 12, "計画", 2.4, NOTE, ha="right")
-yy = bt - 18
-for r_ in AJ["rooms"]:
-    if r_["planned"] is None and not r_["judge"]:
-        continue
-    nm = r_["room"].replace(" ", "")
-    T(ax, tx, yy, nm[:12], 2.3)
-    T(ax, tx + 50, yy, r_["required"].replace(" ", ""), 2.3)
-    T(ax, W - M - 8, yy, f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"], 2.3, ha="right")
-    yy -= 4.6
-T(ax, tx, yy, "延床（2,000以内）", 2.3, bold=True)
-T(ax, W - M - 8, yy, f"{AJ['floor']['total']:,.1f}", 2.3, ha="right", bold=True)
-INSP = [("Asilo Nido Iride", "Mario Cucinella Architects・Guastalla・2015", "梁の列が並ぶ長細い本館と、外に付く付属の建物"),
-        ("Tamedia", "坂茂・Zürich・2013", "梁の端の楕円の頭と、それを貫く楕円の桁"),
-        ("レイモンド斑鳩こども園", "キノアーキテクツ・斑鳩・2026", "室内に木を立てる（ホールの北山杉）"),
-        ("KAIT工房", "石上純也・厚木・2008", "柱の配列：見る向きで景色が変わる並び"),
-        ("認定こども園らみどり", "はりゅうウッドスタジオ・須賀川・2026", "内と外の二重の縁側、遊具を置かない地形の園庭"),
-        ("仙田満の園舎", "環境デザイン研究所", "摺鉢のネット、キャットウォーク、ニッチ"),
-        ("Waldorf School of the Peninsula", "California", "遊戯室の切り株")]
-
-
-def _tw(t, size):
-    return sum(size / 0.72 * (0.6 if ord(c) < 0x2000 else 1.0) for c in t)
-
-
-iy = yy - 9
-T(ax, tx, iy, "inspired by", 3.0, bold=True)
-for i, (n, src, what) in enumerate(INSP):
-    y2 = iy - 6 - i * 10.5
-    T(ax, tx, y2, n, 2.2, bold=True)
-    T(ax, tx, y2 - 3.4, src, 1.8, "#666666")
-    T(ax, tx + 1.5, y2 - 6.6, "→ " + what, 1.9)
+wJ, hJ = embed(5, JD, None, cx + 331, _bb5, fit=(150, _bh5))
+T(ax, cx + 331, _bb5 + _bh5 + 2, "接合部（2枚の梁で柱を挟む）", 2.6, bold=True)
+inspired(ax, cx + 331 + 158, _bt5 - 1, 105, rows=3)
 figs.append(fig)
-
 
 # ---------------------------------------------------------------- 書き出し
 base = os.path.join(OUT, "_base.pdf")
@@ -1146,6 +1232,11 @@ for si in range(1, 6):
         cr = fitz.Rect(clip[0] * MM, clip[1] * MM, clip[2] * MM, clip[3] * MM)
         dr = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
         pg.show_pdf_page(dr, sd, pno, clip=cr)
+    for (pts, col) in TOPL[si]:                     # 引き出し線は貼った図の上に（箱 → 折れ点 → 配置図の点）
+        rgb = tuple(int(col[k:k + 2], 16) / 255 for k in (1, 3, 5))
+        P_ = [fitz.Point(q[0] * MM, (H - q[1]) * MM) for q in pts]
+        pg.draw_polyline(P_, color=rgb, width=0.6)
+        pg.draw_circle(P_[-1], 0.9 * MM, color=rgb, fill=rgb)
 # 提出の5枚は sodachiya/presentation.pdf の一つだけ（ユーザー、10-24：前は5枚と「全体＋5枚」の2つがあった）。
 # 壁に貼ったときの全体は present/out/sodachiya_present_overview.pdf（ベクターのPDF、ユーザー、10-24夜：リポジトリの画像はPDFに）
 sheets = os.path.join(ROOT, "presentation.pdf")
@@ -1171,10 +1262,10 @@ def TW(x, y, s, size, **kw):  # sizeは紙のmm
 TW(110, 1515, "目の高さ1.5 m", 3.2, color=NOTE)
 TW(110, 20, "床", 3.2)
 TW(x0w, 2400, "壁に貼ったとき　左：1〜3を縦につなぐ（高さ約1.8 m）　右：4・5を縦につなぐ", 6.0, bold=True)
-notes = ["課題の言葉の順：1 敷地と自然環境 → 2 すべての人の一日 → 3 景観。",
-         "右の列：4 環境 → 5 こどもたちへの環境。",
-         "目の高さに来るのは1階平面（最も細かい図）と断面C。",
-         "2〜4枚目の平面・立面・断面は3dmから自動の図を実寸で貼る。",
+notes = ["左の列：1 敷地と自然環境・地域 → 2 景観 → 3 すべての人の一日。",
+         "右の列：4 こどもたちへの環境 → 5 環境。",
+         "目の高さに来るのは景観（立面）と園庭・遊戯室。",
+         "2・3・5枚目の平面・立面・断面は3dmから自動の図を実寸で貼る。",
          "製図台に置くなら2＋2＋1（1・2／3・4／5）に切り分ける。"]
 for i, s_ in enumerate(notes):
     TW(x0w + 841 * 2 + 200, 2050 - i * 70, s_, 3.2, color=NOTE)
