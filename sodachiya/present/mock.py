@@ -920,7 +920,8 @@ _nbx = NTX + 175
 # 松ヶ崎の用水の網（土木遺産のページ「宝ヶ池」の図をなぞった線、tools/trace_yousui.py。ユーザー、10-24夜）。配置図と同じ向きに回す
 _ny0, _ny1 = sy + sh + 12, top - 8
 _nw = W - M - 6 - _nbx
-ax.add_patch(Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5))
+_box_patch = Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5)
+ax.add_patch(_box_patch)
 T(ax, _nbx + 3, _ny1 - 6, "松ヶ崎の用水の網　高野川の堰から借りて、川へ返す", 3.4, C_NAT, bold=True)
 T(ax, _nbx + 6, _ny1 - 16, "N↑", 3.0, bold=True)
 YS = json.load(open(os.path.join(HERE, "matsugasaki_yousui.json"), encoding="utf-8"))
@@ -930,9 +931,10 @@ _yr = lambda P: np.c_[np.asarray(P, float)[:, 0] * _ca + np.asarray(P, float)[:,
                       np.asarray(P, float)[:, 0] * _sa - np.asarray(P, float)[:, 1] * _ca]   # 画素（y下向き）→ 回した座標
 _allp = np.vstack([_yr(l) for l in YS["water_lines"]])
 _lo, _hi = _allp.min(0), _allp.max(0)
-_fx0, _fy0, _fw, _fh = _nbx + 4, _ny0 + 4, _nw - 8 - 95, (_ny1 - _ny0) - 16
+_fx0, _fy0, _fw, _fh = _nbx + 4, _ny0 + 5, _nw - 8, (_ny1 - _ny0) - 16
 _k = min(_fw / (_hi[0] - _lo[0]), _fh / (_hi[1] - _lo[1]))
 _ym = lambda P: np.c_[_fx0 + (_yr(P)[:, 0] - _lo[0]) * _k, _fy0 + (_yr(P)[:, 1] - _lo[1]) * _k]
+_box_patch.set_width((_hi[0] - _lo[0]) * _k + 60)                # 枠は図の幅に（右は説明を誘導する余白）
 for pl in YS["water_fills"]:
     q = _ym(pl); ax.fill(q[:, 0], q[:, 1], fc="#BFDDF2", ec="none", zorder=3)
 for ln_ in YS["water_lines"]:
@@ -946,12 +948,8 @@ for (px_, py_), t_, dx_, dy_, ha_ in [((272, 76), "井出ヶ鼻井堰（高野�
 _wq = _ym([(272, 76)])[0]; ax.plot([_wq[0]], [_wq[1]], marker="v", ms=4, color=C_NAT, zorder=7)
 _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", mec=INK, zorder=7)
 _sq = _ym([(247, 148)])[0] + np.array([4.5, -1.2])   # 図の「樋ノ上川」の「樋」の字のあたり（ユーザー、10-24夜）
-ax.add_patch(plt.Circle(tuple(_sq), 2.4, fc="#E0904A", ec="none", zorder=7))
-T(ax, _sq[0] + 3, _sq[1] - 4, "敷地（高野川に沿う支流のあたり）", 2.4, "#8A5A2B", bold=True, zorder=7)
-_tx = _fx0 + (_hi[0] - _lo[0]) * _k + 70
-for k_, s_ in enumerate(["高野川の上の井出ヶ鼻井堰で取った水が、", "北東から南西へゆるく下りながら、松ヶ崎の", "田を網のように潤してきた。", "江戸時代には高野川の水をめぐって、", "川向こうの一乗寺村と争った。", "堰から間もない樋ノ上川より下、高野川に沿う", "支流が敷地の北の角に来て、小川になり、", "高野川へ返る。", "地下の水も豊か（涌泉寺・東松ヶ崎の井戸）。"]):
-    T(ax, _tx, _ny1 - 16 - k_ * 4.6, s_, 2.5)
-T(ax, _tx, _ny0 + 4, "図：ksdobokuisan「宝ヶ池」の図をなぞって描き直し", 1.8, NOTE)
+ax.add_patch(plt.Circle(tuple(_sq), 2.4, fc="#E0904A", ec="none", zorder=7, gid="site_mark"))   # 敷地の印（一つの円の図形、Illustratorで変えられる）
+T(ax, _fx0, _ny0 + 1.5, "図：ksdobokuisan「宝ヶ池」の図をなぞって描き直し", 1.8, NOTE)   # 説明は図の外へ（ユーザー）
 figs.append(fig)
 
 # 図のPDF（3dmから自動の図）
