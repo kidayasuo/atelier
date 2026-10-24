@@ -195,6 +195,8 @@ def components(T):
 
 def process(W, T, allow_planes=True):
     """→ (種類, [ジオメトリ])"""
+    if not allow_planes and len(T) > 3000:          # 細かい自由な形（クスノキ 約6万面など）は面を調べずにメッシュのまま（10-24）
+        return 'keep', [submesh(W, T)]
     bb = np.r_[W[T.ravel()].min(0), W[T.ravel()].max(0)]
     regs = [R for R in (region(W, T, cl) for cl in clusters(W, T)) if R['geoms']]
     pr = as_prism(regs, bb)
