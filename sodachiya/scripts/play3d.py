@@ -55,10 +55,10 @@ K.prism(pit, -dep - 50, -dep, L_FL, (200, 180, 150))
 K.prism(pit.buffer(-50), -dep, -dep + pt['mat'] * 1000, L_FL, MAT)
 # ---------------------------------------------------------------- 切り株（クスノキ）とやわらかい床
 st = P['stump']; c_st = X(st['u'], st['w'])
-K.prism(Point(c_st).buffer(st['soft_r'] * 1000, resolution=32).intersection(WNi), 0.0, 30.0, L_FL, (239, 226, 200))
+K.prism(Point(c_st).buffer(st['soft_r'] * 1000, resolution=32).intersection(WNi).intersection(RWw(30.07, 60.0, -1.0, 20.0)), 0.0, 30.0, L_FL, (239, 226, 200))   # はれのまとの壁（u30）の北で止める（10-24夜）
 # 木は骨格（stump.tree）から play_tree.py で滑らかな閉じた網目に（10-24、本物のライブオークを参考に）
 from play_tree import tree_mesh
-TV, TF = tree_mesh(0.025, 60000)
+TV, TF = tree_mesh(0.025, 20000)          # 約2万面（Rhino版・3dmを軽く、10-24 本館係の知らせ）
 tm = r.Mesh()
 for x_, y_, z_ in TV: tm.Vertices.Add(float(x_), float(y_), float(z_))
 for a_, b_, c_ in TF: tm.Faces.AddFace(int(a_), int(b_), int(c_))

@@ -408,7 +408,7 @@ mesh_prism(R(19.0, 20.4, 4.45, 4.55), 2100.0, const(2400.0), L_KAMA)
 # 低い縁に軒の出 0.9（軒樋を含む：屋根の面 0.78＋軒樋 0.12）、南北の妻の縁（けらば）に 0.3。あいだは屋根の高さで滑らかにつなぐ。
 # 軒先は敷地の境の 0.1 手前で止める（外壁は壁面後退の線＝道路から1.0 の上）。本館の側（東の面）には出さない（すき間 0.55）。
 # 屋根の面は外皮の縁から外へ、近くの屋根の点で当てはめた面をそのまま延ばす（roof_z）。
-# 軒樋（120×150、軒先の内側に収める）は低い縁の全長。鎖樋は 2 本：北＝西の面のまっすぐな所の北の端（北の雨庭）、南＝南西の丸みの真ん中（勝手口の前を避ける。下には回り込む下屋、行き先は外構）。
+# 軒樋（120×150、軒先の内側に収める）は低い縁の全長。鎖樋は 2 本：北＝西の面のまっすぐな所の北の端（北の雨庭）、南＝勝手口の北の端から約0.5北の軒先（回り込んだ下屋の上に落とし、下屋の集水から雨水樽へ、10-24）。
 from shapely.ops import substring
 _site = sorted([Polygon([[g.Point(i).X, g.Point(i).Y] for i in range(g.PointCount)]) for o in m.Objects
                 for g in [o.Geometry] if m.Layers[o.Attributes.LayerIndex].Name.startswith('00') and isinstance(g, r.PolylineCurve)],
@@ -503,7 +503,7 @@ if len(gut_line) > 3:
         c_ = np.asarray(c_, float); e_ = min(seg, key=lambda e: np.hypot(*(e[1] - c_)))
         mesh_prism(Point(*c_).buffer(18, 8), -300.0, const(zt_tip(e_, e_[3] - GUT_W) - 170.0), L_RAIN)
     pN = np.array(xy(40.6, -14.99)); qN = gpath.interpolate(gpath.project(Point(*pN))); chain_at((qN.x, qN.y))
-    _qS = gpath.interpolate(gpath.project(Point(*xy(23.0, -12.85))))           # 南：南西の丸みの真ん中（勝手口の前を避ける）
+    _qS = gpath.interpolate(gpath.project(Point(*xy(21.6, -12.6))))            # 南：勝手口の北の端から約0.5北の軒先（回り込んだ下屋の上、外構の集水で受ける。10-24 アプローチ係）
     pS = np.array([_qS.x, _qS.y]); chain_at(pS)
     print('eave: %d strips, low %.1f m / gutter %.1f m, lowest %.0f, chains N(u %.1f) S(u %.1f v %.1f)' %
           (n_eave, len(seg) * Ls / NS / 1000, gpath.length / 1000, g_top, uv(qN.x, qN.y)[0], *uv(*pS)))

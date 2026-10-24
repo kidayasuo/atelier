@@ -18,6 +18,14 @@ from uv import xy, uv
 from meshkit import RW
 
 FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"; FONTB = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+# 提出の図はIllustratorで書体を置き換えるので、TrueTypeに変えたNotoをType42で埋め込む（連携 20261024-1552-present）
+import subprocess as _sp
+_TTF = os.path.expanduser("~/.cache/sodachiya_fonts")
+if not os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
+    _sp.run([__import__("sys").executable, os.path.join(ROOT, "present", "tools", "make_ttf.py"), _TTF], check=False)
+if os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
+    FONT, FONTB = os.path.join(_TTF, "NotoSansCJKjp-Regular.ttf"), os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")
+    plt.rcParams["pdf.fonttype"] = 42
 for f in (FONT, FONTB): matplotlib.font_manager.fontManager.addfont(f)
 plt.rcParams['font.family'] = FontProperties(fname=FONT).get_name()
 P = json.load(open(os.path.join(ROOT, 'data', 'play.json'), encoding='utf-8'))

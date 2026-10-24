@@ -83,6 +83,18 @@ for o in m.Objects:
             if u0 > 56: map_mesh_uv(g, lambda u, v, z: (u + 0.245, v, z))       # 北：妻壁の線（外の梁の外）へ
             else: map_mesh_uv(g, lambda u, v, z: (u, max(v, 12.2), z))        # 南：柱の面から（妻は 2 枚の梁のあいだのまま）
 log.append(f'本館：西の外壁 {n_w} 片を柱の外（v −0.35〜−0.20）へ、窓 {n_o} 枚も。北の妻壁 {n_g} 片を架構の外（u 57.19〜57.34）へ。屋根を西 v −0.45・北 u 57.64（けらば 0.3）まで')
+def closed_mesh(g):
+    """押し出し（柱・梁）は閉じた網目で（10-24夜、西館係）。三角形のスープから溶接すると、側面と端の面の分け方が
+    違うので T 字の継ぎ目が残り、閉じない（干渉の一覧の「閉じていない物」に出て、削る段にも入らない）。"""
+    if isinstance(g, r.Extrusion):
+        import solids
+        vf = solids.extrusion_vf(g)
+        if vf is not None:
+            V_, F_ = vf; mm = r.Mesh()
+            for x_, y_, z_ in V_: mm.Vertices.Add(float(x_), float(y_), float(z_))
+            for a_, b_, c_ in F_: mm.Faces.AddFace(int(a_), int(b_), int(c_))
+            return mm
+    return welded_mesh(tris(g))
 def welded_mesh(T):
     mm = r.Mesh(); idx = {}
     def vid(p):
@@ -166,7 +178,7 @@ for o in m.Objects:
     if o.Attributes.LayerIndex not in (L22B, L22C): continue
     T = tris(o.Geometry); P = T.reshape(-1, 3)
     if all(WN.buffer(-2).contains(Point(x, y)) for x, y in P[:, :2]): continue    # 壁の中で止まっている端（見えない）はそのまま
-    mm = welded_mesh(T); V = mesh_V(mm)
+    mm = closed_mesh(o.Geometry); V = mesh_V(mm)
     c = V[:, :2].mean(0); X = V[:, :2] - c; w, vec = np.linalg.eigh(X.T @ X); ax = vec[:, -1]
     for i, (x, y, z) in enumerate(V):
         pt = Point(x, y)
@@ -191,9 +203,8 @@ for o in m.Objects:
     k_ = str(o.Attributes.Id)
     if k_ in _bn: mm = beam_new[_bn[k_]][0]
     else:
-        T = tris(o.Geometry)
-        if not len(T): continue
-        mm = welded_mesh(T)
+        if not len(tris(o.Geometry)): continue
+        mm = closed_mesh(o.Geometry)
     V = mesh_V(mm); U = to_uv_arr(V)
     if not ((U[:, 0] < 23.8).any() or (U[:, 0] > 49.9).any()): continue
     ch = False
