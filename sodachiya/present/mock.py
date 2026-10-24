@@ -7,7 +7,7 @@
 
 python sodachiya/present/mock.py  →  sodachiya/presentation.pdf（5枚）／ present/out/ の全体の画像
 """
-import os, json
+import os, subprocess, sys, json
 import numpy as np
 import rhino3dm as r
 import matplotlib
@@ -25,6 +25,13 @@ OUT = os.path.join(HERE, "out")
 os.makedirs(OUT, exist_ok=True)
 FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 FONTB = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+# 文字をIllustratorで文字として直せるように、TrueTypeに変えたNoto（tools/make_ttf.py）をType42で埋め込む。無ければ前のまま（Type3）
+_TTF = os.path.expanduser("~/.cache/sodachiya_fonts")
+if not os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
+    subprocess.run([sys.executable, os.path.join(HERE, "tools", "make_ttf.py"), _TTF], check=False)
+if os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
+    FONT, FONTB = os.path.join(_TTF, "NotoSansCJKjp-Regular.ttf"), os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")
+    plt.rcParams["pdf.fonttype"] = 42
 plt.rcParams["font.family"] = FontProperties(fname=FONT).get_name()
 for f in (FONT, FONTB):
     if os.path.exists(f):
@@ -646,7 +653,7 @@ for i, (h1, s1) in enumerate([
     box(ax, rx + (i + 1) * (cw + 5), cy, cw, ch, h1, "小さな図＋\n" + s1, fill="#FAF8FF")
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
-VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -10.0, QY1 + 10.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
+VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
 sx, sy = M + 6, M + 8 + 26.0                                    # 下の26 mmは縮尺と注
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
@@ -786,6 +793,7 @@ draw_shape(ax, Polygon([(-90.0, -10.5), (-18.0, -9.5), (-18.0, -3.2), (QX1 + 20,
 # なぞり方は tools/trace_kadai_map.py（文字・方位・寸法・敷地の一点鎖線を抜き、敷地の5つの角でアフィン変換、角のずれ0.2 m以下）。
 # 上のPLATEAUの道と家（ROADS・BLDS）は配置図には描かない（1/2000の小さな地図はPLATEAUのまま）
 KMAP = json.load(open(os.path.join(HERE, "kadai_map.json"), encoding="utf-8"))
+KCANAL = []
 _eR = (SITE_C["S"] - SITE_C["E"]) / np.linalg.norm(SITE_C["S"] - SITE_C["E"])
 _oR = np.array([-_eR[1], _eR[0]])
 if _oR @ (SITE_C["E"] - SITE_C["NW"]) < 0:
@@ -801,7 +809,14 @@ for _ln in KMAP["lines"]:
     _zone = ((_c - SITE_C["E"]) @ _oR > 2.0) or ((_c - SITE_C["NW"]) @ _oN > 4.0)   # 川の側か、北の道の向こう
     _wavy = _zone and len(_sg) > 2 and np.sum(_sg[1:] != _sg[:-1]) >= 2          # 波線＝水（用水路・川岸）
     _q = xf(R3(_L))
-    ax.plot(_q[:, 0], _q[:, 1], color="#4F8DBF" if _wavy else "#505050", lw=0.35 if _wavy else 0.3, zorder=1, solid_capstyle="round")
+    _qr = R3(_L)                                                               # 回した座標（m）
+    _cr = _qr.mean(0)
+    _dy = abs(_qr[-1, 1] - _qr[0, 1])
+    _canal = (30.0 < _cr[0] < 58.0 and 55.0 < _cr[1] < 72.0 and not (_dy < 0.12 * _len))   # 北の用水路（波線の二本、ユーザー：強調する）
+    if _canal:
+        KCANAL.append(_q)
+    ax.plot(_q[:, 0], _q[:, 1], color="#1F6FB2" if _canal else ("#4F8DBF" if _wavy else "#505050"),
+            lw=1.1 if _canal else (0.35 if _wavy else 0.3), zorder=6 if _canal else 1, solid_capstyle="round")
 for ln, g in site_items:
     if g is None:
         continue
@@ -845,18 +860,19 @@ lab(ax, xf, _tree, "突き出た木（住宅とアパートの境、西の折れ
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
 _hq = SITE_C["NW"] + 13.0 * _u + (RW_W + 4.0) * _n
 lab(ax, xf, _hq, "向かいの住宅（木から北の三軒、道に沿って建つ。\n狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (sx + 3 - xf(R3(_hq))[0][0], 14), ha="left")
-lab(ax, xf, R3inv([-24.5, -8.0])[0], "二本の橋（車・人）へ", (14, 6), ha="left")
+lab(ax, xf, R3inv([-23.5, -5.0])[0], "二本の橋（車・人）へ", (4, -5), ha="left")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
-lab(ax, xf, _nwmid + 4.0 * _out, "北の道の向こうは京都工芸繊維大学", (-40, -14), ha="right")
-lab(ax, xf, R3inv([14.0, -8.0])[0], "高野川", (0, 0), size=3.4, color="#2F6FA0", bold=True)
+lab(ax, xf, SITE_C["NW"] + 0.05 * _LN * _eN + (RW_N + 4.0) * _oN, "北の道の向こうは京都工芸繊維大学", (-6, 4), ha="right")
+lab(ax, xf, R3inv([14.0, -5.6])[0], "高野川", (0, 0), size=3.0, color="#2F6FA0", bold=True)
 lab(ax, xf, np.array(gc.PARK.centroid.coords[0]), "小竹薮公園（残す）", (-4, -10), ha="right")
 _nx, _ny = sx + 14, sy + sh - 20
 ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
 T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
-scalebar(ax, sx + 6, sy - 20, 200, 20)
-T(ax, sx + 6, sy - 6, "災害時は地下水をくみ上げて、近隣に水を届ける", 2.8)
-lab(ax, xf, SITE_C["NW"] + 0.45 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
+scalebar(ax, sx + 6, sy - 22, 200, 20)
+T(ax, sx + 6, sy - 13, "災害時は地下水をくみ上げて、近隣に水を届ける", 2.8)
+lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
+lab(ax, xf, R3inv([33.5, 58.8])[0], "用水路（北から来て、ここから暗渠で敷地の北の角へ）", (-4, 9), size=2.6, color="#1F6FB2", ha="right")
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
 # 園庭の筋（配置図の右、上から下へ）
