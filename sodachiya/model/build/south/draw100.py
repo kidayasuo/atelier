@@ -383,7 +383,15 @@ def draw_cut(A, items, insul=False):
         occ.append(g)
     if 'wall' in GW:
         g = GW['wall']; A.fill(g, lay, fc='k', z=6); A.geom_lines(g.boundary, lay, lw=0.25, z=6); occ.append(g)
+    FLOORS = []                                    # 断面：床（本館の床組・西館の部屋の床）は床の構成で描く（下の floor_build）
     for ob, pc, segs in items:
+        if insul and (num(ob['layer']) in (12, 13) or re.match(r'^(31|32|33|34|57)_', ob['layer'])):
+            # 床の上面（水平で FL 近く）の線の x の範囲（切り口が閉じない床組もあるので線から）
+            for q in segs:
+                q = np.asarray(q, float)
+                if len(q) >= 2 and abs(q[:, 1]).max() < 120 and np.ptp(q[:, 1]) < 30 and np.ptp(q[:, 0]) > 50:
+                    FLOORS.append((q[:, 0].min(), q[:, 0].max()))
+            continue
         k = kind(ob['layer']); lay = LAYER_OF[k][0]
         grouped = wall_group(ob) is not None and pc is not None and not pc.is_empty
         segs = merged(segs, pc)
@@ -416,11 +424,45 @@ def draw_cut(A, items, insul=False):
                 pass
             elif n in (17, 21):                    # 外壁：壁の中（両面 25 を残して）
                 band = pc.buffer(-25)
-            elif n in (12, 15):                    # 床：スラブの下 50（仮）
+            elif n == 15:                          # 海峡（土間）：スラブの下 50（仮）
                 band = shp_affinity.translate(pc, 0, -50).difference(pc.buffer(1))
             if band is not None and not band.is_empty and band.area > 1e4:
                 A.fill(band, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+    if FLOORS: occ += floor_build(A, FLOORS)
     return unary_union(occ) if occ else None
+
+# 床の構成（本館係 10-23夜10・西館係 10-23夜15、決定事項_本館）：スギ板t30＋合板t28／大引90・鋼製束／床下 有効約450／
+# ベタ基礎の底板t200（基礎断熱の内側＝熱をためる重さ）、底板の上端 FL−0.6。基礎断熱は底盤の外周の下と立ち上がりの内側
+FL_BOARD, SLAB_TOP, SLAB_T, RISE_T, INS_T, INS_W = 58, -600, 200, 150, 50, 900
+def floor_build(A, pcs):
+    iv = sorted([list(x) for x in pcs]); B = []
+    for a, b in iv:                                # 床板の続き（すき間 1.0 まではつなぐ：本館と西館のあいだも床下はつながる）
+        if B and a <= B[-1][1] + 1000: B[-1][1] = max(B[-1][1], b)
+        else: B.append([a, b])
+    M = []
+    for a, b in B:                                 # 基礎の続き（床板の切れ目 4.0 まで＝遊戯室の穴の底は、底板を下げた皿）
+        if M and a <= M[-1][1] + 4000: M[-1][1] = max(M[-1][1], b)
+        else: M.append([a, b])
+    occ = []
+    lay = '01_切断（構造・壁）'
+    for x0, x1 in M:
+        if x1 - x0 < 1500: continue
+        boards = [bb for bb in B if bb[0] >= x0 - 1 and bb[1] <= x1 + 1]
+        for a, b in boards:
+            g = box(a, -FL_BOARD, b, 0); A.fill(g, lay, fc='k', z=6); occ.append(g)
+        pits = [(boards[i][1], boards[i + 1][0]) for i in range(len(boards) - 1) if boards[i + 1][0] - boards[i][1] > 2500]   # 穴の底（φ3.2）だけ。海峡（1.5、土間）は下げない
+        slab = [box(x0, SLAB_TOP - SLAB_T, x1, SLAB_TOP)]
+        for a, b in pits:                          # 穴の底の下は底板を 0.15 下げる（皿）
+            slab.append(box(a - 200, SLAB_TOP - SLAB_T - 150, b + 200, SLAB_TOP - 150))
+        conc = unary_union(slab + [box(x0, SLAB_TOP - SLAB_T, x0 + RISE_T, -FL_BOARD - 90), box(x1 - RISE_T, SLAB_TOP - SLAB_T, x1, -FL_BOARD - 90)])
+        for a, b in pits: conc = conc.difference(box(a - 200 + RISE_T, SLAB_TOP - 150, b + 200 - RISE_T, SLAB_TOP + 1))
+        A.fill(conc, lay, fc='0.72', z=6); A.geom_lines(conc.boundary, lay, lw=0.18, z=6.1); occ.append(conc)
+        ins = unary_union([box(x0 + RISE_T, SLAB_TOP, x0 + RISE_T + INS_T, -FL_BOARD - 90), box(x1 - RISE_T - INS_T, SLAB_TOP, x1 - RISE_T, -FL_BOARD - 90),
+                           box(x0, SLAB_TOP - SLAB_T - INS_T, x0 + INS_W, SLAB_TOP - SLAB_T), box(x1 - INS_W, SLAB_TOP - SLAB_T - INS_T, x1, SLAB_TOP - SLAB_T)])
+        A.fill(ins, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+        for a, b in boards:
+            A.lines([[(max(a, x0 + RISE_T), -FL_BOARD - 90), (min(b, x1 - RISE_T), -FL_BOARD - 90)]], '10_見えがかり', lw=0.07, color='0.4', z=5)   # 大引の下端（見えがかり）
+    return occ
 
 def draw_visible(A, items, occ):
     """items=[(ob, silhouette)] 近い順。見える線だけ描く"""
@@ -800,7 +842,7 @@ def section_u(A, theta, depth=3200):
             segs = slice_tris(T, p0, u_t)
             S2 = [((X(s[0]), s[0][2]), (X(s[1]), s[1][2])) for s in segs]
             cuts.append((ob, poche(S2), S2))
-        if num(ob['layer']) in (2, 90): continue              # 川の護岸・園庭の地形は切り口だけ（見えがかりは長くなりすぎる）
+        if num(ob['layer']) in (2, 90, 12, 13): continue      # 川の護岸・園庭の地形は切り口だけ（見えがかりは長くなりすぎる）、床組は床の構成で描く
         keep = (d.max(1) >= 0) & (d.min(1) <= depth)
         T2 = np.stack([X(T[keep].reshape(-1, 3)).reshape(-1, 3), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, d.min()), ob, silhouette(T2)))
@@ -838,7 +880,7 @@ def section_arc(A, Rc, depth=30000):
                         t = ff[i] / (ff[i] - ff[j]); pts.append((X(tt[i] + (tt[j] - tt[i]) * t), tri[i][2] + (tri[j][2] - tri[i][2]) * t))
                 if len(pts) == 2: segs.append(pts)
             cuts.append((ob, poche(segs), segs))
-        if num(ob['layer']) in (2, 90): continue              # 川の護岸・園庭の地形は切り口だけ
+        if num(ob['layer']) in (2, 90, 12, 13): continue      # 川の護岸・園庭の地形は切り口だけ、床組は床の構成で描く
         keep = rr.max(1) >= Rc
         T2 = np.stack([X(th[keep]), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, rr.min() - Rc), ob, silhouette(T2)))
@@ -860,9 +902,11 @@ def section_arc(A, Rc, depth=30000):
     return cutb
 
 def airflow(A, playroom=False):
-    """換気の道（ユーザー 10-23夜）：東の地袋・腰の無双窓 → 部屋 → 屋根に沿って梁間を西へ上る → 西の壁の上（縦格子・開いた所）
-    → 西吹き抜け → 越屋根のすき間。playroom：夏の夜は西館の東の覗き窓を開け、遊戯室の吹き抜けを上って西館の越屋根へ（高低差が大きい）。
-    略図（断面の線は 3dm、矢印は考え方）。x＝v（mm、東が右）、z＝FL からの高さ"""
+    """換気の道（ユーザー 10-23夜・10-24）。略図（断面の線は 3dm、矢印は考え方）。x＝v（mm、東が右）、z＝FL からの高さ
+    昼（中間期）：縁側のガラス戸を開けて → 部屋 → 屋根に沿って梁間を西へ上る → 西吹き抜け → 本館の越屋根のすき間（実線）。
+    夏の夜：外気を縁側の段（外縁側 −150 → 内縁側 ±0）の蹴込みのガラリから床下へ、底板を冷やしながら西へ、
+    西の壁ぎわのスリットから部屋へ出て越屋根へ（破線）。playroom：床下はすき間の下で西館の床下へつながり、遊戯室の床から上って
+    西館の越屋根へ（高低差が大きい）。東の覗き窓も夜だけ開く。"""
     roof = lambda v: 4000 - v / 12.0
     col = '#2F6FB0'
     def arrow(P, ls='-', lw=0.18):
@@ -870,18 +914,24 @@ def airflow(A, playroom=False):
         A.lines([P], '45_換気', lw=lw, color=col, ls=ls, z=9)
         d = P[-1] - P[-2]; d = d / np.linalg.norm(d); n = np.array([-d[1], d[0]])
         A.lines([[P[-1] - d * 260 + n * 120, P[-1], P[-1] - d * 260 - n * 120]], '45_換気', lw=lw, color=col, z=9)
-    day = [(14700, 350), (12600, 700), (10500, roof(10500) - 450), (6000, roof(6000) - 320), (1700, roof(1700) - 320),
+    dash = (0, (5, 3))
+    zf = (SLAB_TOP - FL_BOARD - 90) / 2            # 床下の真ん中の高さ
+    day = [(14700, 900), (12600, 1100), (10500, roof(10500) - 450), (6000, roof(6000) - 320), (1700, roof(1700) - 320),
            (700, 3950), (-150, 4400)]
     arrow(day + [(-150, 4420), (-700, 4700)] if not playroom else day + [(-300, 4430)])
+    night_in = [(15300, 250), (13900, -75), (13300, zf)]
     if playroom:
-        arrow([(-300, 4430), (-650, 4430), (-750, 4250), (-1250, 4100)], ls=(0, (5, 3)))
-        arrow([(-1300, 4400), (-1450, 6000), (-1400, 7600), (-1400, 8900)], ls=(0, (5, 3)))
-        A.text(-1700, 9050, '夏の夜：遊戯室の吹き抜けを上って西館の越屋根へ（覗き窓を夜だけ開ける）', 5, '45_換気', ha='right', va='bottom', color=col)
+        arrow(night_in + [(-1500, zf), (-1650, 150)], ls=dash)
+        arrow([(-1650, 450), (-1700, 6000), (-1500, 7600), (-1400, 8900)], ls=dash)
+        arrow([(-300, 4430), (-650, 4430), (-750, 4250), (-1250, 4100)], ls=dash)
+        A.text(-1900, 9050, '夏の夜：床下の冷気と覗き窓から、遊戯室の吹き抜けを上って西館の越屋根へ', 5, '45_換気', ha='right', va='bottom', color=col)
         A.text(400, 5300, '昼（中間期）は本館の越屋根のすき間から外へ', 5, '45_換気', ha='left', va='bottom', color=col)
-    else:
+    else:                                          # 断面 B は海峡（土間、床下は無い）
         A.text(400, 5300, '本館の越屋根のすき間から外へ', 5, '45_換気', ha='left', va='bottom', color=col)
     A.text(6500, roof(6500) - 560, '梁間（梁と梁と屋根のあいだ）を西へ上る', 5, '45_換気', ha='center', va='top', color=col)
-    A.text(14600, 600, '地袋・腰の無双窓', 5, '45_換気', ha='right', va='bottom', color=col)
+    A.text(14600, 1300, '昼：縁側のガラス戸を開けて', 5, '45_換気', ha='right', va='bottom', color=col)
+    if playroom:
+        A.text(12900, 120, '夏の夜：段の蹴込みのガラリから床下へ（底板を冷やす）→ すき間の下で西館の床下へ', 5, '45_換気', ha='right', va='bottom', color=col)
 
 
 def make_sections():
