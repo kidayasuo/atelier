@@ -63,8 +63,11 @@ wall([E(0, 0), E(A.GA0, 0)], 1.8, "70_外構_生垣・塀・格子")
 # 71 roofs (flat placeholders, 100 thick): kido 2.6, temizu 2.7, lean-to 2.6, back-door canopy 2.6
 slab(A.KR, 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 slab(srect(*A.TEM), 2.7, 0.1, "71_外構_屋根（木戸・手水・下屋）")
-slab(A.rect(*A.LEAN_UV, 4), 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
-slab(srect(28.6, 31.2, 1.3, 3.0), 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
+from shapely.geometry import Polygon as _SPg
+_lean = _SPg(A.rect(*A.LEAN_UV, 4)).difference(NC_WS := __import__("north_common").WS)   # 西館の外壁の外面（WS）で止める（監修 10-24の5）
+slab(list(_lean.exterior.coords)[:-1], 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
+_kc = _SPg(srect(28.6, 31.2, 1.3, 3.0)).difference(NC_WS)                                   # 勝手口の庇も外壁の外面で止める
+for _q in getattr(_kc, "geoms", [_kc]): slab(list(_q.exterior.coords)[:-1], 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 # 72 posts
 for p in [E(-0.05, -0.15), E(2.35, -0.15), E(-0.05, 2.6), E(2.35, 2.6)]: post(p, 2.6)
 s0, s1, d0, d1 = A.TEM
