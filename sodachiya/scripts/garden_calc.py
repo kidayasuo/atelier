@@ -31,19 +31,23 @@ pit_cut = math.pi * 1.6 ** 2 * 0.55              # 遊戯室の穴の底（φ3.2
 # 建物の根切り（目安）。10-23 夜：本館の床は全面の床下空間（ユーザー）＝ベタ基礎の底板 t200 の上端 GL−0.3、
 # 下に防湿・断熱・砕石 t100 で根切りの底 約 GL−0.6、外へ 0.3 m 広く（本館係、連携 10-23夜10）。
 # 西館・おむすびは前の案 B（布基礎＋土間、根切りは基礎の下だけ、床の下は表土 0.10 を剥いで掘った土で埋め戻す）のまま
-# （西館係が同じ床下にするか検討中 → その場合は西館も 0.6 で約 +170 m³）。
+# → 10-23 夜15 で西館も床下空間に（下の west_cut_all）。
 honkan = 57 * 15.0; west = 366 + 30
 honkan_cut = (honkan + 0.3 * 2 * (57 + 15)) * 0.6
 honkan_top = (honkan + 0.3 * 2 * (57 + 15)) * 0.12           # そのうち表土（よい土、剥いでおく）
-west_footing = (125 + 25) * 0.6 * 0.5
-west_top = west * 0.10; west_backfill = west * 0.10
-west_if_crawl = (west + 0.3 * 2 * 80) * 0.6 - (west_footing + west_top)
+# 10-23 夜15：西館の1階も床下空間に決まった（ユーザー、西館係）。西館も根切り GL−0.6。おむすび（30）は布基礎＋土間のまま
+west_cut_all = (366 + 0.3 * 2 * 80) * 0.6
+west_top_all = (366 + 0.3 * 2 * 80) * 0.12
+omu_footing = 25 * 0.6 * 0.5; omu_top = 30 * 0.10; omu_backfill = 30 * 0.10
+west_footing = (west_cut_all - west_top_all) + omu_footing
+west_top = west_top_all + omu_top; west_backfill = omu_backfill
+west_if_crawl = 0.0
 garden_cut = bowl_cut + stream_cut + rain_cut + fount_cut + splash_cut
 mound_area = float(((gc.mound_h(AA, DD) > 0.02) & inside).sum() * cell)
 cap = mound_area * 0.2                                         # 築山の表面 0.2 は表土
 TH0 = {"big": 3.0, "climb": 3.2, "mid": 2.1, "fruit": 2.3, "ever": 1.9}
 woods = unary_union([Point(t[0], t[1]).buffer(TH0[t[2]]) for t in G["TREES"]]).intersection(gpoly)
-forest = woods.area * 0.15                                     # 木の下（林床）に表土 0.15
+forest = woods.area * 0.2                                      # 木の下（林床）に表土 0.2（10-24、西館の表土も）
 topsoil = honkan_top + west_top
 subsoil = (honkan_cut - honkan_top) + west_footing + garden_cut + pit_cut
 use_sub = (fill - cap) + west_backfill
