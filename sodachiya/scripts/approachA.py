@@ -255,10 +255,35 @@ line(LINE, lw=0.5, c=C["red"], ls=(0, (6, 2)), z=13)
 ax.add_patch(Circle(E((GA0 + GA1) / 2, 0), 0.32, fc=C["red"], ec="white", lw=0.5, zorder=14))
 
 # ---------------------------------------------------------------- kido roof + porch
-KR = [E(-0.3, -0.7), E(2.6, -0.7), E(2.6, 2.9), E(-0.3, 2.9)]
-poly(SP(KR).difference(SP(rect(-1, 40, -0.9, 40))), fc="#EFE8DA", ec="none", z=2.4)
-roof(KR, z=10)
-for p in [E(-0.05, -0.15), E(2.35, -0.15), E(-0.05, 2.6), E(2.35, 2.6)]: post(p)
+# 木戸の屋根は無し（ユーザー 10-24）。木戸の内側の三角（0〜2歳の受け取りの前）を、見送りの小径のムベの棚の続きで覆う
+def _lat(s):                                                          # 公園との格子の線（E(a, 0)）の上で s の点
+    a = (s - TIP[0]) / EE[0]; q = np.array(TIP) + EE * a; return float(q[0]), float(q[1])
+_PGD = HEDGE_D + HW + 0.15; _sa = inv(W(0.75, 0))[0]
+EAVE_S = SP([W(0, -1.0), W(0, 15), W(-1.8, 15), W(-4.2, -1.0)])        # 南の軒（ポーチ）
+_far = _lat(_sa - 12.0)
+_cand = SP(Q([tuple(TIP), (S_PATH0, HEDGE_D + HW), (_sa, _PGD), (_sa, 18.0), (_far[0], 18.0), _far]))
+TRI = _cand.difference(SP(rect(-0.1, 57.34, -0.35, 13.5, 48))).difference(EAVE_S.buffer(0.05)).difference(SP(rect(-30, -4.2, -30, 30)))
+TRI = max(getattr(TRI, "geoms", [TRI]), key=lambda q: q.area)
+poly(TRI, fc="#EFE8DA", ec="none", z=2.4)
+_e0 = W(-0.1, -1.05)                                                   # 軒の縁の桁の北の端（本館の南西の角の前）
+_lat_line = SL([P(*TIP), P(*_far)])
+_eave_edge = SL([W(0.0, -1.05), W(-4.25, -1.05), W(-1.85, 15.05)])
+_ec = W(-4.25, -1.05)                                                 # 軒の南西の角の外（格子の線はこの約0.5南を通る）
+_lc = _lat_line.interpolate(_lat_line.project(SPt(_ec))); TRI_END = (_lc.x, _lc.y)
+TRI_GIRDERS = [[P(_sa, _PGD), P(*TIP)], [P(*TIP), TRI_END], [_e0, _ec], [_ec, TRI_END]]   # 桁：小径の桁の続き・格子の線・軒の縁
+TRI_BEAMS = []
+for sb in (_sa - 1.5, _sa - 3.0, _sa - 4.5, _sa - 6.0):              # 梁は 1.5 ごと（小径と同じ）
+    seg = SL([P(*_lat(sb)), P(sb, 18.0)]).intersection(TRI.buffer(0.06))
+    seg = max(getattr(seg, "geoms", [seg]), key=lambda q: q.length) if not seg.is_empty else seg
+    if not seg.is_empty and seg.length > 0.6: TRI_BEAMS.append((seg.coords[0], seg.coords[-1]))
+TRI_POSTS = [P(*TIP), TRI_END, _e0] + [b0 for b0, _ in TRI_BEAMS if SPt(b0).distance(SPt(P(*TIP))) > 0.5]
+if SL([_e0, _ec]).length > 3.6: TRI_POSTS.append(SL([_e0, _ec]).interpolate(0.5, normalized=True).coords[0])
+for g in TRI_GIRDERS: line(g, lw=0.9, c=C["wood"], z=10.5)
+for b0, b1 in TRI_BEAMS: line([b0, b1], lw=0.55, c=C["wood"], z=10.5)
+for p in TRI_POSTS:
+    post(p, 0.14); ax.add_patch(Circle(p, 0.35, fc="#9DBE7A", ec="none", zorder=10.4, alpha=0.8))      # ムベを柱の足もとに
+for q in [TRI.representative_point()] + [SPt(TRI.centroid.x + dx, TRI.centroid.y + dy) for dx, dy in ((1.2, -0.6), (-1.0, 0.8), (0.3, 1.4))]:
+    if TRI.contains(q): ax.add_patch(Circle((q.x, q.y), 0.6, fc="#9DBE7A", ec="none", zorder=10.3, alpha=0.28))
 poly([W(0, -1.0), W(0, 1.6), W(-4.0, 1.6), W(-4.2, -1.0)], fc="#EFE8DA", ec="none", z=2.4)
 for k in range(5):
     u0 = -4.0 + 0.7 * k
@@ -391,11 +416,11 @@ fig.text(PL / 297, 402 / 420, "1/200（A3）　2026-10-23　駐車は南、ひ�
 fig.text(PL / 297, 396.5 / 420, "破線＝頭上の屋根・軒・キャップ　■＝柱　赤い破線＝セキュリティの線（内側は保護者の領域）　● 赤＝線の出入口（公園の木戸）　┅ 道すじ",
          fontsize=6.0, va="top", color="#666666")
 legend = [
-    ("1", "公園の木戸（屋根つき）。線の出入口はここだけ"),
+    ("1", "公園の木戸。線の出入口はここだけ。入るとムベの棚の下"),
     ("2", "ポーチ（軒の下）：ベビーカー5台・腰掛け"),
     ("3", "格子 h1.8（公園側の視線よけ）"),
     ("4", "受け取り土間（ベビーカーのまま入れる）"),
-    ("5", "見送りの小径 2.4：アーチの棚（ムベ）"),
+    ("5", "見送りの小径 2.4：アーチの棚（ムベ）。木戸の内側の三角まで覆う"),
     ("6", "0・1歳の覗き窓（子どもの目の高さ）"),
     ("7", "手水（屋根 2.7×2.7、石の鉢と筧）"),
     ("8", "菜園（畝 0.9×3.1 ×3、南の日なた）"),
@@ -430,7 +455,7 @@ notes = ("職員の自転車：板塀をひろばの西で東へ2.0下げ、建�
          "行事の日の自転車：車での来園は断り、駐車場を駐輪に（車室1つに約6〜8台）。あふれは公園の道路側の角に一時的に（市と相談、園庭への搬入の道と非常用の門の前は空ける）。\n"
          "西館の西の軒の雨：南の端は鎖樋でふた付きの雨水樽（約0.5m³、蛇口 h0.5、菜園の水やり、あふれは浸透桝）へ、北の端は鎖樋で道路側の雨庭（浸透、約4.1×0.7）へ。\n"
          "見送りの小径：生垣 h1.2（常緑、中にメッシュ柵 h1.2）／下草 0.3／洗い出し 1.9（平ら、ベビーカー可）／砂利 0.2（壁の足もとの跳ね返り止め。屋根と越屋根の蓋は東へ流れる）。\n"
-         "アーチの棚：生垣の側に柱（本館の架構に合わせて 3 m ごと）、梁は 1.5 m ごとに本館の壁へ。木戸の屋根 → 棚 → 手水の屋根 → ひろば（ひらける）。\n"
+         "アーチの棚（ムベ）：生垣の側に柱（本館の架構に合わせて 3 m ごと）、梁は 1.5 m ごとに本館の壁へ。木戸の内側の三角（0〜2歳の受け取りの前）も同じ棚で覆う（格子とポーチの縁に桁、木戸の屋根は無し）。木戸 → 棚 → 手水の屋根 → ひろば（ひらける）。\n"
          "車路：道路から 0.5 m にスピードバンプ（幅 0.5）、車室の口はそこから奥（道路から 1.3 m 以上）。来客の門はなし、来客も公園の木戸から。\n"
          "ひろば（線の内側、真砂土）約 %d m²。菜園は南の日なた、縁台は西館の南の下屋（入口の前まで一続き）の下。かまどは下屋から約 2 m、建物から 4 m 以上（行事のときだけ）。\n"
          "搬入は線の外：搬入の車室の後ろから搬入路（幅1.6、約7 m）を手押しで勝手口へ。西館の南の下屋を南西の丸みへ回り込ませ（外皮から2.0、敷地の境の0.1手前まで）、勝手口と搬入路の終わりを覆う。西館の南の鎖樋は下屋の上の集水で受け、下屋の軒樋で南の縁の鎖樋から雨水樽へ。")

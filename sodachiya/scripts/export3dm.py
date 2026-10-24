@@ -61,14 +61,12 @@ slab(srect(*A.WOOD), 0, 1.2, "75_外構_ひろばの家具")                    
 wall([E(A.GA1, 0), A.FENCE_END], 1.8, "70_外構_生垣・塀・格子")
 wall([E(0, 0), E(A.GA0, 0)], 1.8, "70_外構_生垣・塀・格子")
 # 71 roofs (flat placeholders, 100 thick): kido 2.6, temizu 2.7, lean-to 2.6, back-door canopy 2.6
-slab(A.KR, 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 slab(srect(*A.TEM), 2.7, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 import north_common as _NC0
 NC_WS = _NC0.WS
 slab(list(A.LEAN_ROOF.exterior.coords)[:-1], 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")      # 下屋＋南西の丸みへの回り込み（勝手口の庇は外した、10-24）
 for _g in getattr(A.LEAN_GUTTER, "geoms", [A.LEAN_GUTTER]): add_curve(list(_g.coords), "75_外構_ひろばの家具", 2.6)   # 下屋の軒樋
 # 72 posts
-for p in [E(-0.05, -0.15), E(2.35, -0.15), E(-0.05, 2.6), E(2.35, 2.6)]: post(p, 2.6)
 s0, s1, d0, d1 = A.TEM
 for p in [P(s0 + 0.3, d0 + 0.3), P(s1 - 0.3, d0 + 0.3), P(s0 + 0.3, d1 - 0.3), P(s1 - 0.3, d1 - 0.3)]: post(p, 2.7)
 for p in A.LEAN_POSTS: post(p, 2.6)
@@ -83,6 +81,15 @@ for s in np.linspace(s_a, s_b, n + 1):
     for t in np.linspace(0, 1, 13):
         d = PG_D + (A.WALL_D - PG_D) * t; p = P(s, d)
         pts.append(r.Point3d(p[0] * MM, p[1] * MM, (2.25 + 0.28 * math.sin(math.pi * t)) * MM))
+    m.Objects.AddCurve(r.Polyline(pts).ToNurbsCurve(), attr("73_外構_アーチの棚"))
+# 73 木戸の内側の三角のムベの棚（小径の棚の続き、10-24）：柱・桁 h2.25、梁は 1.5 ごとに弓なり
+for p in A.TRI_POSTS: post(p, 2.25, 0.12, "73_外構_アーチの棚")
+for g in A.TRI_GIRDERS: add_curve(g, "73_外構_アーチの棚", 2.25)
+for b0, b1 in A.TRI_BEAMS:
+    L_ = math.dist(b0, b1); rise = min(0.28, 0.12 * L_); pts = []
+    for t in np.linspace(0, 1, 13):
+        p = (b0[0] + (b1[0] - b0[0]) * t, b0[1] + (b1[1] - b0[1]) * t)
+        pts.append(r.Point3d(p[0] * MM, p[1] * MM, (2.25 + rise * math.sin(math.pi * t)) * MM))
     m.Objects.AddCurve(r.Polyline(pts).ToNurbsCurve(), attr("73_外構_アーチの棚"))
 # 74 parking, bump, bikes, curb cut
 for k in range(3): add_curve(srect(7.2, 12.2, A.STALL_D0 + 2.5 * k, A.STALL_D0 + 2.5 * (k + 1)), "74_外構_駐車・駐輪・バンプ", close=True)
