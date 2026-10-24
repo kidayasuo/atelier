@@ -17,6 +17,8 @@ import matplotlib.pyplot as plt
 from matplotlib import font_manager
 
 IN, DATA, OUTD = sys.argv[1:4]
+PDFD = sys.argv[4] if len(sys.argv) > 4 else OUTD   # 面積表のPDFは sodachiya/drawings/（10-24）
+os.makedirs(PDFD, exist_ok=True)
 os.makedirs(OUTD, exist_ok=True)
 
 m = r.File3dm.Read(IN)
@@ -222,6 +224,6 @@ T(cols[3] + 18, y - 2, f"{TOTAL['total']:,.1f}", 9, ha='right')
 T(cols[4] + 3, y - 2, '○' if TOTAL['total'] <= 2000 else '×', 9, ha='center')
 T(cols[5], y - 2, f"1 階 {TOTAL['floor1']:,.1f} ＋ 西館 2 階 {TOTAL['floor2']:,.1f}。{TOTAL['building_area_note']}", 6, color='0.25')
 T(15, 12, '判定：○「約」は要求の 9 割以上・「以上」は要求以上／△ 足りない（数え方を含めて検討）。空欄は要求が「適宜」など。　' + ST, 6, color='0.35')
-fig.savefig(os.path.join(OUTD, 'sodachiya_areas.pdf')); fig.savefig(os.path.join(OUTD, 'sodachiya_areas.png'), dpi=130)
+fig.savefig(os.path.join(PDFD, 'sodachiya_areas.pdf')); fig.savefig(os.path.join(OUTD, 'sodachiya_areas.png'), dpi=130)
 print('areas: total', TOTAL['total'], '→', OUTD)
 for rw in ROWS: print(' ', rw['room'], rw['required'], rw['planned'], rw['judge'])

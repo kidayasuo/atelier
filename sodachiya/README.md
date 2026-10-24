@@ -3,11 +3,20 @@
 
 設計課題「こどもたちの育ち舎」の図・3dm・スクリプト。提出 2026-11-05。
 
+## 直下（ユーザーが開く・書くもの）
+
+| ファイル | 中身 |
+|---|---|
+| `sodachiya.3dm` | Rhinoで開く版（作り直しの`run_all.sh`が書く。0番は空の作業用レイヤー） |
+| `drawings/` | 3dmから自動の1/100の図のPDF（平面・断面・立面1・2・面積表）。DXF・PNG・面積表のjsonは`model/drawings/` |
+| `presentation.pdf` | 提出のA1 5枚（`present/mock.py`が書く） |
+| `concept.txt` | 設計趣旨（ユーザーが書く。`present/mock.py`が読む、「#」の行は読まない） |
+
 ## フォルダ
 
 | フォルダ | 中身 | 担当 |
 |---|---|---|
-| `model/` | 3dm。`sodachiya_exact.3dm`（本体の架構・部屋）、`sodachiya_exact_mesh.3dm`（スクリプトが読むメッシュの版）、`sodachiya_approachA_layers.3dm`（外構、取り込み用、70〜79）、`drawings/`（3dm から自動の 1/100 の図）、`build/`（3dm を作るスクリプト） | 本体＝3dm のチャット、外構＝図のチャット |
+| `model/` | 作業用の3dm。`sodachiya_exact_mesh.3dm`（スクリプトが読むメッシュの版、Rhino版は直下の`sodachiya.3dm`）、`sodachiya_approachA_layers.3dm`（外構、取り込み用、70〜79）、`sodachiya_play_layers.3dm`・`sodachiya_garden_layers.3dm`（遊戯室・園庭、取り込み用）、`drawings/`（3dm から自動の図のDXF・PNG・面積表のjson・干渉の一覧）、`build/`（3dm を作るスクリプト） | 本体＝3dm のチャット、外構＝図のチャット |
 | `scripts/` | 図をつくるスクリプト（matplotlib＋shapely）。`garden*.py`（園庭）と `play*.py`（遊戯室）はそれぞれのチャット | 図のチャット（garden・play はそれぞれ） |
 | `data/` | 図と 3dm が共有する寸法とデータ。`approachA.json`（アプローチ A 案の寸法、`NORTH` は西館の周りと北）、`forest.json`（ホールの北山杉の林）、`minami.json`（みなみのさんかく＝乳児の園庭）、`garden.json`（園庭＝だいさんかく・しずかのもり、園庭のチャット）、`play.json`（遊戯室、遊戯室のチャット）、`wnew.pkl`（西館の輪郭） | 書いたチャットが責任をもつ |
 | `out/` | 出力した PDF・PNG | 図のチャット |

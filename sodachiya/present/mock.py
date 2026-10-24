@@ -1,11 +1,11 @@
 """育ち舎　提出A1×5枚の仮の割付（プレゼンの準備のチャット）
 
 実寸の確認が目的：3dm（sodachiya_exact_mesh.3dm）から平面・配置・立面の外形を
-その縮尺のまま描き、自動の断面（model/drawings）や他のチャットの図（out/）を
+その縮尺のまま描き、自動の断面（drawings/）や他のチャットの図（out/）を
 実寸または縮小で貼り込む。未作成のものは破線の枠（大きさは実寸）で示す。
 紫の文字は割付の注記（本番では消す）。
 
-python sodachiya/present/mock.py  →  sodachiya/present/out/sodachiya_present_mock.pdf / .png
+python sodachiya/present/mock.py  →  sodachiya/presentation.pdf（5枚）／ present/out/ の全体の画像
 """
 import os, json
 import numpy as np
@@ -485,7 +485,7 @@ info = dict(building=[round(BX1 - BX0, 1), round(BY1 - BY0, 1)], site=[round(SX1
 print("建物の外形（m）", info["building"], " 敷地（m）", info["site"])
 
 embeds = {i: [] for i in range(1, 6)}   # (src_pdf, page, clip_mm(x0,y0,x1,y1)|None, dest_mm(x,y,w,h)下原点, keep_ratio)
-SEC = os.path.join(ROOT, "model", "drawings", "sodachiya_sections_1-100.pdf")
+SEC = os.path.join(ROOT, "drawings", "sodachiya_sections_1-100.pdf")
 CLIP_A = (25, 38, 841, 201)
 CLIP_B = (25, 244, 410, 377)
 CLIP_C = (430, 244, 812, 377)
@@ -514,9 +514,9 @@ frame(ax, 1, "敷地と自然環境", "周囲の自然環境との関係（用�
 top = H - M - 16
 T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
 # 設計趣旨はpresent/設計趣旨.txt（ユーザーが編集する）。改行は無視してつなぐ
-# 設計趣旨は present/設計趣旨.txt（ユーザーが編集する）。「#」の行は読まない。空行で段落を分け、段落の中の改行はつなぐ
+# 設計趣旨は sodachiya/concept.txt（ユーザーが編集する、10-24に直下へ）。「#」の行は読まない。空行で段落を分け、段落の中の改行はつなぐ
 _paras, _cur = [], []
-for _l in open(os.path.join(HERE, "設計趣旨.txt"), encoding="utf-8").read().splitlines():
+for _l in open(os.path.join(ROOT, "concept.txt"), encoding="utf-8").read().splitlines():
     _l = _l.strip()
     if _l.startswith("#"):
         continue
@@ -646,7 +646,7 @@ figs.append(fig)
 
 # ================================================================ 2　すべての人の一日（1階平面）
 # 課題の「食べる・寝る・遊ぶ」に答える。こどもだけでなく保育士・調理の職員の一日も重ねる（ユーザー、10-24）
-DRW = os.path.join(ROOT, "model", "drawings")
+DRW = os.path.join(ROOT, "drawings")   # 図のPDFは sodachiya/drawings/（10-24）
 PLAN = os.path.join(DRW, "sodachiya_plan_1-100.pdf")
 ELE1 = os.path.join(DRW, "sodachiya_elevations_1-100.pdf")
 ELE2 = os.path.join(DRW, "sodachiya_elevations2_1-100.pdf")
@@ -818,7 +818,7 @@ box(ax, x2, by, 160, bt - 10 - 112 - 8 - by, "光の筋と架構　1/20", "2枚�
 x3 = x2 + 168
 box(ax, x3, by, 200, bt - 4 - by, "スケルトン＆インフィル", "3 mスパンの架構（固定）と\n間仕切りA・B・C、家具（可変）を色分け\nどのスパンにも上水・下水の口\n\n今 ／ 定員が変わる ／ 学童・地域の場\nの3コマ")
 tx = x3 + 208
-AJ = json.load(open(os.path.join(DRW, "sodachiya_areas.json"), encoding="utf-8"))
+AJ = json.load(open(os.path.join(ROOT, "model", "drawings", "sodachiya_areas.json"), encoding="utf-8"))
 title(ax, tx, bt - 4, "面積表", "m²（壁芯、3dmから自動）")
 T(ax, tx, bt - 12, "室", 2.4, NOTE); T(ax, tx + 50, bt - 12, "要求", 2.4, NOTE); T(ax, W - M - 8, bt - 12, "計画", 2.4, NOTE, ha="right")
 yy = bt - 18
@@ -869,7 +869,9 @@ for si in range(1, 6):
         cr = fitz.Rect(clip[0] * MM, clip[1] * MM, clip[2] * MM, clip[3] * MM)
         dr = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
         pg.show_pdf_page(dr, sd, pno, clip=cr)
-sheets = os.path.join(OUT, "sodachiya_present_sheets.pdf")
+# 提出の5枚は sodachiya/presentation.pdf の一つだけ（ユーザー、10-24：前は5枚と「全体＋5枚」の2つがあった）。
+# 壁に貼ったときの全体は present/out/sodachiya_present_overview.png
+sheets = os.path.join(ROOT, "presentation.pdf")
 doc.save(sheets)
 
 # 壁に貼ったときの全体（3枚＋2枚）
@@ -910,9 +912,6 @@ ov = os.path.join(OUT, "_overview.pdf")
 fig.savefig(ov)
 fig.savefig(os.path.join(OUT, "sodachiya_present_overview.png"), dpi=40)
 
-final = fitz.open(ov)
-final.insert_pdf(fitz.open(sheets))
-final.save(os.path.join(OUT, "sodachiya_present_mock.pdf"))
 for f in (base, ov):
     os.remove(f)
 json.dump(dict(info, areas={k: round(v, 1) for k, v in AREA.items()}), open(os.path.join(OUT, "mock_info.json"), "w"), ensure_ascii=False, indent=1)

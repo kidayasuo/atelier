@@ -19,6 +19,9 @@ from shapely.ops import unary_union, polygonize, linemerge
 import mapbox_earcut as earcut
 
 IN, OUTD = sys.argv[1], sys.argv[2]
+# 図のPDFは sodachiya/drawings/（ユーザーが開く、10-24）、DXF・PNGは OUTD
+PDFD = sys.argv[3] if len(sys.argv) > 3 else OUTD
+os.makedirs(PDFD, exist_ok=True)
 os.makedirs(OUTD, exist_ok=True)
 for f in font_manager.findSystemFonts():
     if 'NotoSansCJK-Regular' in f: font_manager.fontManager.addfont(f)
@@ -233,14 +236,14 @@ class Sheet:
         s.msp.add_lwpolyline([(10 * k, 10 * k), ((w - 10) * k, 10 * k), ((w - 10) * k, (h - 10) * k), (10 * k, (h - 10) * k)], close=True, dxfattribs={'layer': '90_図枠'})
         s.fig.patches.append(plt.Rectangle((10 / w, 10 / h), 1 - 20 / w, 1 - 20 / h, transform=s.fig.transFigure, fill=False, lw=LW(0.25), ec='k'))
         s.text_paper(w - 15, 18, title, 11, ha='right')
-        s.text_paper(w - 15, 13, 'こどもたちの育ち舎　3dm（sodachiya_exact.3dm）から自動で作図　' + STAMP, 6.0, ha='right', color='0.35')
+        s.text_paper(w - 15, 13, 'こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　' + STAMP, 6.0, ha='right', color='0.35')
     def text_paper(s, x_mm, y_mm, t, pt, ha='left', va='bottom', color='k', layer='80_図名・縮尺・方位'):
         s.fig.text(x_mm / s.w, y_mm / s.h, t, ha=ha, va=va, fontsize=pt, color=color)
         dxf_text(s.msp, x_mm * s.k, y_mm * s.k, t, pt * PT2MM * s.k, layer, ha, va)
     def axes(s, x_mm, y_mm, ext):
         return Ax(s, x_mm, y_mm, ext)
     def save(s, base):
-        s.fig.savefig(base + '.pdf'); s.fig.savefig(base + '.png', dpi=110); plt.close(s.fig)
+        s.fig.savefig(os.path.join(PDFD, os.path.basename(base) + '.pdf')); s.fig.savefig(base + '.png', dpi=110); plt.close(s.fig)
         s.doc.saveas(base + '.dxf')
 
 def dxf_text(msp, x, y, t, h, layer, ha='left', va='bottom', rot=0):
