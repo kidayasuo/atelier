@@ -724,7 +724,18 @@ def _to3(g):
 _P_ROAD = unary_union([x for x in (_to3(rot(gg)) for ln, gg in CTX if gg is not None and ln.startswith("03_")) if x is not None]).buffer(0)
 _P_BLD = [x for x in (_to3(rot(gg)) for ln, gg in CTX if gg is not None and ln.startswith("04_")) if x is not None]
 ROADS = unary_union([_P_ROAD.difference(_ZONE), ROAD_EDGE]).buffer(0.3).buffer(-0.3).buffer(-0.4).buffer(0.4).difference(_SITE3)
+# 道の向かいの家は道に沿って建つ（ユーザー、10-24）：西の道が敷地の辺へ寄った分だけ、向かいの街区（北の三軒とその奥）を道へ寄せる
+def _ab(g):
+    c = np.array(g.centroid.coords[0]) - SITE_C["NW"]
+    return c @ _eW, c @ _oW
+
+
+_blk = [b for b in _P_BLD if -6.0 < _ab(b)[0] < 34.0 and RW_W < _ab(b)[1] < 45.0]
+_front = [b for b in _blk if _ab(b)[1] < 22.0]
+_gap = min(min((np.array(p_) - SITE_C["NW"]) @ _oW for p_ in b.exterior.coords) for b in _front) - (RW_W + 0.8) if _front else 0.0
+_P_BLD = [affinity.translate(b, *(-_gap * _oW)) if any(b is x for x in _blk) else b for b in _P_BLD]
 BLDS = [b.buffer(0).difference(ROADS) for b in _P_BLD if not b.buffer(0).intersects(_SITE3)]
+print(f"向かいの家を道へ{_gap:.1f} m寄せた（{len(_front)}軒、街区{len(_blk)}棟）")
 
 
 def _to_rot(g):
@@ -778,7 +789,6 @@ ax.add_patch(plt.Circle(tuple(_tq), 4.5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alp
 lab(ax, xf, _tree, "突き出た木：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (-6, 14), ha="right")
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
 lab(ax, xf, SITE_C["NW"] + 14.0 * _u + (RW_W + 9.0) * _n, "向かいの住宅（北の三軒、狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (-6, 10), ha="right")
-lab(ax, xf, SITE_C["NW"] + 42.0 * _u + (RW_W + 8.0) * _n, "その南はアパートと駐車場", (-4, -6), ha="right")
 lab(ax, xf, SITE_C["S"] + 8.0 * _eS + 8.0 * _oS, "二本の橋（車・人）", (22, 4), ha="left")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
