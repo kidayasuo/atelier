@@ -1147,17 +1147,11 @@ for si in range(1, 6):
         dr = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
         pg.show_pdf_page(dr, sd, pno, clip=cr)
 # 提出の5枚は sodachiya/presentation.pdf の一つだけ（ユーザー、10-24：前は5枚と「全体＋5枚」の2つがあった）。
-# 壁に貼ったときの全体は present/out/sodachiya_present_overview.png
+# 壁に貼ったときの全体は present/out/sodachiya_present_overview.pdf（ベクターのPDF、ユーザー、10-24夜：リポジトリの画像はPDFに）
 sheets = os.path.join(ROOT, "presentation.pdf")
 doc.save(sheets)
 
-# 壁に貼ったときの全体（3枚＋2枚）
-pix = []
-for i in range(5):
-    p = doc[i].get_pixmap(dpi=60)
-    fn = os.path.join(OUT, f"sheet{i+1}.png")
-    p.save(fn)
-    pix.append(plt.imread(fn))
+# 壁に貼ったときの全体（3枚＋2枚）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る
 fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4))
 ax = fig.add_axes([0, 0, 1, 1])
 SC = 594 / 2500                       # 壁のmm → 紙のmm
@@ -1169,7 +1163,6 @@ pos = {1: (x0w, base_ + 594 * 2), 2: (x0w, base_ + 594), 3: (x0w, base_),
        4: (x0w + 841 + 120, base_ + 594 + 297), 5: (x0w + 841 + 120, base_ + 297)}
 for i in range(5):
     x, y = pos[i + 1]
-    ax.imshow(pix[i], extent=(x, x + 841, y, y + 594), zorder=1, aspect="auto")
     ax.add_patch(Rectangle((x, y), 841, 594, fill=False, ec="#555555", lw=0.5, zorder=2))
 ax.plot([100, 2100], [0 + 5, 5], color=INK, lw=1)
 ax.plot([100, 2100], [1500, 1500], color=NOTE, lw=0.8, ls=(0, (6, 4)))
@@ -1183,11 +1176,18 @@ notes = ["課題の言葉の順：1 敷地と自然環境 → 2 すべての人�
          "目の高さに来るのは1階平面（最も細かい図）と断面C。",
          "2〜4枚目の平面・立面・断面は3dmから自動の図を実寸で貼る。",
          "製図台に置くなら2＋2＋1（1・2／3・4／5）に切り分ける。"]
-for i, s in enumerate(notes):
-    TW(x0w + 841 * 2 + 200, 2050 - i * 70, s, 3.2, color=NOTE)
+for i, s_ in enumerate(notes):
+    TW(x0w + 841 * 2 + 200, 2050 - i * 70, s_, 3.2, color=NOTE)
 ov = os.path.join(OUT, "_overview.pdf")
 fig.savefig(ov)
-fig.savefig(os.path.join(OUT, "sodachiya_present_overview.png"), dpi=40)
+plt.close(fig)
+_od = fitz.open(ov)
+_pg = _od[0]
+for i in range(5):
+    x, y = pos[i + 1]
+    _pg.show_pdf_page(fitz.Rect(x * SC * MM, (594 - (y + 594) * SC) * MM, (x + 841) * SC * MM, (594 - y * SC) * MM), doc, i)
+_od.save(os.path.join(OUT, "sodachiya_present_overview.pdf"), garbage=3, deflate=True)
+_od.close()
 
 for f in (base, ov):
     os.remove(f)
