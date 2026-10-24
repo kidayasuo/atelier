@@ -938,14 +938,14 @@ for pl in YS["water_fills"]:
 for ln_ in YS["water_lines"]:
     q = _ym(ln_); ax.plot(q[:, 0], q[:, 1], color=C_NAT, lw=0.6, zorder=4, solid_capstyle="round")
 for (px_, py_), t_, dx_, dy_, ha_ in [((272, 76), "井出ヶ鼻井堰（高野川の堰）", 3, -1, "left"), ((127, 55), "宝が池", 2, 2, "left"),
-                                       ((200, 151), "東松ヶ崎の井戸", -2, 1.5, "right"), ((247, 148), "樋ノ上川", 3, -2, "left"),
+                                       ((200, 151), "東松ヶ崎の井戸", -2, 1.5, "right"), ((246, 166), "樋ノ上川", 1, -3.5, "left"),
                                        ((170, 182), "前川", 1, 1, "left"), ((163, 216), "橋上川", 1, 1, "left"),
                                        ((133, 231), "正田川", 1, 1, "left"), ((113, 248), "久土川", 1, 1, "left"), ((118, 318), "高野川", 2, -4, "left")]:
     q = _ym([(px_, py_)])[0]
     T(ax, q[0] + dx_, q[1] + dy_, t_, 2.2, C_NAT if ("川" in t_ or "堰" in t_ or "池" in t_) and "井戸" not in t_ else INK, ha=ha_, zorder=6)
 _wq = _ym([(272, 76)])[0]; ax.plot([_wq[0]], [_wq[1]], marker="v", ms=4, color=C_NAT, zorder=7)
 _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", mec=INK, zorder=7)
-_sq = _ym([(184, 242)])[0]                     # 樋ノ上川より下、高野川に沿う支流のあたり（ユーザー）
+_sq = _ym([(247, 148)])[0] + np.array([4.5, -1.2])   # 図の「樋ノ上川」の「樋」の字のあたり（ユーザー、10-24夜）
 ax.add_patch(plt.Circle(tuple(_sq), 2.4, fc="#E0904A", ec="none", zorder=7))
 T(ax, _sq[0] + 3, _sq[1] - 4, "敷地（高野川に沿う支流のあたり）", 2.4, "#8A5A2B", bold=True, zorder=7)
 _tx = _fx0 + (_hi[0] - _lo[0]) * _k + 70
