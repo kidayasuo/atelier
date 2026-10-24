@@ -41,7 +41,7 @@ def strip_mesh(d0,d1,zf0,zf1,li):
         bot=[(*Pw(a,b),zf0(a,b)) for a,b in q]; top=[(*Pw(a,b),zf1(a,b)) for a,b in q]
         m.Objects.AddMesh(mesh_prism(bot,top),attr(li))
 L_mon=layer('70_西館_越屋根_立ち上がり',(150,120,190)); L_lid=layer('70a_西館_越屋根_ガラスの蓋',(127,179,213))
-L_led=layer('70b_西館_越屋根_LED',(255,211,77)); L_lv=layer('70c_西館_越屋根_木のルーバー',(138,106,58))
+L_led=layer('70b_西館_越屋根_LED',(255,211,77)); L_lv=layer('70c_西館_越屋根_木のルーバー（白の艶消し）',(236,232,222))
 # 立ち上がり（東の縁 d=0 と d=VOID）
 # 長手方向は水平、屋根の流れ方向は屋根の主な部分の勾配 S で一定（2026-10-19 改）
 _out=V[V[:,2]<V[:,2].min()+20][:,:2]          # 屋根の西の縁（軒）
@@ -68,7 +68,8 @@ for i in (1,ne-2):                              # 南北の端は屋根から蓋
 lidtop=lambda i,d: ZTOP+CURB+GAP+GT-S*d
 strip_mesh(-OVH,VOID+OVH,lambda i,d:lidtop(i,d)-GT,lidtop,L_lid)
 strip_mesh(-OVH+20,-OVH+60,lambda i,d:lidtop(i,d)-GT-40,lambda i,d:lidtop(i,d)-GT,L_led)
-# ルーバー（水平に対して 30°、東＝本館側が高い）
+# ルーバー（水平に対して 30°、東＝本館側が高い。両面白の艶消し、蓋は透明ガラス＝本館と同じ、10-24 ユーザー）
+# 西日は高さによらず羽根に当たって入らない。東の朝日（高さ約7〜53°）は羽根のあいだを抜けて吹き抜けに直接差す。
 dw=VOID+OVH-20
 while dw-W_*math.cos(ANG)>-OVH:
     de=dw-W_*math.cos(ANG)
