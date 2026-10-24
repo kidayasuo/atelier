@@ -507,6 +507,13 @@ info = dict(building=[round(BX1 - BX0, 1), round(BY1 - BY0, 1)], site=[round(SX1
 print("建物の外形（m）", info["building"], " 敷地（m）", info["site"])
 
 embeds = {i: [] for i in range(1, 6)}
+SOZAI = []   # 素材：mock.pyが描いた図の範囲（紙のmm、左下）。書き出しで一つずつPDFに（ユーザー、10-25：.aiは素材から作る）
+
+
+def sozai(key, name, sheet, x, y, w, h, note=""):
+    SOZAI.append((key, name, sheet, (x, y, w, h), note))
+
+
 TOPT = {i: [] for i in range(1, 6)}     # 貼った図の上に置く文字（紙のmm、左下）：(x, y, 文字, 高さmm, 太字)
 TOPL = {i: [] for i in range(1, 6)}     # 貼った図の上に描く引き出し線（紙のmm）：(点, 箱の端, 色)
 
@@ -645,6 +652,7 @@ sx, sy = M + 6, M + 8 + 26.0                                    # 下の26 mmは
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
 title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
+sozai("01", "配置図　1/200（周りの道と用水路・園庭の図・建物）", 1, sx, sy, sw, sh, "引き出し線の端が少し入る")
 xf = xform(sx, sy, 200, VX0, VY0)
 rp = clip_rect(ax, sx, sy, sw, sh)
 st = len(ax.patches); stl = len(ax.lines)
@@ -951,6 +959,7 @@ _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", 
 _sq = _ym([(247, 148)])[0] + np.array([4.5, -1.2])   # 図の「樋ノ上川」の「樋」の字のあたり（ユーザー、10-24夜）
 ax.add_patch(plt.Circle(tuple(_sq), 2.4, fc="#E0904A", ec="none", zorder=7, gid="site_mark"))   # 敷地の印（一つの円の図形、Illustratorで変えられる）
 T(ax, _fx0, _ny0 + 1.5, "図：ksdobokuisan「宝ヶ池」の図をなぞって描き直し", 1.8, NOTE)   # 説明は図の外へ（ユーザー）
+sozai("02", "松ヶ崎の用水の網（北が上、敷地の印はオレンジの円）", 1, _nbx, _ny0, _box_patch.get_width(), _ny1 - _ny0)
 figs.append(fig)
 
 # 図のPDF（3dmから自動の図）
@@ -1084,6 +1093,8 @@ title(ax, ex + _lw + 10, y_ - 4, "夜", "越屋根の東の縁の光が水平に
 y_ -= 7
 land_elev(ax, ex, y_ - _lh, False)
 land_elev(ax, ex + _lw + 10, y_ - _lh, True)
+sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 2, ex, y_ - _lh, _lw, _lh)
+sozai("04", f"沿川の景観立面　夜　1/{LE_SC}", 2, ex + _lw + 10, y_ - _lh, _lw, _lh)
 dimnote(ax, ex + 2 * _lw + 16, y_ - 6, "川側は低く")
 dimnote(ax, ex + 2 * _lw + 16, y_ - 11, "北の大学へ高く")
 dimnote(ax, ex + 2 * _lw + 16, y_ - 16, "（周りの建物は")
@@ -1118,6 +1129,7 @@ for i_, (c_, t_) in enumerate(_sw):
     yy = M + 8 + bh - 18 - i_ * 14
     ax.add_patch(Rectangle((_mx, yy), 18, 10, fc=c_, ec="#777777", lw=0.2))
     T(ax, _mx + 22, yy + 3.5, t_, 2.8)
+sozai("05", "素材と色", 2, _mx - 1, M + 8, _mw, bh)
 figs.append(fig)
 
 # ================================================================ 3　平面図（ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
@@ -1193,6 +1205,7 @@ ksc = next(s_ for s_ in (500, 600, 700, 800, 1000)
 for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
     fx = px + i * (fw + 5)
     ax.add_patch(Rectangle((fx, fy), fw, fh, fc="none", ec="#BBBBBB", lw=0.3))
+    sozai(f"{6 + i:02d}", f"一日の帯　{h1}（小さな配置1/{ksc}と三者の動線）", 4, fx, fy, fw, fh)
     T(ax, fx + 3, fy + fh - 6, h1, 3.4, bold=True)
     kw_, kh_ = (kx1 - kx0) * 1000 / ksc, (ky1 - ky0) * 1000 / ksc
     kox, koy = fx + (fw - kw_) / 2, fy + txt_h + 2
@@ -1268,6 +1281,7 @@ cells4 = [("夏の昼", "庇・天井扇\n床下空調"), ("夏の夜", "床下�
           ("パッシブ", "床下に冷えをためる\n通風・光の筋"), ("エネルギー", "屋根材型の太陽光\n蓄電池"), ("資源", "北山杉の間伐材\n土・雨・生ごみを回す"), ("時間", "S&I\n水まわりはどこでも")]
 _cw5, _ch5 = (_rw5 - 4) / 2, (hC - 10 - 3 * 4) / 4
 T(ax, _rx5, cy + hC - 2, "運転表", 3.2, bold=True)
+sozai("12", "運転表と環境への配慮（8つの箱）", 5, _rx5, cy, _rw5, hC + 4)
 T(ax, _rx5 + _cw5 + 4, cy + hC - 2, "環境への配慮（LEED v5 Gold相当）", 3.0, bold=True)
 for i_, (h1, s1) in enumerate(cells4):
     c_, r_ = divmod(i_, 4)
@@ -1315,6 +1329,44 @@ for si in range(1, 6):
 # 壁に貼ったときの全体は present/out/sodachiya_present_overview.pdf（ベクターのPDF、ユーザー、10-24夜：リポジトリの画像はPDFに）
 sheets = os.path.join(ROOT, "presentation.pdf")
 doc.save(sheets)
+
+# 素材（present/sozai/）：mock.pyが描いた図は範囲を切り抜いて一つずつPDFに（ベクター、文字はType42）。
+# ほかの係の図は元のPDFの場所と切り抜く範囲を一覧に。中身が変わった素材だけ日時を進める（state.json）
+import hashlib, datetime, re, subprocess as _sp
+SZ = os.path.join(HERE, "sozai")
+os.makedirs(SZ, exist_ok=True)
+_stp = os.path.join(SZ, "state.json")
+try:
+    _st = json.load(open(_stp, encoding="utf-8"))
+except Exception:
+    _st = {}
+_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
+_rows = []
+for key, name, sh_, (x, y, w, h), note in SOZAI:
+    fn = f"{key}_{re.sub(r'[　 ]+', '_', name.split('（')[0].strip()).replace('/', '-').replace(':', '')}.pdf"
+    nd = fitz.open()
+    pg_ = nd.new_page(width=w * MM, height=h * MM)
+    pg_.show_pdf_page(pg_.rect, doc, sh_ - 1, clip=fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM))
+    hs = hashlib.md5(pg_.get_pixmap(dpi=40).samples).hexdigest()
+    nd.save(os.path.join(SZ, fn), garbage=3, deflate=True)
+    nd.close()
+    old = _st.get(fn, {})
+    _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
+    _rows.append(f"| {key} | `{fn}` | {name} | {sh_}枚目 | {w:.0f}×{h:.0f} | {_st[fn]['updated']} | {note} |")
+_ext = []
+for sh_ in range(1, 6):
+    for src, pno, clip, (x, y, w, h) in embeds[sh_]:
+        rel = os.path.relpath(src, ROOT)
+        _ext.append(f"| {sh_}枚目 | `{rel}` | {'全体' if clip[0] == 0 and clip[1] == 0 else '切り抜き (%.0f, %.0f)–(%.0f, %.0f) mm' % tuple(clip)} | {w / (clip[2] - clip[0]):.2f} 倍 |")
+json.dump(_st, open(_stp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
+    "# プレゼンの素材（`present/mock.py`が書き出す）", "",
+    "ユーザー（10-25）：割付の見本は`sodachiya/presentation.pdf`。ユーザーは素材から .ai を作り、見本に倣って仕上げる。素材が変わったらプレゼンの準備が知らせる。",
+    "「最後に変わった」は中身（絵）が変わったときだけ進む。文字は Type42（Noto Sans CJK JP）なので Illustrator でヒラギノに置き換えられる。", "",
+    "## mock.pyが描いた図（このフォルダのPDF）", "",
+    "| 番号 | ファイル | 中身 | 見本の位置 | 大きさ（mm） | 最後に変わった | 注 |", "|---|---|---|---|---|---|---|", *_rows, "",
+    "## ほかの係の図（元のPDFをそのまま使う）", "",
+    "| 見本の位置 | ファイル（`sodachiya/`から） | 使う範囲（元のPDFのmm、左上から） | 倍率 |", "|---|---|---|---|", *_ext, ""]))
 
 # 壁に貼ったときの全体（3枚＋2枚）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る
 fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4))
