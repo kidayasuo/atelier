@@ -99,9 +99,13 @@ for arc in (arc_e,arc_w):
 L_end=layer('50e_本館_越屋根_妻（壁と同じ材で閉じる）',(215,200,175))
 for a_ in (TH[0],th19):                       # 南北の端は屋根から蓋の下まで壁で閉じる
     wall_along([P(RK-60,a_),P(RW+60,a_)],lambda x,y:ztop(rr_of(x,y))-250,lambda x,y:ztop(rr_of(x,y))+CURB+GAP,120,L_end)
-aN=TH[0]-OVH/RW; aS=th19+OVH/RW
+aN=TH[0]-640/RW; aS=th19+OVH/RW           # 北は屋根のけらば（北の妻壁の外面から 0.3）にそろえる（10-24）
 def zlid(x,y): return ztop(rr_of(x,y))+CURB+GAP+GT
 lid=quad(RK-OVH,RW+OVH,aN,aS,60)
+# 西の出 350（10-24、ユーザー）：外壁の外面（v −0.35）から 350 出して、すき間の換気口（ガラリ）を横からの雨から守る。
+# 西館とのすき間（u 21〜51）は「すき間の蓋」が西館まで覆うので、そこは延ばさない。
+aG0=th19-51000/RW; aG1=th19-21000/RW
+lid=lid.union(quad(RW+OVH-1,RW+OVH+350,aN,aG0,30)).union(quad(RW+OVH-1,RW+OVH+350,aG1,aS,30)).buffer(0)
 sloped(lid,GT,L_lid,zlid)
 led=[P(RK-OVH+60,a) for a in np.linspace(aN,aS,60)]
 wall_along(led,lambda x,y:zlid(x,y)-GT-40,lambda x,y:zlid(x,y)-GT,40,L_led)

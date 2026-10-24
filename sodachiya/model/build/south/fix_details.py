@@ -3,7 +3,7 @@
 本館
 - 西の外壁（r=205 m の線、厚さ 150 で柱の真ん中を通っていた）を柱の外（v −0.35〜−0.20）へ。柱・桁は西吹き抜けに見せる。窓も壁の中へ。
 - 北の妻壁（厚さ 120 で柱の真ん中、外の梁は外に出ていた）を北の端の架構の外（u 57.19〜57.34）へ。縁側の妻のガラスも同じ線へ。
-- 屋根を西 v −0.45・北 u 57.45 まで延ばして外皮を覆う。
+- 屋根を西 v −0.45・北 u 57.64 まで延ばして外皮を覆う（北はけらば 0.3、ユーザー 10-24）。
 - 桁（楕円 200×400）：北の端を架構の外面（u 57.19）で止める（外へ 0.6 突き出ていた）。南の端はそのまま（南の軒の下で見せる）。
 - 南の妻（ガラスは 2 枚の梁のあいだ、決定事項）のガラスは柱の面から。
 西館
@@ -76,13 +76,13 @@ for o in m.Objects:
         if v0 > -0.05 and v1 < 0.05 and 0.5 < u0 and u1 < 56.5:
             map_mesh_uv(g, lambda u, v, z: (u, v - 0.275, z)); n_o += 1
     if li == L10:                                                             # 屋根：西の端と北の端を外皮の外まで
-        map_mesh_uv(g, lambda u, v, z: (57.45 if u > 56.98 else u, -0.45 if v < -0.15 else v, z))
+        map_mesh_uv(g, lambda u, v, z: (UG1 + 0.30 if u > 56.98 else u, -0.45 if v < -0.15 else v, z))   # 北のけらば 0.3（10-24）
     if li == L16:                                                             # 縁側の妻のガラス
         u0, u1, v0, v1, z0, z1 = bbox_uv(g)
         if (u1 - u0) < 0.1 and 11.9 < v0 < 12.1 and v1 > 13:
             if u0 > 56: map_mesh_uv(g, lambda u, v, z: (u + 0.245, v, z))       # 北：妻壁の線（外の梁の外）へ
             else: map_mesh_uv(g, lambda u, v, z: (u, max(v, 12.2), z))        # 南：柱の面から（妻は 2 枚の梁のあいだのまま）
-log.append(f'本館：西の外壁 {n_w} 片を柱の外（v −0.35〜−0.20）へ、窓 {n_o} 枚も。北の妻壁 {n_g} 片を架構の外（u 57.19〜57.34）へ。屋根を西 v −0.45・北 u 57.45 まで')
+log.append(f'本館：西の外壁 {n_w} 片を柱の外（v −0.35〜−0.20）へ、窓 {n_o} 枚も。北の妻壁 {n_g} 片を架構の外（u 57.19〜57.34）へ。屋根を西 v −0.45・北 u 57.64（けらば 0.3）まで')
 def welded_mesh(T):
     mm = r.Mesh(); idx = {}
     def vid(p):
@@ -411,7 +411,7 @@ if src is not None:
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス
         for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（垂木の小口をふさぐ）
             for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), -150.0, 0.0): new_objs.append((mm, a10))
-    pv = R(0.3, 57.15, 1.95, 14.85, 0.25).intersection(RP).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
+    pv = R(0.3, 57.49, 1.95, 14.85, 0.25).intersection(RP).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
     for mm in sheet(pv, 20.0, L10P): new_objs.append((mm, a_pv))
     log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から軒先まで、乳白ガラス）、'
