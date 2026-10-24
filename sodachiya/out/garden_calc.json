@@ -10,7 +10,7 @@
   "topsoil_m3": 147,
   "use_subsoil_m3": 221,
   "use_topsoil_m3": 128,
-  "woods_m2": 525,
+  "woods_m2": 523,
   "out_subsoil_m3": 301,
   "out_topsoil_m3": 19,
   "out_total_m3": 320,
@@ -82,13 +82,13 @@
    "hour": 15,
    "alt": 51,
    "az": 258,
-   "shaded": 0.52
+   "shaded": 0.51
   },
   {
    "hour": 16,
    "alt": 39,
    "az": 268,
-   "shaded": 0.95
+   "shaded": 0.92
   }
  ]
 }
