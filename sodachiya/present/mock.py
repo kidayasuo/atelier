@@ -434,18 +434,20 @@ def draw_plan(ax, ox, oy, scale, x0, y0, wbox, hbox, keyhi=None, thin=False):
     draw_shape(ax, roofs_plan, xf, ec="#999999", lw=0.15, ls=(0, (4, 2)), z=6)
     base = ("12_", "13_", "14_", "15_", "56_", "59_1F_西吹き抜け", "33_")
     order = sorted(plan_items, key=lambda it: 0 if it[0].startswith(base) else 1)
-    # 同じ色の床はまとめて一つに塗る（ホールと通りのあいだに継ぎ目の線を出さない、ユーザー）
+    # 床は部屋ごとに塗って輪郭を細く引く。ただしホール・西の吹き抜け・内縁側はこどもには一つの場所なので、
+    # 一つにまとめて継ぎ目の線を出さない（ユーザー、10-24夜）。12（本館の床の板）は塗るだけ
+    ONE = ("59_1F_ホール", "56_", "59_1F_西吹き抜け", "13_")
     _grp = {}
-    for ln, kind, g in order:
+    for i_, (ln, kind, g) in enumerate(order):
         c = room_color(ln)
         if c and g is not None:
             fc = c
             if keyhi is not None:
                 fc = c if ln.startswith(tuple(keyhi)) else "#F1F1F1"
-            lay = 0 if ln.startswith(base) else 1
-            _grp.setdefault((lay, fc), []).append(g.buffer(0.02))
-    for (lay, fc), gs in sorted(_grp.items(), key=lambda kv: kv[0][0]):
-        draw_shape(ax, unary_union(gs), xf, fc=fc, ec=fc, lw=0.15, z=1 + 0.01 * lay)
+            key = ("one", fc) if ln.startswith(ONE) else (ln, i_)
+            _grp.setdefault(key, [fc, 0 if ln.startswith(base) else 1, ln.startswith("12_"), []])[3].append(g.buffer(0.02) if key[0] == "one" else g)
+    for key, (fc, lay, noline, gs) in sorted(_grp.items(), key=lambda kv: kv[1][1]):
+        draw_shape(ax, unary_union(gs), xf, fc=fc, ec="none" if noline else "#9A9A9A", lw=0 if noline else 0.12, z=1 + 0.01 * lay)
     for ln, kind, g in plan_items:
         if room_color(ln):
             continue
