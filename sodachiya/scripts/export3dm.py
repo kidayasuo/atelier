@@ -164,7 +164,9 @@ m.Objects.AddBrep(sph, attr(L79))
 import north_common as NC
 def polys(g): return [q for q in getattr(g, "geoms", [g]) if q.geom_type == "Polygon" and not q.is_empty]
 for f in NC.FENCE: wall(f, NC.N["FENCE_H"], "70_外構_生垣・塀・格子")                   # 読書の庭の板塀
-wall([NC.GATE[0], NC.GATE[1]], NC.N["KOMICHI_GATE"]["h"], "72_外構_柱", 0.05)          # 北の小径の木戸（閉じた位置）
+_gm = tuple((NC.np.array(NC.GATE[0]) + NC.np.array(NC.GATE[1])) / 2)
+for _a, _b in ((NC.GATE[0], _gm), (_gm, NC.GATE[1])):                                         # 角の両開きの木戸（閉じた位置、扉2枚）
+    wall([_a, _b], NC.N["KOMICHI_GATE"]["h"], "72_外構_柱", 0.05)
 for q in NC.GATE: post(q, NC.N["KOMICHI_GATE"]["h"] + 0.1)
 for g in (NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.GRAVEL, NC.KOMICHI):
     for q in polys(g): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)

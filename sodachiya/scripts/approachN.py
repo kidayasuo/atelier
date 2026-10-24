@@ -63,9 +63,11 @@ for s in np.arange(29.6, 37.8, 0.75):
 for f in N.FENCE: line(f, 2.0, C["fence"], z=8)
 g0, g1 = N.GATE
 line([g0, g1], 0.5, C["fence"], (0, (2, 1.5)), 8)
-v = np.array(g1) - np.array(g0); L = np.linalg.norm(v); a0 = math.degrees(math.atan2(v[1], v[0]))
-ax.add_patch(Arc(g0, 2 * L, 2 * L, theta1=a0, theta2=a0 + 90, lw=0.35, color=C["fence"], zorder=8))   # opens inward
-line([g0, (g0[0] + L * math.cos(math.radians(a0 + 90)), g0[1] + L * math.sin(math.radians(a0 + 90)))], 0.8, C["fence"], z=8)
+v = np.array(g1) - np.array(g0); L = np.linalg.norm(v) / 2; a0 = math.degrees(math.atan2(v[1], v[0]))   # double gate, both leaves open outward
+for h, th0 in ((g0, a0), (g1, a0 + 90)):
+    ax.add_patch(Arc(h, 2 * L, 2 * L, theta1=th0, theta2=th0 + 90, lw=0.35, color=C["fence"], zorder=8))
+    ang = a0 + 90
+    line([h, (h[0] + L * math.cos(math.radians(ang)), h[1] + L * math.sin(math.radians(ang)))], 0.8, C["fence"], z=8)
 
 # machine-room door (double, opens outward to the road)
 m0, m1 = N.MDOOR; mv = np.array(m1) - np.array(m0); ml = np.linalg.norm(mv) / 2; am = math.degrees(math.atan2(mv[1], mv[0]))
@@ -105,7 +107,7 @@ items = [
     (N.T(7.1, -0.9), "搬入の大戸の前（洗い出し）。引き戸が左右へ1.8走る所は壁ぎわを空ける"),
     (N.T(16.6, 3.0), "読書の庭：モミジ1本と苔（入らない坪庭）"),
     (N.T(16.6, 0.25), "板塀 h1.8（後退の線の上、セキュリティの線）。道路との帯に花の低木 h0.6〜1.0：ユキヤナギ・クチナシ・アベリア（機械室の脇も）"),
-    (N.T(23.0, 2.2), "北の小径の木戸 h1.8（鍵、庭師と点検の人、だいさんかくの北の口）"),
+    (N.T(22.9, 2.3), "本館の北西の角の両開きの木戸 h1.8（外開き、鍵）：左の扉で読書の庭へ、右の扉で北の小径へ。庭師と点検の人の入口、だいさんかくの北の口"),
     (N.T(28.7, 0.45), "機械室の戸（北西の面、両開き約1.6）と前の洗い出し"),
     ((-8.0, -11.4), "本の奥の地窓（読書の庭を見る）"),
     ((-11.3, -15.2), "遊戯室の北の窓（腰掛け）"),
@@ -150,7 +152,7 @@ notes = ("道路沿いの帯（後退の帯、幅1.0）：壁の外面は後退�
          f"樹種（楽しめるもの、ユーザー：香りと花）：窓と戸の無い壁の前は{'・'.join(PL_['HEDGE']['sp'])}の刈り込み（秋の香りが道と迎えの保護者に）。板塀の前と機械室の脇は{'・'.join(PL_['MID']['sp'])}（春の白い花、初夏の香り、夏〜秋の花）。\n"
          f"遊戯室の地窓・覗き窓の前と大戸の脇は低い香りの草（{'・'.join(PL_['LOW']['sp'])}）。こどもには床の高さに花と葉が見え、道からの覗き込みも和らぐ。軒の下は乾くので乾きに強いものを。壁の足もとは砂利0.2。\n"
          f"読書の庭（約{N.READ.area:.0f}m²）：西館の北の面・本館の西の壁の北の端・板塀に囲まれた、入らない坪庭。本の奥の地窓と遊戯室の北の窓から見る。北向きで両側の建物の陰になるので苔に向く。モミジは塀の上から道にも見える。\n"
-         f"板塀 h1.8（約{sum(LineString(f).length for f in N.FENCE):.0f}m）：西館の北の角から機械室まで、後退の線の上。今まで道路に開いていたセキュリティの線の切れ目を閉じる。北の小径の口に木戸（鍵）。\n"
+         f"板塀 h1.8（約{sum(LineString(f).length for f in N.FENCE):.0f}m）：西館の北の角から機械室まで、後退の線の上。今まで道路に開いていたセキュリティの線の切れ目を閉じる。本館の北西の角の真ん前に両開きの木戸（外開き、鍵）。左の扉で読書の庭へ、右の扉で北の小径へ（庭師の手入れは外から、建物に新しい開口は設けない）。\n"
          "機械室の戸：北東は隣家から1mを守る側なので、戸は北西の面（道路側）に。機器と蓄電池（2.0×1.2）の出し入れ・点検が、こどもの線の内側を通らずにできる。戸の形は本館係。")
 fig.text(14 / 297, 112 / 420, notes, fontsize=6.0, va="top", color="#333333", linespacing=1.65, wrap=True)
 
