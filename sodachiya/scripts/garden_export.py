@@ -201,6 +201,8 @@ B = G["BOWL"]; curve_ad(ell(B["c"], (B["r"], B["r"])), 95, "すりばち（お�
 W = G["WILLOW"]; curve_ad(ell(W["c"], (W["r"], W["r"])), 95, "柳の家（生きたヤナギのドーム φ3）", close=True)
 
 # ---- 96 石 ----
+for q in G["SEKIMORI"].get("steps", []):
+    curve_ad(ell(q, (0.26, 0.26)), 96, "飛び石（縁側の前の道）", close=True)
 for q in G["SEKIMORI"]["pts"]:
     p = P3(*q); sph = r.Sphere(r.Point3d(p.X, p.Y, p.Z + 120), 150)
     m.Objects.AddBrep(sph.ToBrep(), at(96, "関守石（しずかのもりの境）"))
