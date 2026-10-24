@@ -863,7 +863,8 @@ lab(ax, xf, _hq, "向かいの住宅（木から北の三軒、道に沿って�
 lab(ax, xf, R3inv([-23.5, -5.0])[0], "二本の橋（車・人）へ", (4, -5), ha="left")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
-lab(ax, xf, SITE_C["NW"] + 0.05 * _LN * _eN + (RW_N + 4.0) * _oN, "北の道の向こうは京都工芸繊維大学", (-6, 4), ha="right")
+_uq = SITE_C["NW"] + 0.02 * _LN * _eN + (RW_N + 6.0) * _oN               # 大学の敷地の中（南の線の上に文字を置かない）
+lab(ax, xf, _uq, "北の道の向こうは京都工芸繊維大学", (-48, (sy + sh - 5) - xf(R3(_uq))[0][1]), ha="right")
 lab(ax, xf, R3inv([14.0, -5.6])[0], "高野川", (0, 0), size=3.0, color="#2F6FA0", bold=True)
 lab(ax, xf, np.array(gc.PARK.centroid.coords[0]), "小竹薮公園（残す）", (-4, -10), ha="right")
 _nx, _ny = sx + 14, sy + sh - 20
