@@ -200,6 +200,29 @@ from shapely.geometry import Point
 from shapely import affinity as shp_affinity
 
 KIND_BEAM = ('11b', '11c', '22b', '22c', '22d')
+# 建具（戸・障子・ガラス戸・窓）：平面・断面では細線で描く（塗らない）。製図の決まり：切断した壁は太く塗り、建具は細線（設計監修 10-24）
+FIT_PREFIX = ('16_', '19', '27_', '66_', '89_', '35d')
+def is_fitting(ln): return ln.startswith(FIT_PREFIX)
+def is_thin(g, thin=120):
+    if g is None or g.is_empty: return True
+    for q in getattr(g, 'geoms', [g]):
+        if q.geom_type != 'Polygon': continue
+        mr = np.array(q.minimum_rotated_rectangle.exterior.coords)[:4]
+        if min(np.linalg.norm(mr[1] - mr[0]), np.linalg.norm(mr[2] - mr[1])) > thin: return False
+    return True
+def centerlines(g, thin=120):
+    """薄い板（戸・ガラス）の切り口 → 長い向きの中心線（1/100 では板の両面の二本線が重なってつぶれるので一本で）。厚い物は輪郭"""
+    out = []
+    for q in getattr(g, 'geoms', [g]):
+        if q.geom_type != 'Polygon' or q.area < 1: continue
+        mr = np.array(q.minimum_rotated_rectangle.exterior.coords)[:4]
+        e0, e1 = np.linalg.norm(mr[1] - mr[0]), np.linalg.norm(mr[2] - mr[1])
+        if min(e0, e1) <= thin and q.area > 0.6 * e0 * e1:
+            a, b = ((mr[0] + mr[3]) / 2, (mr[1] + mr[2]) / 2) if e0 >= e1 else ((mr[0] + mr[1]) / 2, (mr[2] + mr[3]) / 2)
+            out.append([a, b])
+        else:
+            out.append(list(q.exterior.coords))
+    return out
 def is_beam(ln): return ln.split('_')[0] in KIND_BEAM
 
 # DXF のレイヤー：名前 → (色 ACI, 線の太さ 1/100 mm, 線種)
@@ -207,6 +230,8 @@ DL = {
     '01_切断（構造・壁）': (7, 35, 'Continuous'),
     '02_切断（家具）': (8, 18, 'Continuous'),
     '03_切断（ガラス）': (5, 13, 'Continuous'),
+    '07_切断（建具）': (7, 18, 'Continuous'),
+    '13_見えがかり（窓台・隠れた窓）': (7, 9, 'DASHED'),
     '04_切断（機械室などの塊）': (7, 35, 'Continuous'),
     '05_断熱（仮）': (2, 9, 'Continuous'),
     '06_部屋の色': (8, 0, 'Continuous'),
@@ -369,6 +394,19 @@ def draw_cut(A, items, insul=False):
     groups = {}
     for ob, pc, segs in items:
         gname = wall_group(ob)
+        if gname and segs:
+            # 閉じない切り口（壁を浅い角度で切ると、小口の無い長い切り口になって塗れない。西館の南西の丸みを断面Bで切る所など）：
+            # 塗れなかった線を、つながりごとに凸包で閉じる（壁の切り口は塗る、製図の決まり。設計監修 10-24）
+            ls_ = unary_union([LineString(q) for q in segs if np.hypot(*(np.subtract(q[1], q[0]))) > 1e-3])
+            rest = ls_.difference(pc.buffer(5)) if pc is not None and not pc.is_empty else ls_
+            if not rest.is_empty and rest.length > 1500:
+                add = []
+                for comp in getattr(rest.buffer(40), 'geoms', [rest.buffer(40)]):
+                    part = rest.intersection(comp)
+                    if part.length < 1500: continue
+                    hull = part.convex_hull
+                    if hull.geom_type == 'Polygon' and 2e4 < hull.area < 0.25 * part.length * part.length / 4: add.append(hull)
+                if add: pc = unary_union([pc] + add) if pc is not None and not pc.is_empty else unary_union(add)
         if gname and pc is not None and not pc.is_empty: groups.setdefault(gname, []).append(pc)
     GW = {gname: joined(polys) for gname, polys in groups.items()}
     if 'wall' in GW and 'partition' in GW:         # 角をつなぐのは外壁と間仕切りをいっしょに（間仕切りは外壁に突き当たる）
@@ -397,8 +435,12 @@ def draw_cut(A, items, insul=False):
         segs = merged(segs, pc)
         if grouped:
             pass
-        elif k == 'glass':
-            A.lines(segs, lay, lw=0.1, z=6)
+        elif (is_fitting(ob['layer']) and is_thin(pc)) or k == 'glass':
+            # 建具・ガラスの切り口は細線（板は中心線一本）。戸の板は 0.18、ガラスは 0.13
+            cl = centerlines(pc) if pc is not None and not pc.is_empty else segs
+            A.lines(cl, '07_切断（建具）' if k != 'glass' else lay, lw=0.13 if k == 'glass' else 0.18, z=6.3)
+            if k != 'glass' and pc is not None: occ.append(pc.buffer(0))
+            continue
         elif k == 'furn':
             A.fill(pc, lay, fc='0.62', z=5); A.lines(segs, lay, lw=0.15, z=6)
         elif k == 'volume':
@@ -495,9 +537,17 @@ def room_name(ln):
 
 def plan(A, zcut, objs, overhead, level_z):
     below, cut, swings, stairs = [], [], [], []
+    swings2, hidden, hidden_low, sliders = [], [], [], []
     for ob in objs:
         if ROOM_LAYERS(ob['layer']): continue
         if ob['layer'].startswith('19d') and '開き戸' in ob.get('name', ''): swings.append(ob); continue   # 開き戸は開いた形と弧で（下）
+        if ob['layer'].startswith('35d'): swings2.append(ob); continue                                     # 機械室の両開きの戸も開いた形と弧で
+        if ob['layer'].startswith(('16_', '19_')) and ob['T'][:, :, 2].min() <= level_z + 50 and np.ptp(ob['T'][:, :, 2]) > 1800 and ob['T'][:, :, 2].max() > zcut:
+            sliders.append(ob); continue                                                                    # 床からの引き戸（縁側のガラス戸・南の入口）：引違いの記号で（下）
+        if (kind(ob['layer']) == 'glass' or is_fitting(ob['layer'])) and not re.match(r'^(10t|20t|28|50a)_', ob['layer']):
+            zz = ob['T'][:, :, 2]
+            if zz.min() >= zcut and zz.min() < level_z + 3000: hidden.append(ob); continue                 # 切断より上の窓（高窓）：破線
+            if zz.max() <= zcut and zz.min() >= level_z + 50: hidden_low.append(ob)                         # 切断より下の窓（地窓）：壁の中なら破線（下）
         if num(ob['layer']) in (10, 20): continue                                            # 屋根（光の筋・太陽光も）は上部の外形だけ（2階では軒が切断の高さより低い所がある）
         if num(ob['layer']) == 25: stairs.append(ob); continue                                                   # 階段は踏面の線と矢印で（下）
         z = ob['T'][:, :, 2]
@@ -511,6 +561,54 @@ def plan(A, zcut, objs, overhead, level_z):
         segs = slice_tris(ob['T'], np.array([0, 0, zcut]), np.array([0, 0, 1.]))
         S2 = [(s[0][:2], s[1][:2]) for s in segs]; items.append((ob, poche(S2), S2))
     occ = draw_cut(A, items)
+    # 窓台：壁を窓の下（床+300）でも切り、切断の高さに無い所（＝窓の下の腰壁）を細線で（製図の決まり：窓は壁の線を細く通して描く）
+    wl_cut = [pc for ob, pc, sg in items if wall_group(ob) and pc is not None and not pc.is_empty]
+    if wl_cut:
+        WC = unary_union([g.buffer(0) for g in wl_cut])
+        low = []
+        for ob, pc, sg in items:
+            if not wall_group(ob): continue
+            sg2 = slice_tris(ob['T'], np.array([0, 0, level_z + 300]), np.array([0, 0, 1.]))
+            pc2 = poche([(q[0][:2], q[1][:2]) for q in sg2])
+            if pc2 is not None and not pc2.is_empty: low.append(pc2.buffer(0))
+        if low:
+            sill = unary_union(low).difference(WC.buffer(5))
+            sill = unary_union([g for g in getattr(sill, 'geoms', [sill]) if g.geom_type == 'Polygon' and g.area > 2e4])
+            if not sill.is_empty:
+                A.geom_lines(sill.boundary.difference(WC.buffer(3)), '10_見えがかり', lw=0.1, z=5.8)
+                occ = unary_union([occ, sill]) if occ is not None else sill
+        # 地窓（切断より下）で壁の中に隠れる窓：破線
+        for ob in hidden_low:
+            fp = silhouette(ob['T'][:, :, :2])
+            if fp is None or fp.is_empty or fp.intersection(WC.buffer(10)).area < 0.6 * fp.area: continue
+            below[:] = [x for x in below if x is not ob]
+            A.lines(centerlines(fp), '13_見えがかり（窓台・隠れた窓）', lw=0.1, ls=(0, (3, 2)), color='0.3', z=6.4)
+    # 床からの引き戸（引違い）：戸の板を一枚おきに内と外のレールへ ±30 ずらし、隣と 40 重ねる（製図の引違い戸の記号。3dm では一つの面に並んでいる）
+    if sliders:
+        pan = []
+        for ob in sliders:
+            fp = silhouette(ob['T'][:, :, :2])
+            if fp is None or fp.is_empty: continue
+            for cl in centerlines(fp):
+                if len(cl) == 2: pan.append(np.array(cl))
+        uniq = []
+        for l in pan:                              # ガラスと框が同じ所に二つある：一つに
+            if not any(np.linalg.norm(l.mean(0) - q.mean(0)) < 60 for q in uniq): uniq.append(l)
+        uniq.sort(key=lambda l: math.atan2(*(l.mean(0) - C)[::-1]))
+        k_ = 0
+        for i, l in enumerate(uniq):
+            if i and np.linalg.norm(l.mean(0) - uniq[i - 1].mean(0)) > 1300: k_ = 0    # 離れた所は新しい並び
+            d_ = (l[1] - l[0]) / np.linalg.norm(l[1] - l[0]); n_ = np.array([-d_[1], d_[0]])
+            off = n_ * (30 if k_ % 2 else -30)
+            A.lines([[l[0] - d_ * 20 + off, l[1] + d_ * 20 + off]], '07_切断（建具）', lw=0.18, z=6.3)
+            k_ += 1
+    # 高窓（切断より上の窓・ガラス）：破線。戸の真上の欄間（鴨居の上のはめ殺し）は戸の線と重なるので描かない
+    below_fit = unary_union([g for g in (silhouette(ob['T'][:, :, :2]) for ob in sliders + [o for o, pc, sg in items if is_fitting(o['layer']) or kind(o['layer']) == 'glass']) if g is not None]) if (sliders or items) else Polygon()
+    for ob in hidden:
+        fp = silhouette(ob['T'][:, :, :2])
+        if fp is not None and not fp.is_empty and not below_fit.is_empty and fp.intersection(below_fit.buffer(80)).area > 0.5 * fp.area: continue
+        if fp is not None and not fp.is_empty:
+            A.lines(centerlines(fp), '13_見えがかり（窓台・隠れた窓）', lw=0.1, ls=(0, (3, 2)), color='0.3', z=6.4)
     below.sort(key=lambda ob: -ob['T'][:, :, 2].max())
     draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below], occ)
     # 上部：屋根は片をまとめた外形だけ（片の継ぎ目・光の筋・太陽光の線は部屋を横切るので描かない、10-24）、木の樹冠は一本ずつ
@@ -577,6 +675,26 @@ def plan(A, zcut, objs, overhead, level_z):
         A.lines([np.array(arc)], '40_建具', lw=0.08, color='0.25', z=6)
         leaf = Polygon([hp - cd * 18, hp + cd * 18, hp + cd * 18 + od * R_, hp - cd * 18 + od * R_])
         A.fill(leaf, '40_建具', fc='k', z=6)
+    # 機械室の両開きの戸（外開き）：扉ごとに、外の端を吊元に、機械室の外へ 90° 開いた形と弧
+    if swings2:
+        mach = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^35_', ob['layer'])]
+        mach = unary_union([g for g in mach if g is not None])
+        leaves = []
+        for ob in swings2:
+            if abs(ob['T'][:, :, 2].min() - level_z) > 600: continue
+            fp = silhouette(ob['T'][:, :, :2]); cl = centerlines(fp)
+            if cl and len(cl[0]) == 2: leaves.append(np.array(cl[0]))
+        if leaves:
+            mid = np.mean([l.mean(0) for l in leaves], 0)
+            mc = np.array(mach.centroid.coords[0]) if not mach.is_empty else mid
+            for l in leaves:
+                hp, far = (l[0], l[1]) if np.linalg.norm(l[0] - mid) > np.linalg.norm(l[1] - mid) else (l[1], l[0])
+                cd = (far - hp) / np.linalg.norm(far - hp); od = np.array([-cd[1], cd[0]])
+                if np.dot(od, l.mean(0) - mc) < 0: od = -od
+                R_ = np.linalg.norm(far - hp)
+                arc = [hp + (cd * math.cos(t_) + od * math.sin(t_)) * R_ for t_ in np.linspace(0, math.pi / 2, 30)]
+                A.lines([np.array(arc)], '40_建具', lw=0.08, color='0.25', z=6)
+                A.fill(Polygon([hp - cd * 18, hp + cd * 18, hp + cd * 18 + od * R_, hp - cd * 18 + od * R_]), '40_建具', fc='k', z=6)
     # 部屋名と面積（床の板から、壁芯。面積表 areas.py と同じ数え方：その階の床から 2.4 m までにある壁を除き、接する壁の半分を足す）
     WL = []
     for ob in objs:
