@@ -99,8 +99,7 @@ poly(SETB, fc="none", ec="#999999", lw=0.3, ls=(0, (4, 3)), z=0.5)
 T((-27.7, -55), "西の道路（歩道なし）", 6.5, rot=86)
 T((6.8, -67.0), "高野川 →", 7, rot=38)
 poly(PARK, fc="#E3EDD3", ec=C["green"], lw=0.7, z=1)
-tree((-13.6, -75.2), 3.4)
-T((-13.4, -80.2), "公園（12 × 12 m）\n待ち合わせの木", 6)
+T((-13.4, -77.5), "公園（12 × 12 m）", 6)                          # 公園の真ん中の木は無い（ユーザー 10-24）
 kid = SP(SITE).difference(SP(PARK)).intersection(SP(rect(-14, 40, 1.6, 40))).difference(SP(rect(0, 40, 0, 15)))
 poly(kid, fc=C["kid"], ec="none", z=1)
 line([W(0, 1.6), W(MN.D["FENCE_END_U"], 1.45), FENCE_END], lw=1.1, c="#6b5a3a", z=6)   # infant-garden fence h1.2
