@@ -646,7 +646,7 @@ for i, (h1, s1) in enumerate([
     box(ax, rx + (i + 1) * (cw + 5), cy, cw, ch, h1, "小さな図＋\n" + s1, fill="#FAF8FF")
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
-VX0, VX1, VY0, VY1 = -33.0, QX1 + 2.0, -20.0, QY1 + 2.0
+VX0, VX1, VY0, VY1 = -39.0, QX1 + 2.0, -20.0, QY1 + 2.0
 sx, sy = M + 6, M + 8
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
@@ -683,28 +683,61 @@ def _line_x(P, d, Q, f):
 _LW = np.linalg.norm(SITE_C["SW"] - SITE_C["NW"])
 _LN = np.linalg.norm(SITE_C["N"] - SITE_C["NW"])
 _cNW = _line_x(SITE_C["NW"] + RW_W * _oW, _eW, SITE_C["NW"] + RW_N * _oN, _eN)   # 二つの道の外の角
-IDEAL_ROAD = unary_union([
-    Polygon([SITE_C["NW"] + 40 * _eW + 0 * _oW, SITE_C["NW"] + 40 * _eW + RW_W * _oW, _cNW + (-30) * _eW, SITE_C["NW"] - 30 * _eW]).convex_hull.union(
-        _band(SITE_C["NW"], _eW, _oW, -40.0, _LW + 40.0, 0.0, RW_W)),
-    _band(SITE_C["NW"], _eN, _oN, -40.0, _LN + 40.0, 0.0, RW_N)])
-_hs = []
-for a0 in np.arange(-2.0, _LW + 30.0, 11.0):                                  # 向かいの住宅（道の西、間口9・奥行10）
-    _hs.append(_band(SITE_C["NW"] + RW_W * _oW, _eW, _oW, a0 + 1.5, a0 + 10.5, 2.0, 12.0))
-for a0 in np.arange(2.0, 60.0, 12.0):                                         # 北東の隣家（境界に接して並ぶ）
-    _hs.append(_band(SITE_C["N"], _eE, _oE, a0, a0 + 9.5, 1.5, 11.5))
-IDEAL_HOUSES = unary_union(_hs)
-IDEAL_UNIV = _band(SITE_C["NW"] + RW_N * _oN, _eN, _oN, -25.0, _LN + 40.0, 4.0, 60.0)   # 北の道の向こう（大学）
+# 敷地に接する道（西の道・公園の脇で折れて川へ・北の道）は敷地の辺に沿わせ、その先（交差点・二本の橋・川沿いの道）と建物はPLATEAUを使う（ユーザー、10-24）
+_eS = (SITE_C["S"] - SITE_C["SW"]) / np.linalg.norm(SITE_C["S"] - SITE_C["SW"])     # 公園の脇の辺（折れた所から川へ）
+_oS = np.array([-_eS[1], _eS[0]])
+if _oS @ (SITE_C["SW"] - SITE_C["E"]) < 0:
+    _oS = -_oS
+_LS = np.linalg.norm(SITE_C["S"] - SITE_C["SW"])
+RW_N = 7.0
+_cSW = _line_x(SITE_C["SW"] + RW_W * _oW, _eW, SITE_C["SW"] + RW_W * _oS, _eS)   # 折れ目の外の角
+ROAD_EDGE = unary_union([
+    _band(SITE_C["NW"], _eW, _oW, -9.0, _LW, 0.0, RW_W),                        # 西の道（北の道を渡るまで）
+    Polygon([SITE_C["SW"], SITE_C["SW"] + RW_W * _oW, _cSW, SITE_C["SW"] + RW_W * _oS]).convex_hull,
+    _band(SITE_C["SW"], _eS, _oS, 0.0, _LS + 6.5, 0.0, RW_W),                  # 公園の脇を川へ（橋のたもとまで）
+    _band(SITE_C["SW"], _eS, _oS, _LS - 4.0, _LS + 6.5, 0.0, RW_W + 2.0),     # 川沿いの道とつなぐ
+    _band(SITE_C["NW"], _eN, _oN, -12.0, _LN + 60.0, 0.0, RW_N)])              # 北の道
+_ZONE = unary_union([_band(SITE_C["NW"], _eW, _oW, 4.0, _LW + 2.0, 0.0, 13.0),
+                     _band(SITE_C["SW"], _eS, _oS, -2.0, _LS, 0.0, 13.0),
+                     _band(SITE_C["NW"], _eN, _oN, 4.0, _LN + 60.0, 0.0, 14.0)])
+_SITE3 = Polygon([SITE_C[k] for k in ("N", "E", "S", "SW", "NW")])
+_A3 = np.c_[R3(np.array([SITE_C[k] for k in ("N", "E", "S")])), np.ones(3)]
+_B3 = np.array([SITE_C[k] for k in ("N", "E", "S")])
+_INV = np.linalg.solve(_A3, _B3)                                               # 回した座標 → 3dm（アフィン）
+
+
+def R3inv(Q):
+    Q = np.atleast_2d(np.asarray(Q, float))
+    return np.c_[Q, np.ones(len(Q))] @ _INV
+
+
+def _to3(g):
+    if g is None or g.is_empty:
+        return None
+    if g.geom_type in ("MultiPolygon", "GeometryCollection"):
+        return unary_union([x for x in (_to3(p) for p in g.geoms) if x is not None])
+    if g.geom_type != "Polygon":
+        return None
+    return Polygon(R3inv(np.array(g.exterior.coords)), [R3inv(np.array(r.coords)) for r in g.interiors])
+
+
+_P_ROAD = unary_union([x for x in (_to3(rot(gg)) for ln, gg in CTX if gg is not None and ln.startswith("03_")) if x is not None]).buffer(0)
+_P_BLD = [x for x in (_to3(rot(gg)) for ln, gg in CTX if gg is not None and ln.startswith("04_")) if x is not None]
+ROADS = unary_union([_P_ROAD.difference(_ZONE), ROAD_EDGE]).buffer(0.3).buffer(-0.3).buffer(-0.4).buffer(0.4).difference(_SITE3)
+BLDS = [b.buffer(0).difference(ROADS) for b in _P_BLD if not b.buffer(0).intersects(_SITE3)]
 
 
 def _to_rot(g):
-    if g.geom_type == "MultiPolygon":
-        return unary_union([_to_rot(p) for p in g.geoms])
-    return Polygon(R3(np.array(g.exterior.coords)))
+    if g.geom_type in ("MultiPolygon", "GeometryCollection"):
+        return unary_union([_to_rot(p) for p in g.geoms if p.geom_type == "Polygon"])
+    return Polygon(R3(np.array(g.exterior.coords)), [R3(np.array(r.coords)) for r in g.interiors])
 
 
-draw_shape(ax, _to_rot(IDEAL_ROAD), xf, fc="#F2F2F2", ec="#BDBDBD", lw=0.15, z=0)
-draw_shape(ax, _to_rot(IDEAL_UNIV), xf, fc="#EEF0EA", ec="#A9AFA0", lw=0.15, z=0.4, ls=(0, (3, 2)))
-draw_shape(ax, _to_rot(IDEAL_HOUSES), xf, fc="#E6E6E6", ec="#9A9A9A", lw=0.18, z=0.5)
+draw_shape(ax, Polygon([(-90.0, -10.5), (-18.0, -9.5), (-18.0, -3.2), (QX1 + 20, -3.2), (QX1 + 20, -60.0), (-90.0, -60.0)]), xf, fc="#E4EEF2", ec="none", z=-0.5)   # 高野川（橋の下まで、回した座標）
+draw_shape(ax, _to_rot(ROADS), xf, fc="#F0F0F0", ec="#BDBDBD", lw=0.15, z=0)
+for _b in BLDS:
+    if not _b.is_empty:
+        draw_shape(ax, _to_rot(_b), xf, fc="#E6E6E6", ec="#9A9A9A", lw=0.18, z=0.5)
 for ln, g in site_items:
     if g is None:
         continue
@@ -743,8 +776,10 @@ _tree = SITE_C["NW"] + 20.0 * _u + (RW_W + 1.5) * _n
 _tq = xf(R3(_tree))[0]
 ax.add_patch(plt.Circle(tuple(_tq), 4.5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.85, zorder=31))
 lab(ax, xf, _tree, "突き出た木：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (-6, 14), ha="right")
-lab(ax, xf, SITE_C["NW"] + 32.0 * _u + 3.0 * _n, "西の道路（公道6 m）", (-4, -6), ha="right")
-lab(ax, xf, SITE_C["NW"] + 40.0 * _u + (RW_W + 6.0) * _n, "向かいの住宅（狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (-4, -14), ha="right")
+lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
+lab(ax, xf, SITE_C["NW"] + 14.0 * _u + (RW_W + 9.0) * _n, "向かいの住宅（北の三軒、狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (-6, 10), ha="right")
+lab(ax, xf, SITE_C["NW"] + 42.0 * _u + (RW_W + 8.0) * _n, "その南はアパートと駐車場", (-4, -6), ha="right")
+lab(ax, xf, SITE_C["S"] + 8.0 * _eS + 8.0 * _oS, "二本の橋（車・人）", (22, 4), ha="left")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
 lab(ax, xf, _nwmid + 4.0 * _out, "北の道の向こうは京都工芸繊維大学", (-40, -14), ha="right")
