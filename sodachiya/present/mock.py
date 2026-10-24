@@ -183,16 +183,15 @@ C_KIDS = {"53_": "#E6EFC2", "54_": "#C5DE9A", "59_1F_3歳": "#9FCB84", "59_1F_4�
 C_SHARE = "#F6E3A4"            # こどものみんなの場所（遊ぶ・食べる）：遊戯室・はれのま（食べる土間）
 C_WAY = "#E9DFCF"              # 通り・つなぐ場所（はだし）：ホール・東の帯（キッチンの前）・西の吹き抜け・内縁側・2階のホール
 C_WAY_SHOE = "#D8CCB8"         # 同じ色相の土足の所：外縁側・海峡・受け取り土間
-C_ADULT = "#D9D3EC"            # 大人の場所（一つの色相、明るさだけ変える）
-C_ADULT_LT = "#E6E2F3"         #   医務・静養室（＋赤十字）・園長室
+C_ADULT = "#D9D3EC"            # 大人の場所（キッチン以外は一色、階段・機械室も、ユーザー）
 C_ADULT_DK = "#C9C1E3"         #   キッチン・調理の更衣（園の中心なので少し濃く）
 C_WATER = "#D5EBEE"            # 水まわり（こどもの便所・多目的便所）
 ROOM = dict(C_KIDS, **{
     "31_": C_SHARE, "34_": C_SHARE,
-    "59_1F_ホール": C_WAY, "33_": C_WAY, "56_": C_WAY, "59_1F_西吹き抜け": C_WAY, "13_": C_WAY, "12_": C_WAY, "41_": C_WAY, "36_": C_WAY,
+    "59_1F_ホール": C_WAY, "33_": C_WAY, "56_": C_WAY, "59_1F_西吹き抜け": C_WAY, "13_": C_WAY, "12_": C_WAY, "41_": C_WAY, "36_": C_ADULT,
     "14_": C_WAY_SHOE, "15_": C_WAY_SHOE, "52_": C_WAY_SHOE,
-    "59_1F_事務": C_ADULT, "43_": C_ADULT, "43b_": C_ADULT, "44_": C_ADULT, "45_": C_ADULT, "42_": C_ADULT, "59_1F_便所（職員）": C_ADULT, "35_": "#DCD9E3",
-    "59_1F_医務": C_ADULT_LT, "59_1F_静養室": C_ADULT_LT, "59_1F_園長室": C_ADULT_LT,
+    "59_1F_事務": C_ADULT, "43_": C_ADULT, "43b_": C_ADULT, "44_": C_ADULT, "45_": C_ADULT, "42_": C_ADULT, "59_1F_便所（職員）": C_ADULT, "35_": C_ADULT,
+    "59_1F_医務": C_ADULT, "59_1F_静養室": C_ADULT, "59_1F_園長室": C_ADULT,
     "32_": C_ADULT_DK, "57_": C_ADULT_DK,
     "59_1F_便所・倉庫": C_WATER, "59_1F_多目的便所": C_WATER, "59_1F_便所": C_WATER,
 })
@@ -435,13 +434,18 @@ def draw_plan(ax, ox, oy, scale, x0, y0, wbox, hbox, keyhi=None, thin=False):
     draw_shape(ax, roofs_plan, xf, ec="#999999", lw=0.15, ls=(0, (4, 2)), z=6)
     base = ("12_", "13_", "14_", "15_", "56_", "59_1F_西吹き抜け", "33_")
     order = sorted(plan_items, key=lambda it: 0 if it[0].startswith(base) else 1)
+    # 同じ色の床はまとめて一つに塗る（ホールと通りのあいだに継ぎ目の線を出さない、ユーザー）
+    _grp = {}
     for ln, kind, g in order:
         c = room_color(ln)
-        if c:
+        if c and g is not None:
             fc = c
             if keyhi is not None:
                 fc = c if ln.startswith(tuple(keyhi)) else "#F1F1F1"
-            draw_shape(ax, g, xf, fc=fc, ec="none", lw=0, z=1)
+            lay = 0 if ln.startswith(base) else 1
+            _grp.setdefault((lay, fc), []).append(g.buffer(0.02))
+    for (lay, fc), gs in sorted(_grp.items(), key=lambda kv: kv[0][0]):
+        draw_shape(ax, unary_union(gs), xf, fc=fc, ec=fc, lw=0.15, z=1 + 0.01 * lay)
     for ln, kind, g in plan_items:
         if room_color(ln):
             continue
