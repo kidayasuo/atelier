@@ -755,6 +755,21 @@ def _face_road(b):
 
 
 _P_BLD = [_face_road(b) if any(b is x for x in _front) else b for b in _P_BLD]
+# 三軒は突き出た木（西の折れ目と北の交差点の中ほど＝住宅とアパートの境）から北に並ぶ（ユーザー、10-24）
+TREE_A = 0.5 * _LW
+_f2 = [b for b in _P_BLD if -6.0 < _ab(b)[0] < 34.0 and RW_W < _ab(b)[1] < RW_W + 16.0]
+_f2.sort(key=lambda b: _ab(b)[0])
+_f2 = _f2[:3]
+if _f2:
+    _a0 = min(min((np.array(p_) - SITE_C["NW"]) @ _eW for p_ in b.exterior.coords) for b in _f2)
+    _a1 = max(max((np.array(p_) - SITE_C["NW"]) @ _eW for p_ in b.exterior.coords) for b in _f2)
+    _k = (TREE_A - 0.8 - 0.5) / (_a1 - _a0)
+    _moved = []
+    for b in _f2:
+        ca = _ab(b)[0]
+        _moved.append((b, affinity.translate(b, *((0.5 + (ca - _a0) * _k - (ca - _a0) - (_a0 - 0.0)) * _eW))))
+    _P_BLD = [next((m for o, m in _moved if o is b), b) for b in _P_BLD]
+    print(f"三軒：{_a0:.1f}〜{_a1:.1f} m → 0.5〜{TREE_A - 0.8:.1f} m（木はNWから{TREE_A:.1f} m）")
 _front = []
 BLDS = [b.buffer(0).difference(ROADS) for b in _P_BLD if not b.buffer(0).intersects(_SITE3)]
 print(f"向かいの街区を道へ{_gap:.1f} m寄せ、前の列の家を道に向けた")
@@ -805,13 +820,13 @@ _u = (SITE_C["SW"] - SITE_C["NW"]) / np.linalg.norm(SITE_C["SW"] - SITE_C["NW"])
 _n = np.array([-_u[1], _u[0]])
 if _n @ (SITE_C["NW"] - SITE_C["E"]) < 0:
     _n = -_n                                                                  # 敷地の外（西）へ向く
-_tree = SITE_C["NW"] + 20.0 * _u + (RW_W + 1.5) * _n
+_tree = SITE_C["NW"] + TREE_A * _u + (RW_W + 1.0) * _n
 _tq = xf(R3(_tree))[0]
 ax.add_patch(plt.Circle(tuple(_tq), 4.5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.85, zorder=31))
-lab(ax, xf, _tree, "突き出た木：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (-6, 14), ha="right")
+lab(ax, xf, _tree, "突き出た木（住宅とアパートの境、西の折れ目と\n北の交差点の中ほど）：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (sx + 3 - _tq[0], -14), ha="left")
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
-_hq = SITE_C["NW"] + 26.0 * _u + (RW_W + 4.0) * _n
-lab(ax, xf, _hq, "向かいの住宅（北の三軒、道に沿って建つ。\n狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (sx + 3 - xf(R3(_hq))[0][0], -22), ha="left")
+_hq = SITE_C["NW"] + 13.0 * _u + (RW_W + 4.0) * _n
+lab(ax, xf, _hq, "向かいの住宅（木から北の三軒、道に沿って建つ。\n狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (sx + 3 - xf(R3(_hq))[0][0], 14), ha="left")
 lab(ax, xf, R3inv([-24.5, -8.0])[0], "二本の橋（車・人）へ", (14, 6), ha="left")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
