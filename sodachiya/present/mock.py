@@ -646,8 +646,8 @@ for i, (h1, s1) in enumerate([
     box(ax, rx + (i + 1) * (cw + 5), cy, cw, ch, h1, "小さな図＋\n" + s1, fill="#FAF8FF")
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
-VX0, VX1, VY0, VY1 = -39.0, QX1 + 2.0, -20.0, QY1 + 2.0
-sx, sy = M + 6, M + 8
+VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -10.0, QY1 + 2.0   # 川と橋は端だけ（ユーザー）
+sx, sy = M + 6, M + 8 + 50.0                                    # 下の50 mmは縮尺と注
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
 xf = xform(sx, sy, 200, VX0, VY0)
@@ -734,8 +734,30 @@ _blk = [b for b in _P_BLD if -6.0 < _ab(b)[0] < 34.0 and RW_W < _ab(b)[1] < 45.0
 _front = [b for b in _blk if _ab(b)[1] < 22.0]
 _gap = min(min((np.array(p_) - SITE_C["NW"]) @ _oW for p_ in b.exterior.coords) for b in _front) - (RW_W + 0.8) if _front else 0.0
 _P_BLD = [affinity.translate(b, *(-_gap * _oW)) if any(b is x for x in _blk) else b for b in _P_BLD]
+_front = [b for b in _P_BLD if -6.0 < _ab(b)[0] < 34.0 and RW_W < _ab(b)[1] < RW_W + 16.0]
+_angW = np.degrees(np.arctan2(_eW[1], _eW[0]))
+
+
+def _face_road(b):
+    """前の列の家：いちばん道に近い辺を道と平行に回し、道の端から0.5 mに寄せる"""
+    r = b.minimum_rotated_rectangle
+    cs = np.array(r.exterior.coords)[:4]
+    best = None
+    for i in range(4):
+        d = cs[(i + 1) % 4] - cs[i]
+        ang = np.degrees(np.arctan2(d[1], d[0]))
+        diff = (_angW - ang + 90) % 180 - 90
+        if best is None or abs(diff) < abs(best):
+            best = diff
+    b2 = affinity.rotate(b, best, origin="centroid")
+    bmin = min((np.array(p_) - SITE_C["NW"]) @ _oW for p_ in b2.exterior.coords)
+    return affinity.translate(b2, *(-(bmin - (RW_W + 0.5)) * _oW))
+
+
+_P_BLD = [_face_road(b) if any(b is x for x in _front) else b for b in _P_BLD]
+_front = []
 BLDS = [b.buffer(0).difference(ROADS) for b in _P_BLD if not b.buffer(0).intersects(_SITE3)]
-print(f"向かいの家を道へ{_gap:.1f} m寄せた（{len(_front)}軒、街区{len(_blk)}棟）")
+print(f"向かいの街区を道へ{_gap:.1f} m寄せ、前の列の家を道に向けた")
 
 
 def _to_rot(g):
@@ -788,18 +810,19 @@ _tq = xf(R3(_tree))[0]
 ax.add_patch(plt.Circle(tuple(_tq), 4.5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.85, zorder=31))
 lab(ax, xf, _tree, "突き出た木：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (-6, 14), ha="right")
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
-lab(ax, xf, SITE_C["NW"] + 14.0 * _u + (RW_W + 9.0) * _n, "向かいの住宅（北の三軒、狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (-6, 10), ha="right")
-lab(ax, xf, SITE_C["S"] + 8.0 * _eS + 8.0 * _oS, "二本の橋（車・人）", (22, 4), ha="left")
+_hq = SITE_C["NW"] + 26.0 * _u + (RW_W + 4.0) * _n
+lab(ax, xf, _hq, "向かいの住宅（北の三軒、道に沿って建つ。\n狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (sx + 3 - xf(R3(_hq))[0][0], -22), ha="left")
+lab(ax, xf, R3inv([-24.5, -8.0])[0], "二本の橋（車・人）へ", (14, 6), ha="left")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
 lab(ax, xf, _nwmid + 4.0 * _out, "北の道の向こうは京都工芸繊維大学", (-40, -14), ha="right")
-lab(ax, xf, (SITE_C["S"] + SITE_C["E"]) / 2 + np.array([12.0, -12.0]), "高野川", (0, 0), size=3.4, color="#2F6FA0", bold=True)
+lab(ax, xf, R3inv([14.0, -8.0])[0], "高野川", (0, 0), size=3.4, color="#2F6FA0", bold=True)
 lab(ax, xf, np.array(gc.PARK.centroid.coords[0]), "小竹薮公園（残す）", (-4, -10), ha="right")
 _nx, _ny = sx + 14, sy + sh - 20
 ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
 T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
-scalebar(ax, sx + 6, sy + 6, 200, 20)
-T(ax, sx + 6, sy + 16, "災害時は地下水をくみ上げて、近隣に水を届ける", 2.8)
+scalebar(ax, sx + 6, sy - 16, 200, 20)
+T(ax, sx + 6, sy - 6, "災害時は地下水をくみ上げて、近隣に水を届ける", 2.8)
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
 # 園庭の筋（配置図の右、上から下へ）
@@ -813,7 +836,7 @@ gcells = [
     ("土と世代のめぐり", "野菜くず→コンポスト\n→菜園→給食、余りは農家へ\n柳の家を上の子が編む"),
     ("静かな場所と先生の目", "しずかのもり、ニッチ11か所\n死角は植え込みだけ\n取り除くのは命の危険だけ"),
 ]
-gch = (gtop - 6 - sy - 3 * 5) / 4
+gch = (gtop - 6 - (M + 8) - 3 * 5) / 4
 for i, (h1, s1) in enumerate(gcells):
     cyy = gtop - 6 - (i + 1) * gch - i * 5
     box(ax, gx, cyy, gwid, gch, h1, "小さな図＋\n" + s1, fill="#F5FAF0", color="#4E8A3A")
@@ -829,7 +852,7 @@ for k_, s_ in enumerate(["配置図の注", "・駐車5台・搬入は南（川�
                          "・セキュリティの線の出入口は公園の木戸だけ",
                          "・園庭への搬入は公園の東の縁から川沿いの帯を通って",
                          "・敷地の境から：北東の隣家1 m（厳守）、ほかは1 m"]):
-    T(ax, px, _ny0 - k_ * 5.2, s_, 2.6 if k_ else 3.0, bold=(k_ == 0))
+    T(ax, sx + 150, sy - 6 - k_ * 5.2, s_, 2.6 if k_ else 3.0, bold=(k_ == 0))   # 配置図の下の余白に
 figs.append(fig)
 
 # ================================================================ 2　すべての人の一日（1階平面）
