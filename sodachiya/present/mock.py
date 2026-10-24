@@ -782,10 +782,26 @@ def _to_rot(g):
 
 
 draw_shape(ax, Polygon([(-90.0, -10.5), (-18.0, -9.5), (-18.0, -3.2), (QX1 + 20, -3.2), (QX1 + 20, -60.0), (-90.0, -60.0)]), xf, fc="#E4EEF2", ec="none", z=-0.5)   # 高野川（橋の下まで、回した座標）
-draw_shape(ax, _to_rot(ROADS), xf, fc="#F0F0F0", ec="#BDBDBD", lw=0.15, z=0)
-for _b in BLDS:
-    if not _b.is_empty:
-        draw_shape(ax, _to_rot(_b), xf, fc="#E6E6E6", ec="#9A9A9A", lw=0.18, z=0.5)
+# 周りの道・区画・用水路・川は課題の敷地図をなぞった線（ユーザー、10-24：不正確だが敷地にぴったり、北の用水路が波線）。
+# なぞり方は tools/trace_kadai_map.py（文字・方位・寸法・敷地の一点鎖線を抜き、敷地の5つの角でアフィン変換、角のずれ0.2 m以下）。
+# 上のPLATEAUの道と家（ROADS・BLDS）は配置図には描かない（1/2000の小さな地図はPLATEAUのまま）
+KMAP = json.load(open(os.path.join(HERE, "kadai_map.json"), encoding="utf-8"))
+_eR = (SITE_C["S"] - SITE_C["E"]) / np.linalg.norm(SITE_C["S"] - SITE_C["E"])
+_oR = np.array([-_eR[1], _eR[0]])
+if _oR @ (SITE_C["E"] - SITE_C["NW"]) < 0:
+    _oR = -_oR                                                                  # 川の側へ
+for _ln in KMAP["lines"]:
+    _L = np.array(_ln)
+    _len = np.sum(np.linalg.norm(np.diff(_L, axis=0), axis=1))
+    _Ls = np.array(LineString(_L).simplify(0.35).coords)
+    _d = np.diff(_Ls, axis=0)
+    _tn = _d[:-1, 0] * _d[1:, 1] - _d[:-1, 1] * _d[1:, 0]
+    _sg = np.sign(_tn[np.abs(_tn) > 1e-4])
+    _c = _L.mean(0)
+    _zone = ((_c - SITE_C["E"]) @ _oR > 2.0) or ((_c - SITE_C["NW"]) @ _oN > 4.0)   # 川の側か、北の道の向こう
+    _wavy = _zone and len(_sg) > 2 and np.sum(_sg[1:] != _sg[:-1]) >= 2          # 波線＝水（用水路・川岸）
+    _q = xf(R3(_L))
+    ax.plot(_q[:, 0], _q[:, 1], color="#4F8DBF" if _wavy else "#505050", lw=0.35 if _wavy else 0.3, zorder=1, solid_capstyle="round")
 for ln, g in site_items:
     if g is None:
         continue
