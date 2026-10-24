@@ -163,12 +163,26 @@ def poche(segs2d):
             if np.hypot(*(a_[0] - b_[0])) > np.hypot(*(a_[0] - b_[-1])): b_ = b_[::-1]
             P = Polygon(np.vstack([a_, b_[::-1]])).buffer(0)
             if P.area > 0 and P.area < 1000 * max(gs[0].length, gs[1].length): return P
-        return None
+        return _close_open(merged)
     # 入れ子（穴）は偶奇で
     polys.sort(key=lambda p: -p.area); out = None
     for p in polys:
         out = p if out is None else out.symmetric_difference(p)
+    # 輪にならずに残った線（一つの物にまとめた外壁は、継ぎ目で小口が抜けて閉じない所がある、10-24）
+    rest = merged.difference(unary_union([q.boundary for q in polys]).buffer(1))
+    extra = _close_open(rest) if not rest.is_empty and rest.length > 500 else None
+    if extra is not None and not extra.is_empty: out = out.union(extra)
     return out
+
+CLOSE_W = 80   # 閉じていない切り口：向かい合う2本の線（あき 160 以下＝壁・板の厚さ）のあいだを埋める
+def _close_open(lines):
+    try:
+        lm_ = linemerge(lines) if lines.geom_type == 'MultiLineString' else lines
+        g = lm_.buffer(CLOSE_W, cap_style=1, join_style=1).buffer(-CLOSE_W, join_style=1)
+    except Exception:
+        return None
+    g = unary_union([q for q in getattr(g, 'geoms', [g]) if q.geom_type == 'Polygon' and q.area > 2e4])
+    return None if g.is_empty else g
 
 def silhouette(T2):
     ps = [Polygon(t) for t in T2]
@@ -442,6 +456,7 @@ def plan(A, zcut, objs, overhead, level_z):
     for ob in objs:
         if ROOM_LAYERS(ob['layer']): continue
         if ob['layer'].startswith('19d') and '開き戸' in ob.get('name', ''): swings.append(ob); continue   # 開き戸は開いた形と弧で（下）
+        if num(ob['layer']) in (10, 20): continue                                            # 屋根（光の筋・太陽光も）は上部の外形だけ（2階では軒が切断の高さより低い所がある）
         if num(ob['layer']) == 25: stairs.append(ob); continue                                                   # 階段は踏面の線と矢印で（下）
         z = ob['T'][:, :, 2]
         if num(ob['layer']) == 94 and z.max() > zcut: overhead.append(ob); continue   # 園庭の木：樹冠を破線で
@@ -713,7 +728,9 @@ def make_plans():
     A2 = S.axes(max(15, gx0) + (wx0 - x0) / 100, gy, (wx0, wx1, wy0, wy1)); A2.phi = PHI
     o2 = [ob for ob in OBJ if not ob['layer'].startswith('47') and num(ob['layer']) not in (90, 94, 98)]
     def inside(ob):
-        q = rot_pts(ob['T'].reshape(-1, 3)); return (q.min(0) > [wx0, wy0]).all() and (q.max(0) < [wx1, wy1]).all()
+        q = rot_pts(ob['T'].reshape(-1, 3))
+        if num(ob['layer']) == 21: return True        # 西館の外壁は一つの物にまとめてある（10-24）
+        return (q.min(0) > [wx0, wy0]).all() and (q.max(0) < [wx1, wy1]).all()
     o2 = [ob for ob in o2 if inside(ob)]
     o2 = [ob for ob in o2 if ob['T'][:, :, 2].max() > 3000 or num(ob['layer']) in (21, 22, 25)]
     plan(A2, 3250 + 1200, o2, [ob for ob in OBJ if num(ob['layer']) == 20], 3250)

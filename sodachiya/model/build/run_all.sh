@@ -58,9 +58,9 @@ stage 7f 優先順位で削る         python3 clip_parts.py $OUT/s7e.3dm $OUT/s
 stage 8 護岸と園庭の取り込み    python3 add_site.py $OUT/s7f.3dm $OUT/s8.3dm $M/sodachiya_garden_layers.3dm > $OUT/log_8.txt
 stage 9 周辺                    python3 add_context.py $OUT/s8.3dm $DM/sodachiya_exact_mesh.3dm $A/data/context_plateau.json > $OUT/log_9.txt
 stage 10 Rhino版               python3 clean_wire.py $DM/sodachiya_exact_mesh.3dm $DA/sodachiya.3dm > $OUT/log_10.txt
-stage 12 面積表                 python3 areas.py $DM/sodachiya_exact_mesh.3dm $A/data $DM/drawings $DA/drawings | tee $OUT/log_12.txt | head -1
+stage 12 面積表                 python3 areas.py $DM/sodachiya_exact_mesh.3dm $A/data $DM/drawings $DA/drawings > $OUT/log_12.txt; head -1 $OUT/log_12.txt >&3
 stage 11 図（平面・断面・立面、部屋の面積は面積表から）  python3 draw100.py $DM/sodachiya_exact_mesh.3dm $DM/drawings $DA/drawings > $OUT/log_11.txt
-stage 13 干渉の一覧             python3 clash.py $DM/sodachiya_exact_mesh.3dm $DM/drawings/sodachiya_clash.json $DM/drawings/sodachiya_clash.txt 2>/dev/null | head -1
+stage 13 干渉の一覧             python3 clash.py $DM/sodachiya_exact_mesh.3dm $DM/drawings/sodachiya_clash.json $DM/drawings/sodachiya_clash.txt > $OUT/log_13.txt; head -1 $OUT/log_13.txt >&3
 grep -h "imported\|play:\|join_walls:\|walls_spec: {\|add_inner\|clip_parts:\|context:\|written /" $OUT/log_5.txt $OUT/log_7p.txt $OUT/log_7c2.txt $OUT/log_7c3.txt $OUT/log_7d.txt $OUT/log_7e.txt $OUT/log_7f.txt $OUT/log_9.txt $OUT/log_10.txt 2>/dev/null | tail -7
 if [ $TRACE = 1 ]; then python3 $B/reads.py collect $OUT $A
   if [ $PUBLISH = 1 ]; then python3 $B/reads.py table $OUT $A $B/stages.md >&3; else python3 $B/reads.py table $OUT $A $OUT/stages.md >&3; fi; fi
