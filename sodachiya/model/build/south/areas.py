@@ -46,22 +46,36 @@ for o in m.Objects:
 A0 = {k: unary_union(v) for k, v in FP.items()}          # 床の板そのもの
 # 壁（上から見た形）：外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38
 # 壁は、その階の人のいる高さ（床から 2.4 m まで）にあるものだけ（2 階の間仕切りや、すき間の蓋より上の外壁が 1 階の部屋を削らないように）
-WL = []           # (上から見た形, 下端, 上端, 外壁か)
+WL = []           # (三角形の網, 下端, 上端, 外壁か)
+import trimesh
 for o in m.Objects:
     ln = LAY[o.Attributes.LayerIndex].Name
     if not re.match(r'^(17|21|24|38)_', ln): continue
     b = o.Geometry.GetBoundingBox()
     if ln.startswith('38_') and b.Max.Z - b.Min.Z < 2000: continue
     T = tris(o.Geometry)
-    if len(T): WL.append((footprint(T), b.Min.Z, b.Max.Z, bool(re.match(r'^(17|21)_', ln))))
+    if len(T): WL.append((trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3), process=True), b.Min.Z, b.Max.Z, bool(re.match(r'^(17|21)_', ln))))
 BAND = 2400
+def section_xy(t, z):
+    """高さ z で水平に切った形（上から見た形）。外壁は一つの立体にまとめてあるので、物の上端・下端ではなく切り口で測る（設計監修、10-24）"""
+    try:
+        sec = t.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
+        if sec is None: return Polygon()
+        P, _ = sec.to_planar(to_2D=np.eye(4), check=False)
+        return unary_union([pg.buffer(0) for pg in P.polygons_full])
+    except Exception:
+        return Polygon()
 _WC = {}
 def walls_at(zf):
-    """床の高さ zf の階の壁：(外壁, 間仕切り, 全部)"""
+    """床の高さ zf の階の壁：(外壁, 間仕切り, 全部)。床から 0.3・1.2・2.2 m の高さで切った形の和（窓の所も壁として数える）"""
     k = round(zf / 500)
     if k not in _WC:
-        sel = [w for w in WL if w[1] < zf + BAND and w[2] > zf + 100]
-        we = unary_union([w[0] for w in sel if w[3]]); wi = unary_union([w[0] for w in sel if not w[3]])
+        we, wi = [], []
+        for t, z0, z1, ext in WL:
+            if not (z0 < zf + BAND and z1 > zf + 100): continue
+            g = unary_union([section_xy(t, zf + dz) for dz in (300, 1200, 2200) if z0 < zf + dz < z1])
+            if not g.is_empty: (we if ext else wi).append(g)
+        we = unary_union(we); wi = unary_union(wi)
         _WC[k] = (we, wi, unary_union([we, wi]))
     return _WC[k]
 NEAR = 250        # 部屋に接する壁を拾う幅（mm、いちばん厚い壁より広く）

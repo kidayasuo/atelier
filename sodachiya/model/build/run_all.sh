@@ -30,10 +30,12 @@ log 2階の間仕切り;          python3 add_inner.py walls $OUT/s7c.3dm $OUT/s
 log 間仕切りの構法;          python3 walls_spec.py $OUT/s7c2.3dm $OUT/s7c3.3dm > $OUT/log_7c3.txt
 log 壁の端をそろえる;        python3 join_walls.py $OUT/s7c3.3dm $OUT/s7d.3dm > $OUT/log_7d.txt
 log 室内の戸;                python3 add_inner.py doors $OUT/s7d.3dm $OUT/s7e.3dm > $OUT/log_7e.txt
-log 護岸と園庭の取り込み;    python3 add_site.py $OUT/s7e.3dm $OUT/s8.3dm $M/sodachiya_garden_layers.3dm > $OUT/log_8.txt
+log 優先順位で削る;          python3 clip_parts.py $OUT/s7e.3dm $OUT/s7f.3dm $A/data/wnew.pkl $OUT/clip.json > $OUT/log_7f.txt 2>&1
+log 護岸と園庭の取り込み;    python3 add_site.py $OUT/s7f.3dm $OUT/s8.3dm $M/sodachiya_garden_layers.3dm > $OUT/log_8.txt
 log 周辺;                    python3 add_context.py $OUT/s8.3dm $M/sodachiya_exact_mesh.3dm $A/data/context_plateau.json > $OUT/log_9.txt
 log Rhino 版;                python3 clean_wire.py $M/sodachiya_exact_mesh.3dm $M/sodachiya_exact.3dm > $OUT/log_10.txt
 log 面積表;                  python3 areas.py $M/sodachiya_exact_mesh.3dm $A/data $M/drawings | tee $OUT/log_12.txt | head -1
 log 図（平面・断面・立面、部屋の面積は面積表から）;  python3 draw100.py $M/sodachiya_exact_mesh.3dm $M/drawings > $OUT/log_11.txt
-grep -h "imported\|play:\|join_walls:\|walls_spec: {\|add_inner\|context:\|written /" $OUT/log_5.txt $OUT/log_7p.txt $OUT/log_7c2.txt $OUT/log_7c3.txt $OUT/log_7d.txt $OUT/log_7e.txt $OUT/log_9.txt $OUT/log_10.txt 2>/dev/null | tail -6
-echo "done: model/sodachiya_exact_mesh.3dm・sodachiya_exact.3dm・drawings/（平面・断面・立面 1・2・面積表）"
+log 干渉の一覧;              python3 clash.py $M/sodachiya_exact_mesh.3dm $M/drawings/sodachiya_clash.json $M/drawings/sodachiya_clash.txt 2>/dev/null | head -1
+grep -h "imported\|play:\|join_walls:\|walls_spec: {\|add_inner\|clip_parts:\|context:\|written /" $OUT/log_5.txt $OUT/log_7p.txt $OUT/log_7c2.txt $OUT/log_7c3.txt $OUT/log_7d.txt $OUT/log_7e.txt $OUT/log_7f.txt $OUT/log_9.txt $OUT/log_10.txt 2>/dev/null | tail -7
+echo "done: model/sodachiya_exact_mesh.3dm・sodachiya_exact.3dm・drawings/（平面・断面・立面 1・2・面積表・干渉の一覧）"
