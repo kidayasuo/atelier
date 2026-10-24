@@ -13,6 +13,7 @@ set -eE
 PUBLISH=0; ARGS=()
 for a in "$@"; do if [ "$a" = --publish ]; then PUBLISH=1; else ARGS+=("$a"); fi; done
 A=$(cd "$(dirname "$0")/../.." && pwd); M=$A/model; T=/tmp/claude-0/t; B=$A/model/build
+export SODACHIYA_ROOT=$A                           # draw100.py が present/kadai_map.json・data/garden.json を読む（3枚目の平面図、10-25）
 OUT=${ARGS[0]:-/tmp/claude-0/out}; FROM=${ARGS[1]:-base}
 mkdir -p "$OUT"
 if [ $PUBLISH = 1 ]; then DM=$M; DA=$A; else DM=$OUT/preview/model; DA=$OUT/preview; fi

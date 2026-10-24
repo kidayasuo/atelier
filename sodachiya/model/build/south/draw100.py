@@ -263,7 +263,7 @@ STAMP = git_stamp()
 
 class Sheet:
     """用紙（mm）。DXF は用紙の 100 倍＝1/100 の図を 1:1 の mm で置く（Rhino で 1/100 のレイアウトにそのまま使える）"""
-    def __init__(s, w, h, title, scale=100):
+    def __init__(s, w, h, title, scale=100, margin=10):
         s.w, s.h, s.k = w, h, scale
         s.fig = plt.figure(figsize=(w * MM, h * MM))
         s.doc = ezdxf.new('R2018', setup=True); s.msp = s.doc.modelspace()
@@ -273,10 +273,14 @@ class Sheet:
         s.doc.styles.add('JP', font='NotoSansCJKjp-Regular.otf')
         k = s.k
         s.msp.add_lwpolyline([(0, 0), (w * k, 0), (w * k, h * k), (0, h * k)], close=True, dxfattribs={'layer': '90_図枠'})
-        s.msp.add_lwpolyline([(10 * k, 10 * k), ((w - 10) * k, 10 * k), ((w - 10) * k, (h - 10) * k), (10 * k, (h - 10) * k)], close=True, dxfattribs={'layer': '90_図枠'})
-        s.fig.patches.append(plt.Rectangle((10 / w, 10 / h), 1 - 20 / w, 1 - 20 / h, transform=s.fig.transFigure, fill=False, lw=LW(0.25), ec='k'))
-        s.text_paper(w - 15, 18, title, 11, ha='right')
-        s.text_paper(w - 15, 13, 'こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　' + STAMP, 6.0, ha='right', color='0.35')
+        m_ = margin
+        s.msp.add_lwpolyline([(m_ * k, m_ * k), ((w - m_) * k, m_ * k), ((w - m_) * k, (h - m_) * k), (m_ * k, (h - m_) * k)], close=True, dxfattribs={'layer': '90_図枠'})
+        s.fig.patches.append(plt.Rectangle((m_ / w, m_ / h), 1 - 2 * m_ / w, 1 - 2 * m_ / h, transform=s.fig.transFigure, fill=False, lw=LW(0.25), ec='k'))
+        if m_ >= 10:
+            s.text_paper(w - 15, 18, title, 11, ha='right')
+            s.text_paper(w - 15, 13, 'こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　' + STAMP, 6.0, ha='right', color='0.35')
+        else:                                          # 余白の狭い枚（3枚目の平面）：表題は図の中に、作図の印は左下に小さく
+            s.text_paper(m_ + 8, m_ + 3, 'こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　' + STAMP, 4.5, color='0.45')
     def text_paper(s, x_mm, y_mm, t, pt, ha='left', va='bottom', color='k', layer='80_図名・縮尺・方位'):
         s.fig.text(x_mm / s.w, y_mm / s.h, t, ha=ha, va=va, fontsize=pt, color=color)
         dxf_text(s.msp, x_mm * s.k, y_mm * s.k, t, pt * PT2MM * s.k, layer, ha, va)
@@ -521,21 +525,29 @@ def draw_visible(A, items, occ):
 
 # ---------------------------------------------------------------- 平面
 ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_', ln))
-# 部屋の色（決定事項（共通）の「色」、ユーザー10-24：0〜5歳は淡いベージュから緑へ）。廊下・縁側・階段は塗らない
-ROOM_COLOR = [('0・1歳', '#EFE3C3'), ('2歳', '#D6D9A6'), ('3歳', '#B5CC8F'), ('4歳', '#92BB7D'), ('5歳', '#6FA96E'),
-              ('便所', '#D5EBEE'), ('医務', '#F7F3EA'), ('静養室', '#F7F3EA'), ('事務', '#E9DCC4'), ('園長室', '#E9DCC4'),
-              ('遊戯室', '#F6E3A4'), ('キッチン', '#F0B98A'), ('受け取り土間', '#F0B98A'), ('食べる土間', '#F7D3B0'), ('はれのま', '#F7D3B0'),
-              ('2F_', '#E3DAF0'), ('ホール', '#E3C08D')]
+# 部屋の色（決定事項（共通）の「色」、プレゼンの準備 renkei/open/20261024-1927-present、ユーザー10-24夜）：
+# こどもの部屋は緑のグラデーション、こどものみんなの場所、通り・つなぐ場所（はだし）とその土足、大人は一つの色相（キッチンは濃く）、水まわり
+KIDS = [('0・1歳', '#E6EFC2'), ('2歳', '#C5DE9A'), ('3歳', '#9FCB84'), ('4歳', '#86BC78'), ('5歳', '#6FA96E')]
+C_ALL, C_STREET, C_DOSOKU, C_ADULT, C_ADULT2, C_WATER = '#F6E3A4', '#E9DFCF', '#D8CCB8', '#D9D3EC', '#C9C1E3', '#D5EBEE'
 def room_color(ln):
-    if re.search(r'西吹き抜け|東の帯|階段|縁側|海峡', ln): return None
-    for k, c in ROOM_COLOR:
+    n = ln.split('_')[0]
+    if n in ('31', '34'): return C_ALL
+    if n in ('33', '56', '41') or re.search(r'1F_(ホール|西吹き抜け|通り抜け)', ln): return C_STREET
+    if n in ('52',): return C_DOSOKU
+    if n in ('32', '57'): return C_ADULT2
+    if re.search(r'便所・倉庫|多目的便所', ln): return C_WATER
+    for k, c in KIDS:
         if k in ln: return c
+    if n in ('36', '35', '42', '43', '43b', '44', '45') or re.search(r'事務|医務|静養室|園長室|応接|便所（職員）', ln): return C_ADULT
     return None
+# 床の板（部屋の層でない）の色：本館の床・内縁側は通りの色（部屋の色がその上に重なる）、外縁側・海峡は土足
+SLAB_COLOR = {'12': C_STREET, '13': C_STREET, '14': C_DOSOKU, '15': C_DOSOKU}
+STREET_NOLINE = ('12', '13')     # ホール・西吹き抜け・内縁側のあいだの線は描かない（こどもには一つの場所、ユーザー）
 
 def room_name(ln):
     s = re.sub(r'^\d+[a-z]?_', '', ln); s = re.sub(r'^(1F|2F)_', '', s); return re.sub(r'（.*?）', '', s)
 
-def plan(A, zcut, objs, overhead, level_z):
+def plan(A, zcut, objs, overhead, level_z, rooms_also=()):
     below, cut, swings, stairs = [], [], [], []
     swings2, hidden, hidden_low, sliders = [], [], [], []
     for ob in objs:
@@ -610,7 +622,7 @@ def plan(A, zcut, objs, overhead, level_z):
         if fp is not None and not fp.is_empty:
             A.lines(centerlines(fp), '13_見えがかり（窓台・隠れた窓）', lw=0.1, ls=(0, (3, 2)), color='0.3', z=6.4)
     below.sort(key=lambda ob: -ob['T'][:, :, 2].max())
-    draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below], occ)
+    draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below if ob['layer'].split('_')[0] not in STREET_NOLINE], occ)
     # 上部：屋根は片をまとめた外形だけ（片の継ぎ目・光の筋・太陽光の線は部屋を横切るので描かない、10-24）、木の樹冠は一本ずつ
     roof_sil = [silhouette(ob['T'][:, :, :2]) for ob in overhead if num(ob['layer']) in (10, 20) and re.match(r'^(10|20)_', ob['layer'])]
     roof_sil = [g.buffer(30) for g in roof_sil if g is not None and not g.is_empty]
@@ -709,7 +721,7 @@ def plan(A, zcut, objs, overhead, level_z):
     BYL = {}                                     # 同じ部屋（レイヤー）の床の板はまとめてから名前を付ける（足した床の帯に別の名前が付かないように）
     for ob in objs:
         if not ROOM_LAYERS(ob['layer']): continue
-        if abs(ob['T'][:, :, 2].max() - level_z) > 1200: continue
+        if abs(ob['T'][:, :, 2].max() - level_z) > 1200 and not ob['layer'].startswith(rooms_also): continue
         sil = silhouette(ob['T'][:, :, :2])
         if sil is not None and not sil.is_empty: BYL.setdefault(ob['layer'], []).append(sil.buffer(5, join_style=2))
     # 面積は面積表（areas.py → sodachiya_areas.json）の数を使う（図と表を必ず一致させる）。表に無いときと、一つのレイヤーに部屋が二つ以上あるときは同じ数え方でここで測る
@@ -722,6 +734,17 @@ def plan(A, zcut, objs, overhead, level_z):
     for ln_, sils in BYL.items():
         fc_ = room_color(ln_)
         if fc_: A.fill(unary_union(sils).buffer(-5, join_style=2), '06_部屋の色', fc=fc_, z=0.8)
+        if '医務' in ln_ and fc_:                    # 赤十字
+            from shapely.ops import polylabel as _pl
+            g_ = unary_union(sils); g_ = max(getattr(g_, 'geoms', [g_]), key=lambda x: x.area); q_ = _pl(g_, 50)
+            cr = unary_union([box(q_.x - 350, q_.y - 110, q_.x + 350, q_.y + 110), box(q_.x - 110, q_.y - 350, q_.x + 110, q_.y + 350)])
+            A.fill(shp_affinity.translate(cr, 0, 900), '06_部屋の色', fc='#D33A3A', z=0.85)
+    if level_z < 1000:                               # 床の板（部屋の層でない）
+        for ob in objs:
+            c_ = SLAB_COLOR.get(ob['layer'].split('_')[0])
+            if not c_: continue
+            sil = silhouette(ob['T'][:, :, :2])
+            if sil is not None and not sil.is_empty: A.fill(sil, '06_部屋の色', fc=c_, z=0.7)
     for ln_, sils in BYL.items():
         ob = {'layer': ln_}
         sil = unary_union(sils).buffer(-5, join_style=2)
@@ -851,50 +874,112 @@ def plan_context(A, ext):
         if n == 4: A.fill(sil, '30_敷地・外構', fc='0.9', z=0.5); A.geom_lines(sil, '30_敷地・外構', lw=0.07, color='0.5', z=0.6)
         else: A.geom_lines(sil, '30_敷地・外構', lw=0.05, color='0.65', z=0.6)
 
+# 3枚目の平面図（プレゼンの準備 renkei/open/20261024-2316-present、ユーザー10-25）：敷地全体 1/100、配置図と同じ向き
+# （高野川を下辺、3dm の xy を VIEW_ROT 回す）。A1 横の一枚、余白 6 mm、敷地の南の角を紙の (203, 9) mm、東の辺を右の余白まで。
+# 道路・隣地は課題の敷地図をなぞった線（present/kadai_map.json、3dm の m）、敷地の境は一点鎖線。
+# 2階（西館）は 3dm の xy で (−22.83, −16.73) m ずらして西の道路の外に。2階で切って下に見える遊戯室（床・遊具・クスノキ）も描く、本館の屋根は描かない。
+SITE_C = {k: np.array(v) * 1000 for k, v in dict(N=(0.0, 0.0), E=(34.86, -43.83), S=(-14.44, -83.04),
+                                                SW=(-21.91, -73.65), NW=(-25.83, -20.54)).items()}
+SHIFT2 = np.array([-22830.0, -16730.0])
+def _root():
+    for p_ in (os.environ.get('SODACHIYA_ROOT', ''), os.path.join(os.path.dirname(os.path.abspath(IN)), '..'),
+               '/home/claude/atelier/sodachiya'):
+        if p_ and os.path.isfile(os.path.join(p_, 'present', 'kadai_map.json')): return p_
+    return None
+def _view_rot():
+    import json
+    try:
+        return math.radians(json.load(open(os.path.join(_root(), 'data', 'garden.json'), encoding='utf-8'))['VIEW_ROT']['deg'])
+    except Exception:
+        return math.radians(-38.5)
+
 def make_plans():
-    """A1 横。建物の軸に合わせて回す（北が右、園庭が下）。上の方位の矢印が本当の北"""
-    W_, H_ = 841, 594
-    S = Sheet(W_, H_, '1 階平面図・西館 2 階平面図　1/100（A1）　建物の軸に合わせて回してある（北は方位の矢印）')
-    objs1 = objs_for_plan(1)
-    allp = rot_pts(np.vstack([ob['T'].reshape(-1, 3) for ob in objs1 if 4 < num(ob['layer']) < 70 or num(ob['layer']) in (0, 1)]))
-    x0, y0 = allp.min(0) - 2000; x1, y1 = allp.max(0) + 2000
-    y0 -= 2500                                     # 東（下）の通り芯の符号と寸法の分
-    gx0 = (W_ - (x1 - x0) / 100) / 2
-    A = S.axes(max(15, gx0), 25, (x0, x1, y0, y1)); A.phi = PHI
+    import json as _j
+    W_, H_, MG = 841, 594, 6
+    S = Sheet(W_, H_, '平面図　1階・2階　1/100（A1）　高野川を下に（配置図と同じ向き、北は方位の矢印）', margin=MG)
+    ph = _view_rot()
+    c_, n_ = math.cos(ph), math.sin(ph)
+    rp = lambda P: np.c_[np.asarray(P)[:, 0] * c_ - np.asarray(P)[:, 1] * n_, np.asarray(P)[:, 0] * n_ + np.asarray(P)[:, 1] * c_]
+    corners = rp(np.array(list(SITE_C.values())))
+    o0 = corners.min(0)
+    x0 = o0[0] - (203 - MG) * 100; y0 = o0[1] - (9 - MG) * 100
+    ext = (x0, x0 + (W_ - 2 * MG) * 100, y0, y0 + (H_ - 2 * MG) * 100)
+    A = S.axes(MG, MG, ext); A.phi = ph
+    # 道路・隣地（課題の敷地図をなぞった線）。2階を置く所（西の道路の向かい、西の辺から 7 m より外）は描かない
+    a_, b_ = SITE_C['SW'], SITE_C['NW']; t_ = (b_ - a_) / np.linalg.norm(b_ - a_); nn_ = np.array([-t_[1], t_[0]])
+    if nn_ @ (SITE_C['E'] - a_) > 0: nn_ = -nn_
+    root = _root()
+    if root:
+        for ln in _j.load(open(os.path.join(root, 'present', 'kadai_map.json'), encoding='utf-8'))['lines']:
+            Q = np.array(ln, float) * 1000
+            if ((Q - a_) @ nn_).mean() > 7000: continue
+            A.lines([Q], '30_敷地・外構', lw=0.13, color='0.35', z=1)
+    site = [P for ln, P in CURVES if ln.startswith('00')]
+    if site:
+        P = max(site, key=len)
+        A.lines([P[:, :2]], '30_敷地・外構', lw=0.25, color='#C03030', ls=(0, (12, 3, 2, 3)), z=8)
     for ln, P in CURVES:
-        if num(ln) in (94, 98): continue
+        if num(ln) in (94, 98) or ln.startswith('00'): continue
         if num(ln) == 91: A.lines([P[:, :2]], '30_敷地・外構', lw=0.05, color='0.7', z=1); continue
         if num(ln) == 92: A.lines([P[:, :2]], '30_敷地・外構', lw=0.13, color='#3d6f9a', z=1); continue
         if num(ln) >= 70 or num(ln) < 2: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.55', z=1)
-    plan_context(A, (x0, x1, y0, y1))
+    objs1 = objs_for_plan(1)
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
     plan(A, 1200, objs1, list(roofs), 0)
-    plan_grid(A); plan_vdims(A); plan_section_marks(A)
-    # 縮尺・方位（紙の上の座標＝回した後の座標で）
+    plan_grid(A); plan_section_marks(A)
+    # 2階：西の道路の外へ、同じ向きで（ずらした物で描く）
+    WB = [ob for ob in OBJ if num(ob['layer']) in (21, 23)]
+    wp = np.vstack([ob['T'].reshape(-1, 3) for ob in WB])[:, :2]
+    wx0, wy0 = wp.min(0) - 800; wx1, wy1 = wp.max(0) + 800
+    def west(ob):
+        q = ob['T'].reshape(-1, 3)[:, :2]
+        if num(ob['layer']) == 21: return True
+        return (q.min(0) > [wx0, wy0]).all() and (q.max(0) < [wx1, wy1]).all()
+    PLAY = unary_union([silhouette(ob['T'][:, :, :2]) for ob in OBJ if ob['layer'].startswith('31_')])
+    o2 = []
+    for ob in OBJ:
+        n = num(ob['layer'])
+        if ob['layer'].startswith('47') or n in (90, 94, 98) or n < 20 or n in (50, 51) or n >= 60 and n < 80 or n > 89 and n < 100: continue
+        if not west(ob): continue
+        z = ob['T'][:, :, 2]
+        upper = z.max() > 3000 or n in (21, 22, 25)
+        if not upper:                                  # 1階の物は遊戯室（吹き抜けから見下ろす）の中だけ
+            sil = silhouette(ob['T'][:, :, :2])
+            if sil is None or not sil.intersects(PLAY) or sil.intersection(PLAY).area < 0.5 * sil.area: continue
+        o2.append(ob)
+    sh3 = np.array([SHIFT2[0], SHIFT2[1], 0.0])
+    o2s = [dict(ob, T=ob['T'] + sh3) for ob in o2]
+    r2 = [dict(ob, T=ob['T'] + sh3) for ob in OBJ if num(ob['layer']) == 20]
+    plan(A, 3250 + 1200, o2s, r2, 3250, rooms_also=('31_',))
+    # 表題・方位・縮尺（紙の座標）
+    def paper(x_mm, y_mm):
+        return ext[0] + (x_mm - MG) * 100, ext[2] + (y_mm - MG) * 100
+    tx, ty = paper(14, H_ - 16)
+    A.text(tx, ty, '平面図　1階　FL+1200 で切断／2階（西館）2FL+1200 で切断　1/100', 11, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    tx, ty = paper(14, H_ - 26)
+    A.text(tx, ty, '高野川を下に（配置図と同じ向き）。2階は西の道路の外に同じ向きで置いた（遊戯室は吹き抜けから見下ろす）。一点鎖線は敷地の境', 6, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    bx, by = paper(14, 40)
     for i in range(5):
-        A.ax.add_patch(plt.Rectangle((x0 + 2000 + i * 1000, y0 + 1000), 1000, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1), zorder=12))
-    A.text(x0 + 2000, y0 + 1500, '0', 5, '80_図名・縮尺・方位', raw=True); A.text(x0 + 7000, y0 + 1500, '5 m', 5, '80_図名・縮尺・方位', raw=True)
-    nd = np.array([-math.sin(PHI), math.cos(PHI)])      # 本当の北（モデルの +y）を回したもの
-    pd = np.array([-nd[1], nd[0]]); c0 = np.array([x0 + 3500, y1 - 5500])
+        A.ax.add_patch(plt.Rectangle((bx + i * 1000, by), 1000, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1), zorder=12))
+    A.text(bx, by + 500, '0', 5, '80_図名・縮尺・方位', raw=True); A.text(bx + 5000, by + 500, '5 m', 5, '80_図名・縮尺・方位', raw=True)
+    nd = np.array([-math.sin(ph), math.cos(ph)]); pd = np.array([-nd[1], nd[0]])
+    c0 = np.array(paper(24, 175))
     A.lines([[c0 - nd * 1700, c0 + nd * 1700]], '80_図名・縮尺・方位', lw=0.25, raw=True)
     A.lines([[c0 + nd * 1100 + pd * 300, c0 + nd * 1700, c0 + nd * 1100 - pd * 300]], '80_図名・縮尺・方位', lw=0.25, raw=True)
     q = c0 + nd * 2300; A.text(q[0], q[1], 'N', 8, '80_図名・縮尺・方位', raw=True)
-    A.text(x0 + 2000, y1 - 1000, '1 階平面図　FL+1200 で切断　1/100　（右が北の端、下が園庭）', 9, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
-    # 西館 2 階：上の空きに（同じ向き）
-    west = rot_pts(np.vstack([ob['T'].reshape(-1, 3) for ob in OBJ if num(ob['layer']) in (21, 23)]))
-    wx0, wy0 = west.min(0) - 1500; wx1, wy1 = west.max(0) + 1500
-    gy = 25 + (y1 - y0) / 100 + 8
-    if gy + (wy1 - wy0) / 100 > H_ - 25: gy = H_ - 25 - (wy1 - wy0) / 100
-    A2 = S.axes(max(15, gx0) + (wx0 - x0) / 100, gy, (wx0, wx1, wy0, wy1)); A2.phi = PHI
-    o2 = [ob for ob in OBJ if not ob['layer'].startswith('47') and num(ob['layer']) not in (90, 94, 98)]
-    def inside(ob):
-        q = rot_pts(ob['T'].reshape(-1, 3))
-        if num(ob['layer']) == 21: return True        # 西館の外壁は一つの物にまとめてある（10-24）
-        return (q.min(0) > [wx0, wy0]).all() and (q.max(0) < [wx1, wy1]).all()
-    o2 = [ob for ob in o2 if inside(ob)]
-    o2 = [ob for ob in o2 if ob['T'][:, :, 2].max() > 3000 or num(ob['layer']) in (21, 22, 25)]
-    plan(A2, 3250 + 1200, o2, [ob for ob in OBJ if num(ob['layer']) == 20], 3250)
-    A2.text(wx0, wy1, '西館 2 階平面図　2FL+1200 で切断　1/100', 9, '80_図名・縮尺・方位', ha='left', va='bottom', raw=True)
+    # 色の凡例（左下）
+    LEG = [('0・1歳〜5歳', None), ('こどものみんなの場所（遊戯室・はれのま）', C_ALL), ('通り・つなぐ場所（はだし）', C_STREET), ('土足の床', C_DOSOKU),
+           ('大人の場所', C_ADULT), ('キッチン・調理の更衣', C_ADULT2), ('水まわり', C_WATER)]
+    lx, ly = paper(14, 120)
+    A.text(lx, ly + 900, '部屋の色', 7, '80_図名・縮尺・方位', ha='left', va='bottom', raw=True)
+    for i, (t, c) in enumerate(LEG):
+        yy = ly - i * 900
+        if c is None:
+            for k, (_, kc) in enumerate(KIDS):
+                A.ax.add_patch(plt.Rectangle((lx + k * 260, yy), 260, 550, fc=kc, ec='none', zorder=12))
+        else:
+            A.ax.add_patch(plt.Rectangle((lx, yy), 1300, 550, fc=c, ec='none', zorder=12))
+        A.text(lx + 1600, yy + 275, t, 5.5, '80_図名・縮尺・方位', ha='left', va='center', raw=True)
     return S
 
 # ---------------------------------------------------------------- 断面
