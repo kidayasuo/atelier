@@ -1145,6 +1145,12 @@ frame(ax, 4, "こどもたちと働く人たちの環境", "すべての人の�
       "一日の帯と動線 → 透視図（A4）→ 遊戯室 → 園庭の5つ → 園庭・林・洞・断面")
 STRIP_H = 150
 px, py = M + 6, H - M - 16 - 2
+# 一日の帯の小さな配置も配置図と同じ向き（高野川を下辺）に回す（ユーザー、10-25）。帯を描くあいだだけ形を回したものに入れ替える
+_rs = lambda P: np.c_[np.asarray(P)[:, 0] * np.cos(_rr) - np.asarray(P)[:, 1] * np.sin(_rr), np.asarray(P)[:, 0] * np.sin(_rr) + np.asarray(P)[:, 1] * np.cos(_rr)]
+_SAVE = (list(plan_items), dict(GD), roofs_plan)
+plan_items[:] = [(ln_, k_, rot(g_)) for ln_, k_, g_ in plan_items]
+GD.update({k_: ([rot(x_) for x_ in v_] if isinstance(v_, list) else rot(v_)) for k_, v_ in GD.items()})
+roofs_plan = rot(roofs_plan)
 def lcen(prefixes):
     gs = [g for ln, k, g in plan_items if ln.startswith(tuple(prefixes)) and k == "mesh"]
     return np.array(unary_union(gs).centroid.coords[0])
@@ -1153,11 +1159,11 @@ def lcen(prefixes):
 _kit = lcen(["32_"])
 _hall = lcen(["59_1F_ホール"])
 _edge_y = GD["amaochi"].bounds[3] + 0.8
-_path = np.array([_kit, [_kit[0], _hall[1]], [_hall[0], _hall[1]], [_hall[0], _edge_y], [_hc[0], _edge_y], _hc])
+_path = None
 def _c(name):
     """動線の点：部屋のレイヤーの頭か、園庭の名前（GD）か、公園"""
     if name == "park":
-        return np.array(to_s(np.atleast_2d(np.array(gc.PARK.centroid.coords[0])))[0])
+        return _rs(to_s(np.atleast_2d(np.array(gc.PARK.centroid.coords[0]))))[0]
     if name in GD:
         return np.array(GD[name].centroid.coords[0])
     return lcen([name])
@@ -1192,8 +1198,8 @@ fw = (W - 2 * M - 12 - (nf - 1) * 5) / nf
 fh = STRIP_H
 fy = py - 6 - fh
 txt_h = 3 * (3.4 + 2 * 3.3) + 2
-kx0, kx1 = BX0 - 1.5, BX1 + 0.5
-ky0, ky1 = GD["garden"].bounds[1] - 1.0, BY1 + 0.5
+_kb = unary_union([roofs_plan, GD["garden"]]).bounds
+kx0, ky0, kx1, ky1 = _kb[0] - 1.0, _kb[1] - 1.0, _kb[2] + 1.0, _kb[3] + 1.0
 ksc = next(s_ for s_ in (500, 600, 700, 800, 1000)
            if (kx1 - kx0) * 1000 / s_ <= fw - 6 and (ky1 - ky0) * 1000 / s_ <= fh - 10 - txt_h)
 for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
@@ -1218,6 +1224,9 @@ for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
         for k_, ln_ in enumerate(jwrap(s_, (fw - 16) / (2.3 / 0.72))[:2]):
             T(ax, fx + 13, yy - 3.0 - k_ * 3.3, ln_, 2.3)
         yy -= 3.4 + 2 * 3.3
+plan_items[:] = _SAVE[0]
+GD.clear(); GD.update(_SAVE[1])
+roofs_plan = _SAVE[2]
 dimnote(ax, px + 230, py - 4.5, f"一日の帯：上は1/{ksc}の小さな配置（建物＋園庭）と三者の動線（こども緑・保育士茶・調理青）、下にそれぞれの一日")
 
 rt = fy - 10                                   # 中の段の上端
