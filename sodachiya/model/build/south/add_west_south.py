@@ -1,7 +1,7 @@
 """西館の南の部分（2026-10-21 夕の決定、詳細設計チャットの plan05.py に合わせる）
 使い方: python3 add_west_south.py IN.3dm OUT.3dm     （finish.py の後、レイヤー番号は 00〜69 の後）
 - 西館の外壁（21）を厚さ 150 で作り直す：南の面に入口の引き戸 1.8・今日のごはんの窓・キッチンの南のガラス、
-  東の面はホールの範囲（u 21–30）を開け、遊戯室の口①②（u 30.6–32.6、44.1–46.1）
+  東の面はホールの範囲（u 21–30）を開け、遊戯室の口①②（u 30.6–32.6、口②は play.json の north_mouth）
 - すき間の南の端にガラス（入口の脇、v −0.15〜−0.85）
 - 床の板：キッチン u 21–27.25／調理の更衣・便所・前室 u 27.25–29.25（v −3.4〜−6.4）／はれのま（仮、34）残り／
   東の帯 u 22.5–30（すき間を含む、はだし ±0）
@@ -161,15 +161,15 @@ for o in m.Objects:
             if 21 < uu < 30 and -1.2 < vv < -0.4: _lid.append(p.Z)
 ZLID_E = min(_lid) if _lid else 4400.0
 FP_HALL = R(21.15, 30.0, -1.4, -0.5)          # 南の壁の角（u 21–21.15）は残す
-HB_SILL = ZLID_E + 350.0; HB_HEAD = HB_SILL + 1200.0   # 2 階の東の高窓（蓋の上の外壁に横長の窓、はめ殺し）
+HB_SILL = ZLID_E + 350.0; HB_HEAD = HB_SILL + 1200.0   # 東の高窓（蓋の上の外壁に横長の窓、はめ殺し）
+FP_BAND = R(21.15, 50.85, -1.4, -0.5)          # 10-24（ユーザー）：東の面いっぱいの一本の帯（2階・遊戯室とも、遊戯室の東の高窓もこれにまとめた）
 OPEN = [  # (足元の形, 下, 上)  上=None は天端まで
     (R(20.6, 21.4, -2.75, -0.95), 0, 2270),       # 入口の引き戸 1.8
     (R(20.6, 21.4, -4.4, -3.5), 450, 1050),       # 今日のごはんの窓（子どもの高さ）
     (R(20.6, 21.4, -9.6, -4.6), 800, 2270),       # キッチンの南のガラス
     (FP_HALL, 0, ZLID_E),                         # ホールの範囲：東の面はすき間の蓋の下まで開く（ひと続き）。蓋より上は外壁
-    (FP_HALL, HB_SILL, HB_HEAD),                  # その上の 2 階に横長の高窓（本館の屋根越しに東の空）
+    (FP_BAND, HB_SILL, HB_HEAD),                  # その上に東の面いっぱいの横長の高窓（本館の屋根越しに東の空）
     (R(28.5, 29.3, -14.5, -12.3), 0, 2100),       # 調理の職員の外からの戸（西の面）
-    (R(44.1, 46.1, -1.4, -0.5), 0, 2400),         # 遊戯室の口②
 ]
 # ---- 遊戯室の開口（data/play.json、遊戯室のスレッドの寸法）
 import json, os
@@ -182,8 +182,9 @@ def face_v(u):
     return min(uv(p.x, p.y)[1] for p in pts)
 if PJ and os.path.exists(PJ):
     P = json.load(open(PJ, encoding='utf-8'))
+    _nm = P['north_mouth']; OPEN.append((R(_nm['u0'], _nm['u1'], -1.4, -0.5), 0, 2400))   # 遊戯室の口②（10-24：柱 u45・48 のあいだ）
     for a, b in [(36.4, 39.0), (39.6, 41.8), (47.0, 49.6)]:        # 東の壁：覗き窓（キャットウォークの高さ）と東の高窓（同じ柱の間と仮定）
-        for k in ('east_peek', 'east_high'):
+        for k in ('east_peek',) + (() if P['east_high'].get('band') else ('east_high',)):
             fp = R(a, b, -1.4, -0.5); OPEN.append((fp, P[k]['h0'] * 1000, P[k]['h1'] * 1000)); PANES.append((fp, P[k]['h0'] * 1000, P[k]['h1'] * 1000, L_GL))
     nw = P['north_window']                                           # 北の窓辺（読書の庭のモミジを見る）
     fp = R(50.3, 51.8, -0.9 - nw['w1'], -0.9 - nw['w0']); OPEN.append((fp, nw['h0'] * 1000, nw['h1'] * 1000)); PANES.append((fp, nw['h0'] * 1000, nw['h1'] * 1000, L_GL))
@@ -249,14 +250,24 @@ base = wall_ring.difference(unary_union([o[0] for o in OPEN]))
 mesh_prism(base, 0.0, ztop, L_WALL)
 GRP = {}                                         # 同じ足元の開口（覗き窓と高窓など）はまとめて、残る壁を上下に分ける
 for fp, zb, zt in OPEN: GRP.setdefault(id(fp), [fp, []])[1].append((zb, zt))
+# 足元が重なる開口（10-24：東の面いっぱいの高窓の帯と、覗き窓・口②・ホールの範囲）は、重なりで区切ってから開口をまとめる
+cells = []
 for fp, iv in GRP.values():
-    piece = wall_ring.intersection(fp)
-    if piece.is_empty: continue
-    iv = sorted(iv); z = 0.0
+    rest = wall_ring.intersection(fp); nxt = []
+    for g, ivs in cells:
+        a = g.intersection(fp); b = g.difference(fp)
+        if a.area > 100: nxt.append((a, ivs + iv))
+        if b.area > 100: nxt.append((b, ivs))
+        rest = rest.difference(g)
+    if rest.area > 100: nxt.append((rest, list(iv)))
+    cells = nxt
+for piece, iv in cells:
+    iv = sorted(iv, key=lambda t: t[0]); z = 0.0
     for zb, zt in iv:
+        if z is None: break
         if zb > z: mesh_prism(piece, z, const(float(zb)), L_WALL)
         if zt is None: z = None; break
-        z = float(zt)
+        z = max(z, float(zt))
     if z is not None: mesh_prism(piece, z, ztop, L_WALL)
 
 # ガラス・建具（厚さ 30、壁の中ほど）
@@ -267,7 +278,7 @@ pane_u(21.06, -1.90, -0.95, 0, 2270); pane_u(21.10, -2.75, -1.80, 0, 2270)   # �
 pane_u(21.075, -4.4, -3.5, 450, 1050)                                         # 今日のごはんの窓
 pane_u(21.075, -9.6, -4.6, 800, 2270)                                         # キッチンの南のガラス
 # 遊戯室の窓・大戸：壁の厚さの中ほどの薄い板
-PANES.append((FP_HALL, HB_SILL, HB_HEAD, L_GL))
+PANES.append((FP_BAND, HB_SILL, HB_HEAD, L_GL))
 L_WD = layer('19b_西館_外の戸（木、開き戸）', (150, 110, 70))
 PANES.append((R(28.5, 29.3, -14.5, -12.3), 0, 2100, L_WD))     # 調理の職員の外からの戸（開口だけで戸が無かった）
 print('hall face: open to lid', round(ZLID_E), 'high window', round(HB_SILL), round(HB_HEAD))
