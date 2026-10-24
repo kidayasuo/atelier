@@ -95,24 +95,13 @@ def branch(p0, p1, r0, r1, n=6, wob=0.07, depth=0, col='#7A5A3A'):
             q = P_[int((0.5 + 0.3 * k) * (n - 1))]; side = np.cross(d, [0, 0, 1]); side /= (np.linalg.norm(side) + 1e-9)
             tip = q + d * 0.55 + side * 0.45 * (1 if k else -1) + [0, 0, 0.3]
             branch(q, tip, r1 * 0.85 + 0.01, 0.012, 4, 0.03, depth + 1, col)
-base = np.array([st['u'], st['w'], 0.0])
-for k in range(9):
-    a = 2 * math.pi * k / 9; o = np.array([math.cos(a) * 0.06, math.sin(a) * 0.18, 0])
-    seg(base + o, base + o + [0, 0, 1.15], 0.7, '#8A6644' if k % 2 else '#76563A')
-for k in range(7):
-    a = 2 * math.pi * k / 7 + 0.4; d = np.array([math.cos(a), math.sin(a), 0])
-    seg(base + d * 0.3 + [0, 0, 0.3], base + d * 0.9, 0.24, '#76563A')
-for ang, Lb in st['branches']:
-    a = math.radians(ang); d = np.array([math.cos(a), math.sin(a), 0]); tip = base + d * Lb
-    p0 = base + d * 0.3 + [0, 0, 1.0]
-    if tip[0] > cv['u1']:                       # 北の枝：梁の下をくぐって高い側へ（切る面で切れる）
-        mid = base + d * Lb * 0.45 + [0, 0, 1.75]; branch(p0, mid, 0.15, 0.11, 5, 0.04)
-        branch(mid, tip + [0, 0, 3.6], 0.11, 0.06, 5, 0.04)
-    else:
-        mid = base + d * Lb * 0.55 + [0, 0, 2.15]; branch(p0, mid, 0.15, 0.10, 5, 0.05)
-        top = tip + [0, 0, cv['slab'] - 0.02]; branch(mid, top, 0.10, 0.05, 5, 0.05)
-        for j in range(4):                      # 天井に触れる小枝
-            q = top + [rng.normal(0, 0.3), rng.normal(0, 0.3), 0]; seg(top - [0, 0, 0.3], q, 0.035, '#6E5034')
+import sys; sys.path.insert(0, HERE)
+from play_tree import branches                        # 木は骨格から（10-24、本物のライブオークを参考に）
+for k_, (name_, c_, cut_) in enumerate(branches()):
+    col_ = '#8A6644' if name_ in ('幹', '根') else ('#7E5D3E' if k_ % 2 else '#8A6644')
+    for p_, q_ in zip(c_[:-1], c_[1:]):
+        if min(p_[2], q_[2]) < 0.0: continue           # 床の下（根の先）は描かない
+        seg(p_[:3], q_[:3], p_[3] + q_[3], col_)
 def kid(u, w, h=1.05, pose='stand', shirt='#C8714F', pants='#4E5D6C'):
     p = np.array([u, w, 0.0]); hd = h * 0.13
     head = p + [0, 0, h - hd]; neck = p + [0, 0, h - 2 * hd]
@@ -131,7 +120,7 @@ def kid(u, w, h=1.05, pose='stand', shirt='#C8714F', pants='#4E5D6C'):
     c, dd = proj(*head); segs.append((dd - 0.01, 'head', (c, hd / dd * F)))
 kid(st['u'] + 0.55, st['w'] - 0.15, 1.0, 'hug', '#D9A441', '#6B5B4B')
 kid(st['u'] + 0.5, st['w'] - 1.7, 1.05, 'reach', '#5E8CA8', '#4E5D6C')
-kid(st['u'] + 0.3, st['w'] + 1.45, 1.0, 'sit', '#C8714F', '#5d6b55')
+kid(st['u'] + 0.3, st['w'] + 1.55, 1.0, 'stand', '#C8714F', '#5d6b55')
 kid(32.4, 9.9, 0.98, 'stand', '#8C6BA8', '#4E5D6C')
 for dep, kind, d in sorted(segs, key=lambda x: -x[0]):
     if kind == 's':

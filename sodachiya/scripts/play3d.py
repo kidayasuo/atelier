@@ -56,15 +56,13 @@ K.prism(pit.buffer(-50), -dep, -dep + pt['mat'] * 1000, L_FL, MAT)
 # ---------------------------------------------------------------- 切り株（クスノキ）とやわらかい床
 st = P['stump']; c_st = X(st['u'], st['w'])
 K.prism(Point(c_st).buffer(st['soft_r'] * 1000, resolution=32).intersection(WNi), 0.0, 30.0, L_FL, (239, 226, 200))
-K.tube([*c_st, 0], [*c_st, 1100], st['trunk_r'] * 1000, st['trunk_r'] * 900, L_ST, (168, 132, 86), n=16)
-up = X(st['u'] + 1, st['w']) - c_st; up /= np.linalg.norm(up)
-east = X(st['u'], st['w'] - 1) - c_st; east /= np.linalg.norm(east)
-for ang, Lb in st['branches']:
-    a = math.radians(ang); d = up * math.cos(a) + east * math.sin(a); tip = c_st + d * Lb * 1000
-    zt = 2900.0 if uv(*tip)[0] < P['cave']['u1'] else 2900.0 + 900 * max(0.0, math.cos(a))
-    mid = c_st + d * Lb * 550
-    K.tube([*(c_st + d * 300), 950], [*mid, (950 + zt) / 2 + 300], 170, 120, L_ST, (138, 106, 68))
-    K.tube([*mid, (950 + zt) / 2 + 300], [*tip, zt], 120, 60, L_ST, (138, 106, 68))
+# 木は骨格（stump.tree）から play_tree.py で滑らかな閉じた網目に（10-24、本物のライブオークを参考に）
+from play_tree import tree_mesh
+TV, TF = tree_mesh(0.025, 60000)
+tm = r.Mesh()
+for x_, y_, z_ in TV: tm.Vertices.Add(float(x_), float(y_), float(z_))
+for a_, b_, c_ in TF: tm.Faces.AddFace(int(a_), int(b_), int(c_))
+K.add(tm, L_ST, (150, 112, 72))
 # ---------------------------------------------------------------- 洞の道具入れ
 cv = P['cave']
 K.prism(RWw(cv.get('store_u0', cv['u0']), cv['u1'], cv['store'][0], cv['store'][1]).intersection(WNi), 0.0, cv['beam_bottom'] * 1000, L_SO)

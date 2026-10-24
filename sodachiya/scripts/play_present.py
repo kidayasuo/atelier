@@ -105,10 +105,12 @@ fillg(store, '#E4DccB', C['ink'], 0.3, z=4); T(*store.centroid.coords[0], '道�
 st = P['stump']; cst = Mp(st['u'], st['w'])
 fillg(M(Point(xy(st['u'], -0.9 - st['w'])).buffer(st['soft_r'] * 1000, resolution=48).intersection(WNi)), C['soft'], z=2.5)
 upv = Mp(st['u'] + 1, st['w']) - cst; upv /= np.linalg.norm(upv); eav = Mp(st['u'], st['w'] - 1) - cst; eav /= np.linalg.norm(eav)
-for ang, Lb in st['branches']:
-    a = math.radians(ang); d = upv * math.cos(a) + eav * math.sin(a)
-    ax.plot(*np.array([cst + d * 4, cst + d * Lb * 10]).T, lw=1.6, c=C['tree'], zorder=8, solid_capstyle='round')
-    ax.plot(*np.array([cst + d * Lb * 6, cst + d * Lb * 10 + np.array([-d[1], d[0]]) * 3]).T, lw=0.7, c=C['tree'], zorder=8)
+sys.path.insert(0, HERE)
+from play_tree import plan_shape, side_shape          # 木は骨格から（10-24、本物のライブオークを参考に）
+def _uwmap(g, f):
+    gs = [g] if g.geom_type == 'Polygon' else list(g.geoms)
+    return [Polygon([f(*c) for c in gg.exterior.coords]) for gg in gs]
+for g_ in _uwmap(plan_shape(), lambda u_, w_: tuple(Mp(u_, w_))): fillg(g_, '#C9A87C', C['tree'], 0.3, z=8, alpha=0.85)
 ax.add_patch(Circle(cst, st['trunk_r'] * 10, fc='#A78058', ec=C['tree'], lw=0.6, zorder=9))
 for rr in (1.5, 3.0, 4.2): ax.add_patch(Circle(cst, rr, fc='none', ec='#7E5E3C', lw=0.25, zorder=9.1))
 # デッキ・家具階段・登り壁
@@ -270,12 +272,7 @@ for ub in (36.0, 39.0, 42.0, 45.0, 48.0):
     zt_ = roof_top(ub, SW) - 0.30; zb_ = zt_ - 0.70
     SR(ub - 0.18, ub + 0.18, zb_, zt_, '#C7B697', '#8a7a5a', 0.3, zz=3.6)
 # 切り株（クスノキ、見え掛かり）
-for ang, Lb in st['branches']:
-    a = math.radians(ang); du = Lb * math.cos(a)
-    tip_u = st['u'] + du; zt2 = 2.9 if tip_u < cv['u1'] else 2.9 + 0.9 * max(0.0, math.cos(a))
-    mid_u = st['u'] + du * 0.55
-    SL([(st['u'] + 0.3 * math.cos(a), 0.95), (mid_u, (0.95 + zt2) / 2 + 0.3), (tip_u, zt2)], 1.4, C['tree'], zz=4.2)
-SR(st['u'] - st['trunk_r'], st['u'] + st['trunk_r'], 0.0, 1.1, '#A78058', C['tree'], 0.5, zz=4.3)
+for g_ in _uwmap(side_shape(), S): fillg(g_, '#C9A87C', C['tree'], 0.4, z=4.2)
 SR(st['u'] - st['soft_r'], st['u'] + st['soft_r'], 0.0, 0.03, C['soft'], zz=4.0)
 T(*S(st['u'], -0.95), 'クスノキ', 4.2, C['tree'], ha='center', va='top', bold=True)
 # 摺鉢ネット（見え掛かりの輪郭）と輪（東から 4.3 で切る）

@@ -65,7 +65,7 @@ def field(vox=0.025, min_r=0.0, bark=True):
     """距離の場（m）。負が木の中。"""
     BR = branches(min_r)
     allp = np.vstack([c for _, c, _ in BR])
-    lo = allp[:, :3].min(0) - 0.35; hi = allp[:, :3].max(0) + 0.35; lo[2] = -0.05
+    lo = allp[:, :3].min(0) - 0.35; hi = allp[:, :3].max(0) + 0.35; lo[2] = -0.0377   # 格子の点が床の高さに来ないように（0ちょうどだと面が潰れる）
     ax = [np.arange(lo[i], hi[i] + vox, vox) for i in range(3)]
     G = np.stack(np.meshgrid(*ax, indexing='ij'), -1)
     D = np.full(G.shape[:3], 9.0)
@@ -119,6 +119,33 @@ def tree_mesh(vox=0.025, target=60000, min_r=0.0, bark=True, uvw=False):
     from uv import xy
     XY = np.array([xy(u, -0.9 - w) for u, w in V[:, :2]])
     return np.column_stack([XY, V[:, 2] * 1000.0]), F
+
+
+# ------------------------------------------------------------------ 図のための外形（骨格の円を並べて合わせる）
+def plan_shape(zmax=9.0, umax=None):
+    """平面の外形（u, w の shapely 形）。zmax より上・umax より北は除く（切断面より上を描かないとき）。"""
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+    ds = []
+    for name, c, cut in branches():
+        for p in c:
+            if p[2] - p[3] > zmax or (umax is not None and p[0] > umax): continue
+            ds.append(Point(p[0], p[1]).buffer(max(p[3], 0.02), resolution=10))
+    return unary_union(ds).buffer(0.02).buffer(-0.02)
+
+
+def side_shape(wmin=-9.0, wmax=99.0):
+    """東から見た外形（u, z の shapely 形）。w の範囲で枝を選ぶ（切断面の手前だけ、など）。"""
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+    ds = []
+    for name, c, cut in branches():
+        for p in c:
+            if not (wmin - p[3] <= p[1] <= wmax + p[3]): continue
+            ds.append(Point(p[0], p[2]).buffer(max(p[3], 0.02), resolution=10))
+    g = unary_union(ds).buffer(0.02).buffer(-0.02)
+    from shapely.geometry import box
+    return g.intersection(box(-99, 0, 99, 99))
 
 
 # ------------------------------------------------------------------ 骨格の図
@@ -180,9 +207,12 @@ if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'stl':
         import trimesh
         for sc, mr in ((100, 0.045), (50, 0.025)):           # 印刷の最小の太さ 約0.9mm／1.0mm
-            V, F = tree_mesh(0.02, 120000, min_r=mr, bark=(sc == 50), uvw=True)
-            V = V.copy(); V[:, 1] *= -1                       # 東から西へを右手系に
-            m = trimesh.Trimesh(V * 1000.0 / sc, F); m.fix_normals()
+            for vx, tgt in ((0.02, 120000), (0.02, 10 ** 9), (0.019, 120000), (0.021, 120000), (0.018, 150000)):   # 閉じるまで格子と間引きを変える
+                V, F = tree_mesh(vx, tgt, min_r=mr, bark=(sc == 50), uvw=True)
+                V = V.copy(); V[:, 1] *= -1                   # 東から西へを右手系に（x＝北、y＝東）
+                V[:, :2] -= np.array([T['trunk'][0][0], -T['trunk'][0][1]])   # 幹の中心を原点に
+                m = trimesh.Trimesh(V * 1000.0 / sc, F); m.fix_normals()
+                if m.is_watertight: break
             p = os.path.join(OUT, f'sodachiya_play_tree_1-{sc}.stl'); m.export(p)
             print(p, len(F), 'watertight' if m.is_watertight else 'NOT watertight', m.bounds.round(1).tolist())
     else:

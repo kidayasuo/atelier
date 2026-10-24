@@ -158,13 +158,12 @@ for s in (da, db): line([tuple(s), tuple(s + nrm * 0.25)], 0.6, C["red"], z=8.4)
 # soft ring and stump
 st = D["stump"]
 poly(SPt(Ww(st["u"], st["w"])).buffer(st["soft_r"], 64).intersection(PLAY), C["soft"], "#B79B6B", 0.4, 2, ls=(0, (3, 2)))
-poly(SPt(Ww(st["u"], st["w"])).buffer(st["crown_r"], 64).intersection(PLAY), "none", C["stump"], 0.5, 6, ls=(0, (1, 1.2)))
 cpt = np.array(Ww(st["u"], st["w"]))
-up = np.array(Ww(st["u"] + 1, st["w"])) - cpt; up = up / np.linalg.norm(up); rt = np.array([up[1], -up[0]])
-for (ang, L) in st["branches"]:
-    a = math.radians(ang); d = up * math.cos(a) + rt * math.sin(a)
-    p0 = cpt + d * st["trunk_r"] * 0.8; p1 = cpt + d * L; pm = cpt + d * (L * 0.55) + np.array([-d[1], d[0]]) * 0.15
-    ax.plot([p0[0], pm[0], p1[0]], [p0[1], pm[1], p1[1]], lw=2.4, color=C["stump"], zorder=7, solid_capstyle="round")
+from play_tree import plan_shape, side_shape          # 木は骨格から（10-24、本物のライブオークを参考に）
+def _uw(g, f):
+    gs = [g] if g.geom_type == "Polygon" else list(g.geoms)
+    return [SP([f(*c) for c in gg.exterior.coords], [[f(*c) for c in h.coords] for h in gg.interiors]) for gg in gs]
+for g_ in _uw(plan_shape(), Ww): poly(g_, "#C9A87C", "#5a4026", 0.35, 7, alpha=0.85)
 circ(tuple(cpt), st["trunk_r"], fc="#A88456", ec="#5a4026", lw=0.7, z=8)
 for rr in (0.15, 0.3, 0.42): circ(tuple(cpt), rr, fc="none", ec="#6a5030", lw=0.25, z=8.5)
 # lower deck (storage under) and climbing wall
@@ -318,7 +317,7 @@ NUMS = [
     (W(46.5, 0.8), "北の口（口②、西吹き抜けから、すき間を渡る）"),
     (Ww(30.6, 5.0), "洞（2 階の下、梁の下 h2.23・床の裏 h3.17）。木のてっぺんが 2 階の床に届く。南は はれのま との壁（u 30、2 階の床まで）"),
     (Ww(31.5, 12.0), "道具入れ 約 %.1f m²（西の低い隅、東向きの引き戸。発表会の椅子など。倉庫 30 m² の一つに数える）" % SP(rectw(CV["u0"], CV["u1"], CV["store"][0], CV["store"][1])).intersection(PLAY).area),
-    (Ww(st["u"] + 1.9, st["w"] + 1.6), "枝付きのクスノキの切り株（幹 φ1.0、横に張る枝 φ4.0、樟脳の香り）。頭は 2 階の床の下、北の枝は天井の高い側へ出る。行事の日は木の前が舞台"),
+    (Ww(st["u"] + 1.9, st["w"] + 1.6), "枝付きのクスノキ（幹 φ1.0、約1mで太い枝5本に分かれ、肘で折れて横へうねる。本物のライブオークの枝ぶりに学んだ。樟脳の香り）。3本は2階の床の裏に届き、北の太い枝は天井の高い側へ横に張る（h1.5〜2.0）。西の枝は h約1.0の腰掛け、北東の低い枝は h約0.8。行事の日は木の前が舞台"),
     (Ww(dk["u0"] + 0.4, 2.3), "デッキ h1.2（下はマット・ボールの道具入れ）。南に家具階段 +300／600／900、東の壁に登り壁 → キャットウォーク"),
     (Ww(44.0, 0.7), "キャットウォーク 幅 0.9：東の壁は板の床 h3.0、北の壁で段（200×5）を下りて北西の踊り場 h2.0 へ。手すりは縦格子 h1.1（すき間 90、横桟なし）。ネットの輪から踊り場へは網の吊り橋（3.0→2.0、真ん中が垂れる）。空中で一周。支え方：重さは吊り材で屋根へ、横は壁の受け材で止める。吊り橋だけ揺れてよい"),
     (Ww(nt["u"] - 2.4, nt["w"] + 0.8), "摺鉢ネット（上の縁 φ4.2、下の口 φ0.6 が h0.5、網目 上 90・下 50、ロープ φ18）。穴の底から輪へ登れる（2 か所目の登り口）。まわりに輪の通路 h3.0（幅 0.8、外 φ5.8）、ネットの縁は内側の鋼の輪に一周留める。輪は 6 本の吊り材をハの字の 3 組に（三角形で横の揺れを止める）"),
@@ -460,11 +459,7 @@ L3([(33.0, zr), (QU1, zr)], 1.6, "#333333", z=6)
 T3(34.6, zr + 0.25, "屋根 h%.1f（東から %.1f の高さ）" % (zr, s2w), 4.4)
 # tree: trunk, branches reaching the slab between the beams, the north ones out into the tall side
 tu = st["u"]; th_ = st["height"]
-P3([(tu - 0.5, 0), (tu + 0.5, 0), (tu + 0.42, 1.1), (tu - 0.42, 1.1)], "#A88456", "#5a4026", 0.6, 7)
-BR = [(-1.6, 2.15), (-1.0, 2.9), (-0.3, 3.1), (0.5, 3.1), (1.0, 2.2), (1.6, 3.4), (2.1, 3.0)]
-for (dx, z_) in BR:
-    xm = tu + dx * 0.45; zm = 1.1 + (z_ - 1.1) * 0.55
-    ax3.plot([tu + dx * 0.1, xm, tu + dx], [1.05, zm, z_], lw=2.6 if abs(dx) < 1.2 else 2.0, color=C["stump"], zorder=7, solid_capstyle="round")
+for g_ in _uw(side_shape(), lambda u_, z_: (u_, z_)): P3(list(g_.exterior.coords), "#C9A87C", "#5a4026", 0.4, 7)
 P3([(tu - st["soft_r"], 0.0), (tu + st["soft_r"], 0.0), (tu + st["soft_r"], 0.04), (tu - st["soft_r"], 0.04)], "#E9A97A", "none", z=3)
 # platform (beyond, west) and kids
 def kid3(x, z0, h=1.05, c="#555555"):
