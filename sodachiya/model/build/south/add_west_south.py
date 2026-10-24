@@ -171,6 +171,11 @@ OPEN = [  # (足元の形, 下, 上)  上=None は天端まで
     (FP_BAND, HB_SILL, HB_HEAD),                  # その上に東の面いっぱいの横長の高窓（本館の屋根越しに東の空）
     (R(28.5, 29.3, -14.5, -12.3), 0, 2100),       # 調理の職員の外からの戸（西の面）
 ]
+# 勝手口（検収のすぐ外、南西の丸みの始まり、10-24昼：3dmに戸が抜けていた。上は下屋を回り込ませる＝アプローチ係へ依頼）
+_rk = WS.exterior; _sk = _rk.project(Point(*xy(21.2, -10.95)))      # plan05 の勝手口（21.06,−10.49〜21.38,−11.41）と同じ
+from shapely.ops import substring as _sub
+KATTE = _sub(_rk, _sk - 500.0, _sk + 500.0).buffer(400.0, cap_style=2)      # 幅 1.0
+OPEN.append((KATTE, 0, 2100))
 # ---- 遊戯室の開口（data/play.json、遊戯室のスレッドの寸法）
 import json, os
 PJ = os.path.join(os.path.dirname(os.path.dirname(WNPKL)), 'data', 'play.json') if WNPKL.endswith('wnew.pkl') else None
@@ -363,23 +368,109 @@ for a_, b_ in ((18.0, 19.0), (20.4, 21.0)):                                     
     mesh_prism(R(a_, b_, 4.45, 4.55), 0.0, const(2400.0), L_KAMA)
 mesh_prism(R(19.0, 20.4, 4.45, 4.55), 2100.0, const(2400.0), L_KAMA)
 
-# ---------------------------------------------------------------- 西の軒の軒樋と鎖樋（アプローチ係が決めた形、連携10-23夜3）
-# 屋根は西へ流れ、西の縁（外壁の外面＝WS、z 4650）から落ちる。軒樋（120×120）を西の面のまっすぐな所の北の端から
-# 南西の丸みに沿って下屋の西の端まで、外壁の外面に沿わせて水平に回す。鎖樋は 2 本：北＝西の面のまっすぐな所の北の端、
-# 南＝下屋の西の端（下屋の樋もここへ集める）。行き先（雨水樽・北の雨庭）は外構（75・76）。
-ringS = WS.exterior
-def _s(u, v): return ringS.project(Point(*xy(u, v)))
-sN, sS = _s(40.6, -14.99), _s(21.0, -10.1)
+# ---------------------------------------------------------------- 西の軒の出と軒樋・鎖樋（10-24昼、ユーザー：西は庇が無い、0.9出す）
+# 屋根は東 8.15 → 外周 4.65 へ流れ、低い縁（西の面・南西と北西の丸み・北西の斜めの面）から落ちる。
+# 低い縁に軒の出 0.9（軒樋を含む：屋根の面 0.78＋軒樋 0.12）、南北の妻の縁（けらば）に 0.3。あいだは屋根の高さで滑らかにつなぐ。
+# 軒先は敷地の境の 0.1 手前で止める（外壁は壁面後退の線＝道路から1.0 の上）。本館の側（東の面）には出さない（すき間 0.55）。
+# 屋根の面は外皮の縁から外へ、近くの屋根の点で当てはめた面をそのまま延ばす（roof_z）。
+# 軒樋（120×150、軒先の内側に収める）は低い縁の全長。鎖樋は 2 本：北＝西の面のまっすぐな所の北の端（北の雨庭）、南＝南西の丸みの真ん中（勝手口の前を避ける。下には回り込む下屋、行き先は外構）。
 from shapely.ops import substring
-gpath = substring(ringS, min(sN, sS), max(sN, sS))
-gut = gpath.buffer(130, cap_style=2).difference(WS.buffer(10))
-mesh_prism(gut, 4470.0, const(4590.0), L_RAIN)
-for sp in (sN, sS):
-    q = ringS.interpolate(sp); q2 = ringS.interpolate(sp + 50)
-    t_ = np.array([q2.x - q.x, q2.y - q.y]); t_ /= np.linalg.norm(t_); nrm_ = np.array([t_[1], -t_[0]])
-    c_ = np.array([q.x, q.y]) + nrm_ * 70
-    if WS.contains(Point(*c_)): c_ = np.array([q.x, q.y]) - nrm_ * 70
-    mesh_prism(Point(*c_).buffer(18, 8), -300.0, const(4470.0), L_RAIN)
-print('rain: gutter %.1f m, chains 2' % (gpath.length / 1000))
+_site = sorted([Polygon([[g.Point(i).X, g.Point(i).Y] for i in range(g.PointCount)]) for o in m.Objects
+                for g in [o.Geometry] if m.Layers[o.Attributes.LayerIndex].Name.startswith('00') and isinstance(g, r.PolylineCurve)],
+               key=lambda q: -q.area)[0]
+EAVE_LOW, EAVE_RAKE, GUT_W = 900.0, 300.0, 120.0
+Z_LOW, Z_RAKE = 4760.0, 5100.0                 # 縁の屋根の高さ：これより低い所は軒、高い所はけらば、あいだは比例
+ringS = WS.exterior
+ring_ccw = ringS if Polygon(ringS).exterior.is_ccw else LineString(list(ringS.coords)[::-1])
+Ls = ring_ccw.length; NS = int(Ls / 100.0)
+eave_pts = []                                  # (s, p, n, d_eave, z_edge)
+for k in range(NS):
+    s_ = Ls * k / NS
+    q0 = ring_ccw.interpolate(s_); q1 = ring_ccw.interpolate((s_ + 30.0) % Ls); qm = ring_ccw.interpolate((s_ - 30.0) % Ls)
+    t_ = np.array([q1.x - qm.x, q1.y - qm.y]); t_ /= np.linalg.norm(t_)
+    n_ = np.array([t_[1], -t_[0]])             # 反時計回りの輪の右＝外
+    if WS.contains(Point(q0.x + n_[0] * 50, q0.y + n_[1] * 50)): n_ = -n_
+    p_ = np.array([q0.x, q0.y]); uu_, vv_ = uv(*p_)
+    if vv_ > -0.95: eave_pts.append(None); continue          # 東の面（本館の側）には出さない
+    ze = roof_z(*p_)
+    f_ = float(np.clip((ze - Z_LOW) / (Z_RAKE - Z_LOW), 0.0, 1.0))
+    d_ = EAVE_LOW * (1 - f_) + EAVE_RAKE * f_
+    hit = LineString([p_, p_ + n_ * 3000]).intersection(_site.exterior)
+    hp = [hit] if hit.geom_type == 'Point' else list(getattr(hit, 'geoms', []))
+    if hp: d_ = min(d_, min(np.hypot(h.x - p_[0], h.y - p_[1]) for h in hp) - 100.0)
+    eave_pts.append((s_, p_, n_, d_, ze, f_))
+# 東の面で切れる所から、つながった区間ごとに帯の面（内＝外皮の縁、外＝軒先）
+_k0 = eave_pts.index(None); eave_pts = eave_pts[_k0:] + eave_pts[:_k0]     # 東の面から始める（区間が輪の継ぎ目で割れない）
+runs, cur = [], []
+for e_ in eave_pts:
+    if e_ is None:
+        if cur: runs.append(cur); cur = []
+    else: cur.append(e_)
+if cur: runs.append(cur)
+# 軒先の高さ：外皮の縁の高さ（屋根の点の線形補間）＋縁の内側 0.6 の勾配をそのまま外へ（前後 ±1 m でならす）
+from scipy.interpolate import LinearNDInterpolator
+_top = {}
+for x_, y_, z_ in RPu:                          # 同じ所（50 角）にある点はいちばん上だけ（縁の立ち上がり・小口の点を除く）
+    k_ = (int(x_ // 50), int(y_ // 50))
+    if k_ not in _top or z_ > _top[k_][2]: _top[k_] = (x_, y_, z_)
+_T = np.array(list(_top.values()))
+_zi = LinearNDInterpolator(_T[:, :2], _T[:, 2])
+def _zlin(P):
+    z_ = float(_zi(*P))
+    return z_ if np.isfinite(z_) else roof_z(*P)
+for run in runs:
+    ze_ = np.array([_zlin(e_[1] - e_[2] * 30.0) for e_ in run]); zi_ = np.array([_zlin(e_[1] - e_[2] * 630.0) for e_ in run])
+    ff_ = np.array([e_[5] for e_ in run])
+    sl_ = (ze_ - zi_) / 600.0 * (1 - ff_); k_ = 10        # けらばは水平に出す（妻の側の屋根はねじれていて、縁と直角の勾配が大きい）
+    sl_ = np.array([sl_[max(0, i - k_): i + k_ + 1].mean() for i in range(len(sl_))])
+    ze_ = np.array([ze_[max(0, i - 5): i + 6].mean() for i in range(len(ze_))])   # 縁の高さの小さなぎざぎざをならす
+    for i, e_ in enumerate(run): run[i] = e_ + (ze_[i], float(sl_[i]))
+def zt_tip(e_, dd): return e_[6] + e_[7] * (dd + 30.0)
+n_eave = 0; gut_line = []
+for run in runs:
+    if len(run) < 3: continue
+    mm = r.Mesh()
+    for e_ in run:
+        dd = e_[3] - GUT_W * (1 - e_[5])        # 軒は軒樋の分だけ屋根を控える
+        a_ = e_[1] - e_[2] * 20.0; b_ = e_[1] + e_[2] * dd
+        mm.Vertices.Add(float(a_[0]), float(a_[1]), float(zt_tip(e_, -20.0)))
+        mm.Vertices.Add(float(b_[0]), float(b_[1]), float(zt_tip(e_, dd)))
+    for k in range(len(run) - 1):
+        i0 = 2 * k; mm.Faces.AddFace(i0, i0 + 1, i0 + 3, i0 + 2)
+    mm.Normals.ComputeNormals(); mm.Compact()
+    at = r.ObjectAttributes(); at.LayerIndex = L_ROOF; new.Objects.AddMesh(mm, at); n_eave += 1
+    gut_line += [e_ for e_ in run if e_[5] < 0.05]
+# 軒樋：低い縁の軒先（屋根の面の外、幅 120）。高さは軒先のいちばん低い所の 20 下を上端に、水平
+if len(gut_line) > 3:
+    segs, cur = [], [gut_line[0]]
+    for a_, b_ in zip(gut_line, gut_line[1:]):
+        if min(abs(b_[0] - a_[0]), Ls - abs(b_[0] - a_[0])) > 150: segs.append(cur); cur = []
+        cur.append(b_)
+    segs.append(cur)
+    seg = max(segs, key=len)
+    # 軒樋は軒先に沿う（上端＝屋根の先の 20 下、深さ 150）。閉じた箱：内・外の線 × 上・下
+    gm = r.Mesh(); nseg = len(seg)
+    for e_ in seg:
+        zt_ = zt_tip(e_, e_[3] - GUT_W) - 20.0
+        for dd in (e_[3] - GUT_W, e_[3]):
+            c_ = e_[1] + e_[2] * dd
+            for zz in (zt_ - 150.0, zt_): gm.Vertices.Add(float(c_[0]), float(c_[1]), float(zz))
+    for k in range(nseg - 1):
+        A_ = 4 * k; B_ = A_ + 4                     # 0:内下 1:内上 2:外下 3:外上
+        for i0, i1 in ((0, 1), (1, 3), (3, 2), (2, 0)): gm.Faces.AddFace(A_ + i0, B_ + i0, B_ + i1, A_ + i1)
+    for A_, flip in ((0, False), (4 * (nseg - 1), True)):
+        gm.Faces.AddFace(*( (A_, A_ + 1, A_ + 3, A_ + 2) if not flip else (A_, A_ + 2, A_ + 3, A_ + 1)))
+    gm.Normals.ComputeNormals(); gm.Compact()
+    at = r.ObjectAttributes(); at.LayerIndex = L_RAIN; new.Objects.AddMesh(gm, at)
+    g_bot = min(zt_tip(e_, e_[3] - GUT_W) for e_ in seg) - 170.0; g_top = g_bot + 150.0
+    gpath = LineString([e_[1] + e_[2] * (e_[3] - GUT_W / 2) for e_ in seg])
+    def chain_at(c_):
+        c_ = np.asarray(c_, float); e_ = min(seg, key=lambda e: np.hypot(*(e[1] - c_)))
+        mesh_prism(Point(*c_).buffer(18, 8), -300.0, const(zt_tip(e_, e_[3] - GUT_W) - 170.0), L_RAIN)
+    pN = np.array(xy(40.6, -14.99)); qN = gpath.interpolate(gpath.project(Point(*pN))); chain_at((qN.x, qN.y))
+    _qS = gpath.interpolate(gpath.project(Point(*xy(23.0, -12.85))))           # 南：南西の丸みの真ん中（勝手口の前を避ける）
+    pS = np.array([_qS.x, _qS.y]); chain_at(pS)
+    print('eave: %d strips, low %.1f m / gutter %.1f m, lowest %.0f, chains N(u %.1f) S(u %.1f v %.1f)' %
+          (n_eave, len(seg) * Ls / NS / 1000, gpath.length / 1000, g_top, uv(qN.x, qN.y)[0], *uv(*pS)))
 
 new.Write(OUT, 8); print('written', OUT, len(new.Objects))

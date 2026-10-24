@@ -102,7 +102,7 @@ if MODE == 'walls':
     # 屋根（20）・梁（22b）・桁（22d）の三角形（押し出しは draw100 と同じ方法で三角形に）
     src = open(__import__('os').path.join(HERE, 'draw100.py'), encoding='utf-8').read()
     ns = {}
-    exec(compile(src[:src.index('# ================================================================ ここから描画')].replace('IN, OUTD = sys.argv[1], sys.argv[2]', 'IN, OUTD = "' + IN + '", "/tmp"'), 'd100', 'exec'), ns)
+    exec(compile(src[:src.index('# ================================================================ ここから描画')].replace('IN, OUTD = sys.argv[1], sys.argv[2]', 'IN, OUTD = "' + IN + '", "/tmp"').replace('PDFD = sys.argv[3] if len(sys.argv) > 3 else OUTD', 'PDFD = OUTD'), 'd100', 'exec'), ns)   # 西館係 10-24昼：draw100 に PDFD（3つ目の引数）が入り、ここでは出力の3dmを図の置き場と取り違えて止まっていた
     TRIS = []
     for ob in ns['OBJ']:
         if re.match(r'^(20|22b|22d)_', ob['layer']):

@@ -484,7 +484,8 @@ for i, (c1, a1) in enumerate(lines_):
     off = np.dot(c2 - c1, np.array([-ax[1], ax[0]])) / 2.0
     cc = c1 + np.array([-ax[1], ax[0]]) * off
     pairs.append((cc, ax))
-WSL = WS_W.buffer(1.0)                 # 10-24（ユーザー、本館と同じ）：越屋根から軒先まで
+_fp20 = [foot(o.Geometry) for o in m.Objects if o.Attributes.LayerIndex == L20 and isinstance(o.Geometry, r.Mesh)]
+WSL = unary_union([f for f in _fp20 if f is not None]).buffer(-1.0)   # 10-24（ユーザー、本館と同じ）：越屋根から軒先まで。軒先＝屋根の面の先（10-24昼：西の軒の出 0.9、軒樋の手前）
 EASTV = -1.96                          # 越屋根の西の立ち上がりの外面
 WSi_W = WS_W.buffer(-150.0, join_style=2)   # 外壁の内面（外皮の線の固定ガラス）
 slits = []

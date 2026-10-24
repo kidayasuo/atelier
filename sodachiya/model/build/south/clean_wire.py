@@ -11,6 +11,7 @@ from shapely.ops import unary_union, split
 
 IN, OUT = sys.argv[1], sys.argv[2]
 KEEP_MESH = ('14_',)
+# 西館の屋根（20・20p・20t）はねじれた面なので、平面に分けると三角の面が数千枚になり、縁の線が屋根の模様に見える（ユーザー、10-24昼）→ メッシュのまま（西館係）
 # 弧に沿って曲がる細いルーバー（本館の 50c）は平面に分けると数千枚になるので、押し出しにならなければメッシュのまま   # 他のスクリプトがメッシュとして読む（infant200.py が南の縁側の輪郭を読む）
 TOL_D = 1.0                      # 平面からのずれ (mm)
 TOL_A = math.cos(math.radians(0.15))
@@ -216,7 +217,7 @@ for o in m.Objects:
     if len(T0) == 0: continue
     geo = []
     for T in components(T0):
-        k, gs = process(W, T, not any(t in m.Layers[a0.LayerIndex].Name for t in ('ルーバー', 'ネット', '切り株', '地形', '林', '周辺_道路', '本館_桁'))); stat[k] += 1; geo += gs
+        k, gs = process(W, T, not any(t in m.Layers[a0.LayerIndex].Name for t in ('ルーバー', 'ネット', '切り株', '地形', '林', '周辺_道路', '本館_桁', '西館_屋根', '西館_光の筋'))); stat[k] += 1; geo += gs
     grp = None
     if len(geo) > 1:
         grp = len(out.Groups); out.Groups.Add(r.Group())
