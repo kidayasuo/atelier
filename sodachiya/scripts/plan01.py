@@ -386,5 +386,10 @@ fig.text(20 / 297, 63 / 420,
          "柱 400×180（黒）。室と縁側のあいだ（架構の東の柱の列）は開け放し。縁側の外のガラス戸が外壁。",
          fontsize=6.2, va="top", color="#444444")
 
+# 換気扇（10-24、ユーザー：建物の中で臭いが出るのはおむつ替え・沐浴）：天井の換気扇 → ダクトで西へ → 越屋根の東の口（逆流止め）
+uu, vv = 10.5, 2.0
+box(uu - 0.15, uu + 0.15, vv - 0.15, vv + 0.15, lw=0.35, fc="white", z=9)
+line([(uu - 0.15, vv - 0.15), (uu + 0.15, vv + 0.15)], lw=0.3, z=9); line([(uu - 0.15, vv + 0.15), (uu + 0.15, vv - 0.15)], lw=0.3, z=9)
+txt(uu + 0.32, vv + 0.75, "換気扇→越屋根", size=3.4, color="#3d7fb0", z=9)
 fig.savefig(_os.path.join(OUT, "sodachiya_01_furniture.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_01_furniture.png"), dpi=220)

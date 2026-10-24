@@ -436,9 +436,9 @@ txt(41.25, 2.3, "職員", size=4.2)
 for uu, vv in ((32.2, 3.1), (41.3, 3.0)):
     box(uu - 0.15, uu + 0.15, vv - 0.15, vv + 0.15, lw=0.35, fc="white", z=8)
     line([(uu - 0.15, vv - 0.15), (uu + 0.15, vv + 0.15)], lw=0.3, z=8); line([(uu - 0.15, vv + 0.15), (uu + 0.15, vv - 0.15)], lw=0.3, z=8)
-txt(32.2, 2.75, "換気扇→屋根", size=3.6, color="#3d7fb0")
-txt(41.3, 3.4, "換気扇→屋根", size=3.2, color="#3d7fb0")
-fig.text(25 / 297, 15 / 420, "大人のトイレ（10-23夜）：多目的便所（スパン11）・職員用の個室（スパン14）・2階の便所の3か所、どれも性別を示さない個室。閉じる部屋は天井の換気扇から屋根の上へ（⊠）",
+txt(32.2, 2.75, "換気扇→越屋根", size=3.6, color="#3d7fb0")
+txt(41.3, 3.4, "換気扇→越屋根", size=3.2, color="#3d7fb0")
+fig.text(25 / 297, 15 / 420, "大人のトイレ（10-23夜）：多目的便所（スパン11）・職員用の個室（スパン14）・2階の便所の3か所、どれも性別を示さない個室。閉じる部屋は天井の換気扇から越屋根の東の口へ（⊠）",
          fontsize=5.2, va="top", color="#3d7fb0")
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.png"), dpi=220)
