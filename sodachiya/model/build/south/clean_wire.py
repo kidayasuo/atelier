@@ -5,13 +5,16 @@
 - それ以外（屋根の面、斜めの床など）→ 平面ごとのトリム平面（穴は切って分ける）、オブジェクトのグループにまとめる
 - 新しいオブジェクトはアイソカーブを表示しない（WireDensity = -1）
 """
-import sys, math, numpy as np, rhino3dm as r
+import sys, os, math, numpy as np, rhino3dm as r
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ruled_roof as RR
 from shapely.geometry import Polygon, MultiPolygon, LineString
 from shapely.ops import unary_union, split
 
 IN, OUT = sys.argv[1], sys.argv[2]
 KEEP_MESH = ('14_',)
-# 西館の屋根（20・20p・20t）はねじれた面なので、平面に分けると三角の面が数千枚になり、縁の線が屋根の模様に見える（ユーザー、10-24昼）→ メッシュのまま（西館係）
+# 西館の屋根（20・20p・20t）はねじれた面なので、平面に分けると三角の面が数千枚になり、縁の線が屋根の模様に見える（ユーザー、10-24昼）。
+# メッシュのままでもワイヤフレームで黒い（ユーザー、10-24夕）→ 放射の線でつないだ線織面（NURBS、ruled_roof.py）にする（更新係）
 # 弧に沿って曲がる細いルーバー（本館の 50c）は平面に分けると数千枚になるので、押し出しにならなければメッシュのまま   # 他のスクリプトがメッシュとして読む（infant200.py が南の縁側の輪郭を読む）
 TOL_D = 1.0                      # 平面からのずれ (mm)
 TOL_A = math.cos(math.radians(0.15))
@@ -173,7 +176,7 @@ for i in order:
     LMAP[i] = len(out.Layers); out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
 for gr in m.Groups: out.Groups.Add(gr)
-stat = dict(prism=0, planes=0, keep=0, objs=0)
+stat = dict(prism=0, planes=0, keep=0, objs=0, ruled=0)
 def components(T):
     """辺を共有する三角形どうしをつなぐ（頂点だけ接する箱は別の立体）"""
     par = list(range(len(T)))
@@ -216,7 +219,14 @@ for o in m.Objects:
     W, T0 = mesh_arrays(g)
     if len(T0) == 0: continue
     geo = []
+    west_roof = any(t in m.Layers[a0.LayerIndex].Name for t in ('西館_屋根', '西館_光の筋'))
     for T in components(T0):
+        if west_roof:                     # 10-24：線織面（ruled_roof.py）→ 平らな面が少なければ平面 → メッシュ
+            gs = RR.to_surfaces(W, T) or RR.narrow_box(W, T)
+            if gs: stat['ruled'] += 1; geo += gs; continue
+            k, gs = process(W, T, True)
+            if k != 'planes' or len(gs) <= 40: stat[k] += 1; geo += gs; continue
+            stat['keep'] += 1; geo += [submesh(W, T)]; continue
         k, gs = process(W, T, not any(t in m.Layers[a0.LayerIndex].Name for t in ('ルーバー', 'ネット', '切り株', '地形', '林', '周辺_道路', '本館_桁', '西館_屋根', '西館_光の筋'))); stat[k] += 1; geo += gs
     grp = None
     if len(geo) > 1:

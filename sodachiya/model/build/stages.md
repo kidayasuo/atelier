@@ -15,7 +15,7 @@
 | 7 | 遊戯室 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_play.py`・`model/build/south/meshkit.py` |
 | 7p | 遊戯室の取り込み | `model/build/south/add_play_import.py`・`model/sodachiya_play_layers.3dm` |
 | 7b | ホールの林 | `data/forest.json`・`model/build/south/add_hall.py` |
-| 7c | 納まり | `data/wnew.pkl`・`model/build/south/fix_details.py`・`archive/handoff_1018/t/`の1ファイル |
+| 7c | 納まり | `data/approachA.json`・`data/wnew.pkl`・`model/build/south/fix_details.py` |
 | 7c2 | 2階の間仕切り | `model/build/south/add_inner.py`・`model/build/south/draw100.py` |
 | 7c3 | 間仕切りの構法 | `model/build/south/draw100.py`・`model/build/south/walls_spec.py` |
 | 7d | 壁の端をそろえる | `model/build/south/join_walls.py` |
