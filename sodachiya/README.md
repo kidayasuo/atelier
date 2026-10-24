@@ -7,7 +7,7 @@
 
 | ファイル | 中身 |
 |---|---|
-| `sodachiya.3dm` | Rhinoで開く版（作り直しの`run_all.sh`が書く。0番は空の作業用レイヤー） |
+| `sodachiya.3dm` | Rhinoで開く版（更新係の作り直し`run_all.sh --publish`が書く。0番は空の作業用レイヤー） |
 | `drawings/` | 3dmから自動の1/100の図のPDF（平面・断面・立面1・2・面積表）。DXF・PNG・面積表のjsonは`model/drawings/` |
 | `presentation.pdf` | 提出のA1 5枚（`present/mock.py`が書く） |
 | `concept.txt` | 設計趣旨（ユーザーが書く。`present/mock.py`が読む、「#」の行は読まない） |
@@ -50,6 +50,19 @@ python sodachiya/scripts/forest03.py       # → sodachiya/out/sodachiya_forest_
 ```
 
 フォントは Noto Sans CJK JP。出力先は環境変数 `OUT` で変えられる。
+
+### 3dm と 1/100 の図の作り直し（10-24）
+
+```
+bash sodachiya/model/build/setup.sh                 # 作業場を用意（新しいセッションで一度）
+bash sodachiya/model/build/run_all.sh               # 確かめるだけ：/tmp/claude-0/out/preview/ に作る（リポジトリは変わらない）
+bash sodachiya/model/build/run_all.sh OUT s4        # 前半（しつらえまで）の写しを使い回す。前半の読むものが変わっていれば自動ではじめから
+bash sodachiya/model/build/run_all.sh OUT base --publish   # 更新係だけ：リポジトリに書く
+```
+
+- **作ったもの（`sodachiya.3dm`・`drawings/`・`model/sodachiya_exact_mesh.3dm`・`model/drawings/`）を push するのは更新係だけ**（ユーザー、10-24）。ほかのチャットはスクリプト・データ・取り込み用ファイルだけを push し、受け箱の更新係の行に「作り直しが要る」と一行書く。
+- 最後に `check_build.py` が面積表と干渉の一覧を前の版と比べる（`model/drawings/sodachiya_check.txt`、preview では preview の中）。課題の判定が○でなくなる・延床が2,000を超える・屋根から出る／屋根の外へ出る構造／埋まったガラスが増える、のどれかで「止める」。面積が0.5 m²より変わった部屋は知らせる。
+- 段ごとに読むものは `model/build/stages.md`（作り直しのたびに自動で書く）。データを変えたら、それを読むいちばん上の段から下が作り直しになる。
 
 ## 決まり
 

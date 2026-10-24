@@ -20,8 +20,8 @@ import mapbox_earcut as earcut
 
 IN, OUTD = sys.argv[1], sys.argv[2]
 # 図のPDFは sodachiya/drawings/（ユーザーが開く、10-24）、DXF・PNGは OUTD
-PDFD = sys.argv[3] if len(sys.argv) > 3 else OUTD
-os.makedirs(PDFD, exist_ok=True)
+PDFD = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].endswith('.3dm') else OUTD   # add_inner.py がこの頭を借りるときは3つ目が3dm
+if PDFD != OUTD: os.makedirs(PDFD, exist_ok=True)
 os.makedirs(OUTD, exist_ok=True)
 for f in font_manager.findSystemFonts():
     if 'NotoSansCJK-Regular' in f: font_manager.fontManager.addfont(f)
