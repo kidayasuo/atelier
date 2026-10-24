@@ -172,7 +172,8 @@ def depth(o, mode):
 
 # ---------------------------------------------------------------- 色
 ROOM = {
-    "53_": "#E6EFC2", "54_": "#C5DE9A", "59_1F_3歳": "#9FCB84", "59_1F_4歳": "#86BC78",
+    # 0・1歳の淡いベージュから5歳の緑へのグラデーション（ユーザー、10-24）
+    "53_": "#EFE3C3", "54_": "#D6D9A6", "59_1F_3歳": "#B5CC8F", "59_1F_4歳": "#92BB7D",
     "59_1F_5歳": "#6FA96E", "59_1F_医務": "#F7F3EA", "59_1F_事務": "#E9DCC4",
     "59_1F_ホール": "#E3C08D", "31_": "#F6E3A4", "32_": "#F0B98A", "34_": "#F7D3B0",
     "33_": "#E3C08D", "57_": "#D5EBEE", "59_1F_便所": "#D5EBEE", "52_": "#E8E2D6",
@@ -652,14 +653,58 @@ title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こ�
 xf = xform(sx, sy, 200, VX0, VY0)
 rp = clip_rect(ax, sx, sy, sw, sh)
 st = len(ax.patches); stl = len(ax.lines)
-for ln, g in CTX:
-    if g is None:
-        continue
-    g = rot(g)
-    if ln.startswith("03_"):
-        draw_shape(ax, g, xf, fc="#F0F0F0", ec="#BDBDBD", lw=0.12, z=0)
-    else:
-        draw_shape(ax, g, xf, fc="#E6E6E6", ec="#9A9A9A", lw=0.18, z=0.5)
+# 周りは敷地に沿わせて理想化する（ユーザー、10-24：敷地の形が簡略化されているので、PLATEAUのままだと道路とのあいだに余りが見える）
+_eW = (SITE_C["SW"] - SITE_C["NW"]) / np.linalg.norm(SITE_C["SW"] - SITE_C["NW"])   # 西の辺（北から南へ）
+_oW = np.array([-_eW[1], _eW[0]])
+if _oW @ (SITE_C["NW"] - SITE_C["E"]) < 0:
+    _oW = -_oW                                                                 # 外（西）へ
+_eN = (SITE_C["N"] - SITE_C["NW"]) / np.linalg.norm(SITE_C["N"] - SITE_C["NW"])     # 北の辺（西から東へ）
+_oN = np.array([-_eN[1], _eN[0]])
+if _oN @ (SITE_C["N"] - SITE_C["S"]) < 0:
+    _oN = -_oN                                                                 # 外（北西）へ
+_eE = (SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])       # 北東の辺（北から東へ）
+_oE = np.array([-_eE[1], _eE[0]])
+if _oE @ (SITE_C["E"] - SITE_C["SW"]) < 0:
+    _oE = -_oE
+RW_W, RW_N = 6.0, 6.0                                                          # 西の道路・北の道の幅（m）
+
+
+def _band(P0, e, o, a0, a1, b0, b1):
+    """辺の点P0から、辺の向きeにa0〜a1、外の向きoにb0〜b1の四角（3dmのm）"""
+    return Polygon([P0 + a * e + b * o for a, b in ((a0, b0), (a1, b0), (a1, b1), (a0, b1))])
+
+
+def _line_x(P, d, Q, f):
+    """P + t d と Q + s f の交点"""
+    t = np.linalg.solve(np.c_[d, -f], Q - P)[0]
+    return P + t * d
+
+
+_LW = np.linalg.norm(SITE_C["SW"] - SITE_C["NW"])
+_LN = np.linalg.norm(SITE_C["N"] - SITE_C["NW"])
+_cNW = _line_x(SITE_C["NW"] + RW_W * _oW, _eW, SITE_C["NW"] + RW_N * _oN, _eN)   # 二つの道の外の角
+IDEAL_ROAD = unary_union([
+    Polygon([SITE_C["NW"] + 40 * _eW + 0 * _oW, SITE_C["NW"] + 40 * _eW + RW_W * _oW, _cNW + (-30) * _eW, SITE_C["NW"] - 30 * _eW]).convex_hull.union(
+        _band(SITE_C["NW"], _eW, _oW, -40.0, _LW + 40.0, 0.0, RW_W)),
+    _band(SITE_C["NW"], _eN, _oN, -40.0, _LN + 40.0, 0.0, RW_N)])
+_hs = []
+for a0 in np.arange(-2.0, _LW + 30.0, 11.0):                                  # 向かいの住宅（道の西、間口9・奥行10）
+    _hs.append(_band(SITE_C["NW"] + RW_W * _oW, _eW, _oW, a0 + 1.5, a0 + 10.5, 2.0, 12.0))
+for a0 in np.arange(2.0, 60.0, 12.0):                                         # 北東の隣家（境界に接して並ぶ）
+    _hs.append(_band(SITE_C["N"], _eE, _oE, a0, a0 + 9.5, 1.5, 11.5))
+IDEAL_HOUSES = unary_union(_hs)
+IDEAL_UNIV = _band(SITE_C["NW"] + RW_N * _oN, _eN, _oN, -25.0, _LN + 40.0, 4.0, 60.0)   # 北の道の向こう（大学）
+
+
+def _to_rot(g):
+    if g.geom_type == "MultiPolygon":
+        return unary_union([_to_rot(p) for p in g.geoms])
+    return Polygon(R3(np.array(g.exterior.coords)))
+
+
+draw_shape(ax, _to_rot(IDEAL_ROAD), xf, fc="#F2F2F2", ec="#BDBDBD", lw=0.15, z=0)
+draw_shape(ax, _to_rot(IDEAL_UNIV), xf, fc="#EEF0EA", ec="#A9AFA0", lw=0.15, z=0.4, ls=(0, (3, 2)))
+draw_shape(ax, _to_rot(IDEAL_HOUSES), xf, fc="#E6E6E6", ec="#9A9A9A", lw=0.18, z=0.5)
 for ln, g in site_items:
     if g is None:
         continue
@@ -694,12 +739,12 @@ _u = (SITE_C["SW"] - SITE_C["NW"]) / np.linalg.norm(SITE_C["SW"] - SITE_C["NW"])
 _n = np.array([-_u[1], _u[0]])
 if _n @ (SITE_C["NW"] - SITE_C["E"]) < 0:
     _n = -_n                                                                  # 敷地の外（西）へ向く
-_tree = SITE_C["NW"] + 20.0 * _u + 9.5 * _n
+_tree = SITE_C["NW"] + 20.0 * _u + (RW_W + 1.5) * _n
 _tq = xf(R3(_tree))[0]
 ax.add_patch(plt.Circle(tuple(_tq), 4.5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.85, zorder=31))
 lab(ax, xf, _tree, "突き出た木：西の道の見通しが悪い\n→ 車はこの木より南で出入り", (-6, 14), ha="right")
 lab(ax, xf, SITE_C["NW"] + 32.0 * _u + 3.0 * _n, "西の道路（公道6 m）", (-4, -6), ha="right")
-lab(ax, xf, SITE_C["NW"] + 40.0 * _u + 11.0 * _n, "向かいの住宅（狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (-4, -14), ha="right")
+lab(ax, xf, SITE_C["NW"] + 40.0 * _u + (RW_W + 6.0) * _n, "向かいの住宅（狭い道をはさんで向き合う）\n→ 西館の西端は1階の高さに", (-4, -14), ha="right")
 _nwmid = (SITE_C["N"] + SITE_C["NW"]) / 2
 _out = -(SITE_C["E"] - SITE_C["N"]) / np.linalg.norm(SITE_C["E"] - SITE_C["N"])
 lab(ax, xf, _nwmid + 4.0 * _out, "北の道の向こうは京都工芸繊維大学", (-40, -14), ha="right")
