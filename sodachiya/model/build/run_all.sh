@@ -9,7 +9,7 @@
 # 最後に面積表と干渉の一覧をリポジトリの前の版と比べる（check_build.py）。--publish で「止める」が出たら終わりの値 1（push しない）。
 # 各段が読んだファイルは OUT/reads_<段>.txt、段の表は model/build/stages.md（--publish のとき）。
 # 前提：setup.sh を一度走らせてある。
-set -e
+set -eE
 PUBLISH=0; ARGS=()
 for a in "$@"; do if [ "$a" = --publish ]; then PUBLISH=1; else ARGS+=("$a"); fi; done
 A=$(cd "$(dirname "$0")/../.." && pwd); M=$A/model; T=/tmp/claude-0/t; B=$A/model/build
@@ -26,8 +26,11 @@ exec 3>&1
 log() { echo "== $*" >&3; }
 if command -v strace >/dev/null; then TRACE=1; else TRACE=0; echo "strace が無い：読むものの記録と前半の指紋は作らない（s4 は使えない）" >&3; fi
 # 段：stage 記号 名前 コマンド…（読んだファイルを strace で記録する）
-stage() { local k=$1 n=$2; shift 2; log "$n"
-  if [ $TRACE = 1 ]; then strace -f -qq -e trace=openat -e status=successful -o $OUT/reads_$k.raw "$@"; else "$@"; fi; }
+# 段のエラー出力は OUT/err_<段>.txt へ（画面には段の名前と最後の要約だけ）。止まったら、その段のログとエラーの最後の20行だけを出す（監修、10-24、連携10-24昼8の5）
+CUR=""
+trap 'if [ -n "$CUR" ]; then echo "!! 止まった：$CUR（ログ $OUT/log_$CUR.txt・$OUT/err_$CUR.txt の最後の20行）" >&3; tail -n 20 $OUT/log_$CUR.txt >&3 2>/dev/null; tail -n 20 $OUT/err_$CUR.txt >&3 2>/dev/null; fi' ERR
+stage() { local k=$1 n=$2; shift 2; log "$n"; CUR=$k
+  if [ $TRACE = 1 ]; then strace -f -qq -e trace=openat -e status=successful -o $OUT/reads_$k.raw "$@" 2>$OUT/err_$k.txt; else "$@" 2>$OUT/err_$k.txt; fi; CUR=""; }
 if [ "$FROM" = s4 ] && [ -f "$OUT/s4.3dm" ]; then
   if [ $TRACE = 0 ] || ! python3 $B/reads.py verify $OUT >&3; then log "前半の写しが古いので、はじめから"; FROM=base; fi
 fi
