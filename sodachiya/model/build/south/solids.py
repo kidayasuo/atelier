@@ -189,13 +189,22 @@ class RoofRaster:
             first = np.r_[True, r_[1:] != r_[:-1]]; last = np.r_[r_[1:] != r_[:-1], True]
             Zb[r_[first]] = z[first]; Zt[r_[last]] = z[last]
         self.Zbot = Zb.reshape(self.GX.shape); self.Ztop = Zt.reshape(self.GX.shape)
+        self.hit = np.isfinite(self.Zbot)                    # 本当に覆いのある格子（covered_poly はこれで）
+        # 覆いの縁と穴（光の筋の端・軒の先で格子の点が外れた所）を、まわり 2 ますの値で埋める（下の面は低いほう、上の面は高いほう）。
+        # 格子の点のすき間から壁の端や木が屋根の上へ抜けないように（10-24、ユーザーの指摘：屋根から出る壁が残っていた）
+        from scipy.ndimage import generic_filter
+        for name, fn in (('Zbot', np.nanmin), ('Ztop', np.nanmax)):
+            Z = getattr(self, name)
+            F = generic_filter(np.where(np.isfinite(Z), Z, np.nan), lambda a: fn(a) if np.isfinite(a).any() else np.nan,
+                               size=5, mode='constant', cval=np.nan)
+            setattr(self, name, np.where(np.isfinite(Z), Z, F))
 
     def covered_poly(self):
         from shapely.geometry import box
         from shapely.ops import unary_union
         c = self.cell / 2
         return unary_union([box(self.GX[i, j] - c, self.GY[i, j] - c, self.GX[i, j] + c, self.GY[i, j] + c)
-                            for i, j in zip(*np.where(np.isfinite(self.Zbot)))])
+                            for i, j in zip(*np.where(self.hit))])
 
     def above(self, Zg, bb):
         """bb の上（2 ます広く）で、面 Zg より上の立体（manifold）。かからなければ None"""

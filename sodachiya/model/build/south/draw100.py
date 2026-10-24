@@ -953,7 +953,12 @@ def elevation(A, mode, objs):
     for i, (_, (ob, edge0), sil) in enumerate(items):
         if sil is None or sil.is_empty: continue
         k = kind(ob['layer'])
-        vis = sil.difference(occ) if not occ.is_empty else sil
+        try:
+            vis = sil.difference(occ) if not occ.is_empty else sil
+        except Exception:                      # 形が細かすぎて GEOS が穴を割り当てられないとき：少し丸めてからもう一度
+            occ = occ.buffer(0.5).buffer(-0.5).simplify(1); sil = sil.buffer(0)
+            try: vis = sil.difference(occ)
+            except Exception: continue
         if vis.is_empty: continue
         lay = LAYER_OF[k][1]
         fc = ELEV_FILL(ob)

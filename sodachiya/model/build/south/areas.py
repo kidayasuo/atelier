@@ -47,6 +47,14 @@ A0 = {k: unary_union(v) for k, v in FP.items()}          # 床の板そのもの
 # 壁（上から見た形）：外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38
 # 壁は、その階の人のいる高さ（床から 2.4 m まで）にあるものだけ（2 階の間仕切りや、すき間の蓋より上の外壁が 1 階の部屋を削らないように）
 WL = []           # (三角形の網, 下端, 上端, 外壁か)
+def _tm_of(g):
+    if isinstance(g, r.Mesh):
+        V = np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))]); F = []
+        for i in range(g.Faces.Count):
+            f = g.Faces[i]; F.append((f[0], f[1], f[2]))
+            if f[2] != f[3]: F.append((f[0], f[2], f[3]))
+        return trimesh.Trimesh(V, np.array(F), process=False)
+    T = tris(g); return trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3), process=True)
 import trimesh
 for o in m.Objects:
     ln = LAY[o.Attributes.LayerIndex].Name
@@ -54,17 +62,32 @@ for o in m.Objects:
     b = o.Geometry.GetBoundingBox()
     if ln.startswith('38_') and b.Max.Z - b.Min.Z < 2000: continue
     T = tris(o.Geometry)
-    if len(T): WL.append((trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3), process=True), b.Min.Z, b.Max.Z, bool(re.match(r'^(17|21)_', ln))))
+    if len(T): WL.append((_tm_of(o.Geometry), b.Min.Z, b.Max.Z, bool(re.match(r'^(17|21)_', ln))))
 BAND = 2400
 def section_xy(t, z):
-    """高さ z で水平に切った形（上から見た形）。外壁は一つの立体にまとめてあるので、物の上端・下端ではなく切り口で測る（設計監修、10-24）"""
-    try:
-        sec = t.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
-        if sec is None: return Polygon()
-        P, _ = sec.to_planar(to_2D=np.eye(4), check=False)
-        return unary_union([pg.buffer(0) for pg in P.polygons_full])
-    except Exception:
-        return Polygon()
+    """高さ z で水平に切った形（上から見た形）。外壁は一つの立体にまとめてあるので、物の上端・下端ではなく切り口で測る（設計監修、10-24）。
+    立体を z±5 の薄い板で切り取り、その上下の面を上から見た形にする（輪になった外壁の切り口でも、中を塗りつぶさない）"""
+    M = _mani(t)
+    if M is None: return Polygon()
+    b = t.bounds
+    slab = manifold3d.Manifold.cube([b[1][0] - b[0][0] + 20, b[1][1] - b[0][1] + 20, 10]).translate([b[0][0] - 10, b[0][1] - 10, z - 5])
+    X = M ^ slab
+    if X.is_empty(): return Polygon()
+    V, F = from_manifold(X)
+    T = V[F]; n = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+    up = n[:, 2] > 0.5 * np.linalg.norm(n, axis=1)
+    ps = [Polygon(tr[:, :2]).buffer(0) for tr in T[up] if Polygon(tr[:, :2]).area > 1]
+    return unary_union(ps) if ps else Polygon()
+import manifold3d
+from solids import to_manifold, to_manifold_raw, from_manifold, by_bodies
+_MC = {}
+def _mani(t):
+    k = id(t)
+    if k not in _MC:
+        M = to_manifold(t) or to_manifold_raw(t)
+        if M is None: M = by_bodies(np.asarray(t.vertices), np.asarray(t.faces))
+        _MC[k] = M
+    return _MC[k]
 _WC = {}
 def walls_at(zf):
     """床の高さ zf の階の壁：(外壁, 間仕切り, 全部)。床から 0.3・1.2・2.2 m の高さで切った形の和（窓の所も壁として数える）"""
