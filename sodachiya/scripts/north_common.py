@@ -86,6 +86,9 @@ RG = RAIN["N_GARDEN"]
 RAINGARDEN = sbox(RG[0], RG[1], RG[2], RG[3])
 PLANT = BAND_W.difference(GRAVEL).difference(STAFF_PATH).difference(APRON).difference(RAINGARDEN)
 PLANT = unary_union([g for g in getattr(PLANT, "geoms", [PLANT]) if g.area > 0.2])
+def _clean(g): return unary_union([q for q in getattr(g, "geoms", [g]) if q.geom_type == "Polygon" and q.area > 0.2])
+HEDGE = _clean(PLANT.intersection(sbox(N["HEDGE_S"][0], N["HEDGE_S"][1], -1, 3).union(tbox(N["HEDGE_T"][0], N["HEDGE_T"][1], -1, 3))))
+LOW = _clean(PLANT.difference(HEDGE))
 
 # ---- machine room: door on the north-west face, apron to the road
 MD = N["MECH_DOOR"]; MA = N["MECH_APRON"]
@@ -94,10 +97,14 @@ MAPRON = tbox(MA["t"][0], MA["t"][1], 0.0, 1.16).difference(MECH)
 # the strip in front of おむすび beside the apron (low planting) and the 北の小径 mouth
 MSTRIP = BAND.intersection(tbox(N["FENCE_T_END"], 32.5, -0.5, 1.16)).difference(MECH).difference(MAPRON)
 MSTRIP = unary_union([g for g in getattr(MSTRIP, "geoms", [MSTRIP]) if g.area > 0.2])
+# the band outside the fence (between the road and the 板塀), except in front of the gate
+FSTRIP = _clean(BAND.intersection(tbox(T_FS, N["FENCE_T_END"], -0.5, FN)).difference(tbox(G0 - 0.2, G1 + 0.2, -0.5, FN)))
+GAPRON = BAND.intersection(tbox(G0 - 0.2, G1 + 0.2, -0.5, FN))
+MID = _clean(unary_union([FSTRIP, MSTRIP]))
 KOMICHI = tbox(G0 - 0.2, G1 + 0.4, FN, 6).difference(HONKAN).difference(MECH)
 KOMICHI = KOMICHI if KOMICHI.geom_type == "Polygon" else max(KOMICHI.geoms, key=lambda q: q.area)
 
 if __name__ == "__main__":
     print("fence start t", round(T_FS, 2), "fence len", round(sum(LineString(f).length for f in FENCE[:2]), 2))
     print("読書の庭 m2", round(READ.area, 1), "植栽 m2", round(PLANT.area, 1), "砂利", round(GRAVEL.area, 1),
-          "職員の道", round(STAFF_PATH.area, 1), "大戸の前", round(APRON.area, 1), "機械室の前", round(MAPRON.area, 1), "おむすびの前の植栽", round(MSTRIP.area, 1))
+          "職員の道", round(STAFF_PATH.area, 1), "大戸の前", round(APRON.area, 1), "機械室の前", round(MAPRON.area, 1), "おむすびの前の植栽", round(MSTRIP.area, 1), "香りの刈り込み", round(HEDGE.area, 1), "低い草", round(LOW.area, 1), "中くらい", round(MID.area, 1))

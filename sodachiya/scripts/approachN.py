@@ -18,7 +18,7 @@ PL, PB = 14, 122
 ax = fig.add_axes([PL / 297, PB / 420, (xmax - xmin) * 5 / 297, (ymax - ymin) * 5 / 420])
 ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax); ax.set_aspect("equal"); ax.axis("off")
 
-C = dict(plant="#A9C98B", moss="#7FA866", gravel="#D6D1C7", arai="#DCD3C3", rain="#B9D3E6", bld="#F2F0EC",
+C = dict(hedge="#6E9A4E", mid="#93B873", plant="#BFD9A2", moss="#7FA866", gravel="#D6D1C7", arai="#DCD3C3", rain="#B9D3E6", bld="#F2F0EC",
          fence="#7a5a36", red="#C8372D", door="#3d7fb0", line="#333333")
 def poly(g, fc="none", ec="black", lw=0.4, z=2, hatch=None, ls="-"):
     for q in getattr(g, "geoms", [g]):
@@ -43,8 +43,10 @@ T(N.W(40, 6.5), "本館", 8)
 T(N.MECH.centroid.coords[0], "機械室\n（おむすび）", 6)
 
 # ground
-poly(N.PLANT, C["plant"], "#5a7a3a", 0.3, 5)
-poly(N.MSTRIP, C["plant"], "#5a7a3a", 0.3, 5)
+poly(N.LOW, C["plant"], "#5a7a3a", 0.3, 5)
+poly(N.HEDGE, C["hedge"], "#3f5e2c", 0.3, 5)
+poly(N.MID, C["mid"], "#4d7040", 0.3, 5)
+poly(N.GAPRON, C["arai"], "#888888", 0.3, 5)
 poly(N.GRAVEL, C["gravel"], "#999999", 0.25, 5)
 poly(N.STAFF_PATH, C["arai"], "#888888", 0.3, 5)
 poly(N.APRON, C["arai"], "#888888", 0.3, 5)
@@ -96,13 +98,13 @@ ax.add_patch(Circle(N.MOMIJI, 1.25, fc="none", ec="#B8452C", lw=0.6, zorder=9));
 
 # number markers
 items = [
-    (N.P(41.5, 0.38), "道路沿いの植栽：低木と下草 h0.3〜0.6（高木・中木は植えない）"),
+    (N.P(40.9, 0.38), "香りの刈り込み h1.2〜1.5：キンモクセイ・ギンモクセイ（窓と戸の無い壁の前、北西の面にも）"),
     (N.P(33.0, 0.45), "調理の職員の道（飛び石と洗い出し、搬入路から戸まで）"),
     (N.P(37.0, -0.9), "調理の職員の戸（外開き0.87）"),
-    (N.P(48.3, -0.9), "雨庭（北の鎖樋、浸透）"),
+    (N.P(48.3, -0.9), "雨庭（北の鎖樋、浸透）。まわりと窓の前は低い香りの草 h0.3〜0.6：ローズマリー・ラベンダー・タイム・ツワブキ・ヤブラン"),
     (N.T(7.1, -0.9), "搬入の大戸の前（洗い出し）。引き戸が左右へ1.8走る所は壁ぎわを空ける"),
     (N.T(16.6, 3.0), "読書の庭：モミジ1本と苔（入らない坪庭）"),
-    (N.T(16.6, 0.25), "板塀 h1.8（後退の線の上、セキュリティの線）"),
+    (N.T(16.6, 0.25), "板塀 h1.8（後退の線の上、セキュリティの線）。道路との帯に花の低木 h0.6〜1.0：ユキヤナギ・クチナシ・アベリア（機械室の脇も）"),
     (N.T(23.0, 2.2), "北の小径の木戸 h1.8（鍵、庭師と点検の人、だいさんかくの北の口）"),
     (N.T(28.7, 0.45), "機械室の戸（北西の面、両開き約1.6）と前の洗い出し"),
     ((-8.0, -11.4), "本の奥の地窓（読書の庭を見る）"),
@@ -123,18 +125,18 @@ T((-3, -47.0), "南は「配置図（南半分）」へ続く", 5.5, color="#777
 
 # page text
 fig.text(14 / 297, 404 / 420, "育ち舎　配置図（北半分）　西館の周り・読書の庭・機械室", fontsize=12, weight="bold")
-fig.text(14 / 297, 396 / 420, "1/200（A3）　2026-10-24　西館の外は後退の帯（幅1.0）だけ。戸の前を空け、ほかは低い植栽。読書の庭は板塀で閉じる坪庭、機械室は道路から。", fontsize=6.6)
+fig.text(14 / 297, 396 / 420, "1/200（A3）　2026-10-24　西館の外は後退の帯（幅1.0）だけ。戸の前を空け、ほかは香りと花の植栽。読書の庭は板塀で閉じる坪庭、機械室は道路から。", fontsize=6.6)
 LX = 196
 fig.text(LX / 297, 388 / 420, "番号", fontsize=7, weight="bold")
 for k, (p, t) in enumerate(items, 1):
-    y = (381 - 9.2 * (k - 1)) / 420
+    y = (381 - 10.2 * (k - 1)) / 420
     fig.add_artist(Circle(((LX + 2.2) / 297, y + 0.002), 0.0075, transform=fig.transFigure, fc="white", ec="black", lw=0.35))
     fig.text((LX + 2.2) / 297, y + 0.002, str(k), fontsize=5, ha="center", va="center")
     import textwrap
-    fig.text((LX + 6) / 297, y + 0.006, "\n".join(textwrap.wrap(t, 34)), fontsize=5.6, va="top", linespacing=1.3)
+    fig.text((LX + 6) / 297, y + 0.006, "\n".join(textwrap.wrap(t, 40)), fontsize=5.6, va="top", linespacing=1.3)
 # legend swatches
-ly = 255
-for c, t, h in ((C["plant"], "植栽（低木・下草）", None), (C["moss"], "苔", "...."), (C["gravel"], "砂利", None), (C["arai"], "洗い出し・飛び石", None), (C["rain"], "雨庭", None), (C["bld"], "建物", None)):
+ly = 240
+for c, t, h in ((C["hedge"], "香りの刈り込み h1.2〜1.5", None), (C["mid"], "花の低木 h0.6〜1.0", None), (C["plant"], "低い香りの草 h0.3〜0.6", None), (C["moss"], "苔", "...."), (C["gravel"], "砂利", None), (C["arai"], "洗い出し・飛び石", None), (C["rain"], "雨庭", None), (C["bld"], "建物", None)):
     fig.add_artist(matplotlib.patches.Rectangle((LX / 297, ly / 420), 5 / 297, 3 / 420, transform=fig.transFigure, fc=c, ec="#555555", lw=0.3, hatch=h))
     fig.text((LX + 7) / 297, (ly + 1.5) / 420, t, fontsize=5.6, va="center"); ly -= 5.5
 fig.add_artist(matplotlib.lines.Line2D([LX / 297, (LX + 5) / 297], [(ly + 1.5) / 420] * 2, transform=fig.transFigure, lw=2.0, color=C["fence"]))
@@ -143,12 +145,13 @@ fig.add_artist(matplotlib.lines.Line2D([LX / 297, (LX + 5) / 297], [(ly + 1.5) /
 fig.text((LX + 7) / 297, (ly + 1.5) / 420, "窓（外を見る所）", fontsize=5.6, va="center")
 
 P_ = N.N["PLANTS"]
-notes = (f"道路沿いの帯（後退の帯、幅1.0）：壁の外面は後退の線の上。戸の前だけ空け、ほかは低木と下草 h0.3〜0.6（{'・'.join(P_)}など、乾きに強いもの）。高木・中木は植えない（道が細く、軒が低い）。\n"
-         "植栽の理由：細い道と向かいの住宅に緑を添える、壁に寄りかかる・自転車を立てかけるのを防ぐ、遊戯室の地窓（床から0.1〜0.5）の覗き込みを和らげ、こどもには床の高さに葉が見える、西日で壁が焼けるのを抑える。\n"
-         "園庭の決まりと同じく、毒・とげ・かぶれのある植物は使わない。壁の足もとは砂利0.2（本館の西と同じ）。\n"
+PL_ = N.N["PLANTS"]
+notes = ("道路沿いの帯（後退の帯、幅1.0）：壁の外面は後退の線の上。戸の前だけ空け、ほかは植栽。高木は植えない（道が細い）。毒・とげ・かぶれのある植物は使わない（園庭の決まりと同じ、ヒイラギモクセイ・ジンチョウゲ・スイセンは使わない）。\n"
+         f"樹種（楽しめるもの、ユーザー：香りと花）：窓と戸の無い壁の前は{'・'.join(PL_['HEDGE']['sp'])}の刈り込み（秋の香りが道と迎えの保護者に）。板塀の前と機械室の脇は{'・'.join(PL_['MID']['sp'])}（春の白い花、初夏の香り、夏〜秋の花）。\n"
+         f"遊戯室の地窓・覗き窓の前と大戸の脇は低い香りの草（{'・'.join(PL_['LOW']['sp'])}）。こどもには床の高さに花と葉が見え、道からの覗き込みも和らぐ。軒の下は乾くので乾きに強いものを。壁の足もとは砂利0.2。\n"
          f"読書の庭（約{N.READ.area:.0f}m²）：西館の北の面・本館の西の壁の北の端・板塀に囲まれた、入らない坪庭。本の奥の地窓と遊戯室の北の窓から見る。北向きで両側の建物の陰になるので苔に向く。モミジは塀の上から道にも見える。\n"
          f"板塀 h1.8（約{sum(LineString(f).length for f in N.FENCE):.0f}m）：西館の北の角から機械室まで、後退の線の上。今まで道路に開いていたセキュリティの線の切れ目を閉じる。北の小径の口に木戸（鍵）。\n"
-         "機械室の戸：北東は隣家から1mを守る側なので、戸は北西の面（道路側）に。機器と蓄電池（2.0×1.2）の出し入れ・点検が、こどもの線の内側を通らずにできる。")
+         "機械室の戸：北東は隣家から1mを守る側なので、戸は北西の面（道路側）に。機器と蓄電池（2.0×1.2）の出し入れ・点検が、こどもの線の内側を通らずにできる。戸の形は本館係。")
 fig.text(14 / 297, 112 / 420, notes, fontsize=6.0, va="top", color="#333333", linespacing=1.65, wrap=True)
 
 os.makedirs(OUT, exist_ok=True)

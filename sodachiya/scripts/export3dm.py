@@ -165,8 +165,10 @@ wall([NC.GATE[0], NC.GATE[1]], NC.N["KOMICHI_GATE"]["h"], "72_外構_柱", 0.05)
 for q in NC.GATE: post(q, NC.N["KOMICHI_GATE"]["h"] + 0.1)
 for g in (NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.GRAVEL, NC.KOMICHI):
     for q in polys(g): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)
-for g in (NC.PLANT, NC.MSTRIP):                                                          # 低木と下草（h0.3〜0.6 の塊を h0.45 で）
-    for q in polys(g): slab(list(q.simplify(0.02).exterior.coords)[:-1], 0, 0.45, "77_外構_樹木")
+_PL = NC.N["PLANTS"]
+for g, k in ((NC.HEDGE, "HEDGE"), (NC.MID, "MID"), (NC.LOW, "LOW")):                     # 香りの刈り込み・花の低木・低い香りの草（塊）
+    for q in polys(g): slab(list(q.simplify(0.02).exterior.coords)[:-1], 0, _PL[k]["h"], "77_外構_樹木")
+for q in polys(NC.GAPRON): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)
 slab(list(NC.READ.simplify(0.02).exterior.coords)[:-1], 0, 0.03, "77_外構_樹木")        # 読書の庭の苔
 m.Write(OUTF, 7)
 print("wrote", OUTF, len(m.Objects), "objects")
