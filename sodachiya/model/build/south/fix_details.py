@@ -218,6 +218,40 @@ for o in m.Objects:
     if k_ not in _bn: beam_new.append((mm, o.Attributes)); beam_drop.add(k_)
 log.append(f'西館：南西・北の角の屋根の面に合わせて、柱・梁・桁 {_n_lift} 本の上の方を上げた（いちばん大きい差 {_dmax:.0f} mm）')
 
+# 3c) 面だけの西館の物に厚みを付けて閉じる（10-24夜、西館係）：階段の箱の壁・2階の北の壁（24）、階段（25）、室内窓（27）は
+# 面だけで描かれていて閉じておらず、干渉の一覧にも削る段にも入らなかった。三角形ごとに両側へ厚みの半分ずつ出した三角柱を
+# 足し合わせて一つの閉じた立体にする（開口はそのまま残る）。厚さ：間仕切り120、階段の踏み板・蹴込み40、ガラス12。
+import manifold3d as _mf
+_THK = {lidx('24_'): 120.0, lidx('25_'): 40.0, lidx('27_'): 12.0}
+_n_thk = 0
+for o in m.Objects:
+    li_ = o.Attributes.LayerIndex
+    if li_ not in _THK or not isinstance(o.Geometry, r.Mesh): continue
+    T = tris(o.Geometry)
+    if not len(T): continue
+    U = to_uv_arr(T.reshape(-1, 3))
+    if (U[:, 1] > -0.9).any(): continue                                  # 西館だけ
+    tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
+    if tm_.is_watertight: continue
+    h_ = _THK[li_] / 2; ms_ = []
+    for t_ in T:
+        n_ = np.cross(t_[1] - t_[0], t_[2] - t_[0]); ln_ = np.linalg.norm(n_)
+        if ln_ < 1.0: continue
+        n_ = n_ / ln_ * h_
+        V_ = np.vstack([t_ - n_, t_ + n_]).astype(np.float32)
+        F_ = np.array([[0, 2, 1], [3, 4, 5], [0, 1, 4], [0, 4, 3], [1, 2, 5], [1, 5, 4], [2, 0, 3], [2, 3, 5]], np.uint32)
+        M_ = _mf.Manifold(_mf.Mesh(vert_properties=V_, tri_verts=F_))
+        if M_.is_empty(): M_ = _mf.Manifold(_mf.Mesh(vert_properties=V_, tri_verts=F_[:, ::-1].copy()))
+        if not M_.is_empty(): ms_.append(M_)
+    if not ms_: continue
+    MM = _mf.Manifold.batch_boolean(ms_, _mf.OpType.Add); g_ = MM.to_mesh()
+    mm = r.Mesh()
+    for x_, y_, z_ in np.asarray(g_.vert_properties)[:, :3]: mm.Vertices.Add(float(x_), float(y_), float(z_))
+    for a_, b_, c_ in np.asarray(g_.tri_verts): mm.Faces.AddFace(int(a_), int(b_), int(c_))
+    mm.Normals.ComputeNormals(); mm.Compact()
+    beam_new.append((mm, o.Attributes)); beam_drop.add(str(o.Attributes.Id)); _n_thk += 1
+log.append(f'西館：面だけの間仕切り・階段・室内窓 {_n_thk} 個に厚みを付けて閉じた')
+
 # ================================================================ 屋根の下面（西館 20・本館 10）
 def roof_mesh(li):
     T = [tris(o.Geometry) for o in m.Objects if o.Attributes.LayerIndex == li]
