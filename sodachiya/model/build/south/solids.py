@@ -82,7 +82,9 @@ def extrusion_vf(g):
         W = c0 + np.outer(L[:, 0], B0) + np.outer(L[:, 1], B1) + np.outer(L[:, 2] / h, d)
         Vs.append(W); Fs.append(np.asarray(t.faces) + off); off += len(W)
     if not Vs: return None
-    return np.vstack(Vs), np.vstack(Fs)
+    V, F = np.vstack(Vs), np.vstack(Fs)
+    if trimesh.Trimesh(V, F, process=False).volume < 0: F = F[:, ::-1]      # 輪の向きと押し出しの向きで裏返る（10-25）
+    return V, F
 
 def to_trimesh(V, F):
     """閉じた形になる読み方を順に試す：そのまま → 潰れた面を除く → 0.1 mm でずれた頂点を寄せる
@@ -156,11 +158,26 @@ def load(path):
         if M is None:              # 接する箱を一つの物にまとめたもの（辺を 4 枚の面が共有）：箱ごとに閉じて足す
             M = by_bodies(*vf)
             if M is not None: t = to_trimesh(*from_manifold(M))
+        repaired = False
+        if M is None and isinstance(o.Geometry, r.Mesh):              # T 字の継ぎ目・厚みの無い片・重なった面を直して閉じる（10-25、Rhino で部材が透けて見えた）
+            try:
+                V2, F2, ok = repair_solid(*vf)
+                if ok:
+                    t2 = to_trimesh(V2, F2); M = to_manifold(t2)
+                    if M is not None: t = t2; repaired = True
+            except Exception:
+                pass
         if M is None and k in 'FPDI':      # 小さな穴（面の抜け）を埋めて閉じる
             t3 = t.copy(); trimesh.repair.fill_holes(t3); trimesh.repair.fix_winding(t3)
             M = to_manifold(t3)
-            if M is not None: t = t3
-        parts.append(dict(i=i, layer=ln, klass=k, name=o.Attributes.Name or '', tm=t, M=M, bb=t.bounds.copy()))
+            if M is not None: t = t3; repaired = True
+        inverted = False
+        if M is not None and not repaired and isinstance(o.Geometry, r.Mesh):     # （押し出しは Rhino でそのまま閉じた立体）閉じているが面が内向き（Rhino の陰影で裏の色になる）、または元の網目は開いている
+            try:
+                t0 = trimesh.Trimesh(*vf, process=True)        # （箱ごとに閉じて読めた・小さな穴を埋めた物）→ 読めた立体で書き直す
+                inverted = t0.volume < 0 or not t0.is_watertight
+            except Exception: pass
+        parts.append(dict(i=i, layer=ln, klass=k, name=o.Attributes.Name or '', tm=t, M=M, bb=t.bounds.copy(), repaired=repaired, inverted=inverted))
     return m, LN, parts
 
 def mesh_from_vf(V, F):
@@ -233,3 +250,72 @@ class RoofRaster:
         t = trimesh.Trimesh(V, np.array(F), process=True)
         if t.volume < 0: t.invert()
         return to_manifold(t)
+
+
+def seal_tjunctions(V, F, tol=0.5, rounds=8):
+    """T 字の継ぎ目を埋めて閉じる（設計監修 10-25、ユーザー：Rhino で梁や柱の一部が透き通って見える）。
+    隣り合う面の分け方が違う（片側の辺の途中に、もう片側の頂点がある）と、辺が共有されず網目が閉じない。
+    Rhino ではそこが細い割れ目になって透けて見え、削る段（clip_parts）でも閉じていない物は削る側に入れない。
+    開いた辺の上に乗っている開いた頂点で、その辺の面を分ける。最後に面の向きを外向きにそろえる。→ (V, F)"""
+    from scipy.spatial import cKDTree
+    V = np.asarray(V, float); F = np.asarray(F, np.int64)
+    t = trimesh.Trimesh(V, F, process=True); V = np.asarray(t.vertices); F = np.asarray(t.faces)
+    for _ in range(rounds):
+        t = trimesh.Trimesh(V, F, process=False)
+        bi = trimesh.grouping.group_rows(t.edges_sorted, require_count=1)
+        if len(bi) == 0: break
+        bv = np.unique(t.edges_sorted[bi]); kd = cKDTree(V[bv])
+        fe = t.edges_face[bi]; ed = t.edges[bi]               # 面の向きのままの辺 a→b
+        split = {}
+        for (a, b), f in zip(ed, fe):
+            A, B = V[a], V[b]; d = B - A; L2 = d @ d
+            if L2 < 1e-6: continue
+            cand = kd.query_ball_point((A + B) / 2, np.sqrt(L2) / 2 + tol)
+            ps = []
+            for j in cand:
+                p = bv[j]
+                if p in (a, b): continue
+                s = (V[p] - A) @ d / L2
+                if not (1e-4 < s < 1 - 1e-4): continue
+                if np.linalg.norm(A + s * d - V[p]) > tol: continue
+                ps.append((s, p))
+            if ps: split.setdefault(int(f), []).append((int(a), int(b), [p for _, p in sorted(ps)]))
+        if not split: break
+        keep = np.ones(len(F), bool); add = []
+        for f, edges in split.items():
+            keep[f] = False
+            # 面の辺を、分ける点を入れた多角形にして、扇形に三角形へ
+            fa = list(F[f]); poly = []
+            for k in range(3):
+                a, b = fa[k], fa[(k + 1) % 3]; poly.append(a)
+                for a2, b2, ps in edges:
+                    if a2 == a and b2 == b: poly += ps
+            # 分けていない頂点（元の三角形の角）のうち、分けた辺の向かいの角から扇にする
+            c = next((x for x in fa if all(x not in (a2, b2) for a2, b2, _ in edges)), fa[0])
+            i0 = poly.index(c); poly = poly[i0:] + poly[:i0]
+            for k in range(1, len(poly) - 1): add.append((poly[0], poly[k], poly[k + 1]))
+        F = np.vstack([F[keep], np.array(add, np.int64)]) if add else F[keep]
+    t = trimesh.Trimesh(V, F, process=True)
+    trimesh.repair.fix_winding(t)
+    if t.is_watertight and t.volume < 0: t.invert()
+    return np.asarray(t.vertices), np.asarray(t.faces)
+
+
+def repair_solid(V, F):
+    """閉じていない部材を閉じた立体に直す（設計監修 10-25）。→ (V, F, 閉じたか)
+    1. 重なった面・潰れた面を除く  2. 体ごとに分け、厚みの無い体（押し出しの輪の偶奇で出る細い面など、体積 1 cm³ 未満）を捨てる
+    3. 体ごとに T 字の継ぎ目を埋める（seal_tjunctions）  4. 面を外向きに"""
+    t = trimesh.Trimesh(np.asarray(V, float), np.asarray(F, np.int64), process=True)
+    t.update_faces(t.unique_faces()); t.update_faces(t.nondegenerate_faces()); t.remove_unreferenced_vertices()
+    Vs, Fs, off, ok = [], [], 0, True
+    for b in t.split(only_watertight=False):
+        if b.is_watertight and abs(b.volume) < 1e3: continue
+        if not b.is_watertight:
+            V2, F2 = seal_tjunctions(b.vertices, b.faces); b = trimesh.Trimesh(V2, F2, process=False)
+            if not b.is_watertight:
+                if np.ptp(b.vertices, 0).min() < 1.0: continue          # 平らな片（体積の無い面）は捨てる
+                ok = False
+        if b.is_watertight and b.volume < 0: b.invert()
+        Vs.append(np.asarray(b.vertices)); Fs.append(np.asarray(b.faces) + off); off += len(b.vertices)
+    if not Vs: return np.asarray(V, float), np.asarray(F, np.int64), False
+    return np.vstack(Vs), np.vstack(Fs), ok

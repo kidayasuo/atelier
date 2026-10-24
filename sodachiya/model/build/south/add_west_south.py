@@ -15,6 +15,7 @@ import sys, math, pickle, numpy as np, rhino3dm as r
 from shapely.geometry import Polygon, Point, LineString, MultiPolygon
 from shapely.ops import unary_union
 from shapely import affinity
+from shapely.geometry.polygon import orient as _orient
 import mapbox_earcut as earcut
 sys.path.insert(0, '/tmp/claude-0/t/south')
 from uv import xy, uv
@@ -146,7 +147,7 @@ def mesh_prism(poly, z0, zfun, li, col=None):
     polys = [poly] if poly.geom_type == 'Polygon' else list(poly.geoms)
     for p in polys:
         if p.area < 100: continue
-        p = p.simplify(0.5)
+        p = _orient(p.simplify(0.5), 1.0)          # 外の輪を左回りに（右回りだと立体が裏返しになっていた、10-25 監修）
         rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
         V2 = np.vstack(rings); n = len(V2)
         ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
@@ -347,6 +348,20 @@ for o in new.Objects:
 zlid = min(lid) if lid else 4200.0
 pane_u(21.0, -0.85, -0.15, -150, zlid)
 print('gap glass top', round(zlid))
+# すき間の北の端を閉じる（設計監修 10-25、ユーザー：本館と西館のあいだの外壁のすき間を断熱気密の観点から）。
+# すき間は室内（換気の道・倉庫、蓋は西館の壁まで届いている）なのに、北の端 u51 が床から蓋の下まで開いていた（幅 0.55、高さ 約4.5）。
+# 西館の北の外壁（外面 u51.0、厚さ 150）を本館の西の外壁の外面（v −0.35）の 10 手前まで延ばす（10 は伸縮の目地：西館に留め、
+# 本館の側は気密の伸縮目地＋目地カバーで、二つの建物が別に動いてよい）。北は寒い側で見せる必要もないので、ガラスでなく断熱した外壁にした。
+lidN = []
+for o in new.Objects:
+    if LN.get(o.Attributes.LayerIndex, '').startswith('50a') and isinstance(o.Geometry, r.Mesh):
+        g = o.Geometry
+        for i in range(len(g.Vertices)):
+            p = g.Vertices[i]; uu, vv = uv(p.X, p.Y)
+            if 49.0 < uu < 52.5 and -1.2 < vv < 0.3: lidN.append(p.Z)
+zlidN = min(lidN) if lidN else zlid
+mesh_prism(R(51.0 - T_W / 1000, 51.0, -0.90, -0.36, 0.05), 0.0, const(zlidN), L_WALL)
+print('gap north wall top', round(zlidN))
 
 # ---------------------------------------------------------------- 床
 WNi = WN.buffer(-T_W, join_style=2)

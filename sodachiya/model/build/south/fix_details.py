@@ -90,7 +90,7 @@ def closed_mesh(g):
         import solids
         vf = solids.extrusion_vf(g)
         if vf is not None:
-            V_, F_ = vf; mm = r.Mesh()
+            V_, F_, _ = solids.repair_solid(*vf); mm = r.Mesh()      # 厚みの無い片を捨て、面を外向きに（10-25 監修）
             for x_, y_, z_ in V_: mm.Vertices.Add(float(x_), float(y_), float(z_))
             for a_, b_, c_ in F_: mm.Faces.AddFace(int(a_), int(b_), int(c_))
             return mm
@@ -112,7 +112,7 @@ for o in m.Objects:
     if o.Attributes.LayerIndex != L11A: continue
     T = tris(o.Geometry); U = to_uv_arr(T.reshape(-1, 3))
     if U[:, 1].mean() > 1 or U[:, 1].min() > -0.205: continue
-    mm = welded_mesh(T); map_mesh_uv(mm, lambda u, v, z: (u, max(v, -0.20), z)); mm.Compact()
+    mm = closed_mesh(o.Geometry); map_mesh_uv(mm, lambda u, v, z: (u, max(v, -0.20), z)); mm.Compact()   # 閉じた網目で（10-25 監修：三角形のスープから溶接すると閉じず、Rhino で柱が透けて見えた）
     col_new.append((mm, o.Attributes)); col_drop.add(str(o.Attributes.Id))
 log.append(f'本館：西の柱 {len(col_new)} 本の頭の膨らみを柱の外面（壁の内面）で平らに')
 

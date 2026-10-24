@@ -32,6 +32,12 @@ ROOF_T = 60.0         # 厚みの無い屋根の面に付ける厚さ（下へ�
 CELL = 250.0
 m, LN, parts = load(IN)
 P_OF = {p['i']: p for p in parts}
+# 読み込みで閉じた立体に直した部材（T 字の継ぎ目・厚みの無い片、solids.repair_solid）は、直した形で書き出す（10-25：Rhino で
+# 梁や柱の一部が透けて見えた。閉じていない部材は削る側にも入らず、南の端の2階床梁の下の小壁が削られずに残っていた）
+# 閉じているが面が内向きの部材も、外向きにして書き出す
+for p in parts:
+    if p.get('repaired') or p.get('inverted'): p['new'] = True
+stats_rep = sum(1 for p in parts if p.get('repaired')); stats_inv = sum(1 for p in parts if p.get('inverted'))
 stats = collections.Counter(); log = []
 
 # ---------------------------------------------------------------- 0. 西館の屋根の面に厚み
@@ -283,6 +289,7 @@ for i, o in enumerate(m.Objects):
 out.Write(OUT, 8)
 summ = collections.Counter()
 for d in log: summ[(d['layer'][:14], tuple(d['by']))] += 1
+stats['repaired'] = stats_rep; stats['outward'] = stats_inv
 print('clip_parts:', dict(stats))
 for (ln, by), n in summ.most_common(25): print(f'  {n:4d} {ln} ← {"・".join(by)}')
 if LOGJ: json.dump(dict(stats=stats, log=log), open(LOGJ, 'w'), ensure_ascii=False, indent=1)
