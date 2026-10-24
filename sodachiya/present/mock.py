@@ -617,6 +617,7 @@ _nx, _ny = sx + 14, sy + sh - 20
 ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
 T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
 scalebar(ax, sx + 6, sy + 6, 200, 20)
+T(ax, sx + 6, sy + 16, "災害時は地下水をくみ上げて、近隣に水を届ける", 2.8)
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、敷地{QX1-QX0:.1f}×{QY1-QY0:.1f} m、枠{sw:.0f}×{sh} mm")
 
 # 園庭の筋（配置図の右、上から下へ）
