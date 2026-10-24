@@ -31,7 +31,34 @@ gl=[P(RG,a) for a in np.linspace(TH[0],th19,60)]
 # 10-21：引き戸（鴨居は梁の下端 h2270、2 スパン通し）＋鴨居の上は枠なしの固定ガラスで屋根の下まで
 KAMOI=2270; ZUND=lambda x,y: ztop(rr_of(x,y))-250
 L_kam=layer('18_本館_鴨居・建具枠（木）',(150,110,70))
-wall_along(gl,lambda x,y:0,lambda x,y:KAMOI,40,L_gl)                       # 引き戸
+# 10-24夜（ユーザーの決定、監修と相談）：架構のスパンごとに半分FIX＋半分片引き戸、19スパンとも同じ向き。
+# 各スパンの南の半分が開く側、戸は北の半分のFIXの室内側（西）を走る（閉じた形で、戸は南の半分に、FIXに 50 かかる）。
+# ガラスは強化か合わせ。衝突防止に園のロゴをエッチング：板の真ん中、こどもの目の高さ（中心 FL+1.0）、大人の目の高さ（FL+1.5）に小さな印。
+# 0・1歳（スパン1–4）の低い所には入れない（ユーザー：はいはいの子はぶつかってよい）。戸の板の印は少しずらす（開けて重なっても模様に見える）。
+L_logo=layer('16e_本館_ガラスのロゴ（衝突防止、エッチング）',(120,150,170))
+def _disc(c,z,rad,li,off):
+    """ガラスの面に貼った薄い円（ロゴの場所の印、φ2·rad、厚さ4）。c：ガラスの線上の点、off：面からの距離（室内が +）"""
+    d=np.array(c)-C; d=d/np.linalg.norm(d); t=np.array([-d[1],d[0]])
+    ring=[(float((np.array(c)+d*off+t*rad*np.cos(a))[0]),float((np.array(c)+d*off+t*rad*np.cos(a))[1]),z+rad*np.sin(a)) for a in np.linspace(0,2*np.pi,25)[:-1]]
+    M=r.Mesh()
+    for q in ring: M.Vertices.Add(*q)
+    for q in ring: M.Vertices.Add(q[0]+d[0]*4,q[1]+d[1]*4,q[2])
+    n=len(ring)
+    for i in range(1,n-1): M.Faces.AddFace(0,i,i+1); M.Faces.AddFace(n,n+i+1,n+i)
+    for i in range(n): j=(i+1)%n; M.Faces.AddFace(i,j,n+j,n+i)
+    M.Normals.ComputeNormals(); M.Compact()
+    a_=r.ObjectAttributes(); a_.LayerIndex=li; m.Objects.AddMesh(M,a_)
+for k in range(19):
+    a_n,a_s=TH[k],(TH[k+1] if k<18 else th19); mid=(a_n+a_s)/2
+    fix=[P(RG,a) for a in np.linspace(a_n,mid,8)]
+    door=[P(RG+60,a) for a in np.linspace(mid-50/RG,a_s,8)]
+    wall_along(fix,lambda x,y:0,lambda x,y:KAMOI,30,L_gl)                   # FIX
+    wall_along(door,lambda x,y:0,lambda x,y:KAMOI-10,40,L_gl)               # 片引き戸（室内側を北へ引く）
+    span_no=19-k                                                             # 南から数えたスパンの番号
+    if span_no>=5:
+        for aa,off,dz in (((a_n+mid)/2,16,0.0),((mid+a_s)/2+150/RG,81,0.0)):   # 室内側の面
+            _disc(P(RG,aa),1000+dz,150,L_logo,off)
+            _disc(P(RG,aa),1500+dz,40,L_logo,off)
 wall_along(gl,lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)               # 鴨居
 wall_along(gl,lambda x,y:KAMOI+60,ZUND,20,L_gl)                             # 固定ガラス
 # 10-24：床下の風の道（決定事項（共通）の「床下の風の道」）。外縁側（−150）から内縁側（±0）への段の蹴込みにガラリ
