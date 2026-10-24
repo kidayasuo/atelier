@@ -507,6 +507,7 @@ info = dict(building=[round(BX1 - BX0, 1), round(BY1 - BY0, 1)], site=[round(SX1
 print("建物の外形（m）", info["building"], " 敷地（m）", info["site"])
 
 embeds = {i: [] for i in range(1, 6)}
+TOPT = {i: [] for i in range(1, 6)}     # 貼った図の上に置く文字（紙のmm、左下）：(x, y, 文字, 高さmm, 太字)
 TOPL = {i: [] for i in range(1, 6)}     # 貼った図の上に描く引き出し線（紙のmm）：(点, 箱の端, 色)
 
 
@@ -1119,26 +1120,11 @@ for i_, (c_, t_) in enumerate(_sw):
     T(ax, _mx + 22, yy + 3.5, t_, 2.8)
 figs.append(fig)
 
-# ================================================================ 3　平面図（1階・2階、道路と隣地の線、色分け）（ユーザー、10-24夜：自動の図の並べ方のまま、迫力のある一枚に）
+# ================================================================ 3　平面図（ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
 fig, ax = page()
-frame(ax, 3, "平面図　1階・2階", "すべての人の場所：こどもの部屋（緑）・みんなの場所（黄）・通り（木の色）・大人の場所（青紫）を色で。道路と隣地の線も",
-      "1階・2階の平面（1/100、家具）→ 面積表と色の凡例")
-CLIP_PL = (15, 28, 752, 562)               # 自動の平面図（2階が西館の上、その下に1階）
-px, top2 = M + 6, H - M - 16 - 4
-wP, hP = embed(3, PLAN, CLIP_PL, px, top2 - (CLIP_PL[3] - CLIP_PL[1]), 1.0)
-py = top2 - hP
-_ax3 = px + wP + 4
-_w3 = W - M - 6 - _ax3
-_yy = area_table(ax, _ax3, top2 - 4, _w3, size=2.0)
-T(ax, _ax3, _yy - 14, "色", 3.4, bold=True)
-for i_, (c_, t_) in enumerate([(C_KIDS["53_"], "0・1歳"), (C_KIDS["54_"], "2歳"), (C_KIDS["59_1F_3歳"], "3歳"), (C_KIDS["59_1F_4歳"], "4歳"),
-                               (C_KIDS["59_1F_5歳"], "5歳"), (C_SHARE, "遊戯室・はれのま"), (C_WAY, "通り・ホール"), (C_WAY_SHOE, "土足の通り"),
-                               (C_ADULT, "大人の場所"), (C_ADULT_DK, "キッチン"), (C_WATER, "水まわり")]):
-    yy = _yy - 22 - i_ * 6
-    ax.add_patch(Rectangle((_ax3, yy), 8, 4.5, fc=c_, ec="#777777", lw=0.2))
-    T(ax, _ax3 + 10, yy + 1, t_, 2.2)
-dimnote(ax, _ax3, py + 10, "平面は3dmから自動（1/100）。")
-dimnote(ax, _ax3, py + 5, "道路・隣地の線と色は更新係へ依頼中")
+PLAN3 = os.environ.get("SODACHIYA_PLAN3", PLAN)        # 確かめるときだけ手元の書き出しを指す
+embed(3, PLAN3, None, 0, 0, 1.0)
+TOPT[3].append((14, H - 12, "こどもたちの育ち舎　3/5　平面図　1階・2階", 3.6, True))
 figs.append(fig)
 
 # ================================================================ 4　こどもたち（と働く人たち）の環境（ユーザー、10-24夜：一日の帯を先頭に、透視図もここ）
@@ -1322,6 +1308,9 @@ for si in range(1, 6):
         P_ = [fitz.Point(q[0] * MM, (H - q[1]) * MM) for q in pts]
         pg.draw_polyline(P_, color=rgb, width=0.6)
         pg.draw_circle(P_[-1], 0.9 * MM, color=rgb, fill=rgb)
+    for (tx, ty, ts, th, tb) in TOPT[si]:
+        pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname="F_B" if tb else "F_R",
+                       fontfile=FONTB if tb else FONT, color=(0.1, 0.1, 0.1))
 # 提出の5枚は sodachiya/presentation.pdf の一つだけ（ユーザー、10-24：前は5枚と「全体＋5枚」の2つがあった）。
 # 壁に貼ったときの全体は present/out/sodachiya_present_overview.pdf（ベクターのPDF、ユーザー、10-24夜：リポジトリの画像はPDFに）
 sheets = os.path.join(ROOT, "presentation.pdf")
