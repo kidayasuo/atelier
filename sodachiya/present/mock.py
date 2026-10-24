@@ -957,9 +957,9 @@ for (px_, py_), t_, dx_, dy_, ha_ in [((272, 76), "井出ヶ鼻井堰（高野�
 _wq = _ym([(272, 76)])[0]; ax.plot([_wq[0]], [_wq[1]], marker="v", ms=4, color=C_NAT, zorder=7)
 _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", mec=INK, zorder=7)
 _sq = _ym([(247, 148)])[0] + np.array([4.5, -1.2])   # 図の「樋ノ上川」の「樋」の字のあたり（ユーザー、10-24夜）
-ax.add_patch(plt.Circle(tuple(_sq), 2.4, fc="#E0904A", ec="none", zorder=7, gid="site_mark"))   # 敷地の印（一つの円の図形、Illustratorで変えられる）
+# 敷地の印は描かない（ユーザー、10-25朝：不要）
 T(ax, _fx0, _ny0 + 1.5, "図：ksdobokuisan「宝ヶ池」の図をなぞって描き直し", 1.8, NOTE)   # 説明は図の外へ（ユーザー）
-sozai("02", "松ヶ崎の用水の網（北が上、敷地の印はオレンジの円）", 1, _nbx, _ny0, _box_patch.get_width(), _ny1 - _ny0)
+sozai("02", "松ヶ崎の用水の網（北が上）", 1, _nbx, _ny0, _box_patch.get_width(), _ny1 - _ny0)
 figs.append(fig)
 
 # 図のPDF（3dmから自動の図）
