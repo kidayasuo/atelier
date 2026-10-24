@@ -41,7 +41,7 @@ Ln([(xmin, GL), (xmax, GL)], lw=1.0)
 R(0, GL, 13.5, FL, fc="#EEEEEE", ec="black", lw=0.6, z=1)
 R(13.5, GL, 15.0, -0.15, fc="#E6DFD0", ec="black", lw=0.6, z=1)      # outer engawa FL-150
 # west outer wall + monitor (koshi-yane)
-R(-0.15, FL, 0.0, 4.0, fc="#555555", ec="black", lw=0.5)
+R(-0.35, FL, -0.20, 4.32, fc="#555555", ec="black", lw=0.5)   # 西の外壁（柱の外、越屋根の立ち上がりを兼ねる）
 R(1.55, 2.4, 1.65, roof(1.6), fc="none", ec="black", lw=0.4)           # lattice zone
 for y in [2.6, 2.9, 3.2, 3.5]:
     pass
