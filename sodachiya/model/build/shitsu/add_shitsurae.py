@@ -210,27 +210,27 @@ T02 = {   # plan02（2歳、12 ≤ u ≤ 18.07）
     166: ('panel', 300, 650, 0.06, L_PL),                 # 崖 h350
 }
 T04 = {   # plan04（3〜5歳、u ≥ 30）
-    88: ('solid', 0, 3900, L_WW),                          # 北の妻
-    94: ('solid', 0, 2400, L_P), 95: ('solid', 0, 2400, L_P),
-    112: ('solid', 0, 2400, L_P), 115: ('solid', 0, 2400, L_P), 121: ('solid', 0, 2400, L_P),
-    116: ('panel', 0, 2400, 0.12, L_P), 117: ('panel', 0, 2400, 0.12, L_P), 122: ('panel', 0, 2400, 0.12, L_P),
-    130: ('solid', 0, 500, L_WC), 139: ('panel', 0, 1300, 0.03, L_WC), 140: ('panel', 0, 1300, 0.03, L_WC),
-    143: ('solid', 0, 550, L_WC), 144: ('solid', 0, 260, L_WC), 145: ('panel', 0, 1300, 0.03, L_WC),
-    147: ('solid', 0, 800, L_WC),
-    149: ('panel', 1200, 2270, 0.01, L_T),                # 路地の出口の暖簾（裾 h1200）
-    150: ('panel', 100, 700, 0.02, L_GL),                 # 便所の東の低い窓
-    166: ('solid', -150, 250, L_F),                       # 下足箱・腰掛け（外縁側の側）
-    280: by_u_table, 284: by_u_seat, 291: cot,
-    329: quiet_desk, 333: quiet_store, 338: by_u_seat, 341: by_u_seat,
-    345: loft, 347: loft_step,
-    355: ('solid', 0, 450, L_F), 354: ('table', 700, L_F),                 # 先生の席（10-24：腰の壁の東の端）
-    353: koshi_wall, 359: ('solid', 0, 700, L_F),                  # 腰の壁＋格子／移動式の低い腰壁（棚）
-    360: canopy, 364: hang_bar,                                 # 布の天蓋／吊り桟 h2400
-    368: ('solid', 0, 1000, L_F), 372: ('solid', 0, 900, L_F), 375: ('solid', 0, 12, L_T),
-    392: ('solid', 0, 1200, L_F),                         # 絵本の通りの棚
-    394: ('solid', 0, 300, L_F), 395: ('panel', 300, 1300, 0.01, L_T), 396: ('solid', 300, 420, L_T),
-    402: ('panel', 0, 2000, 0.03, L_F), 403: ('solid', 0, 50, L_T), 404: ('solid', 0, 5, L_PL),
-    410: ('solid', 50, 220, L_T),
+    89: ('solid', 0, 3900, L_WW),                          # 北の妻
+    95: ('solid', 0, 2400, L_P), 96: ('solid', 0, 2400, L_P),
+    113: ('solid', 0, 2400, L_P), 116: ('solid', 0, 2400, L_P), 122: ('solid', 0, 2400, L_P),
+    117: ('panel', 0, 2400, 0.12, L_P), 118: ('panel', 0, 2400, 0.12, L_P), 123: ('panel', 0, 2400, 0.12, L_P),
+    131: ('solid', 0, 500, L_WC), 140: ('panel', 0, 1300, 0.03, L_WC), 141: ('panel', 0, 1300, 0.03, L_WC),
+    144: ('solid', 0, 550, L_WC), 145: ('solid', 0, 260, L_WC), 146: ('panel', 0, 1300, 0.03, L_WC),
+    148: ('solid', 0, 800, L_WC),
+    150: ('panel', 1200, 2270, 0.01, L_T),                # 路地の出口の暖簾（裾 h1200）
+    151: ('panel', 100, 700, 0.02, L_GL),                 # 便所の東の低い窓
+    167: ('solid', -150, 250, L_F),                       # 下足箱・腰掛け（外縁側の側）
+    281: by_u_table, 285: by_u_seat, 292: cot,
+    330: quiet_desk, 334: quiet_store, 339: by_u_seat, 342: by_u_seat,
+    346: loft, 348: loft_step,
+    356: ('solid', 0, 450, L_F), 355: ('table', 700, L_F),                 # 先生の席（10-24：腰の壁の東の端）
+    354: koshi_wall, 360: ('solid', 0, 700, L_F),                  # 腰の壁＋格子／移動式の低い腰壁（棚）
+    361: canopy, 365: hang_bar,                                 # 布の天蓋／吊り桟 h2400
+    369: ('solid', 0, 1000, L_F), 373: ('solid', 0, 900, L_F), 376: ('solid', 0, 12, L_T),
+    393: ('solid', 0, 1200, L_F),                         # 絵本の通りの棚
+    395: ('solid', 0, 300, L_F), 396: ('panel', 300, 1300, 0.01, L_T), 397: ('solid', 300, 420, L_T),
+    403: ('panel', 0, 2000, 0.03, L_F), 404: ('solid', 0, 50, L_T), 405: ('solid', 0, 5, L_PL),
+    411: ('solid', 50, 220, L_T),
 }
 
 # ---- 0〜2歳の縁側（10-21：他と同じく縁側の中ほど r=191.5 にガラス戸。内縁側＝はだし・部屋の一部、外縁側＝土足 FL−150）----
@@ -249,7 +249,7 @@ def store_ceiling(rec):          # 教材庫：天井 h2400
     c = fc(rec)
     if c is not None and abs(c[0] - 0xE4 / 255) < 0.02 and abs(c[1] - 0xE1 / 255) < 0.02:
         solid_uv(clean(rec['pts']), 2400, 2430, L_P, c)
-T04[106] = store_ceiling
+T04[107] = store_ceiling
 
 import os as _os
 REF = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'ref')
@@ -288,7 +288,7 @@ def build(name, table, umin, umax, skipclip=False):
 
 build('plan01.py', T01, -1, 12.0)
 build('plan02.py', T02, 12.0, 18.1)
-build('plan04.py', T04, 29.9, 57.2)
+build('plan04.py', T04, 29.9, 57.4)
 
 # ---------------- 西の外壁（u 0–57、開口つき） ----------------
 OPEN = [  # (u0, u1, z0, z1)
@@ -334,5 +334,40 @@ c = (54.4, -2.3)
 ang = np.linspace(0, 2 * np.pi, 13)[:-1]
 solid_uv([(c[0] + 0.08 * np.cos(t), c[1] + 0.08 * np.sin(t)) for t in ang], -300, 2200, L_TR, (0.35, 0.25, 0.15, 1))
 solid_uv([(c[0] + 1.3 * np.cos(t), c[1] + 1.3 * np.sin(t)) for t in ang], 2200, 3300, L_TR, (0.55, 0.7, 0.35, 1))
+# ---- 3・4歳、4・5歳のあいだの通り抜け（こどもの小径）の床を「便所・倉庫」から分ける（10-24夜、プレゼンの準備の依頼：通りの色で塗る）----
+# plan04 の路地（C_LOOP の多角形、スパン14・17）で、add_floor の「59_1F_便所・倉庫」の床の板を切り分ける。形は変えない。
+import colorsys as _cs
+_rec4, _ = capture(f'{SCR}/plan04.py')
+_loop = (0xF6 / 255, 0xDD / 255, 0xD3 / 255)
+_roji = [SP([tuple(p) for p in r_['pts']]).buffer(0) for r_ in _rec4
+         if r_['kind'] == 'poly' and r_.get('fc') is not None and len(r_['fc']) >= 3
+         and all(abs(r_['fc'][i] - _loop[i]) < 0.01 for i in range(3))
+         and (38.9 < float(np.mean(r_['pts'][:, 0])) < 42.1 or 47.9 < float(np.mean(r_['pts'][:, 0])) < 51.1)
+         and float(np.mean(r_['pts'][:, 1])) > 1.6]
+from shapely.ops import unary_union as _uu
+_RJ = _uu(_roji) if _roji else None
+_LWC = next((i for i, l in enumerate(m.Layers) if l.Name == '59_1F_便所・倉庫'), None)
+if _RJ is not None and _LWC is not None:
+    L_PATH = layer('59_1F_通り抜け（こどもの小径）', (0xE9, 0xDF, 0xCF))
+    def _uv_of(x, y):
+        d = np.array([x, y]) - C; rr = np.hypot(*d); a = math.atan2(d[1], d[0]) % (2 * math.pi)
+        return (TH19 - a) * 205.0, 205.0 - rr / 1000.0
+    _del = []; _n = 0
+    _targets = [(o.Attributes.Id, o.Geometry) for o in m.Objects if o.Attributes.LayerIndex == _LWC and isinstance(o.Geometry, r.Mesh)]
+    for _id, g in _targets:
+        V = [_uv_of(g.Vertices[i].X, g.Vertices[i].Y) for i in range(len(g.Vertices))]
+        tris = []
+        for f in g.Faces:
+            q = SP([V[f[0]], V[f[1]], V[f[2]]])
+            if q.area > 1e-6: tris.append(q)
+        foot = _uu(tris).buffer(0)
+        if foot.is_empty or not foot.intersects(_RJ): continue
+        _del.append(_id); _n += 1
+        for part, li in ((foot.difference(_RJ), _LWC), (foot.intersection(_RJ), L_PATH)):
+            for pg in getattr(part, 'geoms', [part]):
+                if pg.geom_type == 'Polygon' and pg.area > 0.05:
+                    solid_uv(list(pg.exterior.coords)[:-1], 0, 10, li)
+    for i in _del: m.Objects.Delete(i)
+    print('通り抜けの床を分けた', _n, round(_RJ.area, 1))
 m.Write(OUT, 8)
 print('written', OUT)

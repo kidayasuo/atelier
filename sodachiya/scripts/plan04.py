@@ -59,8 +59,9 @@ def line(pts, lw=LW, ls="-", c="black", z=3):
     xs, ys = zip(*[P(u, v) for u, v in pts])
     ax.plot(xs, ys, lw=lw, ls=ls, color=c, zorder=z, solid_capstyle="butt")
 
+_WALLS = []
 def wall(u0, u1, v0, v1):
-    box(u0, u1, v0, v1, lw=0.5, fc="#444444", z=5)
+    _WALLS.append((u0, v0, u1, v1)); box(u0, u1, v0, v1, lw=0, fc="#444444", ec="#444444", z=5)
 
 def txt(u, v, s, size=6.5, **kw):
     x, y = P(u, v)
@@ -82,8 +83,8 @@ fill(U0, U1, 0, 1.6, C_LOOP)                 # west void (rail)
 fill(U0, U1, E, G, C_LOOP)
 fill(U0, U1, G, 15, "#E6DFD0")              # outer engawa (shoes, FL-150)
 # ---- walls & columns
-wall(U0, U1, -0.075, 0.075)
-wall(U1 - 0.06, U1 + 0.06, 0, 12)            # north gable
+wall(U0, U1, -0.35, -0.20)                    # 西の外壁（柱の外、10-22）
+wall(57.19, 57.34, -0.35, 12)                 # north gable（架構の外、外皮の線）
 for uf in range(30, 58, 3):
     for vc in [0, 12]:
         box(uf - 0.09, uf + 0.09, vc - 0.2, vc + 0.2, lw=0.3, fc="black", z=6)
@@ -452,5 +453,15 @@ txt(32.2, 2.75, "換気扇→越屋根", size=3.6, color="#3d7fb0")
 txt(41.3, 3.4, "換気扇→越屋根", size=3.2, color="#3d7fb0")
 fig.text(25 / 297, 15 / 420, "大人のトイレ（10-23夜）：多目的便所（スパン11）・職員用の個室（スパン14）・2階の便所の3か所、どれも性別を示さない個室。閉じる部屋は天井の換気扇から越屋根の東の口へ（⊠）",
          fontsize=5.2, va="top", color="#3d7fb0")
+# ---- 壁の輪郭を一本に（10-24、draw100.py の joined() と同じ考え：同じ種類の壁をまとめ、角の欠けとすき間 120 未満を閉じて輪郭を描く）----
+from shapely.geometry import box as _sbox
+from shapely.ops import unary_union as _uu
+def _wall_outline():
+    g = _uu([_sbox(*w) for w in _WALLS]).buffer(0.06, join_style=2).buffer(-0.06, join_style=2)
+    for p in getattr(g, "geoms", [g]):
+        if p.is_empty: continue
+        for ring in [p.exterior] + list(p.interiors):
+            ax.add_patch(Polygon([P(u, v) for u, v in ring.coords], closed=True, fc="none", ec="black", lw=0.5, zorder=5.5))
+_wall_outline()
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.png"), dpi=220)

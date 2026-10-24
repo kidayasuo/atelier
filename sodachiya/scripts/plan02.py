@@ -58,8 +58,9 @@ def line(pts, lw=LW_F, ls="-", c="black", z=3):
     xs, ys = zip(*[P(u, v) for u, v in pts])
     ax.plot(xs, ys, lw=lw, ls=ls, color=c, zorder=z, solid_capstyle="butt")
 
+_WALLS = []
 def wall(u0, u1, v0, v1):
-    box(u0, u1, v0, v1, lw=0.6, fc="#444444", z=5)
+    _WALLS.append((u0, v0, u1, v1)); box(u0, u1, v0, v1, lw=0, fc="#444444", ec="#444444", z=5)
 
 def txt(u, v, s, size=6.5, z=8, ha="center", va="center", **kw):
     x, y = P(u, v)
@@ -82,7 +83,7 @@ fill(12, 18, 1.2, 1.6, "#D8E8B6", z=1)         # strip remnant joined to room
 fill(U0, U1, 12, 15, C_ROOF)                   # engawa
 
 # ---- walls & columns
-wall(U0, U1, -0.075, 0.075)
+wall(U0, U1, -0.35, -0.20)                    # 西の外壁（柱の外、10-22）
 for uf in [12, 15, 18]:
     for vc in [0, 12]:
         box(uf - 0.09, uf + 0.09, vc - 0.2, vc + 0.2, lw=0.3, fc="black", z=6)
@@ -292,5 +293,15 @@ fig.text(25 / 297, 165 / 420,
          "危ないものと先生の物は扉の中か h1500 以上へ。それより低い所にあるものは全部さわってよい。",
          fontsize=6.2, va="top", color="#444444")
 
+# ---- 壁の輪郭を一本に（10-24、draw100.py の joined() と同じ考え：同じ種類の壁をまとめ、角の欠けとすき間 120 未満を閉じて輪郭を描く）----
+from shapely.geometry import box as _sbox
+from shapely.ops import unary_union as _uu
+def _wall_outline():
+    g = _uu([_sbox(*w) for w in _WALLS]).buffer(0.06, join_style=2).buffer(-0.06, join_style=2)
+    for p in getattr(g, "geoms", [g]):
+        if p.is_empty: continue
+        for ring in [p.exterior] + list(p.interiors):
+            ax.add_patch(Polygon([P(u, v) for u, v in ring.coords], closed=True, fc="none", ec="black", lw=0.5, zorder=5.5))
+_wall_outline()
 fig.savefig(_os.path.join(OUT, "sodachiya_02_furniture.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_02_furniture.png"), dpi=220)

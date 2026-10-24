@@ -65,8 +65,9 @@ def line(pts, lw=LW_F, ls="-", c="black", z=3):
     xs, ys = zip(*[P(u, v) for u, v in pts])
     ax.plot(xs, ys, lw=lw, ls=ls, color=c, zorder=z, solid_capstyle="butt")
 
+_WALLS = []
 def wall(u0, u1, v0, v1):
-    box(u0, u1, v0, v1, lw=0.6, fc="#444444", z=5)
+    _WALLS.append((u0, v0, u1, v1)); box(u0, u1, v0, v1, lw=0, fc="#444444", ec="#444444", z=5)
 
 def txt(u, v, s, size=6.5, z=8, ha="center", va="center", **kw):
     x, y = P(u, v)
@@ -391,5 +392,15 @@ uu, vv = 10.5, 2.0
 box(uu - 0.15, uu + 0.15, vv - 0.15, vv + 0.15, lw=0.35, fc="white", z=9)
 line([(uu - 0.15, vv - 0.15), (uu + 0.15, vv + 0.15)], lw=0.3, z=9); line([(uu - 0.15, vv + 0.15), (uu + 0.15, vv - 0.15)], lw=0.3, z=9)
 txt(uu + 0.32, vv + 0.75, "換気扇→越屋根", size=3.4, color="#3d7fb0", z=9)
+# ---- 壁の輪郭を一本に（10-24、draw100.py の joined() と同じ考え：同じ種類の壁をまとめ、角の欠けとすき間 120 未満を閉じて輪郭を描く）----
+from shapely.geometry import box as _sbox
+from shapely.ops import unary_union as _uu
+def _wall_outline():
+    g = _uu([_sbox(*w) for w in _WALLS]).buffer(0.06, join_style=2).buffer(-0.06, join_style=2)
+    for p in getattr(g, "geoms", [g]):
+        if p.is_empty: continue
+        for ring in [p.exterior] + list(p.interiors):
+            ax.add_patch(Polygon([P(u, v) for u, v in ring.coords], closed=True, fc="none", ec="black", lw=0.5, zorder=5.5))
+_wall_outline()
 fig.savefig(_os.path.join(OUT, "sodachiya_01_furniture.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_01_furniture.png"), dpi=220)

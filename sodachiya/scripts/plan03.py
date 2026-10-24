@@ -59,8 +59,9 @@ def line(pts, lw=LW, ls="-", c="black", z=3):
     xs, ys = zip(*[P(u, v) for u, v in pts])
     ax.plot(xs, ys, lw=lw, ls=ls, color=c, zorder=z, solid_capstyle="butt")
 
+_WALLS = []
 def wall(u0, u1, v0, v1):
-    box(u0, u1, v0, v1, lw=0.5, fc="#444444", z=5)
+    _WALLS.append((u0, v0, u1, v1)); box(u0, u1, v0, v1, lw=0, fc="#444444", ec="#444444", z=5)
 
 def txt(u, v, s, size=6.5, **kw):
     x, y = P(u, v)
@@ -83,8 +84,8 @@ fill(U0, U1, E, G, C_LOOP)
 fill(U0, U1, G, 15, "#E6DFD0")              # outer engawa (shoes, FL-150)
 fill(U1, U1 + 1.2, 0, 15, "#FBEDE7")           # north path (rung, tbd)
 # ---- walls & columns
-wall(U0, U1, -0.075, 0.075)
-wall(U1 - 0.06, U1 + 0.06, 0, 12)            # north gable
+wall(U0, U1, -0.35, -0.20)                    # 西の外壁（柱の外、10-22）
+wall(57.19, 57.34, -0.35, 12)                 # north gable（架構の外、外皮の線）
 for uf in range(30, 58, 3):
     for vc in [0, 12]:
         box(uf - 0.09, uf + 0.09, vc - 0.2, vc + 0.2, lw=0.3, fc="black", z=6)
@@ -271,5 +272,15 @@ fig.text(25 / 297, 23 / 420,
          "便器：3〜5歳 60人に8（7.5人に1）＋園庭の便所2〜3。手洗い10。スパン14は3歳と4歳、スパン17は4歳と5歳が使う。外遊びの道具と行事の倉庫は園庭の小屋へ。",
          fontsize=6.0, va="top", color="#444444")
 
+# ---- 壁の輪郭を一本に（10-24、draw100.py の joined() と同じ考え：同じ種類の壁をまとめ、角の欠けとすき間 120 未満を閉じて輪郭を描く）----
+from shapely.geometry import box as _sbox
+from shapely.ops import unary_union as _uu
+def _wall_outline():
+    g = _uu([_sbox(*w) for w in _WALLS]).buffer(0.06, join_style=2).buffer(-0.06, join_style=2)
+    for p in getattr(g, "geoms", [g]):
+        if p.is_empty: continue
+        for ring in [p.exterior] + list(p.interiors):
+            ax.add_patch(Polygon([P(u, v) for u, v in ring.coords], closed=True, fc="none", ec="black", lw=0.5, zorder=5.5))
+_wall_outline()
 fig.savefig(_os.path.join(OUT, "sodachiya_35_ladder.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_35_ladder.png"), dpi=220)

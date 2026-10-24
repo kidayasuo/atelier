@@ -15,6 +15,15 @@ from shapely.geometry import Polygon, box, MultiPolygon
 from shapely.ops import unary_union
 
 plt.rcParams['font.family'] = 'Noto Sans CJK JP'
+# 文字をIllustratorで文字として直せるように（ヒラギノへ置き換える、プレゼンの準備 10-24）、TrueTypeのNotoをType42で埋め込む
+import subprocess, matplotlib.font_manager as _fm
+_TTF = os.path.expanduser('~/.cache/sodachiya_fonts')
+if not os.path.exists(os.path.join(_TTF, 'NotoSansCJKjp-Bold.ttf')):
+    subprocess.run([sys.executable, os.path.join(ROOT, 'present', 'tools', 'make_ttf.py'), _TTF], check=False)
+if os.path.exists(os.path.join(_TTF, 'NotoSansCJKjp-Bold.ttf')):
+    for _f in ('Regular', 'Bold'): _fm.fontManager.addfont(os.path.join(_TTF, f'NotoSansCJKjp-{_f}.ttf'))
+    plt.rcParams['font.family'] = _fm.FontProperties(fname=os.path.join(_TTF, 'NotoSansCJKjp-Regular.ttf')).get_name()
+    plt.rcParams['pdf.fonttype'] = 42
 OUT = os.environ.get('OUT', os.path.join(ROOT, 'out'))
 U0, U1 = 32.6, 39.4                     # スパン12–13（架構12・13・14 = u33・36・39）
 UA, UB = 34.5, 37.5                     # 断面A（スパン12）・断面B（スパン13）、北を見る
