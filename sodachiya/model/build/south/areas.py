@@ -158,12 +158,12 @@ row('管理', '機械室', '約 30', 27, ('35_',), '本館の北の外')
 # 倉庫：道具入れとして確保した場所は全部数える（ユーザー、10-25）。建物の中の倉庫（教材庫）＋園庭の小屋の倉庫（data/garden.json の HUT、閉じた部屋）
 _gd = json.load(open(os.path.join(DATA, 'garden.json'), encoding='utf-8')).get('HUT', {})
 a_hut = (_gd['closed_a'] - _gd['split_a']) * (_gd['d'][1] - _gd['d'][0]) if all(k in _gd for k in ('closed_a', 'split_a', 'd')) else 0.0
-a_st, p_st = S('59_1F_倉庫')
+a_st, p_st = S('59_1F_倉庫', '36b_')
 p_st = sorted(p_st) + ([('園庭の小屋の倉庫', a_hut)] if a_hut else [])
 a_st += a_hut
 ROWS.append(dict(group='管理', room='倉庫', required='約 30', planned=round(a_st, 1),
                  parts=' ＋ '.join(f'{nm(k)} {v:.1f}' for k, v in p_st), judge='○' if a_st >= 27 else '',                                   # 足りない間は判定を空ける（検討中、ユーザーと相談、10-25）
-                 note='道具入れとして確保した場所は全部数える（ユーザー 10-25）：1 階のスパン 14・17 の倉庫（教材庫）、園庭の小屋の倉庫。遊戯室の道具入れは遊戯室に数えている。約 30 に足りない間は判定を空けている（検討中）'))
+                 note='道具入れとして確保した場所は全部数える（ユーザー 10-25）：1 階のスパン 14・17 の倉庫（教材庫）、本館と西館のすき間の倉庫、西館の階段の下の倉庫、園庭の小屋の倉庫。約 30 に足りない間は判定を空けている（検討中）'))
 ROWS.append(dict(group='管理', room='駐車場', required='5 台以上', planned=None, parts='南 3 台・北 2 台（うち 1 台は搬入）', judge='○', note='決定事項_外構'))
 ROWS.append(dict(group='管理', room='駐輪スペース', required='適宜', planned=None, parts='', judge='', note='未定'))
 # その他（課題文：自由に加えてよい）

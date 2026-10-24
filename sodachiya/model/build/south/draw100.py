@@ -538,7 +538,7 @@ def room_color(ln):
     if re.search(r'便所・倉庫|多目的便所|便所（こども）', ln): return C_WATER
     for k, c in KIDS:
         if k in ln: return c
-    if n in ('36', '35', '42', '43', '43b', '44', '45') or re.search(r'事務|医務|静養室|園長室|応接|便所（職員）|倉庫（教材庫）', ln): return C_ADULT
+    if n in ('36', '35', '42', '43', '43b', '44', '45') or re.search(r'事務|医務|静養室|園長室|応接|便所（職員）|倉庫', ln): return C_ADULT
     return None
 # 床の板（部屋の層でない）の色：本館の床・内縁側は通りの色（部屋の色がその上に重なる）、外縁側・海峡は土足
 SLAB_COLOR = {'12': C_STREET, '13': C_STREET, '14': C_DOSOKU, '15': C_DOSOKU}
