@@ -1002,28 +1002,28 @@ for o in _rp_("66_"):
         _arc = LineString([_a + _rr_ * np.array([np.cos(_t0 + d_), np.sin(_t0 + d_)]) for d_ in np.linspace(0, np.pi / 2, 12)])
         SL(_arc, "#2E241A", 0.2, z=5.4, ls=(0, (1.5, 1.0)), hide=False)
 # 駐車場（74の車室を囲む舗装、道路の側の敷地の境まで）を灰色に。バンプは横断歩道のような縞（ユーザー 10-25夕）
-# 車室（約12.5 m²）・保護者の駐輪（約1.3 m²）・職員の駐輪（約0.5 m²）を、それぞれ隣どうしでまとめ、まとまりごとに道路の側の敷地の境まで灰色に
-# （ユーザー 10-25夜：前の一つの凸包は範囲が不正確）
+# 駐車・駐輪のために確保する場所全体を灰色に（ユーザー 10-25夜、塗る範囲の図をもらった）：敷地の西の境から、ひろば・小径・ムベのアーチ・屋根までの、
+# 公園の北で、職員の駐輪の北の端までの範囲。南西の角の保護者の駐輪は歩道として開けたい所にはみ出ているので塗らない（アプローチ係に移動を依頼）
 _SITEP = Polygon(R3(np.array([SITE_C[k] for k in ("N", "E", "S", "SW", "NW")])))
 _A_ = R3(SITE_C["SW"])[0]; _B_ = R3(SITE_C["NW"])[0]; _tW = (_B_ - _A_) / np.linalg.norm(_B_ - _A_)
+_nW = np.array([-_tW[1], _tW[0]])
 _cells = [x for x in (_poly_of(o) for o in _rp_("74_") if o["kind"] == "curve") if x is not None and x.geom_type == "Polygon" and x.area > 0.3]
-_clus = []
-for c_ in _cells:
-    hit = [k_ for k_, cl in enumerate(_clus) if cl.buffer(0.35).intersects(c_)]
-    if hit:
-        merged = unary_union([_clus[k_] for k_ in hit] + [c_])
-        _clus = [cl for k_, cl in enumerate(_clus) if k_ not in hit] + [merged]
-    else:
-        _clus.append(c_)
-for cl in _clus:
-    _pts = np.array(cl.convex_hull.exterior.coords)
-    _dd = (_pts - _A_) @ np.array([-_tW[1], _tW[0]])
-    if abs(_dd).min() < 2.0:                              # 道路の近くのまとまりだけ、道路の側の境まで延ばす
-        _prj = np.array([_A_ + ((p_ - _A_) @ _tW) * _tW for p_ in _pts])
-        _hull = MultiPoint([tuple(p_) for p_ in np.vstack([_pts, _prj])]).convex_hull
-    else:
-        _hull = cl.convex_hull
-    SF(_hull.buffer(0.1).intersection(_SITEP.buffer(0.01)), "#D8D8D4", z=0.75)
+_tof = lambda g_: [(np.array(c_) - _A_) @ _tW for c_ in g_.exterior.coords]
+_tmax = max(max(_tof(c_)) for c_ in _cells) + 0.4
+_big76 = [x for x in (_poly_of(o) for o in _rp_("76_") if o["kind"] == "curve") if x is not None and x.geom_type == "Polygon" and x.area > 20]
+_cut = unary_union([x for x in [_PARK_R.buffer(0.02), ROOFALL, SMALLR, _ARCH if _g73a else None] + _big76 if x is not None])
+_slab = Polygon([_A_ - _tW * 5 - _nW * 50, _A_ + _tW * _tmax - _nW * 50, _A_ + _tW * _tmax + _nW * 50, _A_ - _tW * 5 + _nW * 50])
+_Z = _SITEP.intersection(_slab).difference(_cut)
+_Z = unary_union([z_ for z_ in (_Z.geoms if hasattr(_Z, "geoms") else [_Z]) if any(z_.intersects(c_) for c_ in _cells)])
+_bikes = [c_ for c_ in _cells if c_.area < 2.0]
+if _bikes:                                                 # 保護者の駐輪のうち、いちばん南西のまとまり（歩道に開けたい所）
+    _cl = []
+    for c_ in _bikes:
+        hit = [k_ for k_, cl in enumerate(_cl) if cl.buffer(0.35).intersects(c_)]
+        _cl = [cl for k_, cl in enumerate(_cl) if k_ not in hit] + [unary_union([_cl[k_] for k_ in hit] + [c_])]
+    _sw = min(_cl, key=lambda cl: min(_tof(cl.convex_hull)))
+    _Z = _Z.difference(_sw.convex_hull.buffer(0.6))
+SF(_Z, "#D8D8D4", z=0.75)
 for o in _rp_("74_"):
     if o["kind"] != "solid":
         continue
