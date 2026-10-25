@@ -196,8 +196,8 @@ poly(SP(Q([(0.0, 0.15), (7.15, 0.15), (7.15, 20)])).intersection(SP([P(0, 0), P(
 BIKES = []
 for s0 in [x for grp in BIKE_ROW1["s"] for x in grp]:            # row 1 behind the sidewalk (gap = aisle to row 2)
     BIKES.append(("d", s0, BIKE_ROW1["d0"]))
-for d0 in [2.9, 3.6, 4.3, 5.0, 5.7, 6.4]:                        # row 2: along s, side by side in d
-    BIKES.append(("s", 5.2, d0))
+for k in range(BIKE_ROW2["n"]):                                   # row 2: along s, side by side in d（0.65、前輪を互い違い）
+    BIKES.append(("s", BIKE_ROW2["s0"], BIKE_ROW2["d0"] + BIKE_ROW2["pitch"] * k))
 for kind, a, b in BIKES:
     if kind == "d":
         line(Q([(a + 0.35, b), (a + 0.35, b + 1.85)]), lw=1.0, c="#6b5a3a", z=3.6)
@@ -446,7 +446,7 @@ legend = [
     ("15", "勝手口（回り込む下屋の下）、搬入路 1.6（線の外）"),
     ("16", "駐車5台・乗入れ1か所・スピードバンプ（歩道を続ける）"),
     ("17", "来客の歩道 1.1（車から公園の木戸へ）"),
-    ("18", "駐輪 %d台（子乗せ 0.7 ピッチ）" % N_BIKE),
+    ("18", "駐輪 %d台（子乗せ 0.7・0.65 ピッチ）" % N_BIKE),
     ("19", "板塀 h1.8（道路側、西日と視線よけ）"),
 ]
 LX = 221

@@ -97,7 +97,7 @@ for k in range(2): add_curve(srect(17.7, 22.7, A.STALL_D0 + 2.5 * k, A.STALL_D0 
 slab(srect(12.3, 17.6, *A.BUMP), 0, 0.05, "74_外構_駐車・駐輪・バンプ")
 add_curve(srect(A.SIDEWALK["s"][0], A.SIDEWALK["s"][1], *A.SIDEWALK["d"]), "76_外構_舗装の区分", close=True)   # 歩道（開放）
 for kind, a, b in A.BIKES:
-    q = srect(a, a + 0.7, b, b + 1.9) if kind == "d" else srect(a, a + 1.9, b, b + 0.7)
+    q = srect(a, a + 0.7, b, b + 1.9) if kind == "d" else srect(a, a + 1.9, b, b + A.BIKE_ROW2["pitch"])
     add_curve(q, "74_外構_駐車・駐輪・バンプ", close=True)
 # 75 plaza furniture
 for b in A.BEDS: slab(srect(*b), 0, 0.4, "75_外構_ひろばの家具")
