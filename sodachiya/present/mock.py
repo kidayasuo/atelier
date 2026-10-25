@@ -1259,12 +1259,17 @@ if _ax_[1] < 0:
 # 風は高野川から吹いてきて本館の南の端にぶつかり、北東へ向きを変えて縁側に沿い、建物に入って越屋根から抜ける（ユーザー、10-26 1:02）
 _eg = _rU("14_")
 _egp = np.array(_eg.exterior.coords) if _eg.geom_type == "Polygon" else np.vstack([np.array(g_.exterior.coords) for g_ in _eg.geoms])
-_Ssouth = _egp[np.argmin(_egp @ _ax_)]                          # 縁側の南の端
+_po = _egp @ _out_
+_east = _egp[_po >= _po.max() - 3.0]                             # 東の縁側（外の側の縁）の点だけ
+_Ssouth = _east[np.argmin(_east @ _ax_)]                         # 東の縁側の南の端（南の縁側の回り込みは除く）
 _din = np.linalg.norm(_ENGc - _FUKIc)
 _fo = float((_FUKIc - _Ssouth) @ _out_)                         # 越屋根の線（縁側の南の端から内へ）
-_wp = _chaikin([_Ssouth + _out_ * 2.0 + np.array([0.0, -13.0]), _Ssouth + _out_ * 2.5 + np.array([0.0, -4.0]),
-                _Ssouth + _out_ * 2.5 + _ax_ * 4.0, _Ssouth + _out_ * 1.5 + _ax_ * 14.0, _Ssouth + _ax_ * 21.0 - _out_ * 2.0,
-                _Ssouth + _ax_ * 24.0 + _out_ * _fo, _Ssouth + _ax_ * 25.0 + _out_ * (_fo - 6.0)])
+_ry = _Ssouth[1] - 3.0                                           # 川の上（敷地の南の辺の少し下）
+_wp = _chaikin([np.array([_pE[0] + 6.0, _ry]), np.array([_pE[0] - 14.0, _ry]),        # 右（高野川の上流）から川に沿って流れてくる
+                _Ssouth + _out_ * 4.0 + np.array([3.0, -2.5]),                        # 本館の南の端にぶつかる
+                _Ssouth + _out_ * 2.5 + _ax_ * 5.0, _Ssouth + _out_ * 1.5 + _ax_ * 14.0,  # 北東へ向きを変えて縁側に沿う
+                _Ssouth + _ax_ * 21.0 - _out_ * 2.0, _Ssouth + _ax_ * 24.0 + _out_ * _fo,  # 建物に入って越屋根へ
+                _Ssouth + _ax_ * 25.0 + _out_ * (_fo - 6.0)])
 _L = LineString(_wp); _N_ = 80
 _pts = np.array([_L.interpolate(t_, normalized=True).coords[0] for t_ in np.linspace(0, 0.9, _N_)])
 _tip = np.array(_L.interpolate(1.0, normalized=True).coords[0])
@@ -1276,11 +1281,13 @@ for k_, p_ in enumerate(_pts):
 _d1 = _pts[-1] - _pts[-2]; _d1 /= np.linalg.norm(_d1); _n1 = np.array([-_d1[1], _d1[0]])
 _head = [_pts[-1] + _n1 * 1.6, _tip, _pts[-1] - _n1 * 1.6]
 _WIND = Polygon(np.vstack([_lft, _head, _rgt[::-1]])).buffer(0.4).buffer(-0.4)
-draw_shape(ax, _WIND, xf, fc="#8EC3E6", ec="none", lw=0, z=20)
-ax.patches[-1].set_alpha(0.45)
+WIND_BY_USER = True                                            # 風の矢印は木田さんがIllustratorで描く（10-26 1:45）。素材には描かない
+if not WIND_BY_USER:
+    draw_shape(ax, _WIND, xf, fc="#8EC3E6", ec="none", lw=0, z=20)
+    ax.patches[-1].set_alpha(0.45)
 _mk("o")
-_wl = xf(np.array([_wp[0] + np.array([3.5, 6.0])]))[0]
-T(ax, _wl[0], _wl[1], "夏の夜の風（高野川の谷を下りる風）", 2.8, "#3A7FB5", bold=True, ha="left")
+_wl = xf(np.array([_wp[0] + np.array([-1.0, 3.0])]))[0]
+T(ax, _wl[0], _wl[1], "夏の夜の風（高野川の谷を下りる風）", 2.8, "#3A7FB5", bold=True, ha="right")
 # 比叡への視線：ホール → 築山の頂 → 比叡山（大比叡 北緯35.0670° 東経135.8344°、敷地 35.0546° 135.7905° から方位約71°、約4.2 km）
 _dn = (35.0670 - 35.0546) * 111.0; _de = (135.8344 - 135.7905) * 111.32 * np.cos(np.radians(35.06))
 _BRG = np.degrees(np.arctan2(_de, _dn)); _DIST = np.hypot(_dn, _de)

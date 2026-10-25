@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-26 01:31",
+"generated": "2026-10-26 01:46",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -1620,13 +1620,13 @@
 "name": "配置図の文字　夏の夜の風（高野川の谷を下りる風）",
 "kind": "text",
 "layer": "説明",
-"x": 375.45,
-"y": 389.85,
+"x": 618.4,
+"y": 358.88,
 "s": "夏の夜の風（高野川の谷を下りる風）",
 "size_pt": 11.02,
 "font": "W6",
 "color": "#3a7fb5",
-"align": "left",
+"align": "right",
 "group": null,
 "mock_hash": "26134867"
 },
