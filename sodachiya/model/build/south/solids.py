@@ -34,10 +34,36 @@ def klass(ln):
     return None
 
 A3 = lambda ps: np.array([[p.X, p.Y, p.Z] for p in ps], float)
+CURVE_TURN = 3.0 * np.pi / 180      # 曲線を折れ線にするときの、一つの辺の両端の接線の開き（10-25 ソリッド係）
 def curve_pts(c, n=48):
+    """曲線 → 折れ線の点。線は端だけ、曲線は区間（スパン）ごとに、接線の開きが CURVE_TURN 以下になるまで二つに分ける。
+    前は曲線全体を n 等分していた：輪郭の線の所に点が多く、柱の頭の曲線は 137 mm おき（折れ 5〜60°）になり、
+    Rhino 版でスプラインに戻せなかった（ソリッド係、10-25）。折れが 1.5° 以上になるよう、細かくしすぎない"""
     if isinstance(c, r.PolylineCurve): return [c.Point(i) for i in range(c.PointCount)]
     if isinstance(c, r.LineCurve): return [c.PointAtStart, c.PointAtEnd]
-    d = c.Domain; return [c.PointAt(d.T0 + (d.T1 - d.T0) * i / n) for i in range(n + 1)]
+    if isinstance(c, r.PolyCurve):
+        out = []
+        for i in range(c.SegmentCount):
+            q = curve_pts(c.SegmentCurve(i), n)
+            out += q if not out else q[1:]
+        return out
+    nc = c.ToNurbsCurve() if not isinstance(c, r.NurbsCurve) else c
+    if nc is None:
+        d = c.Domain; return [c.PointAt(d.T0 + (d.T1 - d.T0) * i / n) for i in range(n + 1)]
+    if nc.Degree == 1 and not nc.IsRational: return [r.Point3d(nc.Points[i].X, nc.Points[i].Y, nc.Points[i].Z) for i in range(len(nc.Points))]
+    d = nc.Domain; ks = sorted({float(nc.Knots[i]) for i in range(len(nc.Knots))} | {d.T0, d.T1})
+    ks = [k for k in ks if d.T0 <= k <= d.T1]
+    def tan(t):
+        v = nc.TangentAt(t); return np.array([v.X, v.Y, v.Z])
+    def rec(t0, t1, a0, a1, dep, acc):
+        if dep < 12 and np.arccos(np.clip(a0 @ a1, -1, 1)) > CURVE_TURN:
+            tm = 0.5 * (t0 + t1); am = tan(tm)
+            rec(t0, tm, a0, am, dep + 1, acc); rec(tm, t1, am, a1, dep + 1, acc)
+        else: acc.append(t1)
+    ts = [ks[0]]
+    for k0, k1 in zip(ks, ks[1:]):
+        rec(k0, k1, tan(k0 + 1e-9 * (k1 - k0)), tan(k1 - 1e-9 * (k1 - k0)), 0, ts)
+    return [nc.PointAt(t) for t in ts]
 
 def mesh_vf(g):
     V = A3([g.Vertices[i] for i in range(len(g.Vertices))]); F = []

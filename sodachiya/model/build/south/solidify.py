@@ -197,6 +197,170 @@ class Tor:
         return s
 
 
+def _greville(T, k=3):
+    """節点 T（scipy の形、両端 k+1 重）の Greville 点：恒等関数 t の制御点"""
+    return np.array([T[i + 1:i + k + 1].mean() for i in range(len(T) - k - 1)])
+
+
+def _insert(T, C, x, k=3):
+    """節点 x を一つ入れる（Boehm）→ (T, C)"""
+    s_ = int(np.searchsorted(T, x, side='right')) - 1
+    s_ = min(max(s_, k), len(T) - k - 2)
+    Cn = [C[i] for i in range(s_ - k + 1)]
+    for i in range(s_ - k + 1, s_ + 1):
+        al = (x - T[i]) / (T[i + k] - T[i]) if T[i + k] > T[i] else 0.0
+        Cn.append((1 - al) * C[i - 1] + al * C[i])
+    Cn += [C[i] for i in range(s_, len(C))]
+    return np.r_[T[:s_ + 1], x, T[s_ + 1:]], np.array(Cn)
+
+
+def sub_spline(sp, a, b, k=3):
+    """BSpline sp の a〜b の部分を、両端をはさんだ（clamped）BSpline に（形はちょうど同じ）"""
+    from scipy.interpolate import BSpline
+    T, C = np.asarray(sp.t, float), np.asarray(sp.c, float)
+    a = max(a, T[0]); b = min(b, T[-1])
+    for x in (a, b):
+        if x <= T[0] + 1e-12 or x >= T[-1] - 1e-12: continue
+        m = int(np.sum(np.abs(T - x) < 1e-12))
+        for _ in range(k - m): T, C = _insert(T, C, x, k)
+    Tn = np.r_[[a] * (k + 1), T[(T > a + 1e-12) & (T < b - 1e-12)], [b] * (k + 1)]
+    n = len(Tn) - k - 1
+    j0 = 0 if a <= T[0] + 1e-12 else int(np.argmax(np.abs(T - a) < 1e-12)) - 1   # k 重の節点 a の所で曲線は C[j0] を通る
+    return BSpline(Tn, C[j0:j0 + n], k)
+
+
+class Ext:
+    """平らな面の自由な曲線（スプライン）を向き a にまっすぐ動かした面（押し出しの側面の曲面、タメディア本社の形の柱・梁の輪郭）。
+    u＝曲線のパラメータ（弦の長さ）、v＝a に沿う座標"""
+    kind = 'ext'
+
+    def __init__(self, a, o, X, Y, sp):
+        self.a = np.asarray(a, float); self.o = np.asarray(o, float); self.X = np.asarray(X, float); self.Y = np.asarray(Y, float)
+        self.sp = sp; self.d1 = sp.derivative(1); self.d2 = sp.derivative(2)
+        self.t0, self.t1 = float(sp.t[0]), float(sp.t[-1]); self.udom = (self.t0, self.t1); self.uc = 0.0; self.sgn = 1
+        self._ts = np.linspace(self.t0, self.t1, max(400, 30 * len(sp.c))); self._S = sp(self._ts)
+
+    def _t(self, q2):
+        k = int(np.argmin(((self._S - q2) ** 2).sum(1))); t = float(self._ts[k])
+        for _ in range(10):
+            c = self.sp(t) - q2; d1 = self.d1(t); d2 = self.d2(t); g = c @ d1; h = d1 @ d1 + c @ d2
+            if abs(h) < 1e-12: break
+            t = min(max(t - g / h, self.t0), self.t1)
+        return t
+
+    def uv(self, p, ref=None):
+        q = np.asarray(p, float) - self.o
+        return (self._t(np.array([q @ self.X, q @ self.Y])), float(q @ self.a))
+
+    def ang(self, p): return self.uv(p)[0]
+
+    def proj(self, p):
+        q = np.asarray(p, float) - self.o; u = self._t(np.array([q @ self.X, q @ self.Y])); c = self.sp(u)
+        return self.o + c[0] * self.X + c[1] * self.Y + (q @ self.a) * self.a
+
+    def dist(self, p): return float(np.linalg.norm(self.proj(np.asarray(p, float)) - p))
+
+    def normal(self, u):
+        d = self.d1(u); return np.cross(d[0] * self.X + d[1] * self.Y, self.a)
+
+    def surface(self, dom):
+        v0, v1 = dom[1]
+        mk = lambda v: O.decode(spline_nurbs(self.sp, 3, to=lambda c: self.o + c[0] * self.X + c[1] * self.Y + v * self.a))
+        s_ = r.NurbsSurface.CreateRuledSurface(mk(v0), mk(v1))
+        s_.SetDomain(1, r.Interval(v0, v1))
+        return s_
+
+
+def fit_ext(comp, W, rverts, rn, ra, sm):
+    """なめらかにつながる平らな片の列 → 自由な曲線を向き a に動かした面（Ext）の組。→ [(ずれ, (a, o, X, Y, sp), [片])] か None
+    片の法線がすべて a に直角、片は一列か一つの輪（枝分かれしない）。折れが急に大きくなる所（曲線に角で接する平らな面）で分け、
+    輪は二つに分ける"""
+    G = list(comp)
+    if len(G) < 3: return None
+    Nn = rn[G]; M = (Nn * ra[G][:, None]).T @ Nn; w, v = np.linalg.eigh(M); a = v[:, 0]
+    if np.abs(Nn @ a).max() > math.sin(math.radians(0.5)): return None
+    b = np.array([1., 0, 0]) if abs(a[0]) < 0.9 else np.array([0, 1., 0])
+    X = np.cross(b, a); X /= np.linalg.norm(X); Y = np.cross(a, X)
+    o = W[rverts[G[0]][0]].copy()
+    segs = {}
+    for g in G:
+        q = W[rverts[g]] - o; q2 = np.c_[q @ X, q @ Y]
+        n2 = np.array([rn[g] @ X, rn[g] @ Y]); n2 /= np.linalg.norm(n2); tau = np.array([-n2[1], n2[0]])
+        s_ = q2 @ tau; p0, p1 = q2[int(np.argmin(s_))], q2[int(np.argmax(s_))]
+        if np.abs((q2 - p0) @ n2).max() > FIT_TOL: return None
+        segs[g] = (p0, p1)
+    Gs = set(G); nb = {g: [h for h in sm[g] if h in Gs] for g in G}
+    if any(len(x) > 2 for x in nb.values()): return None
+    ends = [g for g in G if len(nb[g]) == 1]
+    if len(ends) not in (0, 2): return None
+    cyc = not ends
+    order = [ends[0] if ends else G[0]]; prev = None
+    while len(order) < len(G):
+        nx = [h for h in nb[order[-1]] if h != prev and h not in order[-2:]]
+        if not nx: return None
+        prev = order[-1]; order.append(nx[0])
+    n = len(order); nj = n if cyc else n - 1
+    angj = np.array([math.acos(max(-1.0, min(1.0, float(rn[order[i]] @ rn[order[(i + 1) % n]])))) for i in range(nj)])
+    seglen = np.array([np.linalg.norm(segs[g][1] - segs[g][0]) for g in order])
+    med = float(np.median(angj))
+    cuts = [i for i in range(nj) if (angj[i] > math.radians(8) and angj[i] > 3 * med)
+            or max(seglen[i], seglen[(i + 1) % n]) > 5 * max(min(seglen[i], seglen[(i + 1) % n]), 1e-9)]
+    # 片の列（order の番号の並び）に分ける
+    if cyc:
+        if not cuts: cuts = [n - 1, n // 2 - 1]
+        cuts = sorted(set(cuts)); pieces = []
+        for k, c0 in enumerate(cuts):
+            c1 = cuts[(k + 1) % len(cuts)]
+            idx = [(c0 + 1 + j) % n for j in range(((c1 - c0) % n) or n)]
+            pieces.append(idx)
+    else:
+        pieces = []; st = 0
+        for c in sorted(cuts) + [n - 1]:
+            pieces.append(list(range(st, c + 1))); st = c + 1
+    out = []
+    for idx in pieces:
+        if len(idx) < 3: continue
+        od = [order[i] for i in idx]
+        pts = []
+        def far(g, h):
+            p0, p1 = segs[g]; dd = lambda p: min(np.linalg.norm(p - segs[h][0]), np.linalg.norm(p - segs[h][1]))
+            return p0 if dd(p0) > dd(p1) else p1
+        pts = [far(od[0], od[1])]
+        bad = False
+        for g, h in zip(od, od[1:]):
+            dd, p, q = min(((np.linalg.norm(p - q), p, q) for p in segs[g] for q in segs[h]), key=lambda x: x[0])
+            if dd > FIT_TOL: bad = True; break
+            pts.append((p + q) / 2)
+        if bad: continue
+        pts.append(far(od[-1], od[-2]))
+        P = np.array(pts)
+        if np.any(np.linalg.norm(np.diff(P, axis=0), axis=1) < 1e-6): continue
+        t, sp = spline_fit(P)
+        if not spline_ok(P, t, sp): continue
+        E = Ext(a, o, X, Y, sp)
+        dev = max(E.dist(p) for g in od for p in W[rverts[g]])
+        if dev < FIT_TOL: out.append((dev, (a, o, X, Y, sp), od))
+    return out or None
+
+
+def ext_edge(pts, E, Pl):
+    """Ext と平面の交わり（ちょうど：切り口の曲線のアフィン像 → 同じ節点のスプライン）。辺の点 pts（向きのまま）"""
+    an = float(E.a @ Pl.n)
+    if abs(an) < 1e-3: return None
+    ts = np.array([E.uv(p)[0] for p in pts])
+    dt = np.diff(ts)
+    if not (np.all(dt > 1e-9) or np.all(dt < -1e-9)): return None
+    ta, tb = float(ts[0]), float(ts[-1])
+    sub = sub_spline(E.sp, min(ta, tb), max(ta, tb))
+    base = lambda c: E.o + c[0] * E.X + c[1] * E.Y
+    wv = lambda c: float((Pl.o - base(c)) @ Pl.n) / an
+    cv3 = np.array([base(c) + wv(c) * E.a for c in sub.c]); wc = np.array([wv(c) for c in sub.c])
+    def at(t):
+        c = sub(t); return base(c) + wv(c) * E.a
+    if max(np.linalg.norm(at(t) - p) for t, p in zip(ts, pts)) > 0.05: return None
+    return dict(sub=sub, cv3=cv3, w=wc, ta=ta, tb=tb, at=at)
+
+
 def arc_nurbs(P, cen, t0, t1, dim, to2=None, ends=None):
     """円（楕円）の弧 P(t)（t は角度、cen は中心）を有理 2 次の NURBS に。to2 があれば平面の 2 次元へ写す"""
     if t1 < t0:                                   # 逆向き：s = −t で増える向きに
@@ -711,24 +875,128 @@ def _arc_ok(P, c, R):
     return np.abs(tr - want).max() < math.radians(0.5)
 
 
+# ---------------------------------------------------------------- 自由な曲線（スプライン）
+# 架構（柱・梁）の輪郭はタメディア本社の形の自由な曲線（ユーザー、10-25：そのまま使う）。メッシュではその曲線の上の点を
+# 結ぶ折れ線になっている → 頂点を通る 3 次のスプライン（弦の長さのパラメータ）に戻す。円にのる所は円弧のまま。
+def spline_fit(P, d0=None, d1=None):
+    """点の並び P（m 点、2・3 次元）を通る 3 次のスプライン → (t, sp)。d0・d1 は両端の接線（t についての微分）"""
+    from scipy.interpolate import make_interp_spline
+    P = np.asarray(P, float)
+    t = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))]
+    bc = None if d0 is None else ([(1, np.asarray(d0, float))], [(1, np.asarray(d1, float))])
+    return t, make_interp_spline(t, P, k=3, bc_type=bc)
+
+
+def spline_ok(P, t, sp, closed=False):
+    """スプラインが折れ線の弦から、その所の折れ（円なら矢高）に見合う分しか離れないか（角をなまらせていないか）"""
+    P = np.asarray(P, float); d = np.diff(P, axis=0); l = np.linalg.norm(d, axis=1)
+    h = np.arctan2(d[:, 1], d[:, 0]) if P.shape[1] == 2 else None
+    if h is not None: th = np.abs(np.diff(np.unwrap(h)))
+    else:
+        u = d / l[:, None]; th = np.arccos(np.clip(np.einsum('ij,ij->i', u[:-1], u[1:]), -1, 1))
+    th = np.r_[th[:1], th, th[-1:]]                       # 頂点ごとの折れ（両端はとなりの値）
+    mid = sp((t[:-1] + t[1:]) / 2); dev = np.linalg.norm(mid - (P[:-1] + P[1:]) / 2, axis=1)
+    allow = 0.05 + 0.3 * l * np.maximum(th[:-1], th[1:])
+    return bool(np.all(dev <= allow))
+
+
+def spline_nurbs(sp, dim, to=None, rev=False):
+    """scipy の BSpline → onbrep の NURBS の塊（to があれば制御点を写す。rev なら逆向き、パラメータは −t）"""
+    kn = list(map(float, sp.t[1:-1])); cv = [np.asarray(c, float) for c in sp.c]
+    if to is not None: cv = [np.asarray(to(c), float) for c in cv]
+    if rev: kn = [-x for x in kn[::-1]]; cv = cv[::-1]
+    return O.nurbs(dim, 4, kn, [tuple(c) for c in cv], [1.0] * len(cv))
+
+
+SPL_SHORT = 100.0      # これより短い辺のあいだの小さな折れ（1.5° 未満）も曲線の並びに入れる（細かい節点の曲線を点にしたもの）。
+                      # 長い辺の小さな折れ（本館の弧の多角形 3 m・0.84°）は入れない（決めたとおり多角形のまま）
+
+
+def _curve_runs(Q):
+    """閉じた多角形 Q（2 次元）の、なめらかな曲線の並び → [(i0, i1, kind)]（kind：'arc' 円弧、'spl' スプライン）。
+    円にのる並びは円弧、ほかのなめらかな並び（折れ 1.5°〜40°、短い辺なら小さな折れも、辺の長さがそろう、4 点以上）はスプライン"""
+    n = len(Q)
+    arcs = [(a, b, 'arc') for a, b in _arc_runs(Q)]
+    if arcs and arcs[0][:2] == (0, n): return arcs
+    used = set()
+    for a, b, _ in arcs: used |= {x % n for x in range(a, b + 1)}          # 円弧の端の点も：スプラインは円弧の端で終わる
+    d = np.roll(Q, -1, axis=0) - Q; l = np.linalg.norm(d, axis=1)          # 辺 i：Q[i] → Q[i+1]
+    h = np.arctan2(d[:, 1], d[:, 0]); tr = np.array([(h[i] - h[i - 1] + math.pi) % (2 * math.pi) - math.pi for i in range(n)])
+    lmax = np.maximum(l, np.roll(l, 1)); at = np.abs(tr)
+    sm = (at < ANG_HI) & ((at > ANG_LO) | ((lmax < SPL_SHORT) & (at > math.radians(0.01))))
+    # 辺の長さが急に変わる所（曲線に接する長い直線）は曲線の並びに入れない
+    lr = np.array([max(l[i], l[i - 1]) / max(min(l[i], l[i - 1]), 1e-9) for i in range(n)])
+    sm &= lr < 3.0
+    # 変曲点（折れがほとんど無い一点）：両どなりがなめらかなら並びに入れる
+    sm2 = sm.copy()
+    for i in range(n):
+        if not sm[i] and at[i] <= ANG_LO and sm[i - 1] and sm[(i + 1) % n] and lr[i] < 3.0 and lmax[i] < SPL_SHORT: sm2[i] = True
+    sm = sm2
+    for i in used: sm[i] = False
+    out = list(arcs)
+    if sm.all():                                          # 輪全体がなめらか：周期のスプラインの接線で二つに分ける
+        return [(0, n // 2, 'spl'), (n // 2, n, 'spl')]
+
+    def fit(i0, i1):
+        """i0〜i1 の点を通るスプラインが弦から離れすぎれば、折れの変わりのいちばん大きい所で分けてやり直す"""
+        if i1 - i0 < 3: return []
+        P = Q[[x % n for x in range(i0, i1 + 1)]]
+        t, sp = spline_fit(P)
+        if spline_ok(P, t, sp): return [(i0, i1, 'spl')]
+        tt = tr[[x % n for x in range(i0, i1 + 1)]]
+        jump = np.abs(np.diff(tt)); k = int(np.argmax(jump[1:-1])) + 1 if len(jump) > 2 else len(tt) // 2
+        if k <= 0 or k >= i1 - i0: return []
+        return fit(i0, i0 + k) + fit(i0 + k, i1)
+    st = int(np.argmin(sm)); i = 0
+    while i < n:
+        k = (st + i) % n
+        if not sm[k]: i += 1; continue
+        j = i
+        while j < n and sm[(st + j) % n]: j += 1
+        out += fit(st + i - 1, st + j)                   # 両端は角（または円弧の端）
+        i = j
+    return sorted(out, key=lambda r_: r_[0] % n)
+
+
+def _closed_halves(Q, to3):
+    """なめらかな閉じた輪 Q を二つのスプラインに（周期のスプラインの接線を両端に与えて、つなぎ目もなめらかに）"""
+    from scipy.interpolate import make_interp_spline
+    n = len(Q); Pc = np.vstack([Q, Q[:1]])
+    t = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(Pc, axis=0), axis=1))]
+    per = make_interp_spline(t, Pc, k=3, bc_type='periodic')
+    out = []
+    for a, b in ((0, n // 2), (n // 2, n)):
+        P = Pc[a:b + 1]; tt = t[a:b + 1]
+        sp = make_interp_spline(tt - tt[0], P, k=3, bc_type=([(1, per(tt[0], 1))], [(1, per(tt[-1], 1))]))
+        out.append(O.decode(spline_nurbs(sp, 3, to=lambda c: to3(c))))
+    return out
+
+
 def _profile(Q2, to3, runs):
-    """2 次元の閉じた多角形 Q2（円の並び runs）→ PolyCurve（to3 で 3 次元へ）"""
+    """2 次元の閉じた多角形 Q2（曲線の並び runs：(i0, i1) は円弧、(i0, i1, 'spl') はスプライン）→ PolyCurve（to3 で 3 次元へ）"""
     n = len(Q2); pc = r.PolyCurve()
+    runs = [tuple(x) + ('arc',) if len(x) == 2 else tuple(x) for x in runs]
     P3 = lambda q: r.Point3d(*map(float, to3(q)))
-    if runs == [(0, n)]:
+    if [x[:2] for x in runs] == [(0, n)]:
         h = n // 2
         pc.Append(r.Arc(P3(Q2[0]), P3(Q2[h // 2]), P3(Q2[h])))
         pc.Append(r.Arc(P3(Q2[h]), P3(Q2[(h + n) // 2]), P3(Q2[0])))
         return pc
-    st = {i0 % n: (i0, i1) for i0, i1 in runs}
-    i = min(st) if st else 0
+    if [x[:2] for x in runs] == [(0, n // 2), (n // 2, n)] and all(x[2] == 'spl' for x in runs):
+        for c in _closed_halves(Q2, to3): pc.Append(c)
+        return pc
+    st = {i0 % n: (i0, i1, k) for i0, i1, k in runs}
     # 角から始める
-    start = min((x for x in range(n) if x not in {(y % n) for a, b in runs for y in range(a + 1, b)}), default=0)
+    start = min((x for x in range(n) if x not in {(y % n) for a, b, _ in runs for y in range(a + 1, b)}), default=0)
     i = start; cnt = 0
     while cnt < n:
         if i % n in st and cnt + (st[i % n][1] - st[i % n][0]) <= n:
-            i0, i1 = st[i % n]; m = (i0 + i1) // 2
-            pc.Append(r.Arc(P3(Q2[i0 % n]), P3(Q2[m % n]), P3(Q2[i1 % n])))
+            i0, i1, k = st[i % n]; m = (i0 + i1) // 2
+            if k == 'arc':
+                pc.Append(r.Arc(P3(Q2[i0 % n]), P3(Q2[m % n]), P3(Q2[i1 % n])))
+            else:
+                P = Q2[[x % n for x in range(i0, i1 + 1)]]; _, sp = spline_fit(P)
+                pc.Append(O.decode(spline_nurbs(sp, 3, to=lambda c: to3(c))))
             cnt += i1 - i0; i = i1
         else:
             a, b = Q2[i % n], Q2[(i + 1) % n]
@@ -767,7 +1035,11 @@ def as_extrusion(W, T):
     lmax = np.max([np.linalg.norm(W[T[:, i]] - W[T[:, (i + 1) % 3]], axis=1) for i in range(3)], axis=0)
     good = 2 * area / np.maximum(lmax, 1e-12) > 0.3
     vs = np.unique(T.ravel())
-    top = [i for i in np.argsort(-area)[:8] if good[i]]
+    top = []                                                   # 向きの違う大きな三角形を 8 つまで（同じ向きの面ばかりだと道の向きが出ない）
+    for i in np.argsort(-area):
+        if not good[i]: continue
+        if all(abs(N[i] @ N[j]) < 0.9994 for j in top): top.append(i)
+        if len(top) == 8: break
     cands = [N[i] for i in top]
     for x in range(len(top)):
         for y in range(x + 1, len(top)):
@@ -821,16 +1093,24 @@ def as_extrusion(W, T):
         L2 = [np.array([to2(W[v]) for v in lp]) for lp in loops]
         sa = [0.5 * (Q[:, 0] * np.roll(Q[:, 1], -1) - np.roll(Q[:, 0], -1) * Q[:, 1]).sum() for Q in L2]
         k0 = int(np.argmax(np.abs(sa)))
-        runs0 = _arc_runs(L2[k0])
+        runs0 = _curve_runs(L2[k0])
 
         def make(S_, Lh_):
-            to3_ = lambda q: S_ + q[0] * X + q[1] * Y
-            outer = _profile(L2[k0], to3_, runs0)
-            if not outer.IsClosed: return None
+            # 輪郭は押し出しの座標（z = 0 の平面）で作り、できた押し出しを動かす（世界の座標で作ると、スプラインの制御点が
+            # 計算の誤差で平面から 1e-9 ほど外れ、Extrusion.Create が平らでないとして作らない）
+            loc = lambda q: np.array([q[0], q[1], 0.0])
+            xf = r.Transform(1.0)
+            for i_, v_ in enumerate((X, Y, d)):
+                for j_ in range(3): setattr(xf, 'M%d%d' % (j_, i_), float(v_[j_]))
+            for j_ in range(3): setattr(xf, 'M%d3' % j_, float(S_[j_]))
             for k_ in range(2):
-                if k_: outer.Reverse()                       # 押し出しは輪郭の面の法線の向き（輪郭の回る向きで決まる）
+                Qk = L2[k0] if k_ == 0 else L2[k0][::-1]      # 押し出しは輪郭の面の法線の向き（輪郭の回る向きで決まる）
+                outer = _profile(Qk, loc, runs0 if k_ == 0 else _curve_runs(Qk))
+                if not outer.IsClosed: return None
                 e_ = r.Extrusion.Create(outer, Lh_, True)
                 if e_ is None or not e_.IsValid: continue
+                e_.Transform(xf)
+                if not e_.IsValid: continue
                 ps_ = np.array([e_.PathStart.X, e_.PathStart.Y, e_.PathStart.Z]); pe_ = np.array([e_.PathEnd.X, e_.PathEnd.Y, e_.PathEnd.Z])
                 if (pe_ - ps_) @ d > 0: return e_, ps_, pe_
             return None
@@ -857,7 +1137,7 @@ def as_extrusion(W, T):
             for k, Q in enumerate(L2):
                 if k == k0: continue
                 to3h = lambda q: np.array([(to3(q) - O_) @ X_, (to3(q) - O_) @ Y_, 0.0])
-                if not e.AddInnerProfile(_profile(Q, to3h, _arc_runs(Q))): okh = False; break
+                if not e.AddInnerProfile(_profile(Q, to3h, _curve_runs(Q))): okh = False; break
             if not okh or not e.IsValid: continue
             m0 = -n0 if abs(n0 @ d) < 1 - 1e-9 else None
             m1 = n1 if abs(n1 @ d) < 1 - 1e-9 else None
@@ -914,6 +1194,14 @@ def to_solids(W, T, sheet=('down', 10.0), _depth=0):
     if len(T) == 0: return []
     P = W[np.unique(T.ravel())]
     if np.sort(np.ptp(P, axis=0))[1] < 0.1: return []      # 太さの無い針（削った残り、二方向とも 0.1 mm 未満）は捨てる
+    # 厚みの無い閉じた片（同じ面が表裏に重なった、体積 0 の板。西館の間仕切りの残り）も捨てる：体積 ÷ 面積 < 0.05 mm
+    a_, b_, c_ = W[T[:, 0]], W[T[:, 1]], W[T[:, 2]]
+    ar_ = np.linalg.norm(np.cross(b_ - a_, c_ - a_), axis=1).sum() / 2
+    ec_ = {}
+    for x_, y_, z_ in T:
+        for e_ in ((x_, y_), (y_, z_), (z_, x_)): k_ = (min(e_), max(e_)); ec_[k_] = ec_.get(k_, 0) + 1
+    if ar_ > 0 and all(v_ == 2 for v_ in ec_.values()) and \
+            abs(np.einsum('ij,ij->i', a_, np.cross(b_, c_)).sum() / 6) / ar_ < 0.05: return []
     try:
         ex = as_extrusion(W, T)
         if ex is not None: return [(ex, 'extrusion')]
@@ -974,7 +1262,18 @@ def segment_curved(W, rverts, rn, rp, ra, adj):
     なめらかにつながる片の集まりごとに、小さな組から円柱・球を当てはめ、その形にのる片を一番多く集める候補を選ぶ（RANSAC 風）"""
     nr = len(rverts)
     ang = lambda x, y: math.acos(max(-1.0, min(1.0, float(rn[x] @ rn[y]))))
-    sm = {x: [y for y in adj.get(x, ()) if ANG_LO < ang(x, y) < ANG_HI] for x in range(nr)}
+    # 細い片（幅 SPL_SHORT 未満、細かい節点の曲線を点にした帯）どうしは、小さな折れ（0.3°〜1.5°）でも曲面の候補に
+    def width(x):
+        P_ = W[rverts[x]]
+        if len(P_) < 3: return 0.0
+        q_ = P_ - P_.mean(0); _, sv_, vt_ = np.linalg.svd(q_, full_matrices=False)
+        return float(np.ptp(q_ @ vt_[1]))
+    wd = [width(x) for x in range(nr)]
+    def smooth(x, y):
+        an_ = ang(x, y)
+        if ANG_LO < an_ < ANG_HI: return True
+        return math.radians(0.3) < an_ <= ANG_LO and wd[x] < SPL_SHORT and wd[y] < SPL_SHORT
+    sm = {x: [y for y in adj.get(x, ()) if smooth(x, y)] for x in range(nr)}
     seen = np.zeros(nr, bool); out = []
     flat_v = np.concatenate(rverts); off = np.r_[0, np.cumsum([len(v) for v in rverts])]
     for s0 in range(nr):
@@ -988,11 +1287,19 @@ def segment_curved(W, rverts, rn, rp, ra, adj):
         # まず全体を一つの形で
         pts = W[np.unique(np.concatenate([rverts[g] for g in comp]))]
         whole = None
-        for kind in ('cyl', 'sph', 'tor'):
+        for kind in ('cyl', 'sph', 'tor', 'ext'):
+            if kind == 'ext':                                # 自由な曲線の押し出しの面（柱・梁の輪郭）
+                f = fit_ext(comp, W, rverts, rn, ra, sm)
+                if f:
+                    for dev_, prm_, od_ in f:
+                        if max(ang(x, y) for x in od_ for y in od_) >= math.radians(1.5): out.append(('ext', prm_, od_))
+                    whole = 'done'; break
+                continue
             f = fit_cyl(pts, rn[comp], ra[comp]) if kind == 'cyl' else (fit_sph(pts) if kind == 'sph' else fit_tor(pts))
             if f and f[0] < FIT_TOL:
                 G = _consistent(kind, f[1], comp[0], set(comp), W, rverts, rn, rp, ra, sm)
                 if len(G) == len(comp): whole = (kind, f[1], comp); break
+        if whole == 'done': continue
         if whole is not None:
             if max(ang(x, y) for x in comp for y in comp) >= math.radians(8): out.append(whole)
             continue
@@ -1056,7 +1363,22 @@ def segment_curved(W, rverts, rn, rp, ra, adj):
                     found[i] = ['tor', f[1], U]; del found[j]; merged = True; break
                 if merged: break
         out += [tuple(x) for x in found]
-    return out
+    # 弦の片をはずす：頂点は円柱などにのっても、片の中ほどが大きく内に入る（粗い一枚の平らな面、24° の弦で矢高 19 mm）片は、
+    # 曲面にすると面が膨らむ。片の重心の矢高が、組の中ほどの 3 倍（かつ FIT_TOL）を超える片は平らな面のまま（10-25）
+    res = []
+    for kind, prm, G in out:
+        if kind in ('cyl', 'sph', 'tor') and len(G) >= 3:
+            if kind == 'cyl':
+                c_, a_, R_ = prm; sag = lambda p: abs(np.linalg.norm((p - c_) - ((p - c_) @ a_) * a_) - R_)
+            elif kind == 'sph':
+                c_, R_ = prm; sag = lambda p: abs(np.linalg.norm(p - c_) - R_)
+            else:
+                Tg = Tor(*prm, 1); sag = Tg.dist
+            sg = np.array([sag(rp[g]) for g in G]); lim = max(FIT_TOL, 3 * float(np.median(sg)))
+            G = [g for g, x in zip(G, sg) if x <= lim]
+            if len(G) < 3: continue
+        res.append((kind, prm, G))
+    return res
 
 
 def _consistent(kind, prm, x0, rest, W, rverts, rn, rp, ra, sm):
@@ -1163,6 +1485,11 @@ def _build(W, T, curved, snap=True):
                 rad = cen - cc - ((cen - cc) @ ax)[:, None] * ax
                 sgn = 1 if (np.einsum('ij,ij->i', rad, rn[G]) * ra[G]).sum() > 0 else -1
                 srf_of[gid] = Cyl(cc, ax, R, sgn)
+            elif kind == 'ext':
+                Es = Ext(*prm)
+                sg = sum(ra[g] * (Es.normal(Es.uv(rp[g])[0]) @ rn[g]) for g in G)
+                if sg < 0: Es.a = -Es.a                          # 面の法線（u × v）を外向きに
+                srf_of[gid] = Es
             elif kind == 'tor':
                 cc, ax, R, A_, B_, h0 = prm
                 q = cen - cc; h = q @ ax; rad = q - h[:, None] * ax
@@ -1189,6 +1516,9 @@ def _build(W, T, curved, snap=True):
         s = srf_of[gid]
         if s.kind == 'plane':
             face_of_reg[G[0]] = len(faces); faces.append((s, G)); continue
+        if s.kind == 'ext':                                # 自由な曲線の面は分けない（輪にならない）
+            for g in G: face_of_reg[g] = len(faces)
+            faces.append((s, G)); continue
         import copy
         def bins_of(angs):
             srt = np.sort(angs); gaps = np.diff(np.r_[srt, srt[0] + 2 * math.pi])
@@ -1303,6 +1633,13 @@ def _build(W, T, curved, snap=True):
             e['type'] = 'line'
         else:
             e['type'] = 'poly'
+            kinds = {sA.kind, sB.kind}
+            if kinds == {'ext', 'plane'}:                  # 自由な曲線の面と平面の交わり：ちょうどのスプライン
+                Es, Pl = (sA, sB) if sA.kind == 'ext' else (sB, sA)
+                sx = ext_edge(pts, Es, Pl)
+                if sx is not None: e['type'] = 'spl3'; e['spl'] = sx; e['ext'] = Es
+                return e
+            if 'ext' in kinds: return e
             con = conic(pts, sA, sB) if (sA.kind != 'plane' or sB.kind != 'plane') and _smooth_chain(pts) else None
             if con is not None: e['type'] = 'conic'; e['con'] = con
         return e
@@ -1391,6 +1728,16 @@ def _build(W, T, curved, snap=True):
         bp.clear(); bt.clear(); pend.clear()
     for e in E:
         typ = e['type']; pts = e['pts']
+        if typ == 'spl3':
+            flush3()
+            sx = e['spl']; sub = sx['sub']; kn = list(map(float, sub.t[1:-1])); cv = [np.array(c) for c in sx['cv3']]
+            if sx['tb'] < sx['ta']:                        # 辺の向き（ta → tb）に：パラメータ −t
+                kn = [-x for x in kn[::-1]]; cv = cv[::-1]; e['dom'] = (-sx['ta'], -sx['tb'])
+            else: e['dom'] = (sx['ta'], sx['tb'])
+            cv[0] = pts[0]; cv[-1] = pts[-1]
+            C3.append(O.nurbs(3, 4, kn, [tuple(map(float, c)) for c in cv], [1.0] * len(cv))); e['c3i'] = len(C3) - 1
+            e['sample'] = lambda t, sx=sx: sx['at'](sx['ta'] + (sx['tb'] - sx['ta']) * t)
+            continue
         if typ == 'conic':
             flush3()
             cn = e['con']; C3.append(arc_nurbs(cn['P'], cn['C'], cn['t0'], cn['t1'], 3, ends=(pts[0], pts[-1])))
@@ -1443,6 +1790,7 @@ def _build(W, T, curved, snap=True):
         lo = allp.min(0); hi = allp.max(0); pad = np.full(2, 1.0) if s.kind == 'plane' else np.maximum((hi - lo) * 1e-6, 1e-9)
         dom = ((float(lo[0] - pad[0]), float(hi[0] + pad[0])), (float(lo[1] - pad[1]), float(hi[1] + pad[1])))
         if hasattr(s, 'vdom'): dom = (dom[0], tuple(s.vdom))
+        if hasattr(s, 'udom'): dom = (tuple(s.udom), dom[1])
         if s.kind == 'cyl':
             s.t0 = 0.0
         S.append(s.surface(dom)); si = len(S) - 1
@@ -1483,7 +1831,19 @@ def _build(W, T, curved, snap=True):
                     ti = len(Trec)
                     Trec.append([None, add([p0, p1]), -1, (vid[seq[0]], vid[seq[0]]), 0, 4, iso_flag(bmin, bmax, dom), li])
                     pend.append(ti); tis.append(ti)
-                if s.kind == 'plane' and E[ei]['type'] == 'conic':
+                if E[ei]['type'] == 'spl3' and s.kind in ('plane', 'ext'):
+                    flush()
+                    sx = E[ei]['spl']; sub = sx['sub']
+                    if s.kind == 'plane': cv = [np.array(s.uv(c)) for c in sx['cv3']]
+                    else: cv = [np.array([g_, w_]) for g_, w_ in zip(_greville(np.asarray(sub.t)), sx['w'])]
+                    kn = list(map(float, sub.t[1:-1]))
+                    t_s, t_e = (sx['tb'], sx['ta']) if rev else (sx['ta'], sx['tb'])
+                    if t_e < t_s: kn = [-x for x in kn[::-1]]; cv = cv[::-1]; pd2 = (-t_s, -t_e)
+                    else: pd2 = (t_s, t_e)
+                    cv[0] = np.array(uvs[0], float); cv[-1] = np.array(uvs[-1], float)
+                    C2.append(O.nurbs(2, 4, kn, [tuple(map(float, c)) for c in cv], [1.0] * len(cv)))
+                    arr = np.array(cv); ci = len(C2) - 1
+                elif s.kind == 'plane' and E[ei]['type'] == 'conic':
                     flush()
                     cn = E[ei]['con']; ta, tb = (cn['t1'], cn['t0']) if rev else (cn['t0'], cn['t1'])
                     to2 = lambda p, s=s: s.uv(p)
@@ -1550,6 +1910,11 @@ def _pl_eval(pts, ts, t):
 def trim_uv(s, e, rev, ref):
     """辺 e を面 s の uv の点列に（トリムの向き：rev なら辺の逆）"""
     typ = e['type']; pts = e['pts']
+    if typ == 'spl3':
+        K = max(16, 3 * len(e['spl']['cv3']))
+        Q = [e['sample'](t) for t in np.linspace(0, 1, K + 1)]; Q[0] = pts[0]; Q[-1] = pts[-1]
+        uv = [s.uv(p, ref) for p in Q]
+        return uv[::-1] if rev else uv
     if s.kind == 'plane':
         if typ == 'conic':
             K = max(8, int(abs(e['con']['t1'] - e['con']['t0']) / math.radians(2)) + 1)
@@ -1564,6 +1929,8 @@ def trim_uv(s, e, rev, ref):
         if s.kind == 'cyl' and abs(np.dot(pts[-1] - pts[0], s.a)) < 0.999 * np.linalg.norm(pts[-1] - pts[0]):
             Q = [e['sample'](t) for t in np.linspace(0, 1, 17)]
         if s.kind in ('sph', 'tor'): Q = [e['sample'](t) for t in np.linspace(0, 1, 17)]
+        if s.kind == 'ext' and abs(np.dot(pts[-1] - pts[0], s.a)) < 0.999 * np.linalg.norm(pts[-1] - pts[0]):
+            Q = [e['sample'](t) for t in np.linspace(0, 1, 17)]
     elif typ == 'conic':
         K = max(8, int(abs(e['con']['t1'] - e['con']['t0']) / math.radians(1.5)) + 1)
         Q = [e['sample'](t) for t in np.linspace(0, 1, K + 1)]
