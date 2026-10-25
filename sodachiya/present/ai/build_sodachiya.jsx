@@ -20,6 +20,7 @@
             try { if (SDY.make(doc, i, p)) { made++; } } catch (e) { SDY.missing.push(p.id + "（" + e.message + "）"); }
         }
     }
+    try { SDY.groupBoxes(doc); } catch (e) { SDY.missing.push("箱のまとめ（" + e.message + "）"); }
     var note = SDY.layer(doc, "注記");
     note.printable = false;                          // 割付の注記は見えるが印刷しない
     try { if (first.pageItems.length === 0 && first.name !== "枠") { first.remove(); } } catch (e) {}

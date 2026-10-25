@@ -223,3 +223,60 @@ SDY.findByTag = function (doc) {                    // id → 物
     }
     return map;
 };
+
+// 箱と文字をひとまとめに（ユーザー 10-25：箱を動かせば文字も動く）。箱・見出し・本文を、箱の名前のグループに入れる
+SDY.groupBoxes = function (doc) {
+    var map = SDY.findByTag(doc), id, it, t, n = 0, g, h, b;
+    for (id in map) {
+        if (!map.hasOwnProperty(id)) { continue; }
+        it = map[id]; t = SDY.parseTag(it);
+        if (!t || t.kind !== "box") { continue; }
+        if (it.parent.typename === "GroupItem" && it.parent.name === it.name) { continue; }   // もうまとめてある
+        g = it.layer.groupItems.add(); g.name = it.name;
+        g.move(it, ElementPlacement.PLACEBEFORE);
+        it.move(g, ElementPlacement.PLACEATEND);
+        h = map[id + ".head"]; b = map[id + ".body"];
+        if (h) { h.move(g, ElementPlacement.PLACEATBEGINNING); }
+        if (b) { b.move(g, ElementPlacement.PLACEATBEGINNING); }
+        n++;
+    }
+    return n;
+};
+// 引き出し線を箱に付け直す（箱を動かした後に）。線の終わり（点）は動かさず、始まりを箱の縁の、点に近い側へ
+SDY.leaderBoxMap = function (L) {                   // layout.json から 線のid → 箱のid（線の始まりが箱の縁にあるもの）
+    var m = {}, i, j, k, p, q, s0, ok;
+    for (i = 0; i < L.pages.length; i++) {
+        for (j = 0; j < L.pages[i].parts.length; j++) {
+            p = L.pages[i].parts[j];
+            if (p.kind !== "line" || !p.pts || p.pts.length < 2) { continue; }
+            s0 = p.pts[0];
+            for (k = 0; k < L.pages[i].parts.length; k++) {
+                q = L.pages[i].parts[k];
+                if (q.kind !== "box") { continue; }
+                ok = s0[0] >= q.x - 1.5 && s0[0] <= q.x + q.w + 1.5 && s0[1] >= q.y - 1.5 && s0[1] <= q.y + q.h + 1.5;
+                if (ok) { m[p.id] = q.id; break; }
+            }
+        }
+    }
+    return m;
+};
+SDY.reconnect = function (doc, L) {
+    var map = SDY.findByTag(doc), lb = SDY.leaderBoxMap(L), id, ln, bx, k, path, dot, tgt, gb, sx, sy, K = SDY.K, n = 0, pp;
+    for (id in lb) {
+        if (!lb.hasOwnProperty(id)) { continue; }
+        ln = map[id]; bx = map[lb[id]];
+        if (!ln || !bx || ln.typename !== "GroupItem") { continue; }
+        path = null; dot = null;
+        for (k = 0; k < ln.pathItems.length; k++) { if (ln.pathItems[k].closed) { dot = ln.pathItems[k]; } else { path = ln.pathItems[k]; } }
+        if (!path) { continue; }
+        if (dot) { gb = dot.geometricBounds; tgt = [(gb[0] + gb[2]) / 2, (gb[1] + gb[3]) / 2]; }
+        else { pp = path.pathPoints; tgt = pp[pp.length - 1].anchor; }
+        gb = bx.geometricBounds;                        // [左, 上, 右, 下]（上の方が大きい）
+        if (tgt[0] >= gb[2]) { sx = gb[2]; } else if (tgt[0] <= gb[0]) { sx = gb[0]; }
+        else { sx = (Math.abs(tgt[0] - gb[0]) < Math.abs(tgt[0] - gb[2])) ? gb[0] : gb[2]; }
+        sy = Math.max(gb[3] + 3 * K, Math.min(gb[1] - 3 * K, tgt[1]));
+        path.setEntirePath([[sx, sy], [tgt[0], tgt[1]]]);
+        n++;
+    }
+    return n;
+};
