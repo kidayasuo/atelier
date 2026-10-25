@@ -75,6 +75,7 @@ SDY.layer = function (doc, name) {
 SDY.ab = function (doc, i) { return doc.artboards[i].artboardRect; };            // [左, 上, 右, 下]（pt、ドキュメント座標、yは上へ）
 SDY.P = function (doc, i, x, y) { var r = SDY.ab(doc, i); return [r[0] + x * SDY.K, r[1] - y * SDY.K]; };
 SDY.abOf = function (doc, b) {                                                     // 物の外形 b から、どのアートボードか
+    if (!b || b.length < 4) { return -1; }
     var cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, i, r;
     for (i = 0; i < doc.artboards.length; i++) {
         r = doc.artboards[i].artboardRect;

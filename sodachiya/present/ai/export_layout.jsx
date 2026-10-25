@@ -10,7 +10,9 @@
     try { L = SDY.readJSON(File(SDY.here.fsName + "/layout.json")); } catch (e) { L = null; }
     var out = { note: "Illustratorから export_layout.jsx が書き出した。ユーザーの割付（位置・大きさ・書き換えた文字・消した部品）。", parts: {} };
     var found = {}, i, it, t, b, ai, r, rec, k, n = 0, edited = 0;
+    var bad = [];
     for (i = 0; i < doc.pageItems.length; i++) {
+      try {
         it = doc.pageItems[i];
         t = SDY.parseTag(it);
         if (!t || found[t.id]) { continue; }
@@ -22,7 +24,7 @@
             r = SDY.ab(doc, ai);
             rec.x = (it.anchor[0] - r[0]) / K; rec.y = (r[1] - it.anchor[1]) / K;
         } else if (t.kind === "area" && it.typename === "TextFrame") {
-            b = it.textPath.geometricBounds; ai = SDY.abOf(doc, b);
+            b = null; try { b = it.textPath.geometricBounds; } catch (e) {} if (!b) { b = it.geometricBounds; } ai = SDY.abOf(doc, b);
             if (ai < 0) { continue; }
             r = SDY.ab(doc, ai);
             rec.x = (b[0] - r[0]) / K; rec.y = (r[1] - b[1]) / K; rec.w = (b[2] - b[0]) / K; rec.h = (b[1] - b[3]) / K;
@@ -52,6 +54,7 @@
             if (SDY.hash(it.contents) !== t.mock_hash) { rec.s = SDY.norm(it.contents); edited++; }   // 書き換えた文字だけ
         }
         out.parts[t.id] = rec; n++;
+      } catch (e) { bad.push((t ? t.id : ("物 " + i)) + "（" + e.message + "）"); }
     }
     var gone = 0, j, p;                                // layout.json にあって .ai に無い部品＝消したもの
     if (L) {
@@ -63,5 +66,5 @@
         }
     }
     SDY.writeText(File(SDY.here.fsName + "/layout_user.json"), SDY.stringify(out));
-    alert("書き出しました：部品 " + n + " 個（書き換えた文字 " + edited + "、消した部品 " + gone + "）\n" + SDY.here.fsName + "/layout_user.json\n\natelier で git add・commit・push してください。");
+    alert("書き出しました：部品 " + n + " 個（書き換えた文字 " + edited + "、消した部品 " + gone + "）\n" + SDY.here.fsName + "/layout_user.json\n\natelier で git add・commit・push してください。" + (bad.length ? "\n\n書き出せなかった部品（位置は前のまま）：\n" + bad.slice(0, 15).join("\n") : ""));
 })();
