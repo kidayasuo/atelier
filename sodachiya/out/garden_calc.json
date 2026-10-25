@@ -9,11 +9,11 @@
   "subsoil_m3": 683,
   "topsoil_m3": 160,
   "use_subsoil_m3": 180,
-  "use_topsoil_m3": 153,
-  "woods_m2": 517,
+  "use_topsoil_m3": 154,
+  "woods_m2": 523,
   "out_subsoil_m3": 503,
-  "out_topsoil_m3": 7,
-  "out_total_m3": 510,
+  "out_topsoil_m3": 6,
+  "out_total_m3": 509,
   "west_if_crawl_extra_m3": 0,
   "note": "本館＝床下空間（根切り GL−0.6）、西館・おむすび＝布基礎＋土間。盛り土は締め固めた量、目安"
  },
@@ -46,13 +46,13 @@
    "hour": 9,
    "alt": 45,
    "az": 96,
-   "shaded": 0.0
+   "shaded": 0.55
   },
   {
    "hour": 10,
    "alt": 57,
    "az": 108,
-   "shaded": 0.11
+   "shaded": 0.15
   },
   {
    "hour": 11,
