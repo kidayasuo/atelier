@@ -1385,6 +1385,29 @@ for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字"), ("o", "風と視線"
     _SITE_PDF[gr] = fn_
 plt.close(figS)
 ax, fig = _ax_page, _fig_page
+# 線と色は、更新係が3dmから自動で描く配置図（drawings/sodachiya_siteplan_1-200_線・_色.pdf、ユーザー 10-26：正しさと自動の更新を優先）に差し替える。
+# 3dmのxy（m）→ 向こうの紙のmm（…_xform.json）と、こちらの紙のmm（xf(R3(…))）で、二つの紙の位置のずれを求めて、A1の紙に置き直す
+_SPD = os.environ.get("SODACHIYA_SITEPLAN_DIR", os.path.join(ROOT, "drawings"))
+_SPB = os.path.join(_SPD, "sodachiya_siteplan_1-200")
+SITE_FROM_UPD = all(os.path.exists(_SPB + x_) for x_ in ("_線.pdf", "_色.pdf", "_xform.json"))
+if SITE_FROM_UPD:
+    _XJ = json.load(open(_SPB + "_xform.json", encoding="utf-8"))
+    _thr = lambda P: np.array([_XJ["a"] * P[0] + _XJ["b"] * P[1] + _XJ["c"], _XJ["d"] * P[0] + _XJ["e"] * P[1] + _XJ["f"]])
+    _our = lambda P: (lambda q: np.array([q[0], H - q[1]]))(xf(R3(np.array(P)))[0])
+    _P1, _P2 = SITE_C["S"], SITE_C["N"]
+    _dv = (_our(_P2) - _our(_P1)) - (_thr(_P2) - _thr(_P1))
+    if np.abs(_dv).max() > 0.3:
+        print("配置図：更新係の配置図と向き・縮尺が合わない（", np.round(_dv, 2), "mm）。こちらの描き方のまま")
+        SITE_FROM_UPD = False
+if SITE_FROM_UPD:
+    _off = _our(_P1) - _thr(_P1)                                  # 向こうの紙をこちらの紙のどこに置くか（左上から mm）
+    _pw, _ph = _XJ["paper_mm"]
+    for gr, suf in (("l", "_線.pdf"), ("c", "_色.pdf")):
+        _nd = fitz.open(); _pg = _nd.new_page(width=W * MM, height=H * MM)
+        _pg.show_pdf_page(fitz.Rect(_off[0] * MM, _off[1] * MM, (_off[0] + _pw) * MM, (_off[1] + _ph) * MM), fitz.open(_SPB + suf), 0)
+        _fn = os.path.join(OUT, f"_site_{gr}_upd.pdf"); _nd.save(_fn); _nd.close()
+        _SITE_PDF[gr] = _fn
+    print("配置図：線と色は更新係の配置図から（ずれ", np.round(_off, 1), "mm）")
 _SCLIP = (sx, H - sy - sh, sx + sw, H - sy)                                  # 元のPDFのmm（左上から）
 for gr in ("c", "l", "t", "o", "s"):                                          # 1枚目：色 → 線 → 文字 → 風と視線 → 太陽の順に重ねる
     embed(1, _SITE_PDF[gr], _SCLIP, sx, sy, 1.0)
