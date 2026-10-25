@@ -106,7 +106,29 @@ lid=quad(RK-OVH,RW+OVH,aN,aS,60)
 # 西館とのすき間（u 21〜51）は「すき間の蓋」が西館まで覆うので、そこは延ばさない。
 aG0=th19-51000/RW; aG1=th19-21000/RW
 lid=lid.union(quad(RW+OVH-1,RW+OVH+350,aN,aG0,30)).union(quad(RW+OVH-1,RW+OVH+350,aG1,aS,30)).buffer(0)
-sloped(lid,GT,L_lid,zlid)
+def sector_slab(pieces,thick,li,zf,n=60):
+    """弧に沿う帯（r0〜r1、角度 a0〜a1）の板。上の面は角度ごとの四角の帯で、面が zf（r の一次）にちょうど沿う。
+    前は外形の多角形を earcut で三角に分けていて、弧の長い弦をまたぐ三角形の中ほどで面が最大 23 mm 盛り上がり、
+    その上のルーバーの羽根が蓋に食い込んでいた（10-25 ソリッド係、ユーザー：ルーバーは蓋のガラスの上にのるだけ）"""
+    M=r.Mesh()
+    for r0,r1,a0,a1 in pieces:
+        k=max(2,int(round(n*abs(a1-a0)/abs(aS-aN)))+1); A=np.linspace(a0,a1,k); b=len(M.Vertices)
+        for a in A:
+            for rr in (r0,r1):
+                x,y=P(rr,a); M.Vertices.Add(float(x),float(y),float(zf(x,y)-thick)); M.Vertices.Add(float(x),float(y),float(zf(x,y)))
+        q=lambda i,j,top: b+4*i+2*j+top              # 角度 i、内外 j、下 0・上 1
+        F=[]
+        for i in range(k-1):
+            F+=[(q(i,0,1),q(i,1,1),q(i+1,1,1),q(i+1,0,1)),(q(i,0,0),q(i+1,0,0),q(i+1,1,0),q(i,1,0)),
+                (q(i,0,0),q(i,0,1),q(i+1,0,1),q(i+1,0,0)),(q(i,1,0),q(i+1,1,0),q(i+1,1,1),q(i,1,1))]
+        F+=[(q(0,0,0),q(0,1,0),q(0,1,1),q(0,0,1)),(q(k-1,0,0),q(k-1,0,1),q(k-1,1,1),q(k-1,1,0))]
+        V=np.array([[M.Vertices[i].X,M.Vertices[i].Y,M.Vertices[i].Z] for i in range(b,len(M.Vertices))])
+        import trimesh as _tm
+        T=_tm.Trimesh(V,[[a_-b for a_ in f[:3]] for f in F]+[[f[0]-b,f[2]-b,f[3]-b] for f in F],process=False)
+        _tm.repair.fix_normals(T)
+        for a_,b_,c_ in T.faces: M.Faces.AddFace(int(a_)+b,int(b_)+b,int(c_)+b)
+    M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M,attr(li))
+sector_slab([(RK-OVH,RW+OVH,aN,aS),(RW+OVH,RW+OVH+350,aN,aG0),(RW+OVH,RW+OVH+350,aG1,aS)],GT,L_lid,zlid)
 led=[P(RK-OVH+60,a) for a in np.linspace(aN,aS,60)]
 wall_along(led,lambda x,y:zlid(x,y)-GT-40,lambda x,y:zlid(x,y)-GT,40,L_led)
 import math
