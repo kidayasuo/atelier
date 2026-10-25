@@ -1352,8 +1352,133 @@ ELEV_SHEETS = [('sodachiya_elevations_1-100', lambda: make_elevations(
                     '立面図 2　高野川の側・北の妻　1/100（A1）',
                     '\n高野川の側は川の向こうから川の辺に直角に、北の妻は架構 20 に正対。'))]
 
+
+# ---------------------------------------------------------------- 配置図 1/200（監修 renkei 20261025-1747-kanshu、アプローチ係 data/siteplan_approach.json）
+# 向きは3枚目の平面図と同じ（高野川を下辺）。建物は屋根伏せ、外構・園庭・周辺（PLATEAU）・課題の敷地図をなぞった線・敷地の境・方位。
+# 外構の描き方・文字・記号・道すじ・注はアプローチ係の json から（座標は 3dm の m）。A2 横。
+def make_siteplan():
+    import json as _j
+    W_, H_, SC = 594, 420, 200
+    S = Sheet(W_, H_, '配置図　1/200（A2）　高野川を下に（北は方位の矢印）', scale=SC)
+    ph = _view_rot(); c_, n_ = math.cos(ph), math.sin(ph)
+    rp = lambda P: np.c_[np.asarray(P)[:, 0] * c_ - np.asarray(P)[:, 1] * n_, np.asarray(P)[:, 0] * n_ + np.asarray(P)[:, 1] * c_]
+    cr = rp(np.array(list(SITE_C.values())))
+    mid = (cr.min(0) + cr.max(0)) / 2 + np.array([-3000.0, 0.0])
+    MG = 10
+    w_, h_ = (W_ - 2 * MG) * SC, (H_ - 2 * MG) * SC
+    ext = (mid[0] - w_ / 2, mid[0] + w_ / 2, mid[1] - h_ / 2 + 1500, mid[1] + h_ / 2 + 1500)
+    A = S.axes(MG, MG, ext); A.phi = ph
+    root = _root()
+    SP = {}
+    if root and os.path.isfile(os.path.join(root, 'data', 'siteplan_approach.json')):
+        SP = _j.load(open(os.path.join(root, 'data', 'siteplan_approach.json'), encoding='utf-8'))
+    M = lambda xy: np.asarray(xy, float) * 1000
+    # 周辺（PLATEAU）：建物は薄い灰、道は白抜きの線
+    for ob in OBJ:
+        n = num(ob['layer'])
+        if n not in (3, 4): continue
+        sil = silhouette(ob['T'][:, :, :2])
+        if sil is None: continue
+        if n == 4: A.fill(sil, '30_敷地・外構', fc='0.86', z=0.5); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.55', z=0.6)
+        else: A.fill(sil, '30_敷地・外構', fc='0.97', z=0.3); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.6', z=0.35)
+    if root:
+        for ln in _j.load(open(os.path.join(root, 'present', 'kadai_map.json'), encoding='utf-8'))['lines']:
+            A.lines([np.array(ln, float) * 1000], '30_敷地・外構', lw=0.1, color='0.4', z=1)
+    for ln, P in CURVES:
+        if ln.startswith('00'): A.lines([P[:, :2]], '30_敷地・外構', lw=0.3, color='#C03030', ls=(0, (12, 3, 2, 3)), z=8); continue
+        if num(ln) == 91: A.lines([P[:, :2]], '30_敷地・外構', lw=0.05, color='0.72', z=1); continue
+        if num(ln) == 92: A.lines([P[:, :2]], '30_敷地・外構', lw=0.15, color='#3d6f9a', z=1.2); continue
+        if 70 <= num(ln) <= 79: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.45', z=1.1)
+    LAYDEF = SP.get('layers', {})
+    def lay_def(ln):
+        for k, v in LAYDEF.items():
+            if ln.startswith(k.split('_')[0] + '_'): return v
+        return None
+    # 外構（70〜79）・園庭（90〜99）・本体の外（60〜67）
+    for ob in OBJ:
+        ln = ob['layer']; n = num(ln)
+        if not (60 <= n <= 79 or 92 <= n <= 99): continue
+        if n in (98,): continue
+        sil = silhouette(ob['T'][:, :, :2])
+        if sil is None or sil.is_empty: continue
+        d = lay_def(ln) or {}
+        dr = d.get('draw', 'outline')
+        if n in (77, 79, 94) or dr == 'tree':
+            A.fill(sil, '30_敷地・外構', fc='#CFE0B8', z=1.6); A.geom_lines(sil, '30_敷地・外構', lw=0.08, color='#6E8F4E', z=1.7); continue
+        if n == 72 or dr == 'fill' and d.get('fc') == 'black':
+            A.fill(sil, '30_敷地・外構', fc='k', z=3); continue
+        if n == 76:
+            A.fill(sil, '30_敷地・外構', fc='#EFE9DE', z=0.9); A.geom_lines(sil, '30_敷地・外構', lw=0.05, color='0.6', z=0.95); continue
+        if n == 73:
+            A.fill(sil, '30_敷地・外構', fc='#E3EDD6', z=1.4); A.geom_lines(sil, '30_敷地・外構', lw=0.13, color='#5E7F3E', ls=(0, (3, 2)), z=2.5); continue
+        if n == 71:
+            A.geom_lines(sil, '30_敷地・外構', lw=0.18, color='0.25', ls=(0, (4, 2)), z=2.5); continue
+        if n == 70:
+            A.fill(sil, '30_敷地・外構', fc='#8A6A4A', z=2.2); continue
+        if n in (92, 99):
+            A.fill(sil, '30_敷地・外構', fc='#CFE3EF', z=1.3); A.geom_lines(sil, '30_敷地・外構', lw=0.08, color='#3d6f9a', z=1.35); continue
+        A.geom_lines(sil, '30_敷地・外構', lw=d.get('lw', 0.1), color='0.3', z=2)
+    # 建物：屋根伏せ（外形の太線、太陽光の面、光の筋、越屋根の蓋）
+    def U(layers):
+        g = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if ob['layer'].split('_')[0] in layers]
+        g = [x.buffer(20) for x in g if x is not None and not x.is_empty]
+        return unary_union(g).buffer(-20) if g else None
+    roof = U(('10', '20', '51', '35'))
+    if roof is not None:
+        roof = unary_union([Polygon(x.exterior) for x in getattr(roof, 'geoms', [roof]) if x.geom_type == 'Polygon' and x.area > 1e6])
+        A.fill(roof, '01_切断（構造・壁）', fc='#F2F0EC', z=3)
+    pv = U(('10p', '20p'))
+    if pv is not None: A.fill(pv, '10_見えがかり', fc='#5A5E66', z=3.2)
+    for lay_, fc_ in ((('10t', '20t'), '#F4F1E6'), (('50a', '28', '50d'), '#D6E7F0')):
+        g = U(lay_)
+        if g is not None: A.fill(g, '10_見えがかり', fc=fc_, z=3.4); A.geom_lines(g, '10_見えがかり', lw=0.06, color='0.35', z=3.5)
+    if roof is not None: A.geom_lines(roof, '01_切断（構造・壁）', lw=0.4, z=4)
+    # 外構の記号（アプローチ係）
+    for st in SP.get('parking', {}).get('stalls', []):
+        q = M(st['xy']); A.text(q[0], q[1], st['mark'], 6 if st['mark'] == 'P' else 5, '60_部屋名・面積', color='#1F4E8C')
+    e = SP.get('entrance')
+    if e:
+        q = M(e['xy']); A.ax.add_patch(plt.Circle(tuple(A.rot(q)), 350, fc='#D33A3A', ec='none', zorder=9))
+    sl = SP.get('security_line')
+    if sl: A.lines([M(sl['pts'])], '70_断面の位置', lw=0.25, color='#D33A3A', ls=(0, (6, 3)), z=8)
+    for w in SP.get('walks', {}).get('pts', []):
+        A.lines([M(w)], '10_見えがかり', lw=0.15, color='#8B5A2B', ls=(0, (2, 2)), z=7)
+    for t in SP.get('trees', []):
+        q = M(t['xy']); A.text(q[0], q[1] - t.get('r', 1.5) * 1000 - 400, t['name'], 5, '60_部屋名・面積', color='#4E6B34')
+    SZ = {'key': 8, 'name': 6.5, 'small': 5, 'context': 6.5}
+    for lb in SP.get('labels', []):
+        q = M(lb['xy']); k = lb.get('kind', 'name')
+        rot = 0
+        if lb.get('along'):
+            v = np.array(lb['along'], float); v = A.rot(v); rot = math.degrees(math.atan2(v[1], v[0]))
+            rot = ((rot + 90) % 180) - 90
+            A.text(q[0], q[1], lb['text'], SZ[k], '60_部屋名・面積', rot=rot - math.degrees(ph) if False else 0, color='0.45' if k == 'context' else 'k')
+        else:
+            A.text(q[0], q[1], lb['text'], SZ[k], '60_部屋名・面積', color='0.45' if k == 'context' else 'k')
+    # 建物の名前
+    for txt, u_, v_ in (('本館', 28000, 7000), ('西館', 36000, -7000)):
+        q = at(205000 - v_, theta_u(u_)); A.text(q[0], q[1], txt, 10, '60_部屋名・面積', box=True)
+    # 表題・注・方位・縮尺（紙の座標）
+    def paper(x_mm, y_mm): return ext[0] + (x_mm - MG) * SC, ext[2] + (y_mm - MG) * SC
+    tx, ty = paper(16, H_ - 16)
+    A.text(tx, ty, '配置図　1/200', 11, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    lines_ = list(SP.get('counts', [])) + [''] + list(SP.get('notes', []))
+    for i, t in enumerate(lines_):
+        x_, y_ = paper(16, H_ - 26 - i * 4.2)
+        A.text(x_, y_, t, 5.5, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    bx, by = paper(16, 18)
+    for i in range(5):
+        A.ax.add_patch(plt.Rectangle((bx + i * 2000, by), 2000, 300, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1), zorder=12))
+    A.text(bx, by + 1000, '0', 5, '80_図名・縮尺・方位', raw=True); A.text(bx + 10000, by + 1000, '10 m', 5, '80_図名・縮尺・方位', raw=True)
+    nd = np.array([-math.sin(ph), math.cos(ph)]); pd = np.array([-nd[1], nd[0]])
+    c0 = np.array(paper(30, 45))
+    A.lines([[c0 - nd * 3000, c0 + nd * 3000]], '80_図名・縮尺・方位', lw=0.25, raw=True)
+    A.lines([[c0 + nd * 2000 + pd * 600, c0 + nd * 3000, c0 + nd * 2000 - pd * 600]], '80_図名・縮尺・方位', lw=0.25, raw=True)
+    q = c0 + nd * 4000; A.text(q[0], q[1], 'N', 8, '80_図名・縮尺・方位', raw=True)
+    return S
+
 ONLY = os.environ.get('DRAW_ONLY', '')
-for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_sections_1-100', make_sections),
+for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_siteplan_1-200', make_siteplan), ('sodachiya_sections_1-100', make_sections),
                  *ELEV_SHEETS):
     if ONLY and ONLY not in name: continue
     S = mk(); S.save(os.path.join(OUTD, name)); print('written', name)
