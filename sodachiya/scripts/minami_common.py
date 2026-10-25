@@ -106,3 +106,14 @@ def leaf_at(hinge, end, deg):
 GATE_POST_W = park_pt(D["GATES"]["WEST"]["d_post"][1])        # corner post: lattice (park edge) + fence 60 meet here
 def clear_width(p, q):                                       # opening measured across the vehicle direction (DIR)
     v = np.array(q) - np.array(p); return abs(v[0] * DIR[1] - v[1] * DIR[0])
+
+# ---- 川の柵の緑の目隠し（RIVER_SCREEN、10-25）：柵の内側 inset の線、h まで常緑のムベ、ところどころアケビ
+RS = D["RIVER_SCREEN"]
+_sl = LineString([tuple(R0 - DIR * BIG + NRM * RS["inset"]), tuple(R1 + DIR * BIG + NRM * RS["inset"])]).intersection(AREA.buffer(-0.02))
+SCREEN = max(getattr(_sl, "geoms", [_sl]), key=lambda q: q.length)
+def screen_plants():                                         # [(xy, 'ムベ'|'アケビ')]
+    n = max(1, int(SCREEN.length // RS["pitch"])); out = []
+    for i in range(n + 1):
+        q = SCREEN.interpolate(min(i * RS["pitch"] + 0.4, SCREEN.length - 0.2))
+        out.append(((q.x, q.y), "アケビ" if (i % RS["akebi_every"] == RS["akebi_every"] // 2) else "ムベ"))
+    return out

@@ -56,6 +56,11 @@ out = [rv[0], rv[1], tuple(np.array(rv[1]) - G.NRM * 1.6), tuple(np.array(rv[0])
 shp(G.Polygon(out), fc="#E7E3DA", ec="none", z=0.5)
 line(rv, lw=1.0, c="#6b5a3a", z=6)
 T(tuple((G.R0 + G.R1) / 2 - G.NRM * 0.8), "高野川の護岸の柵（金網、現況）　→ 崖 約 4〜5 m", 7, c="#6b5a3a", rot=G.ANG)
+# 川の柵の緑の目隠し（RIVER_SCREEN）：柵の内側のワイヤーにムベ、ところどころアケビ
+line(list(G.SCREEN.coords), lw=3.2, c="#5f8a4a", z=6.5)
+for (xy, k) in G.screen_plants():
+    ax.add_patch(Circle(xy, 0.16, fc="#c98bb0" if k == "アケビ" else "#3f6e35", ec="none", zorder=6.6))
+T(tuple(G.R0 + (G.R1 - G.R0) * 0.3 + G.NRM * 0.42), "緑の目隠し h1.5（ムベ、桃色はアケビ）", 6.5, c="#3f6e35", rot=G.ANG)
 
 # ground
 shp(G.AREA, fc=C["grass"], ec="#7a8a5a", lw=0.5, z=1.5)
@@ -212,7 +217,12 @@ t_r = fs + d_end
 axs.plot([t_r, t_r], [0, 1.2], color="#6b5a3a", lw=1.2)
 axs.plot([t_r, t_r + 0.5], [-0.3, -0.3], color="#6b5a3a", lw=0.8)
 axs.plot([t_r, t_r + 0.6], [0, -0.6], color="#6b5a3a", lw=0.8, ls=":")
-T((t_r - 0.1, 1.35), "護岸の柵", 6.5, a=axs, ha="right")
+T((t_r + 0.08, 1.3), "護岸の柵", 6.5, a=axs, ha="left")
+_h = D["RIVER_SCREEN"]["h"]; _ti = t_r - D["RIVER_SCREEN"]["inset"]
+axs.add_patch(MP([(_ti - 0.12, 0), (_ti + 0.04, 0), (_ti + 0.04, _h), (_ti - 0.16, _h)], fc="#5f8a4a", ec="#3f6e35", lw=0.5, zorder=7))
+axs.plot([_ti, _ti], [0, _h + 0.05], color="#555", lw=0.5, zorder=7.5)
+T((_ti - 0.25, _h + 0.12), "緑の目隠し h%.1f（ムベ）" % _h, 6.5, a=axs, ha="right", c="#3f6e35")
+T((_ti - 0.25, _h + 0.35), "↑ ここから上は開く：南の妻の架構・軒が川から見える", 6.2, a=axs, ha="right", c="#555")
 # children figures (1 yr ~0.8, 2 yr ~0.9, adult eye 1.55 sitting 1.1)
 def kid(t, h, lab):
     axs.add_patch(Circle((t, h - 0.08), 0.08, fc="none", ec="#444", lw=0.5, zorder=8))
@@ -240,6 +250,7 @@ notes = [
  ("軒の下", "縁側と軒の先のあいだ（約 1〜2 m）は夏の日陰。0 歳はここにござを敷いて寝ころぶ、外気浴。"),
  ("東の木戸", "しずかのもりとの境を木戸で分ける（ユーザー）。v 15 の線、本館の南東の角から川の柵まで 約 3.2 m。親子の両開き：子扉 0.9 をふだん使い（西へ開く）、車のときだけ親扉 2.2（足に戸車、落とし棒）も開けて、車の向きに直角に測って あき %.2f m（帯 2.5 より広い）。親扉は西へ約 120° 回して川の柵に沿わせて畳む。h0.9、スギの縦格子（すき間 80 以下、横桟なし）、掛け金は上の框の 2 段（h0.95 以上、2 歳の手が届かない）。すぐ東は雨の川（車は石の蓋で渡る）。" % G.clear_width((15, D["GATES"]["EAST"]["posts_u"][0] - 0.05), (15, D["GATES"]["EAST"]["posts_u"][1] + 0.05))),
  ("西の門", "非常用の門（避難の帯の出口）。公園の北東の辺（川に直交）の上で、川の柵から 約 2.85 m。親子の両開き：子扉 1.2（避難車が通る、外へ 90° で川の柵に沿う）＋親扉 1.55（外へ 180° で格子に沿う）、あき %.2f m。格子と同じ h1.8。内側からは鍵なしで開く（取っ手 h1.3 以上、二段の掛け金）、開くと事務に知らせる、公園の側からは鍵（セキュリティの線）。柵 h1.2 は南の端を 約 0.35 m 縮めて門の柱へ折り返す。" % G.clear_width(G.park_pt(0.15), G.park_pt(2.8))),
+ ("川の緑の目隠し", "高野川の「河川に面する植栽帯」に、川の柵へ緑を絡ませて答える（ユーザー）。今の金網の内側 0.15 に細い柱とステンレスのワイヤーメッシュ h1.5、足もとは柵ぎわの植え穴（面一で踏める、避難の帯はそのまま）。h1.5 より下は常緑のムベで密に：こども（0.8〜0.9）も、座った先生も、川と対岸から見えない。上は何も無し：南の妻の 2 枚の梁・柱・深い軒・屋根が緑の台の上に見える（本館の架構を見せる場所）。上端は水平に刈り込む。約 4.5 m ごとに落葉のアケビ（春の紫の花、秋の実、ムベの仲間、冬は少し透ける）。毒・とげ・食べて困る実のつるは使わない（テイカカズラ・スイカズラ・バラは使わない）。"),
  ("模型", "丘は 3 mm（h0.3）の板 1 枚か、紙粘土。砂場・小径は彩色。木は園庭と同じ作り方。3dm のレイヤー 78（地形・遊び場）・79（植物）。"),
 ]
 y = PH - 40
@@ -249,6 +260,7 @@ for h, t in notes:
     wrapped = "\n".join(t[i:i + 56] for i in range(0, len(t), 56))
     fig.text((NX + 2) / PW, (y - 5) / PH, wrapped, fontsize=7.6, va="top", linespacing=1.45)
     y -= 5 + 3.9 * (wrapped.count("\n") + 1) + 3.0
+print("notes end y", round(y, 1))
 os.makedirs(OUT, exist_ok=True)
 for ext in ("pdf", "png"):
     fig.savefig(os.path.join(OUT, "sodachiya_minami_01." + ext), dpi=110 if ext == "png" else None)

@@ -160,6 +160,10 @@ for name, h, e, hh, deg in MN.gates():
     hp = W(h[1], h[0]); post(hp, hh + 0.1, 0.12, L78)
 # 79 ハーブの帯（h0.3 の塊）、木（幹と樹冠の円）
 slab(mw(MN.HERB), 0, 0.3, L79)
+_sc = [W(y, x) for x, y in MN.SCREEN.coords]                     # 川の柵の緑の目隠し：ワイヤー h1.5 にムベ（緑の帯）
+wall(_sc, MN.RS["h"], L79)
+for (xy, k) in MN.screen_plants():
+    m.Objects.AddLine(P3(W(xy[1], xy[0]), 0), P3(W(xy[1], xy[0]), MN.RS["h"]), attr(L79))
 tp = W(*MN.D["TREE"]["c"])
 m.Objects.AddLine(P3(tp, 0), P3(tp, 4.5), attr(L79))
 for zc, rr in ((MN.D["TREE"]["under"], MN.D["TREE"]["r"] * 0.8), (3.4, MN.D["TREE"]["r"]), (4.5, MN.D["TREE"]["r"] * 0.6)):
