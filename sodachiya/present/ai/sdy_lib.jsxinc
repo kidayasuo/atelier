@@ -93,19 +93,28 @@ SDY.parseTag = function (it) {
     var a = n.substring(4).split("|");
     return { kind: a[0], id: a[1], mock_hash: a[2] || "" };
 };
+// 文字の体裁。Illustratorは文字の範囲によって Error 9503（illegal text range）を出すことがあるので、
+// 属性は一つずつ try で掛け、全体に掛けられなければ段落ごと・文字ごとに掛ける（10-25、ユーザーの試運転で9503）
+SDY._each = function (tf, fn) {
+    try { fn(tf.textRange); return; } catch (e0) {}
+    var k, ok = false;
+    try { for (k = 0; k < tf.paragraphs.length; k++) { try { if (tf.paragraphs[k].length > 0) { fn(tf.paragraphs[k]); ok = true; } } catch (e1) {} } } catch (e2) {}
+    if (ok) { return; }
+    try { for (k = 0; k < tf.characters.length; k++) { try { fn(tf.characters[k]); } catch (e3) {} } } catch (e4) {}
+};
 SDY.styleText = function (tf, p) {
-    var ca = tf.textRange.characterAttributes, pa = tf.textRange.paragraphAttributes, f = SDY.font(p.font);
-    ca.size = p.size_pt;
-    if (f) { ca.textFont = f; }
-    ca.fillColor = SDY.rgb(p.color);
+    var f = SDY.font(p.font), size = Number(p.size_pt), lead = Number(p.leading || 1.5);
+    if (!(size > 0.1 && size < 1296)) { size = 10; }
+    var jus = (p.justify === "full_last_left") ? Justification.FULLJUSTIFYLASTLINELEFT :
+              ((p.align === "center") ? Justification.CENTER : ((p.align === "right") ? Justification.RIGHT : Justification.LEFT));
     // 段落は両端揃え・最終行は左（ユーザー 10-25夕）、一字下げしない、段落のあいだは1行分、行送り＝文字の1.5倍
-    if (p.justify === "full_last_left") { pa.justification = Justification.FULLJUSTIFYLASTLINELEFT; }
-    else { pa.justification = (p.align === "center") ? Justification.CENTER : ((p.align === "right") ? Justification.RIGHT : Justification.LEFT); }
-    try { pa.firstLineIndent = 0; } catch (e) {}
-    var lead = p.leading || 1.5;
-    ca.autoLeading = false;
-    ca.leading = p.size_pt * lead;
-    if (p.para_space) { pa.spaceAfter = p.size_pt * p.para_space; }
+    SDY._each(tf, function (r) { r.characterAttributes.size = size; });
+    if (f) { SDY._each(tf, function (r) { r.characterAttributes.textFont = f; }); }
+    SDY._each(tf, function (r) { r.characterAttributes.fillColor = SDY.rgb(p.color); });
+    SDY._each(tf, function (r) { r.characterAttributes.autoLeading = false; r.characterAttributes.leading = size * lead; });
+    SDY._each(tf, function (r) { r.paragraphAttributes.justification = jus; });
+    SDY._each(tf, function (r) { r.paragraphAttributes.firstLineIndent = 0; });
+    if (p.para_space) { SDY._each(tf, function (r) { r.paragraphAttributes.spaceAfter = size * Number(p.para_space); }); }
 };
 SDY.missing = [];
 SDY.placeLink = function (doc, lay, i, p) {
@@ -188,10 +197,12 @@ SDY.makeFrame = function (doc, L) {
     var ln = g.pathItems.add();
     ln.setEntirePath([SDY.P(doc, 0, F.margin, F.margin + F.header), SDY.P(doc, 0, W - F.margin, F.margin + F.header)]);
     ln.filled = false; ln.stroked = true; ln.strokeWidth = F.lw_header; ln.strokeColor = SDY.rgb(F.color);
-    var t1 = g.textFrames.pointText(SDY.P(doc, 0, F.title.x, F.title.y));
+    var t1 = lay.textFrames.pointText(SDY.P(doc, 0, F.title.x, F.title.y));       // 文字はレイヤーに作って体裁を掛けてからグループへ（9503よけ）
     t1.contents = F.title.s; SDY.styleText(t1, { size_pt: F.title.size_pt, font: F.title.font, color: F.color, align: "left" });
-    var t2 = g.textFrames.pointText(SDY.P(doc, 0, F.footer.x, F.footer.y));
+    t1.move(g, ElementPlacement.PLACEATEND);
+    var t2 = lay.textFrames.pointText(SDY.P(doc, 0, F.footer.x, F.footer.y));
     t2.contents = F.footer.s; SDY.styleText(t2, { size_pt: F.footer.size_pt, font: F.footer.font, color: F.color, align: "right" });
+    t2.move(g, ElementPlacement.PLACEATEND);
     var gb = g.geometricBounds, a0 = SDY.ab(doc, 0), dx = gb[0] - a0[0], dy = gb[1] - a0[1];
     var sym = doc.symbols.add(g);
     sym.name = "枠";

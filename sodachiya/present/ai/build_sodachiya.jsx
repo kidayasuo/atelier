@@ -12,7 +12,7 @@
     var names = ["枠", "図", "線", "説明", "注記"], i, j, p, made = 0, skipped = 0;
     for (i = 0; i < names.length; i++) { SDY.layer(doc, names[i]); }        // 下から 枠・図・線・説明・注記
     for (i = 0; i < n; i++) { doc.artboards[i].name = L.pages[i].no + "/5"; }
-    SDY.makeFrame(doc, L);
+    try { SDY.makeFrame(doc, L); } catch (e) { SDY.missing.push("枠（" + e.message + "）"); }
     for (i = 0; i < n; i++) {
         for (j = 0; j < L.pages[i].parts.length; j++) {
             p = L.pages[i].parts[j];
