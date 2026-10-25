@@ -7,7 +7,7 @@ IN,OUT=sys.argv[1],sys.argv[2]
 m=r.File3dm.Read(IN)
 exec(open('/tmp/claude-0/t/south/add_south.py').read().split("m=r.File3dm.Read(IN)")[1].split("K0=13")[0])
 CURB=150; GAP=150; GT=60; OVH=350; W_=120.0; PITCH=104.0; ANG=math.radians(30)
-VOID=1000.0          # 西館の換気の吹抜（東の縁から d 0–1.0 m）＝越屋根の幅
+VOID=1600.0          # 西館の換気の吹抜（東の縁から d 0–1.6 m）＝越屋根の幅（10-25 ユーザー：1.0 → 1.6、本館とそろえる。東の帯の吹き抜けも 1.6）
 # --- 西館の屋根メッシュから東の縁（棟）を取り出す ---
 Lyr={i:l.FullPath for i,l in enumerate(m.Layers)}
 roofm=[o.Geometry for o in m.Objects if Lyr[o.Attributes.LayerIndex]=='20_西館_屋根'][0]

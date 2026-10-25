@@ -93,8 +93,9 @@ _us = np.unique(np.r_[np.arange(21.0, 23.6, 0.05), np.arange(23.6, 40.4, 0.25), 
 _us[0] += 0.0005; _us[-1] -= 0.0005
 _NV = 40
 rm = r.Mesh()
+MON_W = 1.6                                      # 越屋根の幅（10-25：1.0 → 1.6）。屋根の面は越屋根の西の立ち上がりの外面から（越屋根の下は開ける）
 for u in _us:
-    ve, vw = _v_out(u)
+    ve, vw = _v_out(u); ve = min(ve, VRIDGE - MON_W - 0.06)
     for t in np.linspace(0, 1, _NV + 1):
         v = ve + (vw - ve) * t; x, y = xy(u, v); rm.Vertices.Add(float(x), float(y), float(roof_f(x, y)))
 for i in range(len(_us) - 1):
