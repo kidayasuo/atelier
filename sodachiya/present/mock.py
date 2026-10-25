@@ -553,12 +553,13 @@ def topline(sheet, p_pt, p_box, color, via=()):
     TOPL[sheet].append(([tuple(p_box)] + [tuple(v) for v in via] + [tuple(p_pt)], color))
 
 
-def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2):
-    """説明の箱（見出し＋本文、左寄せ）"""
+def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2, key=None):
+    """説明の箱（見出し＋本文、左寄せ）。key を渡すと部品のidが見出しの文に依らない（見出しを直しても同じ部品）"""
+    k_ = key or head
     ax.add_patch(Rectangle((x, y), w, h, fc=fill, ec=color, lw=0.5, gid="aipart"))
-    _airec(ax.figure, kind="box", id=f"ibox.{head}", name=f"箱：{head}", x=x, y=y, w=w, h=h, fill=fill, stroke=color, lw=0.5, dash=None)
-    _airec(ax.figure, kind="text", id=f"ibox.{head}.head", name=f"見出し：{head}", x=x + 3, y=y + h - 7, s=head, size=3.8, color=color, bold=True, ha="left", va="baseline")
-    _airec(ax.figure, kind="area", id=f"ibox.{head}.body", name=f"本文：{head}", x=x + 3, y=y + h - 14, w=w - 6, h=h - 16,
+    _airec(ax.figure, kind="box", id=f"ibox.{k_}", name=f"箱：{head}", x=x, y=y, w=w, h=h, fill=fill, stroke=color, lw=0.5, dash=None)
+    _airec(ax.figure, kind="text", id=f"ibox.{k_}.head", name=f"見出し：{head}", x=x + 3, y=y + h - 7, s=head, size=3.8, color=color, bold=True, ha="left", va="baseline")
+    _airec(ax.figure, kind="area", id=f"ibox.{k_}.body", name=f"本文：{head}", x=x + 3, y=y + h - 14, w=w - 6, h=h - 16,
            s="\n".join(lines), size=size, color=INK, bold=False, leading=1.5, para_space=1.0)
     AIMUTE[0] += 1
     T(ax, x + 3, y + h - 7, head, 3.8, color, bold=True)
@@ -1184,37 +1185,39 @@ _cen = lambda pre: Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.
 # 解説の箱（ユーザー、10-25 23:38：文を差し替え。番号は大事な順。引き出し線は短く、交わらないように）
 # 置き場所を決めた箱は FIX（Illustratorでの木田さんの割付、アートボードの左上からmm）：用水を借りる＝用水ネットワークの図の真下、災害＝上の真ん中
 _rainend = xf(np.array([_rain.coords[-1]]))[0]
-NAT = [("用水を借りる", ["井出ヶ鼻井堰に端を発する松ヶ崎の用水ネットワークから、水を借り、園庭の小川にする。"], [P3p(_stl[0])], (609.68, 186.77)),
-       ("野菜くずコンポスト", ["野菜くずや落ち葉をこどもたちの手で土に還す。発酵する暖かい土とミミズに驚く。野菜を育てる。命の循環を知る。"],
+NAT = [("yousui", "用水を借りる", ["井出ヶ鼻井堰に端を発する松ヶ崎の用水ネットワークから、水を借り、園庭の小川にする。"], [P3p(_stl[0])], (609.68, 186.77)),
+       ("compost", "野菜くずコンポスト", ["野菜くずや落ち葉をこどもたちの手で土に還す。発酵する暖かい土とミミズに驚く。野菜を育てる。命の循環を知る。"],
         [Psp(np.array(GD["compost"].centroid.coords[0]))], None),
-       ("高野川と比叡にみたてる", ["日本文化が育ててきた「みたて」。園内の小川と築山を高野川と比叡にみたてる。それを超えて視線を遠くにすると、高野川を超えて比叡の山。"],
+       ("mitate", "高野川と比叡にみたてる", ["日本文化が育ててきた「みたて」。園内の小川と築山を高野川と比叡にみたてる。それを超えて視線を遠くにすると、高野川を超えて比叡の山。"],
         [Psp(np.array(GD["mound"].centroid.coords[0])), P3p(_stl[len(_stl) // 2])], None),
-       ("水の行方を見る", ["小川は暗渠に隠さず高野川に注ぐ。屋根に降った雨は、雨落ちに落ち、雨水浸透側溝と雨庭を経て、溢れは高野川に。"],
+       ("mizu", "水の行方を見る", ["小川は暗渠に隠さず高野川に注ぐ。屋根に降った雨は、雨落ちに落ち、雨水浸透側溝と雨庭を経て、溢れは高野川に。"],
         [P3p(_stl[-1]), _rainend], None),
-       ("間伐材を使った林", ["京都北山の北山杉の間伐材141本を、ホールの林として立てる。"], [_cen("59_1F_ホール")], None)]
-COM = [("小竹薮公園を残す", ["地域の記憶の公園を残し、園へのアプローチにする。"], [P3p(np.array(gc.PARK.centroid.coords[0]))], None),
-       ("車や自転車の交通を南半分にまとめる", ["西の道の半ばには道に突き出た木があり見通しが悪い。車や送り迎えの自転車のトラフィックをそれより南側にまとめる。"],
+       ("kaze", "風の道", ["夏の夜間に高野川から下がってくる川風を、縁側から越屋根へ抜いて蓄熱し、冷房費を抑える。"], [_cen("14_")], None),
+       ("rin", "間伐材を使った林", ["京都北山の北山杉の間伐材141本を、ホールの林として立てる。"], [_cen("59_1F_ホール")], None)]
+COM = [("park", "小竹薮公園を残す", ["地域の記憶の公園を残し、園へのアプローチにする。その北側には1mの公共歩道を設け歩く人の安全に配慮する。"],
+        [P3p(np.array(gc.PARK.centroid.coords[0]))], None),
+       ("traffic", "車や自転車の交通を南半分にまとめる", ["西の道の半ばには道に突き出た木があり見通しが悪い。車や送り迎えの自転車のトラフィックをそれより南側にまとめる。車の出入り口にはスピードバンプを設ける。"],
         [P3p(SITE_C["NW"] + 0.78 * _LW * _u - 3.0 * _n)], None),
-       ("お向かいさん", ["西の道の北半分は狭い道を挟んで向かいに住宅がある。圧迫感を与えないよう、この面の建物高さを1階程度に抑える。"],
+       ("mukai", "お向かいさん", ["西の道の北半分は狭い道を挟んで向かいに住宅がある。圧迫感を与えないよう、この面の建物高さを1階程度に抑える。"],
         [P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)], None),
-       ("災害時の持ちつ持たれつ", ["洪水が予想される場合の緊急避難先として京都工芸繊維大学と協定（京都市ハザードマップによる浸水深1.5 m）。太陽光発電、蓄電池、地下水の利用によって、災害時に水を地域に提供。"],
+       ("saigai", "災害時の持ちつ持たれつ", ["大洪水が予想される場合の緊急避難先として京都工芸繊維大学と協定（京都市ハザードマップによる浸水深1.5 m）。太陽光発電、蓄電池、地下水の利用によって、災害時に水を地域に提供。"],
         [_cen("35_")], (352.36, 121.12)),
-       ("東の隣家への配慮", ["東の隣家との境は1 m下げ（セットバック）、園庭の小屋と植樹で視線と音をやわらげる。"],
+       ("east", "東の隣家への配慮", ["東の隣家との境は1 m下げ（セットバック）、園庭の小屋と植樹で視線と音をやわらげる。"],
         [P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)], None)]
-ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts, fx_) for i_, (h1, ls_, pts, fx_) in enumerate(NAT)]
-ITEMS += [(f"地域{i_ + 1}　" + h1, ls_, C_COM, "#FBF7F2", pts, fx_) for i_, (h1, ls_, pts, fx_) in enumerate(COM)]
+ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts, fx_, "nat." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(NAT)]
+ITEMS += [(f"地域{i_ + 1}　" + h1, ls_, C_COM, "#FBF7F2", pts, fx_, "com." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(COM)]
 _mid = sx + sw / 2
 LCX, LCW = M + 6, sx - (M + 6) - 8
 RCX = sx + sw + 8
 RCW = W - M - 6 - RCX
 _hof = lambda it, colw: 16 + sum(len(jwrap(t_, (colw - 6) / (3.0 / 0.72))) for t_ in it[1]) * (3.0 / 0.72 + 1.2) + 1.5 * len(it[1])
 _fixbot = {}                                              # 置き場所を決めた箱の下端（紙のmm、下から）
-for (head, ls_, col, fill, pts, fx_) in ITEMS:
+for (head, ls_, col, fill, pts, fx_, key_) in ITEMS:
     if fx_ is None:
         continue
     h_ = _hof((head, ls_), RCW)
     x_, t_ = fx_[0], H - fx_[1]                          # 上端
-    ibox(ax, x_, t_ - h_, RCW, h_, head, ls_, col, fill, size=3.0)
+    ibox(ax, x_, t_ - h_, RCW, h_, head, ls_, col, fill, size=3.0, key=key_)
     _fixbot[(x_ >= RCX - 5)] = min(_fixbot.get(x_ >= RCX - 5, 1e9), t_ - h_)
     for k_, q_ in enumerate(pts):                         # 点に近い縁から
         ex_ = x_ if q_[0] < x_ else (x_ + RCW if q_[0] > x_ + RCW else x_ + RCW / 2)
@@ -1241,8 +1244,8 @@ for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
         for k in range(len(tops) - 1, -1, -1):
             tops[k] = max(tops[k], cur + hs[k])
             cur = tops[k] + gap
-    for (head, ls_, col, fill, pts, fx_), t_, h_ in zip(its, tops, hs):
-        ibox(ax, colx, t_ - h_, colw, h_, head, ls_, col, fill, size=3.0)
+    for (head, ls_, col, fill, pts, fx_, key_), t_, h_ in zip(its, tops, hs):
+        ibox(ax, colx, t_ - h_, colw, h_, head, ls_, col, fill, size=3.0, key=key_)
         ex_ = colx + colw if side == "L" else colx
         for k_, q_ in enumerate(pts):
             topline(1, q_, (ex_, min(t_ - 3, max(t_ - h_ + 3, q_[1] if len(pts) == 1 else t_ - h_ / 2 + (k_ - (len(pts) - 1) / 2) * 6))), col)
