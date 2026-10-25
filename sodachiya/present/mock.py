@@ -1003,7 +1003,7 @@ for o in _rp_("66_"):
         SL(_arc, "#2E241A", 0.2, z=5.4, ls=(0, (1.5, 1.0)), hide=False)
 # 駐車場（74の車室を囲む舗装、道路の側の敷地の境まで）を灰色に。バンプは横断歩道のような縞（ユーザー 10-25夕）
 # 駐車・駐輪のために確保する場所全体を灰色に（ユーザー 10-25夜、塗る範囲の図をもらった）：敷地の西の境から、ひろば・小径・ムベのアーチ・屋根までの、
-# 公園の北で、職員の駐輪の北の端までの範囲。南西の角の保護者の駐輪は歩道として開けたい所にはみ出ているので塗らない（アプローチ係に移動を依頼）
+# 公園の北で、職員の駐輪の北の端までの範囲。西の道沿い1 mは歩道で白。公園ぎわの駐輪が歩道にはみ出している（アプローチ係に依頼）
 _SITEP = Polygon(R3(np.array([SITE_C[k] for k in ("N", "E", "S", "SW", "NW")])))
 _A_ = R3(SITE_C["SW"])[0]; _B_ = R3(SITE_C["NW"])[0]; _tW = (_B_ - _A_) / np.linalg.norm(_B_ - _A_)
 _nW = np.array([-_tW[1], _tW[0]])
@@ -1015,14 +1015,7 @@ _cut = unary_union([x for x in [_PARK_R.buffer(0.02), ROOFALL, SMALLR, _ARCH if 
 _slab = Polygon([_A_ - _tW * 5 - _nW * 50, _A_ + _tW * _tmax - _nW * 50, _A_ + _tW * _tmax + _nW * 50, _A_ - _tW * 5 + _nW * 50])
 _Z = _SITEP.intersection(_slab).difference(_cut)
 _Z = unary_union([z_ for z_ in (_Z.geoms if hasattr(_Z, "geoms") else [_Z]) if any(z_.intersects(c_) for c_ in _cells)])
-_bikes = [c_ for c_ in _cells if c_.area < 2.0]
-if _bikes:                                                 # 保護者の駐輪のうち、いちばん南西のまとまり（歩道に開けたい所）
-    _cl = []
-    for c_ in _bikes:
-        hit = [k_ for k_, cl in enumerate(_cl) if cl.buffer(0.35).intersects(c_)]
-        _cl = [cl for k_, cl in enumerate(_cl) if k_ not in hit] + [unary_union([_cl[k_] for k_ in hit] + [c_])]
-    _sw = min(_cl, key=lambda cl: min(_tof(cl.convex_hull)))
-    _Z = _Z.difference(_sw.convex_hull.buffer(0.6))
+_Z = _Z.difference(LineString([_A_ - _tW * 10, _B_ + _tW * 10]).buffer(1.0, cap_style=2))   # 西の道沿い1 mは歩道（白、ユーザー 10-25夜。バンプもこの中）
 SF(_Z, "#D8D8D4", z=0.75)
 for o in _rp_("74_"):
     if o["kind"] != "solid":
