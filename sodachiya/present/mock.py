@@ -885,8 +885,10 @@ for o in _rp_("01_"):                                    # 公園・駐車場
     g_ = _poly_of(o)
     if g_ is None:
         continue
+    if g_.representative_point().distance(_PARK_R) >= 0.5:
+        continue                                         # 01の駐車場の枠は初めの敷地のデータで、設計の車室（74）と合わない（ユーザー、10-25：影に見える）。描かない
     if g_.geom_type.endswith("Polygon"):
-        SF(g_, "#E3ECD9" if g_.representative_point().distance(_PARK_R) < 0.5 else "#ECEAE5", z=0.2)
+        SF(g_, "#E3ECD9", z=0.2)
     SL(g_, "#666666", 0.3, z=3)
 SF(rot(GD["garden"]), "#DDE9CF", z=0.5)                  # 園庭（data/garden.json）
 SF(rot(GD["shizu"]), "#D0E1C2", z=0.55)
@@ -990,11 +992,11 @@ _zl(GD["shizu"], "しずかのもり", (-4, 0), size=3.0)
 _stl0 = gc.XS([tuple(p) for p in GJ["STREAM"]["line"]])[0]
 _q0 = xf(R3(_stl0))[0]
 T(ax, _q0[0] - 4, _q0[1] - 10, "北のもり", 3.0, "#3F5F2F", ha="right", va="center", bold=True)
-for o in _rp_("01_"):
-    g_ = _poly_of(o)
-    if g_ is not None and g_.geom_type.endswith("Polygon") and g_.representative_point().distance(_PARK_R) >= 0.5:
-        q = xf(np.array(g_.representative_point().coords))[0]
-        T(ax, q[0], q[1], "駐車場", 2.8, ha="center", va="center", bold=True)
+_car = [x for x in (_poly_of(o) for o in _rp_("74_")) if x is not None and x.geom_type.endswith("Polygon") and x.area > 8]   # 車室
+if _car:
+    _cu = unary_union(_car)
+    q = xf(np.array(_cu.centroid.coords))[0]
+    T(ax, q[0], q[1], "駐車場", 2.8, ha="center", va="center", bold=True)
 _mk("t")
 _nx, _ny = sx + 14, sy + sh - 20
 ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
