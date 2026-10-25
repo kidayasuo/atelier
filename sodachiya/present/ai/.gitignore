@@ -1,3 +1,4 @@
 # 組み直しで退けた古い .ai と、日時付きの .ai は git に入れない（10-26）
 old/
 sodachiya_present_*.ai
+layout_built.json

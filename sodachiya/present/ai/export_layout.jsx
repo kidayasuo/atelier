@@ -8,6 +8,20 @@
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var L = null;
     try { L = SDY.readJSON(File(SDY.here.fsName + "/layout.json")); } catch (e) { L = null; }
+    var LB = null;                                     // 組んだときの位置（layout_built.json、無ければ layout.json）
+    try { LB = SDY.readJSON(File(SDY.here.fsName + "/layout_built.json")); } catch (e) { LB = L; }
+    var BUILT = {}, bi, bj;
+    if (LB) { for (bi = 0; bi < LB.pages.length; bi++) { for (bj = 0; bj < LB.pages[bi].parts.length; bj++) { BUILT[LB.pages[bi].parts[bj].id] = LB.pages[bi].parts[bj]; } } }
+    var same = function (rec, o) {                     // 組んだときから動いていないか（0.3 mm）
+        if (!o || rec.s !== undefined) { return false; }
+        var a = ["x", "y", "w", "h"], k2;
+        for (k2 = 0; k2 < a.length; k2++) { if (rec[a[k2]] !== undefined && o[a[k2]] !== undefined && o[a[k2]] !== null && Math.abs(rec[a[k2]] - o[a[k2]]) > 0.3) { return false; } }
+        if (rec.pts && o.pts) {
+            if (rec.pts.length !== o.pts.length) { return false; }
+            for (k2 = 0; k2 < rec.pts.length; k2++) { if (Math.abs(rec.pts[k2][0] - o.pts[k2][0]) > 0.3 || Math.abs(rec.pts[k2][1] - o.pts[k2][1]) > 0.3) { return false; } }
+        }
+        return true;
+    };
     var out = { note: "Illustratorから export_layout.jsx が書き出した。ユーザーの割付（位置・大きさ・書き換えた文字・消した部品）。", parts: {} };
     var found = {}, i, it, t, b, ai, r, rec, k, n = 0, edited = 0;
     var bad = [];
@@ -53,7 +67,8 @@
         if ((t.kind === "text" || t.kind === "area") && it.typename === "TextFrame") {
             if (SDY.hash(it.contents) !== t.mock_hash) { rec.s = SDY.norm(it.contents); edited++; }   // 書き換えた文字だけ
         }
-        out.parts[t.id] = rec; n++;
+        if (!same(rec, BUILT[t.id])) { out.parts[t.id] = rec; }   // 動かした・書き換えた部品だけ残す（動かしていない物はプレゼンの準備の既定のまま）
+        n++;
       } catch (e) { bad.push((t ? t.id : ("物 " + i)) + "（" + e.message + "）"); }
     }
     var gone = 0, j, p;                                // layout.json にあって .ai に無い部品＝消したもの
