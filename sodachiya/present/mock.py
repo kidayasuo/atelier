@@ -928,27 +928,32 @@ for k_, s_ in enumerate(["配置図の注", "・駐車5台・搬入は南（川�
 _nbx = NTX + 175
 # 松ヶ崎の用水の網（土木遺産のページ「宝ヶ池」の図をなぞった線、tools/trace_yousui.py。ユーザー、10-24夜）。配置図と同じ向きに回す
 _ny0, _ny1 = sy + sh + 12, top - 8
-_nw = W - M - 6 - _nbx
-_box_patch = Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5)
-ax.add_patch(_box_patch)
-T(ax, _nbx + 3, _ny1 - 6, "松ヶ崎の用水の網　高野川の堰から借りて、川へ返す", 3.4, C_NAT, bold=True)
-T(ax, _nbx + 6, _ny1 - 16, "N↑", 3.0, bold=True)
 YS = json.load(open(os.path.join(HERE, "matsugasaki_yousui.json"), encoding="utf-8"))
 _ang = 0.0                                               # 広域の図は北が上（ユーザー）
 _ca, _sa = np.cos(_ang), np.sin(_ang)
 _yr = lambda P: np.c_[np.asarray(P, float)[:, 0] * _ca + np.asarray(P, float)[:, 1] * _sa,
                       np.asarray(P, float)[:, 0] * _sa - np.asarray(P, float)[:, 1] * _ca]   # 画素（y下向き）→ 回した座標
-_allp = np.vstack([_yr(l) for l in YS["water_lines"]])
+_allp = np.vstack([_yr(l) for l in YS["water_lines"] + list(YS.get("roads", {}).values())])
 _lo, _hi = _allp.min(0), _allp.max(0)
-_fx0, _fy0, _fw, _fh = _nbx + 4, _ny0 + 5, _nw - 8, (_ny1 - _ny0) - 16
-_k = min(_fw / (_hi[0] - _lo[0]), _fh / (_hi[1] - _lo[1]))
+_CR = 10.0                                               # 下の出典2行
+_k = min((W - M - 6 - _nbx - 36) / (_hi[0] - _lo[0]), ((_ny1 - _ny0) - 12 - _CR) / (_hi[1] - _lo[1]))
+_mw_, _mh_ = (_hi[0] - _lo[0]) * _k, (_hi[1] - _lo[1]) * _k
+_nw = max(_mw_ + 30, 122)                                # 枠は図と名前・出典に必要十分な大きさ（ユーザー、10-25）
+_ny1 = _ny0 + _CR + _mh_ + 12
+_fx0, _fy0 = _nbx + 4, _ny0 + _CR
+_box_patch = Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5)
+ax.add_patch(_box_patch)
+T(ax, _nbx + 3, _ny1 - 6, "松ヶ崎の用水ネットワーク", 3.4, C_NAT, bold=True)
+T(ax, _nbx + 6, _ny1 - 13, "N↑", 3.0, bold=True)
 _ym = lambda P: np.c_[_fx0 + (_yr(P)[:, 0] - _lo[0]) * _k, _fy0 + (_yr(P)[:, 1] - _lo[1]) * _k]
-_box_patch.set_width((_hi[0] - _lo[0]) * _k + 60)                # 枠は図の幅に（右は説明を誘導する余白）
+for _rn, _rl in YS.get("roads", {}).items():             # 道は北山通だけ（ユーザー）
+    q = _ym(_rl); ax.plot(q[:, 0], q[:, 1], color="#D8A84E", lw=1.4, zorder=2.5, solid_capstyle="butt")
+    T(ax, q[-1, 0] - 1, q[-1, 1] - 4.0, _rn, 2.2, "#A87A22", ha="right", zorder=6)
 for pl in YS["water_fills"]:
     q = _ym(pl); ax.fill(q[:, 0], q[:, 1], fc="#BFDDF2", ec="none", zorder=3)
 for ln_ in YS["water_lines"]:
     q = _ym(ln_); ax.plot(q[:, 0], q[:, 1], color=C_NAT, lw=0.6, zorder=4, solid_capstyle="round")
-for (px_, py_), t_, dx_, dy_, ha_ in [((272, 76), "井出ヶ鼻井堰（高野川の堰）", 3, -1, "left"), ((127, 55), "宝が池", 2, 2, "left"),
+for (px_, py_), t_, dx_, dy_, ha_ in [((272, 76), "井出ヶ鼻井堰", 3, -1, "left"), ((127, 55), "宝が池", 2, 2, "left"),
                                        ((200, 151), "東松ヶ崎の井戸", -2, 1.5, "right"), ((246, 166), "樋ノ上川", 1, -3.5, "left"),
                                        ((170, 182), "前川", 1, 1, "left"), ((163, 216), "橋上川", 1, 1, "left"),
                                        ((133, 231), "正田川", 1, 1, "left"), ((113, 248), "久土川", 1, 1, "left"), ((118, 318), "高野川", 2, -4, "left"), ((225, 30), "岩倉川", 0, 2, "left"), ((318, 177), "音羽川", 0, 2, "right")]:
@@ -958,7 +963,8 @@ _wq = _ym([(272, 76)])[0]; ax.plot([_wq[0]], [_wq[1]], marker="v", ms=4, color=C
 _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", mec=INK, zorder=7)
 _sq = _ym([(247, 148)])[0] + np.array([4.5, -1.2])   # 図の「樋ノ上川」の「樋」の字のあたり（ユーザー、10-24夜）
 # 敷地の印は描かない（ユーザー、10-25朝：不要）
-T(ax, _fx0, _ny0 + 1.5, "図：ksdobokuisan「宝ヶ池」の図をなぞって描き直し", 1.8, NOTE)   # 説明は図の外へ（ユーザー）
+T(ax, _fx0, _ny0 + 5.5, "大正から昭和初期の図（https://kyoto-machisen.jp/chiiki_hp/matsugasaki_hp/history/history.htm）", 1.8, NOTE)
+T(ax, _fx0, _ny0 + 2.0, "図：http://ksdobokuisan.stars.ne.jp/80_takaragaike/takaragaike.html の図をなぞって描き直し", 1.8, NOTE)
 sozai("02", "松ヶ崎の用水の網（北が上）", 1, _nbx, _ny0, _box_patch.get_width(), _ny1 - _ny0)
 figs.append(fig)
 
