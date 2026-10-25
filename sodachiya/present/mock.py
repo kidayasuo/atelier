@@ -620,7 +620,14 @@ def jwrap(t, width=40.0):
     out, cur, n = [], "", 0.0
     for ch_ in t:
         w_ = 0.5 if ord(ch_) < 0x2000 else 1.0
-        if n + w_ > width and ch_ not in "。、）」":
+        if n + w_ > width and ch_ not in "。、）」" and not (cur and ord(cur[-1]) < 0x2000 and ord(ch_) < 0x2000 and ch_ != " "):   # 欧文・数字の語の途中では折らない
+            k_ = len(cur)
+            while k_ > 0 and ord(cur[k_ - 1]) < 0x2000 and cur[k_ - 1] != " ":
+                k_ -= 1
+            if 0 < k_ < len(cur) and ord(ch_) < 0x2000:
+                out.append(cur[:k_]); cur = cur[k_:]; n = sum(0.5 if ord(c) < 0x2000 else 1.0 for c in cur)
+                cur += ch_; n += w_
+                continue
             out.append(cur); cur, n = "", 0.0
             if ch_ == " ":
                 continue
@@ -699,7 +706,8 @@ VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ
 sx, sy = M + 6, M + 8 + 26.0                                    # 下の26 mmは縮尺と注
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
-title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
+T(ax, sx + 120, sy - 18, "配置図", 6.0, bold=True)                 # 題は図の下に、大きく（ユーザー、10-26）
+T(ax, sx + 120 + 3 * 8.4 + 4, sy - 18, "1/200　高野川を下に（川向こうから見る向き、北は右上）", 3.4)
 xf = xform(sx, sy, 200, VX0, VY0)
 # 配置図は別の図に描き、線・色・文字の三つに分けて書き出す（ユーザー、10-25朝：配置図として書き、その上に色、文字。
 # 園庭のチャットの図（garden01）は重ねない。屋根・外構・園庭はすべて3dmから）。1枚目にはこの三つを重ねて貼る
@@ -1201,7 +1209,7 @@ COM = [("park", "小竹薮公園を残す", ["地域の記憶である小竹薮�
        ("mukai", "お向かいさん", ["西の道の北半分は狭い道を挟んで向かいに住宅がある。圧迫感を与えないよう、この面の建物高さを1階程度に抑える。"],
         [P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)], None),
        ("saigai", "災害時の持ちつ持たれつ", ["大洪水が予想される場合の緊急避難先として京都工芸繊維大学と協定（京都市ハザードマップによる浸水深1.5 m）。太陽光発電、蓄電池、地下水の利用によって、災害時に水を地域に提供。"],
-        [_cen("35_")], (352.36, 121.12)),
+        [], (352.36, 121.12)),                                # 場所が特に無いので引き出し線なし（ユーザー、10-26）
        ("east", "東の隣家への配慮", ["東の隣家との境は1 m下げ（セットバック）、園庭の小屋と植樹で視線と音をやわらげる。"],
         [P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)], None)]
 ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts, fx_, "nat." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(NAT)]
@@ -1226,7 +1234,8 @@ for (head, ls_, col, fill, pts, fx_, key_) in ITEMS:
 COL_BOT = M + 8
 for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
     COL_TOP = sy + sh + 2 if side == "L" else min(sy + sh + 2, _fixbot.get(True, 1e9) - 8)
-    its = [it for it in ITEMS if it[5] is None and (np.mean([q[0] for q in it[4]]) < _mid) == (side == "L")]
+    _FSIDE = {"nat.rin": "L"}                              # 林は左から（ユーザー、10-26）
+    its = [it for it in ITEMS if it[5] is None and it[4] and (_FSIDE.get(it[6]) or ("L" if np.mean([q[0] for q in it[4]]) < _mid else "R")) == side]
     its.sort(key=lambda it: -np.mean([q[1] for q in it[4]]))
     hs = [_hof(it, colw) for it in its]
     gap = max(5.0, min(14.0, (COL_TOP - COL_BOT - sum(hs)) / max(1, len(its) - 1)))

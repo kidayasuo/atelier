@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-26 00:02",
+"generated": "2026-10-26 00:17",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -181,7 +181,7 @@
 "x": 237.59,
 "y": 177.03,
 "s": "配置図",
-"size_pt": 16.53,
+"size_pt": 23.62,
 "font": "W6",
 "color": "#222222",
 "align": "left",
@@ -195,7 +195,7 @@
 "x": 258.29,
 "y": 177.03,
 "s": "1/200　高野川を下に（川向こうから見る向き、北は右上）",
-"size_pt": 11.81,
+"size_pt": 13.38,
 "font": "W3",
 "color": "#222222",
 "align": "left",
@@ -371,12 +371,59 @@
 "mock_hash": "203d10fc"
 },
 {
+"id": "p1.ibox.nat.rin",
+"name": "箱：自然6　間伐材を使った林",
+"kind": "box",
+"layer": "説明",
+"x": 21.0,
+"y": 381.3,
+"w": 208.59,
+"h": 22.87,
+"fill": "#F6FAFD",
+"stroke": "#2F6FA0",
+"lw": 0.5,
+"dash": null
+},
+{
+"id": "p1.ibox.nat.rin.head",
+"name": "見出し：自然6　間伐材を使った林",
+"kind": "text",
+"layer": "説明",
+"x": 24.0,
+"y": 388.3,
+"s": "自然6　間伐材を使った林",
+"size_pt": 14.96,
+"font": "W6",
+"color": "#2F6FA0",
+"align": "left",
+"mock_hash": "9281f618"
+},
+{
+"id": "p1.ibox.nat.rin.body",
+"name": "本文：自然6　間伐材を使った林",
+"kind": "area",
+"layer": "説明",
+"x": 24.0,
+"y": 391.63,
+"w": 202.59,
+"h": 12.5,
+"s": "京都北山の北山杉の間伐材141本を、ホールの林として立てる。",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.5,
+"para_space": 1.0,
+"mock_hash": "b1c03dd5"
+},
+{
 "id": "p1.ibox.com.traffic",
 "name": "箱：地域2　車と自転車の出入りを南にまとめる",
 "kind": "box",
 "layer": "説明",
 "x": 21.0,
-"y": 416.98,
+"y": 418.17,
 "w": 208.59,
 "h": 28.23,
 "fill": "#FBF7F2",
@@ -390,7 +437,7 @@
 "kind": "text",
 "layer": "説明",
 "x": 24.0,
-"y": 423.98,
+"y": 425.17,
 "s": "地域2　車と自転車の出入りを南にまとめる",
 "size_pt": 14.96,
 "font": "W6",
@@ -404,7 +451,7 @@
 "kind": "area",
 "layer": "説明",
 "x": 24.0,
-"y": 427.32,
+"y": 428.5,
 "w": 202.59,
 "h": 16.4,
 "s": "西の道の中ほどでは、道に突き出た木が見通しをさえぎる。車と送り迎えの自転車の出入りはこの木より南にまとめ、出入口にはスピードバンプを置いて速度を落とす。",
@@ -463,53 +510,6 @@
 "leading": 1.5,
 "para_space": 1.0,
 "mock_hash": "50e46e9e"
-},
-{
-"id": "p1.ibox.nat.rin",
-"name": "箱：自然6　間伐材を使った林",
-"kind": "box",
-"layer": "説明",
-"x": 611.41,
-"y": 342.33,
-"w": 208.59,
-"h": 22.87,
-"fill": "#F6FAFD",
-"stroke": "#2F6FA0",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.nat.rin.head",
-"name": "見出し：自然6　間伐材を使った林",
-"kind": "text",
-"layer": "説明",
-"x": 614.41,
-"y": 349.33,
-"s": "自然6　間伐材を使った林",
-"size_pt": 14.96,
-"font": "W6",
-"color": "#2F6FA0",
-"align": "left",
-"mock_hash": "9281f618"
-},
-{
-"id": "p1.ibox.nat.rin.body",
-"name": "本文：自然6　間伐材を使った林",
-"kind": "area",
-"layer": "説明",
-"x": 614.41,
-"y": 352.67,
-"w": 202.59,
-"h": 12.5,
-"s": "京都北山の北山杉の間伐材141本を、ホールの林として立てる。",
-"size_pt": 11.81,
-"font": "W3",
-"color": "#222222",
-"align": "left",
-"justify": "full_last_left",
-"leading": 1.5,
-"para_space": 1.0,
-"mock_hash": "b1c03dd5"
 },
 {
 "id": "p1.ibox.nat.compost",
@@ -884,7 +884,7 @@
 501.05
 ]
 ],
-"color": "#8A5A2B",
+"color": "#2F6FA0",
 "lw": 0.6,
 "dot": 0.9
 },
@@ -960,7 +960,7 @@
 420.06
 ]
 ],
-"color": "#2F6FA0",
+"color": "#8A5A2B",
 "lw": 0.6,
 "dot": 0.9
 },
@@ -979,7 +979,7 @@
 445.98
 ]
 ],
-"color": "#8A5A2B",
+"color": "#2F6FA0",
 "lw": 0.6,
 "dot": 0.9
 },
@@ -1029,25 +1029,6 @@
 "pts": [
 [
 611.41,
-511.65
-],
-[
-519.4,
-425.05
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9
-},
-{
-"id": "p1.leader.12",
-"name": "引き出し線 12",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-611.41,
 559.88
 ],
 [
@@ -1060,8 +1041,8 @@
 "dot": 0.9
 },
 {
-"id": "p1.leader.13",
-"name": "引き出し線 13",
+"id": "p1.leader.12",
+"name": "引き出し線 12",
 "kind": "line",
 "layer": "線",
 "pts": [
