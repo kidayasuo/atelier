@@ -106,6 +106,7 @@ line([W(0, 1.6), W(MN.D["FENCE_END_U"], 1.45), FENCE_END], lw=1.1, c="#6b5a3a", 
 # みなみのさんかくの中身（data/minami.json、minami01.py のたたき台を 1/200 で）
 def _mw(g): return SP([W(y, x) for x, y in g.exterior.coords])
 for _n, _g in MN.loop_parts(): poly(_mw(_g), fc="#D8C3A0", ec="#9a8060", lw=0.2, z=2.2)
+poly(_mw(MN.GRASS_RIVER), fc="#B4D38E", ec="none", z=2.15)               # 避難の帯の芝の川（刈り分け）
 poly(_mw(MN.MOUND), fc="#C9DDA8", ec="#6a8a4a", lw=0.3, z=2.3)
 poly(_mw(MN.SAND), fc="#EADBB0", ec="#8a7040", lw=0.4, z=2.3)
 poly(_mw(MN.HERB), fc="#A9C98A", ec="none", z=2.3)

@@ -117,3 +117,20 @@ def screen_plants():                                         # [(xy, 'ムベ'|'�
         q = SCREEN.interpolate(min(i * RS["pitch"] + 0.4, SCREEN.length - 0.2))
         out.append(((q.x, q.y), "アケビ" if (i % RS["akebi_every"] == RS["akebi_every"] // 2) else "ムベ"))
     return out
+
+# ---- 避難の帯の遊び（EVAC_PLAY、10-25）：芝の川（刈り分け）、足あとの石（面一）、目隠しののぞき窓
+EP = D["EVAC_PLAY"]
+def _wave(n=240):
+    L = float((R1 - R0) @ DIR) + 2 * 3.0; out = []
+    for i in range(n + 1):
+        s = -3.0 + L * i / n
+        out.append(tuple(R0 + DIR * s + NRM * (EP["c"] + EP["amp"] * math.sin(2 * math.pi * s / EP["wave"]))))
+    g = LineString(out).intersection(EVAC.buffer(-0.05))
+    return max(getattr(g, "geoms", [g]), key=lambda q: q.length)
+WAVE = _wave()
+GRASS_RIVER = WAVE.buffer(EP["w"] / 2, cap_style=1).intersection(EVAC).difference(band(RS["inset"] + 0.15))
+def footprints():                                            # [(xy, animal)]：川上（西）から サギ → カモ → タヌキ
+    n = int(WAVE.length // EP["pitch"]); k = len(EP["animals"])
+    return [((lambda q: (q.x, q.y))(WAVE.interpolate(0.3 + i * EP["pitch"])), EP["animals"][min(k - 1, i * k // (n + 1))]) for i in range(n) if 0.3 + i * EP["pitch"] < WAVE.length - 0.2]
+def peeps():                                                 # のぞき窓の中心 (xy)
+    return [(lambda q: (q.x, q.y))(SCREEN.interpolate(f * SCREEN.length)) for f in EP["peep"]["at"]]
