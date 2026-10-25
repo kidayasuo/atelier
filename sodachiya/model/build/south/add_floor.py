@@ -69,19 +69,16 @@ def _plate(g2, c, off, li, thick=1.0):
     M=r.Mesh()
     for pg in getattr(g2,'geoms',[g2]):
         if pg.is_empty or pg.area<0.5: continue
-        rings=[np.asarray(pg.exterior.coords)[:-1]]+[np.asarray(h.coords)[:-1] for h in pg.interiors]
-        V2=np.vstack(rings); ends=np.cumsum([len(x) for x in rings]).astype(np.uint32)
-        tri=np.array(_ec.triangulate_float64(V2.astype(np.float64),ends)).reshape(-1,3)
-        b=len(M.Vertices); n=len(V2)
-        for o_ in (off,off+thick):
-            for x,z in V2:
-                q=np.array(c)+d*o_+t*x; M.Vertices.Add(float(q[0]),float(q[1]),float(z))
-        for a_,b_,c_ in tri: M.Faces.AddFace(int(b+a_),int(b+c_),int(b+b_)); M.Faces.AddFace(int(b+n+a_),int(b+n+b_),int(b+n+c_))
-        st=0
-        for e in ends:
-            for i_ in range(st,e):
-                j_=i_+1 if i_+1<e else st; M.Faces.AddFace(int(b+i_),int(b+j_),int(b+n+j_),int(b+n+i_))
-            st=int(e)
+        # 閉じた板（trimesh の押し出し。earcut は穴のある輪で三角形が欠け、閉じなかった：ソリッド係 10-25）
+        import trimesh as _tm
+        tp=_tm.creation.extrude_polygon(pg, thick)
+        bb=len(M.Vertices)
+        for x,z,h in np.asarray(tp.vertices):
+            q=np.array(c)+d*(off+h)+t*x; M.Vertices.Add(float(q[0]),float(q[1]),float(z))
+        fl=np.cross(np.r_[t,0.0],[0,0,1.0]) @ np.r_[d,0.0] < 0                 # (x, z, h) → (t, 上, d) の向きで裏返るか
+        for a_,b_,c_ in np.asarray(tp.faces):
+            if fl: M.Faces.AddFace(int(bb+a_),int(bb+c_),int(bb+b_))
+            else: M.Faces.AddFace(int(bb+a_),int(bb+b_),int(bb+c_))
     if len(M.Faces)==0: return
     M.Normals.ComputeNormals(); M.Compact()
     a_=r.ObjectAttributes(); a_.LayerIndex=li; a_.Name='園のロゴ（エッチング）'
