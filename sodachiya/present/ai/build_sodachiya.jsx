@@ -33,6 +33,15 @@
     note.printable = false;                          // 割付の注記は見えるが印刷しない
     try { if (first.pageItems.length === 0 && first.name !== "枠") { first.remove(); } } catch (e) {}
     var out = File(SDY.here.fsName + "/sodachiya_present.ai");
+    var carried = 0;
+    if (out.exists) {                                  // 前の .ai にある木田さんの物（印の無い物）を新しい .ai へ写す（ユーザー、10-26）
+        try {
+            var oldDoc = app.open(out);
+            carried = SDY.copyUserItems(oldDoc, doc);
+            oldDoc.close(SaveOptions.DONOTSAVECHANGES);
+            app.activeDocument = doc;
+        } catch (e) { SDY.missing.push("前の .ai を開けなかった（" + e.message + "）"); }
+    }
     if (out.exists) {                                  // 前のファイルは old/ に日時を付けて退け、同じ名前で保存する（ユーザー、10-26：名前が増えていく）
         var d = new Date();
         var st = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2) + "-" + ("0" + d.getHours()).slice(-2) + ("0" + d.getMinutes()).slice(-2);
@@ -46,7 +55,7 @@
         }
     }
     doc.saveAs(out, new IllustratorSaveOptions());
-    var msg = "組みました：" + made + " 個（隠した " + skipped + " 個）\n" + out.fsName;
+    var msg = "組みました：" + made + " 個（隠した " + skipped + " 個）、前の .ai から写した木田さんの物 " + carried + " 個\n" + out.fsName;
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + SDY.missing.join("\n"); }
     if (!SDY.font("W3")) { msg += "\n\nヒラギノ角ゴシックが見つからないので、書体は既定のままです。"; }
     alert(msg);

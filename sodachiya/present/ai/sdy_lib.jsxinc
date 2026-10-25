@@ -300,3 +300,86 @@ SDY.reconnect = function (doc, L) {
     }
     return n;
 };
+
+// 木田さんが足した物（部品の印 sdy: の無い物）：書き出して台帳に残し、組み直しのときは前の .ai から写す（ユーザー、10-26）
+SDY.hasTag = function (it) {
+    if (SDY.parseTag(it)) { return true; }
+    if (it.typename === "GroupItem") {
+        var k;
+        for (k = 0; k < it.pageItems.length; k++) { if (SDY.hasTag(it.pageItems[k])) { return true; } }
+    }
+    return false;
+};
+SDY.isOurs = function (it) {
+    if (it.typename === "SymbolItem" && it.name === "枠") { return true; }
+    return SDY.hasTag(it);
+};
+SDY.userItems = function (doc) {                     // レイヤーのいちばん上の階の物のうち、印の無いもの
+    var out = [], i, k, L, it;
+    for (i = 0; i < doc.layers.length; i++) {
+        L = doc.layers[i];
+        for (k = 0; k < L.pageItems.length; k++) {
+            it = L.pageItems[k];
+            try { if (it.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
+            if (!SDY.isOurs(it)) { out.push(it); }
+        }
+    }
+    return out;
+};
+SDY.hexOf = function (c) {
+    try {
+        if (c.typename === "RGBColor") {
+            var h = function (v) { var t = Math.round(v).toString(16); return t.length < 2 ? "0" + t : t; };
+            return "#" + h(c.red) + h(c.green) + h(c.blue);
+        }
+        if (c.typename === "GrayColor") { return "gray" + Math.round(c.gray); }
+        if (c.typename === "NoColor") { return null; }
+        return c.typename;
+    } catch (e) { return null; }
+};
+SDY.describe = function (doc, it) {                   // 台帳に残す中身（mm、アートボードの左上から）
+    var b = it.geometricBounds, ai = SDY.abOf(doc, b), r = SDY.ab(doc, ai < 0 ? 0 : ai), K = SDY.K, d, k, pp;
+    var mm = function (p) { return [Math.round((p[0] - r[0]) / K * 100) / 100, Math.round((r[1] - p[1]) / K * 100) / 100]; };
+    d = { type: it.typename, name: it.name || "", layer: it.layer.name, artboard: ai + 1,
+          x: mm([b[0], b[1]])[0], y: mm([b[0], b[1]])[1], w: Math.round((b[2] - b[0]) / K * 100) / 100, h: Math.round((b[1] - b[3]) / K * 100) / 100 };
+    try { d.opacity = it.opacity; } catch (e) {}
+    if (it.typename === "PathItem") {
+        d.closed = it.closed;
+        d.fill = it.filled ? SDY.hexOf(it.fillColor) : null;
+        d.stroke = it.stroked ? SDY.hexOf(it.strokeColor) : null;
+        if (it.stroked) { d.stroke_pt = it.strokeWidth; }
+        d.pts = [];
+        for (k = 0; k < it.pathPoints.length; k++) {
+            pp = it.pathPoints[k];
+            d.pts.push([mm(pp.anchor), mm(pp.leftDirection), mm(pp.rightDirection)]);
+        }
+    } else if (it.typename === "TextFrame") {
+        d.s = SDY.norm(it.contents);
+        try { d.size_pt = it.textRange.characterAttributes.size; } catch (e) {}
+        try { d.color = SDY.hexOf(it.textRange.characterAttributes.fillColor); } catch (e) {}
+    } else if (it.typename === "GroupItem" || it.typename === "CompoundPathItem") {
+        d.children = [];
+        var ch = it.typename === "GroupItem" ? it.pageItems : it.pathItems;
+        for (k = 0; k < ch.length && k < 50; k++) { try { d.children.push(SDY.describe(doc, ch[k])); } catch (e) {} }
+    } else if (it.typename === "PlacedItem" || it.typename === "RasterItem") {
+        try { d.file = it.file.fsName; } catch (e) {}
+    }
+    return d;
+};
+SDY.copyUserItems = function (src, dst) {             // 前の .ai の木田さんの物を、新しい .ai の同じレイヤー・同じアートボードの同じ位置へ
+    var items = SDY.userItems(src), n = 0, i, it, ai, ra, rb, dup, lay;
+    for (i = items.length - 1; i >= 0; i--) {
+        it = items[i];
+        try {
+            ai = SDY.abOf(src, it.geometricBounds);
+            lay = SDY.layer(dst, it.layer.name);
+            dup = it.duplicate(lay, ElementPlacement.PLACEATBEGINNING);
+            if (ai >= 0 && ai < dst.artboards.length) {
+                ra = src.artboards[ai].artboardRect; rb = dst.artboards[ai].artboardRect;
+                dup.translate(rb[0] - ra[0], rb[1] - ra[1]);
+            }
+            n++;
+        } catch (e) { SDY.missing.push("木田さんの物（" + (it.name || it.typename) + "）を写せなかった：" + e.message); }
+    }
+    return n;
+};

@@ -65,6 +65,9 @@
             }
         }
     }
+    var ui = SDY.userItems(doc), q;                    // 木田さんが足した物も台帳に（プレゼンの準備が読む）
+    out.user_items = [];
+    for (q = 0; q < ui.length; q++) { try { out.user_items.push(SDY.describe(doc, ui[q])); } catch (e2) {} }
     SDY.writeText(File(SDY.here.fsName + "/layout_user.json"), SDY.stringify(out));
-    alert("書き出しました：部品 " + n + " 個（書き換えた文字 " + edited + "、消した部品 " + gone + "）\n" + SDY.here.fsName + "/layout_user.json\n\natelier で git add・commit・push してください。" + (bad.length ? "\n\n書き出せなかった部品（位置は前のまま）：\n" + bad.slice(0, 15).join("\n") : ""));
+    alert("書き出しました：部品 " + n + " 個、木田さんが足した物 " + out.user_items.length + " 個（書き換えた文字 " + edited + "、消した部品 " + gone + "）\n" + SDY.here.fsName + "/layout_user.json\n\natelier で git add・commit・push してください。" + (bad.length ? "\n\n書き出せなかった部品（位置は前のまま）：\n" + bad.slice(0, 15).join("\n") : ""));
 })();

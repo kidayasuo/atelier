@@ -544,6 +544,45 @@ def sozai(key, name, sheet, x, y, w, h, note=""):
     SOZAI.append((key, name, sheet, (x, y, w, h), note))
 
 
+# 木田さんが足した物（present/ai/layout_user.json の user_items、アートボードの左上からmm）
+USER_ITEMS = {}
+try:
+    for _ui in json.load(open(os.path.join(HERE, "ai", "layout_user.json"), encoding="utf-8")).get("user_items", []):
+        USER_ITEMS.setdefault(int(_ui.get("artboard", 0)), []).append(_ui)
+except Exception:
+    pass
+
+
+def _hexrgb(h):
+    if not h or not isinstance(h, str) or not h.startswith("#"):
+        return None
+    return tuple(int(h[k:k + 2], 16) / 255 for k in (1, 3, 5))
+
+
+def _draw_user_item(pg, d):
+    P = lambda q: fitz.Point(q[0] * MM, q[1] * MM)
+    try:
+        if d.get("type") == "PathItem" and d.get("pts"):
+            sh_ = pg.new_shape()
+            pts = d["pts"]
+            sh_.draw_line(P(pts[0][0]), P(pts[0][0])) if len(pts) == 1 else None
+            for k_ in range(len(pts) - 1 + (1 if d.get("closed") else 0)):
+                a_, b_ = pts[k_], pts[(k_ + 1) % len(pts)]
+                sh_.draw_bezier(P(a_[0]), P(a_[2]), P(b_[1]), P(b_[0]))
+            sw_ = float(d.get("stroke_pt") or 0)
+            sh_.finish(color=_hexrgb(d.get("stroke")), fill=_hexrgb(d.get("fill")), width=sw_, closePath=bool(d.get("closed")),
+                       stroke_opacity=float(d.get("opacity", 100)) / 100, fill_opacity=float(d.get("opacity", 100)) / 100, lineCap=1)
+            sh_.commit()
+        elif d.get("type") == "TextFrame" and d.get("s"):
+            pg.insert_text(fitz.Point(d["x"] * MM, (d["y"] + d.get("h", 4)) * MM), d["s"], fontsize=float(d.get("size_pt", 9)),
+                           fontname="F_R", fontfile=FONT, color=_hexrgb(d.get("color")) or (0.1, 0.1, 0.1))
+        elif d.get("children"):
+            for c_ in d["children"]:
+                _draw_user_item(pg, c_)
+    except Exception as e_:
+        print("木田さんの物を見本に描けなかった：", d.get("name") or d.get("type"), e_)
+
+
 TOPT = {i: [] for i in range(1, 6)}     # 貼った図の上に置く文字（紙のmm、左下）：(x, y, 文字, 高さmm, 太字)
 TOPL = {i: [] for i in range(1, 6)}     # 貼った図の上に描く引き出し線（紙のmm）：(点, 箱の端, 色)
 
@@ -1776,6 +1815,8 @@ for si in range(1, 6):
         P_ = [fitz.Point(q[0] * MM, (H - q[1]) * MM) for q in pts]
         pg.draw_polyline(P_, color=rgb, width=0.6)
         pg.draw_circle(P_[-1], 0.9 * MM, color=rgb, fill=rgb)
+    for ui_ in USER_ITEMS.get(si, []):                # 木田さんがIllustratorで足した物（export_layout.jsx の user_items）を見本にも（矢じりなどは出ない）
+        _draw_user_item(pg, ui_)
     for (tx, ty, ts, th, tb) in TOPT[si]:
         pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname="F_B" if tb else "F_R",
                        fontfile=FONTB if tb else FONT, color=(0.1, 0.1, 0.1))
