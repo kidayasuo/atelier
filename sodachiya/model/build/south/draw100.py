@@ -1406,7 +1406,10 @@ def make_siteplan():
     # 課題の敷地図をなぞった線は描かない（ユーザー10-26：道は PLATEAU の道、向かいの住宅3軒は課題の図の道の縁に沿わせた add_context.py）
     for ln, P in CURVES:
         if ln.startswith('00'): A.lines([P[:, :2]], '30_敷地・外構', lw=0.3, color='#C03030', ls=(0, (12, 3, 2, 3)), z=8); continue
-        if num(ln) == 91: A.lines([P[:, :2]], '30_敷地・外構', lw=0.05, color='0.72', z=1); continue
+        if num(ln) == 91:                              # 等高線：0.2 mごと、0.4 mごとを太く（築山がはっきり、プレゼンの準備の描き方）
+            zc = float(np.mean(P[:, 2])) / 1000.0 if P.shape[1] > 2 else 0.0
+            ix = abs(((zc - 0.1) / 0.4) - round((zc - 0.1) / 0.4)) < 0.05
+            A.lines([P[:, :2]], '30_敷地・外構', lw=0.5 * 0.35 if ix else 0.3 * 0.35, color='#5F8049' if ix else '#7E9A68', z=1.15); continue
         if num(ln) == 92: A.lines([P[:, :2]], '30_敷地・外構', lw=0.15, color='#3d6f9a', z=1.2); continue
         if 70 <= num(ln) <= 79: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.45', z=1.1)
     LAYDEF = SP.get('layers', {})
@@ -1414,6 +1417,33 @@ def make_siteplan():
         for k, v in LAYDEF.items():
             if ln.startswith(k.split('_')[0] + '_'): return v
         return None
+    # 園庭の地（data/garden.json、プレゼンの準備の描き方）：だいさんかく・しずかのもり
+    GC = None
+    try:
+        sys.path.insert(0, os.path.join(root, 'scripts')); import garden_common as GC
+    except Exception:
+        GC = None
+    if GC is not None:
+        GX = GC.garden_poly()
+        bank = [tuple(p_) for p_ in GC.G['BANK']['line']]
+        shz = Polygon(GC.XS(bank + [(56.0, 18.2), (56.0, 37.0), (53.6, 36.0)] + [(a__, GC.d_edge(a__)) for a__ in np.linspace(53.4, 40.6, 20)])).buffer(0).intersection(GX)
+        sc_ = lambda g: shp_affinity.scale(g, 1000, 1000, origin=(0, 0))
+        A.fill(sc_(GX), '06_部屋の色', fc='#DDE9CF', z=0.4); A.fill(sc_(shz), '06_部屋の色', fc='#D0E1C2', z=0.45)
+    # 駐車・駐輪に確保する場所（灰）、歩道（白）、スピードバンプ（縞）：アプローチ係の表
+    for pg in SP.get('reserve', {}).get('polygons', []):
+        A.fill(Polygon(M(pg)), '06_部屋の色', fc=SP['reserve'].get('fc', '#D8D8D4'), z=0.42)
+    if SP.get('sidewalk'): A.fill(Polygon(M(SP['sidewalk']['pts'])), '06_部屋の色', fc='white', z=0.43)
+    bp = SP.get('bump')
+    if bp:
+        Q = M(bp['pts']); P_ = Polygon(Q); A.fill(P_, '06_部屋の色', fc=bp.get('fc', '#8E8E8A'), z=0.44)
+        e_ = [(Q[k], Q[(k + 1) % len(Q)]) for k in range(len(Q))]; a0, a1 = max(e_, key=lambda e: np.linalg.norm(e[1] - e[0]))
+        dv = (a1 - a0) / np.linalg.norm(a1 - a0); L_ = np.linalg.norm(a1 - a0); pitch = bp.get('pitch', 0.45) * 1000
+        nv = np.array([-dv[1], dv[0]])
+        for k in range(int(L_ / pitch)):
+            if k % 2: continue
+            st_ = Polygon([a0 + dv * k * pitch - nv * 5e3, a0 + dv * (k + 1) * pitch - nv * 5e3, a0 + dv * (k + 1) * pitch + nv * 5e3, a0 + dv * k * pitch + nv * 5e3]).intersection(P_)
+            A.fill(st_, '06_部屋の色', fc=bp.get('stripe', '#F4F4F2'), z=0.45)
+    ARCH = []
     # 外構（70〜79）・園庭（90〜99）・本体の外（60〜67）
     for ob in OBJ:
         ln = ob['layer']; n = num(ln)
@@ -1430,7 +1460,7 @@ def make_siteplan():
         if n == 76:
             A.fill(sil, '30_敷地・外構', fc='#EFE9DE', z=0.9); A.geom_lines(sil, '30_敷地・外構', lw=0.05, color='0.6', z=0.95); continue
         if n == 73:
-            A.fill(sil, '30_敷地・外構', fc='#E3EDD6', z=1.4); A.geom_lines(sil, '30_敷地・外構', lw=0.13, color='#5E7F3E', ls=(0, (3, 2)), z=2.5); continue
+            ARCH.append(sil); continue                 # ムベの棚：範囲全体を淡い緑に塗るだけ（下、ユーザー10-25夜）
         if n == 71:
             A.geom_lines(sil, '30_敷地・外構', lw=0.18, color='0.25', ls=(0, (4, 2)), z=2.5); continue
         if n == 70:
@@ -1438,6 +1468,17 @@ def make_siteplan():
         if n in (92, 99):
             A.fill(sil, '30_敷地・外構', fc='#CFE3EF', z=1.3); A.geom_lines(sil, '30_敷地・外構', lw=0.08, color='#3d6f9a', z=1.35); continue
         A.geom_lines(sil, '30_敷地・外構', lw=d.get('lw', 0.1), color='0.3', z=2)
+    if ARCH: A.fill(unary_union([g.buffer(350) for g in ARCH]).buffer(900).buffer(-900), '30_敷地・外構', fc='#C9DFB0', z=1.4)
+    # 雨の川：本館の東の軒の外の雨落ちの溝から南へ、護岸の落とし口まで（青い帯と流れの矢印、園庭の決定事項）
+    if GC is not None:
+        am = np.array([GC.UV(u__, GC.G['EDGE_V']) for u__ in np.linspace(57.0, 0.0, 40)]) * 1000
+        amL = LineString(am).offset_curve(-300)
+        if amL.is_empty or amL.length < 1000: amL = LineString(am)
+        A.fill(amL.buffer(250, cap_style=2), '30_敷地・外構', fc='#C9E0EF', z=1.25)
+        for f_ in np.linspace(0.08, 0.95, 9):
+            p0 = np.array(amL.interpolate(f_, normalized=True).coords[0]); p1 = np.array(amL.interpolate(min(1, f_ + 0.01), normalized=True).coords[0])
+            dv_ = (p1 - p0) / max(np.linalg.norm(p1 - p0), 1e-6); nv_ = np.array([-dv_[1], dv_[0]])
+            A.lines([[p0 - dv_ * 500 + nv_ * 280, p0, p0 - dv_ * 500 - nv_ * 280]], '30_敷地・外構', lw=0.25, color='#2F7FBF', z=1.3)
     # 建物：屋根伏せ（外形の太線、太陽光の面、光の筋、越屋根の蓋）
     def U(layers):
         g = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if ob['layer'].split('_')[0] in layers]
@@ -1496,10 +1537,34 @@ def make_siteplan():
     A.lines([[c0 - nd * 3000, c0 + nd * 3000]], '80_図名・縮尺・方位', lw=0.25, raw=True)
     A.lines([[c0 + nd * 2000 + pd * 600, c0 + nd * 3000, c0 + nd * 2000 - pd * 600]], '80_図名・縮尺・方位', lw=0.25, raw=True)
     q = c0 + nd * 4000; A.text(q[0], q[1], 'N', 8, '80_図名・縮尺・方位', raw=True)
+    # プレゼンの準備のための書き出し（renkei 20261026-0139-present）：線と色に分けた地の透明なPDFと、3dmのxy（m）→紙のmm（左上が原点）
+    def after(base):
+        from matplotlib.collections import LineCollection as _LC
+        from matplotlib.patches import Patch as _P
+        arts = [a for a in A.ax.get_children()]
+        lines_ = [a for a in arts if isinstance(a, _LC) or a.__class__.__name__ == 'Line2D'] + list(S.fig.patches)
+        fills_ = [a for a in arts if isinstance(a, _P) and a is not A.ax.patch]
+        texts_ = [a for a in arts if a.__class__.__name__ == 'Text'] + list(S.fig.texts)
+        def save_with(show, suffix):
+            st = {a: a.get_visible() for a in lines_ + fills_ + texts_}
+            for a in lines_ + fills_ + texts_: a.set_visible(a in show)
+            S.fig.savefig(os.path.join(PDFD, os.path.basename(base) + suffix + '.pdf'), transparent=True)
+            for a, v in st.items(): a.set_visible(v)
+        save_with(set(lines_), '_線'); save_with(set(fills_), '_色')
+        xf = {'_': '3dm の xy（m）→ この配置図の紙の mm（左上が原点、右へ x、下へ y）。x_mm = a·x + b·y + c、y_mm = d·x + e·y + f。'
+                   ' 線と色の PDF（…_線.pdf・…_色.pdf）と元の PDF は同じ大きさ・同じ位置。地は透明、文字は入れていない（更新係、10-26）',
+              'paper_mm': [W_, H_], 'scale': SC, 'rotate_deg': math.degrees(ph),
+              'a': c_ * 1000 / SC, 'b': -n_ * 1000 / SC, 'c': MG - ext[0] / SC,
+              'd': -n_ * 1000 / SC, 'e': -c_ * 1000 / SC, 'f': H_ - MG + ext[2] / SC}
+        import json as _jj
+        _jj.dump(xf, open(os.path.join(PDFD, os.path.basename(base) + '_xform.json'), 'w'), ensure_ascii=False, indent=1)
+    S.after_save = after
     return S
 
 ONLY = os.environ.get('DRAW_ONLY', '')
 for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_siteplan_1-200', make_siteplan), ('sodachiya_sections_1-100', make_sections),
                  *ELEV_SHEETS):
     if ONLY and ONLY not in name: continue
-    S = mk(); S.save(os.path.join(OUTD, name)); print('written', name)
+    S = mk(); S.save(os.path.join(OUTD, name))
+    if hasattr(S, 'after_save'): S.after_save(os.path.join(OUTD, name))
+    print('written', name)
