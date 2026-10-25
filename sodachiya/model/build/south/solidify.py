@@ -1169,9 +1169,18 @@ def as_revolution(W, T):
     rr = np.linalg.norm(P[:, :2] - cen, axis=1); ang = np.unwrap(np.arctan2(P[:, 1] - cen[1], P[:, 0] - cen[0]))
     a0, a1 = float(ang.min()), float(ang.max())
     if a1 - a0 < math.radians(1) or a1 - a0 > math.radians(170): return None
+    # 輪郭の角ごとの点の組：(r, z) が 0.2 mm 以内でつながる組（丸めの境で一つの角が二つに割れないように）
+    from scipy.spatial import cKDTree
+    RZ = np.c_[rr, P[:, 2]]; prs = cKDTree(RZ).query_pairs(0.2)
+    par = list(range(len(RZ)))
+    def fd(x):
+        while par[x] != x: par[x] = par[par[x]]; x = par[x]
+        return x
+    for i_, j_ in prs: par[fd(i_)] = fd(j_)
     key = {}
-    for k, (r_, z_) in enumerate(zip(rr, P[:, 2])):
-        key.setdefault((round(r_ / 0.05), round(z_ / 0.05)), []).append(k)
+    for k in range(len(RZ)): key.setdefault(fd(k), []).append(k)
+    if len(key) > 12: return None
+    lab = {k: kk for kk, ids in key.items() for k in ids}
     if not (3 <= len(key) <= 12): return None
     prof = {}
     for kk, ids in key.items():                      # 輪郭の角：同じ (r, z) の点が a0 と a1 の両方にある
@@ -1193,7 +1202,7 @@ def as_revolution(W, T):
         if x is None or len(lp) > len(bd): return None
     corners = []
     for v in lp:
-        k = vid[v]; corners.append(prof[(round(rr[k] / 0.05), round(P[k, 2] / 0.05))])
+        k = vid[v]; corners.append(prof[lab[k]])
     ax = r.Line(r.Point3d(float(cen[0]), float(cen[1]), 0.0), r.Point3d(float(cen[0]), float(cen[1]), 1.0))
     X0 = np.array([math.cos(a0), math.sin(a0)]); X1 = np.array([math.cos(a1), math.sin(a1)])
     srfs = []
