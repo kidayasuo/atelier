@@ -61,6 +61,20 @@ def garden_poly():
     return g.intersection(SITE)
 
 
+def stream_bed(n=200):
+    """小川の川床の高さ（滝壺から下）。[(a, d, z)] を上流から。地面−depth と直線の低いほう、下流へ上らない。"""
+    s = G["STREAM"]; f = s.get("fall")
+    pts = s["line"][1:] if f else s["line"]
+    L = LineString(pts); z0, z1 = s["bed"]; dep = s.get("bed_rule", {}).get("depth", 0.15)
+    out = []; zprev = 9.0
+    for k in range(n + 1):
+        t = k / n; p = L.interpolate(t, normalized=True)
+        g = float(height(np.array([p.x]), np.array([p.y]))[0])
+        z = min(z0 + (z1 - z0) * t, g - dep, zprev)
+        out.append((p.x, p.y, z)); zprev = z
+    return out
+
+
 def stream_lines():
     s = G["STREAM"]
     return [s["line"]]
@@ -102,12 +116,13 @@ def bank_h(A, D):
         s = line.project(p)
         hh = bk["h"] * (0.5 + 0.5 * math.cos(math.pi * dist / bk["half_w"]))
         # 端はなだらかに
-        e = min(s, L - s); hh *= min(1.0, e / 1.2)
+        e = min(s, L - s); hh *= _ss(min(1.0, e / bk.get("end_taper", 1.2)))
         for (g_a, g_w) in gaps:
             sg = line.project(Point(g_a, float(np.interp(g_a, [q[0] for q in bk["line"]], [q[1] for q in bk["line"]]))))
             k = abs(s - sg) - g_w / 2
-            if k < 1.0:
-                hh *= max(0.0, k) / 1.0
+            tp = bk.get("taper", 1.0)
+            if k < tp:
+                hh *= _ss(max(0.0, k) / tp)
         o[...] = hh
     return flat
 

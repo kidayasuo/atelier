@@ -21,7 +21,8 @@ NAMES = {90: ("90_園庭_地形（GL からの起伏、メッシュ）", (196, 1
          92: ("92_園庭_水（小川・雨の川・床の噴水・水浴び場・護岸の溝）", (76, 141, 184)), 93: ("93_園庭_小屋（便所・倉庫・コンポストの間）", (155, 118, 83)),
          94: ("94_園庭_木（幹・樹冠、名前＝種類）", (111, 143, 87)), 95: ("95_園庭_遊び場（砂場・粒・すりばち・柳の家）", (168, 142, 88)),
          96: ("96_園庭_石（関守石・橋・飛び石・バルブます）", (110, 104, 92)), 97: ("97_園庭_車の道・生垣", (183, 169, 140)),
-         98: ("98_園庭_等高線の板（閉じた形：+は高さ L 以上、−は L 以下のくぼみ）", (200, 120, 60))}
+         98: ("98_園庭_等高線の板（閉じた形：+は高さ L 以上、−は L 以下のくぼみ）", (200, 120, 60)),
+         99: ("99_園庭_雨の川（玉石の溝、本館の雨落ち）", (140, 134, 119))}
 for k, (n, c) in NAMES.items():
     l = r.Layer(); l.Name = n; l.Color = (*c, 255); LAY[k] = m.Layers.Add(l)
 
@@ -148,19 +149,66 @@ import json as _js
 _js.dump({f"{lev:+.1f}": round(g.area, 1) for lev, g in PLATES}, open(os.path.join(gc.ROOT, "out", "garden_plates.json"), "w"), ensure_ascii=False)
 
 # ---- 92 水 ----
-s = G["STREAM"]; L = LineString(s["line"])
-z0, z1 = s["bed"] if "bed" in s else (0.2, -0.4)
-pts = [(L.interpolate(t, normalized=True).x, L.interpolate(t, normalized=True).y) for t in np.linspace(0, 1, 120)]
-pl = r.Polyline([P3(a, d, z0 + (z1 - z0) * k / 119) for k, (a, d) in enumerate(pts)])
-m.Objects.AddPolyline(pl, at(92, "小川の川床（中心線、幅 0.5）"))
-for side in (-0.25, 0.25):
-    off = L.parallel_offset(abs(side), "left" if side < 0 else "right")
-    curve_ad(list(off.coords), 92, "小川の岸")
+def trough(cl, half, k, name, water=None, top=None):
+    """中心線 cl=[(a, d, 底のz)] に沿う U 字の溝（岸は地面、底は z）。water があれば底+water に水面の帯"""
+    mesh = r.Mesh(); wm = r.Mesh() if water else None
+    for i, (a, d, zb) in enumerate(cl):
+        j = min(i + 1, len(cl) - 1); h = max(i - 1, 0)
+        ta, td = cl[j][0] - cl[h][0], cl[j][1] - cl[h][1]; ln = math.hypot(ta, td) or 1
+        na, nd = -td / ln, ta / ln
+        for (sa, zz) in ((-half - 0.05, None), (-half, zb), (half, zb), (half + 0.05, None)):
+            q = P3(a + na * sa, d + nd * sa, zz if zz is not None else (top if top is not None else None))
+            mesh.Vertices.Add(q.X, q.Y, q.Z)
+        if wm:
+            for sa in (-half, half):
+                q = P3(a + na * sa, d + nd * sa, zb + water); wm.Vertices.Add(q.X, q.Y, q.Z)
+    for i in range(len(cl) - 1):
+        for c in range(3):
+            mesh.Faces.AddFace(4 * i + c, 4 * i + c + 1, 4 * (i + 1) + c + 1, 4 * (i + 1) + c)
+        if wm:
+            wm.Faces.AddFace(2 * i, 2 * i + 1, 2 * (i + 1) + 1, 2 * (i + 1))
+    mesh.Normals.ComputeNormals(); m.Objects.AddMesh(mesh, at(k, name))
+    if wm:
+        wm.Normals.ComputeNormals(); m.Objects.AddMesh(wm, at(92, name + "の水面"))
+
+
+s = G["STREAM"]
+bed = gc.stream_bed(240)
+trough(bed, 0.25, 92, "小川（幅 0.5、底は平ら、岸は急）", water=0.04)
+m.Objects.AddPolyline(r.Polyline([P3(a, d, z) for a, d, z in bed]), at(92, "小川の川床（中心線）"))
+FL = s.get("fall")
+if FL:
+    (la, ld, lz) = FL["lip"]; pc = FL["pool"]
+    pa, pd = pc["c"]
+    for k_, (fa, fd, fz) in enumerate([(la, ld, lz), (la + (pa - la) * 0.45, ld + (pd - ld) * 0.45, lz - 0.25)]):
+        box(fa - 0.35, fa + 0.35, fd - 0.2, fd + 0.2, fz - 0.15, fz, 92, f"滝の落ち口の平たい石 {k_ + 1}（落差 約 0.45）")
+    disk = r.Mesh(); cpt = P3(pa, pd, pc["bed"] + 0.12); disk.Vertices.Add(cpt.X, cpt.Y, cpt.Z)
+    for q in np.linspace(0, 2 * math.pi, 33):
+        v = P3(pa + pc["r"] * math.cos(q), pd + pc["r"] * math.sin(q), pc["bed"] + 0.12); disk.Vertices.Add(v.X, v.Y, v.Z)
+    for i in range(1, 33):
+        disk.Faces.AddFace(0, i, i + 1)
+    disk.Normals.ComputeNormals(); m.Objects.AddMesh(disk, at(92, "滝壺の水面（φ1.0、深さ 0.15）"))
+    curve_ad(ell((pa, pd), (pc["r"], pc["r"])), 92, "滝壺", close=True)
 curve_ad(s["culvert"], 92, "暗渠（用水路 → みなもと）", z=-0.6, drape=False)
 am = G["AMAOCHI"]
-edge = [(gc.AD(*gc.UV(u, G["EDGE_V"]))) for u in np.linspace(am["u"][0], am["u"][1], 60)]
-curve_ad(edge, 92, "雨の川（雨落ちの溝の中心、幅 0.5・深さ 0.2）")
-curve_ad(am["outlet"], 92, "雨の川 → 護岸の溝")
+cl = []
+for u in np.linspace(am["u"][0], am["u"][1], 140):
+    a, d = gc.AD(*gc.UV(u, G["EDGE_V"])); cl.append((a, d, H(a, d) - am["depth"]))
+for (a0_, d0_), (a1_, d1_) in zip(am["outlet"][:-1], am["outlet"][1:]):
+    for t in np.linspace(0, 1, 8)[1:]:
+        a, d = a0_ + (a1_ - a0_) * t, d0_ + (d1_ - d0_) * t; cl.append((a, d, H(a, d) - am["depth"]))
+trough(cl, am["w"] / 2, 99, "雨の川（雨落ちの溝、玉石、幅 0.5・深さ 0.2）")
+# 玉石の面（溝の底から 0.12 上まで玉石を敷く）
+pebble = r.Mesh()
+for i, (a, d, zb) in enumerate(cl):
+    j = min(i + 1, len(cl) - 1); h = max(i - 1, 0)
+    ta, td = cl[j][0] - cl[h][0], cl[j][1] - cl[h][1]; ln = math.hypot(ta, td) or 1
+    na, nd = -td / ln, ta / ln
+    for sa in (-am["w"] / 2, am["w"] / 2):
+        q = P3(a + na * sa, d + nd * sa, zb + 0.12); pebble.Vertices.Add(q.X, q.Y, q.Z)
+for i in range(len(cl) - 1):
+    pebble.Faces.AddFace(2 * i, 2 * i + 1, 2 * (i + 1) + 1, 2 * (i + 1))
+pebble.Normals.ComputeNormals(); m.Objects.AddMesh(pebble, at(99, "雨の川の玉石（φ50〜100）"))
 F = G["FOUNTAIN"]; curve_ad(ell(F["c"], F["r"], F["rot"]), 92, "床の噴水（石張り、噴き口 0.8 m ごと）", close=True)
 SP = G["SPLASH"]; curve_ad(ell(SP["c"], SP["r"], 0), 92, "水浴び場（円形 φ4.0、段なしの浅い皿）", close=True)
 for dd, nm in ((15.3, "護岸の溝（小川、幅 0.3）"), (35.0, "護岸の溝（雨の川、幅 0.3）")):
@@ -216,6 +264,12 @@ for b in G["BRIDGES"]:
 vb = F["valve"]["c"]; box(vb[0] - 0.45, vb[0] + 0.45, vb[1] - 0.3, vb[1] + 0.3, H(*vb) - 0.6, H(*vb), 96, "バルブます（電磁弁 4 系統・逆流防止・子メーター）")
 
 # ---- 97 車の道・生垣 ----
+GN = G.get("GATE_N")
+if GN:
+    (ga0, gd0), (ga1, gd1) = GN["p0"], GN["p1"]
+    gz = H(ga0, (gd0 + gd1) / 2)
+    box(ga0 - 0.02, ga0 + 0.02, min(gd0, gd1), max(gd0, gd1), gz, gz + GN["h"], 97, "北の口の木戸 h1.2（庭の側へ開く、掛け金は外側の高い所）")
+
 curve_ad(G["VEHICLE"]["line"], 97, "剪定・搬入の車の道（芝の保護材 幅 2.5）")
 lk = G["LOOKOUT"]; (h0a, h0d), (h1a, h1d) = lk["hedge"]
 curve_ad([(56.0 - 0.15 - lk["hedge_w"], h0d), (56.0 - 0.15 - lk["hedge_w"], h1d)], 97, "のぞきの低い生垣 h0.6（口 3 か所）")

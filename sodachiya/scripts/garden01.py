@@ -14,6 +14,16 @@ import garden_common as gc
 from garden_common import G, X, XS, AD, UV, d_edge
 
 plt.rcParams["font.family"] = "Noto Sans CJK JP"
+# 文字をIllustratorで文字として直せるように（ヒラギノへ置き換える、プレゼンの準備 10-24）、TrueTypeのNotoをType42で埋め込む（room3_50 と同じ）
+import sys as _sys, subprocess as _sp, matplotlib.font_manager as _fm
+_TTF = os.path.expanduser("~/.cache/sodachiya_fonts")
+if not os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
+    _sp.run([_sys.executable, os.path.join(gc.ROOT, "present", "tools", "make_ttf.py"), _TTF], check=False)
+if os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
+    for _f in ("Regular", "Bold"):
+        _fm.fontManager.addfont(os.path.join(_TTF, f"NotoSansCJKjp-{_f}.ttf"))
+    plt.rcParams["font.family"] = _fm.FontProperties(fname=os.path.join(_TTF, "NotoSansCJKjp-Regular.ttf")).get_name()
+    plt.rcParams["pdf.fonttype"] = 42
 plt.rcParams["hatch.linewidth"] = 0.4
 OUT = os.environ.get("OUT", os.path.join(gc.ROOT, "out"))
 MM = 1 / 25.4
@@ -264,6 +274,20 @@ poly(ax, P([_gr(-_hl - .15, -_hw - .15), _gr(_hl + .15, -_hw - .15), _gr(_hl + .
 poly(ax, P([_gr(-_hl, -_hw), _gr(_hl, -_hw), _gr(_hl, _hw), _gr(-_hl, _hw)]), fc="#EFE6CF", ec="#A88E58", lw=0.3, z=5.5, hatch="...")
 line(ax, XS([_gr(-_hl, _hw + .35), _gr(_hl, _hw + .35)]), lw=2.2, c="#C9B48E", z=5.6)   # 帆布を巻いた棒
 T(ax, X(*_gr(0, _hw + 0.9)), "帆布の巻き取り", 3.4, c="#6B5A3A", rot=-38, z=9.3)
+# 小さな滝と滝壺（みなもと）
+_FL = G["STREAM"].get("fall")
+if _FL:
+    _pc = _FL["pool"]
+    ax.add_patch(Circle(X(*_pc["c"]), _pc["r"], fc=C["water"], ec="#4C8DB8", lw=0.4, zorder=7.1))
+    for _k in (0.0, 0.45):
+        _q = (_FL["lip"][0] + (_pc["c"][0] - _FL["lip"][0]) * _k, _FL["lip"][1] + (_pc["c"][1] - _FL["lip"][1]) * _k)
+        ax.add_patch(Rectangle(np.array(X(*_q)) - 0.3, 0.6, 0.6, angle=0, fc="#B9B2A3", ec="#6B655B", lw=0.4, zorder=7.2))
+    T(ax, X(_pc["c"][0] + 1.4, _pc["c"][1] + 0.4), "小さな滝（落差 約0.45）", 3.8, c="#2F6E9A", rot=-38, z=9.3)
+# 北の口の木戸
+_GN = G.get("GATE_N")
+if _GN:
+    line(ax, XS([_GN["p0"], _GN["p1"]]), lw=2.0, c=C["wood"], z=9.5)
+    T(ax, X(_GN["p0"][0] + 0.9, _GN["p0"][1] * 0.5), "北の口の木戸", 3.8, c="#6B5A3A", rot=-38, z=9.6)
 # 関守石（しずかのもりの境）
 for q in G["SEKIMORI"].get("steps", []):
     ax.add_patch(Circle(X(*q), 0.26, fc="#D8D2C2", ec="#6B655B", lw=0.3, zorder=6.6))
@@ -399,7 +423,7 @@ ax.text(sx + 13.5, sy + 0.25, "1/200　高野川を下に（北は右上）", fo
 # ================= 見出しと凡例 =================
 fx = fig.text
 fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 8", fontsize=15, ha="left", va="baseline")
-fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-21　遊具を置かず、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
+fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-25　遊具を置かず、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
    fontsize=7.2, ha="left", color="#444444")
 fx(14 / PW, 1 - 30 / PH, "地形は GL（＝FL−300）からの高さ。等高線 0.2 m ごと（1 m を太く）。築山の位置と形はこの図で決め直した（Keynote の位置は前提にしていない）。",
    fontsize=6.0, ha="left", color="#666666")
@@ -487,10 +511,11 @@ NUM = dict(garden=ga, shizu=sa, mfoot=mfoot, mvol=mvol, fill=mvol + bvol + bankv
            hut=(a_c - a_0) * (d_1 - d_0), wc=(H["split_a"] - a_0) * (d_1 - d_0), store=(a_c - H["split_a"]) * (d_1 - d_0), cbay=(a_1 - a_c) * (d_1 - d_0))
 CALC = json.load(open(os.path.join(gc.ROOT, "out", "garden_calc.json"), encoding="utf-8"))
 lax.text(0, y, "数字（この図から）", fontsize=8, fontweight="bold", va="center"); y += 7
-for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²　うち しずかのもり 約 {sa:.0f} m²（3〜5 歳 70 人で 1 人 {(ga - sa) / 70:.1f} m²、基準は 3.3）",
+_hut_all = NUM["hut"] + NUM["cbay"]
+for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²。屋外遊戯場として数えるのは小屋（便所・倉庫・コンポストの間 約 {_hut_all:.0f} m²）を除いた 約 {ga - _hut_all:.0f} m²（2 歳以上 70 人で 1 人 約 {(ga - _hut_all) / 70:.1f} m²、基準は 3.3）。うち しずかのもり 約 {sa:.0f} m²",
           f"築山：頂 +{G['MOUND']['h']} m、裾の広さ 約 {mfoot:.0f} m²、土 約 {mvol:.0f} m³。起伏・土手を足すと盛る土は 約 {NUM['fill']:.0f} m³",
           f"　→ 北のもりへの上り（最大 +0.7）・おくのもりの林床・土手 +1.0 も含めて締め固め 約 {CALC['soil']['fill_m3']} m³。運び込まない。本館の床は床下空間（根切り GL−0.6、ユーザー）で、掘る土は 約 {CALC['soil']['total_cut_m3']} m³（本館 約 {CALC['soil']['honkan_cut_m3']}、西館ほか 約 {CALC['soil']['west_cut_m3']}、園庭 約 {CALC['soil']['garden_cut_m3']}）",
-          f"小川：地上の長さ 約 {s_len:.0f} m、川床 +0.20 → −0.40（勾配 約 1/{1 / CALC['stream']['slope']:.0f}）。水深 3〜5 cm で 約 {CALC['stream']['rows'][0]['Q_Ls']:.0f}〜{CALC['stream']['rows'][1]['Q_Ls']:.0f} L/s（流れ 0.3〜0.4 m/s）。用水路の口の堰板で加減、大雨は水門を閉じる",
+          f"小川：地上の長さ 約 {s_len:.0f} m、みなもとの小さな滝（落差 約0.45）から、川床は滝壺 +0.05 → −0.40（地面から0.15以上下げる）。水深 3〜5 cm で 約 {CALC['stream']['rows'][0]['Q_Ls']:.0f}〜{CALC['stream']['rows'][1]['Q_Ls']:.0f} L/s（流れ 0.3〜0.4 m/s）。用水路の口の堰板で加減、大雨は水門を閉じる",
           f"木 {len(G['TREES'])} 本（{len(_cnt)} 種）。噴水の夏の日陰（7 月下旬）：9 時 {CALC['fountain_shade_jul'][0]['shaded']:.0%}、10〜13 時 約 {sum(r['shaded'] for r in CALC['fountain_shade_jul'][1:5]) / 4:.0%}（南東のケヤキ）、15 時 {CALC['fountain_shade_jul'][6]['shaded']:.0%}、16 時 {CALC['fountain_shade_jul'][7]['shaded']:.0%}（本館の影）。休むのは縁側の庇の下",
           f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）＋シャワーの柱。上水、排水は雨の川へ。雨の川：屋根 約 880 m²、100 mm/h で南の端 約 24 L/s、溝 0.5×0.2・1/200 で 約 50 L/s（目安）",
           f"小屋：便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}＋コンポストの間 {NUM['cbay']:.1f} m²（一つの屋根）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
