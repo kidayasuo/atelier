@@ -652,10 +652,45 @@ sx, sy = M + 6, M + 8 + 26.0                                    # 下の26 mmは
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
 title(ax, sx, sy + sh + 4, "配置図", "1/200　高野川を下に（川向こうから見る向き、北は右上）")
-sozai("01", "配置図　1/200（周りの道と用水路・園庭の図・建物）", 1, sx, sy, sw, sh, "引き出し線の端が少し入る")
 xf = xform(sx, sy, 200, VX0, VY0)
+# 配置図は別の図に描き、線・色・文字の三つに分けて書き出す（ユーザー、10-25朝：配置図として書き、その上に色、文字。
+# 園庭のチャットの図（garden01）は重ねない。屋根・外構・園庭はすべて3dmから）。1枚目にはこの三つを重ねて貼る
+_ax_page, _fig_page = ax, fig
+figS, ax = page()
 rp = clip_rect(ax, sx, sy, sw, sh)
 st = len(ax.patches); stl = len(ax.lines)
+SGRP = {"l": [], "c": [], "t": []}
+_snap = [0, 0, 0, 0]
+
+
+def _mk(gr):
+    """前の印からあとに描いたものを gr（l 線・c 色・t 文字）に入れる"""
+    cur = [len(ax.patches), len(ax.lines), len(ax.texts), len(ax.collections)]
+    SGRP[gr] += ax.patches[_snap[0]:cur[0]] + ax.lines[_snap[1]:cur[1]] + ax.texts[_snap[2]:cur[2]] + ax.collections[_snap[3]:cur[3]]
+    _snap[:] = cur
+
+
+def SF(g, fc, z=1, alpha=1.0):
+    """色：塗りだけ"""
+    _mk("t") if False else None
+    draw_shape(ax, g, xf, fc=fc, ec="none", lw=0, z=z)
+    if alpha < 1:
+        for a_ in ax.patches[_snap[0]:]:
+            a_.set_alpha(alpha)
+    _mk("c")
+
+
+COVER = None                     # 上から見て屋根に隠れる所（地面の線は消す：線と色を別の層にするので、塗りでは隠れない）
+
+
+def SL(g, ec=INK, lw=0.2, z=10, ls="-", grp="l", hide=True):
+    """線：輪郭だけ"""
+    if g is not None and not g.is_empty and g.geom_type.endswith("Polygon"):
+        g = g.boundary
+    if hide and COVER is not None and g is not None and not g.is_empty:
+        g = g.difference(COVER)
+    draw_shape(ax, g, xf, fc="none", ec=ec, lw=lw, z=z, ls=ls)
+    _mk(grp)
 # 周りは敷地に沿わせて理想化する（ユーザー、10-24：敷地の形が簡略化されているので、PLATEAUのままだと道路とのあいだに余りが見える）
 _eW = (SITE_C["SW"] - SITE_C["NW"]) / np.linalg.norm(SITE_C["SW"] - SITE_C["NW"])   # 西の辺（北から南へ）
 _oW = np.array([-_eW[1], _eW[0]])
@@ -784,10 +819,7 @@ def _to_rot(g):
     return Polygon(R3(np.array(g.exterior.coords)), [R3(np.array(r.coords)) for r in g.interiors])
 
 
-draw_shape(ax, Polygon([(-90.0, -10.5), (-18.0, -9.5), (-18.0, -3.2), (QX1 + 20, -3.2), (QX1 + 20, -60.0), (-90.0, -60.0)]), xf, fc="#E4EEF2", ec="none", z=-0.5)   # 高野川（橋の下まで、回した座標）
-# 周りの道・区画・用水路・川は課題の敷地図をなぞった線（ユーザー、10-24：不正確だが敷地にぴったり、北の用水路が波線）。
-# なぞり方は tools/trace_kadai_map.py（文字・方位・寸法・敷地の一点鎖線を抜き、敷地の5つの角でアフィン変換、角のずれ0.2 m以下）。
-# 上のPLATEAUの道と家（ROADS・BLDS）は配置図には描かない（1/2000の小さな地図はPLATEAUのまま）
+SF(Polygon([(-90.0, -10.5), (-18.0, -9.5), (-18.0, -3.2), (QX1 + 20, -3.2), (QX1 + 20, -60.0), (-90.0, -60.0)]), "#E4EEF2", z=-0.5)   # 高野川（回した座標）
 KMAP = json.load(open(os.path.join(HERE, "kadai_map.json"), encoding="utf-8"))
 KCANAL = []
 _eR = (SITE_C["S"] - SITE_C["E"]) / np.linalg.norm(SITE_C["S"] - SITE_C["E"])
@@ -811,37 +843,113 @@ for _ln in KMAP["lines"]:
     _canal = (30.0 < _cr[0] < 58.0 and 55.0 < _cr[1] < 72.0 and not (_dy < 0.12 * _len))   # 北の用水路（波線の二本、ユーザー：強調する）
     if _canal:
         KCANAL.append(_q)
+    if not (_canal or _wavy) and ((_c - SITE_C["NW"]) @ _oN > RW_N + 2.0):
+        continue                                                                 # 北の道の向こう（大学の側）の線は描かない（ユーザーが描き足す）
     ax.plot(_q[:, 0], _q[:, 1], color="#1F6FB2" if _canal else ("#4F8DBF" if _wavy else "#505050"),
             lw=1.1 if _canal else (0.35 if _wavy else 0.3), zorder=6 if _canal else 1, solid_capstyle="round")
-for ln, g in site_items:
-    if g is None:
-        continue
-    g = rot(g)
-    if ln.startswith("02_"):
-        draw_shape(ax, g, xf, fc="#DCE8EE", ec="#8FB0C0", lw=0.15, z=0)
-    elif ln.startswith("00_"):
-        draw_shape(ax, g, xf, ec=INK, lw=0.5, z=3, ls=(0, (6, 2, 1, 2)))
-    elif ln.startswith("01_"):
-        draw_shape(ax, g, xf, ec="#666666", lw=0.3, z=3)
-    else:
-        draw_shape(ax, g, xf, fc="none" if g.geom_type.endswith("String") else "#EEF2E8", ec="#7D8C70", lw=0.12, z=2)
-draw_shape(ax, rot(roofs_plan), xf, fc="#E9E6E0", ec="#8A847A", lw=0.3, z=5)   # 園庭の図と同じ色
+    _mk("c" if (_canal or _wavy) else "l")
+# ---- 地面・外構・園庭（3dm）。色は塗り、線は輪郭
+_rp_ = lambda L_: [o for o in objs if o["layer"].startswith(L_)]
+def _sh(o):
+    g_ = shape(o, "plan")
+    return rot(g_) if g_ is not None else None
+def _poly_of(o):
+    """閉じた線は面に"""
+    g_ = _sh(o)
+    if g_ is not None and g_.geom_type == "LineString" and len(g_.coords) > 3 and np.allclose(g_.coords[0], g_.coords[-1], atol=0.05):
+        return Polygon(g_.coords).buffer(0)
+    return g_
+_PARK_R = rot(Polygon(to_s(np.array(gc.PARK.exterior.coords))))
+# ---- 建物：屋根伏せ（最新の3dm：屋根・屋根材型の太陽光・光の筋・越屋根）
+def _U(pref):
+    gs_ = [g_ for g_ in (_sh(o) for o in _rp_(pref)) if g_ is not None and g_.geom_type.endswith("Polygon")]
+    return unary_union(gs_).buffer(0) if gs_ else None
+R10, R20, R35 = _U("10_"), _U("20_"), _U("35_")
+SOL, STR_ = unary_union([x for x in (_U("10p"), _U("20p")) if x is not None]), unary_union([x for x in (_U("10t"), _U("20t")) if x is not None])
+LIDS = unary_union([x for x in (_U("50a"), _U("28_")) if x is not None])
+LOUV = unary_union([x for x in (_U("50c"), _U("30_")) if x is not None])
+# 園庭の小屋：屋根（「小屋の屋根（ひとつの屋根、南西に軒 1.5）」、高さ2.5より上）だけが見える。下のコンポストの枠は屋根の外の分
+_HUT = unary_union([g_ for g_ in (_sh(o) for o in _rp_("93_") if o["V"][:, 2].min() > 2.0) if g_ is not None and g_.geom_type.endswith("Polygon")])
+_CMP = unary_union([g_ for g_ in (_sh(o) for o in _rp_("93_") if o["V"][:, 2].max() < 1.0) if g_ is not None and g_.geom_type.endswith("Polygon")])
+if not _CMP.is_empty:
+    _CMP = _CMP.difference(_HUT)
+    SF(_CMP, "#CDBFAA", z=0.95); SL(_CMP, "#8C7A66", 0.12, z=4.8)
+SMALLR = unary_union([x for x in (_U("71_"), _HUT, _U("26_")) if x is not None and not x.is_empty])
+ROOFALL = unary_union([x for x in (R10, R20, R35) if x is not None])
+COVER = unary_union([ROOFALL, SMALLR]).buffer(0.02)
+for o in _rp_("02_"):
+    g_ = _sh(o); SF(g_, "#DCE8EE", z=0)
 _rv2 = xf(R3(WT["river"]))
-ax.plot(_rv2[:, 0], _rv2[:, 1], color="#5A93BF", lw=0.8, zorder=1, alpha=0.7)
-for a_ in ax.patches[st:] + ax.lines[stl:]:
-    a_.set_clip_path(rp)
-# 園庭は園庭のチャットの図（out/sodachiya_garden_01.pdfの配置1/200）をそのまま重ねる（同じ縮尺・同じ向き）
-_GR = affinity.rotate(GARDEN_X, GJ["VIEW_ROT"]["deg"], origin=(0, 0)).bounds
+ax.plot(_rv2[:, 0], _rv2[:, 1], color="#5A93BF", lw=0.8, zorder=1, alpha=0.7); _mk("c")
+for o in _rp_("01_"):                                    # 公園・駐車場
+    g_ = _poly_of(o)
+    if g_ is None:
+        continue
+    if g_.geom_type.endswith("Polygon"):
+        SF(g_, "#E3ECD9" if g_.representative_point().distance(_PARK_R) < 0.5 else "#ECEAE5", z=0.2)
+    SL(g_, "#666666", 0.3, z=3)
+SF(rot(GD["garden"]), "#DDE9CF", z=0.5)                  # 園庭（data/garden.json）
+SF(rot(GD["shizu"]), "#D0E1C2", z=0.55)
+SF(rot(GD["mound"]), "#CBDDB6", z=0.6)
+SF(rot(GD["sand"]), "#EFE2B8", z=0.65); SL(rot(GD["sand"]), "#A89A70", 0.12, z=4)
+SF(rot(GD["bowl"]), "#D6E4C6", z=0.65)
+SF(rot(GD["willow"]), "#A9C78A", z=0.65)
+SF(rot(GD["fountain"]), "#CFE3EF", z=0.65)
+for L_, fc_ in (("62_", "#E2ECD4"), ("63_", "#EEE9DF"), ("64_", "#E8E1D4"), ("67_", "#E2ECD4")):
+    for o in _rp_(L_):
+        g_ = _sh(o)
+        SF(g_, fc_, z=0.7); SL(g_, "#8C8C80", 0.12, z=4)
+for o in _rp_("91_"):                                    # 等高線
+    SL(_sh(o), "#A9B79A", 0.08, z=4)
+for o in _rp_("92_"):                                    # 水（小川・雨の川・噴水・水浴び場・溝）
+    g_ = _sh(o)
+    if g_ is not None:
+        draw_shape(ax, g_, xf, fc="none", ec="#3E8CC4", lw=0.9 if g_.length > 20 else 0.4, z=5); _mk("c")
+def _tree_g(o):
+    """木：線は閉じた輪（樹冠）を面に。立体（幹と樹冠の箱）は箱に内接する円（平面の四角にしない）"""
+    if o["kind"] == "solid" and o.get("prof") is None:
+        V_ = R3(o["V"][:, :2])
+        c_ = (V_.min(0) + V_.max(0)) / 2
+        r_ = float(np.min(V_.max(0) - V_.min(0))) / 2
+        return Point(c_).buffer(r_, 24) if r_ > 0.05 else None
+    return _poly_of(o)
+from shapely.geometry import Point
+for L_ in ("94_", "77_", "79_"):                         # 木：樹冠の円（色は淡い緑、線は細く）と幹
+    for o in _rp_(L_):
+        g_ = _tree_g(o)
+        if g_ is None:
+            continue
+        if g_.geom_type.endswith("Polygon") and g_.area > 1.5:
+            SF(g_, "#A8C88A", z=0.9, alpha=0.45); SL(g_, "#7D9468", 0.1, z=4.5)
+        elif g_.geom_type.endswith("Polygon"):
+            SF(g_, "#6E5A44", z=4.6)
+        elif g_.length < 0.05:                       # 幹（縦の線）は点
+            SF(g_.buffer(0.25), "#6E5A44", z=4.6)
+        else:
+            SL(g_, "#7D9468", 0.1, z=4.5)
+for L_, ec_, lw_ in (("60_", "#444444", 0.3), ("70_", "#555555", 0.3), ("72_", "#555555", 0.2), ("73_", "#777777", 0.15),
+                     ("74_", "#666666", 0.2), ("75_", "#777777", 0.15), ("76_", "#888888", 0.15), ("78_", "#888888", 0.15),
+                     ("95_", "#8C8C80", 0.15), ("96_", "#8C8C80", 0.15), ("97_", "#6E7E5E", 0.2), ("66_", "#444444", 0.25)):
+    for o in _rp_(L_):
+        SL(_sh(o), ec_, lw_, z=4.8)
+for o in _rp_("00_"):                                    # 敷地の境（一点鎖線）
+    if o["kind"] == "curve":
+        SL(_sh(o), INK, 0.5, z=12, ls=(0, (6, 2, 1, 2)))
+SF(R10, "#E7E4DE", z=6); SF(R35, "#E7E4DE", z=6); SF(R20, "#E2DED7", z=6.2)
+SF(SOL, "#4B525A", z=6.5)                                 # 屋根材型の太陽光
+SF(STR_, "#F8F6EF", z=6.6)                                # 光の筋（乳白ガラス）
+SF(LIDS, "#E6EFF3", z=6.7); SF(SMALLR, "#DCD6CB", z=6.2)
+SL(SOL, "#2F3338", 0.1, z=13, hide=False); SL(STR_, "#9A958A", 0.1, z=13, hide=False); SL(LOUV, "#B5B5B5", 0.06, z=13, hide=False); SL(LIDS, "#7A8A92", 0.15, z=13, hide=False)
+SL(R10, "#555555", 0.15, z=13.5, hide=False); SL(R20, "#555555", 0.15, z=13.5, hide=False)
+SL(ROOFALL, INK, 0.55, z=14, hide=False)                              # 建物の外形（太く）
+SL(SMALLR, "#444444", 0.3, z=14, hide=False)
+_GR = affinity.rotate(GARDEN_X, GJ["VIEW_ROT"]["deg"], origin=(0, 0)).bounds          # 4枚目で園庭の図（garden01）を切り抜く大きさ
 GVX0, GVY0, GVX1, GVY1 = _GR[0] - 6.0, _GR[1] - 6.0, _GR[2] + 3.0, _GR[3] + 3.0
-_t0 = R3([0.0, 0.0])[0]
-_ll = xf(np.array([[GVX0 + _t0[0], GVY0 + _t0[1]]]))[0]                   # 園庭の図の左下（紙）
 _gw, _gh = (GVX1 - GVX0) * 5, (GVY1 - GVY0) * 5
-_x0c, _y0c = max(_ll[0], sx), max(_ll[1] + 5.5 * 5, sy)                    # 配置図の枠で切る（下の5.5 mは園庭の図の方位・縮尺なので切る）
-_x1c, _y1c = min(_ll[0] + _gw, sx + sw), min(_ll[1] + _gh, sy + sh)
-GCLIP = (14 + (_x0c - _ll[0]), 40 + (_ll[1] + _gh - _y1c), 14 + (_x1c - _ll[0]), 40 + (_ll[1] + _gh - _y0c))
-embed(1, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), GCLIP, _x0c, _y0c, 1.0)
-ax.add_patch(Rectangle((_x0c, _y0c), _x1c - _x0c, _y1c - _y0c, fill=False, ec=NOTE, lw=0.3, ls=(0, (2, 2)), zorder=30))
-dimnote(ax, sx + 175, sy + sh + 4, "点線の枠＝園庭のチャットの配置1/200（garden01）を実寸で重ねた。本番は一枚に描き直す")
+# 雨落ち（本館の軒の下の石の帯。3dmに無いので data/garden.json の線）
+SL(rot(GD["amaochi"]), "#8C8C80", 0.6, z=4.9, ls=(0, (0.6, 1.2)), hide=False)
+for a_ in ax.patches[st:] + ax.lines[stl:] + ax.collections:
+    a_.set_clip_path(rp)
 # 周りの注記（西の道路・向かいの住宅・突き出た木・大学・用水・高野川・公園）
 _u = (SITE_C["SW"] - SITE_C["NW"]) / np.linalg.norm(SITE_C["SW"] - SITE_C["NW"])
 _n = np.array([-_u[1], _u[0]])
@@ -850,8 +958,10 @@ if _n @ (SITE_C["NW"] - SITE_C["E"]) < 0:
 _tree = SITE_C["NW"] + TREE_A * _u + (RW_W + 1.0) * _n
 _tq = xf(R3(_tree))[0]
 _tc = xf(R3(_tree - 2.0 * _n))[0]                                          # 枝は道の上へ張り出す（ユーザー：地図に出るくらい）
-ax.add_patch(plt.Circle(tuple(_tc), 3.6 * 5, fc="#9DBB82", ec="#5E7F45", lw=0.4, alpha=0.6, zorder=31))
-ax.add_patch(plt.Circle(tuple(_tq), 1.4, fc="#5E7F45", ec="none", zorder=32))
+_mk("l")
+ax.add_patch(plt.Circle(tuple(_tc), 3.6 * 5, fc="#9DBB82", ec="none", alpha=0.6, zorder=31))
+ax.add_patch(plt.Circle(tuple(_tq), 1.4, fc="#5E7F45", ec="none", zorder=32)); _mk("c")
+ax.add_patch(plt.Circle(tuple(_tc), 3.6 * 5, fc="none", ec="#5E7F45", lw=0.4, zorder=31)); _mk("l")
 lab(ax, xf, _tree, "突き出た木（住宅とアパートの境）", (sx + 3 - _tq[0], -12), ha="left")
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
 _hq = SITE_C["NW"] + 13.0 * _u + (RW_W + 4.0) * _n
@@ -863,12 +973,55 @@ _uq = SITE_C["NW"] + 0.02 * _LN * _eN + (RW_N + 6.0) * _oN               # 大�
 lab(ax, xf, _uq, "北の道の向こうは京都工芸繊維大学", (-48, (sy + sh - 5) - xf(R3(_uq))[0][1]), ha="right")
 lab(ax, xf, R3inv([14.0, -5.6])[0], "高野川", (0, 0), size=3.0, color="#2F6FA0", bold=True)
 lab(ax, xf, np.array(gc.PARK.centroid.coords[0]), "小竹薮公園", (0, 0), ha="center", lead=False)
+# 建物と園庭の名前（部屋の名前・スパンの番号・園庭のチャットの記号は描かない、ユーザー 10-25）
+_RS = lambda P: np.c_[np.atleast_2d(P)[:, 0] * np.cos(_rr) - np.atleast_2d(P)[:, 1] * np.sin(_rr), np.atleast_2d(P)[:, 0] * np.sin(_rr) + np.atleast_2d(P)[:, 1] * np.cos(_rr)]
+def _zl(g_s, text, dxy=(0, 0), size=3.0, color="#3F5F2F", bold=True):
+    q = xf(_RS(np.array(g_s.representative_point().coords[0])))[0] + np.array(dxy)
+    T(ax, q[0], q[1], text, size, color, ha="center", va="center", bold=bold)
+def _zl3(pref, text, dxy=(0, 0), size=3.0, color=INK, bold=True):
+    U_ = _U(pref)
+    q = xf(np.array(U_.representative_point().coords))[0] + np.array(dxy)
+    T(ax, q[0], q[1], text, size, color, ha="center", va="center", bold=bold)
+_zl3("31_", "遊戯室", size=3.0, color="white")          # 屋根（太陽光）の上なので白
+_zl3("23_", "西館（2階建て）", size=3.0, color="white")
+_zl3("12_", "本館（平屋）", (8, 6), size=3.2, color="white")
+_zl(GD["north"], "だいさんかく", (6, -4), size=3.4)
+_zl(GD["shizu"], "しずかのもり", (-4, 0), size=3.0)
+_stl0 = gc.XS([tuple(p) for p in GJ["STREAM"]["line"]])[0]
+_q0 = xf(R3(_stl0))[0]
+T(ax, _q0[0] - 4, _q0[1] - 10, "北のもり", 3.0, "#3F5F2F", ha="right", va="center", bold=True)
+for o in _rp_("01_"):
+    g_ = _poly_of(o)
+    if g_ is not None and g_.geom_type.endswith("Polygon") and g_.representative_point().distance(_PARK_R) >= 0.5:
+        q = xf(np.array(g_.representative_point().coords))[0]
+        T(ax, q[0], q[1], "駐車場", 2.8, ha="center", va="center", bold=True)
+_mk("t")
 _nx, _ny = sx + 14, sy + sh - 20
 ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
+_mk("l")
 T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
-scalebar(ax, sx + 6, sy - 22, 200, 20)
+_mk("t")
 lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
 lab(ax, xf, R3inv([33.5, 58.8])[0], "用水路（北から来て、ここから暗渠で敷地の北の角へ）", (-4, 9), size=2.6, color="#1F6FB2", ha="right")
+_mk("t")
+# 文字に入った引き出し線（lab の線と点）は文字の組に入れたまま（文字と一緒に動かす）
+_SITE_PDF = {}
+for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字")):
+    allart = SGRP["l"] + SGRP["c"] + SGRP["t"]
+    for a_ in allart:
+        a_.set_visible(a_ in SGRP[gr])
+    fn_ = os.path.join(OUT, f"_site_{gr}.pdf")
+    figS.savefig(fn_, transparent=True)
+    _SITE_PDF[gr] = fn_
+plt.close(figS)
+ax, fig = _ax_page, _fig_page
+_SCLIP = (sx, H - sy - sh, sx + sw, H - sy)                                  # 元のPDFのmm（左上から）
+for gr in ("c", "l", "t"):                                                    # 1枚目：色 → 線 → 文字の順に重ねる
+    embed(1, _SITE_PDF[gr], _SCLIP, sx, sy, 1.0)
+scalebar(ax, sx + 6, sy - 22, 200, 20)
+SOZAI_FILES = [("01a", "配置図　1/200　線（屋根伏せ・外構・園庭・道・敷地の境）", "線", "色の上、文字の下に置く"),
+               ("01b", "配置図　1/200　色（屋根・太陽光・光の筋・園庭・水・木）", "色", "いちばん下に置く"),
+               ("01c", "配置図　1/200　文字（建物と園庭の名前・道の注・方位のN）", "文字", "いちばん上に置く")]
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
 # 引き出しの点（紙のmm）
@@ -1323,6 +1476,9 @@ for si in range(1, 6):
         cr = fitz.Rect(clip[0] * MM, clip[1] * MM, clip[2] * MM, clip[3] * MM)
         dr = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
         pg.show_pdf_page(dr, sd, pno, clip=cr)
+doc_clean = fitz.open("pdf", doc.tobytes())          # 素材は引き出し線・重ねた文字を入れる前から切り抜く（ユーザー、10-25）
+for si in range(1, 6):
+    pg = doc[si - 1]
     for (pts, col) in TOPL[si]:                     # 引き出し線は貼った図の上に（箱 → 折れ点 → 配置図の点）
         rgb = tuple(int(col[k:k + 2], 16) / 255 for k in (1, 3, 5))
         P_ = [fitz.Point(q[0] * MM, (H - q[1]) * MM) for q in pts]
@@ -1352,13 +1508,30 @@ for key, name, sh_, (x, y, w, h), note in SOZAI:
     fn = f"{key}_{re.sub(r'[　 ]+', '_', name.split('（')[0].strip()).replace('/', '-').replace(':', '')}.pdf"
     nd = fitz.open()
     pg_ = nd.new_page(width=w * MM, height=h * MM)
-    pg_.show_pdf_page(pg_.rect, doc, sh_ - 1, clip=fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM))
+    pg_.show_pdf_page(pg_.rect, doc_clean, sh_ - 1, clip=fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM))
     hs = hashlib.md5(pg_.get_pixmap(dpi=40).samples).hexdigest()
     nd.save(os.path.join(SZ, fn), garbage=3, deflate=True)
     nd.close()
     old = _st.get(fn, {})
     _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
     _rows.append(f"| {key} | `{fn}` | {name} | {sh_}枚目 | {w:.0f}×{h:.0f} | {_st[fn]['updated']} | {note} |")
+for key, name, gr_nm, note in SOZAI_FILES:                    # 配置図の三つ（線・色・文字、同じ大きさ・同じ位置）
+    gr = {"線": "l", "色": "c", "文字": "t"}[gr_nm]
+    fn = f"{key}_配置図_1-200_{gr_nm}.pdf"
+    nd = fitz.open()
+    pg_ = nd.new_page(width=sw * MM, height=sh * MM)
+    pg_.show_pdf_page(pg_.rect, fitz.open(_SITE_PDF[gr]), 0, clip=fitz.Rect(_SCLIP[0] * MM, _SCLIP[1] * MM, _SCLIP[2] * MM, _SCLIP[3] * MM))
+    hs = hashlib.md5(pg_.get_pixmap(dpi=40).samples).hexdigest()
+    nd.save(os.path.join(SZ, fn), garbage=3, deflate=True)
+    nd.close()
+    old = _st.get(fn, {})
+    _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
+    _rows.insert(len([r_ for r_ in _rows if r_.startswith("| 01")]), f"| {key} | `{fn}` | {name} | 1枚目 | {sw:.0f}×{sh:.0f} | {_st[fn]['updated']} | {note} |")
+for _old in ("01_配置図_1-200.pdf",):
+    if os.path.exists(os.path.join(SZ, _old)):
+        os.remove(os.path.join(SZ, _old))
+    _st.pop(_old, None)
+_rows.sort(key=lambda r_: r_.split("|")[1].strip())
 _ext = []
 for sh_ in range(1, 6):
     for src, pno, clip, (x, y, w, h) in embeds[sh_]:
@@ -1412,7 +1585,7 @@ for i in range(5):
 _od.save(os.path.join(OUT, "sodachiya_present_overview.pdf"), garbage=3, deflate=True)
 _od.close()
 
-for f in (base, ov):
+for f in (base, ov, *_SITE_PDF.values()):
     os.remove(f)
 json.dump(dict(info, areas={k: round(v, 1) for k, v in AREA.items()}), open(os.path.join(OUT, "mock_info.json"), "w"), ensure_ascii=False, indent=1)
 print("ok")
