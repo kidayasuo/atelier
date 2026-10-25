@@ -561,26 +561,32 @@ def split_nonmanifold(W, T):
 
 
 def via_manifold(W, T):
-    """manifold3d の Manifold にして戻す（多様体でないメッシュを多様体に）→ (W, T) か (None, None)"""
+    """manifold3d で多様体に直す：つながりごとに分け、足し合わせ（重なりを解く）、細かい辺をまとめる（0〜0.05 mm）。
+    → [(W, T), …]（頂点はできるだけもとの座標に戻す。ゆるい順に試す）"""
     try:
         import manifold3d as mf
         from scipy.spatial import cKDTree
     except Exception:
-        return None, None
+        return []
     vs = np.unique(T.ravel()); idx = {v: i for i, v in enumerate(vs)}
     P = W[vs]; c = P.mean(0)
     F = np.array([[idx[v] for v in t] for t in orient_loose(T)], dtype=np.uint32)
+    out = []
     try:
         M = mf.Manifold(mf.Mesh(vert_properties=(P - c).astype(np.float32), tri_verts=F))
-        if M.status() != mf.Error.NoError or M.num_tri() == 0: return None, None
-        if M.volume() < 0: return None, None
-        out = M.to_mesh()
+        if M.status() != mf.Error.NoError or M.num_tri() == 0 or M.volume() < 0: return []
+        parts = M.decompose()
+        U = mf.Manifold.batch_boolean(parts, mf.OpType.Add) if len(parts) > 1 else M
+        for tol in (0.0, 0.01, 0.05):
+            V = U.set_tolerance(tol).simplify(tol) if tol else U
+            o = V.to_mesh()
+            Q = np.asarray(o.vert_properties)[:, :3].astype(float) + c; Tq = np.asarray(o.tri_verts).astype(int)
+            if len(Tq) == 0: continue
+            d, k = cKDTree(P).query(Q)
+            out.append((np.where((d < 0.02)[:, None], P[k], Q), Tq))
     except Exception:
-        return None, None
-    Q = np.asarray(out.vert_properties)[:, :3].astype(float) + c; Tq = np.asarray(out.tri_verts).astype(int)
-    d, k = cKDTree(P).query(Q)
-    Q = np.where((d < 0.01)[:, None], P[k], Q)
-    return Q, Tq
+        pass
+    return out
 
 
 def orient_loose(T):
@@ -893,6 +899,8 @@ def to_solids(W, T, sheet=('down', 10.0), _depth=0):
     W = np.asarray(W, float); T = np.asarray(T, int)
     T = drop_doubles(T)
     if len(T) == 0: return []
+    P = W[np.unique(T.ravel())]
+    if np.sort(np.ptp(P, axis=0))[1] < 0.1: return []      # 太さの無い針（削った残り、二方向とも 0.1 mm 未満）は捨てる
     try:
         ex = as_extrusion(W, T)
         if ex is not None: return [(ex, 'extrusion')]
@@ -914,8 +922,7 @@ def to_solids(W, T, sheet=('down', 10.0), _depth=0):
             if b is not None: return [(b, info2.split('(')[0])]
             if not info2.startswith('not manifold'): break
         # manifold3d で一つながりの多様体に直す（重なった面・触れる辺）。頂点はもとの座標に戻す
-        Wm, Tm = via_manifold(W, T)
-        if Tm is not None:
+        for Wm, Tm in via_manifold(W, T):
             b, info2 = solid_from_mesh(Wm, Tm)
             if b is not None: return [(b, info2.split('(')[0])]
         sh = shells(T)

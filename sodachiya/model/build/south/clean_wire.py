@@ -165,7 +165,7 @@ stat = {}
 odd = {}                     # 閉じたソリッドにならなかった物（レイヤー → 数）
 def count(kind, layer):
     stat[kind] = stat.get(kind, 0) + 1
-    if kind in ('mesh', 'surface', 'open'): odd.setdefault(layer, {}).setdefault(kind, 0); odd[layer][kind] += 1
+    if kind in ('mesh', 'surface', 'open', 'dropped'): odd.setdefault(layer, {}).setdefault(kind, 0); odd[layer][kind] += 1
 
 
 for oi, o in enumerate(m.Objects):
@@ -206,7 +206,9 @@ for oi, o in enumerate(m.Objects):
         W, T0 = mesh_arrays(g, WELD)
         if len(T0) == 0: continue
         for T in components(T0):
-            geo += SD.to_solids(W, T, sheet)
+            g1 = SD.to_solids(W, T, sheet)
+            if not g1: count('dropped', lname)                # 太さの無い針は捨てる
+            geo += g1
     grp = None
     if len(geo) > 1:
         grp = len(out.Groups); out.Groups.Add(r.Group())
