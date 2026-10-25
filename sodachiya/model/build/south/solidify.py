@@ -689,13 +689,26 @@ def _arc_runs(Q):
         while j < n and smooth[(st + j) % n] and np.sign(tr[(st + j) % n]) == np.sign(tr[k]): j += 1
         # k-1 .. (st+j)%n までの点が弧の候補（両端は角）
         i0 = st + i - 1; i1 = st + j
-        idx = [(x) % n for x in range(i0, i1 + 1)]
-        P = Q[idx]
-        if len(P) >= 4:
+        # 両端の角を含めて、だめなら端を一つずつ外して（弧が角で終わらず、線に接して終わる所）
+        tries = sorted(((i0 + k0, i1 - k1) for k0 in range(3) for k1 in range(3)), key=lambda t: t[0] - t[1])
+        for a0, a1 in tries:
+            P = Q[[x % n for x in range(a0, a1 + 1)]]
+            if len(P) < 4: continue
             c, R = fit_circle2(P)
-            if np.abs(np.linalg.norm(P - c, axis=1) - R).max() < 0.05 and R < MAX_R: runs.append((i0, i1))
+            if np.abs(np.linalg.norm(P - c, axis=1) - R).max() < 0.05 and R < MAX_R and _arc_ok(P, c, R):
+                runs.append((a0, a1)); break
         i = j
     return runs
+
+
+def _arc_ok(P, c, R):
+    """点の並び P が、中心 c の円を一つの向きに少しずつ（一歩 45° 以下）進み、
+    各辺の折れが円の弧の折れと合うか（角の点を通る偶然の円をはじく）"""
+    a = np.unwrap(np.arctan2(P[:, 1] - c[1], P[:, 0] - c[0])); st = np.diff(a)
+    if not (np.all(st > 0) or np.all(st < 0)) or np.abs(st).max() > math.radians(45): return False
+    d = np.diff(P, axis=0); h = np.arctan2(d[:, 1], d[:, 0]); tr = np.diff(np.unwrap(h))
+    want = (st[:-1] + st[1:]) / 2                       # 円に内接する折れ線の折れ＝となりあう中心角の平均
+    return np.abs(tr - want).max() < math.radians(0.5)
 
 
 def _profile(Q2, to3, runs):
