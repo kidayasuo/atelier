@@ -309,7 +309,7 @@ for o in m.Objects:
     env = np.array(env)
     gap = float(t - env[1:-1].min())                                  # 足もとのすき間など、いちばん広い所
     _log_cols.append((round(float(to_uv_arr(V[:1])[0][0]), 2), round(float(to_uv_arr(V[:1])[0][1]), 2), round(gap)))
-    if gap < 5.0 or gap > 250.0: continue                            # 壁から離れて立つ柱（角など）は動かさない
+    if gap < 5.0 or gap > 350.0: continue                            # 壁から離れて立つ柱（角など）は動かさない（10-25：東の面の u24〜33 の柱 約0.28 も入れる、遊戯室の南の口の柱）
     on_ = sp >= np.interp(V[:, 2], zs_, env) - 2.0                  # 外の縁の上の点
     V[on_, :2] += np.outer(t - 2.0 - sp[on_], n)
     mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact()
@@ -728,13 +728,13 @@ ZF2 = 3250.0
 _cutE = R(19.0, 35.0, 2.0, EDGE2, 0.1)                        # 2 階の床の東の縁より東（吹き抜け）
 def _uni(k): return unary_union([f for f, a, z0, z1 in _F2.get(k, [])]) if _F2.get(k) else None
 def _first(k): return _F2[k][0] if _F2.get(k) else None
-_toilet = R(24.0, 27.0, EDGE2, -3.9, 0.05)                         # 便所（湯沸と分けた）
-_yuwak = R(24.0, 27.0, -3.9, -5.0, 0.05)                           # 湯沸（ホールの南の入り込み、流しのカウンター）
+_toilet = R(25.0, 27.0, -3.9, -5.3, 0.05)                          # 便所（湯沸と分けた、吹き抜けの縁から奥へ、10-25 ユーザー）
+_yuwak = unary_union([R(24.0, 27.0, EDGE2, -3.9, 0.05), R(24.0, 25.0, -3.9, -5.0, 0.05)])   # 湯沸（吹き抜けの縁の開いた窪み）と食器棚の窪み
 _corr = R(27.75, 29.69, -5.0, -7.0, 0.05)                          # 会議室と休憩室への通路（更衣室の手前）
 for k, geom_fn in (('23_', lambda g: g.difference(_cutE)),
                    ('41_', lambda g: unary_union([g.difference(_cutE).difference(_toilet), _yuwak, _corr])),
                    ('42_', lambda g: _toilet),
-                   ('44_', lambda g: unary_union([g, _uni('45_') or g]).difference(_cutE).difference(R(24.0, 27.75, EDGE2, -5.0, 0.05))),
+                   ('44_', lambda g: unary_union([g, _uni('45_') or g]).difference(_cutE).difference(R(24.0, 27.75, EDGE2, -5.0, 0.05)).difference(_toilet)),
                    ('43b', lambda g: g.difference(_corr).difference(R(27.7, 29.75, -2.0, -7.0, 0.05)))):
     if not _F2.get(k): continue
     g0 = _uni(k); f0, a0, z0, z1 = _first(k)
@@ -768,9 +768,12 @@ for _uf in (22.5, 25.5, 28.5, 31.5):
     K.prism(_Pt(*_c).buffer(110, resolution=16), 5960.0, 6080.0, _LFAN)          # モーター
     K.prism(_Pt(*_c).buffer(15, resolution=8), 6080.0, 7500.0, _LFAN)           # 吊り棒（越屋根の立ち上がりの受けへ）
 log.append('西館：東の帯の吹き抜け（スパン 8〜11）に天井扇 4 台（φ1.1、h6.0、58b）')
+_L31 = [i for i, l in enumerate(out.Layers) if l.Name.startswith('31_')]
+if _L31: K.flat(R(30.0, 33.0, -2.20, -2.69, 0.05), 10.0, _L31[0])          # 遊戯室の南の口の通路：階段の箱を細くした分の床の板（面積に入れる）
 _L37 = [i for i, l in enumerate(out.Layers) if l.Name.startswith('37_')]
 if _L37:                                                                          # 湯沸のカウンター（流し・湯沸かし、奥行き0.6・h0.85、休憩室の壁ぎわ）
-    K.prism(R(24.1, 26.9, -4.94, -4.34, 0.05), ZF2, ZF2 + 850.0, _L37[0]); log.append('西館：2 階の湯沸のカウンター（u24.1〜26.9）')
+    K.prism(R(24.1, 26.9, -2.62, -3.22, 0.05), ZF2, ZF2 + 850.0, _L37[0])     # 吹き抜けの腰壁の前、1階を見下ろしてお茶をいれる
+    K.prism(R(24.1, 24.94, -3.9, -4.94, 0.05), ZF2, ZF2 + 2100.0, _L37[0]); log.append('西館：2 階の湯沸のカウンター（吹き抜けの縁、u24.1〜26.9）と食器棚')
 log.append('西館：2 階の腰壁 h1100（東の縁 u 21.2–33、北の口 u 33）')
 K.prism(FENCE_RET[0], FENCE_RET[1], FENCE_RET[2], L60); log.append('外構：柵を門の柱（u −8.45・v 0.96）へ折り返した')
 # 遊戯室の北の口（口②、u 45.6–47.6、柱 u45・48 のあいだ、10-24 ユーザー）に引き戸（ユーザー、10-23：要るなら引き戸で）。
