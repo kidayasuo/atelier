@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-25 18:20",
+"generated": "2026-10-25 21:55",
 "unit": "mm",
 "artboard": [
 841.0,

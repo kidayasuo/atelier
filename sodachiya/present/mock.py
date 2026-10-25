@@ -983,16 +983,11 @@ for L_, ec_, lw_ in (("60_", "#444444", 0.3), ("70_", "#555555", 0.3), ("72_", "
                      ("95_", "#8C8C80", 0.15), ("96_", "#8C8C80", 0.15), ("97_", "#6E7E5E", 0.2)):
     for o in _rp_(L_):
         SL(_sh(o), ec_, lw_, z=4.8)
-# ムベのアーチ（73：小径の上のアーチの棚）。弧の材を道を横切る線に、両の縁の線、柱は点（ユーザー 10-25夕：わかるように）
-for o in _rp_("73_"):
-    g_ = _sh(o)
-    if g_ is None:
-        continue
-    if o["kind"] == "curve":
-        SL(g_, "#7A5530", 0.4, z=5.2, hide=False)
-    else:
-        c_ = np.array(g_.centroid.coords[0])
-        SF(Point(c_).buffer(0.12), "#5A3E22", z=5.3); SL(Point(c_).buffer(0.12), "#5A3E22", 0.1, z=5.3, hide=False)
+# ムベのアーチ（73：小径の上のアーチの棚）。棚のある範囲全体を淡い緑に塗るだけ（ユーザー 10-25夜：線や点は要らない）
+_g73a = [g_ for g_ in (_sh(o) for o in _rp_("73_")) if g_ is not None]
+if _g73a:
+    _ARCH = unary_union([g_.buffer(0.35) for g_ in _g73a]).buffer(0.9).buffer(-0.9)
+    SF(_ARCH, "#C9DFB0", z=0.9)
 # 公園からの入口（66：木戸と背くらべの柱）。扉は太く、開く向きの弧
 for o in _rp_("66_"):
     g_ = _sh(o)
@@ -1007,14 +1002,28 @@ for o in _rp_("66_"):
         _arc = LineString([_a + _rr_ * np.array([np.cos(_t0 + d_), np.sin(_t0 + d_)]) for d_ in np.linspace(0, np.pi / 2, 12)])
         SL(_arc, "#2E241A", 0.2, z=5.4, ls=(0, (1.5, 1.0)), hide=False)
 # 駐車場（74の車室を囲む舗装、道路の側の敷地の境まで）を灰色に。バンプは横断歩道のような縞（ユーザー 10-25夕）
-_stalls = [x for x in (_poly_of(o) for o in _rp_("74_") if o["kind"] == "curve") if x is not None and x.geom_type == "Polygon" and 11.0 < x.area < 14.5]
+# 車室（約12.5 m²）・保護者の駐輪（約1.3 m²）・職員の駐輪（約0.5 m²）を、それぞれ隣どうしでまとめ、まとまりごとに道路の側の敷地の境まで灰色に
+# （ユーザー 10-25夜：前の一つの凸包は範囲が不正確）
 _SITEP = Polygon(R3(np.array([SITE_C[k] for k in ("N", "E", "S", "SW", "NW")])))
-if _stalls:
-    _A_ = R3(SITE_C["SW"])[0]; _B_ = R3(SITE_C["NW"])[0]; _tW = (_B_ - _A_) / np.linalg.norm(_B_ - _A_)
-    _pts = np.vstack([np.array(x.exterior.coords) for x in _stalls])
-    _prj = np.array([_A_ + ((p_ - _A_) @ _tW) * _tW for p_ in _pts])
-    _PARK = MultiPoint([tuple(p_) for p_ in np.vstack([_pts, _prj])]).convex_hull.intersection(_SITEP.buffer(0.01))
-    SF(_PARK, "#D8D8D4", z=0.75)
+_A_ = R3(SITE_C["SW"])[0]; _B_ = R3(SITE_C["NW"])[0]; _tW = (_B_ - _A_) / np.linalg.norm(_B_ - _A_)
+_cells = [x for x in (_poly_of(o) for o in _rp_("74_") if o["kind"] == "curve") if x is not None and x.geom_type == "Polygon" and x.area > 0.3]
+_clus = []
+for c_ in _cells:
+    hit = [k_ for k_, cl in enumerate(_clus) if cl.buffer(0.35).intersects(c_)]
+    if hit:
+        merged = unary_union([_clus[k_] for k_ in hit] + [c_])
+        _clus = [cl for k_, cl in enumerate(_clus) if k_ not in hit] + [merged]
+    else:
+        _clus.append(c_)
+for cl in _clus:
+    _pts = np.array(cl.convex_hull.exterior.coords)
+    _dd = (_pts - _A_) @ np.array([-_tW[1], _tW[0]])
+    if abs(_dd).min() < 2.0:                              # 道路の近くのまとまりだけ、道路の側の境まで延ばす
+        _prj = np.array([_A_ + ((p_ - _A_) @ _tW) * _tW for p_ in _pts])
+        _hull = MultiPoint([tuple(p_) for p_ in np.vstack([_pts, _prj])]).convex_hull
+    else:
+        _hull = cl.convex_hull
+    SF(_hull.buffer(0.1).intersection(_SITEP.buffer(0.01)), "#D8D8D4", z=0.75)
 for o in _rp_("74_"):
     if o["kind"] != "solid":
         continue
