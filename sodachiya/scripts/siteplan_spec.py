@@ -14,6 +14,24 @@ def _c(g): q = g.representative_point(); return _r((q.x, q.y))
 def _mw(xy): return MN_W(xy[1], xy[0])                        # みなみの (v, u) → 3dm
 
 
+def _reserve(g):
+    """駐車・駐輪に確保する場所（灰色 #D8D8D4、プレゼンの準備 0139・ユーザー 10-25夜）：歩道 1.0 の奥から、ひろば・小径・ムベの棚・屋根まで、公園の北から職員の駐輪の北の端まで。"""
+    from shapely.geometry import Polygon as SP, LineString as SL
+    from shapely.ops import unary_union
+    P, Q = g["P"], g["Q"]
+    SB = g["STAFF_BIKE"]; PD = SB["pocket"][3]; SX = g["SX"]; TIP = tuple(map(float, g["TIP"]))
+    out = SP(Q([(SX, PD), (22.7, PD), (22.7, g["NHEDGE_D"]), (17.7, g["NHEDGE_D"]), (17.7, g["HEDGE_D"]), (g["S_PATH0"], g["HEDGE_D"]), TIP,
+                (-5, TIP[1]), (-5, -5), (SX, -5)]))                         # セキュリティの線の外（西）
+    z = SP(g["SITE"]).intersection(out).intersection(SP(Q([(-5, g["SIDEWALK"]["d"][1]), (SX + 0.01, g["SIDEWALK"]["d"][1]), (SX + 0.01, 20), (-5, 20)])))
+    cut = unary_union([SP(g["PARK"]), g["WB"], g["LEAN_ROOF"], g["TRI"],
+                       SL(Q(g["HEDGE"][0])).buffer(g["HW"], cap_style=2, join_style=2),
+                       SP(g["srect"](g["STAFF_BIKE"]["road_gap"][1], 29.4, 0.15, g["STALL_D0"] - 0.1))])   # 納品場より北の道路側の植栽帯
+    z = z.difference(cut.buffer(0.005))
+    gs = [q for q in getattr(z, "geoms", [z]) if q.geom_type == "Polygon" and q.area > 1.0]
+    return {"fc": "#D8D8D4", "area_m2": round(sum(q.area for q in gs), 1),
+            "polygons": [[_r(c) for c in q.exterior.coords] for q in gs],
+            "note": "駐車・駐輪・搬入路・来客の歩道を含む灰色の地。下に置く（車室の枠・駐輪の記号・バンプはその上）。屋根（下屋）・ムベの棚・生垣・ひろば・西館で止める"}
+
 def write(g):
     global MN_W
     P, W, E = g["P"], g["W"], g["E"]; MN_W = W
@@ -109,6 +127,12 @@ def write(g):
         "trees": trees,
         "parking": {"stalls": stalls, "count": 5, "delivery": 1, "bump": "車路の道路から0.5に"},
         "bikes": {"parents": g["N_BIKE"], "staff": g["STAFF_N"]},
+        "reserve": _reserve(g),
+        "bump": {"style": "zebra", "fc": "#8E8E8A", "stripe": "#F4F4F2", "pitch": 0.45,
+                 "pts": [_r(q) for q in g["srect"](12.3, 17.6, *g["BUMP"])],
+                 "note": "横断歩道のような縞（灰と白、0.45ごと）。縞は車路の向き（道路に平行な帯）に並べる、つまり長い辺（車路の幅 5.3）に沿って区切る。歩道 1.0 の上にあり、歩道は白のまま続いて見える"},
+        "sidewalk": {"pts": [_r(q) for q in g["srect"](g["SIDEWALK"]["s"][0], g["SIDEWALK"]["s"][1], *g["SIDEWALK"]["d"])], "fc": "white",
+                     "note": "西の道沿い 1.0 は歩道（白）。灰色の範囲には入れない"},
         "entrance": {"xy": _r(E((GA0 + GA1) / 2, 0)), "mark": "red_dot", "note": "セキュリティの線の出入口（公園の木戸）"},
         "security_line": {"pts": [_r(q) for q in g["LINE"]], "style": "赤い破線 0.25",
                           "note": "線は板塀・生垣・格子と建物の外壁でつながる。ここは南の生垣の線だけ、北は板塀（70）と木戸がそのまま線"},
