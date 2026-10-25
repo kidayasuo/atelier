@@ -194,6 +194,7 @@ for o in m.Objects:
 log.append(f'西館：梁 {len(beam_new)} 本の端を外壁の内面で止めた')
 # 3b) 屋根の面に合わせる（10-24午後、西館係）：南西・北の角で屋根の面を作り直した（roofw.py）。
 # 南の端の架構・角の柱と桁の上の方（屋根の 0.9 下まで）を、前の面との差だけ上げる（下は動かさない）。
+# 10-25：スパン8〜14（u21〜42）は屋根がスパンごとの平面になった（roofw.py）ので、その架構も同じく上の方を合わせる（±約3 cm）。
 import roofw
 _RWf = roofw.make(WN)
 _bn = {str(at.Id): i for i, (mm, at) in enumerate(beam_new)}
@@ -206,7 +207,7 @@ for o in m.Objects:
         if not len(tris(o.Geometry)): continue
         mm = closed_mesh(o.Geometry)
     V = mesh_V(mm); U = to_uv_arr(V)
-    if not ((U[:, 0] < 23.8).any() or (U[:, 0] > 49.9).any()): continue
+    if not ((U[:, 0] < 42.2).any() or (U[:, 0] > 49.9).any()): continue      # 10-25：スパン8〜14 の平面の屋根にも合わせる
     ch = False
     for i, (x, y, z) in enumerate(V):
         zo = _RWf['roof_old'](x, y)
@@ -216,7 +217,7 @@ for o in m.Objects:
     if not ch: continue
     mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact(); _n_lift += 1
     if k_ not in _bn: beam_new.append((mm, o.Attributes)); beam_drop.add(k_)
-log.append(f'西館：南西・北の角の屋根の面に合わせて、柱・梁・桁 {_n_lift} 本の上の方を上げた（いちばん大きい差 {_dmax:.0f} mm）')
+log.append(f'西館：南西・北の角とスパン8〜14の平面の屋根に合わせて、柱・梁・桁 {_n_lift} 本の上の方を合わせた（いちばん大きい差 {_dmax:.0f} mm）')
 
 # 3c) 面だけの西館の物に厚みを付けて閉じる（10-24夜、西館係）：階段の箱の壁・2階の北の壁（24）、階段（25）、室内窓（27）は
 # 面だけで描かれていて閉じておらず、干渉の一覧にも削る段にも入らなかった。三角形ごとに両側へ厚みの半分ずつ出した三角柱を

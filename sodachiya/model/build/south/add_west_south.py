@@ -89,7 +89,7 @@ from scipy.interpolate import LinearNDInterpolator
 _zo = LinearNDInterpolator(_P[:, :2], _P[:, 2])
 keep = [(g, a) for g, a in keep if not (a.LayerIndex == lidx('20_') and isinstance(g, r.Mesh) and len(g.Vertices) > 200)]
 _v_out = _RW['v_out']
-_us = np.unique(np.r_[np.arange(21.0, 23.6, 0.05), np.arange(23.6, 40.4, 0.25), np.arange(40.4, 44.1, 0.05), np.arange(44.1, 49.9, 0.25), np.arange(49.9, 51.0001, 0.02)])
+_us = np.unique(np.r_[[f_ + d_ for f_ in _RW['FRAMES'][1:] for d_ in (-0.09, 0.09)], np.arange(21.0, 23.6, 0.05), np.arange(23.6, 40.4, 0.25), np.arange(40.4, 44.1, 0.05), np.arange(44.1, 49.9, 0.25), np.arange(49.9, 51.0001, 0.02)])
 _us[0] += 0.0005; _us[-1] -= 0.0005
 _NV = 40
 rm = r.Mesh()
