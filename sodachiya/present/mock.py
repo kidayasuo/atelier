@@ -769,11 +769,12 @@ cy = M + 8 + 26.0 + 400                          # 上の段の下端の目安�
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
 VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
-BAND_Y0 = M + 8 + 7                                          # いちばん下の帯（題は帯の下、ユーザー 10-26）：沿川の景観立面（昼・夜）1/300（ユーザー、10-26：2枚目から戻す）
-BAND_H = (19.0 + 6.5) * 1000 / 300                           # 立面の高さ（LE_Z1−LE_Z0）
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx, sy = M + 6, H - M - 16 - 3 - sh                            # 配置図は上の帯のすぐ下まで上げる（ユーザー、10-26：配置図の注を消し、下の景観立面との窮屈さを解く）
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
+BAND_H = (19.0 + 6.5) * 1000 / 300                           # 沿川の景観立面（昼・夜）1/300 の高さ（LE_Z1−LE_Z0）
+# 帯は、配置図の縮尺の下と枠の下のあいだの上下の真ん中に（題は帯の下、ユーザー 10-26）
+BAND_Y0 = ((M + 3) + (sy - 30) - BAND_H + 6.5) / 2
 T(ax, sx + 120, sy - 18, "配置図", 6.0, bold=True)                 # 題は図の下に、大きく（ユーザー、10-26）
 T(ax, sx + 120 + 3 * 8.4 + 4, sy - 18, "1/200　高野川を下に（川向こうから見る向き、北は右上）", 3.4)
 xf = xform(sx, sy, 200, VX0, VY0)
@@ -1390,9 +1391,10 @@ COM = [("park", "小竹薮公園を残す", ["地域の記憶である小竹薮�
 ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts, fx_, "nat." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(NAT)]
 ITEMS += [(f"地域{i_ + 1}　" + h1, ls_, C_COM, "#FBF7F2", pts, fx_, "com." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(COM)]
 _mid = sx + sw / 2
-LCX, LCW = M + 6, sx - (M + 6) - 8
+BOXW = 175.0                                              # 説明の箱は少し狭く、配置図の側に寄せる（ユーザー、10-26：引き出し線が短くなる）
+LCW = RCW = BOXW
+LCX = sx - 8 - LCW
 RCX = sx + sw + 8
-RCW = W - M - 6 - RCX
 _hof = lambda it, colw: 16 + sum(len(jwrap(t_, (colw - 6) / (3.0 / 0.72))) for t_ in it[1]) * (3.0 / 0.72 + 1.2) + 1.5 * len(it[1])
 _fixbot = {}                                              # 置き場所を決めた箱の下端（紙のmm、下から）
 for (head, ls_, col, fill, pts, fx_, key_) in ITEMS:
@@ -1408,7 +1410,7 @@ for (head, ls_, col, fill, pts, fx_, key_) in ITEMS:
         topline(1, q_, (ex_, ey_), col, key=f"{key_}.{k_ + 1}")
 COL_BOT = BAND_Y0 + BAND_H + 12                           # 箱の列は景観立面の帯の上で止める
 for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
-    COL_TOP = min(sy + sh + 2, CONCEPT_BOT) if side == "L" else min(sy + sh + 2, _fixbot.get(True, 1e9) - 8)
+    COL_TOP = min(sy + sh + 2, CONCEPT_BOT - 14) if side == "L" else min(sy + sh + 2, _fixbot.get(True, 1e9) - 8)
     _FSIDE = {"nat.rin": "L", "com.saigai": "L"}           # 林は左から（ユーザー、10-26）。災害は線なしで左の列のいちばん上
     its = [it for it in ITEMS if it[5] is None and (_FSIDE.get(it[6]) or ("L" if np.mean([q[0] for q in it[4]]) < _mid else "R")) == side]
     its.sort(key=lambda it: -(np.mean([q[1] for q in it[4]]) if it[4] else 1e6))
