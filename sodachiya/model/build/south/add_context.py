@@ -42,13 +42,13 @@ def ground(x, y):
 from shapely import affinity as _aff
 ROT_BLOCK = {'ids': ('bldg_15ae39bf-872c-42a8-889f-3138a573794e', 'bldg_d62c7741-c440-4c87-ab0c-1fd708e067e3',
                      'bldg_cb1d1a2b-6ef5-4bb0-890a-fffa0ca64a4f'),
-             'pivot': (-31148.0, -47801.0), 'deg': -12.65}
+             'pivot': (-32517.4, -46079.2), 'deg': -12.65}   # 10-26 周辺を(-1.369, 1.722) m動かした分も
 nb = nr = skip_b = skip_r = 0
 for b in J['bldg']:
     F = Polygon(np.array(b['foot']) * 1000).buffer(0)
     if b.get('id') in ROT_BLOCK['ids']: F = _aff.rotate(F, ROT_BLOCK['deg'], origin=ROT_BLOCK['pivot'])
     if F.is_empty or F.area < 2e6: continue
-    if F.intersection(S).area > 0.3 * F.area: skip_b += 1; continue
+    if F.intersection(S).area > 0.5e6: skip_b += 1; continue          # 敷地にかかる建物は入れない（今の住宅、北で敷地に入る隣家も、ユーザー10-26）
     if b['z1'] - b['z0'] < 500: continue
     K.prism(F, float(b['z0']), float(b['z1']), L_BL); nb += 1
 # 道路（10-25、ユーザー）：平らな一枚に（道の少々の起伏は無視する。平面図に道路の片の継ぎ目や斜めの三角形の筋が入らないように）。
