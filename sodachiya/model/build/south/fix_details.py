@@ -172,48 +172,85 @@ for o in m.Objects:
 log.append(f'西館：柱・桁 {n_c} 本を壁の内面まで（いちばん大きいずれ {worst:.0f} mm）')
 
 # 3) 梁・2 階の床梁の端：外壁の内面で止める（角の丸みで梁の端が外に出ていた）
+# 10-25（ソリッド係の依頼）：柱・梁・桁（22a〜d）は押し出しのまま、輪郭の制御点を動かす（extedit.py）。前は網目にしてから
+# 頂点を動かしていて、Rhino 版でその所が細い平らな片の集まりになっていた。押し出しでないものだけ前と同じく網目で。
 from shapely.geometry import LineString
+import extedit
 beam_new = []; beam_drop = set()
+EXT = {}                                               # 物の Id → 動かした押し出し（22a〜d）
+def cur_g(o): return EXT.get(str(o.Attributes.Id), o.Geometry)
+_n_end = 0
 for o in m.Objects:
     if o.Attributes.LayerIndex not in (L22B, L22C): continue
-    T = tris(o.Geometry); P = T.reshape(-1, 3)
+    g0 = o.Geometry
+    P = tris(g0).reshape(-1, 3)
     if all(WN.buffer(-2).contains(Point(x, y)) for x, y in P[:, :2]): continue    # 壁の中で止まっている端（見えない）はそのまま
-    mm = closed_mesh(o.Geometry); V = mesh_V(mm)
-    c = V[:, :2].mean(0); X = V[:, :2] - c; w, vec = np.linalg.eigh(X.T @ X); ax = vec[:, -1]
-    for i, (x, y, z) in enumerate(V):
-        pt = Point(x, y)
-        if WNi.contains(pt): continue
-        s_ = np.dot(np.array([x, y]) - c, ax); dirn = -np.sign(s_) * ax          # 中ほどへ向かって
-        ln = LineString([(x, y), (x + dirn[0] * 3000, y + dirn[1] * 3000)])
-        hit = ln.intersection(WNi.exterior)
-        pts = [hit] if hit.geom_type == 'Point' else list(getattr(hit, 'geoms', []))
-        if pts:
-            q = min(pts, key=lambda p: p.distance(pt)); V[i, 0], V[i, 1] = q.x + dirn[0] * 2, q.y + dirn[1] * 2
-    mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact()
-    beam_new.append((mm, o.Attributes)); beam_drop.add(str(o.Attributes.Id))
-log.append(f'西館：梁 {len(beam_new)} 本の端を外壁の内面で止めた')
+    c = P[:, :2].mean(0); X = P[:, :2] - c; w, vec = np.linalg.eigh(X.T @ X); ax = vec[:, -1]
+    def _trim(V, k=0):
+        V = V.copy()
+        for i, (x, y, z) in enumerate(V):
+            pt = Point(x, y)
+            if WNi.contains(pt): continue
+            s_ = np.dot(np.array([x, y]) - c, ax); dirn = -np.sign(s_) * ax          # 中ほどへ向かって
+            ln = LineString([(x, y), (x + dirn[0] * 3000, y + dirn[1] * 3000)])
+            hit = ln.intersection(WNi.exterior)
+            pts = [hit] if hit.geom_type == 'Point' else list(getattr(hit, 'geoms', []))
+            if pts:
+                q = min(pts, key=lambda p: p.distance(pt)); V[i, 0], V[i, 1] = q.x + dirn[0] * 2, q.y + dirn[1] * 2
+        return V
+    e = extedit.edit(g0, _trim) if isinstance(g0, r.Extrusion) else None
+    if e is not None: EXT[str(o.Attributes.Id)] = e
+    else:
+        mm = closed_mesh(g0); V = _trim(mesh_V(mm)); mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact()
+        beam_new.append((mm, o.Attributes)); beam_drop.add(str(o.Attributes.Id))
+    _n_end += 1
+log.append(f'西館：梁 {_n_end} 本の端を外壁の内面で止めた（押し出しのまま {sum(1 for k in EXT)} 本）')
 # 3b) 屋根の面に合わせる（10-24午後、西館係）：南西・北の角で屋根の面を作り直した（roofw.py）。
 # 南の端の架構・角の柱と桁の上の方（屋根の 0.9 下まで）を、前の面との差だけ上げる（下は動かさない）。
 # 10-25：スパン8〜14（u21〜42）は屋根がスパンごとの平面になった（roofw.py）ので、その架構も同じく上の方を合わせる（±約3 cm）。
+# 柱・梁は輪郭（架構の線の縦の面）の制御点を、桁（道が u の向きに長い）は道の両端の高さを動かす。
 import roofw
 _RWf = roofw.make(WN)
 _bn = {str(at.Id): i for i, (mm, at) in enumerate(beam_new)}
 _n_lift = 0; _dmax = 0.0
+def _dz(x, y, z):
+    zo = _RWf['roof_old'](x, y)
+    if z < zo - 900.0: return 0.0
+    d_ = _RWf['roof_f'](x, y) - zo
+    return d_ if abs(d_) > 2 else 0.0
 for o in m.Objects:
     if o.Attributes.LayerIndex not in (L22A, L22B, L22D): continue
     k_ = str(o.Attributes.Id)
+    g = cur_g(o)
+    if isinstance(g, r.Extrusion) and k_ not in _bn:
+        S_ = extedit.samples(g, 40); U = to_uv_arr(S_)
+        if not ((U[:, 0] < 42.2).any() or (U[:, 0] > 49.9).any()): continue
+        _ch = [0.0]
+        if o.Attributes.LayerIndex == L22D:
+            zt = S_[:, 2].max()
+            def _path(A, B):
+                for E_ in (A, B):
+                    d_ = _dz(E_[0], E_[1], zt); E_[2] += d_; _ch[0] = max(_ch[0], abs(d_))
+                return A, B
+            e = extedit.edit(g, None, _path)
+        else:
+            def _lift(V, k=0):
+                for i, (x, y, z) in enumerate(V):
+                    d_ = _dz(x, y, z); V[i, 2] = z + d_; _ch[0] = max(_ch[0], abs(d_))
+                return V
+            e = extedit.edit(g, _lift)
+        if e is None or _ch[0] == 0.0: continue
+        EXT[k_] = e; _n_lift += 1; _dmax = max(_dmax, _ch[0]); continue
     if k_ in _bn: mm = beam_new[_bn[k_]][0]
     else:
-        if not len(tris(o.Geometry)): continue
-        mm = closed_mesh(o.Geometry)
+        if not len(tris(g)): continue
+        mm = closed_mesh(g)
     V = mesh_V(mm); U = to_uv_arr(V)
     if not ((U[:, 0] < 42.2).any() or (U[:, 0] > 49.9).any()): continue      # 10-25：スパン8〜14 の平面の屋根にも合わせる
     ch = False
     for i, (x, y, z) in enumerate(V):
-        zo = _RWf['roof_old'](x, y)
-        if z < zo - 900.0: continue
-        d_ = _RWf['roof_f'](x, y) - zo
-        if abs(d_) > 2: V[i, 2] = z + d_; ch = True; _dmax = max(_dmax, abs(d_))
+        d_ = _dz(x, y, z)
+        if d_: V[i, 2] = z + d_; ch = True; _dmax = max(_dmax, abs(d_))
     if not ch: continue
     mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact(); _n_lift += 1
     if k_ not in _bn: beam_new.append((mm, o.Attributes)); beam_drop.add(k_)
@@ -394,21 +431,10 @@ log.append(f'西館：階段と階段の箱 {_n_stair} 個を細くした（東�
 # （内の面の先細りの形はそのまま）。本館の柱（外の面が平ら、壁の内面に接する）と同じ納まり。
 _bn2 = {str(at.Id): i for i, (mm, at) in enumerate(beam_new)}
 _n_col = 0; _gmax = 0.0; _log_cols = []
-for o in m.Objects:
-    if o.Attributes.LayerIndex != L22A: continue
-    k_ = str(o.Attributes.Id)
-    mm = beam_new[_bn2[k_]][0] if k_ in _bn2 else closed_mesh(o.Geometry)
-    V = mesh_V(mm); c = V[:, :2].mean(0)
-    q = nearest_points(WNi.exterior, Point(*c))[0]; d = np.array([q.x, q.y]) - c; t = np.linalg.norm(d)
-    if t < 1 or t > 600: continue
-    n = d / t; sp = (V[:, :2] - c) @ n
-    from scipy.spatial import ConvexHull as _CH
-    P2 = np.c_[sp, V[:, 2]]
-    try: H = _CH(P2)
-    except Exception: continue
-    hv = P2[H.vertices]; zlo, zhi = hv[:, 1].min(), hv[:, 1].max()
-    zs_ = np.linspace(zlo, zhi, 200)                               # 外の縁（高さごとの外側の包絡）
-    env = []
+from scipy.spatial import ConvexHull as _CH
+def _envelope(P2, zs_):
+    """(sp, z) の点の凸包の、高さごとのいちばん外（sp が大きい側）"""
+    H = _CH(P2); env = []
     for z_ in zs_:
         xs_ = []
         for e_ in H.simplices:
@@ -416,14 +442,64 @@ for o in m.Objects:
             if min(z0_, z1_) - 1e-6 <= z_ <= max(z0_, z1_) + 1e-6:
                 xs_.append(s0 if abs(z1_ - z0_) < 1e-6 else s0 + (s1 - s0) * (z_ - z0_) / (z1_ - z0_))
         env.append(max(xs_) if xs_ else -1e9)
-    env = np.array(env)
+    return np.array(env)
+for o in m.Objects:
+    if o.Attributes.LayerIndex != L22A: continue
+    k_ = str(o.Attributes.Id)
+    g = cur_g(o)
+    as_ext = isinstance(g, r.Extrusion) and k_ not in _bn2
+    if as_ext:
+        S_ = extedit.samples(g, 200)
+    else:
+        mm = beam_new[_bn2[k_]][0] if k_ in _bn2 else closed_mesh(g); S_ = mesh_V(mm)
+    c = S_[:, :2].mean(0)
+    q = nearest_points(WNi.exterior, Point(*c))[0]; d = np.array([q.x, q.y]) - c; t = np.linalg.norm(d)
+    if t < 1 or t > 600: continue
+    n = d / t
+    P2 = np.c_[(S_[:, :2] - c) @ n, S_[:, 2]]
+    try: zs_ = np.linspace(P2[:, 1].min(), P2[:, 1].max(), 200); env = _envelope(P2, zs_)
+    except Exception: continue
     gap = float(t - env[1:-1].min())                                  # 足もとのすき間など、いちばん広い所
-    _log_cols.append((round(float(to_uv_arr(V[:1])[0][0]), 2), round(float(to_uv_arr(V[:1])[0][1]), 2), round(gap)))
+    _log_cols.append((round(float(to_uv_arr(S_[:1])[0][0]), 2), round(float(to_uv_arr(S_[:1])[0][1]), 2), round(gap)))
     if gap < 5.0 or gap > 350.0: continue                            # 壁から離れて立つ柱（角など）は動かさない（10-25：東の面の u24〜33 の柱 約0.28 も入れる、遊戯室の南の口の柱）
-    on_ = sp >= np.interp(V[:, 2], zs_, env) - 2.0                  # 外の縁の上の点
-    V[on_, :2] += np.outer(t - 2.0 - sp[on_], n)
-    mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact()
-    if k_ not in _bn2: beam_new.append((mm, o.Attributes)); beam_drop.add(k_)
+    def _face(V, k=0):
+        if k != 0: return V                                           # 穴の輪郭はそのまま
+        sp = (V[:, :2] - c) @ n
+        on_ = sp >= np.interp(V[:, 2], zs_, env) - 2.0               # 外の縁の上（とその外）の制御点
+        V[on_, :2] += np.outer(t - 2.0 - sp[on_], n)
+        return V
+    if as_ext:
+        # 押し出しの輪郭は架構の線の縦の面にあり、道（厚さ 180）はそれに直交する。壁へ向かう向き n を
+        # 輪郭の面の中の向き mh と道の向き p に分ける：面の中なら輪郭の外の縁の制御点を mh の向きに、
+        # 道の向き（南北の妻の壁）なら道の壁の側の端を伸ばす（柱の側面は平らなので全部の高さで同じだけ）。
+        a_, b_ = g.PathStart, g.PathEnd
+        p = np.array([b_.X - a_.X, b_.Y - a_.Y]); p = p / max(1e-9, np.linalg.norm(p))
+        np_ = float(n @ p)
+        if abs(np_) > 0.7:
+            mv = (t - 2.0 - env[1:-1].max()) / abs(np_)                  # 壁の側の小口を壁の内面の 2 手前まで
+            def _path(A, B):
+                if np_ > 0: B[:2] += p * mv
+                else: A[:2] -= p * mv
+                return A, B
+            e = extedit.edit(g, None, _path)
+        else:
+            mh = n - np_ * p; mh = mh / np.linalg.norm(mh); cs = float(mh @ n)
+            TOL_F = 40.0
+            S0 = extedit.samples(g, 200, ends=(0.0,))                    # 輪郭の面（道の始まり）の上だけで外の縁を取る
+            P20 = np.c_[(S0[:, :2] - c) @ n, S0[:, 2]]; env0 = _envelope(P20, zs_)
+            L_ = np.hypot(b_.X - a_.X, b_.Y - a_.Y); off = max(0.0, np_ * L_)   # 道の終わりの面のほうが壁に近ければ、その分だけ手前で止める
+            def _face_in(V, k=0):
+                if k != 0: return V
+                sp = (V[:, :2] - c) @ n
+                on_ = sp >= np.interp(V[:, 2], zs_, env0) - TOL_F          # 外の縁の近くの制御点（曲線のふくらみがすき間を残さないよう少し広く）
+                V[on_, :2] += np.outer((t - 2.0 - off - sp[on_]) / cs, mh)
+                return V
+            e = extedit.edit(g, _face_in)
+        if e is None: continue
+        EXT[k_] = e
+    else:
+        V = _face(mesh_V(mm)); mesh_set(mm, V); mm.Normals.ComputeNormals(); mm.Compact()
+        if k_ not in _bn2: beam_new.append((mm, o.Attributes)); beam_drop.add(k_)
     _n_col += 1; _gmax = max(_gmax, gap)
 log.append(f'西館：外壁ぎわの柱 {_n_col} 本の外の面を足もとから頭まで壁の内面にそろえた（いちばん大きいすき間 {_gmax:.0f} mm）')
 
@@ -729,7 +805,7 @@ bm = {str(at.Id): mm for mm, at in beam_new}
 lines_ = []
 for o in m.Objects:
     if o.Attributes.LayerIndex != L22B: continue
-    g = bm.get(str(o.Attributes.Id), o.Geometry)
+    g = bm.get(str(o.Attributes.Id), cur_g(o))
     P = tris(g).reshape(-1, 3)[:, :2]
     if len(P) < 3: continue
     c = P.mean(0); X = P - c; w_, vec = np.linalg.eigh(X.T @ X); ax = vec[:, -1]
@@ -831,7 +907,7 @@ for l in m.Layers: out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
 for o in m.Objects:
     if str(o.Attributes.Id) in drop or str(o.Attributes.Id) in col_drop or str(o.Attributes.Id) in beam_drop: continue
-    out.Objects.Add(o.Geometry, o.Attributes)
+    out.Objects.Add(EXT.get(str(o.Attributes.Id), o.Geometry), o.Attributes)      # 22a〜d は動かした押し出し（EXT）
 for mm, at in new_objs + col_new + beam_new: out.Objects.AddMesh(mm, at)
 K = Kit(out)
 ZF2 = 3250.0
