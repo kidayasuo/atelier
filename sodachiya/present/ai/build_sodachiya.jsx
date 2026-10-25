@@ -33,10 +33,17 @@
     note.printable = false;                          // 割付の注記は見えるが印刷しない
     try { if (first.pageItems.length === 0 && first.name !== "枠") { first.remove(); } } catch (e) {}
     var out = File(SDY.here.fsName + "/sodachiya_present.ai");
-    if (out.exists) {
+    if (out.exists) {                                  // 前のファイルは old/ に日時を付けて退け、同じ名前で保存する（ユーザー、10-26：名前が増えていく）
         var d = new Date();
         var st = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2) + "-" + ("0" + d.getHours()).slice(-2) + ("0" + d.getMinutes()).slice(-2);
-        out = File(SDY.here.fsName + "/sodachiya_present_" + st + ".ai");
+        var od = Folder(SDY.here.fsName + "/old"); if (!od.exists) { od.create(); }
+        if (confirm("sodachiya_present.ai を新しく組んだもので置き換えます。\n前のファイルは old/sodachiya_present_" + st + ".ai に移します。\n（いいえ：日時を付けた別の名前で保存）")) {
+            if (!out.copy(od.fsName + "/sodachiya_present_" + st + ".ai")) { alert("前のファイルを old/ に移せませんでした。開いたままなら閉じてから、もう一度。"); return; }
+            out.remove();
+            out = File(SDY.here.fsName + "/sodachiya_present.ai");
+        } else {
+            out = File(SDY.here.fsName + "/sodachiya_present_" + st + ".ai");
+        }
     }
     doc.saveAs(out, new IllustratorSaveOptions());
     var msg = "組みました：" + made + " 個（隠した " + skipped + " 個）\n" + out.fsName;
