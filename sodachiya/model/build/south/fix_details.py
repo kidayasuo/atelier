@@ -732,7 +732,18 @@ if src is not None:
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス
         for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（垂木の小口をふさぐ）
             for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), -150.0, 0.0): new_objs.append((mm, a10))
-    pv = R(0.3, 57.49, 1.95, 14.85, 0.25).intersection(RP).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
+    # 10-25夜（ユーザー）：南の軒にも同じ太陽光を載せて、屋根の本体から切れ目なく続ける（軒は屋根の面の延長、u −4.2〜0）。
+    # 軒の外の縁は本体の軒先と同じく 150 手前まで。越屋根の蓋の下（v < 1.95、u > −0.35）は本体と同じく除き、蓋より南の軒は西の縁（v −0.45）の 150 手前まで。
+    EAVE = None
+    for o in m.Objects:
+        g = o.Geometry
+        if o.Attributes.LayerIndex != L10 or not isinstance(g, r.Mesh) or str(o.Attributes.Id) in drop: continue
+        u0_, u1_, v0_, v1_, z0_, z1_ = bbox_uv(g)
+        if u1_ < 0.05 and u0_ < -3.0: EAVE = roof_main_poly(g); break
+    ALL = unary_union([RP, EAVE.buffer(1.0)]).buffer(-1.0) if EAVE is not None else RP
+    pv_box = unary_union([R(-10.0, 57.49, 1.95, 14.85, 0.25), R(-10.0, -0.35, -1.0, 14.85, 0.25)])
+    pv = ALL.buffer(-150.0, join_style=2).intersection(pv_box).intersection(unary_union([RP, EAVE]) if EAVE is not None else RP)
+    pv = pv.difference(R(-0.36, 57.49, -1.0, 1.95, 0.1)).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
     for mm in sheet(pv, 20.0, L10P): new_objs.append((mm, a_pv))
     log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から軒先まで、乳白ガラス）、'
