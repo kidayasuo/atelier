@@ -219,11 +219,30 @@ for dd, nm in ((15.3, "護岸の溝（小川、幅 0.3）"), (35.0, "護岸の�
 # ---- 93 小屋 ----
 Hh = G["HUT"]; a0, a1 = Hh["a"]; d0, d1 = Hh["d"]; ac = Hh["closed_a"]; sa_ = Hh["split_a"]
 g0 = max(H(a, d) for a in (a0, a1) for d in (d0, d1))
-box(a0, sa_, d0, d1, g0, g0 + 2.4, 93, "便所（座る便器×2・手洗い）")
-box(sa_, ac, d0, d1, g0, g0 + 2.4, 93, "倉庫")
-box(a0 - 0.3, a1 + 0.3, d0 - 0.3, d1 + Hh["eave"], g0 + 2.4, g0 + 2.55, 93, "小屋の屋根（ひとつの屋根、南西に軒 1.5）")
-for q in ((a1 - 0.1, d0), (a1 - 0.1, d1 - 0.1), (a1 - 0.1, d1 + Hh["eave"] - 0.15), (ac, d1 + Hh["eave"] - 0.15), (a0, d1 + Hh["eave"] - 0.15)):
-    box(q[0], q[0] + 0.12, q[1], q[1] + 0.12, g0, g0 + 2.4, 93, "柱 120 角")
+# 10-25（ユーザー）：屋根は本館と同じ東下がりの片流れ、勾配 1/10。枠の d− が北東（東寄り）なので、
+# 北東の軒（隣家側、d0−0.3）が低く 2.4、南西の深い軒の先（d1＋1.5）が高い。雨は北東へ落ちて雨水タンクへ。
+R_LO, R_PITCH, R_T = 2.4, 0.1, 0.15
+rd0, rd1 = d0 - 0.3, d1 + Hh["eave"]
+def zr(d):                                             # 屋根の下面の高さ（GL からの m）
+    return g0 + R_LO + (d - rd0) * R_PITCH
+def prism(a0_, a1_, d0_, d1_, zb, zt0, zt1, k, name, t=None):
+    """(a, d) の長方形の箱。上面は d0_ で zt0、d1_ で zt1 の斜め（t を与えると厚さ t の斜めの板）"""
+    ms = r.Mesh()
+    bot = (lambda dd, zt: zt - t) if t else (lambda dd, zt: zb)
+    corners = ((a0_, d0_, zt0), (a1_, d0_, zt0), (a1_, d1_, zt1), (a0_, d1_, zt1))
+    for a_, d_, zt in corners:
+        q = P3(a_, d_, bot(d_, zt)); ms.Vertices.Add(q.X, q.Y, q.Z)
+    for a_, d_, zt in corners:
+        q = P3(a_, d_, zt); ms.Vertices.Add(q.X, q.Y, q.Z)
+    for f in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+        ms.Faces.AddFace(*f)
+    ms.Normals.ComputeNormals(); m.Objects.AddMesh(ms, at(k, name))
+prism(a0, sa_, d0, d1, g0, zr(d0), zr(d1), 93, "便所（座る便器×2・手洗い）")
+prism(sa_, ac, d0, d1, g0, zr(d0), zr(d1), 93, "倉庫")
+prism(a0 - 0.3, a1 + 0.3, rd0, rd1, 0, zr(rd0) + R_T, zr(rd1) + R_T, 93,
+      "小屋の屋根（ひとつの屋根、東下がりの片流れ 1/10、本館と同じ、南西に軒 1.5）", t=R_T)
+for q in ((a1 - 0.1, d0), (a1 - 0.1, d1 - 0.1), (a1 - 0.1, rd1 - 0.15), (ac, rd1 - 0.15), (a0, rd1 - 0.15)):
+    box(q[0], q[0] + 0.12, q[1], q[1] + 0.12, g0, zr(q[1] + 0.12), 93, "柱 120 角")
 CP = G["COMPOST"]
 for i in range(CP["n"]):
     q0 = CP["a0"] + i * CP["w"]
@@ -243,7 +262,7 @@ curve_ad(G["SAND"]["poly"], 95, "砂場", close=True)
 GR = G["GRAIN"]; ca, sa = math.cos(math.radians(GR["rot"])), math.sin(math.radians(GR["rot"]))
 gr = lambda u, v: (GR["c"][0] + u * ca - v * sa, GR["c"][1] + u * sa + v * ca)
 hl, hw = GR["l"] / 2, GR["w"] / 2
-curve_ad([gr(-hl, -hw), gr(hl, -hw), gr(hl, hw), gr(-hl, hw)], 95, "粒の遊び場 2.7×3.6（木の縁、帆布の巻き取り）", close=True)
+curve_ad([gr(-hl, -hw), gr(hl, -hw), gr(hl, hw), gr(-hl, hw)], 95, "粒の遊び場 2.4×3.0（木の縁、帆布の巻き取り）", close=True)
 curve_ad([gr(-hl, hw + 0.35), gr(hl, hw + 0.35)], 95, "帆布を巻いた棒")
 B = G["BOWL"]; curve_ad(ell(B["c"], (B["r"], B["r"])), 95, "すりばち（お話の輪、大雨の日は雨の池）", close=True)
 W = G["WILLOW"]; curve_ad(ell(W["c"], (W["r"], W["r"])), 95, "柳の家（生きたヤナギのドーム φ3）", close=True)

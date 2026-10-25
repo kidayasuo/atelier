@@ -20,6 +20,8 @@ _TTF = os.path.expanduser("~/.cache/sodachiya_fonts")
 if not os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
     _sp.run([_sys.executable, os.path.join(gc.ROOT, "present", "tools", "make_ttf.py"), _TTF], check=False)
 if os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
+    # 同じ名前の OTF（.ttc）が先に選ばれる（Type 0C になる）ので、Noto CJK の .ttc を候補から外す
+    _fm.fontManager.ttflist = [f for f in _fm.fontManager.ttflist if not ("NotoSansCJK" in f.fname and f.fname.endswith((".ttc", ".otf")))]
     for _f in ("Regular", "Bold"):
         _fm.fontManager.addfont(os.path.join(_TTF, f"NotoSansCJKjp-{_f}.ttf"))
     plt.rcParams["font.family"] = _fm.FontProperties(fname=os.path.join(_TTF, "NotoSansCJKjp-Regular.ttf")).get_name()
@@ -361,7 +363,7 @@ for k, (a, d, txt) in enumerate(G["NICHES"], 1):
 
 # 場所の名前
 T(ax, X(39.4, 13.6), "原っぱ", 7.5, c="#6B5E3A", z=21)
-T(ax, X(46.4, 24.6), "しずかのもり", 9, c="#56704A", z=21, fontweight="bold")
+T(ax, X(50.6, 23.4), "しずかのもり", 9, c="#56704A", z=21, fontweight="bold")
 T(ax, X(*G["FOUNTAIN"]["c"]), "床の噴水", 5.6, c="#3E6E8E", z=21, rot=-38)
 T(ax, X(23.6, 11.6), "みずべ", 7, c="#4C7A99", z=21)
 T(ax, X(16.0, 7.2), "北のもり", 6.5, c="#56704A", z=21, rot=-38)
@@ -484,7 +486,7 @@ from collections import Counter as _Ct
 _cnt = _Ct(sp_of(t[4]) for t in G["TREES"])
 rows = [("g:" + g, g + "：" + "・".join(f"{k} {_cnt[k]}" for k in SP if k != "_" and SP[k]["g"] == g and _cnt[k])) for g in GC] + [
         ("climb", "木登りの木（エノキ、下は木のチップ）"), ("seki", "関守石：しずかのもりへの道（縁側の前の飛び石・車の口）の上に置き「ここからは しずかに」と伝える。招かれた入口は柳の家をくぐる道（ユーザー：物理的ではなく文化で）"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）・水浴び場（円形 φ4.0、段なしの浅い皿）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて護岸の溝から高野川へ。溢れたらすりばちが雨の池）"),
-        ("sand", "砂場・粒の遊び場（1〜2 mm、2.7×3.6 の木の縁、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
+        ("sand", "砂場・粒の遊び場（1〜2 mm、2.4×3.0 の木の縁、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
     n = sw(y, k, t); y += (3.4 if k.startswith("g:") else 4.6) + 2.6 * n
