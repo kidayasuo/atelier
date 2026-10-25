@@ -161,7 +161,7 @@ vv = np.array([0, 12]); sax.fill(np.r_[vv, vv[::-1]], np.r_[4.0 - vv / 12, (4.0 
 sax.text(6, 3.1, "架構 10 の梁（2 枚組、奥）", fontsize=4.6, color="#7a6a50", ha="center")
 for vc in (0, 12): sax.add_patch(Polygon([(vc - 0.2, 0), (vc + 0.2, 0), (vc + 0.2, 4.0 - vc / 12 - 0.05), (vc - 0.2, 4.0 - vc / 12 - 0.05)], fc="#CBB89A", ec="none", zorder=1))
 sax.plot([-3.4, 0], [3.25, 3.25], lw=0.9, color="#777777"); sax.text(-1.7, 3.4, "西館 2 階の床", fontsize=4.4, ha="center", color="#777777")
-sax.plot([13.5, 13.5], [0, 2.27], lw=1.0, color=C["glass"])
+sax.plot([13.5, 13.5], [0, 2.445], lw=1.0, color=C["glass"])
 for t_ in sorted(TR, key=lambda t_: -t_["u"]):
     u, v, d = t_["u"], t_["v"], t_["d"]; k = min(1, max(0, (u - 22.8) / 6.8))
     sax.add_patch(Polygon([(v - d / 2, 0), (v + d / 2, 0), (v + d / 2, t_["h"]), (v - d / 2, t_["h"])], fc=DCOL[d], ec="none", alpha=0.3 + 0.6 * (1 - k), zorder=3 + (1 - k)))

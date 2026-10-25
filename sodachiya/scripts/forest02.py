@@ -54,7 +54,7 @@ def render(ax, p, fwd, eye, title, fov=110):
         r = np.array([math.cos(ang), math.sin(ang)])
         D, kind = boundary(p, r)
         q = p + r * D
-        z1 = roof(q[1]) if kind != "garden" else 2.27
+        z1 = roof(q[1]) if kind != "garden" else 2.445   # 縁側のガラス戸の鴨居の上端（10-26）
         lo.append(math.degrees(math.atan2(-eye, D))); hi.append(math.degrees(math.atan2(z1 - eye, D))); cols.append(kind)
     col = {"wall": C["wall"], "garden": C["garden"], "kit": C["kit"], "far": C["strait"]}
     for i in range(len(az) - 1):
