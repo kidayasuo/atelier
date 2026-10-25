@@ -34,7 +34,18 @@ def run(path):
     import trimesh as _tm
     from shapely.geometry import box as _box
     from solids import to_manifold as _tom
-    ROOFED = RR.covered_poly()
+    # 屋根の覆う範囲：覆いの層（屋根・光の筋のガラス・越屋根の蓋）の三角形をそのまま平面に落とした和（10-25 監修、本館係の指摘）。
+    # 前の RR.covered_poly() は 250 の格子のますの和で、軒先・けらばで実際の縁より最大約 125 内側になり、縁にそろえた梁の端が
+    # 「屋根の外へ出る構造」と誤って出ていた
+    from solids import COVER_LAYERS as _CL
+    from shapely.geometry import Polygon as _Pg
+    from shapely.ops import unary_union as _uu
+    _tris = []
+    for q in parts:
+        if q['layer'].split('_')[0] not in _CL: continue
+        T = np.asarray(q['tm'].triangles)[:, :, :2]
+        _tris += [_Pg(t) for t in T if abs((t[1, 0] - t[0, 0]) * (t[2, 1] - t[0, 1]) - (t[2, 0] - t[0, 0]) * (t[1, 1] - t[0, 1])) > 2.0]
+    ROOFED = _uu([t.buffer(0.5) for t in _tris]).buffer(-0.5) if _tris else RR.covered_poly()
     out_s = []
     idx = index.Index(properties=index.Property(dimension=3))
     for k, p in enumerate(parts):

@@ -4,7 +4,7 @@
 - 部屋の面積は壁芯（ユーザー、10-23）：その部屋の床の板（レイヤー 31〜36・41〜45・52〜59）を上から見た形から壁を除き、
   その部屋に接する壁（外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38）の半分を足す。
   床の板の端が壁の外面・真ん中・内面のどこにあっても、壁の真ん中で数えたのと同じになる（設計監修、10-23）。
-- 延床面積＝1 階の床（本館の床・内縁側・海峡と各部屋の床の和）＋西館 2 階の床（23）。これも壁芯（床の下の間仕切りは全部、外壁は半分を数える）。外縁側（14、土足の軒下）は含めない。
+- 延床面積＝1 階の床（本館の床・内縁側・海峡と各部屋の床の和）＋西館 2 階の床（23）＋園庭の小屋の便所と倉庫（data/garden.json の HUT、10-25）。これも壁芯（床の下の間仕切りは全部、外壁は半分を数える）。外縁側（14、土足の軒下）は含めない。
 - 園庭＝園庭の地形（90、だいさんかく・しずかのもり）＋みなみのさんかく（data/minami.json の AREA）。
 - 駐車は決定事項_外構の台数（南 3・北 2）。駐輪は決まっていない。
 課題の所要室は 2026-09-28 の課題文から。
@@ -182,8 +182,12 @@ F1r = unary_union([g for k, g in A0.items() if re.match(r'^(12|13|15|3[1-6]|5[2-
 F1m = floor_wc(unary_union([F1r, A0.get(next((k for k in A0 if k.startswith('35_')), ''), Polygon())]), 0.0)
 Z2 = max((z for k, z in FZ.items() if k.startswith('23_')), default=3170.0)
 F2 = floor_wc(unary_union([g for k, g in A0.items() if k.startswith('23_')]), Z2)
-TOTAL = dict(floor1=round(area(F1m), 1), floor2=round(area(F2), 1), total=round(area(F1m) + area(F2), 1), limit=2000,
-             building_area_note='壁芯（床の板から自動）。外縁側（土足の軒下）は含めない。機械室を含む。')
+# 園庭の小屋（ユーザー、10-25、連携 20261025-1019-garden）：便所と倉庫は壁と屋根のある部屋なので延床に足す。コンポストの間（屋根だけ）は入れない
+a_hut_wc = (_gd['split_a'] - _gd['a'][0]) * (_gd['d'][1] - _gd['d'][0]) if all(k in _gd for k in ('a', 'split_a', 'd')) else 0.0
+a_hut_room = a_hut_wc + a_hut
+TOTAL = dict(floor1=round(area(F1m), 1), floor2=round(area(F2), 1), hut=round(a_hut_room, 1),
+             total=round(area(F1m) + area(F2) + a_hut_room, 1), limit=2000,
+             building_area_note='壁芯（床の板から自動）。外縁側（土足の軒下）は含めない。機械室を含む。園庭の小屋の便所と倉庫を含む（コンポストの間は屋根だけなので含めない）。')
 
 def stamp():
     h = subprocess.run(['git', '-C', os.path.dirname(os.path.abspath(IN)), 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True).stdout.strip()
@@ -197,7 +201,7 @@ with open(os.path.join(OUTD, 'sodachiya_areas.csv'), 'w', encoding='utf-8-sig', 
     for rw in ROWS: w.writerow([rw['group'], rw['room'], rw['required'], rw['planned'] if rw['planned'] is not None else '', rw['judge'], rw['parts'], rw['note']])
     w.writerow([]); w.writerow(['その他', '室', '', '計画（m²）'])
     for o in OTHER: w.writerow(['その他', o['room'], '', o['planned']])
-    w.writerow([]); w.writerow(['延床', '1 階', '', TOTAL['floor1']]); w.writerow(['延床', '2 階（西館）', '', TOTAL['floor2']])
+    w.writerow([]); w.writerow(['延床', '1 階', '', TOTAL['floor1']]); w.writerow(['延床', '2 階（西館）', '', TOTAL['floor2']]); w.writerow(['延床', '園庭の小屋（便所・倉庫）', '', TOTAL['hut']])
     w.writerow(['延床', '合計', '2,000 以内', TOTAL['total'], '○' if TOTAL['total'] <= 2000 else '×'])
 
 # ---------------------------------------------------------------- 表（A3 横）
@@ -230,7 +234,7 @@ T(cols[1], y - 2, '延床面積', 8.5)
 T(cols[2], y - 2, '2,000 以内', 7.5)
 T(cols[3] + 18, y - 2, f"{TOTAL['total']:,.1f}", 9, ha='right')
 T(cols[4] + 3, y - 2, '○' if TOTAL['total'] <= 2000 else '×', 9, ha='center')
-T(cols[5], y - 2, f"1 階 {TOTAL['floor1']:,.1f} ＋ 西館 2 階 {TOTAL['floor2']:,.1f}。{TOTAL['building_area_note']}", 6, color='0.25')
+T(cols[5], y - 2, f"1 階 {TOTAL['floor1']:,.1f} ＋ 西館 2 階 {TOTAL['floor2']:,.1f} ＋ 園庭の小屋 {TOTAL['hut']:,.1f}。{TOTAL['building_area_note']}", 6, color='0.25')
 T(15, 12, '判定：○「約」は要求の 9 割以上・「以上」は要求以上／△ 足りない（数え方を含めて検討）。空欄は要求が「適宜」など。　' + ST, 6, color='0.35')
 fig.savefig(os.path.join(PDFD, 'sodachiya_areas.pdf')); fig.savefig(os.path.join(OUTD, 'sodachiya_areas.png'), dpi=130)
 print('areas: total', TOTAL['total'], '→', OUTD)
