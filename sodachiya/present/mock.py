@@ -227,7 +227,7 @@ def frame(ax, no, theme, focus, order):
     ax.plot([M, W - M], [H - M - 16, H - M - 16], color=INK, lw=0.4)
     T(ax, M + 4, H - M - 11, "こどもたちの育ち舎", 6.5, bold=True)
     T(ax, M + 92, H - M - 11, f"{no}/5　{theme}", 5.0, bold=True)
-    T(ax, W - M - 4, H - M - 11, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")
+    T(ax, W - M - 4, M + 4, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")   # 名前などは右下（ユーザー、10-25）
     # 注記
     T(ax, M + 4, M - 6, f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", 3.2, NOTE)
 
@@ -1533,6 +1533,22 @@ for _old in ("01_配置図_1-200.pdf",):
     if os.path.exists(os.path.join(SZ, _old)):
         os.remove(os.path.join(SZ, _old))
     _st.pop(_old, None)
+# 00 枠（全ページ共通、ユーザー、10-25：Illustratorでシンボルにする）：外枠・上の帯の線・表題・ページ・サブタイトル・右下の名前。地は透明
+figF = plt.figure(figsize=(W / 25.4, H / 25.4))
+axF = figF.add_axes([0, 0, 1, 1]); axF.set_xlim(0, W); axF.set_ylim(0, H); axF.axis("off")
+axF.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK))
+axF.plot([M, W - M], [H - M - 16, H - M - 16], color=INK, lw=0.4)
+T(axF, M + 4, H - M - 11, "こどもたちの育ち舎", 6.5, bold=True)
+T(axF, M + 92, H - M - 11, "1/5", 5.0, bold=True)
+T(axF, M + 106, H - M - 11, "サブタイトル", 5.0, bold=True)
+T(axF, W - M - 4, M + 4, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")
+_fn0 = "00_枠.pdf"
+figF.savefig(os.path.join(SZ, _fn0), transparent=True)
+plt.close(figF)
+_hs0 = hashlib.md5(fitz.open(os.path.join(SZ, _fn0))[0].get_pixmap(dpi=40).samples).hexdigest()
+_o0 = _st.get(_fn0, {})
+_st[_fn0] = dict(hash=_hs0, updated=_o0.get("updated", _now) if _o0.get("hash") == _hs0 else _now)
+_rows.append(f"| 00 | `{_fn0}` | 枠（外枠・上の帯の線・表題・ページ・サブタイトル・右下の名前） | 全ページ | {W:.0f}×{H:.0f} | {_st[_fn0]['updated']} | シンボルにして5枚に。ページとサブタイトルは各ページで書き換える |")
 _rows.sort(key=lambda r_: r_.split("|")[1].strip())
 _ext = []
 for sh_ in range(1, 6):
