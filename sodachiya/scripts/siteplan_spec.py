@@ -40,6 +40,8 @@ def write(g):
     L("菜園", P(20.1, 8.45), "small", note="大豆・カブとダイコン・サツマイモ")
     L("お茶の縁台", W(20.1, -10.9), "small")
     L("かまど", P(25.0, 8.1), "small")
+    _tk = g["RAIN"]["S_TANK"]
+    L("雨水槽（地中）・手押しポンプ", P(sum(_tk["s"]) / 2, _tk["d"][1] + 0.5), "small", note="鎖樋→受け桝→地中の槽→菜園の脇のポンプ")
     L("板塀 h1.8", P(28.0, g["FENCE_D"] + 0.6), "small", along=ROAD)
     L("生垣 h1.2", P(10.0, g["HEDGE_D"] - 0.7), "small", along=ROAD)
     L("西館の南の入口", W(21.0, -2.0), "small")

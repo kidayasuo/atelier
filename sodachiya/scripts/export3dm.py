@@ -117,11 +117,12 @@ for q in [srect(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D), srect(*A.DEL
 for (p, rr) in [(P(25.0, 11.3), 1.9)]:                                         # 入江の木（公園の真ん中の木は無い、10-24）
     c = r.Circle(P3(p, 3.0), rr * MM).ToNurbsCurve(); m.Objects.AddCurve(c, attr("77_外構_樹木"))
     m.Objects.AddLine(P3(p, 0), P3(p, 3.0), attr("77_外構_樹木"))
-# 75・76 西館の西の軒の雨：南の雨水樽（円柱）と鎖樋（線）、北の雨庭（輪郭）と鎖樋
+# 75・76 西館の西の軒の雨：南の地中の雨水槽・受け桝・手押しポンプと鎖樋（線）、北の雨庭（輪郭）と鎖樋
 R = A.RAIN
-rb = R["S_BARREL"]; c = r.Circle(P3(P(rb[0], rb[1]), 0), rb[2] * MM).ToNurbsCurve()
-e = up(c, rb[3], True)
-if e: m.Objects.AddExtrusion(e, attr("75_外構_ひろばの家具"))
+tk = R["S_TANK"]; slab(srect(tk["s"][0], tk["s"][1], *tk["d"]), -tk["depth"], tk["depth"] - 0.3, "75_外構_ひろばの家具")   # 地中の雨水槽（上は土 0.3）
+ri = R["S_INLET"]; e = up(r.Circle(P3(P(ri[0], ri[1]), 0), ri[2] * MM).ToNurbsCurve(), 0.15, True)
+if e: m.Objects.AddExtrusion(e, attr("75_外構_ひろばの家具"))                    # 石の受け桝
+m.Objects.AddLine(P3(P(*R["S_PUMP"]), 0), P3(P(*R["S_PUMP"]), R["S_PUMP_H"]), attr("75_外構_ひろばの家具"))   # 手押しポンプ
 m.Objects.AddLine(P3(P(*R["S_CHAIN"]), 0.9), P3(P(*R["S_CHAIN"]), 2.6), attr("75_外構_ひろばの家具"))
 add_curve(srect(*R["N_GARDEN"]), "76_外構_舗装の区分", close=True)
 m.Objects.AddLine(P3(P(*R["N_DOWN"]), 0.1), P3(P(*R["N_DOWN"]), 4.0), attr("76_外構_舗装の区分"))
