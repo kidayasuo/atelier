@@ -215,25 +215,43 @@ def page():
     return fig, ax
 
 
+# Illustratorの割付（present/ai/、ユーザー、10-25夕）：ページの文字・箱・素材を部品として記録し、layout.json に書き出す
+AIREC = []          # dict(kind=…, fig=…, …)。紙のmm、左下が原点（書き出しで左上の原点に直す）
+AIMUTE = [0]        # 箱などが自分で記録するあいだ、中の T は記録しない
+
+
+def _airec(fig, **kw):
+    if AIMUTE[0] == 0:
+        AIREC.append(dict(fig=fig, **kw))
+
+
 def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **kw):
     """sizeは文字の高さ（mm）"""
     pt = size / 0.3528 / 0.72
     ax.text(x, y, s, fontsize=pt, color=color, ha=ha, va=va,
             fontproperties=FontProperties(fname=FONTB if bold else FONT, size=pt), **kw)
+    if s:
+        _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va)
 
 
 def frame(ax, no, theme, focus, order):
-    ax.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK))
-    ax.plot([M, W - M], [H - M - 16, H - M - 16], color=INK, lw=0.4)
+    AIMUTE[0] += 1
+    ax.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK, gid="aipart"))
+    ax.plot([M, W - M], [H - M - 16, H - M - 16], color=INK, lw=0.4, gid="aipart")
     T(ax, M + 4, H - M - 11, "こどもたちの育ち舎", 6.5, bold=True)
     T(ax, M + 92, H - M - 11, f"{no}/5　{theme}", 5.0, bold=True)
     T(ax, W - M - 4, M + 4, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")   # 名前などは右下（ユーザー、10-25）
     # 注記
     T(ax, M + 4, M - 6, f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", 3.2, NOTE)
+    AIMUTE[0] -= 1
+    _airec(ax.figure, kind="frame")
+    _airec(ax.figure, kind="text", id="pagetitle", name="ページとサブタイトル", x=M + 92, y=H - M - 11, s=f"{no}/5　{theme}", size=5.0, color=INK, bold=True, ha="left", va="baseline")
+    _airec(ax.figure, kind="text", id="note.footer", name="割付の注記", x=M + 4, y=M - 6, s=f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", size=3.2, color=NOTE, bold=False, ha="left", va="baseline")
 
 
 def box(ax, x, y, w, h, label, sub="", color=NOTE, fill="#F4F1FF"):
-    ax.add_patch(Rectangle((x, y), w, h, fc=fill, ec=color, lw=0.6, ls=(0, (3, 2))))
+    ax.add_patch(Rectangle((x, y), w, h, fc=fill, ec=color, lw=0.6, ls=(0, (3, 2)), gid="aipart"))
+    _airec(ax.figure, kind="box", id=f"box.{label}", name=f"枠：{label}", x=x, y=y, w=w, h=h, fill=fill, stroke=color, lw=0.6, dash=[3, 2])
     T(ax, x + w / 2, y + h / 2 + 2.5, label, 3.6, color, bold=True, ha="center", va="center")
     if sub:
         for i, s in enumerate(sub.split("\n")):
@@ -525,14 +543,20 @@ def topline(sheet, p_pt, p_box, color, via=()):
 
 def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2):
     """説明の箱（見出し＋本文、左寄せ）"""
-    ax.add_patch(Rectangle((x, y), w, h, fc=fill, ec=color, lw=0.5))
+    ax.add_patch(Rectangle((x, y), w, h, fc=fill, ec=color, lw=0.5, gid="aipart"))
+    _airec(ax.figure, kind="box", id=f"ibox.{head}", name=f"箱：{head}", x=x, y=y, w=w, h=h, fill=fill, stroke=color, lw=0.5, dash=None)
+    _airec(ax.figure, kind="text", id=f"ibox.{head}.head", name=f"見出し：{head}", x=x + 3, y=y + h - 7, s=head, size=3.8, color=color, bold=True, ha="left", va="baseline")
+    _airec(ax.figure, kind="area", id=f"ibox.{head}.body", name=f"本文：{head}", x=x + 3, y=y + h - 14, w=w - 6, h=h - 16,
+           s="\n".join(lines), size=size, color=INK, bold=False, leading=1.5, para_space=1.0)
+    AIMUTE[0] += 1
     T(ax, x + 3, y + h - 7, head, 3.8, color, bold=True)
     yy = y + h - 14
     for ln_ in lines:
         for s_ in jwrap(ln_, (w - 6) / (size / 0.72)):
             T(ax, x + 3, yy, s_, size)
-            yy -= size / 0.72 + 1.2
-        yy -= 1.5
+            yy -= size / 0.72 * 1.5                 # 行送りは文字の1.5倍（ユーザー、10-25夕）
+        yy -= size / 0.72                       # 段落のあいだは1行分（ユーザー、10-25夕）
+    AIMUTE[0] -= 1
    # (src_pdf, page, clip_mm(x0,y0,x1,y1)|None, dest_mm(x,y,w,h)下原点, keep_ratio)
 SEC = os.path.join(ROOT, "drawings", "sodachiya_sections_1-100.pdf")
 CLIP_A = (25, 38, 841, 201)
@@ -592,11 +616,17 @@ def jwrap(t, width=40.0):
 
 
 _y = top - 28
+_airec(fig, kind="area", id="concept", name="設計趣旨", x=M + 6, y=_y, w=40 * 3.6 / 0.72 + 1, h=0, s="\n".join(p_.lstrip("　 ") for p_ in _paras),
+       size=3.6, color=INK, bold=False, leading=1.5, para_space=1.0)
+_ystart = _y
+AIMUTE[0] += 1
 for _p in _paras:
-    for s in jwrap("　" + _p, 40):     # 段落の頭は全角1字下げ
+    for s in jwrap(_p.lstrip("　 "), 40):     # 一字下げしない（ユーザー、10-25夕）
         T(ax, M + 6, _y, s, 3.6)
-        _y -= 6.0
-    _y -= 2.0                         # 段落のあいだ
+        _y -= 3.6 / 0.72 * 1.5        # 行送りは文字の1.5倍（ユーザー、10-25夕）
+    _y -= 3.6 / 0.72                  # 段落のあいだは1行分（ユーザー、10-25夕）
+AIMUTE[0] -= 1
+AIREC[-1]["h"] = _ystart - _y + 6
 dimnote(ax, M + 6, _y + 1, f"設計趣旨 約{len(concept.replace(' ', ''))}字（課題は300字程度）。文字3.6 mmなら1 m離れて読める")
 # 配置図1/200と小さな地図の共通（高野川の辺を下に水平：川向こうから見る向き、ユーザー。園庭の図と同じ回し方）
 from shapely import affinity
@@ -1506,8 +1536,10 @@ except Exception:
     _st = {}
 _now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M")
 _rows = []
+SOZFN, SITEMAP = {}, {}
 for key, name, sh_, (x, y, w, h), note in SOZAI:
     fn = f"{key}_{re.sub(r'[　 ]+', '_', name.split('（')[0].strip()).replace('/', '-').replace(':', '')}.pdf"
+    SOZFN[key] = fn
     nd = fitz.open()
     pg_ = nd.new_page(width=w * MM, height=h * MM)
     pg_.show_pdf_page(pg_.rect, doc_clean, sh_ - 1, clip=fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM))
@@ -1520,6 +1552,7 @@ for key, name, sh_, (x, y, w, h), note in SOZAI:
 for key, name, gr_nm, note in SOZAI_FILES:                    # 配置図の三つ（線・色・文字、同じ大きさ・同じ位置）
     gr = {"線": "l", "色": "c", "文字": "t"}[gr_nm]
     fn = f"{key}_配置図_1-200_{gr_nm}.pdf"
+    SITEMAP[_SITE_PDF[gr]] = fn
     nd = fitz.open()
     pg_ = nd.new_page(width=sw * MM, height=sh * MM)
     pg_.show_pdf_page(pg_.rect, fitz.open(_SITE_PDF[gr]), 0, clip=fitz.Rect(_SCLIP[0] * MM, _SCLIP[1] * MM, _SCLIP[2] * MM, _SCLIP[3] * MM))
@@ -1564,6 +1597,11 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
     "| 番号 | ファイル | 中身 | 見本の位置 | 大きさ（mm） | 最後に変わった | 注 |", "|---|---|---|---|---|---|---|", *_rows, "",
     "## ほかの係の図（元のPDFをそのまま使う）", "",
     "| 見本の位置 | ファイル（`sodachiya/`から） | 使う範囲（元のPDFのmm、左上から） | 倍率 |", "|---|---|---|---|", *_ext, ""]))
+
+# Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
+import ai_layout
+ai_layout.write(dict(figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, embeds=embeds, topl=TOPL, topt=TOPT,
+                     W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
 
 # 壁に貼ったときの全体（3枚＋2枚）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る
 fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4))

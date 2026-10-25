@@ -1,0 +1,214 @@
+// 育ち舎のプレゼン：Illustratorの割付スクリプトの共通部分（build / export / update が #include する）
+// ExtendScript（ES3）で書く：let・const・アロー関数・JSONオブジェクトは使わない。
+var SDY = {};
+SDY.K = 72 / 25.4;                                   // mm → pt
+SDY.here = File($.fileName).parent;                  // present/ai
+SDY.root = SDY.here.parent.parent;                   // sodachiya
+
+SDY.readText = function (f) {
+    f.encoding = "UTF-8";
+    if (!f.open("r")) { throw new Error("開けない: " + f.fsName); }
+    var t = f.read(); f.close();
+    if (t.charCodeAt(0) === 0xFEFF) { t = t.substring(1); }
+    return t;
+};
+SDY.readJSON = function (f) { return eval("(" + SDY.readText(f) + ")"); };   // 自分たちのファイルだけを読む
+SDY.writeText = function (f, t) {
+    f.encoding = "UTF-8"; f.lineFeed = "Unix";
+    if (!f.open("w")) { throw new Error("書けない: " + f.fsName); }
+    f.write(t); f.close();
+};
+SDY.q = function (s) {
+    var o = '"', i, c, h;
+    for (i = 0; i < s.length; i++) {
+        c = s.charAt(i); h = s.charCodeAt(i);
+        if (c === '"') { o += '\\"'; } else if (c === "\\") { o += "\\\\"; }
+        else if (c === "\n") { o += "\\n"; } else if (c === "\r") { o += "\\n"; } else if (c === "\t") { o += "\\t"; }
+        else if (h < 32 || h === 0x2028 || h === 0x2029) { o += "\\u" + ("0000" + h.toString(16)).slice(-4); }
+        else { o += c; }
+    }
+    return o + '"';
+};
+SDY.stringify = function (v, ind) {
+    ind = ind || "";
+    var t = typeof v, out, k, i, a;
+    if (v === null || v === undefined) { return "null"; }
+    if (t === "number") { return isFinite(v) ? String(Math.round(v * 100) / 100) : "null"; }
+    if (t === "boolean") { return v ? "true" : "false"; }
+    if (t === "string") { return SDY.q(v); }
+    if (v instanceof Array) {
+        a = [];
+        for (i = 0; i < v.length; i++) { a.push(SDY.stringify(v[i], ind + " ")); }
+        return "[" + a.join(", ") + "]";
+    }
+    a = [];
+    for (k in v) { if (v.hasOwnProperty(k)) { a.push(ind + " " + SDY.q(k) + ": " + SDY.stringify(v[k], ind + " ")); } }
+    return "{\n" + a.join(",\n") + "\n" + ind + "}";
+};
+// 文字の印（mock.py の ai_layout.djb2 と同じ）：書き換えたかどうかを見るため
+SDY.norm = function (s) { s = String(s).replace(/\r\n?/g, "\n").replace(/\u0003/g, "\n"); return s.replace(/\n+$/, ""); };
+SDY.hash = function (s) {
+    s = SDY.norm(s);
+    var h = 5381, i;
+    for (i = 0; i < s.length; i++) { h = (h * 33 + s.charCodeAt(i)) % 4294967296; }
+    return h.toString(16);
+};
+SDY.rgb = function (hex) {
+    var c = new RGBColor();
+    hex = String(hex || "#222222").replace("#", "");
+    c.red = parseInt(hex.substr(0, 2), 16); c.green = parseInt(hex.substr(2, 2), 16); c.blue = parseInt(hex.substr(4, 2), 16);
+    return c;
+};
+SDY.fontCache = {};
+SDY.font = function (w) {
+    if (SDY.fontCache[w] !== undefined) { return SDY.fontCache[w]; }
+    var names = (w === "W6") ? ["HiraginoSans-W6", "HiraKakuProN-W6", "HiraKakuPro-W6", "HiraginoSans-W5"]
+                              : ["HiraginoSans-W3", "HiraKakuProN-W3", "HiraKakuPro-W3", "HiraginoSans-W2"];
+    var i, f = null;
+    for (i = 0; i < names.length && !f; i++) { try { f = app.textFonts.getByName(names[i]); } catch (e) { f = null; } }
+    SDY.fontCache[w] = f;
+    return f;
+};
+SDY.layer = function (doc, name) {
+    try { return doc.layers.getByName(name); } catch (e) { var l = doc.layers.add(); l.name = name; return l; }
+};
+SDY.ab = function (doc, i) { return doc.artboards[i].artboardRect; };            // [左, 上, 右, 下]（pt、ドキュメント座標、yは上へ）
+SDY.P = function (doc, i, x, y) { var r = SDY.ab(doc, i); return [r[0] + x * SDY.K, r[1] - y * SDY.K]; };
+SDY.abOf = function (doc, b) {                                                     // 物の外形 b から、どのアートボードか
+    var cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, i, r;
+    for (i = 0; i < doc.artboards.length; i++) {
+        r = doc.artboards[i].artboardRect;
+        if (cx >= r[0] && cx <= r[2] && cy <= r[1] && cy >= r[3]) { return i; }
+    }
+    return -1;
+};
+SDY.tag = function (it, p) {
+    it.name = p.name || p.id;
+    it.note = "sdy:" + p.kind + "|" + p.id + "|" + (p.mock_hash || "");
+};
+SDY.parseTag = function (it) {
+    var n = "";
+    try { n = it.note; } catch (e) { return null; }
+    if (!n || n.indexOf("sdy:") !== 0) { return null; }
+    var a = n.substring(4).split("|");
+    return { kind: a[0], id: a[1], mock_hash: a[2] || "" };
+};
+SDY.styleText = function (tf, p) {
+    var ca = tf.textRange.characterAttributes, pa = tf.textRange.paragraphAttributes, f = SDY.font(p.font);
+    ca.size = p.size_pt;
+    if (f) { ca.textFont = f; }
+    ca.fillColor = SDY.rgb(p.color);
+    // 段落は両端揃え・最終行は左（ユーザー 10-25夕）、一字下げしない、段落のあいだは1行分、行送り＝文字の1.5倍
+    if (p.justify === "full_last_left") { pa.justification = Justification.FULLJUSTIFYLASTLINELEFT; }
+    else { pa.justification = (p.align === "center") ? Justification.CENTER : ((p.align === "right") ? Justification.RIGHT : Justification.LEFT); }
+    try { pa.firstLineIndent = 0; } catch (e) {}
+    var lead = p.leading || 1.5;
+    ca.autoLeading = false;
+    ca.leading = p.size_pt * lead;
+    if (p.para_space) { pa.spaceAfter = p.size_pt * p.para_space; }
+};
+SDY.missing = [];
+SDY.placeLink = function (doc, lay, i, p) {
+    var f = File(SDY.root.fsName + "/" + p.file);
+    if (!f.exists) { SDY.missing.push(p.file); return null; }
+    app.preferences.PDFFileOptions.pageToOpen = p.page || 1;
+    try { app.preferences.PDFFileOptions.pDFCropToBox = PDFBoxType.PDFMEDIABOX; } catch (e) {}
+    var it = lay.placedItems.add();
+    it.file = f;
+    var tl = SDY.P(doc, i, p.x, p.y), s = p.scale || 1, K = SDY.K;
+    if (!p.clip) {
+        it.width = p.w * K; it.height = p.h * K;
+        it.position = tl;
+        SDY.tag(it, p);
+        return it;
+    }
+    it.width = it.width * s; it.height = it.height * s;                 // 元のPDFの全体を倍率どおりに
+    it.position = [tl[0] - p.clip[0] * K * s, tl[1] + p.clip[1] * K * s];
+    var g = lay.groupItems.add();
+    it.move(g, ElementPlacement.PLACEATEND);
+    var r = g.pathItems.rectangle(tl[1], tl[0], p.w * K, p.h * K);     // いちばん上の四角が切り抜きの形
+    r.filled = false; r.stroked = false;
+    g.clipped = true;
+    SDY.tag(g, p);
+    return g;
+};
+SDY.makeText = function (doc, lay, i, p) {
+    var tf;
+    if (p.kind === "area") {
+        var tl = SDY.P(doc, i, p.x, p.y);
+        var r = lay.pathItems.rectangle(tl[1], tl[0], p.w * SDY.K, p.h * SDY.K);
+        tf = lay.textFrames.areaText(r);
+    } else {
+        tf = lay.textFrames.pointText(SDY.P(doc, i, p.x, p.y));
+    }
+    tf.contents = String(p.s).replace(/\n/g, "\r");
+    SDY.styleText(tf, p);
+    SDY.tag(tf, p);
+    return tf;
+};
+SDY.makeBox = function (doc, lay, i, p) {
+    var tl = SDY.P(doc, i, p.x, p.y);
+    var r = lay.pathItems.rectangle(tl[1], tl[0], p.w * SDY.K, p.h * SDY.K);
+    r.filled = !!p.fill; if (p.fill) { r.fillColor = SDY.rgb(p.fill); }
+    r.stroked = !!p.stroke; if (p.stroke) { r.strokeColor = SDY.rgb(p.stroke); r.strokeWidth = p.lw || 0.5; }
+    if (p.dash) { r.strokeDashes = [p.dash[0] * (p.lw || 0.5), p.dash[1] * (p.lw || 0.5)]; }
+    SDY.tag(r, p);
+    return r;
+};
+SDY.makeLine = function (doc, lay, i, p) {
+    var g = lay.groupItems.add(), pts = [], k, K = SDY.K;
+    for (k = 0; k < p.pts.length; k++) { pts.push(SDY.P(doc, i, p.pts[k][0], p.pts[k][1])); }
+    var pi = g.pathItems.add();
+    pi.setEntirePath(pts);
+    pi.filled = false; pi.stroked = true; pi.strokeColor = SDY.rgb(p.color); pi.strokeWidth = p.lw || 0.6;
+    if (p.dot) {
+        var e = pts[pts.length - 1], rr = p.dot * K;
+        var d = g.pathItems.ellipse(e[1] + rr, e[0] - rr, 2 * rr, 2 * rr);
+        d.stroked = false; d.filled = true; d.fillColor = SDY.rgb(p.color);
+    }
+    SDY.tag(g, p);
+    return g;
+};
+SDY.layerOf = function (doc, p) { return SDY.layer(doc, p.layer || "説明"); };
+SDY.make = function (doc, i, p) {
+    var lay = SDY.layerOf(doc, p);
+    if (p.kind === "link") { return SDY.placeLink(doc, lay, i, p); }
+    if (p.kind === "text" || p.kind === "area") { return SDY.makeText(doc, lay, i, p); }
+    if (p.kind === "box") { return SDY.makeBox(doc, lay, i, p); }
+    if (p.kind === "line") { return SDY.makeLine(doc, lay, i, p); }
+    return null;
+};
+// 枠：外枠・上の帯の線・表題・右下の名前を一つのシンボル「枠」に（全ページ共通）
+SDY.makeFrame = function (doc, L) {
+    var F = L.frame, K = SDY.K, W = L.artboard[0], H = L.artboard[1], lay = SDY.layer(doc, "枠"), i;
+    var g = lay.groupItems.add();
+    var o = SDY.P(doc, 0, F.margin, F.margin);
+    var r = g.pathItems.rectangle(o[1], o[0], (W - 2 * F.margin) * K, (H - 2 * F.margin) * K);
+    r.filled = false; r.stroked = true; r.strokeWidth = F.lw_rect; r.strokeColor = SDY.rgb(F.color);
+    var ln = g.pathItems.add();
+    ln.setEntirePath([SDY.P(doc, 0, F.margin, F.margin + F.header), SDY.P(doc, 0, W - F.margin, F.margin + F.header)]);
+    ln.filled = false; ln.stroked = true; ln.strokeWidth = F.lw_header; ln.strokeColor = SDY.rgb(F.color);
+    var t1 = g.textFrames.pointText(SDY.P(doc, 0, F.title.x, F.title.y));
+    t1.contents = F.title.s; SDY.styleText(t1, { size_pt: F.title.size_pt, font: F.title.font, color: F.color, align: "left" });
+    var t2 = g.textFrames.pointText(SDY.P(doc, 0, F.footer.x, F.footer.y));
+    t2.contents = F.footer.s; SDY.styleText(t2, { size_pt: F.footer.size_pt, font: F.footer.font, color: F.color, align: "right" });
+    var gb = g.geometricBounds, a0 = SDY.ab(doc, 0), dx = gb[0] - a0[0], dy = gb[1] - a0[1];
+    var sym = doc.symbols.add(g);
+    sym.name = "枠";
+    for (i = 0; i < L.pages.length; i++) {
+        if (!L.pages[i].frame) { continue; }
+        var si = lay.symbolItems.add(sym), sb = si.geometricBounds, ai = SDY.ab(doc, i);
+        si.translate(ai[0] + dx - sb[0], ai[1] + dy - sb[1]);
+        si.name = "枠";
+    }
+    g.remove();
+};
+SDY.findByTag = function (doc) {                    // id → 物
+    var map = {}, i, it, t;
+    for (i = 0; i < doc.pageItems.length; i++) {
+        it = doc.pageItems[i];
+        t = SDY.parseTag(it);
+        if (t) { map[t.id] = it; }
+    }
+    return map;
+};
