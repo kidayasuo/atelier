@@ -15,7 +15,7 @@
 | 7 | 遊戯室 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_play.py` |
 | 7p | 遊戯室の取り込み | `model/build/south/add_play_import.py`・`model/sodachiya_play_layers.3dm` |
 | 7b | ホールの林 | `data/forest.json`・`model/build/south/add_hall.py` |
-| 7c | 納まり | `data/approachA.json`・`data/wnew.pkl`・`model/build/south/extedit.py`・`model/build/south/fix_details.py`・`model/build/south/solids.py`・`archive/handoff_1018/t/`の1ファイル |
+| 7c | 納まり | `data/approachA.json`・`data/wnew.pkl`・`model/build/south/extedit.py`・`model/build/south/fix_details.py`・`model/build/south/solids.py` |
 | 7c2 | 2階の間仕切り | `model/build/south/add_inner.py`・`model/build/south/draw100.py` |
 | 7c3 | 間仕切りの構法 | `model/build/south/draw100.py`・`model/build/south/walls_spec.py` |
 | 7d | 壁の端をそろえる | `model/build/south/join_walls.py` |
@@ -25,5 +25,5 @@
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
 | 10 | Rhino版 | `data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
 | 12 | 面積表 | `data/garden.json`・`data/minami.json`・`model/build/south/areas.py`・`model/sodachiya_exact_mesh.3dm` |
-| 11 | 図（平面・断面・立面、部屋の面積は面積表から） | `data/garden.json`・`model/build/south/draw100.py`・`model/drawings/sodachiya_areas.json`・`model/sodachiya_exact_mesh.3dm`・`present/kadai_map.json` |
+| 11 | 図（平面・断面・立面、部屋の面積は面積表から） | `data/garden.json`・`data/siteplan_approach.json`・`model/build/south/draw100.py`・`model/drawings/sodachiya_areas.json`・`model/sodachiya_exact_mesh.3dm`・`present/kadai_map.json` |
 | 13 | 干渉の一覧 | `model/build/south/clash.py`・`model/sodachiya_exact_mesh.3dm` |
