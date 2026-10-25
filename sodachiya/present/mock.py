@@ -7,7 +7,7 @@
 
 python sodachiya/present/mock.py  →  sodachiya/presentation.pdf（5枚）／ present/out/ の全体の画像
 """
-import os, subprocess, sys, json
+import os, re, subprocess, sys, json
 import numpy as np
 import rhino3dm as r
 import matplotlib
@@ -225,8 +225,20 @@ def _airec(fig, **kw):
         AIREC.append(dict(fig=fig, **kw))
 
 
+SITE_LIVE = [None]   # 配置図の中の文字・注の線・突き出た木を、Illustratorで一つずつ動かせる部品にする（ユーザー、10-25夕）。その間の配置図の軸
+SITEPARTS = []       # dict(kind=text|line|circle, …)。紙のmm、左下が原点。1枚目に貼った図の上に描き、layout.json の部品に
+
+
+def _sid(s):
+    return re.sub(r"[\s　/\\|:（）()、。・]+", "", s)[:16] or "x"
+
+
 def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **kw):
     """sizeは文字の高さ（mm）"""
+    if SITE_LIVE[0] is not None and ax is SITE_LIVE[0] and s:
+        SITEPARTS.append(dict(kind="text", x=x, y=y, s=s, size=size, color=matplotlib.colors.to_hex(color), bold=bold, ha=ha, va=va, group=kw.get("group")))
+        return
+    kw.pop("group", None)
     pt = size / 0.3528 / 0.72
     ax.text(x, y, s, fontsize=pt, color=color, ha=ha, va=va,
             fontproperties=FontProperties(fname=FONTB if bold else FONT, size=pt), **kw)
@@ -661,11 +673,16 @@ def lab(ax, xfun, P3, text, dxy=(0, 0), size=2.6, color=INK, ha="left", lead=Tru
     """3dmの点P3に注記（紙でdxyずらし、引き出し線）"""
     q = xfun(R3(P3))[0]
     t = q + np.array(dxy)
+    live = SITE_LIVE[0] is not None and ax is SITE_LIVE[0]
+    grp = f"site.g.{_sid(text)}" if live else None
     if lead and (abs(dxy[0]) + abs(dxy[1]) > 0):
-        ax.plot([q[0], t[0]], [q[1], t[1]], color=color, lw=0.25, zorder=40)
-        ax.plot([q[0]], [q[1]], "o", ms=1.2, color=color, zorder=40)
+        if live:
+            SITEPARTS.append(dict(kind="line", pts=[tuple(t), tuple(q)], color=matplotlib.colors.to_hex(color), lw=0.25, dot=0.25, group=grp, name=f"注の線　{text[:16]}"))
+        else:
+            ax.plot([q[0], t[0]], [q[1], t[1]], color=color, lw=0.25, zorder=40)
+            ax.plot([q[0]], [q[1]], "o", ms=1.2, color=color, zorder=40)
     for k_, s_ in enumerate(text.split("\n")):
-        T(ax, t[0] + (1 if ha == "left" else -1), t[1] + 1 - k_ * (size + 1.2), s_, size, color, ha=ha, bold=bold)
+        T(ax, t[0] + (1 if ha == "left" else -1), t[1] + 1 - k_ * (size + 1.2), s_, size, color, ha=ha, bold=bold, group=grp)
 
 
 # 周囲の自然環境との関係（青）と地域環境への配慮（茶）。配置図を真ん中に置き、左右の箱から引き出し線で点へ（ユーザー、10-24夜）
@@ -896,7 +913,7 @@ def _U(pref):
     return unary_union(gs_).buffer(0) if gs_ else None
 R10, R20, R35 = _U("10_"), _U("20_"), _U("35_")
 SOL, STR_ = unary_union([x for x in (_U("10p"), _U("20p")) if x is not None]), unary_union([x for x in (_U("10t"), _U("20t")) if x is not None])
-LIDS = unary_union([x for x in (_U("50a"), _U("28_")) if x is not None])
+LIDS = unary_union([x for x in (_U("50a"), _U("28_")) if x is not None]).buffer(0.05).buffer(-0.05)   # 二枚の蓋の継ぎ目の細い隙間を閉じる
 LOUV = unary_union([x for x in (_U("50c"), _U("30_")) if x is not None])
 # 園庭の小屋：屋根（「小屋の屋根（ひとつの屋根、南西に軒 1.5）」、高さ2.5より上）だけが見える。下のコンポストの枠は屋根の外の分
 _HUT = unary_union([g_ for g_ in (_sh(o) for o in _rp_("93_") if o["V"][:, 2].min() > 2.0) if g_ is not None and g_.geom_type.endswith("Polygon")])
@@ -931,8 +948,10 @@ for L_, fc_ in (("62_", "#E2ECD4"), ("63_", "#EEE9DF"), ("64_", "#E8E1D4"), ("67
     for o in _rp_(L_):
         g_ = _sh(o)
         SF(g_, fc_, z=0.7); SL(g_, "#8C8C80", 0.12, z=4)
-for o in _rp_("91_"):                                    # 等高線
-    SL(_sh(o), "#A9B79A", 0.08, z=4)
+for o in _rp_("91_"):                                    # 等高線（0.2 mごと。築山がはっきり見えるように、0.4 mごとを太く。ユーザー 10-25夕）
+    _zc = float(np.mean(o["V"][:, 2])) if len(o["V"]) else 0.0
+    _ix = abs(((_zc - 0.1) / 0.4) - round((_zc - 0.1) / 0.4)) < 0.05
+    SL(_sh(o), "#5F8049" if _ix else "#7E9A68", 0.5 if _ix else 0.3, z=4.95)
 for o in _rp_("92_"):                                    # 水（小川・雨の川・噴水・水浴び場・溝）
     g_ = _sh(o)
     if g_ is not None:
@@ -959,11 +978,63 @@ for L_ in ("94_", "77_", "79_"):                         # 木：樹冠の円（
             SF(g_.buffer(0.25), "#6E5A44", z=4.6)
         else:
             SL(g_, "#7D9468", 0.1, z=4.5)
-for L_, ec_, lw_ in (("60_", "#444444", 0.3), ("70_", "#555555", 0.3), ("72_", "#555555", 0.2), ("73_", "#777777", 0.15),
+for L_, ec_, lw_ in (("60_", "#444444", 0.3), ("70_", "#555555", 0.3), ("72_", "#555555", 0.2),
                      ("74_", "#666666", 0.2), ("75_", "#777777", 0.15), ("76_", "#888888", 0.15), ("78_", "#888888", 0.15),
-                     ("95_", "#8C8C80", 0.15), ("96_", "#8C8C80", 0.15), ("97_", "#6E7E5E", 0.2), ("66_", "#444444", 0.25)):
+                     ("95_", "#8C8C80", 0.15), ("96_", "#8C8C80", 0.15), ("97_", "#6E7E5E", 0.2)):
     for o in _rp_(L_):
         SL(_sh(o), ec_, lw_, z=4.8)
+# ムベのアーチ（73：小径の上のアーチの棚）。弧の材を道を横切る線に、両の縁の線、柱は点（ユーザー 10-25夕：わかるように）
+for o in _rp_("73_"):
+    g_ = _sh(o)
+    if g_ is None:
+        continue
+    if o["kind"] == "curve":
+        SL(g_, "#7A5530", 0.4, z=5.2, hide=False)
+    else:
+        c_ = np.array(g_.centroid.coords[0])
+        SF(Point(c_).buffer(0.12), "#5A3E22", z=5.3); SL(Point(c_).buffer(0.12), "#5A3E22", 0.1, z=5.3, hide=False)
+# 公園からの入口（66：木戸と背くらべの柱）。扉は太く、開く向きの弧
+for o in _rp_("66_"):
+    g_ = _sh(o)
+    if g_ is None:
+        continue
+    SF(g_, "#4A3A2A", z=5.4); SL(g_, "#2E241A", 0.5, z=5.4, hide=False)
+    if o["kind"] == "mesh":
+        _mr = np.array(g_.minimum_rotated_rectangle.exterior.coords)[:4]
+        _ed = [(_mr[k_], _mr[(k_ + 1) % 4]) for k_ in range(4)]
+        _a, _b = max(_ed, key=lambda e_: np.linalg.norm(e_[1] - e_[0]))      # 扉の長い辺：吊元 _a、先 _b
+        _rr_ = np.linalg.norm(_b - _a); _t0 = np.arctan2(*(_b - _a)[::-1])
+        _arc = LineString([_a + _rr_ * np.array([np.cos(_t0 + d_), np.sin(_t0 + d_)]) for d_ in np.linspace(0, np.pi / 2, 12)])
+        SL(_arc, "#2E241A", 0.2, z=5.4, ls=(0, (1.5, 1.0)), hide=False)
+# 駐車場（74の車室を囲む舗装、道路の側の敷地の境まで）を灰色に。バンプは横断歩道のような縞（ユーザー 10-25夕）
+_stalls = [x for x in (_poly_of(o) for o in _rp_("74_") if o["kind"] == "curve") if x is not None and x.geom_type == "Polygon" and 11.0 < x.area < 14.5]
+_SITEP = Polygon(R3(np.array([SITE_C[k] for k in ("N", "E", "S", "SW", "NW")])))
+if _stalls:
+    _A_ = R3(SITE_C["SW"])[0]; _B_ = R3(SITE_C["NW"])[0]; _tW = (_B_ - _A_) / np.linalg.norm(_B_ - _A_)
+    _pts = np.vstack([np.array(x.exterior.coords) for x in _stalls])
+    _prj = np.array([_A_ + ((p_ - _A_) @ _tW) * _tW for p_ in _pts])
+    _PARK = MultiPoint([tuple(p_) for p_ in np.vstack([_pts, _prj])]).convex_hull.intersection(_SITEP.buffer(0.01))
+    SF(_PARK, "#D8D8D4", z=0.75)
+for o in _rp_("74_"):
+    if o["kind"] != "solid":
+        continue
+    g_ = _sh(o)
+    if g_ is None or g_.area < 1.0:
+        continue
+    _mr = np.array(g_.minimum_rotated_rectangle.exterior.coords)[:4]
+    _e1, _e2 = _mr[1] - _mr[0], _mr[2] - _mr[1]
+    if np.linalg.norm(_e1) < np.linalg.norm(_e2):
+        _o_, _L_, _S_ = _mr[0], _e2, _e1                     # 長い辺 _L_ に沿って縞、縞は短い辺 _S_ の向き
+    else:
+        _o_ = _mr[0]; _L_, _S_ = _e1, _e2
+    SF(g_, "#8E8E8A", z=0.8)
+    _n_ = int(np.linalg.norm(_L_) / 0.45)
+    for k_ in range(_n_):
+        if k_ % 2:
+            continue
+        a0_, a1_ = k_ / _n_, (k_ + 1) / _n_
+        SF(Polygon([_o_ + a0_ * _L_, _o_ + a1_ * _L_, _o_ + a1_ * _L_ + _S_, _o_ + a0_ * _L_ + _S_]), "#F4F4F2", z=0.81)
+    SL(g_, "#666666", 0.15, z=4.8)
 for o in _rp_("00_"):                                    # 敷地の境（一点鎖線）
     if o["kind"] == "curve":
         SL(_sh(o), INK, 0.5, z=12, ls=(0, (6, 2, 1, 2)))
@@ -971,15 +1042,50 @@ SF(R10, "#E7E4DE", z=6); SF(R35, "#E7E4DE", z=6); SF(R20, "#E2DED7", z=6.2)
 SF(SOL, "#4B525A", z=6.5)                                 # 屋根材型の太陽光
 SF(STR_, "#F8F6EF", z=6.6)                                # 光の筋（乳白ガラス）
 SF(LIDS, "#E6EFF3", z=6.7); SF(SMALLR, "#DCD6CB", z=6.2)
-SL(SOL, "#2F3338", 0.1, z=13, hide=False); SL(STR_, "#9A958A", 0.1, z=13, hide=False); SL(LOUV, "#B5B5B5", 0.06, z=13, hide=False); SL(LIDS, "#7A8A92", 0.15, z=13, hide=False)
-SL(R10, "#555555", 0.15, z=13.5, hide=False); SL(R20, "#555555", 0.15, z=13.5, hide=False)
-SL(ROOFALL, INK, 0.55, z=14, hide=False)                              # 建物の外形（太く）
+# 越屋根の蓋（50a・28、屋根より高い）は光の筋・太陽光・屋根の縁の上にかかる：蓋の下になる線は消す（ユーザー 10-25夕：筋が蓋の上に見えた。
+# 色の層では蓋の塗りが上だが、線の層は色の層の上に重なるので、線を蓋で切らないと筋の縁が蓋の上に出る）
+_LID = LIDS.buffer(0.01) if LIDS is not None and not LIDS.is_empty else None
+_cut = (lambda g_: g_.boundary.difference(_LID) if _LID is not None else g_) if True else None
+SL(_cut(SOL), "#2F3338", 0.1, z=13, hide=False); SL(_cut(STR_), "#9A958A", 0.1, z=13, hide=False); SL(LOUV, "#B5B5B5", 0.06, z=13, hide=False); SL(LIDS, "#7A8A92", 0.15, z=13, hide=False)
+SL(_cut(R10), "#555555", 0.15, z=13.5, hide=False); SL(_cut(R20), "#555555", 0.15, z=13.5, hide=False)
+SL(unary_union([ROOFALL, LIDS]) if LIDS is not None else ROOFALL, INK, 0.55, z=14, hide=False)   # 建物の外形（太く、蓋の出も含む）
 SL(SMALLR, "#444444", 0.3, z=14, hide=False)
 _GR = affinity.rotate(GARDEN_X, GJ["VIEW_ROT"]["deg"], origin=(0, 0)).bounds          # 4枚目で園庭の図（garden01）を切り抜く大きさ
 GVX0, GVY0, GVX1, GVY1 = _GR[0] - 6.0, _GR[1] - 6.0, _GR[2] + 3.0, _GR[3] + 3.0
 _gw, _gh = (GVX1 - GVX0) * 5, (GVY1 - GVY0) * 5
 # 雨落ち（本館の軒の下の石の帯。3dmに無いので data/garden.json の線）
-SL(rot(GD["amaochi"]), "#8C8C80", 0.6, z=4.9, ls=(0, (0.6, 1.2)), hide=False)
+# 雨の川（決定事項_園庭：本館の雨は樋なしで東の軒から落とし、真下の雨落ちの溝 幅0.5・玉石 を本館に沿って南へ、南東の角から護岸のもう一本の溝で高野川へ）
+_am = rot(GD["amaochi"])
+_amc = np.array(_am.coords)
+if _amc[0][1] < _amc[-1][1]:
+    _amc = _amc[::-1]                                     # 北から南へ（流れの向き）
+# 溝は軒先の真下の外（0.5の溝の中心を軒の線から0.3外へ）：屋根の塗りに隠れないように
+for _sd in (0.3, -0.3):
+    _off = LineString(_amc).offset_curve(_sd)
+    if not ROOFALL.buffer(0.05).contains(Point(_off.interpolate(0.5, normalized=True))):
+        break
+_amc = np.array(_off.coords)
+if _amc[0][1] < _amc[-1][1]:
+    _amc = _amc[::-1]
+_drops = []
+for o in _rp_("92_"):
+    g_ = _sh(o)
+    if o["kind"] == "curve" and g_ is not None and g_.length < 0.5 and float(o["V"][:, 2].max()) > -1.0:
+        _drops.append(np.array(g_.centroid.coords[0]))
+_stream = unary_union([g_ for g_ in (_sh(o) for o in _rp_("92_") if o["kind"] == "mesh") if g_ is not None and g_.area > 5])
+if _drops:
+    _dp = max(_drops, key=lambda d_: Point(d_).distance(_stream))      # 小川の落ち口でない方＝雨の溝の落ち口
+    _rain = LineString(list(map(tuple, _amc)) + [tuple(_dp)])
+else:
+    _rain = LineString(_amc)
+SF(LineString(_amc).buffer(0.25, cap_style=2), "#C9E0EF", z=0.85)                      # 溝（玉石）
+SL(LineString(_amc).buffer(0.25, cap_style=2), "#7FA9C6", 0.12, z=4.9, hide=False)
+SL(_rain, "#2F7FBF", 0.6, z=4.95, ls=(0, (3, 1.5)), hide=False)                       # 雨の道（破線）
+for d_ in np.arange(6.0, _rain.length - 1.0, 9.0):                                      # 流れの向きの矢印
+    p0_ = np.array(_rain.interpolate(d_).coords[0]); p1_ = np.array(_rain.interpolate(d_ + 0.9).coords[0])
+    v_ = (p1_ - p0_) / max(np.linalg.norm(p1_ - p0_), 1e-6); w_ = np.array([-v_[1], v_[0]])
+    SF(Polygon([p1_, p0_ + 0.45 * w_, p0_ - 0.45 * w_]), "#2F7FBF", z=0.95)
+_RAIN_LAB = np.array(_rain.interpolate(0.55 * _rain.length).coords[0])
 for a_ in ax.patches[st:] + ax.lines[stl:] + ax.collections:
     a_.set_clip_path(rp)
 # 周りの注記（西の道路・向かいの住宅・突き出た木・大学・用水・高野川・公園）
@@ -991,9 +1097,11 @@ _tree = SITE_C["NW"] + TREE_A * _u + (RW_W + 1.0) * _n
 _tq = xf(R3(_tree))[0]
 _tc = xf(R3(_tree - 2.0 * _n))[0]                                          # 枝は道の上へ張り出す（ユーザー：地図に出るくらい）
 _mk("l")
-ax.add_patch(plt.Circle(tuple(_tc), 3.6 * 5, fc="#9DBB82", ec="none", alpha=0.6, zorder=31))
-ax.add_patch(plt.Circle(tuple(_tq), 1.4, fc="#5E7F45", ec="none", zorder=32)); _mk("c")
-ax.add_patch(plt.Circle(tuple(_tc), 3.6 * 5, fc="none", ec="#5E7F45", lw=0.4, zorder=31)); _mk("l")
+SITE_LIVE[0] = ax                                                          # ここから配置図の文字・注の線・突き出た木は部品に（01cに焼き込まない）
+SITEPARTS.append(dict(kind="circle", cx=_tc[0], cy=_tc[1], r=3.6 * 5, fill="#9DBB82", alpha=0.6, stroke="#5E7F45", lw=0.4,
+                      group="site.g.tree", id="tree.canopy", name="突き出た木　枝"))
+SITEPARTS.append(dict(kind="circle", cx=_tq[0], cy=_tq[1], r=1.4, fill="#5E7F45", alpha=1.0, stroke=None, lw=0,
+                      group="site.g.tree", id="tree.trunk", name="突き出た木　幹"))
 lab(ax, xf, _tree, "突き出た木（住宅とアパートの境）", (sx + 3 - _tq[0], -12), ha="left")
 lab(ax, xf, SITE_C["NW"] + 30.0 * _u + 3.0 * _n, "西の道路（公園の角で折れて川の橋へ）", (-4, -6), ha="right")
 _hq = SITE_C["NW"] + 13.0 * _u + (RW_W + 4.0) * _n
@@ -1035,7 +1143,15 @@ T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", 
 _mk("t")
 lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
 lab(ax, xf, R3inv([33.5, 58.8])[0], "用水路（北から来て、ここから暗渠で敷地の北の角へ）", (-4, 9), size=2.6, color="#1F6FB2", ha="right")
+_g66 = unary_union([g_ for g_ in (_sh(o) for o in _rp_("66_")) if g_ is not None])
+if not _g66.is_empty:
+    lab(ax, xf, R3inv(np.array(_g66.centroid.coords))[0], "公園からの入口（木戸）", (-25, 2), size=2.6, color="#4A3A2A", ha="right", bold=True)
+_g73 = [g_ for g_ in (_sh(o) for o in _rp_("73_") if o["kind"] == "curve") if g_ is not None and g_.length > 9.5]
+if _g73:
+    lab(ax, xf, R3inv(np.array(_g73[0].interpolate(0.5, normalized=True).coords))[0], "ムベのアーチ", (-60, -6), size=2.6, color="#7A5530", ha="right", bold=True)
+lab(ax, xf, R3inv(_RAIN_LAB)[0], "雨の川（樋なしで軒から落ちた雨を、雨落ちの溝から高野川へ）", (8, -10), size=2.6, color="#2F7FBF", ha="left")
 _mk("t")
+SITE_LIVE[0] = None
 # 文字に入った引き出し線（lab の線と点）は文字の組に入れたまま（文字と一緒に動かす）
 _SITE_PDF = {}
 for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字")):
@@ -1519,6 +1635,28 @@ for si in range(1, 6):
     for (tx, ty, ts, th, tb) in TOPT[si]:
         pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname="F_B" if tb else "F_R",
                        fontfile=FONTB if tb else FONT, color=(0.1, 0.1, 0.1))
+    if si == 1:                                     # 配置図の中の文字・注の線・突き出た木（Illustratorでは一つずつの部品）
+        _hx = lambda c_: tuple(int(c_[k:k + 2], 16) / 255 for k in (1, 3, 5))
+        _FNT = {False: fitz.Font(fontfile=FONT), True: fitz.Font(fontfile=FONTB)}
+        for sp in SITEPARTS:
+            if sp["kind"] == "circle":
+                pg.draw_circle(fitz.Point(sp["cx"] * MM, (H - sp["cy"]) * MM), sp["r"] * MM, color=_hx(sp["stroke"]) if sp["stroke"] else None,
+                               fill=_hx(sp["fill"]) if sp["fill"] else None, fill_opacity=sp.get("alpha", 1.0), width=sp["lw"] or 0)
+            elif sp["kind"] == "line":
+                P_ = [fitz.Point(q[0] * MM, (H - q[1]) * MM) for q in sp["pts"]]
+                pg.draw_polyline(P_, color=_hx(sp["color"]), width=sp["lw"])
+                if sp.get("dot"):
+                    pg.draw_circle(P_[-1], sp["dot"] * MM, color=_hx(sp["color"]), fill=_hx(sp["color"]))
+        for sp in SITEPARTS:
+            if sp["kind"] != "text":
+                continue
+            fs_ = sp["size"] / 0.72 * MM
+            e_ = sp["size"] / 0.72
+            by_ = sp["y"] + {"center": -0.35 * e_, "top": -0.88 * e_, "bottom": 0.12 * e_}.get(sp["va"], 0.0)
+            w_ = _FNT[bool(sp["bold"])].text_length(sp["s"], fs_) / MM
+            bx_ = sp["x"] - {"center": w_ / 2, "right": w_}.get(sp["ha"], 0.0)
+            pg.insert_text(fitz.Point(bx_ * MM, (H - by_) * MM), sp["s"], fontsize=fs_, fontname="F_B" if sp["bold"] else "F_R",
+                           fontfile=FONTB if sp["bold"] else FONT, color=_hx(sp["color"]))
 # 提出の5枚は sodachiya/presentation.pdf の一つだけ（ユーザー、10-24：前は5枚と「全体＋5枚」の2つがあった）。
 # 壁に貼ったときの全体は present/out/sodachiya_present_overview.pdf（ベクターのPDF、ユーザー、10-24夜：リポジトリの画像はPDFに）
 sheets = os.path.join(ROOT, "presentation.pdf")
@@ -1600,7 +1738,7 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
-ai_layout.write(dict(figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, embeds=embeds, topl=TOPL, topt=TOPT,
+ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, embeds=embeds, topl=TOPL, topt=TOPT,
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
 
 # 壁に貼ったときの全体（3枚＋2枚）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る

@@ -142,6 +142,28 @@ def write(c):
         for i, (tx, ty, ts, th, tb) in enumerate(c["topt"].get(no, [])):
             add(dict(id=f"top.{_slug(ts)}", name=ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
                      size_pt=pt(th), font="W6" if tb else "W3", color="#1A1A1A", align="left", mock_hash=djb2(ts)))
+        # 6) 配置図の中の文字・注の線・突き出た木（1枚目、ユーザー 10-25夕：一つずつ動かして書き換える。注の文字と線は一つのグループ）
+        if no == 1:
+            for sp in c.get("siteparts", []):
+                if sp["kind"] == "text":
+                    e = em(sp["size"])
+                    y = sp["y"] + {"center": -0.35 * e, "top": -0.88 * e, "bottom": 0.12 * e}.get(sp["va"], 0.0)
+                    add(dict(id=f"site.t.{_slug(sp['s'], 16)}", name=f"配置図の文字　{sp['s'][:20]}", kind="text", layer="説明",
+                             x=round(sp["x"], 2), y=round(H - y, 2), s=sp["s"], size_pt=pt(sp["size"]), font="W6" if sp["bold"] else "W3",
+                             color=sp["color"], align=sp["ha"] if sp["ha"] in ("left", "center", "right") else "left",
+                             group=sp.get("group"), mock_hash=djb2(sp["s"])))
+                elif sp["kind"] == "line":
+                    add(dict(id=f"site.l.{(sp.get('group') or 'x').split('.')[-1]}", name=sp.get("name", "配置図の注の線"), kind="line", layer="説明",
+                             pts=[[round(q[0], 2), round(H - q[1], 2)] for q in sp["pts"]], color=sp["color"], lw=sp["lw"], dot=sp.get("dot"),
+                             group=sp.get("group")))
+                elif sp["kind"] == "circle":
+                    add(dict(id=f"site.{sp['id']}", name=sp["name"], kind="circle", layer="説明",
+                             x=round(sp["cx"] - sp["r"], 2), y=round(H - sp["cy"] - sp["r"], 2), w=round(2 * sp["r"], 2), h=round(2 * sp["r"], 2),
+                             fill=sp["fill"], alpha=sp.get("alpha", 1.0), stroke=sp.get("stroke"), lw=sp.get("lw", 0), group=sp.get("group")))
+        for p in parts:
+            g_ = p.get("group")
+            if g_:
+                p["group_name"] = "突き出た木" if g_ == "site.g.tree" else "配置図の注　" + g_.split(".")[-1]
         # ユーザーの割付を優先
         for p in parts:
             u = user.get(p["id"])

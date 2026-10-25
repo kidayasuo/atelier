@@ -141,6 +141,24 @@ SDY.placeLink = function (doc, lay, i, p) {
     SDY.tag(g, p);
     return g;
 };
+// 部品をまとめるグループ（p.group）。同じ名前のグループがレイヤーにあればそこへ、無ければ作る（注の文字と線、突き出た木の枝と幹）
+SDY.cont = function (lay, p) {
+    if (!p.group) { return null; }
+    var nm = p.group_name || p.group, k;
+    for (k = 0; k < lay.groupItems.length; k++) { if (lay.groupItems[k].name === nm) { return lay.groupItems[k]; } }
+    var g = lay.groupItems.add(); g.name = nm;
+    return g;
+};
+SDY.intoCont = function (lay, p, it) { var g = SDY.cont(lay, p); if (g && it) { it.move(g, ElementPlacement.PLACEATBEGINNING); } return it; };
+SDY.makeCircle = function (doc, lay, i, p) {
+    var tl = SDY.P(doc, i, p.x, p.y), K = SDY.K;
+    var e = lay.pathItems.ellipse(tl[1], tl[0], p.w * K, p.h * K);
+    e.filled = !!p.fill; if (p.fill) { e.fillColor = SDY.rgb(p.fill); }
+    e.stroked = !!p.stroke; if (p.stroke) { e.strokeColor = SDY.rgb(p.stroke); e.strokeWidth = p.lw || 0.3; }
+    if (p.alpha !== undefined && p.alpha < 1) { e.opacity = p.alpha * 100; }
+    SDY.tag(e, p);
+    return SDY.intoCont(lay, p, e);
+};
 SDY.makeText = function (doc, lay, i, p) {
     var tf;
     if (p.kind === "area") {
@@ -153,7 +171,7 @@ SDY.makeText = function (doc, lay, i, p) {
     tf.contents = String(p.s).replace(/\n/g, "\r");
     SDY.styleText(tf, p);
     SDY.tag(tf, p);
-    return tf;
+    return SDY.intoCont(lay, p, tf);
 };
 SDY.makeBox = function (doc, lay, i, p) {
     var tl = SDY.P(doc, i, p.x, p.y);
@@ -176,7 +194,7 @@ SDY.makeLine = function (doc, lay, i, p) {
         d.stroked = false; d.filled = true; d.fillColor = SDY.rgb(p.color);
     }
     SDY.tag(g, p);
-    return g;
+    return SDY.intoCont(lay, p, g);
 };
 SDY.layerOf = function (doc, p) { return SDY.layer(doc, p.layer || "説明"); };
 SDY.make = function (doc, i, p) {
@@ -185,6 +203,7 @@ SDY.make = function (doc, i, p) {
     if (p.kind === "text" || p.kind === "area") { return SDY.makeText(doc, lay, i, p); }
     if (p.kind === "box") { return SDY.makeBox(doc, lay, i, p); }
     if (p.kind === "line") { return SDY.makeLine(doc, lay, i, p); }
+    if (p.kind === "circle") { return SDY.makeCircle(doc, lay, i, p); }
     return null;
 };
 // 枠：外枠・上の帯の線・表題・右下の名前を一つのシンボル「枠」に（全ページ共通）
