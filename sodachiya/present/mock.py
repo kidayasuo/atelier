@@ -769,7 +769,7 @@ cy = M + 8 + 26.0 + 400                          # 上の段の下端の目安�
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
 VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
-BAND_Y0 = M + 8                                              # いちばん下の帯：沿川の景観立面（昼・夜）1/300（ユーザー、10-26：2枚目から戻す）
+BAND_Y0 = M + 8 + 7                                          # いちばん下の帯（題は帯の下、ユーザー 10-26）：沿川の景観立面（昼・夜）1/300（ユーザー、10-26：2枚目から戻す）
 BAND_H = (19.0 + 6.5) * 1000 / 300                           # 立面の高さ（LE_Z1−LE_Z0）
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx, sy = M + 6, H - M - 16 - 3 - sh                            # 配置図は上の帯のすぐ下まで上げる（ユーザー、10-26：配置図の注を消し、下の景観立面との窮屈さを解く）
@@ -1255,26 +1255,31 @@ _out_ = (_ENGc - _FUKIc) / np.linalg.norm(_ENGc - _FUKIc)       # 建物の内�
 _ax_ = np.array([-_out_[1], _out_[0]])
 if _ax_[1] < 0:
     _ax_ = -_ax_                                                     # 縁側に沿って北東へ
-# 風は川上から園庭を渡り、建物にぶつかって縁側に沿って南西へ向きを変え、越屋根から抜ける（ユーザー、10-26：一本の線のまま）
-_wp = _chaikin([_pE + np.array([1.5, -3.0]), _pE + np.array([-9.0, -1.5]), _GARc + np.array([6.0, -4.0]),
-                _ENGc + _ax_ * 7.0 + _out_ * 4.0, _ENGc - _ax_ * 2.0 + _out_ * 1.0, _ENGc - _ax_ * 9.0,
-                _FUKIc - _ax_ * 12.0, _FUKIc - _ax_ * 12.0 - _out_ * 5.0])
+# 風は高野川から吹いてきて本館の南の端にぶつかり、北東へ向きを変えて縁側に沿い、建物に入って越屋根から抜ける（ユーザー、10-26 1:02）
+_eg = _rU("14_")
+_egp = np.array(_eg.exterior.coords) if _eg.geom_type == "Polygon" else np.vstack([np.array(g_.exterior.coords) for g_ in _eg.geoms])
+_Ssouth = _egp[np.argmin(_egp @ _ax_)]                          # 縁側の南の端
+_din = np.linalg.norm(_ENGc - _FUKIc)
+_fo = float((_FUKIc - _Ssouth) @ _out_)                         # 越屋根の線（縁側の南の端から内へ）
+_wp = _chaikin([_Ssouth + _out_ * 2.0 + np.array([0.0, -13.0]), _Ssouth + _out_ * 2.5 + np.array([0.0, -4.0]),
+                _Ssouth + _out_ * 2.5 + _ax_ * 4.0, _Ssouth + _out_ * 1.5 + _ax_ * 14.0, _Ssouth + _ax_ * 21.0 - _out_ * 2.0,
+                _Ssouth + _ax_ * 24.0 + _out_ * _fo, _Ssouth + _ax_ * 25.0 + _out_ * (_fo - 6.0)])
 _L = LineString(_wp); _N_ = 80
 _pts = np.array([_L.interpolate(t_, normalized=True).coords[0] for t_ in np.linspace(0, 0.9, _N_)])
 _tip = np.array(_L.interpolate(1.0, normalized=True).coords[0])
 _lft, _rgt = [], []
 for k_, p_ in enumerate(_pts):
     d_ = _pts[min(k_ + 1, _N_ - 1)] - _pts[max(k_ - 1, 0)]; d_ /= np.linalg.norm(d_)
-    n_ = np.array([-d_[1], d_[0]]); hw = 3.2 - 1.6 * k_ / (_N_ - 1)
+    n_ = np.array([-d_[1], d_[0]]); hw = 1.6 - 0.8 * k_ / (_N_ - 1)   # 幅は前の半分（ユーザー、10-26）
     _lft.append(p_ + n_ * hw); _rgt.append(p_ - n_ * hw)
 _d1 = _pts[-1] - _pts[-2]; _d1 /= np.linalg.norm(_d1); _n1 = np.array([-_d1[1], _d1[0]])
-_head = [_pts[-1] + _n1 * 3.2, _tip, _pts[-1] - _n1 * 3.2]
+_head = [_pts[-1] + _n1 * 1.6, _tip, _pts[-1] - _n1 * 1.6]
 _WIND = Polygon(np.vstack([_lft, _head, _rgt[::-1]])).buffer(0.4).buffer(-0.4)
 draw_shape(ax, _WIND, xf, fc="#8EC3E6", ec="none", lw=0, z=20)
 ax.patches[-1].set_alpha(0.45)
 _mk("o")
-_wl = xf(np.array([_pE + np.array([-1.0, 1.5])]))[0]
-T(ax, _wl[0], _wl[1], "夏の夜の風（高野川の谷を下りる風）", 2.8, "#3A7FB5", bold=True, ha="right")
+_wl = xf(np.array([_wp[0] + np.array([3.5, 6.0])]))[0]
+T(ax, _wl[0], _wl[1], "夏の夜の風（高野川の谷を下りる風）", 2.8, "#3A7FB5", bold=True, ha="left")
 # 比叡への視線：ホール → 築山の頂 → 比叡山（大比叡 北緯35.0670° 東経135.8344°、敷地 35.0546° 135.7905° から方位約71°、約4.2 km）
 _dn = (35.0670 - 35.0546) * 111.0; _de = (135.8344 - 135.7905) * 111.32 * np.cos(np.radians(35.06))
 _BRG = np.degrees(np.arctan2(_de, _dn)); _DIST = np.hypot(_dn, _de)
@@ -1340,8 +1345,8 @@ scalebar(ax, sx + 6, sy - 22, 200, 20)
 # いちばん下の帯：沿川の景観立面　昼（左）・夜（右）1/300（ユーザー、10-26：2枚目から戻す。配置図の高野川の辺のすぐ下で、川の向こうから見た姿）
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
 _bx0 = M + 6; _bx1 = W - M - 6 - _lw1
-title(ax, _bx0, BAND_Y0 + _lh1 + 3, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
-title(ax, _bx1, BAND_Y0 + _lh1 + 3, "沿川の景観立面　夜", "越屋根の東の縁の光が水平に一本")
+title(ax, _bx0, BAND_Y0 - 5.5, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
+title(ax, _bx1, BAND_Y0 - 5.5, "沿川の景観立面　夜", "越屋根の東の縁の光が水平に一本")
 land_elev(ax, _bx0, BAND_Y0, False)
 land_elev(ax, _bx1, BAND_Y0, True)
 sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 1, _bx0, BAND_Y0, _lw1, _lh1)
