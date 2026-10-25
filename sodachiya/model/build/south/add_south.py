@@ -114,7 +114,7 @@ W_=120.0; PITCH=104.0; ANG=math.radians(30)
 rw=RW+OVH-20
 while rw-W_*math.cos(ANG)>RK-OVH:
     re_=rw-W_*math.cos(ANG)
-    def zs(x,y,rw=rw): return zlid(x,y)+10+(rw-rr_of(x,y))*math.tan(ANG)
+    def zs(x,y,rw=rw): return zlid(x,y)+28+(rw-rr_of(x,y))*math.tan(ANG)   # 羽根の下の縁が蓋の 10 上（厚み 18、10-25 ソリッド係）
     sloped(quad(re_,rw,aN,aS,60),18,L_lv,zs)
     rw-=PITCH
 # ---------- 南の軒（屋根面の延長、東 1.8 m → 西 4.2 m） ----------
