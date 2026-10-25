@@ -8,6 +8,14 @@
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var doc = app.documents.add(DocumentColorSpace.RGB, L.artboard[0] * K, L.artboard[1] * K, n,
                                 DocumentArtboardLayout.GridByRow, 30 * K, 3);
+    // アートボードは壁に貼るときと同じ並び（ユーザー、10-26）：1の下に2、1の右に3、3の下に4、3の右に5
+    var GAP = 30 * K, AW = L.artboard[0] * K, AH = L.artboard[1] * K;
+    var PLACE = { 1: [0, 0], 2: [0, 1], 3: [1, 0], 4: [1, 1], 5: [2, 0] };
+    for (i = 0; i < n; i++) {
+        var cr = PLACE[L.pages[i].no] || [i, 0];
+        var x0 = cr[0] * (AW + GAP), y0 = -cr[1] * (AH + GAP);
+        doc.artboards[i].artboardRect = [x0, y0, x0 + AW, y0 - AH];
+    }
     var first = doc.layers[0];
     var names = ["枠", "図", "線", "説明", "注記"], i, j, p, made = 0, skipped = 0;
     for (i = 0; i < names.length; i++) { SDY.layer(doc, names[i]); }        // 下から 枠・図・線・説明・注記
