@@ -23,7 +23,7 @@
 | 7f | 優先順位で削る | `data/wnew.pkl`・`model/build/south/clip_parts.py` |
 | 8 | 護岸と園庭の取り込み | `model/build/south/add_site.py`・`model/sodachiya_garden_layers.3dm` |
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
-| 10 | Rhino版 | `data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/ruled_roof.py`・`model/sodachiya_exact_mesh.3dm` |
+| 10 | Rhino版 | `data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
 | 12 | 面積表 | `data/garden.json`・`data/minami.json`・`model/build/south/areas.py`・`model/sodachiya_exact_mesh.3dm` |
 | 11 | 図（平面・断面・立面、部屋の面積は面積表から） | `data/garden.json`・`model/build/south/draw100.py`・`model/drawings/sodachiya_areas.json`・`model/sodachiya_exact_mesh.3dm`・`present/kadai_map.json` |
 | 13 | 干渉の一覧 | `model/build/south/clash.py`・`model/sodachiya_exact_mesh.3dm` |
