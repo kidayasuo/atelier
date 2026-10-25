@@ -98,7 +98,7 @@ for g in objs('22a_'):
 # はれのまとの壁（u 30）・階段の箱・2 階の床の縁
 cv = P['cave']
 fillg(M(RW(cv['wall_u'] - 0.06, cv['wall_u'] + 0.06, cv['wall_w0'], 16)).intersection(M(WN)), C['wall'], z=6)
-stair = M(RW(30.0, 33.0, 1.85, 4.1))   # 10-25：階段を細くした（南の口のあき約1.7）
+stair = M(RW(30.0, 33.0, 2.09, 4.1))   # 10-25：階段を細くした（南の口のあき約1.7）
 lineg(stair, 0.6, C['wall'], z=6)
 for k in range(1, 12):
     uu = 30.0 + 3.0 * k / 12; lineg(M(LineString([xy(uu, -0.9 - 1.35), xy(uu, -0.9 - 2.5)])), 0.2, '#777777', z=5)

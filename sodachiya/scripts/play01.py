@@ -135,7 +135,7 @@ if "store" in CV:
 poly(SP(rectw(CV["wall_u"] - 0.06, CV["wall_u"] + 0.06, CV["wall_w0"], 30)).intersection(WB), "#333333", "#333333", 0.3, 7.5)
 # stair
 poly(STAIR, "#888888", "#333333", 0.5, 6); T(Ww(31.5, 3.0), "階段\n（2 階へ）", 5, c="white")
-line([Ww(33.0, 1.85), Ww(33.0, 4.1)], 0.9, "#333333", z=7)                       # rail between stair top and the room
+line([Ww(33.0, 2.09), Ww(33.0, 4.1)], 0.9, "#333333", z=7)                       # rail between stair top and the room
 # west building outline, columns
 poly(WB.intersection(clip), "none", "black", 1.3, 7)
 for (u, v) in COLS:
