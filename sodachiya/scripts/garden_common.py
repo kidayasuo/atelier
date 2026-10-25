@@ -127,9 +127,24 @@ def bank_h(A, D):
     return flat
 
 
+def amaniwa_h(A, D):
+    """雨庭（洲浜）の浅いくぼみ：縁から ramp でなだらかに −depth へ"""
+    w = G.get("AMANIWA")
+    if not w:
+        return np.zeros_like(np.asarray(A, float))
+    import shapely
+    P = Polygon(w["poly"]); A = np.asarray(A, float); D = np.asarray(D, float)
+    pts = shapely.points(A.ravel(), D.ravel())
+    inside = shapely.contains(P, pts)
+    dist = shapely.distance(P.exterior, pts)
+    t = np.where(inside, np.clip(dist / w["ramp"], 0, 1), 0.0)
+    return (-w["depth"] * t * t * (3 - 2 * t)).reshape(A.shape)
+
+
 def bowl_h(A, D):
+    """くぼみ：すりばち＋雨庭"""
     b = G["BOWL"]; q = np.hypot(A - b["c"][0], D - b["c"][1]) / b["r"]
-    return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1)))
+    return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1))) + amaniwa_h(A, D)
 
 
 def _ss(x):

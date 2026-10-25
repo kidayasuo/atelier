@@ -248,6 +248,14 @@ for i in range(CP["n"]):
     q0 = CP["a0"] + i * CP["w"]
     box(q0 + 0.05, q0 + CP["w"] - 0.05, CP["d0"], CP["d0"] + CP["depth"], g0, g0 + 0.7, 93, "コンポストの枠：" + CP["labels"][i])
 
+# ---- 雨庭（洲浜）（92・96） ----
+AW = G.get("AMANIWA")
+if AW:
+    curve_ad(AW["poly"], 92, "雨庭（洲浜、玉石の浜の浅いくぼみ −0.25、溢れたら護岸の溝へ）", close=True)
+    for sa_, sd_, sr_ in AW["stones"]:
+        c0 = P3(sa_, sd_); sph = r.Sphere(r.Point3d(c0.X, c0.Y, c0.Z + sr_ * 300), sr_ * 1000)
+        m.Objects.AddBrep(sph.ToBrep(), at(96, "雨庭の景石"))
+
 # ---- 年中行事の草（95） ----
 for a_, d_, r_, nm_, n_ in G.get("GYOJI", {}).get("items", []):
     curve_ad(ell((a_, d_), (r_, r_)), 95, f"{nm_}（{n_}）", close=True)

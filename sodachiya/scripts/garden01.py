@@ -240,7 +240,14 @@ og = LineString(XS(AM["outlet"])).buffer(AM["w"] / 2, cap_style=2)
 poly(ax, og, fc="#D9D4C6", ec="#8C8677", lw=0.3, z=5.6, hatch="oo")
 ga2 = np.array(X(*AM["outlet"][-1]))
 ax.add_patch(Rectangle(ga2 - 0.25, 0.5, 0.5, fc=C["water"], ec="#2F6E95", lw=0.5, zorder=8.6))
-T(ax, X(55.0, 31.6), "雨の川 → 護岸の溝から高野川へ", 4.2, c="#3E6E8E", rot=52)
+# 雨庭（洲浜）：雨の川の行き着く所、しずかのもりの高野川べり（ユーザー）
+AW = G.get("AMANIWA")
+if AW:
+    poly(ax, Polygon(XS(AW["poly"])), fc="#E4DFD2", ec="#8C8677", lw=0.4, z=5.7, hatch="o.")
+    for sa_, sd_, sr_ in AW["stones"]:
+        ax.add_patch(Circle(X(sa_, sd_), sr_, fc="#8C8677", ec="#4A4438", lw=0.4, zorder=8.8))
+    T(ax, X(54.7, 28.2), "雨庭（洲浜）", 4.6, c="#4A4438", rot=52, z=21, fontweight="bold")
+    T(ax, X(55.9, 33.0), "溢れたら護岸の溝へ", 3.6, c="#3E6E8E", rot=52, z=21)
 T(ax, UV(30.5, 16.6), "雨の川（晴れの日は枯れ流れ）", 4.4, c="#6B655B", rot=-86)
 sp = AM["spill"]
 ax.add_patch(FancyArrowPatch(X(*sp[0]), X(*sp[1]), arrowstyle="-|>", mutation_scale=6, lw=0.6, color="#2F6E95", ls=(0, (2, 1.5)), zorder=8.7))
@@ -454,6 +461,9 @@ def sw(y, kind, txt):
         lax.add_patch(Circle((5, y), 3.0, fc=C["tree"], ec=C["ink"], lw=0.6, ls=(0, (2, 1)), alpha=0.6))
     elif kind.startswith("g:"):
         lax.add_patch(Circle((5, y), 1.7, fc=GC[kind[2:]], ec=C["treeE"], lw=0.4, alpha=0.6))
+    elif kind == "amaniwa":
+        lax.add_patch(Rectangle((1, y - 1.4), 8, 2.8, fc="#E4DFD2", ec="#8C8677", lw=0.3, hatch="o."))
+        lax.add_patch(Circle((6.5, y), 0.8, fc="#8C8677", ec="#4A4438", lw=0.3))
     elif kind == "gyoji":
         lax.add_patch(Circle((5, y), 2.0, fc="#C9D99A", ec="#6F8F57", lw=0.4, ls=(0, (1.2, 0.8))))
     elif kind == "seki":
@@ -493,7 +503,7 @@ lax.text(0, y, "凡例", fontsize=8, fontweight="bold", va="center"); y += 8
 from collections import Counter as _Ct
 _cnt = _Ct(sp_of(t[4]) for t in G["TREES"])
 rows = [("g:" + g, g + "：" + "・".join(f"{k} {_cnt[k]}" for k in SP if k != "_" and SP[k]["g"] == g and _cnt[k])) for g in GC] + [
-        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ・キク"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）・水浴び場（円形 φ4.0、段なしの浅い皿）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて護岸の溝から高野川へ。溢れたらすりばちが雨の池）"),
+        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ・キク"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）・水浴び場（円形 φ4.0、段なしの浅い皿）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて雨庭へ。大雨で溢れたらすりばちが雨の池）"), ("amaniwa", "雨庭（洲浜）：玉石の浜の浅いくぼみ −0.25、下に砕石。初めの約5 mmの雨を溜めてしみ込ませ、溢れた分だけ護岸の溝から高野川へ。景石3、ミソハギ（盆花）・ギボウシ・カンスゲ"),
         ("sand", "砂場・粒の遊び場（1〜2 mm、2.4×3.0 の木の縁、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
