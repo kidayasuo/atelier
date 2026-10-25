@@ -1151,6 +1151,72 @@ def as_extrusion(W, T):
     return None
 
 
+def as_revolution(W, T):
+    """鉛直な軸のまわりに、平らな輪郭（多角形）を角度 a0〜a1 だけ回した立体（本館の越屋根のルーバー：屋根の弧の中心のまわりの
+    円弧の羽根）→ 回転面と端の平らな面をつないだ閉じた Brep。ならなければ None。
+    前は 60 に分けた多角形の羽根で、一本 約3,000 三角形・ポリサーフェス 約175 面（重い）。軸のまわりの本当の円弧に"""
+    W = np.asarray(W, float); vs = np.unique(T.ravel()); P = W[vs]
+    if len(vs) < 16: return None
+    # 高さごとの点の組で円を当てはめ、中心をそろえる
+    zk = np.round(P[:, 2] / 0.05).astype(np.int64); cen = None
+    for z_ in np.unique(zk):
+        Q = P[zk == z_][:, :2]
+        if len(Q) < 8: continue
+        c, R = fit_circle2(Q)
+        if R < 1000 or np.abs(np.linalg.norm(Q - c, axis=1) - R).max() > 0.05: continue
+        cen = c; break
+    if cen is None: return None
+    rr = np.linalg.norm(P[:, :2] - cen, axis=1); ang = np.unwrap(np.arctan2(P[:, 1] - cen[1], P[:, 0] - cen[0]))
+    a0, a1 = float(ang.min()), float(ang.max())
+    if a1 - a0 < math.radians(1) or a1 - a0 > math.radians(170): return None
+    key = {}
+    for k, (r_, z_) in enumerate(zip(rr, P[:, 2])):
+        key.setdefault((round(r_ / 0.05), round(z_ / 0.05)), []).append(k)
+    if not (3 <= len(key) <= 12): return None
+    prof = {}
+    for kk, ids in key.items():                      # 輪郭の角：同じ (r, z) の点が a0 と a1 の両方にある
+        A = ang[ids]
+        if abs(A.min() - a0) > 1e-6 or abs(A.max() - a1) > 1e-6: return None
+        prof[kk] = (float(np.mean(rr[ids])), float(np.mean(P[ids, 2])))
+    # 輪郭の順：a0 の端の面の三角形の縁
+    vid = {v: k for k, v in enumerate(vs)}
+    end = {v for v in vs if abs(ang[vid[v]] - a0) < 1e-6}
+    E_ = {}
+    for t in T:
+        if all(x in end for x in t):
+            for a_, b_ in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])): E_[(a_, b_)] = E_.get((a_, b_), 0) + 1
+    bd = [e for e in E_ if (e[1], e[0]) not in E_]
+    if len(bd) != len(key): return None
+    nx = dict(bd); st = bd[0][0]; lp = [st]; x = nx[st]
+    while x != st:
+        lp.append(x); x = nx.get(x)
+        if x is None or len(lp) > len(bd): return None
+    corners = []
+    for v in lp:
+        k = vid[v]; corners.append(prof[(round(rr[k] / 0.05), round(P[k, 2] / 0.05))])
+    ax = r.Line(r.Point3d(float(cen[0]), float(cen[1]), 0.0), r.Point3d(float(cen[0]), float(cen[1]), 1.0))
+    X0 = np.array([math.cos(a0), math.sin(a0)]); X1 = np.array([math.cos(a1), math.sin(a1)])
+    srfs = []
+    for (r0_, z0_), (r1_, z1_) in zip(corners, corners[1:] + corners[:1]):
+        ln = r.LineCurve(r.Point3d(float(cen[0] + r0_ * X0[0]), float(cen[1] + r0_ * X0[1]), z0_),
+                         r.Point3d(float(cen[0] + r1_ * X0[0]), float(cen[1] + r1_ * X0[1]), z1_))
+        rs = r.RevSurface.Create(ln, ax, 0.0, a1 - a0)
+        if rs is None: return None
+        srfs.append(rs.ToNurbsSurface())
+    if len(corners) != 4: return None                    # 端の面は 4 つの角の双一次の面（切らない面）
+    for X_ in (X0, X1):
+        Q = [(cen[0] + r_ * X_[0], cen[1] + r_ * X_[1], z_) for r_, z_ in corners]
+        ns = r.NurbsSurface.Create(3, False, 2, 2, 2, 2)
+        ns.Points[(0, 0)] = r.Point4d(*Q[0], 1.0); ns.Points[(1, 0)] = r.Point4d(*Q[1], 1.0)
+        ns.Points[(1, 1)] = r.Point4d(*Q[2], 1.0); ns.Points[(0, 1)] = r.Point4d(*Q[3], 1.0)
+        for i, kv in enumerate((0.0, 1.0)): ns.KnotsU[i] = kv; ns.KnotsV[i] = kv
+        srfs.append(ns)
+    b = join_untrimmed(srfs)
+    if b is None or not b.IsValid or not b.IsSolid: return None
+    # 回した面の a0 を、もとの位置に（RevSurface は輪郭の位置から回るので、そのまま）
+    return b
+
+
 def cap_holes(W, T):
     """開いた立体の、平らな縁の穴に蓋をする（三角形に分けて）。平らな板（全体が一つの平面）や、
     平らでない穴があれば None"""
@@ -1206,6 +1272,11 @@ def to_solids(W, T, sheet=('down', 10.0), _depth=0):
         ex = as_extrusion(W, T)
         if ex is not None: return [(ex, 'extrusion')]
     except Fail:
+        pass
+    try:
+        rv = as_revolution(W, T)
+        if rv is not None: return [(rv, 'curved')]
+    except Exception:
         pass
     b, info = solid_from_mesh(W, T)
     if b is not None:

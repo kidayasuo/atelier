@@ -63,6 +63,42 @@ def components(T):
     return [T[ix] for ix in lab.values()]
 
 
+def raw_shells(g, W, T0):
+    """溶接する前の頂点の番号でつながる組が、どれも閉じた立体なら、その組ごとに（触れ合う板を一つずつの立体に：
+    fix_details.py の面ごとの板の階段・階段の箱、10-25）。そうでなければ None（三角形のスープは溶接でつなぐ）"""
+    n = len(g.Vertices)
+    if g.Faces.Count < 24: return None
+    par = list(range(n))
+    def f(x):
+        while par[x] != x: par[x] = par[par[x]]; x = par[x]
+        return x
+    F = []
+    for i in range(g.Faces.Count):
+        q = g.Faces[i]; F.append((q[0], q[1], q[2], q[3]))
+        for a_ in (q[1], q[2], q[3]): par[f(a_)] = f(q[0])
+    lab = {}
+    for i, q in enumerate(F): lab.setdefault(f(q[0]), []).append(i)
+    if len(lab) < 2: return None
+    # 溶接後の三角形を面の組ごとに：mesh_arrays と同じ規則で数え直す
+    key = {}; idx = []
+    V = np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(n)])
+    for p in np.round(V / WELD).astype(np.int64): idx.append(key.setdefault(tuple(p), len(key)))
+    out = []
+    for ids in lab.values():
+        T = []
+        for i in ids:
+            a, b, c, d = (idx[x] for x in F[i])
+            if len({a, b, c}) == 3: T.append((a, b, c))
+            if d != c and len({a, c, d}) == 3: T.append((a, c, d))
+        T = np.array(T, int).reshape(-1, 3)
+        ec = {}
+        for x, y, z in T:
+            for e in ((x, y), (y, z), (z, x)): kk = (min(e), max(e)); ec[kk] = ec.get(kk, 0) + 1
+        if not len(T) or any(v != 2 for v in ec.values()): return None
+        out.append(T)
+    return out
+
+
 def copy_attr(a0, grp=None):
     a = r.ObjectAttributes()
     a.LayerIndex = LMAP[a0.LayerIndex]
@@ -205,7 +241,7 @@ for oi, o in enumerate(m.Objects):
     else:
         W, T0 = mesh_arrays(g, WELD)
         if len(T0) == 0: continue
-        for T in components(T0):
+        for T in raw_shells(g, W, T0) or components(T0):
             g1 = SD.to_solids(W, T, sheet)
             if not g1: count('dropped', lname)                # 太さの無い針は捨てる
             geo += g1

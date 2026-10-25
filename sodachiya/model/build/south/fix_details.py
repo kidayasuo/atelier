@@ -243,6 +243,121 @@ def stair_narrow(T, f=None):
     return P.reshape(T.shape)
 _n_stair = 0
 STAIR_STG = (30.06, 32.94, -4.94, round(stair_v25(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
+
+def _plates(T, thk, stair=False):
+    """面だけの物（三角形 T）→ 平らな面ごとの板（閉じた立体、manifold3d）の組。板はそれぞれ押し出し（Rhino 版で押し出しになる）。
+    前は三角形ごとの三角柱を足し合わせた一つの立体で、階段・階段の箱が面の多い一つのポリサーフェスになっていた（10-25 ユーザー：
+    階段の壁などは明らかに押し出しで良い → 元の構成を改良。ソリッド係）。
+    - 壁（間仕切り・ガラス）：面の両側に厚みの半分ずつ。面と面が角で出会う所は、面積の大きいほうの板を厚みの半分だけ延ばし、
+      小さいほうを同じだけ縮める（突き付け、重ならず、角も欠けない）。
+    - 階段：踏み板は上の面から下へ、蹴込み板は面から奥へ厚み thk。蹴込み板は上の踏み板の下で止め、下は下の踏み板の下の面まで
+      （下の踏み板の小口に突き付け）。下の踏み板・踊り場が蹴込みの奥まで続く所では、その上に載せる。"""
+    T = np.asarray(T, float)
+    N = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]); ar = np.linalg.norm(N, axis=1)
+    ok = ar > 1.0; T = T[ok]; N = N[ok] / ar[ok, None]
+    # 同じ平面の三角形の組（向きは問わない）
+    groups = []
+    for i in range(len(T)):
+        n = N[i]; d = n @ T[i, 0]
+        for g in groups:
+            if abs(abs(g['n'] @ n) - 1) < 1e-4 and abs(g['n'] @ T[i, 0] - g['d']) < 0.5: g['ids'].append(i); break
+        else: groups.append(dict(n=n.copy(), d=d, ids=[i]))
+    if stair:                                    # 階段：同じ平面でも、辺を共有する三角形の組ごとに（踊り場の蹴込みと上の段の蹴込みを分ける）
+        g2 = []
+        for g in groups:
+            key = lambda p: tuple(np.round(p, 1)); par = {i: i for i in g['ids']}
+            def fd(x):
+                while par[x] != x: par[x] = par[par[x]]; x = par[x]
+                return x
+            ed = {}
+            for i in g['ids']:
+                for a_, b_ in ((0, 1), (1, 2), (2, 0)):
+                    k_ = tuple(sorted((key(T[i, a_]), key(T[i, b_]))))
+                    if k_ in ed: par[fd(i)] = fd(ed[k_])
+                    else: ed[k_] = i
+            cc = {}
+            for i in g['ids']: cc.setdefault(fd(i), []).append(i)
+            g2 += [dict(g, ids=v) for v in cc.values()]
+        groups = g2
+    plates = []
+    for g in groups:
+        n = g['n']; a = np.array([0, 0, 1.]) if abs(n[2]) < 0.9 else np.array([1., 0, 0])
+        X = np.cross(a, n); X /= np.linalg.norm(X); Y = np.cross(n, X); o = T[g['ids'][0], 0]
+        to2 = lambda P, o=o, X=X, Y=Y: [((p - o) @ X, (p - o) @ Y) for p in P]
+        if stair: poly = unary_union([Polygon(to2(T[i])) for i in g['ids']]).buffer(0)     # 角で触れるだけの板（踊り場の上下の蹴込み）をつながない
+        else: poly = unary_union([Polygon(to2(T[i])).buffer(0.01, join_style=2) for i in g['ids']]).buffer(-0.01, join_style=2)
+        if poly.is_empty: continue
+        plates.append(dict(n=n, o=o, X=X, Y=Y, poly=poly, area=poly.area))
+    if stair:                                    # 階段：同じ平面にのる離れた板（二つの段の蹴込み）は別々に
+        plates = [dict(pl, poly=pg, area=pg.area) for pl in plates for pg in getattr(pl['poly'], 'geoms', [pl['poly']]) if pg.area > 1.0]
+    def to3(pl, q): return pl['o'] + q[0] * pl['X'] + q[1] * pl['Y']
+    def strip(pl, a2, b2, out, w):
+        """板 pl の面で、辺 a2→b2 から外へ（out）幅 w の帯"""
+        a2, b2 = np.array(a2), np.array(b2); e = b2 - a2; e /= np.linalg.norm(e); nn = np.array([-e[1], e[0]])
+        if nn @ out < 0: nn = -nn
+        return Polygon([a2, b2, b2 + nn * w, a2 + nn * w])
+    h = thk / 2
+    if not stair:
+        # 角の突き付け：二つの板の境の辺
+        for i, A in enumerate(plates):
+            for j, B in enumerate(plates):
+                if j <= i or abs(A['n'] @ B['n']) > 0.9: continue
+                for P_, Q_ in ((A, B), (B, A)):
+                    ring = [c_ for pg_ in getattr(P_['poly'], 'geoms', [P_['poly']]) for c_ in list(pg_.exterior.coords) + [None]]
+                    for k in range(len(ring) - 1):
+                        if ring[k] is None or ring[k + 1] is None: continue
+                        p3 = [to3(P_, ring[k]), to3(P_, ring[k + 1])]
+                        if max(abs((x - Q_['o']) @ Q_['n']) for x in p3) > 1.0: continue
+                        q2 = to2_ = [((x - Q_['o']) @ Q_['X'], (x - Q_['o']) @ Q_['Y']) for x in p3]
+                        if Q_['poly'].boundary.distance(Point(q2[0])) > 1.0 or Q_['poly'].boundary.distance(Point(q2[1])) > 1.0: continue
+                        a2, b2 = np.array(ring[k]), np.array(ring[k + 1])
+                        if np.linalg.norm(b2 - a2) < 1.0: continue
+                        mid = (a2 + b2) / 2; e = (b2 - a2) / np.linalg.norm(b2 - a2); nn = np.array([-e[1], e[0]])
+                        out = nn if not P_['poly'].contains(Point(mid + nn * 0.5)) else -nn
+                        if P_['area'] >= Q_['area']: P_['poly'] = P_['poly'].union(strip(P_, a2, b2, out, h)).buffer(0)
+                        else: P_['poly'] = P_['poly'].difference(strip(P_, a2, b2, -out, h)).buffer(0)
+        offs = {id(pl): (-h, h) for pl in plates}
+    else:
+        offs = {}
+        flat = [pl for pl in plates if abs(pl['n'][2]) > 0.9]; vert = [pl for pl in plates if abs(pl['n'][2]) <= 0.9]
+        for pl in flat:
+            if pl['n'][2] < 0: pl['n'] = -pl['n']                           # 上向き。板は面から下へ
+            offs[id(pl)] = (-thk, 0.0)
+        for pl in vert:
+            # 外向き（下の踏み板の側）：面の下の縁の少し前に踏み板があるほう
+            P3 = [to3(pl, q) for q in pl['poly'].convex_hull.exterior.coords]; zlo = min(p[2] for p in P3); zhi = max(p[2] for p in P3)
+            c = np.mean(P3, axis=0); c[2] = zlo
+            def on_flat(p, z):
+                for f in flat:
+                    if abs(f['o'][2] - z) < 1.0 and f['poly'].buffer(0.5).contains(Point((p - f['o']) @ f['X'], (p - f['o']) @ f['Y'])): return True
+                return False
+            n = pl['n'] if on_flat(c + pl['n'] * 20, zlo) or not on_flat(c - pl['n'] * 20, zlo) else -pl['n']
+            if not on_flat(c + n * 20, zlo) and on_flat(c - n * 20, zlo): n = -n
+            pl['n'] = n; pl['X'] = -pl['X'] if np.cross(pl['X'], pl['Y']) @ n < 0 else pl['X']
+            if np.cross(pl['X'], pl['Y']) @ n < 0: pl['Y'] = -pl['Y']
+            pl['poly'] = Polygon([((p - pl['o']) @ pl['X'], (p - pl['o']) @ pl['Y']) for p in P3]).buffer(0)
+            ztop = zhi - thk                                                 # 上の踏み板の下で止める
+            zbot = zlo if on_flat(c - n * (thk / 2), zlo) or zlo < 1.0 else zlo - thk   # 奥にも踏み板があれば載せる、なければ小口に突き付け
+            zy = lambda z: ((np.array([0, 0, z]) - pl['o']) @ pl['Y'])
+            yb, yt = sorted((zy(zbot), zy(ztop)))
+            xs = [q[0] for q in pl['poly'].exterior.coords]
+            pl['poly'] = Polygon([(min(xs), yb), (max(xs), yb), (max(xs), yt), (min(xs), yt)])
+            offs[id(pl)] = (-thk, 0.0)                                       # 面から奥へ
+    out = []
+    for pl in plates:
+        lo, hi = offs[id(pl)]
+        for pg in getattr(pl['poly'], 'geoms', [pl['poly']]):
+            if pg.geom_type != 'Polygon' or pg.area < 1.0: continue
+            tm = trimesh.creation.extrude_polygon(pg, hi - lo)
+            L = np.asarray(tm.vertices)
+            Wv = pl['o'] + np.outer(L[:, 0], pl['X']) + np.outer(L[:, 1], pl['Y']) + np.outer(L[:, 2] + lo, pl['n'])
+            F = np.asarray(tm.faces)
+            if np.cross(pl['X'], pl['Y']) @ pl['n'] < 0: F = F[:, ::-1]
+            M = _mf.Manifold(_mf.Mesh(vert_properties=Wv.astype(np.float32), tri_verts=F.astype(np.uint32)))
+            if M.is_empty(): M = _mf.Manifold(_mf.Mesh(vert_properties=Wv.astype(np.float32), tri_verts=F[:, ::-1].astype(np.uint32).copy()))
+            if not M.is_empty(): out.append(M)
+    return out
+
 _n_thk = 0
 for o in m.Objects:
     li_ = o.Attributes.LayerIndex
@@ -255,26 +370,20 @@ for o in m.Objects:
         T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
     tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
     if tm_.is_watertight: continue
-    h_ = _THK[li_] / 2; ms_ = []
-    for t_ in T:
-        n_ = np.cross(t_[1] - t_[0], t_[2] - t_[0]); ln_ = np.linalg.norm(n_)
-        if ln_ < 1.0: continue
-        n_ = n_ / ln_ * h_
-        V_ = np.vstack([t_ - n_, t_ + n_]).astype(np.float32)
-        F_ = np.array([[0, 2, 1], [3, 4, 5], [0, 1, 4], [0, 4, 3], [1, 2, 5], [1, 5, 4], [2, 0, 3], [2, 3, 5]], np.uint32)
-        M_ = _mf.Manifold(_mf.Mesh(vert_properties=V_, tri_verts=F_))
-        if M_.is_empty(): M_ = _mf.Manifold(_mf.Mesh(vert_properties=V_, tri_verts=F_[:, ::-1].copy()))
-        if not M_.is_empty(): ms_.append(M_)
+    ms_ = _plates(T, _THK[li_], stair=(li_ == lidx('25_')))         # 面ごとの板（押し出し）に（10-25 ソリッド係、ユーザー）
     if not ms_: continue
-    MM = _mf.Manifold.batch_boolean(ms_, _mf.OpType.Add)
     if li_ == lidx('24_') and (U[:, 1] < -4.9).any() and (U[:, 1] > -2.3).any() and T[:, :, 2].max() > 7000:   # 階段の箱：西の面に階段の下の倉庫の戸（10-25）
         _tb = trimesh.creation.extrude_polygon(R(*STAIR_DOOR, -5.3, -4.7, 0.05), 1750.0)
-        MM = MM - _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
-    g_ = MM.to_mesh()
+        _box = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
+        ms_ = [M_ - _box for M_ in ms_]
+    # 板は別々の立体のまま（触れるだけ、重ならない）。頂点も板ごとに別にして、Rhino 版で板ごとの押し出しになるように
     mm = r.Mesh()
-    for x_, y_, z_ in np.asarray(g_.vert_properties)[:, :3]: mm.Vertices.Add(float(x_), float(y_), float(z_))
-    for a_, b_, c_ in np.asarray(g_.tri_verts): mm.Faces.AddFace(int(a_), int(b_), int(c_))
-    mm.Normals.ComputeNormals(); mm.Compact()
+    for M_ in ms_:
+        if M_.is_empty(): continue
+        g_ = M_.to_mesh(); o_ = len(mm.Vertices)
+        for x_, y_, z_ in np.asarray(g_.vert_properties)[:, :3]: mm.Vertices.Add(float(x_), float(y_), float(z_))
+        for a_, b_, c_ in np.asarray(g_.tri_verts): mm.Faces.AddFace(int(a_) + o_, int(b_) + o_, int(c_) + o_)
+    mm.Normals.ComputeNormals()
     beam_new.append((mm, o.Attributes)); beam_drop.add(str(o.Attributes.Id)); _n_thk += 1
 log.append(f'西館：面だけの間仕切り・階段・室内窓 {_n_thk} 個に厚みを付けて閉じた')
 log.append(f'西館：階段と階段の箱 {_n_stair} 個を細くした（東の面 v−2.2 → −2.99、一本 0.9、南の口のあき 柱の所 約1.30・柱のあいだ 約1.88）')
