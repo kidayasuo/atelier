@@ -96,6 +96,12 @@ for hour in (9, 10, 11, 12, 13, 14, 15, 16):
     frac = shade(alt, az).intersection(fp).area / fp.area
     sh_rows.append(dict(hour=hour, alt=round(math.degrees(alt)), az=round(math.degrees(az)), shaded=round(frac, 2)))
 OUT["fountain_shade_jul"] = sh_rows
+spp = Polygon([gc.X(SP["c"][0] + SP["r"][0] * math.cos(q), SP["c"][1] + SP["r"][0] * math.sin(q)) for q in np.linspace(0, 2 * math.pi, 64)])
+rows2 = []
+for hour in (9, 10, 11, 12, 13, 14, 15, 16):
+    alt, az = sun(205, hour - 0.25)
+    rows2.append(dict(hour=hour, shaded=round(shade(alt, az).intersection(spp).area / spp.area, 2)))
+OUT["infant_fountain_shade_jul"] = rows2
 
 os.makedirs(os.path.join(gc.ROOT, "out"), exist_ok=True)
 json.dump(OUT, open(os.path.join(gc.ROOT, "out", "garden_calc.json"), "w"), ensure_ascii=False, indent=1)

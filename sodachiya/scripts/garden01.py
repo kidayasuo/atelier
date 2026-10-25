@@ -258,7 +258,9 @@ ax.add_patch(Rectangle(shp - 0.09, 0.18, 0.18, fc=C["wood"], ec="none", zorder=6
 _rg = sh.get("ring")
 if _rg:
     rcp = np.array(X(*_rg["c"]))
-    line(ax, [tuple(shp), tuple(rcp + (shp - rcp) / np.linalg.norm(shp - rcp) * _rg["r"])], lw=0.8, c=C["wood"], z=6.85)   # 腕
+    for q in _rg.get("posts", [sh["c"]]):
+        ax.add_patch(Rectangle(np.array(X(*q)) - 0.09, 0.18, 0.18, fc=C["wood"], ec="none", zorder=6.9))   # 柱（両側から支える）
+    line(ax, [X(*q) for q in _rg.get("posts", [sh["c"]])], lw=0.8, c=C["wood"], z=6.85)   # 梁
     ax.add_patch(Circle(rcp, _rg["r"], fc="#CFE6F3", ec="#2F6E95", lw=0.6, alpha=0.55, zorder=6.8))
     for k in range(_rg["n"]):
         q = 2 * math.pi * k / _rg["n"]
@@ -284,7 +286,20 @@ for b in G["BRIDGES"]:
 
 # 砂場・水浴び場・粒・柳
 poly(ax, P(G["SAND"]["poly"]), fc=C["sand"], ec="#A88E58", lw=0.4, z=5.5, hatch="....")
-poly(ax, P(ell_ad(G["SPLASH"]["c"], G["SPLASH"]["r"], G["SPLASH"]["rot"])), fc=C["waterL"], ec="#4C8DB8", lw=0.4, z=5.5)
+_SP = G["SPLASH"]
+poly(ax, P(ell_ad(_SP["c"], _SP["r"], _SP["rot"])), fc="#E6E2D8", ec="#4C8DB8", lw=0.4, z=5.5)   # 乳児の床の噴水（石張り）
+_js = _SP.get("jets", 0)
+if _js:
+    for ja in np.arange(-_SP["r"][0], _SP["r"][0] + 0.01, _js):
+        for jd in np.arange(-_SP["r"][0], _SP["r"][0] + 0.01, _js):
+            if math.hypot(ja, jd) < _SP["r"][0] - 0.3:
+                ax.add_patch(Circle(X(_SP["c"][0] + ja, _SP["c"][1] + jd), 0.06, fc="#4C8DB8", ec="none", zorder=5.6))
+_ms = _SP.get("mist")
+if _ms:
+    ax.add_patch(Circle(X(*_SP["c"]), _ms["r"], fc="#CFE6F3", ec="#2F6E95", lw=0.5, ls=(0, (1, 1)), alpha=0.6, zorder=6.8))
+    for q in _ms["posts"]:
+        ax.add_patch(Rectangle(np.array(X(*q)) - 0.07, 0.14, 0.14, fc=C["wood"], ec="none", zorder=6.9))
+    T(ax, X(_SP["c"][0] + 0.2, _SP["c"][1] + 2.6), "乳児の床の噴水・霧のわ", 4.0, c="#2F6E95", rot=-38, z=21, fontweight="bold")
 GR = G["GRAIN"]; _ca, _sa = math.cos(math.radians(GR["rot"])), math.sin(math.radians(GR["rot"]))
 def _gr(u, v):
     return (GR["c"][0] + u * _ca - v * _sa, GR["c"][1] + u * _sa + v * _ca)
@@ -513,7 +528,7 @@ lax.text(0, y, "凡例", fontsize=8, fontweight="bold", va="center"); y += 8
 from collections import Counter as _Ct
 _cnt = _Ct(sp_of(t[4]) for t in G["TREES"])
 rows = [("g:" + g, g + "：" + "・".join(f"{k} {_cnt[k]}" for k in SP if k != "_" and SP[k]["g"] == g and _cnt[k])) for g in GC] + [
-        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ・キク"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）・水浴び場（円形 φ4.0、段なしの浅い皿）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて雨庭へ。大雨で溢れたらすりばちが雨の池）"), ("amaniwa", "雨庭（洲浜）：玉石の浜の浅いくぼみ −0.25、下に砕石。初めの約5 mmの雨を溜めてしみ込ませ、溢れた分だけ護岸の溝から高野川へ。景石3、ミソハギ（盆花）・ギボウシ・カンスゲ"),
+        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ・キク"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）。上に輪のシャワー「あめのわ」。0〜2歳の前にも小さな床の噴水（φ4.0、低い泡と霧のわ、南のカツラの木陰）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて雨庭へ。大雨で溢れたらすりばちが雨の池）"), ("amaniwa", "雨庭（洲浜）：玉石の浜の浅いくぼみ −0.25、下に砕石。初めの約5 mmの雨を溜めてしみ込ませ、溢れた分だけ護岸の溝から高野川へ。景石3、ミソハギ（盆花）・ギボウシ・カンスゲ"),
         ("sand", "砂場・粒の遊び場（1〜2 mm、2.4×3.0 の木の縁、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
