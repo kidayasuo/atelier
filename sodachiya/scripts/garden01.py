@@ -255,9 +255,19 @@ T(ax, X(G["BOWL"]["c"][0] - 0.2, G["BOWL"]["c"][1] - 1.2), "雨の池（大雨�
 # シャワーの柱（床の噴水の北の端）
 sh = G["SHOWER"]; shp = np.array(X(*sh["c"]))
 ax.add_patch(Rectangle(shp - 0.09, 0.18, 0.18, fc=C["wood"], ec="none", zorder=6.9))          # 柱 1 本
-line(ax, [tuple(shp), tuple(shp + np.array([0.45, -0.35]))], lw=0.8, c=C["wood"], z=6.85)        # 腕
-ax.add_patch(Circle(shp + np.array([0.45, -0.35]), 0.3, fc="#CFE6F3", ec="#2F6E95", lw=0.5, zorder=6.8))
-T(ax, shp + np.array([1.0, 0.9]), "シャワーの柱（あめのシャワー＋ハンド、温水）", 4.4, c="#3E6E8E", ha="left")
+_rg = sh.get("ring")
+if _rg:
+    rcp = np.array(X(*_rg["c"]))
+    line(ax, [tuple(shp), tuple(rcp + (shp - rcp) / np.linalg.norm(shp - rcp) * _rg["r"])], lw=0.8, c=C["wood"], z=6.85)   # 腕
+    ax.add_patch(Circle(rcp, _rg["r"], fc="#CFE6F3", ec="#2F6E95", lw=0.6, alpha=0.55, zorder=6.8))
+    for k in range(_rg["n"]):
+        q = 2 * math.pi * k / _rg["n"]
+        ax.add_patch(Circle(rcp + _rg["r"] * np.array([math.cos(q), math.sin(q)]), 0.035, fc="#2F6E95", ec="none", zorder=6.82))
+    T(ax, rcp + np.array([0.3, 1.55]), "あめのわ（輪のシャワー φ2.4）", 4.2, c="#2F6E95", z=21, fontweight="bold")
+else:
+    line(ax, [tuple(shp), tuple(shp + np.array([0.45, -0.35]))], lw=0.8, c=C["wood"], z=6.85)        # 腕
+    ax.add_patch(Circle(shp + np.array([0.45, -0.35]), 0.3, fc="#CFE6F3", ec="#2F6E95", lw=0.5, zorder=6.8))
+    T(ax, shp + np.array([1.0, 0.9]), "シャワーの柱（あめのシャワー＋ハンド、温水）", 4.4, c="#3E6E8E", ha="left")
 poly(ax, P(ell_ad(G["TANK"]["c"], G["TANK"]["r"], -30)), fc="none", ec="#4C8DB8", lw=0.35, ls=(0, (2, 1.5)), z=5.7)
 for b in G["BRIDGES"]:
     c = b["c"]
@@ -537,7 +547,7 @@ for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²�
           f"　→ 北のもりへの上り（最大 +0.7）・おくのもりの林床・土手 +1.0 も含めて締め固め 約 {CALC['soil']['fill_m3']} m³。運び込まない。本館の床は床下空間（根切り GL−0.6、ユーザー）で、掘る土は 約 {CALC['soil']['total_cut_m3']} m³（本館 約 {CALC['soil']['honkan_cut_m3']}、西館ほか 約 {CALC['soil']['west_cut_m3']}、園庭 約 {CALC['soil']['garden_cut_m3']}）",
           f"小川：地上の長さ 約 {s_len:.0f} m、みなもとの小さな滝（落差 約0.45）から、川床は滝壺 +0.05 → −0.40（地面から0.15以上下げる）。水深 3〜5 cm で 約 {CALC['stream']['rows'][0]['Q_Ls']:.0f}〜{CALC['stream']['rows'][1]['Q_Ls']:.0f} L/s（流れ 0.3〜0.4 m/s）。用水路の口の堰板で加減、大雨は水門を閉じる",
           f"木 {len(G['TREES'])} 本（{len(_cnt)} 種）。噴水の夏の日陰（7 月下旬）：9 時 {CALC['fountain_shade_jul'][0]['shaded']:.0%}、10〜13 時 約 {sum(r['shaded'] for r in CALC['fountain_shade_jul'][1:5]) / 4:.0%}（南東のケヤキ）、15 時 {CALC['fountain_shade_jul'][6]['shaded']:.0%}、16 時 {CALC['fountain_shade_jul'][7]['shaded']:.0%}（本館の影）。休むのは縁側の庇の下",
-          f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）＋シャワーの柱。上水、排水は雨の川へ。雨の川：屋根 約 880 m²、100 mm/h で南の端 約 24 L/s、溝 0.5×0.2・1/200 で 約 50 L/s（目安）",
+          f"床の噴水：約 {fpoly.area:.0f} m²、噴き口 {nj} 個（0.8 m ごと）＋輪のシャワー「あめのわ」。上水、排水は雨の川へ。雨の川：屋根 約 880 m²、100 mm/h で南の端 約 24 L/s、溝 0.5×0.2・1/200 で 約 50 L/s（目安）",
           f"小屋：便所 {NUM['wc']:.1f}＋倉庫 {NUM['store']:.1f}＋コンポストの間 {NUM['cbay']:.1f} m²（一つの屋根）。倉庫は教材庫×2（13.0）＋遊戯室の道具入れ（5.7）に足して 30 m² を超える",
           "コンポスト：小屋の倉庫の南東、屋根の下の壁のない間に木枠 4 つ（落ち葉・入れる・寝かせる・できた、全体 約 4.6×1.2）。4・5 歳の当番がキッチンから野菜くずをもらい、落ち葉と重ね、できた土を入口の前の菜園へ運ぶ（ユーザー）",
           f"土の使い道（ユーザー：無理なく使える分だけ）：表土 約 {CALC['soil']['topsoil_m3']} m³ は全部敷地に残す（築山の表面 0.2・木の下の林床 0.2 約 {CALC['soil']['woods_m2']} m²・菜園）。下の土は築山の芯・土手・林床の盛り・西館の床の下へ。外へ出すのは下の土 約 {CALC['soil']['out_subsoil_m3']} m³（近くの工事へ）",

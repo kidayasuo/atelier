@@ -256,6 +256,17 @@ if AW:
         c0 = P3(sa_, sd_); sph = r.Sphere(r.Point3d(c0.X, c0.Y, c0.Z + sr_ * 300), sr_ * 1000)
         m.Objects.AddBrep(sph.ToBrep(), at(96, "雨庭の景石"))
 
+# ---- シャワーの柱と輪のシャワー「あめのわ」（95） ----
+SH = G["SHOWER"]; _rg = SH.get("ring")
+if _rg:
+    g_ = H(*SH["c"])
+    box(SH["c"][0] - 0.06, SH["c"][0] + 0.06, SH["c"][1] - 0.06, SH["c"][1] + 0.06, g_, g_ + _rg["h"] + 0.15, 95, "シャワーの柱 120 角")
+    gr_ = H(*_rg["c"]) + _rg["h"]
+    curve_ad(ell(_rg["c"], (_rg["r"], _rg["r"]), n=64), 95, "あめのわ（輪のシャワー φ2.4、噴き口48）", close=True, z=gr_, drape=False)
+    vx, vy = _rg["c"][0] - SH["c"][0], _rg["c"][1] - SH["c"][1]; L_ = math.hypot(vx, vy)
+    pe = (_rg["c"][0] - vx / L_ * _rg["r"], _rg["c"][1] - vy / L_ * _rg["r"])
+    m.Objects.AddLine(P3(SH["c"][0], SH["c"][1], gr_), P3(pe[0], pe[1], gr_), at(95, "あめのわの腕"))
+
 # ---- 年中行事の草（95） ----
 for a_, d_, r_, nm_, n_ in G.get("GYOJI", {}).get("items", []):
     curve_ad(ell((a_, d_), (r_, r_)), 95, f"{nm_}（{n_}）", close=True)
