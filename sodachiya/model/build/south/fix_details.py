@@ -788,43 +788,10 @@ if not mech.is_empty:
         tmp = r.File3dm(); Kt = Kit(tmp); Kt.prism(door, 0.0, 2100.0, L35D)
         for o2 in tmp.Objects: new_objs.append((o2.Geometry, a35d))
     log.append('機械室：北西の面に両開きの戸1.6（35d）')
-    # 機械室の外壁も本館の外壁と同じスギの大和張り（10-26、ユーザー、監修の項 20261026-0044）。押縁 45×60 を外周に約 3 m おき（戸の所は除く）。
-    L17B = new_layer('17b_本館_外壁の押縁（架構の線、スギ 45×60）', (150, 112, 72))
-    _mp = max(getattr(mech, 'geoms', [mech]), key=lambda g_: g_.area)        # 足元の形が細かく割れているときは大きい塊の外周
-    _mp = _mp.buffer(5).buffer(-5)
-    _ring = LineString(list(_mp.exterior.coords)); _per = _ring.length
-    _door = unary_union([Polygon([_TT(t0, 1.0), _TT(t1, 1.0), _TT(t1, 1.3), _TT(t0, 1.3)])]).buffer(400)
-    _s0 = _ring.project(Point(*np.array(_door.centroid.coords[0])))
-    _nb = max(1, int(round(_per / 3000.0))); _n_mb = 0
-    for i_ in range(_nb):
-        sx = (_s0 + _per * (i_ + 0.5) / _nb) % _per
-        p_ = np.array(_ring.interpolate(sx).coords[0]); q_ = np.array(_ring.interpolate((sx + 50) % _per).coords[0])
-        tt = (q_ - p_) / np.linalg.norm(q_ - p_); nn = np.array([tt[1], -tt[0]])
-        if _mp.contains(Point(*(p_ + nn * 100))): nn = -nn
-        if _door.contains(Point(*p_)): continue
-        bat_ = Polygon([p_ - tt * 22.5, p_ + tt * 22.5, p_ + tt * 22.5 + nn * 60, p_ - tt * 22.5 + nn * 60])
-        a_mb = r.ObjectAttributes(); a_mb.LayerIndex = L17B; a_mb.Name = '押縁（機械室、スギ 45×60）'
-        tmp = r.File3dm(); Kt = Kit(tmp); Kt.prism(bat_, 0.0, 3770.0, L17B)
-        for o2 in tmp.Objects: new_objs.append((o2.Geometry, a_mb))
-        _n_mb += 1
-    log.append(f'機械室：押縁 {_n_mb} 本（17b、外周に約 3 m おき）')
+    # 機械室の外壁も本館の外壁と同じスギの大和張り（10-26）。押縁は付けない（大和張りの重なりが継ぎ目を覆う、ユーザー 10-26 1:59）。
+    m.Layers[L35].Color = (196, 160, 118, 255)                               # 3dm の機械室の塊の色をスギに（本館の外壁 17 と同じ）
 
-# ================================================================ 本館：外壁の押縁（本館係、10-26、ユーザー、監修の項 20261026-0044）
-# 外壁はスギの大和張り（決定事項（共通）の「外壁と窓」）。板の割付と継ぎ目は架構の線で切り、継ぎ目を押縁 45×60 で押さえる（外から 3 m のリズム）。
-# 3dm では外壁（17）の外面に押縁だけを置き、板の一枚ずつは描かない（立面の縦の線は更新係の draw100）。
-# 西の面：外に面する所（u0〜21・u51〜57.34）の架構の線 u3〜18・u54 と両端の角。u21（すき間の南の端のガラス）・u51（西館の北の壁）は取り合いがあるので置かない。
-# 北の妻（外面 u57.34）：架構の線が無いので同じ 3 m のリズム（v3・6・9）と両端の角。高さは GL（−300）から外壁の上端まで。
-L17B = new_layer('17b_本館_外壁の押縁（架構の線、スギ 45×60）', (150, 112, 72))
-_WTOP = UP_TOP if UP_TOP is not None else 4322.0
-_bats = [(R(u - 0.0225, u + 0.0225, -0.41, -0.35, 0.05), -300.0, _WTOP, f'西の面 u{u:g}') for u in (3, 6, 9, 12, 15, 18, 54)]
-_bats += [(R(0.0, 0.045, -0.41, -0.35, 0.05), -300.0, _WTOP, '西の面 南の角'), (R(57.295, 57.34, -0.41, -0.35, 0.05), -300.0, _WTOP, '西の面 北の角')]
-_bats += [(R(57.34, 57.40, v - 0.0225, v + 0.0225, 0.05), -300.0, ROOF_Z(v + 0.0225) - 30.0, f'北の妻 v{v:g}') for v in (3, 6, 9)]
-_bats += [(R(57.34, 57.40, -0.35, -0.305, 0.05), -300.0, 4440.0, '北の妻 西の角'), (R(57.34, 57.40, 11.955, 12.0, 0.05), -300.0, ROOF_Z(12.0) - 30.0, '北の妻 東の角')]
-for poly_, z0_, z1_, nm_ in _bats:
-    a_b = r.ObjectAttributes(); a_b.LayerIndex = L17B; a_b.Name = f'押縁（{nm_}、スギ 45×60）'
-    tmp = r.File3dm(); Kt = Kit(tmp); Kt.prism(poly_, z0_, z1_, L17B)
-    for o2 in tmp.Objects: new_objs.append((o2.Geometry, a_b))
-log.append(f'本館：外壁の押縁 {len(_bats)} 本（17b、西の面・北の妻、架構の線と 3 m のリズム）')
+# 本館の外壁はスギの大和張り（決定事項（共通）の「外壁と窓」）。縦の板は長尺で継がず、押縁は付けない（ユーザー 10-26 1:59、本館の壁は 4.3 m 以下なので水切りも無し）。
 
 # ================================================================ 西館：光の筋と屋根材型の太陽光（西館係、10-23夜、本館係の依頼 連携10-23夜5の6）
 # 本館と同じ考えと寸法：架構の線ごとに、2 枚の梁のあいだ（180）の上を開けて光の筋にする（垂木はそれぞれ自分の側の梁に載せる）。
