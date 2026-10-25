@@ -881,7 +881,7 @@ def plan_context(A, ext):
 
 # 3枚目の平面図（プレゼンの準備 renkei/open/20261024-2316-present、ユーザー10-25）：敷地全体 1/100、配置図と同じ向き
 # （高野川を下辺、3dm の xy を VIEW_ROT 回す）。A1 横の一枚、余白 6 mm、敷地の南の角を紙の (203, 9) mm、東の辺を右の余白まで。
-# 道路・隣地は課題の敷地図をなぞった線（present/kadai_map.json、3dm の m）、敷地の境は一点鎖線。
+# 道路・隣地は PLATEAU の道と建物（10-26、ユーザー：課題の敷地図をなぞった線はやめた）、敷地の境は一点鎖線。
 # 2階（西館）は 3dm の xy で (−22.83, −16.73) m ずらして西の道路の外に。2階で切って下に見える遊戯室（床・遊具・クスノキ）も描く、本館の屋根は描かない。
 SITE_C = {k: np.array(v) * 1000 for k, v in dict(N=(0.0, 0.0), E=(34.86, -43.83), S=(-14.44, -83.04),
                                                 SW=(-21.91, -73.65), NW=(-25.83, -20.54)).items()}
@@ -913,12 +913,20 @@ def make_plans():
     # 道路・隣地（課題の敷地図をなぞった線）。2階を置く所（西の道路の向かい、西の辺から 7 m より外）は描かない
     a_, b_ = SITE_C['SW'], SITE_C['NW']; t_ = (b_ - a_) / np.linalg.norm(b_ - a_); nn_ = np.array([-t_[1], t_[0]])
     if nn_ @ (SITE_C['E'] - a_) > 0: nn_ = -nn_
-    root = _root()
-    if root:
-        for ln in _j.load(open(os.path.join(root, 'present', 'kadai_map.json'), encoding='utf-8'))['lines']:
-            Q = np.array(ln, float) * 1000
-            if ((Q - a_) @ nn_).mean() > 7000: continue
-            A.lines([Q], '30_敷地・外構', lw=0.13, color='0.35', z=1)
+    # 周りは PLATEAU の道と建物（ユーザー10-26：課題の敷地図をなぞった線はやめる。向かいの住宅3軒は add_context.py で道の縁に沿わせた）。
+    # 2階を置く所（西の道の向かい、西の辺から 7 m より外）は描かない
+    for ob in OBJ:
+        n = num(ob['layer'])
+        if n not in (3, 4): continue
+        sil = silhouette(ob['T'][:, :, :2])
+        if sil is None or sil.is_empty: continue
+        if n == 4 and ((np.array(sil.centroid.coords[0]) - a_) @ nn_) > 7000: continue
+        if n == 3:
+            far = Polygon([a_ + nn_ * 7000 - t_ * 3e5, a_ + nn_ * 7000 + t_ * 3e5, a_ + nn_ * 3e5 + t_ * 3e5, a_ + nn_ * 3e5 - t_ * 3e5])
+            sil = sil.difference(far)
+            A.fill(sil, '30_敷地・外構', fc='0.96', z=0.3); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.6', z=0.35)
+        else:
+            A.fill(sil, '30_敷地・外構', fc='0.88', z=0.5); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.55', z=0.6)
     site = [P for ln, P in CURVES if ln.startswith('00')]
     if site:
         P = max(site, key=len)
@@ -1369,7 +1377,7 @@ def make_siteplan():
     mid = (cr.min(0) + cr.max(0)) / 2 + np.array([-3000.0, 0.0])
     MG = 10
     w_, h_ = (W_ - 2 * MG) * SC, (H_ - 2 * MG) * SC
-    ext = (mid[0] - w_ / 2, mid[0] + w_ / 2, mid[1] - h_ / 2 + 6000, mid[1] + h_ / 2 + 6000)   # 北（上）を少し広く（ユーザー10-26）
+    ext = (mid[0] - w_ / 2, mid[0] + w_ / 2, mid[1] - h_ / 2 + 3000, mid[1] + h_ / 2 + 3000)   # 北（上）を少し広く、南の高野川の崖と河川敷も入る（ユーザー10-26）
     A = S.axes(MG, MG, ext); A.phi = ph; A.dxf_only_text = True
     root = _root()
     SP = {}
@@ -1384,6 +1392,17 @@ def make_siteplan():
         if sil is None: continue
         if n == 4: A.fill(sil, '30_敷地・外構', fc='0.86', z=0.5); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.55', z=0.6)
         else: A.fill(sil, '30_敷地・外構', fc='0.97', z=0.3); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.6', z=0.35)
+    # 高野川の護岸（02）：川・河川敷・石積みの崖・柵の土台（高さで分ける）
+    for ob in OBJ:
+        if num(ob['layer']) != 2: continue
+        sil = silhouette(ob['T'][:, :, :2])
+        if sil is None or sil.is_empty: continue
+        z0, z1 = ob['T'][:, :, 2].min(), ob['T'][:, :, 2].max()
+        if z1 <= -5700: A.fill(sil, '30_敷地・外構', fc='#CFE3EF', z=0.8)
+        elif z1 - z0 < 800 and z1 < -4000: A.fill(sil, '30_敷地・外構', fc='#DDE8D0', z=0.8)
+        elif z1 - z0 >= 800: A.fill(sil, '30_敷地・外構', fc='#BDB6AA', z=0.85, hatch='////')
+        else: A.fill(sil, '30_敷地・外構', fc='#D8D4CC', z=0.85)
+        A.geom_lines(sil, '30_敷地・外構', lw=0.05, color='0.45', z=0.9)
     # 課題の敷地図をなぞった線は描かない（ユーザー10-26：道は PLATEAU の道、向かいの住宅3軒は課題の図の道の縁に沿わせた add_context.py）
     for ln, P in CURVES:
         if ln.startswith('00'): A.lines([P[:, :2]], '30_敷地・外構', lw=0.3, color='#C03030', ls=(0, (12, 3, 2, 3)), z=8); continue
