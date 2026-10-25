@@ -48,6 +48,10 @@ L_STG_T = layer('59_1F_倉庫（すき間、先生の道）', hexc('D9D3EC'))   
 L_STG_P = layer('59_1F_倉庫（すき間、遊戯室）', hexc('D9D3EC'))
 L_SLD = layer('19c_西館_室内の引き戸（木）', (165, 120, 75))
 L_19D = layer('19d_建具_室内の戸（木）', (165, 120, 75))       # 自動の戸（add_inner.py）と同じレイヤー：ここに置いた開口には自動の戸が出ない
+# 10-26（ユーザー・監修）：不透明な外壁はスギの大和張り。外壁（21）の色をスギに、架構の線ごとの押縁は別のレイヤー（写す前に）
+CEDAR = (196, 156, 108)
+m.Layers[L_WALL].Color = (*CEDAR, 255)
+L_BAT = layer('21e_西館_外壁の押縁（スギ 45×60）', (150, 112, 72))
 WV = []
 # ガラスの材質は本館のガラス戸（16）と同じ
 mi = m.Layers[lidx('16_')].RenderMaterialIndex
@@ -280,6 +284,48 @@ if PJ and os.path.exists(PJ):
         rail = affinity.translate(LineString([mid - d * (hw + 3700 - 1800), mid + d * (hw + 3700 - 1800)]).buffer(60, cap_style=2), *(nrm * (t_out + 70)))
         mesh_prism(rail, hh + 50.0, const(hh + 200.0), L_DOOR, (90, 90, 90))      # 上の吊りレール（引きしろ 1.8 ずつ）
         print('big door between columns', [tuple(np.round(uv(*p), 2)) for p in pick], 'wall out %.2f' % (t_out / 1000))
+# ---------------------------------------------------------------- 外への窓（10-26、ユーザー・監修：外壁と窓）
+# 窓に格子は付けない。面ごとのリズムで：キッチンは架構の間に一つずつ同じ窓、遊戯室は中の遊びの高さに合わせて散らす（ちょっとランダム）、
+# 2 階は横一文字（西の低い軒の壁に一本の帯、休憩室の南の妻は座った目の高さ）。道に面するガラスは室内から拭ける開き方（引き違い・内倒し）。
+_RK = WS.exterior
+def _s_of(u):
+    return _RK.project(Point(*xy(u, face_v(u))))
+def win_u(u0, u1, z0, z1):
+    """西・北西の面（u の範囲）の窓：外周に沿う帯を足元の形に"""
+    a_, b_ = sorted((_s_of(u0), _s_of(u1)))
+    if b_ - a_ > _RK.length / 2:                                    # 外周の始まり（u約41）をまたぐ
+        fp = unary_union([_sub(_RK, b_, _RK.length).buffer(400.0, cap_style=2), _sub(_RK, 0.0, a_).buffer(400.0, cap_style=2)])
+    else:
+        fp = _sub(_RK, a_, b_).buffer(400.0, cap_style=2)
+    OPEN.append((fp, z0, z1)); PANES.append((fp, z0, z1, L_GL)); return fp
+def win_gable(u_face, v0, v1, z0, z1):
+    """南北の妻（u 一定の面）の窓"""
+    fp = R(u_face - 0.4, u_face + 0.4, min(v0, v1), max(v0, v1), 0.05)
+    OPEN.append((fp, z0, z1)); PANES.append((fp, z0, z1, L_GL)); return fp
+WIN_LOG = []
+def _w(kind, *a):
+    (win_u if kind == 'u' else win_gable)(*a); WIN_LOG.append((kind, a))
+ZF2_ = 3250.0
+# キッチン（西の面、スパン 24〜27）：作業台の上 h1.0〜2.0、幅 2.2（引き違い）。南西の丸みの先 u22.6〜23.9 にも同じ高さの細い窓
+_w('u', 24.4, 26.6, 1000.0, 2000.0)
+_w('u', 22.7, 23.7, 1000.0, 2000.0)
+# 調理の更衣・便所（u27〜30、職員の戸の南）：目隠しの高い窓 h1.6〜2.1、幅 0.6
+_w('u', 27.5, 28.1, 1600.0, 2100.0)
+# 遊戯室（西の面と北西の面、北の妻）：ちょっとランダム。くぼみの覗き窓・地窓（play.json）に足して、遊びの高さに合わせて散らす
+_w('u', 30.7, 31.5, 300.0, 900.0)        # 洞（2 階の床の下）の低い窓：床に座った子の目
+_w('u', 34.2, 35.1, 2100.0, 2900.0)      # くぼみ 1 の上：大人の目の上、空
+_w('u', 36.3, 36.75, 1300.0, 2700.0)     # 縦長の細い窓（くぼみ 1 と 2 のあいだの柱の北）
+_w('u', 37.7, 38.3, 1500.0, 2100.0)      # くぼみ 2 の上：立った子の目
+_w('u', 39.8, 41.1, 2500.0, 3300.0)      # くぼみ 3 の上：高い窓（午後の光）
+_w('u', 42.5, 43.7, 450.0, 1050.0)       # 丸いベンチ（u42.15〜44）に座った目
+_w('u', 49.0, 49.9, 2300.0, 3000.0)      # 踊り場（h2.0）の子の目：北西の道を見下ろす
+_w('g', 51.0, -0.9 - 3.6, -0.9 - 4.8, 2400.0, 3400.0)   # 北の妻：吊り橋・段（h2〜3）から北の庭
+# 2 階：横一文字。西の低い軒の壁（2FL+0.4〜+0.8）に休憩室・更衣・会議室を通す一本の帯（架構の線の押縁で区切る）
+for a_, b_ in ((22.75, 23.88), (24.12, 26.88), (27.12, 29.88), (30.12, 32.88)):
+    _w('u', a_, b_, ZF2_ + 400.0, ZF2_ + 800.0)
+# 休憩室の南の妻：座った目の高さ（2FL+0.8〜+1.3）で川と空を見る横長の窓
+_w('g', 21.0, -2.9, -9.0, ZF2_ + 800.0, ZF2_ + 1300.0)
+print('windows (10-26):', len(WIN_LOG))
 # ---------------------------------------------------------------- 外皮が架構の輪郭（WN）より外へ出た所：屋根を延ばし、床を足す（10-23、西館係）
 EXT = WS.difference(WN).buffer(-1).buffer(1)
 def surf(poly, zfun, li, col=None):
@@ -301,17 +347,44 @@ if EXT.area > 1e5:
 WALLC = None
 base = wall_ring.difference(unary_union([o[0] for o in OPEN]))
 mesh_prism(base, 0.0, ztop, L_WALL)
+# 押縁（10-26）：架構の線ごとに外壁の外面に 45×60、床から屋根の下まで（窓の所は切る）。南北の妻は窓の割付の切れ目に
+def _bat_fp(p, t_):
+    """外周の点 p での押縁の足元（幅 60、外へ 45）"""
+    s_ = _RK.project(Point(*p)); q0 = _RK.interpolate(s_ - 30.0); q1 = _RK.interpolate(s_ + 30.0)
+    e_ = np.array([q1.x - q0.x, q1.y - q0.y]); e_ /= np.linalg.norm(e_); nn_ = np.array([-e_[1], e_[0]])
+    c_ = np.array([(q0.x + q1.x) / 2, (q0.y + q1.y) / 2])
+    if WS.contains(Point(*(c_ + nn_ * 20))): nn_ = -nn_
+    P4 = [c_ - e_ * 30 - nn_ * 1, c_ + e_ * 30 - nn_ * 1, c_ + e_ * 30 + nn_ * 45, c_ - e_ * 30 + nn_ * 45]
+    return Polygon(P4)
+_bats = [xy(u, face_v(u)) for u in (24, 27, 30, 33, 36, 39, 42, 45, 48)]
+_bats += [xy(21.0, v) for v in (-3.12, -4.5, -10.0)] + [xy(51.0, v) for v in (-4.1,)]
+_nb = 0
+for p in _bats:
+    fp = _bat_fp(np.ravel(p).astype(float), 45.0); cx_, cy_ = fp.centroid.x, fp.centroid.y
+    zt_ = ztop(cx_, cy_) - 100.0                                   # 屋根の板の下
+    cuts = sorted((zb, zt) for fpo, zb, zt in OPEN if fpo.intersects(fp.buffer(5)))
+    z = 0.0
+    for zb, zt in cuts:
+        if zb > z + 50: mesh_prism(fp, z, const(min(float(zb), zt_)), L_BAT); _nb += 1
+        z = max(z, float(zt if zt is not None else zt_))
+    if z < zt_ - 50: mesh_prism(fp, z, const(zt_), L_BAT); _nb += 1
+print('battens (10-26):', _nb)
 GRP = {}                                         # 同じ足元の開口（覗き窓と高窓など）はまとめて、残る壁を上下に分ける
 for fp, zb, zt in OPEN: GRP.setdefault(id(fp), [fp, []])[1].append((zb, zt))
 # 足元が重なる開口（10-24：東の面いっぱいの高窓の帯と、覗き窓・口②・ホールの範囲）は、重なりで区切ってから開口をまとめる
+def _clean(g):
+    """差の残りの髪の毛ほどの細い筋（二つの片をつなぐ幅0の帯）を切る。つながったままだと一つの多角形として三角に分けられ、
+    窓の所まで壁でふさいでいた（10-26、窓が増えて足元が重なる所が増えた）"""
+    return g.buffer(-0.5, join_style=2).buffer(0.5, join_style=2)
 cells = []
 for fp, iv in GRP.values():
     rest = wall_ring.intersection(fp); nxt = []
     for g, ivs in cells:
-        a = g.intersection(fp); b = g.difference(fp)
+        a = _clean(g.intersection(fp)); b = _clean(g.difference(fp))
         if a.area > 100: nxt.append((a, ivs + iv))
         if b.area > 100: nxt.append((b, ivs))
         rest = rest.difference(g)
+    rest = _clean(rest)
     if rest.area > 100: nxt.append((rest, list(iv)))
     cells = nxt
 for piece, iv in cells:
