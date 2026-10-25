@@ -547,7 +547,7 @@ STREET_NOLINE = ('12', '13')     # ホール・西吹き抜け・内縁側のあ
 def room_name(ln):
     s = re.sub(r'^\d+[a-z]?_', '', ln); s = re.sub(r'^(1F|2F)_', '', s); return re.sub(r'（.*?）', '', s)
 
-def plan(A, zcut, objs, overhead, level_z, rooms_also=()):
+def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
     below, cut, swings, stairs = [], [], [], []
     swings2, hidden, hidden_low, sliders = [], [], [], []
     for ob in objs:
@@ -666,6 +666,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=()):
         f2 = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^(23|25)_', ob['layer'])]
         f1 = unary_union([g for g in f1 if g is not None]); f2 = unary_union([g for g in f2 if g is not None])
         void = f1.difference(f2.buffer(30))
+        if void_shift is not None: void = shp_affinity.translate(void, *void_shift)   # 2階をずらして置くとき（3枚目の平面、10-25）
         for g in getattr(void, 'geoms', [void]):
             if g.geom_type != 'Polygon' or g.area < 3e6: continue
             mr = np.array(g.minimum_rotated_rectangle.exterior.coords)[:4]
@@ -951,7 +952,7 @@ def make_plans():
     sh3 = np.array([SHIFT2[0], SHIFT2[1], 0.0])
     o2s = [dict(ob, T=ob['T'] + sh3) for ob in o2]
     r2 = [dict(ob, T=ob['T'] + sh3) for ob in OBJ if num(ob['layer']) == 20]
-    plan(A, 3250 + 1200, o2s, r2, 3250, rooms_also=('31_',))
+    plan(A, 3250 + 1200, o2s, r2, 3250, rooms_also=('31_',), void_shift=tuple(SHIFT2))
     # 表題・方位・縮尺（紙の座標）
     def paper(x_mm, y_mm):
         return ext[0] + (x_mm - MG) * 100, ext[2] + (y_mm - MG) * 100

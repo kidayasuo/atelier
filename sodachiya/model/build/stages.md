@@ -11,8 +11,8 @@
 | 3 | 床 | `model/build/south/add_floor.py`・`model/build/south/add_south.py` |
 | 4 | しつらえ | `model/build/shitsu/add_shitsurae.py`・`model/build/shitsu/capture.py`・`model/build/shitsu/ref/plan01.py`・`model/build/shitsu/ref/plan02.py`・`model/build/shitsu/ref/plan04.py`・`scripts/plan01.py`・`scripts/plan02.py`・`scripts/plan04.py` |
 | 5 | 外構の取り込み | `model/build/south/finish.py`・`model/sodachiya_approachA_layers.3dm` |
-| 6 | 西館の外壁と開口 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_west_south.py`・`model/build/south/roofw.py`・`model/build/south/uv.py` |
-| 7 | 遊戯室 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_play.py`・`model/build/south/meshkit.py` |
+| 6 | 西館の外壁と開口 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_west_south.py`・`model/build/south/meshkit.py`・`model/build/south/roofw.py`・`model/build/south/uv.py` |
+| 7 | 遊戯室 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_play.py` |
 | 7p | 遊戯室の取り込み | `model/build/south/add_play_import.py`・`model/sodachiya_play_layers.3dm` |
 | 7b | ホールの林 | `data/forest.json`・`model/build/south/add_hall.py` |
 | 7c | 納まり | `data/approachA.json`・`data/wnew.pkl`・`model/build/south/fix_details.py`・`model/build/south/solids.py`・`archive/handoff_1018/t/`の1ファイル |
@@ -24,6 +24,6 @@
 | 8 | 護岸と園庭の取り込み | `model/build/south/add_site.py`・`model/sodachiya_garden_layers.3dm` |
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
 | 10 | Rhino版 | `data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/ruled_roof.py`・`model/sodachiya_exact_mesh.3dm` |
-| 12 | 面積表 | `data/minami.json`・`model/build/south/areas.py`・`model/sodachiya_exact_mesh.3dm` |
-| 11 | 図（平面・断面・立面、部屋の面積は面積表から） | `model/build/south/draw100.py`・`model/drawings/sodachiya_areas.json`・`model/sodachiya_exact_mesh.3dm` |
+| 12 | 面積表 | `data/garden.json`・`data/minami.json`・`model/build/south/areas.py`・`model/sodachiya_exact_mesh.3dm` |
+| 11 | 図（平面・断面・立面、部屋の面積は面積表から） | `data/garden.json`・`model/build/south/draw100.py`・`model/drawings/sodachiya_areas.json`・`model/sodachiya_exact_mesh.3dm`・`present/kadai_map.json` |
 | 13 | 干渉の一覧 | `model/build/south/clash.py`・`model/sodachiya_exact_mesh.3dm` |
