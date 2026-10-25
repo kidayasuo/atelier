@@ -37,9 +37,16 @@ def ground(x, y):
     w = 1.0 / d ** 2; i = np.argsort(d)[:8]
     return float((GP[i, 2] * w[i]).sum() / w[i].sum())
 
+# 西の道の向かいの住宅3軒（北の三軒）を、塊の南の角を中心に回して、課題の敷地図の道の縁に沿わせる（ユーザー、10-26）。
+# PLATEAU では道の縁に対して約12.6°開いていた。課題の敷地図（present/kadai_map.json の西の道の西の縁）の向きに合わせる
+from shapely import affinity as _aff
+ROT_BLOCK = {'ids': ('bldg_15ae39bf-872c-42a8-889f-3138a573794e', 'bldg_d62c7741-c440-4c87-ab0c-1fd708e067e3',
+                     'bldg_cb1d1a2b-6ef5-4bb0-890a-fffa0ca64a4f'),
+             'pivot': (-31148.0, -47801.0), 'deg': -12.65}
 nb = nr = skip_b = skip_r = 0
 for b in J['bldg']:
     F = Polygon(np.array(b['foot']) * 1000).buffer(0)
+    if b.get('id') in ROT_BLOCK['ids']: F = _aff.rotate(F, ROT_BLOCK['deg'], origin=ROT_BLOCK['pivot'])
     if F.is_empty or F.area < 2e6: continue
     if F.intersection(S).area > 0.3 * F.area: skip_b += 1; continue
     if b['z1'] - b['z0'] < 500: continue

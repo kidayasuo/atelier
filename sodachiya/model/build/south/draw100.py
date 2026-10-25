@@ -263,7 +263,7 @@ STAMP = git_stamp()
 
 class Sheet:
     """用紙（mm）。DXF は用紙の 100 倍＝1/100 の図を 1:1 の mm で置く（Rhino で 1/100 のレイアウトにそのまま使える）"""
-    def __init__(s, w, h, title, scale=100, margin=10):
+    def __init__(s, w, h, title, scale=100, margin=10, notitle=False):
         s.w, s.h, s.k = w, h, scale
         s.fig = plt.figure(figsize=(w * MM, h * MM))
         s.doc = ezdxf.new('R2018', setup=True); s.msp = s.doc.modelspace()
@@ -276,7 +276,9 @@ class Sheet:
         m_ = margin
         s.msp.add_lwpolyline([(m_ * k, m_ * k), ((w - m_) * k, m_ * k), ((w - m_) * k, (h - m_) * k), (m_ * k, (h - m_) * k)], close=True, dxfattribs={'layer': '90_図枠'})
         s.fig.patches.append(plt.Rectangle((m_ / w, m_ / h), 1 - 2 * m_ / w, 1 - 2 * m_ / h, transform=s.fig.transFigure, fill=False, lw=LW(0.25), ec='k'))
-        if m_ >= 10:
+        if notitle:
+            pass
+        elif m_ >= 10:
             s.text_paper(w - 15, 18, title, 11, ha='right')
             s.text_paper(w - 15, 13, 'こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　' + STAMP, 6.0, ha='right', color='0.35')
         else:                                          # 余白の狭い枚（3枚目の平面）：表題は図の中に、作図の印は左下に小さく
@@ -345,12 +347,13 @@ class Ax:
             h.paths.add_polyline_path([s.P(*p) for p in list(gg.exterior.coords)[:-1]], is_closed=True, flags=1)
             for ring in gg.interiors:
                 h.paths.add_polyline_path([s.P(*p) for p in list(ring.coords)[:-1]], is_closed=True, flags=0)
-    def text(s, x, y, t, pt, layer, ha='center', va='center', rot=0, color='k', box=False, raw=False):
+    def text(s, x, y, t, pt, layer, ha='center', va='center', rot=0, color='k', box=False, raw=False, dxf_only=False):
         kw = dict(bbox=dict(fc='white', ec='none', pad=0.5, alpha=0.85)) if box else {}
         if not raw and s.phi:                 # rot=0 の字（部屋名など）は紙の上で水平のまま、向きのある字だけ回す
             x, y = s.rot([x, y])
             if rot: rot = ((rot + math.degrees(s.phi)) + 90) % 180 - 90
-        s.ax.text(x, y, t, ha=ha, va=va, fontsize=pt, rotation=rot, color=color, zorder=12, **kw)
+        if not (dxf_only or getattr(s, 'dxf_only_text', False)):
+            s.ax.text(x, y, t, ha=ha, va=va, fontsize=pt, rotation=rot, color=color, zorder=12, **kw)
         dxf_text(s.sh.msp, *s.P(x, y), t, pt * PT2MM * s.sh.k, layer, ha, va, rot)
     def bubble(s, x, y, t, layer='41_通り芯の符号', rad=450, pt=6.5):
         x, y = s.rot([x, y]); th = np.linspace(0, 2 * np.pi, 33)
@@ -1359,15 +1362,15 @@ ELEV_SHEETS = [('sodachiya_elevations_1-100', lambda: make_elevations(
 def make_siteplan():
     import json as _j
     W_, H_, SC = 594, 420, 200
-    S = Sheet(W_, H_, '配置図　1/200（A2）　高野川を下に（北は方位の矢印）', scale=SC)
+    S = Sheet(W_, H_, '配置図　1/200（A2）　高野川を下に（北は方位の矢印）', scale=SC, notitle=True)   # 文字は図に入れない（ユーザー10-26：素材にする、DXFの60・80のレイヤーには残す）
     ph = _view_rot(); c_, n_ = math.cos(ph), math.sin(ph)
     rp = lambda P: np.c_[np.asarray(P)[:, 0] * c_ - np.asarray(P)[:, 1] * n_, np.asarray(P)[:, 0] * n_ + np.asarray(P)[:, 1] * c_]
     cr = rp(np.array(list(SITE_C.values())))
     mid = (cr.min(0) + cr.max(0)) / 2 + np.array([-3000.0, 0.0])
     MG = 10
     w_, h_ = (W_ - 2 * MG) * SC, (H_ - 2 * MG) * SC
-    ext = (mid[0] - w_ / 2, mid[0] + w_ / 2, mid[1] - h_ / 2 + 1500, mid[1] + h_ / 2 + 1500)
-    A = S.axes(MG, MG, ext); A.phi = ph
+    ext = (mid[0] - w_ / 2, mid[0] + w_ / 2, mid[1] - h_ / 2 + 6000, mid[1] + h_ / 2 + 6000)   # 北（上）を少し広く（ユーザー10-26）
+    A = S.axes(MG, MG, ext); A.phi = ph; A.dxf_only_text = True
     root = _root()
     SP = {}
     if root and os.path.isfile(os.path.join(root, 'data', 'siteplan_approach.json')):
@@ -1381,9 +1384,7 @@ def make_siteplan():
         if sil is None: continue
         if n == 4: A.fill(sil, '30_敷地・外構', fc='0.86', z=0.5); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.55', z=0.6)
         else: A.fill(sil, '30_敷地・外構', fc='0.97', z=0.3); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.6', z=0.35)
-    if root:
-        for ln in _j.load(open(os.path.join(root, 'present', 'kadai_map.json'), encoding='utf-8'))['lines']:
-            A.lines([np.array(ln, float) * 1000], '30_敷地・外構', lw=0.1, color='0.4', z=1)
+    # 課題の敷地図をなぞった線は描かない（ユーザー10-26：道は PLATEAU の道、向かいの住宅3軒は課題の図の道の縁に沿わせた add_context.py）
     for ln, P in CURVES:
         if ln.startswith('00'): A.lines([P[:, :2]], '30_敷地・外構', lw=0.3, color='#C03030', ls=(0, (12, 3, 2, 3)), z=8); continue
         if num(ln) == 91: A.lines([P[:, :2]], '30_敷地・外構', lw=0.05, color='0.72', z=1); continue
@@ -1466,6 +1467,7 @@ def make_siteplan():
     for i, t in enumerate(lines_):
         x_, y_ = paper(16, H_ - 26 - i * 4.2)
         A.text(x_, y_, t, 5.5, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    A.dxf_only_text = False                         # 縮尺と方位の字だけは図に
     bx, by = paper(16, 18)
     for i in range(5):
         A.ax.add_patch(plt.Rectangle((bx + i * 2000, by), 2000, 300, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1), zorder=12))
