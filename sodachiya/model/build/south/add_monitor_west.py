@@ -73,7 +73,7 @@ strip_mesh(-OVH+20,-OVH+60,lambda i,d:lidtop(i,d)-GT-40,lambda i,d:lidtop(i,d)-G
 dw=VOID+OVH-20
 while dw-W_*math.cos(ANG)>-OVH:
     de=dw-W_*math.cos(ANG)
-    zt=lambda i,d,dw=dw: lidtop(i,dw)+10+(dw-d)*math.tan(ANG)
+    zt=lambda i,d,dw=dw: lidtop(i,dw)+28+(dw-d)*math.tan(ANG)      # 羽根の下の縁を蓋の 10 上に（前は +10 で 8 食い込み、削る段で切られていた。本館と同じ、10-25）
     strip_mesh(de,dw,lambda i,d,zt=zt:zt(i,d)-18,zt,L_lv)
     dw-=PITCH
 # --- 本館と西館のすき間の蓋（本館の蓋を西館の壁まで延ばす） ---

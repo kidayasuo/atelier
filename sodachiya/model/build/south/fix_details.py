@@ -395,6 +395,30 @@ def _plates(T, thk, stair=False):
             if not M.is_empty(): out.append(M)
     return out
 
+def _stair_tris():
+    """西館の階段（25）を描き直す（10-25夜、ソリッド係の指摘：踏み板が一段おきに無い）。
+    元の面は一折れ 9 段の蹴上げ（1F 0 → 踊り場 1625 → 2F 3250、1 段 180.6）に踏み板が 5 枚（踏面 0.375）しか無く、
+    蹴上げが 181・361 の交互になっていた。一折れ 9 段・踏み板 8 枚・踏面 0.2625（2R+G＝0.62）、踊り場の奥行き 0.9（＝階段の幅）。
+    東の一折れ（v−3.35〜−2.25）は u30 から北へ上り、踊り場（u32.1〜33）、西の一折れ（v−4.55〜−3.45）は南へ上って u30 で 2 階の床。
+    v は元の描き方の座標（このあと stair_narrow が箱の内面の幅へ縮める）。"""
+    RS, G, U0, UL = 3250.0 / 18, 0.2625, 30.0, 32.1
+    quads = []
+    def tread(u0, u1, v0, v1, z): quads.append([(u0, v0, z), (u1, v0, z), (u1, v1, z), (u0, v1, z)])
+    def riser(u, v0, v1, z0, z1): quads.append([(u, v0, z0), (u, v1, z0), (u, v1, z1), (u, v0, z1)])
+    E0, E1, W0, W1 = -3.35, -2.25, -4.55, -3.45
+    for k in range(1, 9):                                   # 東の一折れ
+        riser(U0 + (k - 1) * G, E0, E1, (k - 1) * RS, k * RS); tread(U0 + (k - 1) * G, U0 + k * G, E0, E1, k * RS)
+    riser(UL, E0, E1, 8 * RS, 9 * RS)
+    tread(UL, 33.0, W0, E1, 9 * RS)                         # 踊り場
+    for k in range(1, 9):                                   # 西の一折れ
+        riser(UL - (k - 1) * G, W0, W1, 9 * RS + (k - 1) * RS, 9 * RS + k * RS); tread(UL - k * G, UL - (k - 1) * G, W0, W1, 9 * RS + k * RS)
+    riser(U0, W0, W1, 17 * RS, 18 * RS)
+    T_ = []
+    for q in quads:
+        P = [np.r_[np.ravel(xy(u, v)).astype(float), z] for u, v, z in q]
+        T_ += [[P[0], P[1], P[2]], [P[0], P[2], P[3]]]
+    return np.array(T_)
+
 _n_thk = 0
 for o in m.Objects:
     li_ = o.Attributes.LayerIndex
@@ -404,6 +428,7 @@ for o in m.Objects:
     U = to_uv_arr(T.reshape(-1, 3))
     if (U[:, 1] > -0.9).any(): continue                                  # 西館だけ
     if li_ in (lidx('24_'), lidx('25_')) and U[:, 0].min() > 29.9 and U[:, 0].max() < 33.1 and U[:, 1].min() > -5.05 and U[:, 1].max() < -2.15:
+        if li_ == lidx('25_'): T = _stair_tris(); _log_stair = True   # 段を描き直す（元は一折れ 9 段の蹴上げに踏み板が 5 枚しか無かった）
         T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
     tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
     if tm_.is_watertight: continue
