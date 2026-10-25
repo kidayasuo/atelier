@@ -48,10 +48,9 @@ L_STG_T = layer('59_1F_倉庫（すき間、先生の道）', hexc('D9D3EC'))   
 L_STG_P = layer('59_1F_倉庫（すき間、遊戯室）', hexc('D9D3EC'))
 L_SLD = layer('19c_西館_室内の引き戸（木）', (165, 120, 75))
 L_19D = layer('19d_建具_室内の戸（木）', (165, 120, 75))       # 自動の戸（add_inner.py）と同じレイヤー：ここに置いた開口には自動の戸が出ない
-# 10-26（ユーザー・監修）：不透明な外壁はスギの大和張り。外壁（21）の色をスギに、架構の線ごとの押縁は別のレイヤー（写す前に）
-CEDAR = (196, 156, 108)
+# 10-26（ユーザー・監修）：不透明な外壁はスギの大和張り。外壁（21）の色をスギに（押縁はやめた、下の「水切り」）
+CEDAR = (196, 160, 118)                    # 本館の外壁（17）と同じ
 m.Layers[L_WALL].Color = (*CEDAR, 255)
-L_BAT = layer('21e_西館_外壁の押縁（スギ 45×60）', (150, 112, 72))
 WV = []
 # ガラスの材質は本館のガラス戸（16）と同じ
 mi = m.Layers[lidx('16_')].RenderMaterialIndex
@@ -319,8 +318,8 @@ _w('u', 37.7, 38.3, 1500.0, 2100.0)      # くぼみ 2 の上：立った子の�
 _w('u', 39.8, 41.1, 2500.0, 3300.0)      # くぼみ 3 の上：高い窓（午後の光）
 _w('u', 42.5, 43.7, 450.0, 1050.0)       # 丸いベンチ（u42.15〜44）に座った目
 _w('u', 49.0, 49.9, 2300.0, 3000.0)      # 踊り場（h2.0）の子の目：北西の道を見下ろす
-_w('g', 51.0, -0.9 - 3.6, -0.9 - 4.8, 2400.0, 3400.0)   # 北の妻：吊り橋・段（h2〜3）から北の庭
-# 2 階：横一文字。西の低い軒の壁（2FL+0.4〜+0.8）に休憩室・更衣・会議室を通す一本の帯（架構の線の押縁で区切る）
+_w('g', 51.0, -0.9 - 3.6, -0.9 - 4.8, 2150.0, 3100.0)   # 北の妻：吊り橋・段（h2〜3）から北の庭（水切り h3.25 の下に収める）
+# 2 階：横一文字。西の低い軒の壁（2FL+0.4〜+0.8）に休憩室・更衣・会議室を通す一本の帯（架構の線の柱の所で区切る）
 for a_, b_ in ((22.75, 23.88), (24.12, 26.88), (27.12, 29.88), (30.12, 32.88)):
     _w('u', a_, b_, ZF2_ + 400.0, ZF2_ + 800.0)
 # 休憩室の南の妻：座った目の高さ（2FL+0.8〜+1.3）で川と空を見る横長の窓
@@ -347,28 +346,11 @@ if EXT.area > 1e5:
 WALLC = None
 base = wall_ring.difference(unary_union([o[0] for o in OPEN]))
 mesh_prism(base, 0.0, ztop, L_WALL)
-# 押縁（10-26）：架構の線ごとに外壁の外面に 45×60、床から屋根の下まで（窓の所は切る）。南北の妻は窓の割付の切れ目に
-def _bat_fp(p, t_):
-    """外周の点 p での押縁の足元（幅 60、外へ 45）"""
-    s_ = _RK.project(Point(*p)); q0 = _RK.interpolate(s_ - 30.0); q1 = _RK.interpolate(s_ + 30.0)
-    e_ = np.array([q1.x - q0.x, q1.y - q0.y]); e_ /= np.linalg.norm(e_); nn_ = np.array([-e_[1], e_[0]])
-    c_ = np.array([(q0.x + q1.x) / 2, (q0.y + q1.y) / 2])
-    if WS.contains(Point(*(c_ + nn_ * 20))): nn_ = -nn_
-    P4 = [c_ - e_ * 30 - nn_ * 1, c_ + e_ * 30 - nn_ * 1, c_ + e_ * 30 + nn_ * 45, c_ - e_ * 30 + nn_ * 45]
-    return Polygon(P4)
-_bats = [xy(u, face_v(u)) for u in (24, 27, 30, 33, 36, 39, 42, 45, 48)]
-_bats += [xy(21.0, v) for v in (-3.12, -4.5, -10.0)] + [xy(51.0, v) for v in (-4.1,)]
-_nb = 0
-for p in _bats:
-    fp = _bat_fp(np.ravel(p).astype(float), 45.0); cx_, cy_ = fp.centroid.x, fp.centroid.y
-    zt_ = ztop(cx_, cy_) - 100.0                                   # 屋根の板の下
-    cuts = sorted((zb, zt) for fpo, zb, zt in OPEN if fpo.intersects(fp.buffer(5)))
-    z = 0.0
-    for zb, zt in cuts:
-        if zb > z + 50: mesh_prism(fp, z, const(min(float(zb), zt_)), L_BAT); _nb += 1
-        z = max(z, float(zt if zt is not None else zt_))
-    if z < zt_ - 50: mesh_prism(fp, z, const(zt_), L_BAT); _nb += 1
-print('battens (10-26):', _nb)
+# 水切り（10-26 2時、ユーザー・監修）：大和張りは縦の長尺（〜6 m）で継がず、押縁もやめた（重なりが継ぎ目を覆うので押縁は飾りになる）。
+# 6 m を超える南北の妻だけ、2 階の床の高さに水切りを一本（壁から 30 出る薄い板 t20、妻の幅いっぱい、外皮）
+_ring_out = WS.buffer(30.0, join_style=2).difference(WS)
+for box_ in (R(20.9, 21.05, -11.2, -0.92, 0.05), R(50.95, 51.1, -7.2, -0.92, 0.05)):
+    mesh_prism(_ring_out.intersection(box_), 3250.0, const(3270.0), L_WALL)
 GRP = {}                                         # 同じ足元の開口（覗き窓と高窓など）はまとめて、残る壁を上下に分ける
 for fp, zb, zt in OPEN: GRP.setdefault(id(fp), [fp, []])[1].append((zb, zt))
 # 足元が重なる開口（10-24：東の面いっぱいの高窓の帯と、覗き窓・口②・ホールの範囲）は、重なりで区切ってから開口をまとめる
