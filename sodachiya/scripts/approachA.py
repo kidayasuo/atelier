@@ -390,8 +390,10 @@ line(door, lw=2.4, c="white", z=6); line(door, lw=0.9, c="#555555", z=6.1)
 T(P(27.4, 2.1), "搬入路 1.6", 4.6, c="#555555", rot=ROT + 90)
 
 # ---------------------------------------------------------------- walking lines (light)
+WALKS = []
 def walk(pts, c=C["path"], lw=0.9):
     line(pts, lw=lw, c=c, ls=(0, (3, 2)), z=15)
+    WALKS.append([tuple(map(float, q)) for q in pts])
 walk([E(0.9, -1.6), E(0.9, 1.0), P(8.0, 11.6), P(17.0, 11.7), P(19.35, 12.3), P(25.0, 12.9), W(20.6, -1.85), W(21.3, -1.85)])
 walk([E(0.9, 1.0), W(-0.6, -0.4), W(-0.6, 0.8), W(0.0, 0.8)], c="#b08a5b", lw=0.7)
 walk([P(15.0, 3.0), P(12.6, 9.45), P(7.4, 9.45), E(0.9, -1.0)], c="#b08a5b", lw=0.7)          # visitors from the car
@@ -414,7 +416,7 @@ for i, s in [(0, "0"), (5, "10 m")]: T((sx + 2 * i, sy - 0.8), s, 5)
 T((sx + 13.5, sy + 0.17), "1/200", 6)
 
 # ---------------------------------------------------------------- titles + legend
-fig.text(PL / 297, 410 / 420, "育ち舎　配置図（南半分）　アプローチ A 案", fontsize=13, weight="medium", va="top")
+fig.text(PL / 297, 410 / 420, "育ち舎　外構の図（南半分）　アプローチ A 案", fontsize=13, weight="medium", va="top")
 fig.text(PL / 297, 402 / 420, "1/200（A3）　2026-10-23　駐車は南、ひろばは北。公園 → 木戸 → ポーチ（0〜2歳）／見送りの小径 → 手水 → ひろば → 海峡の口（3〜5歳）。",
          fontsize=6.6, va="top", color="#444444")
 fig.text(PL / 297, 396.5 / 420, "破線＝頭上の屋根・軒・キャップ　■＝柱　赤い破線＝セキュリティの線（内側は保護者の領域）　● 赤＝線の出入口（公園の木戸）　┅ 道すじ",
@@ -542,3 +544,8 @@ os.makedirs(OUT, exist_ok=True)
 fig.savefig(os.path.join(OUT, "sodachiya_site_A_1-200.pdf"))
 fig.savefig(os.path.join(OUT, "sodachiya_site_A_1-200.png"), dpi=200)
 print("plaza m2", round(plaza_area, 1), "fence s1", round(FENCE_S1, 2), "lattice len", round(La - GA1, 2))
+
+# ---------------------------------------------------------------- 配置図 1/200（更新係が 3dm から描く）に描く中身（設計監修 10-25：中身はアプローチ係が決めて渡す）
+# 座標は 3dm の xy（m、取り込み用ファイルと同じ）。書き出し：data/siteplan_approach.json
+import siteplan_spec
+siteplan_spec.write(globals())
