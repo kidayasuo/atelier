@@ -1,19 +1,19 @@
 {
  "_": "3dm の座標と地理座標の対応（木造幼稚園建築設計、10-22）。3dm の (x, y)（m）＋ model_origin ＝ 平面直角座標 VI 系 EPSG:6674 の (X, Y)（m）。3dm の +y は北。",
  "model_origin_EPSG6674": [
-  -19602.204,
-  -105425.732
+  -19604.552,
+  -105427.599
  ],
  "site_centroid_model_m": [
   -1.44,
   -40.84
  ],
  "site_centroid_latlon": [
-  35.049139,
-  135.785106
+  35.049122,
+  135.78508
  ],
  "site_GL_TP_m": 74.06,
- "note": "敷地の西の辺＝南北の公道 6 m の東の端、北西の辺＝北の公道の南東の端に合わせた（PLATEAU の道路 LOD1 と敷地図）。精度は 2 m 程度。敷地の高さは近くの建物の LOD1 の下端の中央値。",
+ "note": "敷地の西の辺＝南北の公道 6 m の東の端、北西の辺＝北の公道の南東の端に合わせた（PLATEAU の道路 LOD1 と敷地図）。精度は 2 m 程度。敷地の高さは近くの建物の LOD1 の下端の中央値。 10-25（ユーザー）：敷地と建物（とその上の全部）を周辺に対して高野川に沿って南西へ3 m動かした（model_origin を (-2.348, -1.867) m）。元々道路と敷地が正確ではない（ユーザー）。",
  "plateau_citygml_zip": "https://assets.cms.plateau.reearth.io/assets/c8/4c6540-2bcf-4773-b21d-74ad2d9f1ba1/26100_kyoto-shi_city_2025_citygml_1_op.zip",
  "plateau_meshes": [
   "52354652",
