@@ -1181,25 +1181,51 @@ P3p = lambda P: xf(R3(P))[0]                       # 3dmのm → 紙
 Psp = lambda P: xf(Rs(np.asarray(P, float)))[0]    # sの座標 → 紙
 _stl = gc.XS([tuple(p) for p in GJ["STREAM"]["line"]])
 _cen = lambda pre: Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.startswith(pre)]).centroid.coords[0]))
-ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts) for i_, ((h1, ls_), pts) in enumerate(zip(NAT, [
-    [P3p(_stl[0])], [P3p(_stl[len(_stl) // 2]), P3p(_stl[-1])], [Psp(np.array(GD["mound"].centroid.coords[0]))], [_cen("59_1F_ホール")]]))]
-COM = [("車は西の道の真ん中より南で", ["西の道は突き出た木で見通しが悪い。外からの車の出入り（駐車・搬入）は、西の道の真ん中より南（川の側）にまとめた。"],
-        [P3p(SITE_C["NW"] + 0.78 * _LW * _u - 3.0 * _n)]),
-       ("向かいの住宅へ", ["狭い道をはさんで向き合う住宅に対し、西館の西の端は1階の高さに抑えた。"], [P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)]),
-       ("東の隣家へ", ["視線と音に配慮：境から1 m、木の帯、園庭の小屋が声の衝立になる。"], [P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)]),
-       ("小竹薮公園を残す", ["地域の記憶の公園をそのまま残し、園の入口の前庭にする。"], [P3p(np.array(gc.PARK.centroid.coords[0]))]),
-       ("災害時に水を届ける", ["地下水をくみ上げて、災害時に近隣に水を届ける。屋根材型の太陽光と蓄電池で停電の時も動く。浸水（深さ1.5 m）のときは北の京都工芸繊維大学へ避難する（避難協定）。"], [_cen("35_")])]
-ITEMS += [(f"地域{i_ + 1}　" + h1, ls_, C_COM, "#FBF7F2", pts) for i_, (h1, ls_, pts) in enumerate(COM)]
-# 点の左右で振り分け、それぞれ点の高さの順に積む（引き出し線が交わらないように）
+# 解説の箱（ユーザー、10-25 23:38：文を差し替え。番号は大事な順。引き出し線は短く、交わらないように）
+# 置き場所を決めた箱は FIX（Illustratorでの木田さんの割付、アートボードの左上からmm）：用水を借りる＝用水ネットワークの図の真下、災害＝上の真ん中
+_rainend = xf(np.array([_rain.coords[-1]]))[0]
+NAT = [("用水を借りる", ["井出ヶ鼻井堰に端を発する松ヶ崎の用水ネットワークから、水を借り、園庭の小川にする。"], [P3p(_stl[0])], (609.68, 186.77)),
+       ("野菜くずコンポスト", ["野菜くずや落ち葉をこどもたちの手で土に還す。発酵する暖かい土とミミズに驚く。野菜を育てる。命の循環を知る。"],
+        [Psp(np.array(GD["compost"].centroid.coords[0]))], None),
+       ("高野川と比叡にみたてる", ["日本文化が育ててきた「みたて」。園内の小川と築山を高野川と比叡にみたてる。それを超えて視線を遠くにすると、高野川を超えて比叡の山。"],
+        [Psp(np.array(GD["mound"].centroid.coords[0])), P3p(_stl[len(_stl) // 2])], None),
+       ("水の行方を見る", ["小川は暗渠に隠さず高野川に注ぐ。屋根に降った雨は、雨落ちに落ち、雨水浸透側溝と雨庭を経て、溢れは高野川に。"],
+        [P3p(_stl[-1]), _rainend], None),
+       ("間伐材を使った林", ["京都北山の北山杉の間伐材141本を、ホールの林として立てる。"], [_cen("59_1F_ホール")], None)]
+COM = [("小竹薮公園を残す", ["地域の記憶の公園を残し、園へのアプローチにする。"], [P3p(np.array(gc.PARK.centroid.coords[0]))], None),
+       ("車や自転車の交通を南半分にまとめる", ["西の道の半ばには道に突き出た木があり見通しが悪い。車や送り迎えの自転車のトラフィックをそれより南側にまとめる。"],
+        [P3p(SITE_C["NW"] + 0.78 * _LW * _u - 3.0 * _n)], None),
+       ("お向かいさん", ["西の道の北半分は狭い道を挟んで向かいに住宅がある。圧迫感を与えないよう、この面の建物高さを1階程度に抑える。"],
+        [P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)], None),
+       ("災害時の持ちつ持たれつ", ["洪水が予想される場合の緊急避難先として京都工芸繊維大学と協定（京都市ハザードマップによる浸水深1.5 m）。太陽光発電、蓄電池、地下水の利用によって、災害時に水を地域に提供。"],
+        [_cen("35_")], (352.36, 121.12)),
+       ("東の隣家への配慮", ["東の隣家との境は1 m下げ（セットバック）、園庭の小屋と植樹で視線と音をやわらげる。"],
+        [P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)], None)]
+ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts, fx_) for i_, (h1, ls_, pts, fx_) in enumerate(NAT)]
+ITEMS += [(f"地域{i_ + 1}　" + h1, ls_, C_COM, "#FBF7F2", pts, fx_) for i_, (h1, ls_, pts, fx_) in enumerate(COM)]
 _mid = sx + sw / 2
 LCX, LCW = M + 6, sx - (M + 6) - 8
 RCX = sx + sw + 8
 RCW = W - M - 6 - RCX
-COL_TOP, COL_BOT = sy + sh + 2, M + 8
+_hof = lambda it, colw: 16 + sum(len(jwrap(t_, (colw - 6) / (3.0 / 0.72))) for t_ in it[1]) * (3.0 / 0.72 + 1.2) + 1.5 * len(it[1])
+_fixbot = {}                                              # 置き場所を決めた箱の下端（紙のmm、下から）
+for (head, ls_, col, fill, pts, fx_) in ITEMS:
+    if fx_ is None:
+        continue
+    h_ = _hof((head, ls_), RCW)
+    x_, t_ = fx_[0], H - fx_[1]                          # 上端
+    ibox(ax, x_, t_ - h_, RCW, h_, head, ls_, col, fill, size=3.0)
+    _fixbot[(x_ >= RCX - 5)] = min(_fixbot.get(x_ >= RCX - 5, 1e9), t_ - h_)
+    for k_, q_ in enumerate(pts):                         # 点に近い縁から
+        ex_ = x_ if q_[0] < x_ else (x_ + RCW if q_[0] > x_ + RCW else x_ + RCW / 2)
+        ey_ = (t_ - h_) if ex_ == x_ + RCW / 2 else min(t_ - 3, max(t_ - h_ + 3, q_[1]))
+        topline(1, q_, (ex_, ey_), col)
+COL_BOT = M + 8
 for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
-    its = [it for it in ITEMS if (np.mean([q[0] for q in it[4]]) < _mid) == (side == "L")]
+    COL_TOP = sy + sh + 2 if side == "L" else min(sy + sh + 2, _fixbot.get(True, 1e9) - 8)
+    its = [it for it in ITEMS if it[5] is None and (np.mean([q[0] for q in it[4]]) < _mid) == (side == "L")]
     its.sort(key=lambda it: -np.mean([q[1] for q in it[4]]))
-    hs = [16 + sum(len(jwrap(t_, (colw - 6) / (3.0 / 0.72))) for t_ in it[1]) * (3.0 / 0.72 + 1.2) + 1.5 * len(it[1]) for it in its]
+    hs = [_hof(it, colw) for it in its]
     gap = max(5.0, min(14.0, (COL_TOP - COL_BOT - sum(hs)) / max(1, len(its) - 1)))
     # 理想の位置＝点の高さを中心に。上から順に、重ならないよう下へずらし、はみ出したら下から詰め直す
     want = [np.mean([q[1] for q in it[4]]) for it in its]
@@ -1215,11 +1241,11 @@ for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
         for k in range(len(tops) - 1, -1, -1):
             tops[k] = max(tops[k], cur + hs[k])
             cur = tops[k] + gap
-    for (head, ls_, col, fill, pts), t_, h_ in zip(its, tops, hs):
+    for (head, ls_, col, fill, pts, fx_), t_, h_ in zip(its, tops, hs):
         ibox(ax, colx, t_ - h_, colw, h_, head, ls_, col, fill, size=3.0)
         ex_ = colx + colw if side == "L" else colx
         for k_, q_ in enumerate(pts):
-            topline(1, q_, (ex_, t_ - h_ / 2 + (k_ - (len(pts) - 1) / 2) * 6), col)
+            topline(1, q_, (ex_, min(t_ - 3, max(t_ - h_ + 3, q_[1] if len(pts) == 1 else t_ - h_ / 2 + (k_ - (len(pts) - 1) / 2) * 6))), col)
 
 # 上の段：配置図の注と、用水のネットワーク全体の図（場所の確保。涌泉寺からの水の道、平安京の外の条里の地割のまま）
 NTX = M + 6 + 250
@@ -1229,7 +1255,7 @@ for k_, s_ in enumerate(["配置図の注", "・駐車5台・搬入は南（川�
                          "・園庭への搬入は公園の東の縁から川沿いの帯を通って",
                          "・敷地の境から：北東の隣家1 m（厳守）、ほかは1 m"]):
     T(ax, NTX, top - 20 - k_ * 5.4, s_, 2.9 if k_ else 3.4, bold=(k_ == 0))
-_nbx = NTX + 175
+_nbx = 611.41                                            # 用水ネットワークの図はIllustratorの割付どおり右上（木田さん、10-25）
 # 松ヶ崎の用水の網（土木遺産のページ「宝ヶ池」の図をなぞった線、tools/trace_yousui.py。ユーザー、10-24夜）。配置図と同じ向きに回す
 _ny0, _ny1 = sy + sh + 12, top - 8
 YS = json.load(open(os.path.join(HERE, "matsugasaki_yousui.json"), encoding="utf-8"))
@@ -1244,6 +1270,7 @@ _k = min((W - M - 6 - _nbx - 36) / (_hi[0] - _lo[0]), ((_ny1 - _ny0) - 12 - _CR)
 _mw_, _mh_ = (_hi[0] - _lo[0]) * _k, (_hi[1] - _lo[1]) * _k
 _nw = max(_mw_ + 30, 122)                                # 枠は図と名前・出典に必要十分な大きさ（ユーザー、10-25）
 _ny1 = _ny0 + _CR + _mh_ + 12
+_dY = (H - 48.02) - _ny1; _ny0 += _dY; _ny1 += _dY       # 図の上端をアートボードの上から48 mmに
 _fx0, _fy0 = _nbx + 4, _ny0 + _CR
 _box_patch = Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5)
 ax.add_patch(_box_patch)
