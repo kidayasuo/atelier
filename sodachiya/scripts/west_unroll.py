@@ -45,7 +45,17 @@ for o in m.Objects:
         polys[k].append(np.c_[sm, t[:, 2] / 1000])
 fig, ax = plt.subplots(figsize=(22, 4.2))
 for k in COL:
-    if polys[k]: ax.add_collection(PolyCollection(polys[k], facecolor=COL[k], edgecolor=COL[k], lw=0.1))
+    if polys[k]: ax.add_collection(PolyCollection(polys[k], facecolor=COL[k], edgecolor='none', lw=0, antialiased=False))
+# 大和張りの見えの割り（約120）を細い縦線で：外壁の面（21）の形で切る。三角形の縁は描かない（前は網目の分け方の斜め線が見えていた）
+from shapely.geometry import Polygon as _Pg, LineString as _Ls
+from shapely.ops import unary_union as _uu
+_wall = _uu([_Pg(p).buffer(0.002) for p in polys['21_'] if _Pg(p).is_valid and _Pg(p).area > 1e-6]).buffer(-0.002)
+if not _wall.is_empty:
+    x0_, y0_, x1_, y1_ = _wall.bounds
+    for x in np.arange(x0_, x1_, 0.12):
+        seg = _Ls([(x, y0_ - 1), (x, y1_ + 1)]).intersection(_wall)
+        for g in getattr(seg, 'geoms', [seg]):
+            if g.geom_type == 'LineString' and g.length > 0: ax.plot(*g.xy, color='#a88a5e', lw=0.25)
 # 架構の線（u ごと）を外周に投影して印
 for u in np.arange(21, 52, 3):
     for v in (-30,):
