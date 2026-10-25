@@ -1233,6 +1233,50 @@ ELEV_FILL = lambda ob: ('#DCE9F2' if kind(ob['layer']) == 'glass' else
                         '#BDBDBD' if num(ob['layer']) in (10, 20, 26, 28) else
                         '#E9DCC4' if num(ob['layer']) in (11, 22, 18, 30, 50) or ob['layer'].startswith(('16', '19b', '89')) and kind(ob['layer']) != 'glass' else
                         'white')
+YAMATO, YAMATO_P = (17, 21), 120        # 杉の大和張りの外壁（本館 17・西館 21）、見えの割り 約120
+def yamato_lines(A, mode, ob, vis):
+    """見る人に向く立った面ごとに、壁に沿って 120 おきの縦の線（面の上の位置で割るので、弧や斜めの壁では見えの間隔が詰まる）。
+    同じ物の奥の面（反対側の壁の内側など）は手前の面で隠す。線は物の見える所（vis）だけ。"""
+    _, H, D, _ = ELEV[mode]
+    T = ob['T']; nrm = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]); L = np.linalg.norm(nrm, axis=1)
+    ok = L > 1e-6; T = T[ok]; nrm = nrm[ok] / L[ok, None]
+    vd = np.array(ELEV_VIEWS[[v[0] for v in ELEV_VIEWS].index(mode)][3], float)
+    face = (np.abs(nrm[:, 2]) < 0.15) & (np.abs(nrm[:, :2] @ vd) > 0.2)          # 立った面で、見る人の側に向くか背を向けるか
+    T = T[face]; nrm = nrm[face]
+    if not len(T): return
+    t2 = np.stack([-nrm[:, 1], nrm[:, 0]], -1); t2 /= np.linalg.norm(t2, axis=1, keepdims=True)
+    sgn = np.where(t2[:, 0] + 1e-9 * t2[:, 1] < 0, -1.0, 1.0)[:, None]; t2 *= sgn         # 面の向きの表裏を一つに
+    nn = np.stack([t2[:, 1], -t2[:, 0]], -1); off = (T[:, 0, :2] * nn).sum(1)
+    ang = np.round(np.degrees(np.arctan2(t2[:, 1], t2[:, 0])) / 0.3).astype(int); key = np.round(off / 15).astype(int)
+    panels = {}
+    for i in range(len(T)): panels.setdefault((ang[i], key[i]), []).append(i)      # 同じ平面の三角形の組（板の面）
+    P = T.reshape(-1, 3); h = H(P).reshape(-1, 3); d = D(P).reshape(-1, 3)
+    pl = []
+    for ids in panels.values():
+        ids = np.array(ids)
+        polys = [Polygon(np.stack([h[i], T[i, :, 2]], -1)) for i in ids]
+        g = unary_union([q.buffer(0.5) for q in polys if q.is_valid and q.area > 1])
+        if g.is_empty or g.area < 2e4: continue
+        pl.append((float(d[ids].mean()), g, t2[ids[0]], T[ids[0], 0]))
+    pl.sort(key=lambda t: t[0])
+    cover = Polygon(); segs = []
+    for _, g, t, o in pl:
+        vg = g.difference(cover) if not cover.is_empty else g
+        cover = unary_union([cover, g]) if not cover.is_empty else g
+        if vg.is_empty: continue
+        z0, z1 = vg.bounds[1] - 10, vg.bounds[3] + 10
+        hx0 = float(H(np.array([[*o[:2], 0.]]))[0]); dh = float(H(np.array([[*(o[:2] + t), 0.]]))[0]) - hx0   # s が 1 進むと x は dh
+        if abs(dh) < 0.4: continue                          # 見る向きに対して寝た面（線が詰まって黒くなる）は描かない
+        xs = vg.bounds[0], vg.bounds[2]
+        s_lo, s_hi = sorted(((xs[0] - hx0) / dh + o[:2] @ t, (xs[1] - hx0) / dh + o[:2] @ t))
+        for s0 in np.arange(math.ceil(s_lo / YAMATO_P), math.floor(s_hi / YAMATO_P) + 1) * YAMATO_P:
+            x = hx0 + (s0 - o[:2] @ t) * dh
+            seg = LineString([(x, z0), (x, z1)]).intersection(vg)
+            if not seg.is_empty: segs.append(seg)
+    if not segs: return
+    g = unary_union(segs).intersection(vis.buffer(-8))
+    if not g.is_empty: A.geom_lines(g, '09b_立面_大和張り', lw=0.05, color='0.45', z=2.5)
+
 def elevation(A, mode, objs):
     _, H, D, _ = ELEV[mode]
     items = []
@@ -1259,7 +1303,7 @@ def elevation(A, mode, objs):
                 edge = whole.boundary.intersection(sil.buffer(3))
             items.append((d[sel].min(), (ob, edge), sil))
     items.sort(key=lambda t: t[0])
-    occ = Polygon(); gocc = Polygon()
+    occ = Polygon(); gocc = Polygon(); wvis = {}
     for i, (_, (ob, edge0), sil) in enumerate(items):
         if sil is None or sil.is_empty: continue
         k = kind(ob['layer'])
@@ -1270,6 +1314,7 @@ def elevation(A, mode, objs):
             try: vis = sil.difference(occ)
             except Exception: continue
         if vis.is_empty: continue
+        if num(ob['layer']) in YAMATO and k != 'glass': wvis.setdefault(id(ob), (ob, []))[1].append(vis)
         lay = LAYER_OF[k][1]
         fc = ELEV_FILL(ob)
         if fc != 'white': A.fill(vis, lay, fc=fc, z=1, seam=True)
@@ -1288,6 +1333,8 @@ def elevation(A, mode, objs):
             gv = vis.buffer(-2)
             if not gv.is_empty: gocc = unary_union([gocc, gv]) if not gocc.is_empty else gv
             if i % 40 == 39 and not gocc.is_empty: gocc = gocc.simplify(1)
+    for ob, vs in wvis.values():                                       # 外壁の大和張り：縦の板の線
+        yamato_lines(A, mode, ob, unary_union(vs))
     # 建物の外形（空との境）を太い線に：見えがかり 0.13 の中で建物の形が読めるように（線の強弱）
     allocc = unary_union([g_ for g_ in (occ, gocc) if not g_.is_empty]) if not (occ.is_empty and gocc.is_empty) else occ
     if not allocc.is_empty:
