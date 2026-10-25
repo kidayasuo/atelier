@@ -174,6 +174,9 @@ _gm = tuple((NC.np.array(NC.GATE[0]) + NC.np.array(NC.GATE[1])) / 2)
 for _a, _b in ((NC.GATE[0], _gm), (_gm, NC.GATE[1])):                                         # 角の両開きの木戸（閉じた位置、扉2枚）
     wall([_a, _b], NC.N["KOMICHI_GATE"]["h"], "72_外構_柱", 0.05)
 for q in NC.GATE: post(q, NC.N["KOMICHI_GATE"]["h"] + 0.1)
+wall(NC.NE_FENCE, NC.NG["h"], "70_外構_生垣・塀・格子")                                     # 北のもりの北の端の板塀（10-25）
+wall(NC.NE_GATE, NC.NG["h"], "72_外構_柱", 0.05)                                              # その木戸（閉じた位置）
+for q in (NC.NE_FENCE[0], NC.NE_GATE[0], NC.NE_GATE[1]): post(q, NC.NG["h"] + 0.1)
 for g in (NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.GRAVEL, NC.KOMICHI):
     for q in polys(g): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)
 _PL = NC.N["PLANTS"]

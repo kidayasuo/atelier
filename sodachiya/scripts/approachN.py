@@ -10,10 +10,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import north_common as N
 
 ROOT = N.ROOT; OUT = os.environ.get("OUT", os.path.join(ROOT, "out"))
-plt.rcParams["font.family"] = "Noto Sans CJK JP"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import fonts42   # 文字は文字のまま（Type42）
 MM = 1 / 25.4
 fig = plt.figure(figsize=(297 * MM, 420 * MM))
-xmin, xmax, ymin, ymax = -28.0, 6.0, -50.0, 1.5                 # 1/200: 1 m = 5 mm
+xmin, xmax, ymin, ymax = -28.0, 10.0, -50.0, 1.5                 # 1/200: 1 m = 5 mm
 PL, PB = 14, 122
 ax = fig.add_axes([PL / 297, PB / 420, (xmax - xmin) * 5 / 297, (ymax - ymin) * 5 / 420])
 ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax); ax.set_aspect("equal"); ax.axis("off")
@@ -69,6 +69,13 @@ for h, th0 in ((g0, a0), (g1, a0 + 90)):
     ang = a0 + 90
     line([h, (h[0] + L * math.cos(math.radians(ang)), h[1] + L * math.sin(math.radians(ang)))], 0.8, C["fence"], z=8)
 
+# 北のもりの北の端の板塀と木戸（10-25）：園庭の側（南）へ開く片開き
+line(N.NE_FENCE, 2.0, C["fence"], z=8)
+n0, n1 = N.NE_GATE; nv = np.array(n1) - np.array(n0); nl = np.linalg.norm(nv); an = math.degrees(math.atan2(nv[1], nv[0]))
+line([n0, n1], 0.5, C["fence"], (0, (2, 1.5)), 8)
+ax.add_patch(Arc(n0, 2 * nl, 2 * nl, theta1=an - 90, theta2=an, lw=0.35, color=C["fence"], zorder=8))
+line([n0, (n0[0] + nl * math.cos(math.radians(an - 90)), n0[1] + nl * math.sin(math.radians(an - 90)))], 0.8, C["fence"], z=8)
+for q in (N.NE_FENCE[0], n0, n1): ax.add_patch(MP([(q[0]-0.07,q[1]-0.07),(q[0]+0.07,q[1]-0.07),(q[0]+0.07,q[1]+0.07),(q[0]-0.07,q[1]+0.07)], fc="black", zorder=9))
 # machine-room door (double, opens outward to the road)
 m0, m1 = N.MDOOR; mv = np.array(m1) - np.array(m0); ml = np.linalg.norm(mv) / 2; am = math.degrees(math.atan2(mv[1], mv[0]))
 mid = tuple(np.array(m0) + mv / 2)
@@ -112,6 +119,7 @@ items = [
     ((-8.0, -11.4), "本の奥の地窓（読書の庭を見る）"),
     ((-11.3, -15.2), "遊戯室の北の窓（腰掛け）"),
     ((-25.4, -27.0), "遊戯室の地窓・覗き窓（前は低い植栽）"),
+    (N.W(56.4, 16.6), "北のもりの北の端の木戸 h1.8（鍵、園庭の側へ開く）と板塀：北の道に車を止めて建物と庭を手入れするときだけ開ける"),
     (N.P(45.0, 0.9), "壁の足もとの砂利 0.2（跳ね返り止め、点検）"),
 ]
 for k, (p, t) in enumerate(items, 1): num(p, k)
@@ -128,14 +136,14 @@ T((-3, -47.0), "南は「配置図（南半分）」へ続く", 5.5, color="#777
 # page text
 fig.text(14 / 297, 404 / 420, "育ち舎　配置図（北半分）　西館の周り・読書の庭・機械室", fontsize=12, weight="bold")
 fig.text(14 / 297, 396 / 420, "1/200（A3）　2026-10-24　西館の外は後退の帯（幅1.0）だけ。戸の前を空け、ほかは香りと花の植栽。読書の庭は板塀で閉じる坪庭、機械室は道路から。", fontsize=6.6)
-LX = 196
+LX = 210
 fig.text(LX / 297, 388 / 420, "番号", fontsize=7, weight="bold")
 for k, (p, t) in enumerate(items, 1):
     y = (381 - 10.2 * (k - 1)) / 420
     fig.add_artist(Circle(((LX + 2.2) / 297, y + 0.002), 0.0075, transform=fig.transFigure, fc="white", ec="black", lw=0.35))
     fig.text((LX + 2.2) / 297, y + 0.002, str(k), fontsize=5, ha="center", va="center")
     import textwrap
-    fig.text((LX + 6) / 297, y + 0.006, "\n".join(textwrap.wrap(t, 40)), fontsize=5.6, va="top", linespacing=1.3)
+    fig.text((LX + 6) / 297, y + 0.006, "\n".join(textwrap.wrap(t, 36)), fontsize=5.6, va="top", linespacing=1.3)
 # legend swatches
 ly = 240
 for c, t, h in ((C["hedge"], "香りの刈り込み h1.2〜1.5", None), (C["mid"], "花の低木 h0.6〜1.0", None), (C["plant"], "低い香りの草 h0.3〜0.6", None), (C["moss"], "苔", "...."), (C["gravel"], "砂利", None), (C["arai"], "洗い出し・飛び石", None), (C["rain"], "雨庭", None), (C["bld"], "建物", None)):

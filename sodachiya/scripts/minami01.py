@@ -1,3 +1,4 @@
+import sys
 # みなみのさんかく（乳児の園庭、0〜2 歳）たたき台　平面 1/50・断面 1/50（A2 横）
 # 寸法は data/minami.json、形は minami_common.py。出力 out/sodachiya_minami_01.pdf / .png
 import os, math
@@ -9,7 +10,7 @@ from matplotlib.patches import Polygon as MP, Circle, FancyArrow
 from shapely.geometry import LineString, Point
 import minami_common as G
 
-plt.rcParams["font.family"] = "Noto Sans CJK JP"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import fonts42   # 文字は文字のまま（Type42）
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("OUT", os.path.join(os.path.dirname(HERE), "out"))
 D = G.D

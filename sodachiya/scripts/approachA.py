@@ -15,7 +15,7 @@ import infant200
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 OUT = os.environ.get("OUT", os.path.join(ROOT, "out"))
-plt.rcParams["font.family"] = "Noto Sans CJK JP"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import fonts42   # 文字は文字のまま（Type42）
 
 # ---------------------------------------------------------------- geometry
 CX, CY, RW = 194.66293237, -41.34826335, 205.0177

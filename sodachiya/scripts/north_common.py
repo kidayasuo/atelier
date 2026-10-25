@@ -104,7 +104,12 @@ MID = _clean(unary_union([FSTRIP, MSTRIP]))
 KOMICHI = tbox(G0 - 0.2, G1 + 0.4, FN, 6).difference(HONKAN).difference(MECH)
 KOMICHI = KOMICHI if KOMICHI.geom_type == "Polygon" else max(KOMICHI.geoms, key=lambda q: q.area)
 
+# ---- 北のもりの北の端の木戸（本館の北東の角と隣地の境のあいだ、10-25）
+NG = N["NE_GATE"]
+NE_FENCE = [W(NG["u"], NG["fence_v"][0]), W(NG["u"], NG["fence_v"][1])]
+NE_GATE = [W(NG["u"], NG["gate_v"][0]), W(NG["u"], NG["gate_v"][1])]
+NE_EDGE = LineString([(0.0, 0.0), (34.86, -43.83)])
 if __name__ == "__main__":
-    print("fence start t", round(T_FS, 2), "fence len", round(sum(LineString(f).length for f in FENCE[:2]), 2))
+    print("NE gate to boundary", round(NE_EDGE.distance(Point(NE_GATE[1])),2), "gate w", round(LineString(NE_GATE).length,2)); print("fence start t", round(T_FS, 2), "fence len", round(sum(LineString(f).length for f in FENCE[:2]), 2))
     print("読書の庭 m2", round(READ.area, 1), "植栽 m2", round(PLANT.area, 1), "砂利", round(GRAVEL.area, 1),
           "職員の道", round(STAFF_PATH.area, 1), "大戸の前", round(APRON.area, 1), "機械室の前", round(MAPRON.area, 1), "おむすびの前の植栽", round(MSTRIP.area, 1), "香りの刈り込み", round(HEDGE.area, 1), "低い草", round(LOW.area, 1), "中くらい", round(MID.area, 1))
