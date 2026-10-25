@@ -228,13 +228,20 @@ _THK = {lidx('24_'): 120.0, lidx('25_'): 40.0, lidx('27_'): 12.0}
 # 階段の箱・階段・階段の床の v を一次で縮める（一本の幅 約1.2 → 約0.96）。
 ST_V0, ST_V1, ST_V1N = -5.0, -2.2, -2.75
 def stair_v(v): return ST_V0 + (v - ST_V0) * (ST_V1N - ST_V0) / (ST_V1 - ST_V0) if ST_V0 - 0.1 <= v <= ST_V1 + 0.1 else v
-def stair_narrow(T):
+# 階段（25）は箱の内面いっぱいに（ユーザー 10-25：階段と西の壁のあいだにすき間。元から西に0.45空いていた）：
+# 階段の幅 v−4.55〜−2.25 を、箱の壁（厚さ120、芯 −5.0・−2.75）の内面 −4.94〜−2.81 に合わせる（一本 約1.03）。
+STAIR_IN = (-4.55, -2.25, -4.94, -2.81)
+def stair_v25(v):
+    a, b, a2, b2 = STAIR_IN
+    return a2 + (v - a) * (b2 - a2) / (b - a) if a - 0.1 <= v <= b + 0.1 else v
+def stair_narrow(T, f=None):
+    f = f or stair_v
     P = T.reshape(-1, 3).copy(); Q = to_uv_arr(P)
     for i, (u_, v_) in enumerate(Q):
-        x_, y_ = xy(u_, stair_v(v_)); P[i, 0], P[i, 1] = float(np.ravel(x_)[0]) if np.ndim(x_) else x_, float(np.ravel(y_)[0]) if np.ndim(y_) else y_
+        x_, y_ = xy(u_, f(v_)); P[i, 0], P[i, 1] = float(np.ravel(x_)[0]) if np.ndim(x_) else x_, float(np.ravel(y_)[0]) if np.ndim(y_) else y_
     return P.reshape(T.shape)
 _n_stair = 0
-STAIR_STG = (30.06, 32.94, -4.94, round(stair_v(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
+STAIR_STG = (30.06, 32.94, -4.94, round(stair_v25(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
 _n_thk = 0
 for o in m.Objects:
     li_ = o.Attributes.LayerIndex
@@ -244,7 +251,7 @@ for o in m.Objects:
     U = to_uv_arr(T.reshape(-1, 3))
     if (U[:, 1] > -0.9).any(): continue                                  # 西館だけ
     if li_ in (lidx('24_'), lidx('25_')) and U[:, 0].min() > 29.9 and U[:, 0].max() < 33.1 and U[:, 1].min() > -5.05 and U[:, 1].max() < -2.15:
-        T = stair_narrow(T); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
+        T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
     tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
     if tm_.is_watertight: continue
     h_ = _THK[li_] / 2; ms_ = []
