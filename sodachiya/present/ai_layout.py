@@ -136,8 +136,9 @@ def write(c):
                 add(dict(id=r["id"], name=r["name"], kind="box", layer=layer, x=round(r["x"], 2), y=round(H - r["y"] - r["h"], 2),
                          w=round(r["w"], 2), h=round(r["h"], 2), fill=r["fill"], stroke=r["stroke"], lw=r["lw"], dash=r["dash"]))
         # 5) 引き出し線と重ねた文字
-        for i, (pts, col) in enumerate(c["topl"].get(no, [])):
-            add(dict(id=f"leader.{i + 1}", name=f"引き出し線 {i + 1}", kind="line", layer="線", pts=[[round(p[0], 2), round(H - p[1], 2)] for p in pts],
+        for i, (pts, col, *kk) in enumerate(c["topl"].get(no, [])):
+            lk = kk[0] if kk and kk[0] else str(i + 1)
+            add(dict(id=f"leader.{lk}", name=f"引き出し線 {lk}", kind="line", layer="線", pts=[[round(p[0], 2), round(H - p[1], 2)] for p in pts],
                      color=col, lw=0.6, dot=0.9))
         for i, (tx, ty, ts, th, tb) in enumerate(c["topt"].get(no, [])):
             add(dict(id=f"top.{_slug(ts)}", name=ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,

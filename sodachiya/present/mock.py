@@ -548,9 +548,9 @@ TOPT = {i: [] for i in range(1, 6)}     # 貼った図の上に置く文字（�
 TOPL = {i: [] for i in range(1, 6)}     # 貼った図の上に描く引き出し線（紙のmm）：(点, 箱の端, 色)
 
 
-def topline(sheet, p_pt, p_box, color, via=()):
-    """配置図の点p_ptから箱の端p_boxへ。viaは途中の折れ点（箱の側から）"""
-    TOPL[sheet].append(([tuple(p_box)] + [tuple(v) for v in via] + [tuple(p_pt)], color))
+def topline(sheet, p_pt, p_box, color, via=(), key=None):
+    """配置図の点p_ptから箱の端p_boxへ。viaは途中の折れ点（箱の側から）。key＝部品の名前（箱のkey＋番号、10-26：番号でなく箱に結ぶ）"""
+    TOPL[sheet].append(([tuple(p_box)] + [tuple(v) for v in via] + [tuple(p_pt)], color, key))
 
 
 def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2, key=None):
@@ -595,8 +595,8 @@ figs = []
 
 # ================================================================ 1　敷地と応答
 fig, ax = page()
-frame(ax, 1, "敷地と自然環境・地域", "周囲の自然環境との関係（用水を借りる・山から川へ・比叡と高野川のうつし・北山杉と地下水）と地域環境への配慮",
-      "タイトルと趣旨 → 真ん中の配置図 → 左右の箱（青＝自然環境、茶＝地域）→ 用水のネットワーク")
+frame(ax, 1, "敷地と自然環境・地域", "周囲の自然環境との関係と地域環境への配慮。配置図の上に夏の夜の風・比叡への視線・太陽の通り道、下に川の向こうから見た沿川の景観立面（昼・夜）",
+      "タイトルと趣旨 → 真ん中の配置図 → 左右の箱（青＝自然環境、茶＝地域）→ 用水のネットワーク → 下の景観立面")
 top = H - M - 16
 T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
 # 設計趣旨はpresent/設計趣旨.txt（ユーザーが編集する）。改行は無視してつなぐ
@@ -647,6 +647,7 @@ for _p in _paras:
     _y -= 3.6 / 0.72                  # 段落のあいだは1行分（ユーザー、10-25夕）
 AIMUTE[0] -= 1
 AIREC[-1]["h"] = _ystart - _y + 6
+CONCEPT_BOT = _y - 6                                     # 設計趣旨の下端（左の箱の列はここから下）
 dimnote(ax, M + 6, _y + 1, f"設計趣旨 約{len(concept.replace(' ', ''))}字（課題は300字程度）。文字3.6 mmなら1 m離れて読める")
 # 配置図1/200と小さな地図の共通（高野川の辺を下に水平：川向こうから見る向き、ユーザー。園庭の図と同じ回し方）
 from shapely import affinity
@@ -676,6 +677,71 @@ _nv = np.array([_nv[0] * np.cos(_rr) - _nv[1] * np.sin(_rr), _nv[0] * np.sin(_rr
 SITE_C = {k: np.array(v) for k, v in dict(N=(0.0, 0.0), E=(34.86, -43.83), S=(-14.44, -83.04),
                                          SW=(-21.91, -73.65), NW=(-25.83, -20.54)).items()}
 
+# 沿川の景観立面：川の辺に直角に、川の向こうから。3dmの建物と周りの建物（PLATEAU）・崖を投影して影絵で（1/300）
+_eRv = (SITE_C["S"] - SITE_C["E"]) / np.linalg.norm(SITE_C["S"] - SITE_C["E"])
+_oRv = np.array([-_eRv[1], _eRv[0]])
+if _oRv @ (SITE_C["E"] - SITE_C["NW"]) < 0:
+    _oRv = -_oRv                                     # 川の側
+_tdir, _ddir = -_eRv, -_oRv                          # 川から見て右へ（北東へ）、奥へ（北西へ）
+LE_T0, LE_T1, LE_Z0, LE_Z1, LE_SC = -22.0, 86.0, -6.5, 19.0, 300
+_mine = ("10", "11", "14", "16", "17", "18", "19", "20", "21", "22", "23", "28", "29", "35", "50")
+
+
+def _elev_items():
+    out = []
+    for o in objs:
+        if o["kind"] != "mesh":
+            continue
+        ln = o["layer"]
+        cls = "ctx" if ln.startswith("04_") else ("cliff" if ln.startswith("02_") else ("led" if ln.startswith("50b") else ("me" if ln[:2] in _mine else None)))
+        if cls is None:
+            continue
+        V = o["V"]
+        rel = V[:, :2] - SITE_C["S"]
+        t, dpt, z = rel @ _tdir, rel @ _ddir, V[:, 2]
+        if t.max() < LE_T0 or t.min() > LE_T1 or dpt.min() > 160 or dpt.max() < -8:
+            continue
+        P = np.c_[t, z]
+        polys = [Polygon(P[f]) for f in o["F"]]
+        polys = [q for q in polys if q.area > 1e-4]
+        if not polys:
+            continue
+        out.append((cls, float(np.mean(dpt)), unary_union(polys).buffer(0)))
+    return out
+
+
+ELEV = _elev_items()
+
+
+def land_elev(ax, x0, y0, night):
+    """沿川の景観立面（影絵）。x0,y0＝紙の左下"""
+    k = 1000 / LE_SC
+    f = lambda P: np.c_[x0 + (np.asarray(P)[:, 0] - LE_T0) * k, y0 + (np.asarray(P)[:, 1] - LE_Z0) * k]
+    w, h = (LE_T1 - LE_T0) * k, (LE_Z1 - LE_Z0) * k
+    ax.add_patch(Rectangle((x0, y0), w, h, fc="#18233A" if night else "#F7F9FB", ec="none", zorder=0.5))
+    rp_ = clip_rect(ax, x0, y0, w, h)
+    st_ = len(ax.patches)
+    dmax = max(d for c, d, g in ELEV) or 1
+    for cls, dpt, g in sorted(ELEV, key=lambda e: -e[1]):
+        if cls == "ctx":
+            v = 0.86 - 0.18 * (1 - min(1, max(0, dpt / 120)))
+            fc = "#2B3753" if night else (v, v, v + 0.01)
+            if night:
+                fc = (0.17 + 0.05 * (1 - dpt / 160), 0.21 + 0.05 * (1 - dpt / 160), 0.32 + 0.06 * (1 - dpt / 160))
+            draw_shape(ax, g, f, fc=fc, ec="none", z=1)
+        elif cls == "cliff":
+            draw_shape(ax, g, f, fc="#2A3A52" if night else "#C9D3DA", ec="none", z=1.5)
+        elif cls == "me":
+            draw_shape(ax, g, f, fc="#3B4866" if night else "#E9E6E0", ec="#3B4866" if night else "#8A847A", lw=0.08, z=2)
+        elif cls == "led" and night:
+            draw_shape(ax, g.buffer(0.35), f, fc="#FFD98A", ec="none", z=3)
+            draw_shape(ax, g.buffer(1.2), f, fc=(1.0, 0.85, 0.5, 0.18), ec="none", z=2.9)
+    ax.add_patch(Rectangle((x0, y0), w, (0 - LE_Z0 - 5.0) * k, fc="#2E5D86" if night else "#DCE8EE", ec="none", zorder=0.8))   # 高野川の水面（GL−5より下）
+    for a_ in ax.patches[st_:]:
+        a_.set_clip_path(rp_)
+    return w, h
+
+
 
 def lab(ax, xfun, P3, text, dxy=(0, 0), size=2.6, color=INK, ha="left", lead=True, bold=False):
     """3dmの点P3に注記（紙でdxyずらし、引き出し線）"""
@@ -703,7 +769,9 @@ cy = M + 8 + 26.0 + 400                          # 上の段の下端の目安�
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
 VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
-sx, sy = M + 6, M + 8 + 26.0                                    # 下の26 mmは縮尺と注
+BAND_Y0 = M + 8                                              # いちばん下の帯：沿川の景観立面（昼・夜）1/300（ユーザー、10-26：2枚目から戻す）
+BAND_H = (19.0 + 6.5) * 1000 / 300                           # 立面の高さ（LE_Z1−LE_Z0）
+sx, sy = M + 6, BAND_Y0 + BAND_H + 7 + 30.0                   # 配置図は帯の上（帯の題7 mm＋縮尺と配置図の題30 mm）
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
 T(ax, sx + 120, sy - 18, "配置図", 6.0, bold=True)                 # 題は図の下に、大きく（ユーザー、10-26）
@@ -1162,11 +1230,95 @@ if _g73:
     lab(ax, xf, R3inv(np.array(_g73[0].interpolate(0.5, normalized=True).coords))[0], "ムベのアーチ", (-60, -6), size=2.6, color="#7A5530", ha="right", bold=True)
 lab(ax, xf, R3inv(_RAIN_LAB)[0], "雨の川（樋なしで軒から落ちた雨を、雨落ちの溝から高野川へ）", (8, -10), size=2.6, color="#2F7FBF", ha="left")
 _mk("t")
+# ---- 重ねる図（ユーザー、10-26）：夏の夜の風・比叡への視線（01d）と太陽の通り道（01e）。どちらも配置図と同じ大きさの透明な層
+SGRP["o"] = []; SGRP["s"] = []
+_mk("t")                                                   # ここまでの残りを文字の組に閉じる
+_rot_cw = lambda v, deg: np.array([v[0] * np.cos(np.radians(deg)) + v[1] * np.sin(np.radians(deg)),
+                                   -v[0] * np.sin(np.radians(deg)) + v[1] * np.cos(np.radians(deg))])   # 北から時計回りに deg 度
+_rU = lambda pre: rot(unary_union([g for ln, k, g in plan_items if ln.startswith(pre)]))
+_HALLc = np.array(_rU("59_1F_ホール").centroid.coords[0])
+_ENGc = np.array(_rU("14_").centroid.coords[0])
+_FUKIc = np.array(_rU("59_1F_西吹き抜け").centroid.coords[0])
+_MOUc = np.array(rot(GD["mound"]).centroid.coords[0])
+_GARc = np.array(rot(GD["garden"]).centroid.coords[0])
+_pE = R3(SITE_C["E"])[0]
+def _chaikin(P, n=3):
+    P = np.asarray(P, float)
+    for _ in range(n):
+        Q = [P[0]]
+        for a_, b_ in zip(P[:-1], P[1:]):
+            Q += [0.75 * a_ + 0.25 * b_, 0.25 * a_ + 0.75 * b_]
+        Q.append(P[-1]); P = np.array(Q)
+    return P
+# 夏の夜の風：高野川の谷を下りてくる風（北東から川に沿って）→ 園庭を渡って縁側 → 越屋根から西へ。太く柔らかく透ける矢印
+_wp = _chaikin([_pE + np.array([1.5, -3.0]), _pE + np.array([-9.0, -1.5]), _GARc + np.array([6.0, -4.0]), _ENGc, _FUKIc, _FUKIc + (_FUKIc - _ENGc) / np.linalg.norm(_FUKIc - _ENGc) * 6.0])
+_L = LineString(_wp); _N_ = 80
+_pts = np.array([_L.interpolate(t_, normalized=True).coords[0] for t_ in np.linspace(0, 0.9, _N_)])
+_tip = np.array(_L.interpolate(1.0, normalized=True).coords[0])
+_lft, _rgt = [], []
+for k_, p_ in enumerate(_pts):
+    d_ = _pts[min(k_ + 1, _N_ - 1)] - _pts[max(k_ - 1, 0)]; d_ /= np.linalg.norm(d_)
+    n_ = np.array([-d_[1], d_[0]]); hw = 3.2 - 1.6 * k_ / (_N_ - 1)
+    _lft.append(p_ + n_ * hw); _rgt.append(p_ - n_ * hw)
+_d1 = _pts[-1] - _pts[-2]; _d1 /= np.linalg.norm(_d1); _n1 = np.array([-_d1[1], _d1[0]])
+_head = [_pts[-1] + _n1 * 3.2, _tip, _pts[-1] - _n1 * 3.2]
+_WIND = Polygon(np.vstack([_lft, _head, _rgt[::-1]])).buffer(0.4).buffer(-0.4)
+draw_shape(ax, _WIND, xf, fc="#8EC3E6", ec="none", lw=0, z=20)
+ax.patches[-1].set_alpha(0.45)
+_mk("o")
+_wl = xf(np.array([_pE + np.array([-1.0, 1.5])]))[0]
+T(ax, _wl[0], _wl[1], "夏の夜の風（高野川の谷を下りる風）", 2.8, "#3A7FB5", bold=True, ha="right")
+# 比叡への視線：ホール → 築山の頂 → 比叡山（大比叡 北緯35.0670° 東経135.8344°、敷地 35.0546° 135.7905° から方位約71°、約4.2 km）
+_dn = (35.0670 - 35.0546) * 111.0; _de = (135.8344 - 135.7905) * 111.32 * np.cos(np.radians(35.06))
+_BRG = np.degrees(np.arctan2(_de, _dn)); _DIST = np.hypot(_dn, _de)
+_hv = _rot_cw(_nv, _BRG)                                   # 配置図の上での比叡の向き
+_win = Polygon([(VX0, VY0), (VX1, VY0), (VX1, VY1), (VX0, VY1)]).buffer(-1.5)
+_far = LineString([_MOUc, _MOUc + _hv * 200]).intersection(_win)
+_sl = [tuple(_HALLc), tuple(_MOUc), tuple(np.array(_far.coords)[-1])]
+_q = xf(np.array(_sl))
+ax.plot(_q[:, 0], _q[:, 1], color="#7A5A9A", lw=0.9, ls=(0, (4, 2.5)), zorder=21, solid_capstyle="round")
+ax.annotate("", xy=tuple(_q[-1]), xytext=tuple(_q[-1] - (_q[-1] - _q[-2]) / np.linalg.norm(_q[-1] - _q[-2]) * 5),
+            arrowprops=dict(arrowstyle="-|>", lw=0.9, color="#7A5A9A"), zorder=21)
+for _qq in _q[:2]:
+    ax.add_patch(plt.Circle(tuple(_qq), 0.9, fc="#7A5A9A", ec="none", zorder=21))
+_mk("o")
+T(ax, _q[-1][0] - 2, _q[-1][1] + 3, f"比叡山へ　約{_DIST:.0f} km", 2.8, "#5E4380", bold=True, ha="right")
+T(ax, (_q[0][0] + _q[1][0]) / 2 + 2, (_q[0][1] + _q[1][1]) / 2 - 4, "ホールから築山の頂の向こうに比叡", 2.4, "#5E4380")
+# 太陽の通り道（北緯35.05°、大気差なし：cos A＝sin δ／cos φ）。配置図の左上の空きに、配置図と同じ向きの方位円
+_phi = 35.05; _dl = 23.44
+_Asr = np.degrees(np.arccos(np.sin(np.radians(_dl)) / np.cos(np.radians(_phi))))     # 夏至の日の出（北から時計回り）
+_Awr = 180 - _Asr
+_alt_s, _alt_w = 90 - _phi + _dl, 90 - _phi - _dl
+_SC0 = np.array([VX0 + 19.0, VY1 - 19.0]); _SR = 6.5      # 中心と半径（m）
+_c0 = xf(np.array([_SC0]))[0]; _k = 5.0
+ax.add_patch(plt.Circle(tuple(_c0), _SR * _k + 6, fc="white", ec="none", alpha=0.85, zorder=19))
+ax.add_patch(plt.Circle(tuple(_c0), _SR * _k, fc="none", ec="#888888", lw=0.4, zorder=20))
+for _deg in range(0, 360, 30):
+    _v = _rot_cw(_nv, _deg)
+    ax.plot([_c0[0] + _v[0] * _SR * _k * 0.92, _c0[0] + _v[0] * _SR * _k], [_c0[1] + _v[1] * _SR * _k * 0.92, _c0[1] + _v[1] * _SR * _k], color="#888888", lw=0.4, zorder=20)
+for _deg, _col in ((_Asr, "#E08A2E"), (360 - _Asr, "#E08A2E"), (_Awr, "#4F78B0"), (360 - _Awr, "#4F78B0")):
+    _v = _rot_cw(_nv, _deg)
+    ax.annotate("", xy=(_c0[0] + _v[0] * _SR * _k, _c0[1] + _v[1] * _SR * _k), xytext=tuple(_c0),
+                arrowprops=dict(arrowstyle="-|>", lw=1.0, color=_col), zorder=21)
+_v = _rot_cw(_nv, 0)
+ax.plot([_c0[0], _c0[0] + _v[0] * _SR * _k], [_c0[1], _c0[1] + _v[1] * _SR * _k], color=INK, lw=0.5, zorder=21)
+ax.add_patch(plt.Circle(tuple(_c0), 0.8, fc=INK, ec="none", zorder=22))
+_mk("s")
+_SOFF = _SR * _k + 4
+for _deg, _txt, _col in ((_Asr, f"夏至の日の出 {_Asr:.0f}°", "#B8661A"), (360 - _Asr, f"夏至の日の入り {360 - _Asr:.0f}°", "#B8661A"),
+                         (_Awr, f"冬至の日の出 {_Awr:.0f}°", "#3A5F94"), (360 - _Awr, f"冬至の日の入り {360 - _Awr:.0f}°", "#3A5F94")):
+    _v = _rot_cw(_nv, _deg); _pp = _c0 + _v * _SOFF
+    T(ax, _pp[0], _pp[1], _txt, 2.3, _col, ha="left" if _v[0] >= 0 else "right", va="center")
+_vn = _c0 + _nv * (_SR * _k + 3.5)
+T(ax, _vn[0], _vn[1], "N", 2.6, INK, bold=True, ha="center", va="center")
+T(ax, _c0[0] - _SR * _k - 4, _c0[1] + _SR * _k + 8, "太陽の通り道（京都、北緯35°）", 2.8, INK, bold=True)
+T(ax, _c0[0] - _SR * _k - 4, _c0[1] - _SR * _k - 9, f"南中の高さ　夏至 {_alt_s:.0f}°・冬至 {_alt_w:.1f}°", 2.4, INK)
+_mk("t")
 SITE_LIVE[0] = None
 # 文字に入った引き出し線（lab の線と点）は文字の組に入れたまま（文字と一緒に動かす）
 _SITE_PDF = {}
-for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字")):
-    allart = SGRP["l"] + SGRP["c"] + SGRP["t"]
+for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字"), ("o", "風と視線"), ("s", "太陽")):
+    allart = SGRP["l"] + SGRP["c"] + SGRP["t"] + SGRP["o"] + SGRP["s"]
     for a_ in allart:
         a_.set_visible(a_ in SGRP[gr])
     fn_ = os.path.join(OUT, f"_site_{gr}.pdf")
@@ -1175,12 +1327,23 @@ for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字")):
 plt.close(figS)
 ax, fig = _ax_page, _fig_page
 _SCLIP = (sx, H - sy - sh, sx + sw, H - sy)                                  # 元のPDFのmm（左上から）
-for gr in ("c", "l", "t"):                                                    # 1枚目：色 → 線 → 文字の順に重ねる
+for gr in ("c", "l", "t", "o", "s"):                                          # 1枚目：色 → 線 → 文字 → 風と視線 → 太陽の順に重ねる
     embed(1, _SITE_PDF[gr], _SCLIP, sx, sy, 1.0)
 scalebar(ax, sx + 6, sy - 22, 200, 20)
+# いちばん下の帯：沿川の景観立面　昼（左）・夜（右）1/300（ユーザー、10-26：2枚目から戻す。配置図の高野川の辺のすぐ下で、川の向こうから見た姿）
+_lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
+_bx0 = M + 6; _bx1 = W - M - 6 - _lw1
+title(ax, _bx0, BAND_Y0 + _lh1 + 3, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
+title(ax, _bx1, BAND_Y0 + _lh1 + 3, "沿川の景観立面　夜", "越屋根の東の縁の光が水平に一本")
+land_elev(ax, _bx0, BAND_Y0, False)
+land_elev(ax, _bx1, BAND_Y0, True)
+sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 1, _bx0, BAND_Y0, _lw1, _lh1)
+sozai("04", f"沿川の景観立面　夜　1/{LE_SC}", 1, _bx1, BAND_Y0, _lw1, _lh1)
 SOZAI_FILES = [("01a", "配置図　1/200　線（屋根伏せ・外構・園庭・道・敷地の境）", "線", "色の上、文字の下に置く"),
                ("01b", "配置図　1/200　色（屋根・太陽光・光の筋・園庭・水・木）", "色", "いちばん下に置く"),
-               ("01c", "配置図　1/200　文字（建物と園庭の名前・道の注・方位のN）", "文字", "いちばん上に置く")]
+               ("01c", "配置図　1/200　文字（建物と園庭の名前・道の注・方位のN）", "文字", "いちばん上に置く"),
+               ("01d", "配置図　1/200　夏の夜の風と比叡への視線（重ねる層、地は透明）", "風と視線", "文字の上に重ねる"),
+               ("01e", "配置図　1/200　太陽の通り道（夏至・冬至の日の出・日の入り、重ねる層）", "太陽", "文字の上に重ねる")]
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
 # 引き出しの点（紙のmm）
@@ -1209,7 +1372,7 @@ COM = [("park", "小竹薮公園を残す", ["地域の記憶である小竹薮�
        ("mukai", "お向かいさん", ["西の道の北半分は狭い道を挟んで向かいに住宅がある。圧迫感を与えないよう、この面の建物高さを1階程度に抑える。"],
         [P3p(SITE_C["NW"] + 0.3 * _LW * _u - 4.0 * _n)], None),
        ("saigai", "災害時の持ちつ持たれつ", ["大洪水が予想される場合の緊急避難先として京都工芸繊維大学と協定（京都市ハザードマップによる浸水深1.5 m）。太陽光発電、蓄電池、地下水の利用によって、災害時に水を地域に提供。"],
-        [], (352.36, 121.12)),                                # 場所が特に無いので引き出し線なし（ユーザー、10-26）
+        [], None),                                            # 場所が特に無いので引き出し線なし（ユーザー、10-26）。配置図を上げたので左の列の上へ
        ("east", "東の隣家への配慮", ["東の隣家との境は1 m下げ（セットバック）、園庭の小屋と植樹で視線と音をやわらげる。"],
         [P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)], None)]
 ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts, fx_, "nat." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(NAT)]
@@ -1230,17 +1393,17 @@ for (head, ls_, col, fill, pts, fx_, key_) in ITEMS:
     for k_, q_ in enumerate(pts):                         # 点に近い縁から
         ex_ = x_ if q_[0] < x_ else (x_ + RCW if q_[0] > x_ + RCW else x_ + RCW / 2)
         ey_ = (t_ - h_) if ex_ == x_ + RCW / 2 else min(t_ - 3, max(t_ - h_ + 3, q_[1]))
-        topline(1, q_, (ex_, ey_), col)
-COL_BOT = M + 8
+        topline(1, q_, (ex_, ey_), col, key=f"{key_}.{k_ + 1}")
+COL_BOT = BAND_Y0 + BAND_H + 12                           # 箱の列は景観立面の帯の上で止める
 for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
-    COL_TOP = sy + sh + 2 if side == "L" else min(sy + sh + 2, _fixbot.get(True, 1e9) - 8)
-    _FSIDE = {"nat.rin": "L"}                              # 林は左から（ユーザー、10-26）
-    its = [it for it in ITEMS if it[5] is None and it[4] and (_FSIDE.get(it[6]) or ("L" if np.mean([q[0] for q in it[4]]) < _mid else "R")) == side]
-    its.sort(key=lambda it: -np.mean([q[1] for q in it[4]]))
+    COL_TOP = min(sy + sh + 2, CONCEPT_BOT) if side == "L" else min(sy + sh + 2, _fixbot.get(True, 1e9) - 8)
+    _FSIDE = {"nat.rin": "L", "com.saigai": "L"}           # 林は左から（ユーザー、10-26）。災害は線なしで左の列のいちばん上
+    its = [it for it in ITEMS if it[5] is None and (_FSIDE.get(it[6]) or ("L" if np.mean([q[0] for q in it[4]]) < _mid else "R")) == side]
+    its.sort(key=lambda it: -(np.mean([q[1] for q in it[4]]) if it[4] else 1e6))
     hs = [_hof(it, colw) for it in its]
     gap = max(5.0, min(14.0, (COL_TOP - COL_BOT - sum(hs)) / max(1, len(its) - 1)))
     # 理想の位置＝点の高さを中心に。上から順に、重ならないよう下へずらし、はみ出したら下から詰め直す
-    want = [np.mean([q[1] for q in it[4]]) for it in its]
+    want = [np.mean([q[1] for q in it[4]]) if it[4] else COL_TOP + 1e3 for it in its]   # 点の無い箱（災害）はいちばん上
     tops = []
     cur = COL_TOP
     for w_, h_ in zip(want, hs):
@@ -1257,7 +1420,7 @@ for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
         ibox(ax, colx, t_ - h_, colw, h_, head, ls_, col, fill, size=3.0, key=key_)
         ex_ = colx + colw if side == "L" else colx
         for k_, q_ in enumerate(pts):
-            topline(1, q_, (ex_, min(t_ - 3, max(t_ - h_ + 3, q_[1] if len(pts) == 1 else t_ - h_ / 2 + (k_ - (len(pts) - 1) / 2) * 6))), col)
+            topline(1, q_, (ex_, min(t_ - 3, max(t_ - h_ + 3, q_[1] if len(pts) == 1 else t_ - h_ / 2 + (k_ - (len(pts) - 1) / 2) * 6))), col, key=f"{key_}.{k_ + 1}")
 
 # 上の段：配置図の注と、用水のネットワーク全体の図（場所の確保。涌泉寺からの水の道、平安京の外の条里の地割のまま）
 NTX = M + 6 + 250
@@ -1269,7 +1432,7 @@ for k_, s_ in enumerate(["配置図の注", "・駐車5台・搬入は南（川�
     T(ax, NTX, top - 20 - k_ * 5.4, s_, 2.9 if k_ else 3.4, bold=(k_ == 0))
 _nbx = 611.41                                            # 用水ネットワークの図はIllustratorの割付どおり右上（木田さん、10-25）
 # 松ヶ崎の用水の網（土木遺産のページ「宝ヶ池」の図をなぞった線、tools/trace_yousui.py。ユーザー、10-24夜）。配置図と同じ向きに回す
-_ny0, _ny1 = sy + sh + 12, top - 8
+_ny0, _ny1 = top - 8 - 130, top - 8                      # 図の大きさは配置図の位置に依らない（前の割付のまま）
 YS = json.load(open(os.path.join(HERE, "matsugasaki_yousui.json"), encoding="utf-8"))
 _ang = 0.0                                               # 広域の図は北が上（ユーザー）
 _ca, _sa = np.cos(_ang), np.sin(_ang)
@@ -1361,94 +1524,17 @@ def inspired(ax, tx, ty, colw, rows=4):
 
 # ================================================================ 2　景観（ユーザー、10-24夜：景観立面（昼・夜）→ 立面図2面 → 鳥瞰・約束・素材と色）
 fig, ax = page()
-frame(ax, 2, "景観", "高野川の側は低く、北の大学に向かって高く（地域の高低差の流れ）。同時に、伸びやかな梁・西館の立ち上がり・夜の水平の光で主張する",
-      "沿川の景観立面（昼・夜）→ 園庭の側・道路の側の立面図 → 鳥瞰・景観の約束・素材と色")
+frame(ax, 2, "景観", "建物に正対する二つの立面（園庭の側・道路の側）で、伸びやかな梁と縁側、西館の立ち上がり。沿川の景観立面（昼・夜）は1枚目の下",
+      "園庭の側・道路の側の立面図 → 鳥瞰・景観の約束・素材と色")
 CLIP_E1 = (25, 36, 772, 153)               # 自動の立面図1：園庭の側
 CLIP_E2 = (25, 199, 772, 316)              # 自動の立面図1：道路の側
 CLIP_SA = (31, 50, 830, 206)               # 自動の断面図：縦断A
-# 沿川の景観立面：川の辺に直角に、川の向こうから。3dmの建物と周りの建物（PLATEAU）・崖を投影して影絵で（1/300）
-_eRv = (SITE_C["S"] - SITE_C["E"]) / np.linalg.norm(SITE_C["S"] - SITE_C["E"])
-_oRv = np.array([-_eRv[1], _eRv[0]])
-if _oRv @ (SITE_C["E"] - SITE_C["NW"]) < 0:
-    _oRv = -_oRv                                     # 川の側
-_tdir, _ddir = -_eRv, -_oRv                          # 川から見て右へ（北東へ）、奥へ（北西へ）
-LE_T0, LE_T1, LE_Z0, LE_Z1, LE_SC = -22.0, 86.0, -6.5, 19.0, 300
-_mine = ("10", "11", "14", "16", "17", "18", "19", "20", "21", "22", "23", "28", "29", "35", "50")
-
-
-def _elev_items():
-    out = []
-    for o in objs:
-        if o["kind"] != "mesh":
-            continue
-        ln = o["layer"]
-        cls = "ctx" if ln.startswith("04_") else ("cliff" if ln.startswith("02_") else ("led" if ln.startswith("50b") else ("me" if ln[:2] in _mine else None)))
-        if cls is None:
-            continue
-        V = o["V"]
-        rel = V[:, :2] - SITE_C["S"]
-        t, dpt, z = rel @ _tdir, rel @ _ddir, V[:, 2]
-        if t.max() < LE_T0 or t.min() > LE_T1 or dpt.min() > 160 or dpt.max() < -8:
-            continue
-        P = np.c_[t, z]
-        polys = [Polygon(P[f]) for f in o["F"]]
-        polys = [q for q in polys if q.area > 1e-4]
-        if not polys:
-            continue
-        out.append((cls, float(np.mean(dpt)), unary_union(polys).buffer(0)))
-    return out
-
-
-ELEV = _elev_items()
-
-
-def land_elev(ax, x0, y0, night):
-    """沿川の景観立面（影絵）。x0,y0＝紙の左下"""
-    k = 1000 / LE_SC
-    f = lambda P: np.c_[x0 + (np.asarray(P)[:, 0] - LE_T0) * k, y0 + (np.asarray(P)[:, 1] - LE_Z0) * k]
-    w, h = (LE_T1 - LE_T0) * k, (LE_Z1 - LE_Z0) * k
-    ax.add_patch(Rectangle((x0, y0), w, h, fc="#18233A" if night else "#F7F9FB", ec="none", zorder=0.5))
-    rp_ = clip_rect(ax, x0, y0, w, h)
-    st_ = len(ax.patches)
-    dmax = max(d for c, d, g in ELEV) or 1
-    for cls, dpt, g in sorted(ELEV, key=lambda e: -e[1]):
-        if cls == "ctx":
-            v = 0.86 - 0.18 * (1 - min(1, max(0, dpt / 120)))
-            fc = "#2B3753" if night else (v, v, v + 0.01)
-            if night:
-                fc = (0.17 + 0.05 * (1 - dpt / 160), 0.21 + 0.05 * (1 - dpt / 160), 0.32 + 0.06 * (1 - dpt / 160))
-            draw_shape(ax, g, f, fc=fc, ec="none", z=1)
-        elif cls == "cliff":
-            draw_shape(ax, g, f, fc="#2A3A52" if night else "#C9D3DA", ec="none", z=1.5)
-        elif cls == "me":
-            draw_shape(ax, g, f, fc="#3B4866" if night else "#E9E6E0", ec="#3B4866" if night else "#8A847A", lw=0.08, z=2)
-        elif cls == "led" and night:
-            draw_shape(ax, g.buffer(0.35), f, fc="#FFD98A", ec="none", z=3)
-            draw_shape(ax, g.buffer(1.2), f, fc=(1.0, 0.85, 0.5, 0.18), ec="none", z=2.9)
-    ax.add_patch(Rectangle((x0, y0), w, (0 - LE_Z0 - 5.0) * k, fc="#2E5D86" if night else "#DCE8EE", ec="none", zorder=0.8))   # 高野川の水面（GL−5より下）
-    for a_ in ax.patches[st_:]:
-        a_.set_clip_path(rp_)
-    return w, h
-
 
 ex = M + 6
 y_ = H - M - 16 - 3
-_lw = (LE_T1 - LE_T0) * 1000 / LE_SC
-_lh = (LE_Z1 - LE_Z0) * 1000 / LE_SC
 BH2 = 115                                    # 4行目（鳥瞰・約束・素材と色）の高さ。残りを行のあいだの余白に（ユーザー、10-25：キチキチ）
-G2 = (y_ - (M + 8) - BH2 - 3 * 7 - _lh - (CLIP_E1[3] - CLIP_E1[1]) - (CLIP_E2[3] - CLIP_E2[1])) / 3
-title(ax, ex, y_ - 4, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
-title(ax, ex + _lw + 10, y_ - 4, "夜", "越屋根の東の縁の光が水平に一本")
-y_ -= 7
-land_elev(ax, ex, y_ - _lh, False)
-land_elev(ax, ex + _lw + 10, y_ - _lh, True)
-sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 2, ex, y_ - _lh, _lw, _lh)
-sozai("04", f"沿川の景観立面　夜　1/{LE_SC}", 2, ex + _lw + 10, y_ - _lh, _lw, _lh)
-dimnote(ax, ex + 2 * _lw + 16, y_ - 6, "川側は低く")
-dimnote(ax, ex + 2 * _lw + 16, y_ - 11, "北の大学へ高く")
-dimnote(ax, ex + 2 * _lw + 16, y_ - 16, "（周りの建物は")
-dimnote(ax, ex + 2 * _lw + 16, y_ - 21, "PLATEAUの箱）")
-y_ -= _lh + G2
+G2 = (y_ - (M + 8) - BH2 - 2 * 7 - (CLIP_E1[3] - CLIP_E1[1]) - (CLIP_E2[3] - CLIP_E2[1])) / 3   # 沿川の景観立面は1枚目へ（10-26）
+y_ -= G2 / 2
 title(ax, ex, y_ - 4, "園庭の側の立面図", "1/100　円弧の中心の方向から弧の真ん中に正対")
 y_ -= 7
 _, h_ = embed(2, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0)
@@ -1669,7 +1755,7 @@ for si in range(1, 6):
 doc_clean = fitz.open("pdf", doc.tobytes())          # 素材は引き出し線・重ねた文字を入れる前から切り抜く（ユーザー、10-25）
 for si in range(1, 6):
     pg = doc[si - 1]
-    for (pts, col) in TOPL[si]:                     # 引き出し線は貼った図の上に（箱 → 折れ点 → 配置図の点）
+    for (pts, col, *_k) in TOPL[si]:                     # 引き出し線は貼った図の上に（箱 → 折れ点 → 配置図の点）
         rgb = tuple(int(col[k:k + 2], 16) / 255 for k in (1, 3, 5))
         P_ = [fitz.Point(q[0] * MM, (H - q[1]) * MM) for q in pts]
         pg.draw_polyline(P_, color=rgb, width=0.6)
@@ -1730,7 +1816,7 @@ for key, name, sh_, (x, y, w, h), note in SOZAI:
     _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
     _rows.append(f"| {key} | `{fn}` | {name} | {sh_}枚目 | {w:.0f}×{h:.0f} | {_st[fn]['updated']} | {note} |")
 for key, name, gr_nm, note in SOZAI_FILES:                    # 配置図の三つ（線・色・文字、同じ大きさ・同じ位置）
-    gr = {"線": "l", "色": "c", "文字": "t"}[gr_nm]
+    gr = {"線": "l", "色": "c", "文字": "t", "風と視線": "o", "太陽": "s"}[gr_nm]
     fn = f"{key}_配置図_1-200_{gr_nm}.pdf"
     SITEMAP[_SITE_PDF[gr]] = fn
     nd = fitz.open()
