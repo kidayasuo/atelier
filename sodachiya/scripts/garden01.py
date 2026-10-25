@@ -349,6 +349,11 @@ for a, d, kind, _, note in G["TREES"]:
     if kind == "climb":
         ax.add_patch(Circle(p, r, fc="none", ec=C["ink"], lw=0.6, ls=(0, (2, 1)), zorder=10.6))
 
+# 年中行事の草（セリ・ショウブ・摘み草・ススキ）
+for a_, d_, r_, nm_, _n in G.get("GYOJI", {}).get("items", []):
+    ax.add_patch(Circle(X(a_, d_), r_, fc="#C9D99A", ec="#6F8F57", lw=0.4, ls=(0, (1.2, 0.8)), alpha=0.85, zorder=10.9))
+    T(ax, X(a_, d_), nm_, 3.4, c="#3F5A2E", rot=-38, z=11.0)
+
 # 先生の目
 for ta, td, tz, lab in teachers:
     p = X(ta, td)
@@ -449,6 +454,8 @@ def sw(y, kind, txt):
         lax.add_patch(Circle((5, y), 3.0, fc=C["tree"], ec=C["ink"], lw=0.6, ls=(0, (2, 1)), alpha=0.6))
     elif kind.startswith("g:"):
         lax.add_patch(Circle((5, y), 1.7, fc=GC[kind[2:]], ec=C["treeE"], lw=0.4, alpha=0.6))
+    elif kind == "gyoji":
+        lax.add_patch(Circle((5, y), 2.0, fc="#C9D99A", ec="#6F8F57", lw=0.4, ls=(0, (1.2, 0.8))))
     elif kind == "seki":
         for _dx in (3.2, 6.8):
             lax.add_patch(Circle((_dx, y), 1.1, fc="#D8D2C2", ec="#6B655B", lw=0.3))
@@ -486,11 +493,11 @@ lax.text(0, y, "凡例", fontsize=8, fontweight="bold", va="center"); y += 8
 from collections import Counter as _Ct
 _cnt = _Ct(sp_of(t[4]) for t in G["TREES"])
 rows = [("g:" + g, g + "：" + "・".join(f"{k} {_cnt[k]}" for k in SP if k != "_" and SP[k]["g"] == g and _cnt[k])) for g in GC] + [
-        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）・水浴び場（円形 φ4.0、段なしの浅い皿）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて護岸の溝から高野川へ。溢れたらすりばちが雨の池）"),
+        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）・水浴び場（円形 φ4.0、段なしの浅い皿）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて護岸の溝から高野川へ。溢れたらすりばちが雨の池）"),
         ("sand", "砂場・粒の遊び場（1〜2 mm、2.4×3.0 の木の縁、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
-    n = sw(y, k, t); y += (3.4 if k.startswith("g:") else 4.6) + 2.6 * n
+    n = sw(y, k, t); y += (3.4 if k.startswith("g:") else 4.0) + 2.6 * n
 y += 3
 lax.text(0, y, "ニッチ（静かに遊べる・ひとりになれる所）", fontsize=8, fontweight="bold", va="center"); y += 7
 for k, (a, d, txt) in enumerate(G["NICHES"], 1):

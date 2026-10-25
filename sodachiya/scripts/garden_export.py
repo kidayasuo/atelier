@@ -248,6 +248,10 @@ for i in range(CP["n"]):
     q0 = CP["a0"] + i * CP["w"]
     box(q0 + 0.05, q0 + CP["w"] - 0.05, CP["d0"], CP["d0"] + CP["depth"], g0, g0 + 0.7, 93, "コンポストの枠：" + CP["labels"][i])
 
+# ---- 年中行事の草（95） ----
+for a_, d_, r_, nm_, n_ in G.get("GYOJI", {}).get("items", []):
+    curve_ad(ell((a_, d_), (r_, r_)), 95, f"{nm_}（{n_}）", close=True)
+
 # ---- 94 木 ----
 TH = {"big": (7.5, 3.0), "climb": (7.0, 3.2), "mid": (5.0, 2.1), "fruit": (4.0, 2.3), "ever": (4.5, 1.9)}
 for a, d, kind, _, note in G["TREES"]:
