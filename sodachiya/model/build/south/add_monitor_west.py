@@ -66,15 +66,40 @@ for i in (1,ne-2):                              # 南北の端は屋根から蓋
         m.Objects.AddMesh(mesh_prism([(*x,zroof_at(x)-250) for x in q],[(*x,ZC+GAP-S*float(np.dot(x-edge[i][0],edge[i][1]))) for x in q]),attr(L_end))
 # 蓋（屋根と平行）
 lidtop=lambda i,d: ZTOP+CURB+GAP+GT-S*d
-strip_mesh(-OVH,VOID+OVH,lambda i,d:lidtop(i,d)-GT,lidtop,L_lid)
-strip_mesh(-OVH+20,-OVH+60,lambda i,d:lidtop(i,d)-GT-40,lambda i,d:lidtop(i,d)-GT,L_led)
+# 棟（東の縁）は弧の中心 C のまわりの円（半径 R0、ずれ 2 mm 以内）で、蓋・LED・ルーバーの高さは d（棟からの距離）だけで決まる
+# → 弧に沿う一本の帯（回転体）。前は棟の点ごと（約 0.6 m）の小さな角柱 40 個ずつで、Rhino 版で 882 個の押し出しになっていた
+# （10-25 ソリッド係、ユーザー：越屋根の作り方を本館と同じように合理化）。端は前と同じく棟の両端から 350 延ばした所まで。
+R0=float(np.median([np.linalg.norm(p-C) for p,u in edge[1:-1]]))
+_ae=[math.atan2(p[1]-C[1],p[0]-C[0])%(2*math.pi) for p,u in edge]
+A0,A1=_ae[0],_ae[-1]
+def sector_mesh(r0,r1,zf0,zf1,li,a0=None,a1=None,n=80):
+    """中心 C のまわりの帯（半径 r0〜r1、角度 a0〜a1）の閉じた板。下の面 zf0(r)・上の面 zf1(r)（r だけの関数）"""
+    a0=A0 if a0 is None else a0; a1=A1 if a1 is None else a1
+    A=np.linspace(a0,a1,n); M=r.Mesh()
+    for a in A:
+        for rr in (r0,r1):
+            x,y=C+rr*np.array([math.cos(a),math.sin(a)])
+            M.Vertices.Add(float(x),float(y),float(zf0(rr))); M.Vertices.Add(float(x),float(y),float(zf1(rr)))
+    q=lambda i,j,t: 4*i+2*j+t
+    F=[]
+    for i in range(n-1):
+        F+=[(q(i,0,1),q(i,1,1),q(i+1,1,1),q(i+1,0,1)),(q(i,0,0),q(i+1,0,0),q(i+1,1,0),q(i,1,0)),
+            (q(i,0,0),q(i,0,1),q(i+1,0,1),q(i+1,0,0)),(q(i,1,0),q(i+1,1,0),q(i+1,1,1),q(i,1,1))]
+    F+=[(q(0,0,0),q(0,1,0),q(0,1,1),q(0,0,1)),(q(n-1,0,0),q(n-1,0,1),q(n-1,1,1),q(n-1,1,0))]
+    import trimesh as _tm
+    V_=np.array([[M.Vertices[i].X,M.Vertices[i].Y,M.Vertices[i].Z] for i in range(len(M.Vertices))])
+    T_=_tm.Trimesh(V_,[f[:3] for f in F]+[(f[0],f[2],f[3]) for f in F],process=False); _tm.repair.fix_normals(T_)
+    for a_,b_,c_ in T_.faces: M.Faces.AddFace(int(a_),int(b_),int(c_))
+    M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M,attr(li))
+sector_mesh(R0-OVH,R0+VOID+OVH,lambda rr:lidtop(0,rr-R0)-GT,lambda rr:lidtop(0,rr-R0),L_lid)
+sector_mesh(R0-OVH+20,R0-OVH+60,lambda rr:lidtop(0,rr-R0)-GT-40,lambda rr:lidtop(0,rr-R0)-GT,L_led)
 # ルーバー（水平に対して 30°、東＝本館側が高い。両面白の艶消し、蓋は透明ガラス＝本館と同じ、10-24 ユーザー）
 # 西日は高さによらず羽根に当たって入らない。東の朝日（高さ約7〜53°）は羽根のあいだを抜けて吹き抜けに直接差す。
 dw=VOID+OVH-20
 while dw-W_*math.cos(ANG)>-OVH:
     de=dw-W_*math.cos(ANG)
     zt=lambda i,d,dw=dw: lidtop(i,dw)+28+(dw-d)*math.tan(ANG)      # 羽根の下の縁を蓋の 10 上に（前は +10 で 8 食い込み、削る段で切られていた。本館と同じ、10-25）
-    strip_mesh(de,dw,lambda i,d,zt=zt:zt(i,d)-18,zt,L_lv)
+    sector_mesh(R0+de,R0+dw,lambda rr,zt=zt:zt(0,rr-R0)-18,lambda rr,zt=zt:zt(0,rr-R0),L_lv)   # 弧に沿う一本の羽根（回転体）
     dw-=PITCH
 # --- 本館と西館のすき間の蓋（本館の蓋を西館の壁まで延ばす） ---
 L_gap=layer('50d_本館_すき間の蓋（西館まで）',(127,179,213))
@@ -83,7 +108,9 @@ a_e=[math.atan2(p[1]-C[1],p[0]-C[0])%(2*math.pi) for p,u in edge[1:-1]]
 r_e=[np.linalg.norm(p-C) for p,u in edge[1:-1]]
 pts=[P(RW+OVH,a) for a in a_e]+[P(rr+20,a) for rr,a in zip(r_e,a_e)][::-1]
 gp=Polygon(pts).buffer(0)
-if gp.area>0: sloped(gp.simplify(5),GT,L_gap,zlid_main)
+# 弧に沿う帯で、上の面が本館の蓋の面にちょうど沿うように（前は外形を earcut で三角に分けて、長い弦の所で面が盛り上がっていた、10-25）
+_zl=lambda rr: ztop(rr)+CURB+GAP+GT
+if gp.area>0: sector_mesh(RW+OVH,R0+20,lambda rr:_zl(rr)-GT,_zl,L_gap,a0=min(a_e),a1=max(a_e))
 # --- シーリングファン：西吹き抜けの各スパン中央に 1 台（羽根 φ1100、羽根の高さ 2.8 m） ---
 L_fan=layer('58_1F_西吹き抜け_シーリングファン',(90,90,90))
 rf=(RK+RW)/2
