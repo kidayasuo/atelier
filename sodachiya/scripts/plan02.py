@@ -84,6 +84,8 @@ fill(U0, U1, 12, 15, C_ROOF)                   # engawa
 
 # ---- walls & columns
 wall(U0, U1, -0.35, -0.20)                    # 西の外壁（柱の外、10-22）
+for uw, ww in [(3 * k - 1.5, 0.60 + 1.40 * (k - 1) / 6) for k in range(4, 8)]:   # 西の窓（南から北へ高く大きく、10-26）
+    if U0 <= uw <= U1: box(uw - ww / 2, uw + ww / 2, -0.35, -0.20, lw=0.3, fc="white", z=6)
 for uf in [12, 15, 18]:
     for vc in [0, 12]:
         box(uf - 0.09, uf + 0.09, vc - 0.2, vc + 0.2, lw=0.3, fc="black", z=6)

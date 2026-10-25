@@ -404,7 +404,7 @@ box(51.0, 57.0, 0.0, 1.6, fc="#F1E6F0", lw=0.0, ec="none", z=0.5)
 line([(51.0, 0.08), (51.0, 1.55)], lw=1.2, c="#8a5a2b", z=6)      # lattice sliding door
 box(51.6, 56.9, 0.5, 1.55, fc="#EFE6D2", lw=0.45, z=4)              # tatami floor (FL)
 box(52.2, 56.6, 0.08, 0.5, fc="#D9E6CF", lw=0.6, z=4)                # foot well down to GL (-300)
-line([(52.6, -0.02), (56.4, -0.02)], lw=2.0, c="#3d7fb0", z=7)      # low window down to GL
+for a_, b_ in [(52.6, 53.85), (54.15, 56.4)]: line([(a_, -0.02), (b_, -0.02)], lw=2.0, c="#3d7fb0", z=7)      # low windows down to GL（柱 u54 で二つ、10-26）
 import random as _r
 _r.seed(3)
 for k in range(14):
