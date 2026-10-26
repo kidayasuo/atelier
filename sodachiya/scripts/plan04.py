@@ -127,7 +127,7 @@ def crank_block(b0, flip, labels_out):
     # handwash counter along the diagonal (wc side), 5 basins
     dw, dv = 1.5 / 2.5, 2.0 / 2.5
     nw, nv = -dv, dw                                    # normal toward wc side
-    t0, t1, off = 0.45, 2.45, 0.45
+    t0, t1, off = 0.65, 2.45, 0.40                      # 南の角が部屋の壁（w±0.06）に入らないように（10-27、干渉の一覧）
     A = (dw * t0, J0 + dv * t0); B = (dw * t1, J0 + dv * t1)
     C = (B[0] + nw * off, B[1] + nv * off); D = (A[0] + nw * off, A[1] + nv * off)
     poly(Q([A, B, C, D]), fc="white", ec="black", lw=0.45, z=3)
