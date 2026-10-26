@@ -98,8 +98,14 @@ for k in range(19):
     fix=[P(RG,a) for a in np.linspace(a_n,mid,8)]
     door_c=[P(RG+60,a) for a in np.linspace(mid-50/RG,a_s,8)]                 # 閉：南の半分、FIX に 50 かかる
     _L=(a_s-(mid-50/RG)); door_o=[P(RG+60,a) for a in np.linspace(a_n,a_n+_L,8)]
-    wall_along([P(RG-50,a) for a in np.linspace(a_n,mid,8)],lambda x,y:-150,lambda x,y:KAMOI,100,L_ew)    # 杉の壁（前の FIX、10-26夜）：外の 100 は外縁側の上（−150）から
-    wall_along([P(RG+17.5,a) for a in np.linspace(a_n,mid,8)],lambda x,y:0,lambda x,y:KAMOI,35,L_ew)      # 内の 35（杉板の面）は内縁側の床の上から
+    # 杉の壁は耐力壁（10-27、監修の略算：縁側の壁が無いと桁の方向の耐力・偏心率とも足りない）。力を屋根の合板まで通すため、
+    # 壁は土台から屋根の下面（梁の上端）まで一枚（鴨居の上のガラスは戸の側の半分だけ）。梁の下端（h2450）より上は、
+    # 架構の線の 180 の内（光の筋のすき間と梁）を避けて、梁の南の面から（壁の真上に抱き合わせの垂木、ホールダウン 15〜20 kN 級）
+    a_b=a_n+np.sign(mid-a_n)*180/RG
+    for rr_,z0_,t_ in ((RG-50,-150,100),(RG+17.5,0,35)):                    # 外の 100 は外縁側の上（−150）から、内の 35（杉板の面）は内縁側の床から
+        wall_along([P(rr_,a) for a in np.linspace(a_n,mid,8)],lambda x,y,z0_=z0_:z0_,lambda x,y:KAMOI+60,t_,L_ew)
+        wall_along([P(rr_,a) for a in np.linspace(a_b,mid,8)],lambda x,y:KAMOI+60,ZUND,t_,L_ew)
+    wall_along([P(RG,a) for a in np.linspace(mid,a_s,8)],lambda x,y:KAMOI+60,ZUND,20,L_gl)   # 鴨居の上の固定ガラス（戸の側の半分だけ）
     wall_along(door_c,lambda x,y:0,lambda x,y:KAMOI-10,40,L_dc)             # 片引き戸（閉）
     wall_along(door_o,lambda x,y:0,lambda x,y:KAMOI-10,40,L_do)             # 片引き戸（開）
     span_no=19-k                                                             # 南から数えたスパンの番号
@@ -107,7 +113,7 @@ for k in range(19):
         _marks(P(RG,(mid-50/RG+a_s)/2), 80.5, L_dc)                          # 戸の室内側の面（RG+80）から 0.5（閉）
         _marks(P(RG,a_n+_L/2), 80.5, L_do)                                   # 戸（開）
 wall_along(gl,lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)               # 鴨居
-wall_along(gl,lambda x,y:KAMOI+60,ZUND,20,L_gl)                             # 固定ガラス
+# 鴨居の上の固定ガラスは、上のスパンごとの所で戸の側の半分だけに作る（10-27）。鴨居は通し（壁と重なる所は優先順位で削られる）
 # 10-24：床下の風の道（決定事項（共通）の「床下の風の道」）。外縁側（−150）から内縁側（±0）への段の蹴込みにガラリ
 # （夏の夜の外気 → 床下、防虫網・ごみよけ・防犯の格子・ダンパー）。ガラス戸は腰の無いシンプルな引き戸（上のまま）。海峡の口は除く。
 from shapely.geometry import Point
