@@ -1,6 +1,6 @@
 """3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）、断面 3 つ（A 縦断・B 海峡・C 4 歳と遊戯室）、立面 4 つ
 使い方: python3 draw100.py MODEL_MESH.3dm OUTDIR
-- 平面：FL+1200 で切る。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
+- 平面：FL+1200 で切る（2 階は 2FL+1000、西館の南西の軒が低い）。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
   見えがかりは近いもの（高いもの）から順に、手前の形で後ろの線を切って描く（隠れ線を消した線だけ）。
   屋根の外形は破線（梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
 - 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
@@ -578,6 +578,16 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
     occ = draw_cut(A, items)
     # 窓台：壁を窓の下（床+300）でも切り、切断の高さに無い所（＝窓の下の腰壁）を細線で（製図の決まり：窓は壁の線を細く通して描く）
     wl_cut = [pc for ob, pc, sg in items if wall_group(ob) and pc is not None and not pc.is_empty]
+    BLK = unary_union([pc.buffer(0) for ob, pc, sg in items if wall_group(ob) == 'wall' and pc is not None and not pc.is_empty]) if items else Polygon()
+    def hidden_win(cls):
+        """切断より上（高窓）・下（地窓）の窓：破線。黒く塗った外壁の中では白い破線（灰色では黒に消えて、窓が無いように見えていた、10-26 監修）"""
+        for cl in cls:
+            ls_ = LineString(cl)
+            if ls_.length < 1: continue
+            inw = ls_.intersection(BLK.buffer(-5)) if not BLK.is_empty else LineString()
+            out = ls_.difference(BLK.buffer(-5)) if not BLK.is_empty else ls_
+            if not inw.is_empty: A.geom_lines(inw, '13_見えがかり（窓台・隠れた窓）', lw=0.16, ls=(0, (3, 2)), color='w', z=6.4)
+            if not out.is_empty and out.length > 30: A.geom_lines(out, '13_見えがかり（窓台・隠れた窓）', lw=0.1, ls=(0, (3, 2)), color='0.3', z=6.4)
     if wl_cut:
         WC = unary_union([g.buffer(0) for g in wl_cut])
         low = []
@@ -597,7 +607,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             fp = silhouette(ob['T'][:, :, :2])
             if fp is None or fp.is_empty or fp.intersection(WC.buffer(10)).area < 0.6 * fp.area: continue
             below[:] = [x for x in below if x is not ob]
-            A.lines(centerlines(fp), '13_見えがかり（窓台・隠れた窓）', lw=0.1, ls=(0, (3, 2)), color='0.3', z=6.4)
+            hidden_win(centerlines(fp))
     # 床からの引き戸（引違い）：戸の板を一枚おきに内と外のレールへ ±30 ずらし、隣と 40 重ねる（製図の引違い戸の記号。3dm では一つの面に並んでいる）
     if sliders:
         pan = []
@@ -623,7 +633,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
         fp = silhouette(ob['T'][:, :, :2])
         if fp is not None and not fp.is_empty and not below_fit.is_empty and fp.intersection(below_fit.buffer(80)).area > 0.5 * fp.area: continue
         if fp is not None and not fp.is_empty:
-            A.lines(centerlines(fp), '13_見えがかり（窓台・隠れた窓）', lw=0.1, ls=(0, (3, 2)), color='0.3', z=6.4)
+            hidden_win(centerlines(fp))
     below.sort(key=lambda ob: -ob['T'][:, :, 2].max())
     draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below if ob['layer'].split('_')[0] not in STREET_NOLINE], occ)
     # 上部：屋根は片をまとめた外形だけ（片の継ぎ目・光の筋・太陽光の線は部屋を横切るので描かない、10-24）、木の樹冠は一本ずつ
@@ -738,11 +748,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
     for ln_, sils in BYL.items():
         fc_ = room_color(ln_)
         if fc_: A.fill(unary_union(sils).buffer(-5, join_style=2), '06_部屋の色', fc=fc_, z=0.8)
-        if '医務' in ln_ and fc_:                    # 赤十字
-            from shapely.ops import polylabel as _pl
-            g_ = unary_union(sils); g_ = max(getattr(g_, 'geoms', [g_]), key=lambda x: x.area); q_ = _pl(g_, 50)
-            cr = unary_union([box(q_.x - 350, q_.y - 110, q_.x + 350, q_.y + 110), box(q_.x - 110, q_.y - 350, q_.x + 110, q_.y + 350)])
-            A.fill(shp_affinity.translate(cr, 0, 900), '06_部屋の色', fc='#D33A3A', z=0.85)
+        # 医務の赤十字はやめた（10-26 監修：赤十字の標章は法律（赤十字の標章及び名称等の使用の制限に関する法律）で使える人が限られる。部屋名で足りる）
     # 0・1歳の水まわり（沐浴・小さな便器・おむつ替え）と2歳のトイレは、部屋の板の中にある（面積は保育室に含める）ので、
     # 色だけ水まわりに塗る（ユーザー 10-26：平面図の0・1歳、2歳のトイレをトイレの色に）。範囲は scripts/plan01.py の water core（u9〜12）・
     # plan02.py の toilet（u12〜14.7）、v1.6〜4.6（しつらえの段がこの二つの図から部屋を作る）
@@ -761,6 +767,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             sil = silhouette(ob['T'][:, :, :2])
             if sil is not None and not sil.is_empty: A.fill(sil, '06_部屋の色', fc=c_, z=0.7)
     for ln_, sils in BYL.items():
+        if level_z > 1000 and ln_.startswith(rooms_also): continue   # 2 階から見下ろす 1 階の部屋（遊戯室）は色だけ。名前と面積は 1 階に（2 階は「吹抜（遊戯室）」、10-26 監修）
         ob = {'layer': ln_}
         sil = unary_union(sils).buffer(-5, join_style=2)
         allp = [g for g in getattr(sil, 'geoms', [sil]) if g.area >= 0.5e6]
@@ -974,12 +981,13 @@ def make_plans():
     sh3 = np.array([SHIFT2[0], SHIFT2[1], 0.0])
     o2s = [dict(ob, T=ob['T'] + sh3) for ob in o2]
     r2 = [dict(ob, T=ob['T'] + sh3) for ob in OBJ if num(ob['layer']) == 20]
-    plan(A, 3250 + 1200, o2s, r2, 3250, rooms_also=('31_',), void_shift=tuple(SHIFT2))
+    # 2 階は 2FL+1000 で切る（10-26 監修：+1200 では西館の南西の低い軒（壁の上端 約4.3 m）より上になり、休憩室の南の壁と窓が切れずに消えていた）
+    plan(A, 3250 + 1000, o2s, r2, 3250, rooms_also=('31_',), void_shift=tuple(SHIFT2))
     # 表題・方位・縮尺（紙の座標）
     def paper(x_mm, y_mm):
         return ext[0] + (x_mm - MG) * 100, ext[2] + (y_mm - MG) * 100
     tx, ty = paper(14, H_ - 16)
-    A.text(tx, ty, '平面図　1階　FL+1200 で切断／2階（西館）2FL+1200 で切断　1/100', 11, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    A.text(tx, ty, '平面図　1階　FL+1200 で切断／2階（西館）2FL+1000 で切断　1/100', 11, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
     tx, ty = paper(14, H_ - 26)
     A.text(tx, ty, '高野川を下に（配置図と同じ向き）。2階は西の道路の外に同じ向きで置いた（遊戯室は吹き抜けから見下ろす）。一点鎖線は敷地の境', 6, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
     bx, by = paper(14, 40)
