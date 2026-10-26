@@ -358,7 +358,8 @@ def frame_parts(clr):
     return ce, cw, bm
 
 def frame_sheets():
-    for k, c in KETA_VARIANTS.items():
+    k = J['桁']['選んだ穴']['名']                     # 10-26 試し切りで D に決めた。ほかの穴の版は作らない
+    for k, c in [(k, KETA_VARIANTS[k])]:
         ce, cw, bm = frame_parts(c)
         # 試作 1 本（梁 2、東の柱 2 枚、西の柱 2 枚）
         s = Sheet(f'02_架構の試作1本_桁穴{k}', 185, 52, f'航空ベニヤ 0.8：本館の架構 1 本分（桁の穴 {k}）')
