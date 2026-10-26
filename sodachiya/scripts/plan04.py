@@ -163,9 +163,13 @@ crank_block(48, True, blk_labels)
 # 4yr back wall at u=51? (block 17 toilet strip back wall = 5yr south wall) handled above
 # north room wall at u=42/51 continuing west part (store) already by wall()
 # glass line (insulated) at G with shoe cabinets on outer side; screens at E
-line([(U0, G), (U1, G)], lw=1.6, c="#3d7fb0", z=6)
+# 縁側の中ほど（G=v13.5、10-26夜、3dm は south/add_floor.py）：スパンごとに北の半分は杉の壁（v13.465〜13.6）、
+# 南の半分はガラスの片引き戸（壁の室内側 v13.42〜13.46 を走り、開けると壁の前に重なる）
+for _s in range(int(U0), int(U1), 3):
+    wall(_s + 1.5, _s + 3, G - 0.035, G + 0.1)                        # 縁側の杉の壁（北の半分）
+    box(_s, _s + 1.55, G - 0.08, G - 0.04, lw=0.3, fc="#DCEBF3", z=6)  # ガラスの片引き戸（閉、南の半分）
 for a, b in [(33, 39), (42, 48), (51, 57)]:
-    for c0, c1 in [(a + 0.3, a + 2.2), (a + 3.8, b - 0.3)]:
+    for c0, c1 in [(a + 1.6, a + 2.9), (a + 4.6, b - 0.1)]:        # 下足箱は杉の壁の外（戸の前をふさがない、10-27）
         box(c0, c1, G + 0.05, G + 0.45, lw=0.35, fc="#F7F1E6", z=6)
     line([(a + 0.05, E), (b - 0.05, E)], lw=0.9, ls=(0, (2, 1.5)), c="#7b5ea7", z=6)
 # engawa edge + columns, shoe step
@@ -254,7 +258,7 @@ legend = [
     "12　保育室から路地への戸（南の部屋は西寄り、北の部屋は東寄り）",
     "13　トップライト：路地と便所の上を屋根まで吹き抜けに（天袋なし）。東の端に低い窓",
     "14　外縁側 幅1.5（土足、FL−150。海峡から各クラスへ）",
-    "15　断熱ガラス戸と下足箱・腰掛け（外縁側の側）",
+    "15　縁側の中ほど：スパンごとに杉の壁＋ガラスの片引き戸。下足箱・腰掛けは杉の壁の外（外縁側の側）",
     "16　保育室と内縁側の境（ふだんは開け放す吊り戸）",
     "スパン17はスパン14を南北に裏返した形（二つの路地は折れ方が逆）",
     "保育室は3室とも同じ構成。違うのは：机の高さ、コットの数、しずかな角の大きさ（3歳 小・4歳 中・5歳 中＋延長）、棚の中身。5歳は戸に合わせ反転",
