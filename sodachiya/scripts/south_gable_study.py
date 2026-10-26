@@ -106,6 +106,19 @@ CASES3 = [
       'ガラス約{g:.0f} m²。']),
 ]
 
+# ---- 第4版（10-26 21:43、ユーザー：このガラス面に縦格子を合わせる、B2-b か B2）
+def lat(zt): return lambda: [(V0, V1, 0, zt, 'lat'), (V0, V1, zt, None, 'wall')]
+CASES4 = [
+    ('L1　B2-b（上端 2.15）＋外の縦格子', lat(2.15),
+     ['ガラス戸の外に杉の縦格子（見付30・見込45、120おき）。上の大和張り（見えの割り約120）と同じ割りで、格子と板張りが一枚の面に見え、上端 2.15 の水平線は影の深さの違いで静かに読める。',
+      '格子は外に固定し、ガラス戸は内で開け閉め（町家の「ガラス戸＋格子」の二重）。戸を開けても格子が柵になり、0・1歳の部屋で外気を入れながら、はう子が外へ出ない。園庭へは東の縁側から。',
+      '冬至の南中の日は格子の間を約75%抜け、床の日だまりは縞（光の縞が動く）。外からの視線（受け取りの人・南の道）もやわらぐ。ガラス約{g:.0f} m²。']),
+    ('L2　B2（上端 2.385、東の鴨居の線）＋外の縦格子', lat(KAMOI),
+     ['格子の上端が東の縁側の鴨居の線と角でつながる。上の杉の壁は東で消える三角になり、格子の面が大きい。',
+      '東の端は梁の下端（柱の際で約2.3）に当たるので、格子とガラスを梁に合わせて切る。',
+      'ガラス約{g:.0f} m²。']),
+]
+
 def area(spec):
     s = 0.0
     for a, b, z0, z1, k in spec:
@@ -116,12 +129,12 @@ def area(spec):
 
 W, H = 420, 297
 fig = plt.figure(figsize=(W / 25.4, H / 25.4))
-fig.text(14 / W, 1 - 13 / H, '乳児室（0・1歳）の南の開口を比べる' + {'1': '', '2': '（2）架構の水平に合わせる', '3': '（3）B1とB2の中間'}[os.environ.get('SG_SET', '1')], fontsize=14, weight='bold')
+fig.text(14 / W, 1 - 13 / H, '乳児室（0・1歳）の南の開口を比べる' + {'1': '', '2': '（2）架構の水平に合わせる', '3': '（3）B1とB2の中間', '4': '（4）縦格子を合わせる'}[os.environ.get('SG_SET', '1')], fontsize=14, weight='bold')
 fig.text(14 / W, 1 - 19.5 / H, '本館係　2026-10-26　左：南の妻の立面（南から北を見る、右が東）1/125　右：v6 で切った断面（西を見る、左が南）1/125、南中の日。'
          '京都 北緯35.0°、妻の向き 約173°（ほぼ真南）。南の軒・屋根の厚みはどの案も同じ', fontsize=7.2, color='#555')
 S = 1 / 125 * 1000
 SET = os.environ.get('SG_SET', '1')
-for i, (name, fn, notes) in enumerate({'1': CASES, '2': CASES2, '3': CASES3}[SET]):
+for i, (name, fn, notes) in enumerate({'1': CASES, '2': CASES2, '3': CASES3, '4': CASES4}[SET]):
     spec = fn(); g = area(spec)
     top = H - 30 - i * 88
     fig.text(14 / W, (top - 2) / H, name, fontsize=10.5, weight='bold')
@@ -147,11 +160,14 @@ for i, (name, fn, notes) in enumerate({'1': CASES, '2': CASES2, '3': CASES3}[SET
     ax.add_patch(Rectangle((12.2, 0), 1.3, 3.0, fc=C_G, ec='#33475a', lw=0.4, zorder=3))                  # 内縁側の端のガラス
     for a, b, z0, z1, k in spec:
         vv = np.linspace(a, b, 20); zt = [BEAM_BOT(v) if z1 is None else z1 for v in vv]
-        fc = {'wall': C_W, 'glass': C_G, 'door': C_D}[k]
+        fc = {'wall': C_W, 'glass': C_G, 'door': C_D, 'lat': C_G}[k]
         ax.fill_between(vv, [z0] * len(vv), zt, color=fc, zorder=3, lw=0)
         ax.plot(list(vv) + [b, a, a], zt + [z0, z0, zt[0]], color='#33475a' if k != 'wall' else '#8a7358', lw=0.45, zorder=4)
         if k == 'wall':
             for x in np.arange(a + 0.06, b, 0.12): ax.plot([x, x], [z0, BEAM_BOT(x) if z1 is None else z1], color='#b89a74', lw=0.12, zorder=3.5)
+        if k == 'lat':                                             # 外の縦格子（見付30、120おき、大和張りの割りとそろえる）
+            for x in np.arange(a + 0.045, b - 0.01, 0.12):
+                ax.add_patch(Rectangle((x, z0), 0.03, min(z1, BEAM_BOT(x)) - z0, fc='#a9865c', ec='none', zorder=4.5))
     ax.plot([-0.8, 15.4], [GL, GL], color='k', lw=0.8, zorder=8); ax.plot([0, 15], [0, 0], color='#999', lw=0.25, ls=':', zorder=8)
     ax.text(6.8, GL - 0.12, '乳児室', fontsize=5.5, ha='center', va='top'); ax.text(0.8, GL - 0.12, '受け取り土間', fontsize=5.5, ha='center', va='top')
     ax.text(13.6, GL - 0.12, '縁側', fontsize=5.5, ha='center', va='top')
@@ -170,7 +186,8 @@ for i, (name, fn, notes) in enumerate({'1': CASES, '2': CASES2, '3': CASES3}[SET
     for a, b, z0, z1, k in hit:
         zz1 = zb if z1 is None else z1
         ax2.add_patch(Rectangle((-0.04 if k != 'wall' else -0.07, z0), 0.08 if k != 'wall' else 0.14, zz1 - z0,
-                                fc={'wall': C_W, 'glass': C_G, 'door': C_D}[k], ec='#33475a' if k != 'wall' else '#8a7358', lw=0.5, zorder=6))
+                                fc={'wall': C_W, 'glass': C_G, 'door': C_D, 'lat': C_G}[k], ec='#33475a' if k != 'wall' else '#8a7358', lw=0.5, zorder=6))
+        if k == 'lat': ax2.add_patch(Rectangle((-0.2, z0), 0.045, zz1 - z0, fc='#a9865c', ec='#6b4a2a', lw=0.3, zorder=6))
     hw = None
     for lab, alt, col in SUN:
         t = math.tan(math.radians(alt))
@@ -190,7 +207,8 @@ for i, (name, fn, notes) in enumerate({'1': CASES, '2': CASES2, '3': CASES3}[SET
             lo, hi = z0, min(zb if z1 is None else z1, hw)
             if hi > lo: segs.append((lo / t, hi / t))
         for x0, x1 in segs:
-            ax2.add_patch(Rectangle((x0, 0), x1 - x0, 0.06, fc='#f5c542', ec='none', zorder=8))
+            striped = any(h[4] == 'lat' for h in hit)
+            ax2.add_patch(Rectangle((x0, 0), x1 - x0, 0.06, fc='#f5c542', ec='#c9a227' if striped else 'none', hatch='|||' if striped else None, lw=0.2, zorder=8))
         if segs:
             ax2.text(sum(segs[0]) / 2, 0.12, f'冬至の日だまり 約{segs[0][1] - segs[0][0]:.1f} m', fontsize=5, ha='center', color='#8a6d00')
         elif not hit or hit[0][4] == 'wall':
