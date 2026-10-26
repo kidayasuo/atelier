@@ -474,6 +474,33 @@ def floor_sheets():
     s.save([(8, h + 16, f'本館のベタ基礎（{w:.0f}×{h:.0f} mm）。残りは敷地・西館のベタ基礎に使う', 4)])
     return w, h
 
+# ================= 5b. ベタ基礎の継ぎ足し（南北の妻の柱） =================
+def found_ext_sheets():
+    """10-26：南北の妻の架構（1・20）の柱は、ベタ基礎の縁にまたがり、ほぞ穴が外へ切れて溝になる。
+    外側の半分を受ける小さな板（シナ 3）を作り、ベタ基礎の縁に木工用ボンドで貼る。建物ごと外せるまま"""
+    upper, lower, found = floors()
+    from shapely.geometry import Polygon as _P
+    outer = _P(found.exterior)
+    ang = sheet_angle()
+    pieces = []
+    for g in cols:
+        mo = col_rect(g, MORTISE_W, MORTISE_T)
+        if outer.buffer(-1).contains(mo): continue
+        blk = mo.buffer(260, join_style=2)                       # ほぞ穴のまわり 2.6 mm の板
+        q = blk.difference(outer.buffer(-1)).difference(mo)     # ベタ基礎の外側の分だけ（縁に 0.01 重ねて当てる）
+        q = q.difference(outer)
+        if q.is_empty: continue
+        q = max(getattr(q, 'geoms', [q]), key=lambda x: x.area)
+        q = to_sheet(q, ang, (0, 0)); b = q.bounds
+        pieces.append(affinity.translate(q, -b[0], -b[1]))
+    s = Sheet('05b_ベタ基礎の継ぎ足し_シナ3', 60, 20, 'シナ 3：南北の妻の柱のほぞ穴の外半分（ベタ基礎の縁に貼る）')
+    s.add(box(0, 0, 60, 20), 'ref')
+    x = 0
+    for q in pieces:
+        s.add(affinity.translate(q, x, 0)); x += q.bounds[2] + 3
+    s.save([(0, -3, f'{len(pieces)} 個：ほぞ穴の溝を外から閉じるように、ベタ基礎の縁に貼る', 2)])
+    return len(pieces), [tuple(round(v, 1) for v in q.bounds[2:]) for q in pieces]
+
 # ================= 6. 本館の屋根 =================
 ROOF_GAP = 190      # 下の層の板の端：架構の中心線から（梁 2 枚の外面 180＋すき間 10、実寸 mm）。切り幅 0.1 で、すき間は片側 約 0.2
 ROOF_R = (191.53e3, 203.37e3)   # 下の層の東西：縁側のガラス戸の線（191.5）から、一本の線（越屋根の東の立ち上がり、203.4）まで
@@ -681,6 +708,7 @@ if __name__ == '__main__':
     test_sheets()
     frame_sheets()
     print('本館の床', floor_sheets())
+    print('ベタ基礎の継ぎ足し', found_ext_sheets())
     print('本館の屋根', roof_sheets())
     print('西館の架構', west_sheets())
     print('本館の外壁', wall_sheets())
