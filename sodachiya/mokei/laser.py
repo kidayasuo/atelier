@@ -344,6 +344,15 @@ def test_sheets():
             for l in label_num(i + 1, x + 1, oy + 3): s.add(l, 'eng')
     _try_sheet('01_試し切り_T3_シナ1.7', 82, 20, 'シナ 1.7 mm：出力 3 段 × 床の柱の穴 1〜4（描いた寸法 3.8 × 1.60／1.67／1.74／1.81）と 20 mm 角',
                t3, 'シナ1.7', [])
+    # T5・T6：航空ベニヤ 0.6・1.0（10-27：室内の壁・外壁の前に）。20 mm 角と大和張りの彫りの線
+    from shapely.geometry import LineString as _LS
+    for nm, mat in (('01_試し切り_T5_航空ベニヤ0.6', '航空ベニヤ0.6'), ('01_試し切り_T6_航空ベニヤ1.0', '航空ベニヤ1.0')):
+        def tt(s, ox, oy, lay):
+            s.add(box(ox + 6, oy, ox + 26, oy + 20), lay)
+            for k in range(8):
+                s.add(_LS([(ox + 30 + k * 1.05, oy + 2), (ox + 30 + k * 1.05, oy + 18)]), 'eng')
+            s.add(box(ox + 28, oy, ox + 40, oy + 20), lay)
+        _try_sheet(nm, 40, 20, f'{mat}：出力 3 段 × 20 mm 角と、彫りの線（大和張り 1.05 間隔）の小片', tt, mat, [])
     # T4：彫りの試し（谷積みの目地、畑の線、点）。彫りの出力を 3 段に：彫る線の色を段ごとに変える
     s = Sheet('01_試し切り_T4_彫り', 115, 98, 'KROMA 1 か シナ：彫りの出力 3 段 × （谷積みの目地 45°、畑の平行線、点）')
     s.add_layer('eng2', '#00A0FF', 4, 'ENGRAVE_2', '彫る・出力2')
