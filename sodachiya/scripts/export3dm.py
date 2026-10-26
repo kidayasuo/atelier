@@ -58,7 +58,13 @@ for _k, _s in enumerate(A.STAFF_POS):                                           
     _d0 = _pd0 + (0.05 if _k % 2 == 0 else 0.2)
     add_curve([P(_s - 0.15, _d0), P(_s + 0.15, _d0), P(_s + 0.15, _d0 + 1.75), P(_s - 0.15, _d0 + 1.75)], "74_外構_駐車・駐輪・バンプ", close=True)
 slab(srect(*A.WOOD), 0, 1.2, "75_外構_ひろばの家具")                                      # wood rack next to the kamado
-wall([E(A.GA1, 0), A.FENCE_END], 1.8, "70_外構_生垣・塀・格子")
+# 公園側の塀＝スギの大和張り（ユーザー 10-27）：胴縁3段＋縦の板を表と裏に交互
+_ps = A.PARK_SCREEN; _bo = (_ps["rail"]["t"] + _ps["board_t"]) / 2; _bw = _ps["board_w"] / 2; _bt = _ps["board_t"] / 2
+for _z in _ps["rail"]["z"]:
+    slab([E(A.GA1, -_ps["rail"]["t"] / 2), E(A.La, -_ps["rail"]["t"] / 2), E(A.La, _ps["rail"]["t"] / 2), E(A.GA1, _ps["rail"]["t"] / 2)], _z, _ps["rail"]["w"], "70_外構_生垣・塀・格子")
+for _k, _a in enumerate(np.arange(A.GA1 + _bw, A.La - _bw + 1e-6, _ps["pitch"])):
+    _o = _bo if _k % 2 == 0 else -_bo
+    slab([E(_a - _bw, _o - _bt), E(_a + _bw, _o - _bt), E(_a + _bw, _o + _bt), E(_a - _bw, _o + _bt)], _ps["foot"], _ps["h"] - _ps["foot"], "70_外構_生垣・塀・格子")
 wall([E(0, 0), E(A.GA0, 0)], 1.8, "70_外構_生垣・塀・格子")
 # 71 roofs (flat placeholders, 100 thick): kido 2.6, temizu 2.7, lean-to 2.6, back-door canopy 2.6
 slab(srect(*A.TEM), 2.7, 0.1, "71_外構_屋根（木戸・手水・下屋）")
