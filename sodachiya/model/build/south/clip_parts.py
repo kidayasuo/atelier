@@ -4,8 +4,9 @@
 考え方（ArchiCAD の「優先度に基づく接続」・Revit の結合と同じ）：
   部材を種類に分け（solids.py：S 構造 > E 外皮 > F 床 > D 戸 > P 間仕切り > I 家具 > X 外の付属）、
   重なったら優先の高いほうが低いほうを削る。各チャットは今までどおり部材を置けばよく、重なりはここで消える。
-  1. 屋根の下面：屋根・光の筋のガラス・越屋根の蓋（10・20・10t・20t・50a・28）のいちばん下の面から
-     垂木と断熱の層 150 を下げた面を「屋根の下面」とし（下から真上へ 250 の格子で測る）、
+  1. 屋根の下面：屋根・光の筋のガラス・越屋根の蓋（10・20・10t・20t・50a・28）のいちばん下の面を「屋根の下面」とし
+     （下から真上へ 250 の格子で測る。屋根は梁の上端から約420の立体＝下面が垂木の下、10-26。厚みが 300 以下の所
+     ＝まだ面の屋根やガラスの蓋だけの所は、前のとおり垂木と断熱の層 150 を下げる）、
      戸・間仕切り・家具（D・P・I）はそれより上を削る（屋根を突き抜ける壁・木・遊具が無くなる）。
      戸・間仕切りは、部屋と床の板の外（外壁の中・外壁の外面・屋根の外）へはみ出した分も削る（外壁に間仕切りの端の筋が出ない）。
   2. 戸・間仕切り・家具・床（F・D・P・I）は、優先の高い部材（構造・外皮・床・戸）と重なる所を削る
@@ -74,7 +75,11 @@ for p in parts:
 # ---------------------------------------------------------------- 1. 屋根の下面の格子（世界座標 xy、mm）
 RR = RoofRaster(parts, CELL)
 xs, ys, GX, GY = RR.xs, RR.ys, RR.GX, RR.GY
-Z = RR.Zbot - RAFTER
+# 屋根が厚みのある立体（梁の上端から約420、10-26 監修 20261026-1936）の所は、その下面がもう垂木の下＝屋根の下面。
+# 厚みの無い面（下へ 60 を付けた西館の屋根など、まだ立体になっていない所）だけ、前のとおり垂木と断熱の層 150 を下げる
+RAF = np.where(np.isfinite(RR.Zbot) & (RR.Ztop - RR.Zbot > 300), 0.0, RAFTER)
+Z = RR.Zbot - RAF
+print('屋根の下面：厚みのある屋根の格子', int((np.isfinite(RR.Zbot) & (RAF == 0)).sum()), '／ 150 下げる格子', int((np.isfinite(RR.Zbot) & (RAF > 0)).sum()))
 print('屋根の下面の格子', GX.shape, '覆われた', int(np.isfinite(Z).sum()))
 def under_roof_solid(bb, ztop):
     """部材の bb の上にかかる「屋根の下面より上」の立体（格子から、bb より 2 ます広く）。無ければ None"""
@@ -164,7 +169,8 @@ def inside_solid(bb):
     i0 = max(0, int((bb[0][0] - xs[0]) // CELL)); i1 = min(len(xs) - 1, int((bb[1][0] - xs[0]) // CELL) + 1)
     j0 = max(0, int((bb[0][1] - ys[0]) // CELL)); j1 = min(len(ys) - 1, int((bb[1][1] - ys[0]) // CELL) + 1)
     Zl = Z[i0:i1 + 1, j0:j1 + 1]
-    zt = np.nanmax(Zl) + RAFTER if np.isfinite(Zl).any() else bb[1][2] + 100
+    Zr = RR.Zbot[i0:i1 + 1, j0:j1 + 1]                     # 屋根の下面の上（垂木の層を足し戻した高さ＝覆いのいちばん下の面）
+    zt = np.nanmax(Zr) if np.isfinite(Zr).any() else bb[1][2] + 100
     out = None
     for pg in getattr(reg, 'geoms', [reg]):
         if pg.geom_type != 'Polygon' or pg.area < 1e4: continue

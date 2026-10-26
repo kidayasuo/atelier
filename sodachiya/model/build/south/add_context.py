@@ -68,10 +68,25 @@ def _out(e):        # 辺の外向きの向き
 EDG = [e for e in EDG if e.length > 5000 and (_out(e) @ np.array([-1.0, 0.0]) > 0.9 or _out(e) @ np.array([-0.6225, 0.7826]) > 0.95)]
 from shapely.ops import linemerge
 ED = linemerge(unary_union(EDG))       # 一本の線に（角で帯が途切れて三角のすき間が残らないように）
+# 北東の辺（外向きが北東、隣家の側）：辺の中ほどに接する道の片（今の住宅のあいだを通る、高野川に並行な道の続き）は入れない。
+# 北の道・東の角にかかる片（辺の両端から 8 m 以内で接する）は残す（10-26 夜、ユーザー、renkei 20261026-2040-present）
+_ring = list(S.exterior.coords); NE = None
+for k in range(len(_ring) - 1):
+    e = LineString([_ring[k], _ring[k + 1]])
+    if e.length > 5000 and _out(e) @ np.array([0.7826, 0.6225]) > 0.9: NE = e
+from shapely.geometry import Point as _Pt
+from shapely.ops import nearest_points as _np_
+def _ne_mid(Q):
+    if NE is None or Q.distance(NE) > 500: return False
+    q = _np_(NE, Q)[0]
+    s_ = NE.project(q)
+    return 8000 < s_ < NE.length - 8000
+skip_ne = 0
 RQ = []
 for rd in J['road']:
     Q = Polygon(np.array(rd['xy']) * 1000).buffer(0)
     if Q.is_empty: continue
+    if _ne_mid(Q): skip_ne += 1; continue
     QS = Q.intersection(S)
     # 敷地の中を通る今の道は入れない。ただし西の道・北の道の片が敷地にかかっているだけ（かかる所がおもに辺から 8 m 以内）なら入れる（かかる所は後で削る）
     if QS.area > 0.3 * Q.area and not QS.difference(ED.buffer(8000)).area < 0.25 * QS.area: skip_r += 1; continue
@@ -88,6 +103,7 @@ for g in getattr(rest, 'geoms', [rest]):
         gaps.append(g)
 RD = unary_union([RD] + gaps).difference(S)
 RD = RD.buffer(20, join_style=2).buffer(-20, join_style=2).difference(S)
+print('road: 北東の辺の中ほどの道', skip_ne, 'removed')
 print('road: edges', len(EDG), 'gaps', len(gaps), round(sum(g.area for g in gaps) / 1e6, 1), 'm2')
 for g in getattr(RD, 'geoms', [RD]):
     if g.geom_type != 'Polygon' or g.area < 1e5: continue

@@ -1608,18 +1608,18 @@ ELEV_SHEETS = [('sodachiya_elevations_1-100', lambda: make_elevations(
 
 # ---------------------------------------------------------------- 配置図 1/200（監修 renkei 20261025-1747-kanshu、アプローチ係 data/siteplan_approach.json）
 # 向きは3枚目の平面図と同じ（高野川を下辺）。建物は屋根伏せ、外構・園庭・周辺（PLATEAU）・課題の敷地図をなぞった線・敷地の境・方位。
-# 外構の描き方・文字・記号・道すじ・注はアプローチ係の json から（座標は 3dm の m）。A2 横。
+# 外構の描き方・文字・記号・道すじ・注はアプローチ係の json から（座標は 3dm の m）。A1 横（10-26夜、プレゼンの準備：南へ高野川の水面まで、紙も大きく）。
 def make_siteplan():
     import json as _j
-    W_, H_, SC = 594, 420, 200
-    S = Sheet(W_, H_, '配置図　1/200（A2）　高野川を下に（北は方位の矢印）', scale=SC, notitle=True)   # 文字は図に入れない（ユーザー10-26：素材にする、DXFの60・80のレイヤーには残す）
+    W_, H_, SC = 841, 594, 200
+    S = Sheet(W_, H_, '配置図　1/200（A1）　高野川を下に（北は方位の矢印）', scale=SC, notitle=True)   # 文字は図に入れない（ユーザー10-26：素材にする、DXFの60・80のレイヤーには残す）
     ph = _view_rot(); c_, n_ = math.cos(ph), math.sin(ph)
     rp = lambda P: np.c_[np.asarray(P)[:, 0] * c_ - np.asarray(P)[:, 1] * n_, np.asarray(P)[:, 0] * n_ + np.asarray(P)[:, 1] * c_]
     cr = rp(np.array(list(SITE_C.values())))
     mid = (cr.min(0) + cr.max(0)) / 2 + np.array([-3000.0, 0.0])
     MG = 10
     w_, h_ = (W_ - 2 * MG) * SC, (H_ - 2 * MG) * SC
-    ext = (mid[0] - w_ / 2, mid[0] + w_ / 2, mid[1] - h_ / 2 + 3000, mid[1] + h_ / 2 + 3000)   # 北（上）を少し広く、南の高野川の崖と河川敷も入る（ユーザー10-26）
+    ext = (mid[0] - w_ / 2, mid[0] + w_ / 2, mid[1] - h_ / 2 + 2000, mid[1] + h_ / 2 + 2000)   # A1：南は高野川の水面と向こう岸の手前まで（回した座標で y≈−31 m）、北・東・西も約20 m 広く
     A = S.axes(MG, MG, ext); A.phi = ph; A.dxf_only_text = True
     root = _root()
     SP = {}
@@ -1632,8 +1632,9 @@ def make_siteplan():
         if n not in (3, 4): continue
         sil = silhouette(ob['T'][:, :, :2])
         if sil is None: continue
-        if n == 4: A.fill(sil, '30_敷地・外構', fc='0.86', z=0.5); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.55', z=0.6)
-        else: A.fill(sil, '30_敷地・外構', fc='0.97', z=0.3); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.6', z=0.35)
+        # 護岸・川（02、z 0.8〜0.9）より上に：川をまたぐ橋の道が川の上に見える
+        if n == 4: A.fill(sil, '30_敷地・外構', fc='0.86', z=0.96); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.55', z=0.97)
+        else: A.fill(sil, '30_敷地・外構', fc='0.97', z=0.94); A.geom_lines(sil, '30_敷地・外構', lw=0.06, color='0.6', z=0.95)
     # 高野川の護岸（02）：川・河川敷・石積みの崖・柵の土台（高さで分ける）
     for ob in OBJ:
         if num(ob['layer']) != 2: continue
