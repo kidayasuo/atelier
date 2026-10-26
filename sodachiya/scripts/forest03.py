@@ -1,5 +1,5 @@
 # ホールの北山杉の林：幹の足もと（深いさや）と頂部 1/5、外し方、高さの決め方（A3 横）。6 版（すべて自立）
-# 寸法は data/forest.json の DETAIL・PARAMS.HEIGHT。床の構成は仮（木造に確認）。
+# 寸法は data/forest.json の DETAIL・PARAMS.HEIGHT。床は全面の床下空間（10-27）。
 import json, os, math, textwrap
 import numpy as np
 import matplotlib
@@ -18,7 +18,7 @@ MM = 1 / 25.4
 fig = plt.figure(figsize=(420 * MM, 297 * MM))
 fig.text(14 / 420, 288 / 297, "ホールの北山杉の林　足もとと頂部 1/5・高さの決め方（たたき台・6 版：すべて自立）", fontsize=11, weight="bold", va="top")
 fig.text(14 / 420, 281 / 297, "上は留めない。幹は床から自立する片持ちで、根元の深いさやが曲げを受ける。高さは太さで決め（右下の表）、頂部は丸く削る。"
-         "抜ける幹は差して回す金物で、真上に抜く。床の構成は仮（木造に確認）。", fontsize=6.2, va="top")
+         "抜ける幹は差して回す金物で、真上に抜く。さやの鋼管は床下を通して底板に留める（たたき台）。", fontsize=6.2, va="top")
 WOOD = "#E8D2A6"; STEEL = "#8C8C8C"; TRUNK = "#C9A27A"; CON = "#D5D5D5"
 
 def ax_at(x, y, w, h, scale=5):
@@ -27,42 +27,60 @@ def ax_at(x, y, w, h, scale=5):
 def rect(ax, x, y, w, h, fc, ec="black", lw=0.5, hatch=None, z=2):
     ax.add_patch(Rectangle((x, y), w, h, fc=fc, ec=ec, lw=lw, hatch=hatch, zorder=z))
 def note(ax, x, y, tx, ty, s, fs=5.2):
-    ax.annotate(s, (x, y), (tx, ty), fontsize=fs, arrowprops=dict(arrowstyle="-", lw=0.35, color="#555555"), va="center", color="#222222")
+    ax.annotate(s, (x, y), (tx, ty), fontsize=fs, arrowprops=dict(arrowstyle="-", lw=0.35, color="#555555"), va="center", color="#222222",
+                bbox=dict(boxstyle="square,pad=0.15", fc="white", ec="none", alpha=0.9), zorder=8)
 
-d = D["d"]; so = D["socket"]; fl = D["floor"]; pier = D["pier"]; fe = D["ferrule"]
+d = D["d"]; so = D["socket"]; fl = D["floor"]; po = D["post"]; fe = D["ferrule"]
 
 # ---------------------------------------------------------------- B: foot (section 1/5)
+# 床は全面の床下空間（10-27）：さやの鋼管を床から底板まで通した柱にし、根元の曲げを底板へ。床下は図の中で縮めて描く（破断線）
 B = ax_at(14, 112, 200, 160)        # 1000 × 800 mm
-y_fl = 640
-rect(B, 0, y_fl - fl["board"], 1000, fl["board"], WOOD)
-rect(B, 0, y_fl - fl["board"] - fl["base"], 1000, fl["base"], "#EFE6D2", hatch="..")
-y_slab = y_fl - fl["board"] - fl["base"]
-rect(B, 0, y_slab - fl["slab"], 1000, fl["slab"], CON, hatch="xx")
-B.add_patch(Polygon([(0, y_slab - fl["slab"]), (1000, y_slab - fl["slab"]), (1000, 0), (0, 0)], fc="#EDE3D0", ec="none", zorder=1))   # 地盤
+VOID_DRAWN = 300                                                          # 床下 450 を 300 に縮めて描く（破断は幹の下端より下）
+y_fl = 730
+y_ply = y_fl - fl["board"]; y_j = y_ply - fl["ply"]; y_jb = y_j - fl["joist"]
+y_st = y_jb - VOID_DRAWN; y_sb = y_st - fl["slab"]; y_gb = y_sb - fl["gravel"]
 cx = 330
-rect(B, cx - pier["d"] / 2, y_slab - fl["slab"] - pier["h"], pier["d"], pier["h"], CON, hatch="xx", z=2)   # 小さな基礎（杭）
-sx0 = cx - d / 2 - so["clear"] - so["wall"]; sx1 = cx + d / 2 + so["clear"]
-rect(B, sx0, y_fl - so["depth"], so["wall"], so["depth"], STEEL, z=4)
-rect(B, sx1, y_fl - so["depth"], so["wall"], so["depth"], STEEL, z=4)
-rect(B, sx0, y_fl - so["depth"] - 8, sx1 + so["wall"] - sx0, 8, STEEL, z=4)
-for k in range(3):                                                       # さやの外のリブ（コンクリートに効かせる）
-    yy_ = y_fl - so["depth"] + 40 + k * 80
-    rect(B, sx0 - 25, yy_, 25, 6, STEEL, lw=0.3, z=4); rect(B, sx1 + so["wall"], yy_, 25, 6, STEEL, lw=0.3, z=4)
-rect(B, cx - d / 2, y_fl - so["depth"] + 4, d, 800 - (y_fl - so["depth"] + 4), TRUNK, z=3)
-rect(B, cx - d / 2 - 1, y_fl - so["depth"] + 4, d + 2, fe["h"], "#9A9A9A", z=5)
+sx0 = cx - d / 2 - so["clear"] - so["wall"]; sx1 = cx + d / 2 + so["clear"]; sw = sx1 + so["wall"] - sx0
+g = po["sleeve_gap"]
+for x0, x1 in ((0, sx0 - g), (sx1 + so["wall"] + g, 1000)):                # 床板・合板はさやと縁を切る（すき間）
+    rect(B, x0, y_ply, x1 - x0, fl["board"], WOOD)
+    rect(B, x0, y_j, x1 - x0, fl["ply"], "#E3CFA4", hatch="////")
+for xj in (90, 640):                                                      # 大引（断面）・鋼製束
+    rect(B, xj, y_jb, 90, fl["joist"], WOOD)
+    rect(B, xj + 38, y_st, 14, y_jb - y_st, STEEL, lw=0.3); rect(B, xj + 15, y_st, 60, 6, STEEL, lw=0.3)
+rect(B, 0, y_sb, 1000, fl["slab"], CON, hatch="xx")                       # ベタ基礎の底板
+rect(B, 0, y_gb, 1000, fl["gravel"], "#EDE3D0", hatch="..")               # 砕石
+B.plot([0, 1000], [y_sb - 2, y_sb - 2], lw=0.6, color="#3d7fb0", zorder=5)  # 防湿シート
+for yb in (y_fl - so["depth"] - 30, y_st + 45):                            # 破断線（床下を縮めた、幹の下端より下で）
+    B.plot([0, 1000], [yb, yb], lw=0.3, color="#888888", ls=(0, (1, 2)), zorder=6)
+B.text(990, (y_fl - so["depth"] - 30 + y_st + 45) / 2, f"床下 有効 約{fl['void']}（縮めて描いた）", fontsize=4.8, ha="right", va="center", color="#555555")
+# さやの柱：鋼管を床の上面から底板まで。上の so["depth"] がさや、その下は柱
+rect(B, sx0, y_st + po["plate_t"], so["wall"], y_fl - y_st - po["plate_t"], STEEL, z=4)
+rect(B, sx1, y_st + po["plate_t"], so["wall"], y_fl - y_st - po["plate_t"], STEEL, z=4)
+yb_trunk = y_fl - so["depth"]
+rect(B, sx0, yb_trunk - 8, sw, 8, STEEL, z=4)                             # さやの底（幹の受け）
+rect(B, cx - po["plate"] / 2, y_st, po["plate"], po["plate_t"], STEEL, z=4)   # ベースプレート
+for xa in (cx - po["plate"] / 2 + 30, cx + po["plate"] / 2 - 30):             # アンカー
+    rect(B, xa - 6, y_st - 120, 12, 120 + po["plate_t"] + 14, "#555555", lw=0.3, z=5)
+for sgn in (-1, 1):                                                       # 根元のリブ（三角）
+    xr = sx0 if sgn < 0 else sx1 + so["wall"]
+    B.add_patch(Polygon([(xr, y_st + po["plate_t"]), (xr + sgn * 70, y_st + po["plate_t"]), (xr, y_st + po["plate_t"] + 90)],
+                        fc=STEEL, ec="black", lw=0.4, zorder=4))
+rect(B, cx - d / 2, yb_trunk + 4, d, 800 - (yb_trunk + 4), TRUNK, z=3)
+rect(B, cx - d / 2 - 1, yb_trunk + 4, d + 2, fe["h"], "#9A9A9A", z=5)
 B.add_patch(Circle((cx + d / 2 + 3, y_fl - so["slot"] + 10), 5, fc="#333333", ec="none", zorder=6))
-rect(B, sx0 - 18, y_fl - 6, (sx1 + so["wall"] - sx0) + 36, 6, "#C9A45A", z=6)
+rect(B, sx0 - 18, y_fl - 6, sw + 36, 6, "#C9A45A", z=6)                  # 真鍮の輪
 B.add_patch(Circle((sx1 + so["wall"] + 8, y_fl - 3), 3, fc="#333333", ec="none", zorder=7))
-note(B, sx1 + so["wall"] + 8, y_fl - 3, 520, y_fl + 110, "ばね付きのピン（六角レンチで押し下げると回せる）\n抜けない幹は、ここを固定ねじに")
-note(B, sx0 - 10, y_fl - 3, 20, y_fl + 70, "真鍮の輪（床と面一）")
-note(B, cx + d / 2 + 3, y_fl - so["slot"] + 10, 520, y_fl + 50, f"口金の爪 2 か所が、さやの L 字の溝（上端から {so['slot']}）にかかる。差して 90° 回すと抜けない")
-note(B, sx1 + so["wall"], y_fl - so["depth"] / 2, 520, 385, f"さや：鋼管 内径 φ{d + 2 * so['clear']}・深さ {so['depth']}、外にリブ。\n床の下地・土間コンクリートを貫いて小さな基礎に埋める")
-note(B, cx + pier["d"] / 2, y_slab - fl["slab"] - pier["h"] / 2, 520, 250,
-     f"小さな基礎：φ{pier['d']}×{pier['h']}（コンクリート、土間とつなぐ）。株立ちは一つの基礎に 2〜3 本のさや")
-note(B, cx + d / 2, y_fl - so["depth"] + fe["h"] / 2, 520, 320, f"鋼の口金 h{fe['h']}（幹の根元にかぶせてピンで留める）")
-B.text(520, 180, f"床板 スギ t{fl['board']}／下地 {fl['base']}／土間コンクリート t{fl['slab']}（仮）", fontsize=5.0, va="top")
-B.annotate("", (cx - 80, y_fl), (cx - 80, y_fl - so["depth"]), arrowprops=dict(arrowstyle="<->", lw=0.4))
-B.text(cx - 88, y_fl - so["depth"] / 2, f"{so['depth']}", fontsize=5.2, ha="right", va="center")
+note(B, sx1 + so["wall"] + 8, y_fl - 3, 520, y_fl + 50, "ばね付きのピン（六角レンチで押し下げると回せる）\n抜けない幹は、ここを固定ねじに")
+note(B, sx0 - 10, y_fl - 3, 20, y_fl + 45, "真鍮の輪（床と面一）")
+note(B, cx + d / 2 + 3, y_fl - so["slot"] + 10, 520, y_fl - 10, f"口金の爪 2 か所が、さやの L 字の溝（上端から {so['slot']}）にかかる。差して 90° 回すと抜けない")
+note(B, sx1 + so["wall"] + g / 2, y_ply + 10, 520, y_fl - 62, f"床板・合板とはすき間 {g}（やわらかい詰め物）：幹の揺れを床に伝えない")
+note(B, sx1 + so["wall"], (y_fl + yb_trunk) / 2 - 40, 520, y_fl - 115, f"さやの柱：鋼管 内径 φ{d + 2 * so['clear']}・厚さ {so['wall']}。上の {so['depth']} がさや、\n床の上面から底板まで通して、根元の曲げを底板へ")
+note(B, cx + po["plate"] / 2, y_st + po["plate_t"] / 2, 520, y_st + 40, f"ベースプレート {po['plate']} 角 t{po['plate_t']}＋リブ、アンカー {po['anchor']}。\n株立ちは一枚に 2〜3 本。大引にかかる所は受け替える")
+note(B, cx - d / 2, yb_trunk + fe["h"] / 2, 20, yb_trunk - 40, f"鋼の口金 h{fe['h']}")
+B.text(520, y_sb + 40, f"床：スギ t{fl['board']}／合板 t{fl['ply']}／大引 {fl['joist']}（鋼製束）／床下 約{fl['void']}／底板 t{fl['slab']}／防湿／砕石 t{fl['gravel']}", fontsize=5.0, va="top", bbox=dict(boxstyle="square,pad=0.2", fc="white", ec="none"), zorder=8)
+B.annotate("", (cx - 80, y_fl), (cx - 80, yb_trunk), arrowprops=dict(arrowstyle="<->", lw=0.4))
+B.text(cx - 88, (y_fl + yb_trunk) / 2, f"{so['depth']}", fontsize=5.2, ha="right", va="center")
 B.text(1000, 790, "B　足もと（断面）1/5", fontsize=7.5, weight="bold", va="top", ha="right")
 # plug inset
 px, py = 820, 560
