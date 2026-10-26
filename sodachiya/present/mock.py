@@ -634,7 +634,7 @@ figs = []
 
 # ================================================================ 1　敷地と応答
 fig, ax = page()
-frame(ax, 1, "敷地と自然環境・地域", "周囲の自然環境との関係と地域環境への配慮。配置図の上に夏の夜の風・比叡への視線・太陽の通り道、下に川の向こうから見た沿川の景観立面（昼・夜）",
+frame(ax, 1, "敷地と自然環境・地域", "周囲の自然環境との関係と地域環境への配慮。配置図の上に夏の夜の風・比叡への視線、下に川の向こうから見た沿川の景観立面（昼・夜）",
       "タイトルと趣旨 → 真ん中の配置図 → 左右の箱（青＝自然環境、茶＝地域）→ 用水のネットワーク → 下の景観立面")
 top = H - M - 16
 T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
@@ -1344,34 +1344,36 @@ _mk("o")
 T(ax, _q[-1][0] - 2, _q[-1][1] + 3, f"比叡山へ　約{_DIST:.0f} km", 2.8, "#5E4380", bold=True, ha="right")
 T(ax, (_q[0][0] + _q[1][0]) / 2 + 2, (_q[0][1] + _q[1][1]) / 2 - 4, "ホールから築山の頂の向こうに比叡", 2.4, "#5E4380")
 # 太陽の通り道（北緯35.05°、大気差なし：cos A＝sin δ／cos φ）。配置図の左上の空きに、配置図と同じ向きの方位円
-_phi = 35.05; _dl = 23.44
-_Asr = np.degrees(np.arccos(np.sin(np.radians(_dl)) / np.cos(np.radians(_phi))))     # 夏至の日の出（北から時計回り）
-_Awr = 180 - _Asr
-_alt_s, _alt_w = 90 - _phi + _dl, 90 - _phi - _dl
-_SC0 = np.array([VX0 + 19.0, VY1 - 19.0]); _SR = 6.5      # 中心と半径（m）
-_c0 = xf(np.array([_SC0]))[0]; _k = 5.0
-ax.add_patch(plt.Circle(tuple(_c0), _SR * _k + 6, fc="white", ec="none", alpha=0.85, zorder=19))
-ax.add_patch(plt.Circle(tuple(_c0), _SR * _k, fc="none", ec="#888888", lw=0.4, zorder=20))
-for _deg in range(0, 360, 30):
-    _v = _rot_cw(_nv, _deg)
-    ax.plot([_c0[0] + _v[0] * _SR * _k * 0.92, _c0[0] + _v[0] * _SR * _k], [_c0[1] + _v[1] * _SR * _k * 0.92, _c0[1] + _v[1] * _SR * _k], color="#888888", lw=0.4, zorder=20)
-for _deg, _col in ((_Asr, "#E08A2E"), (360 - _Asr, "#E08A2E"), (_Awr, "#4F78B0"), (360 - _Awr, "#4F78B0")):
-    _v = _rot_cw(_nv, _deg)
-    ax.annotate("", xy=(_c0[0] + _v[0] * _SR * _k, _c0[1] + _v[1] * _SR * _k), xytext=tuple(_c0),
-                arrowprops=dict(arrowstyle="-|>", lw=1.0, color=_col), zorder=21)
-_v = _rot_cw(_nv, 0)
-ax.plot([_c0[0], _c0[0] + _v[0] * _SR * _k], [_c0[1], _c0[1] + _v[1] * _SR * _k], color=INK, lw=0.5, zorder=21)
-ax.add_patch(plt.Circle(tuple(_c0), 0.8, fc=INK, ec="none", zorder=22))
-_mk("s")
-_SOFF = _SR * _k + 4
-for _deg, _txt, _col in ((_Asr, f"夏至の日の出 {_Asr:.0f}°", "#B8661A"), (360 - _Asr, f"夏至の日の入り {360 - _Asr:.0f}°", "#B8661A"),
-                         (_Awr, f"冬至の日の出 {_Awr:.0f}°", "#3A5F94"), (360 - _Awr, f"冬至の日の入り {360 - _Awr:.0f}°", "#3A5F94")):
-    _v = _rot_cw(_nv, _deg); _pp = _c0 + _v * _SOFF
-    T(ax, _pp[0], _pp[1], _txt, 2.3, _col, ha="left" if _v[0] >= 0 else "right", va="center")
-_vn = _c0 + _nv * (_SR * _k + 3.5)
-T(ax, _vn[0], _vn[1], "N", 2.6, INK, bold=True, ha="center", va="center")
-T(ax, _c0[0] - _SR * _k - 4, _c0[1] + _SR * _k + 8, "太陽の通り道（京都、北緯35°）", 2.8, INK, bold=True)
-T(ax, _c0[0] - _SR * _k - 4, _c0[1] - _SR * _k - 9, f"南中の高さ　夏至 {_alt_s:.0f}°・冬至 {_alt_w:.1f}°", 2.4, INK)
+SUN_ON = False                                           # 太陽の通り道は外す（ユーザー、10-26 9:50：前に自分で作ったものを使う）。素材01eは空のまま残す
+if SUN_ON:
+    _phi = 35.05; _dl = 23.44
+    _Asr = np.degrees(np.arccos(np.sin(np.radians(_dl)) / np.cos(np.radians(_phi))))     # 夏至の日の出（北から時計回り）
+    _Awr = 180 - _Asr
+    _alt_s, _alt_w = 90 - _phi + _dl, 90 - _phi - _dl
+    _SC0 = np.array([VX0 + 19.0, VY1 - 19.0]); _SR = 6.5      # 中心と半径（m）
+    _c0 = xf(np.array([_SC0]))[0]; _k = 5.0
+    ax.add_patch(plt.Circle(tuple(_c0), _SR * _k + 6, fc="white", ec="none", alpha=0.85, zorder=19))
+    ax.add_patch(plt.Circle(tuple(_c0), _SR * _k, fc="none", ec="#888888", lw=0.4, zorder=20))
+    for _deg in range(0, 360, 30):
+        _v = _rot_cw(_nv, _deg)
+        ax.plot([_c0[0] + _v[0] * _SR * _k * 0.92, _c0[0] + _v[0] * _SR * _k], [_c0[1] + _v[1] * _SR * _k * 0.92, _c0[1] + _v[1] * _SR * _k], color="#888888", lw=0.4, zorder=20)
+    for _deg, _col in ((_Asr, "#E08A2E"), (360 - _Asr, "#E08A2E"), (_Awr, "#4F78B0"), (360 - _Awr, "#4F78B0")):
+        _v = _rot_cw(_nv, _deg)
+        ax.annotate("", xy=(_c0[0] + _v[0] * _SR * _k, _c0[1] + _v[1] * _SR * _k), xytext=tuple(_c0),
+                    arrowprops=dict(arrowstyle="-|>", lw=1.0, color=_col), zorder=21)
+    _v = _rot_cw(_nv, 0)
+    ax.plot([_c0[0], _c0[0] + _v[0] * _SR * _k], [_c0[1], _c0[1] + _v[1] * _SR * _k], color=INK, lw=0.5, zorder=21)
+    ax.add_patch(plt.Circle(tuple(_c0), 0.8, fc=INK, ec="none", zorder=22))
+    _mk("s")
+    _SOFF = _SR * _k + 4
+    for _deg, _txt, _col in ((_Asr, f"夏至の日の出 {_Asr:.0f}°", "#B8661A"), (360 - _Asr, f"夏至の日の入り {360 - _Asr:.0f}°", "#B8661A"),
+                             (_Awr, f"冬至の日の出 {_Awr:.0f}°", "#3A5F94"), (360 - _Awr, f"冬至の日の入り {360 - _Awr:.0f}°", "#3A5F94")):
+        _v = _rot_cw(_nv, _deg); _pp = _c0 + _v * _SOFF
+        T(ax, _pp[0], _pp[1], _txt, 2.3, _col, ha="left" if _v[0] >= 0 else "right", va="center")
+    _vn = _c0 + _nv * (_SR * _k + 3.5)
+    T(ax, _vn[0], _vn[1], "N", 2.6, INK, bold=True, ha="center", va="center")
+    T(ax, _c0[0] - _SR * _k - 4, _c0[1] + _SR * _k + 8, "太陽の通り道（京都、北緯35°）", 2.8, INK, bold=True)
+    T(ax, _c0[0] - _SR * _k - 4, _c0[1] - _SR * _k - 9, f"南中の高さ　夏至 {_alt_s:.0f}°・冬至 {_alt_w:.1f}°", 2.4, INK)
 _mk("t")
 SITE_LIVE[0] = None
 # 文字に入った引き出し線（lab の線と点）は文字の組に入れたまま（文字と一緒に動かす）
