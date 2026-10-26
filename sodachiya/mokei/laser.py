@@ -209,7 +209,20 @@ class Sheet:
                 out += [LineString(i.coords) for i in p.interiors]
         return out
 
+    MARGIN = 3.0   # 10-26 ユーザー：どのデータも左上を原点に。切る・彫る線の左上を板の左上から 3 mm に寄せる
+    def to_top_left(self, texts):
+        from shapely.ops import unary_union as _uu
+        keys = [k for k, *_ in self.layers if k != 'ref' and getattr(self, k)]
+        allg = [g for k in keys for g in getattr(self, k)]
+        if not allg: return texts
+        b = _uu([g.envelope if g.geom_type != 'Point' else g for g in allg]).bounds
+        dx, dy = self.MARGIN - b[0], (self.h - self.MARGIN) - b[3]
+        for k in keys:
+            setattr(self, k, [affinity.translate(g, dx, dy) for g in getattr(self, k)])
+        return [(x + dx, y + dy, t, sz) for x, y, t, sz in texts]
+
     def save(self, texts=()):
+        texts = self.to_top_left(list(texts))
         os.makedirs(OUT, exist_ok=True)
         # SVG（mm、y は下向きに反転）
         H = self.h
