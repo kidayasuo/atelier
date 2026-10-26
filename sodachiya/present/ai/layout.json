@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-26 20:40",
+"generated": "2026-10-26 21:20",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -192,6 +192,20 @@
 365.83,
 408.97
 ]
+},
+{
+"id": "p1.link.13_太陽の線",
+"name": "図 13_太陽の線.pdf",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/13_太陽の線.pdf",
+"x": 240.59,
+"y": 37.0,
+"w": 50.0,
+"h": 50.0,
+"clip": null,
+"scale": 1.0,
+"page": 1
 },
 {
 "id": "p1.pagetitle",
@@ -1126,6 +1140,90 @@
 "dot": 0.9
 },
 {
+"id": "p1.top.8",
+"name": "8",
+"kind": "text",
+"layer": "説明",
+"x": 270.73,
+"y": 84.1,
+"s": "8",
+"size_pt": 7.48,
+"font": "Apple-Chancery",
+"color": "#D8DCE2",
+"align": "left",
+"mock_hash": "2b5dd"
+},
+{
+"id": "p1.top.12",
+"name": "12",
+"kind": "text",
+"layer": "説明",
+"x": 252.32,
+"y": 77.89,
+"s": "12",
+"size_pt": 7.48,
+"font": "Apple-Chancery",
+"color": "#D8DCE2",
+"align": "left",
+"mock_hash": "5970c8"
+},
+{
+"id": "p1.top.16",
+"name": "16",
+"kind": "text",
+"layer": "説明",
+"x": 242.26,
+"y": 61.91,
+"s": "16",
+"size_pt": 7.48,
+"font": "Apple-Chancery",
+"color": "#D8DCE2",
+"align": "left",
+"mock_hash": "5970cc"
+},
+{
+"id": "p1.top.6",
+"name": "6",
+"kind": "text",
+"layer": "説明",
+"x": 285.69,
+"y": 69.77,
+"s": "6",
+"size_pt": 7.48,
+"font": "Apple-Chancery",
+"color": "#D8DCE2",
+"align": "left",
+"mock_hash": "2b5db"
+},
+{
+"id": "p1.top.18",
+"name": "18",
+"kind": "text",
+"layer": "説明",
+"x": 252.85,
+"y": 44.11,
+"s": "18",
+"size_pt": 7.48,
+"font": "Apple-Chancery",
+"color": "#D8DCE2",
+"align": "left",
+"mock_hash": "5970ce"
+},
+{
+"id": "p1.top.N",
+"name": "N",
+"kind": "text",
+"layer": "説明",
+"x": 270.65,
+"y": 55.01,
+"s": "N",
+"size_pt": 9.45,
+"font": "Apple-Chancery",
+"color": "#D8DCE2",
+"align": "left",
+"mock_hash": "2b5f3"
+},
+{
 "id": "p1.site.tree.canopy",
 "name": "突き出た木　枝",
 "kind": "circle",
@@ -1478,21 +1576,6 @@
 "align": "center",
 "group": null,
 "mock_hash": "e27c0f3"
-},
-{
-"id": "p1.site.t.N",
-"name": "配置図の文字　N",
-"kind": "text",
-"layer": "説明",
-"x": 261.55,
-"y": 43.03,
-"s": "N",
-"size_pt": 12.6,
-"font": "W6",
-"color": "#222222",
-"align": "center",
-"group": null,
-"mock_hash": "2b5f3"
 },
 {
 "id": "p1.site.t.北の道（車を止めて建物と庭の手入",

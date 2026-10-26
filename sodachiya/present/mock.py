@@ -25,6 +25,7 @@ OUT = os.path.join(HERE, "out")
 os.makedirs(OUT, exist_ok=True)
 FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 FONTB = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+FONT_ALT = {"Apple-Chancery": "/usr/share/texmf/fonts/opentype/public/tex-gyre/texgyrechorus-mediumitalic.otf"}   # 見本でApple Chanceryの代わり（Zapf Chanceryに似た形）
 # 文字をIllustratorで文字として直せるように、TrueTypeに変えたNoto（tools/make_ttf.py）をType42で埋め込む。無ければ前のまま（Type3）
 _TTF = os.path.expanduser("~/.cache/sodachiya_fonts")
 if not os.path.exists(os.path.join(_TTF, "NotoSansCJKjp-Bold.ttf")):
@@ -239,11 +240,12 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
         SITEPARTS.append(dict(kind="text", x=x, y=y, s=s, size=size, color=matplotlib.colors.to_hex(color), bold=bold, ha=ha, va=va, group=kw.get("group")))
         return
     kw.pop("group", None)
+    fnt = kw.pop("font", None)                     # Illustratorで使う書体の名前（無ければヒラギノ）。見本では似た書体で
     pt = size / 0.3528 / 0.72
     ax.text(x, y, s, fontsize=pt, color=color, ha=ha, va=va,
-            fontproperties=FontProperties(fname=FONTB if bold else FONT, size=pt), **kw)
+            fontproperties=FontProperties(fname=FONT_ALT.get(fnt, FONTB if bold else FONT), size=pt), **kw)
     if s:
-        _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va)
+        _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va, font=fnt)
 
 
 def frame(ax, no, theme, focus, order):
@@ -1300,10 +1302,7 @@ if _car:
     q = xf(np.array(_cu.centroid.coords))[0]
     T(ax, q[0], q[1], "駐車場", 2.8, ha="center", va="center", bold=True)
 _mk("t")
-_nx, _ny = sx + 14, sy + sh - 20
-ax.annotate("", xy=(_nx + _nv[0] * 12, _ny + _nv[1] * 12), xytext=(_nx, _ny), arrowprops=dict(arrowstyle="-|>", lw=0.6, color=INK))
-_mk("l")
-T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
+# 方位は「太陽の線」の丸の中の北の矢印に（ユーザー、10-26夜）。前の矢印とNは外した
 _mk("t")
 lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
 # 北の用水路は尾を描かず、窓の北の端から入ってくる矢印と名前だけ（ユーザー、10-26夕）
@@ -1477,6 +1476,17 @@ if SITE_FROM_UPD:
 _SCLIP = (sx, H - sy - sh, sx + sw, H - sy)                                  # 元のPDFのmm（左上から）
 for gr in ("c", "l", "t", "o"):                                               # 1枚目：色 → 線 → 文字 → 風と視線の順に重ねる（太陽は外した、ユーザー 10-26）
     embed(1, _SITE_PDF[gr], _SCLIP, sx, sy, 1.0)
+# 太陽の線（方位を兼ねる、ユーザー 10-26夜）：配置図の左上。線は素材の図、時刻とNは Apple Chancery の文字の部品
+sys.path.insert(0, os.path.join(HERE, "tools"))
+import sun_rays
+_SUNF = os.path.join(HERE, "sozai", "13_太陽の線.pdf")
+_SD, _SL = sun_rays.make(_SUNF, float(np.degrees(np.arctan2(_nv[1], _nv[0]))))
+_sux, _suy = sx + 3, sy + sh - 3 - _SD
+embed(1, _SUNF, None, _sux, _suy, 1.0)
+for _s, _x, _y, _ha in _SL:                     # 文字は図の上に（見本では貼った図の上に描く TOPT）。中心合わせ：幅の半分と高さの1/3を戻す
+    _th = 1.9 if _s != "N" else 2.4
+    _tw = fitz.Font(fontfile=FONT_ALT["Apple-Chancery"]).text_length(_s, _th / 0.72) 
+    TOPT[1].append((_sux + _x - _tw / 2, _suy + _y - _th * 0.35, _s, _th, False, "Apple-Chancery", sun_rays.NCOL))
 scalebar(ax, sx + 6, sy - 22, 200, 20)
 # いちばん下の帯：沿川の景観立面　昼（左）・夜（右）1/300（ユーザー、10-26：2枚目から戻す。配置図の高野川の辺のすぐ下で、川の向こうから見た姿）
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
@@ -1906,9 +1916,11 @@ for si in range(1, 6):
         pg.draw_circle(P_[-1], 0.9 * MM, color=rgb, fill=rgb)
     for ui_ in USER_ITEMS.get(si, []):                # 木田さんがIllustratorで足した物（export_layout.jsx の user_items）を見本にも（矢じりなどは出ない）
         _draw_user_item(pg, ui_)
-    for (tx, ty, ts, th, tb) in TOPT[si]:
-        pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname="F_B" if tb else "F_R",
-                       fontfile=FONTB if tb else FONT, color=(0.1, 0.1, 0.1))
+    for (tx, ty, ts, th, tb, *ex) in TOPT[si]:
+        _fa = FONT_ALT.get(ex[0]) if ex else None
+        _cc = tuple(int(ex[1][k:k + 2], 16) / 255 for k in (1, 3, 5)) if len(ex) > 1 else (0.1, 0.1, 0.1)
+        pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname=("F_A" if _fa else ("F_B" if tb else "F_R")),
+                       fontfile=_fa or (FONTB if tb else FONT), color=_cc)
     if si == 1:                                     # 配置図の中の文字・注の線・突き出た木（Illustratorでは一つずつの部品）
         _hx = lambda c_: tuple(int(c_[k:k + 2], 16) / 255 for k in (1, 3, 5))
         _FNT = {False: fitz.Font(fontfile=FONT), True: fitz.Font(fontfile=FONTB)}

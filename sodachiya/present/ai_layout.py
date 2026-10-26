@@ -125,7 +125,7 @@ def write(c):
                 if inside(r["x"], r["y"]):
                     continue
                 add(dict(id=r.get("id") or f"t.{_slug(r['s'])}", name=r.get("name") or r["s"][:24], kind="text", layer=layer,
-                         x=round(r["x"], 2), y=round(H - y, 2), s=r["s"], size_pt=pt(r["size"]), font="W6" if r["bold"] else "W3",
+                         x=round(r["x"], 2), y=round(H - y, 2), s=r["s"], size_pt=pt(r["size"]), font=r.get("font") or ("W6" if r["bold"] else "W3"),
                          color=r["color"], align=r["ha"] if r["ha"] in ("left", "center", "right") else "left", mock_hash=djb2(r["s"])))
             elif k == "area":
                 if inside(r["x"], r["y"]):
@@ -146,9 +146,9 @@ def write(c):
             lk = kk[0] if kk and kk[0] else str(i + 1)
             add(dict(id=f"leader.{lk}", name=f"引き出し線 {lk}", kind="line", layer="線", pts=[[round(p[0], 2), round(H - p[1], 2)] for p in pts],
                      color=col, lw=0.6, dot=0.9))
-        for i, (tx, ty, ts, th, tb) in enumerate(c["topt"].get(no, [])):
+        for i, (tx, ty, ts, th, tb, *ex) in enumerate(c["topt"].get(no, [])):
             add(dict(id=f"top.{_slug(ts)}", name=ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
-                     size_pt=pt(th), font="W6" if tb else "W3", color="#1A1A1A", align="left", mock_hash=djb2(ts)))
+                     size_pt=pt(th), font=(ex[0] if ex else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"), align="left", mock_hash=djb2(ts)))
         # 6) 配置図の中の文字・注の線・突き出た木（1枚目、ユーザー 10-25夕：一つずつ動かして書き換える。注の文字と線は一つのグループ）
         if no == 1:
             for sp in c.get("siteparts", []):

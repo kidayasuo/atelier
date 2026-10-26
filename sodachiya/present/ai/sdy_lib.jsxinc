@@ -63,7 +63,8 @@ SDY.fontCache = {};
 SDY.font = function (w) {
     if (SDY.fontCache[w] !== undefined) { return SDY.fontCache[w]; }
     var names = (w === "W6") ? ["HiraginoSans-W6", "HiraKakuProN-W6", "HiraKakuPro-W6", "HiraginoSans-W5"]
-                              : ["HiraginoSans-W3", "HiraKakuProN-W3", "HiraKakuPro-W3", "HiraginoSans-W2"];
+              : (w === "W3" || !w) ? ["HiraginoSans-W3", "HiraKakuProN-W3", "HiraKakuPro-W3", "HiraginoSans-W2"]
+              : [w, w.replace(/-/g, ""), "Apple Chancery", "HiraginoSans-W3"];          // 名前で（Apple-Chancery など、無ければヒラギノ）
     var i, f = null;
     for (i = 0; i < names.length && !f; i++) { try { f = app.textFonts.getByName(names[i]); } catch (e) { f = null; } }
     SDY.fontCache[w] = f;
