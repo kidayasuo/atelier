@@ -213,7 +213,7 @@ T04 = {   # plan04（3〜5歳、u ≥ 30）
     89: ('solid', 0, 3900, L_WW),                          # 北の妻
     95: ('solid', 0, 2400, L_P), 96: ('solid', 0, 2400, L_P),
     113: ('solid', 0, 2400, L_P), 116: ('solid', 0, 2400, L_P), 122: ('solid', 0, 2400, L_P),
-    117: ('panel', 0, 2400, 0.12, L_P), 118: ('panel', 0, 2400, 0.12, L_P), 123: ('panel', 0, 2400, 0.12, L_P),
+    118: ('panel', 0, 2400, 0.12, L_P), 123: ('panel', 0, 2400, 0.12, L_P),
     134: ('solid', 0, 500, L_WC), 143: ('panel', 0, 1300, 0.03, L_WC), 144: ('panel', 0, 1300, 0.03, L_WC),
     147: ('solid', 0, 550, L_WC), 148: ('solid', 0, 260, L_WC), 149: ('panel', 0, 1300, 0.03, L_WC),
     151: ('solid', 0, 800, L_WC),
@@ -265,6 +265,7 @@ import os as _os
 REF = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'ref')
 def build(name, table, umin, umax, skipclip=False):
     # 高さの表は ref/ の版（10-21）の行番号で書いてある。行の中身（文）で引き直し、スクリプトに行が足されてもずれないようにする
+    # （10-27：ref/plan04.py の路地の出口の3行（116〜118）は、行の数を変えずに今の文に書き換えた。隅切りをやめてまっすぐに）
     ref = prep(_os.path.join(REF, name))
     bytext = {}
     for ln, spec in table.items():

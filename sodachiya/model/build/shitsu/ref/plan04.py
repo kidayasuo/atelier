@@ -111,9 +111,9 @@ def crank_block(b0, flip, labels_out):
     wl(-0.06, 0.06, 1.6, 3.6); wl(-0.06, 0.06, 4.8, E)
     line([(U(0.1), 3.6), (U(0.1), 4.8)], lw=0.5)
     # north-room wall (w=3): door into roji east half
-    wl(2.94, 3.06, 1.6, 9.2); wl(2.94, 3.06, 10.4, E - 0.6)
-    seg((3.0, E - 0.6), (3.6, E))                                   # corner cut (room side) at the roji exit
-    seg((1.5, E - 0.6), (0.95, E))                                  # corner cut (toilet side)
+    wl(2.94, 3.06, 1.6, 9.2); wl(2.94, 3.06, 10.4, E)
+    # 路地の東の出口は隅切りで広げない（まっすぐ、ユーザー 10-27）
+    seg((0.95, E), (1.5, E))                                        # 便所の東の端の壁（路地の出口はまっすぐ、10-27）
     ax.add_patch(Circle(P(U(3.05), E - 0.75), 0.12, fc="#DDE8F0", ec="black", lw=0.4, zorder=7))   # small round mirror
     line([(U(2.9), 9.2), (U(2.9), 10.4)], lw=0.5)
     # store walls
