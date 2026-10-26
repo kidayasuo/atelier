@@ -68,6 +68,28 @@ CASES = [
       'ガラス約{g:.0f} m²。弱み：日だまりが途切れ途切れ、はう子の目の高さの見通しも半分。']),
 ]
 
+# ---- 第2版（10-26 21:34、ユーザー：南の開口は架構の水平に合わせる。案3（縦のリズム）はなし、案2で戸の所の変化が無いもの）
+def b1():
+    return [(V0, V1, 0, 1.6, 'glass'), (V0, V1, 1.6, None, 'wall')]
+def b2():
+    return [(V0, V1, 0, KAMOI, 'glass'), (V0, V1, KAMOI, None, 'wall')]
+def b3():
+    return [(V0, V1, 0, 1.6, 'glass'), (V0, V1, 1.6, KAMOI, 'wall'), (V0, V1, KAMOI, None, 'glass')]
+CASES2 = [
+    ('B1　低い連窓だけ（0〜1.6、戸なし）', b1,
+     ['案2から園庭への戸を取り、0〜1.6 のガラスを妻の幅いっぱいに一本で通す。上端 1.6 は、冬至の南中に日が当たる高さ（約1.5）と大人の目の高さに近い。',
+      '園庭（みなみのさんかく）へは東の縁側の戸から（どのスパンも開く、南の縁側・スロープへ続く）。連窓は全部引き違いで開け、風も通す。',
+      'ガラス約{g:.0f} m²。上の杉の壁は、勾配の梁の下で台形になり、水平の窓と勾配の架構の対比がはっきりする。']),
+    ('B2　鴨居の線で一本（0〜2.385 のガラス戸、上は杉の壁）', b2,
+     ['ガラス戸の上端を東の縁側の鴨居（h2.385）にそろえ、角を回って一本の水平線で通す。戸は全部引き戸で、どこからでも出入りできる（戸の所の変化が無い）。',
+      '鴨居より上（一年中軒の影）は杉の壁。東の端では梁の下端（約2.42）と鴨居がほぼ重なり、壁は西から東へ細くなる三角になる。',
+      'ガラス約{g:.0f} m²（案1の約8割）。弱み：1.6〜2.4 のガラスは直射が当たらず熱の逃げが増える分、B1よりガラスが多い。']),
+    ('B3　二本の帯（低い連窓＋鴨居の上の欄間）', b3,
+     ['下の連窓（0〜1.6）で日だまりと子の目の高さの景色、鴨居の上の欄間（2.385〜梁の下端）で空の光を奥へ。あいだの杉の壁の帯（1.6〜2.385）が、東の縁側の鴨居の線を受ける。',
+      '東の縁側の「戸＋鴨居の上の欄間」の二段の構成を、南の妻では「連窓＋欄間」に読みかえる。園庭へは東の縁側から。',
+      'ガラス約{g:.0f} m²。弱み：欄間は西で高さ約0.9、東で0にすぼまる（梁の下端の勾配）。']),
+]
+
 def area(spec):
     s = 0.0
     for a, b, z0, z1, k in spec:
@@ -78,11 +100,12 @@ def area(spec):
 
 W, H = 420, 297
 fig = plt.figure(figsize=(W / 25.4, H / 25.4))
-fig.text(14 / W, 1 - 13 / H, '乳児室（0・1歳）の南の開口を比べる', fontsize=14, weight='bold')
+fig.text(14 / W, 1 - 13 / H, '乳児室（0・1歳）の南の開口を比べる' + ('' if os.environ.get('SG_SET', '1') == '1' else '（2）架構の水平に合わせる'), fontsize=14, weight='bold')
 fig.text(14 / W, 1 - 19.5 / H, '本館係　2026-10-26　左：南の妻の立面（南から北を見る、右が東）1/125　右：v6 で切った断面（西を見る、左が南）1/125、南中の日。'
          '京都 北緯35.0°、妻の向き 約173°（ほぼ真南）。南の軒・屋根の厚みはどの案も同じ', fontsize=7.2, color='#555')
 S = 1 / 125 * 1000
-for i, (name, fn, notes) in enumerate(CASES):
+SET = os.environ.get('SG_SET', '1')
+for i, (name, fn, notes) in enumerate(CASES if SET == '1' else CASES2):
     spec = fn(); g = area(spec)
     top = H - 30 - i * 88
     fig.text(14 / W, (top - 2) / H, name, fontsize=10.5, weight='bold')
@@ -165,5 +188,5 @@ fig.text(14 / W, 8 / H, '日の角度は南中の高さ（夏至78°・春秋分
          '日だまりは冬至の南中の床の上の日の範囲（ガラスで日が当たる高さから）。', fontsize=6.3, color='#555')
 os.makedirs(OUT, exist_ok=True)
 for ext in ('pdf', 'png'):
-    fig.savefig(os.path.join(OUT, f'sodachiya_south_gable_study.{ext}'), dpi=200 if ext == 'png' else None)
-print('written', os.path.join(OUT, 'sodachiya_south_gable_study.pdf'))
+    fig.savefig(os.path.join(OUT, f'sodachiya_south_gable_study{"" if SET == "1" else "_2"}.{ext}'), dpi=200 if ext == 'png' else None)
+print('written', SET)
