@@ -46,4 +46,4 @@
 ## レーザーのデータ
 
 `python3 sodachiya/mokei/laser.py` で `mokei/cut/` に SVG と DXF を作る（3dm のメッシュ版と `data/mokei.json` から）。赤＝切る、青＝彫る、黒＝参考（送る前に消す）。1 単位＝1 mm の実寸。Illustrator で開く。
-金曜（10-23）の作業と持ち物は `金曜_10-23.md`。
+レーザーの作業の手順と持ち物は `レーザーの手順.md`。
