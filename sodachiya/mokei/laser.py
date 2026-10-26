@@ -28,10 +28,11 @@ FLOOR_CLR = J['床']['柱の穴のあき']         # 0.1
 KETA = (2.0, 4.0)                         # 平竹ひご 2×4
 # 描く穴の寸法（短辺×長辺）。ひごの実測 10-23：短辺 1.97〜1.99（節で 2.03〜2.05）、長辺 約 3.90。
 # レーザーの切り幅（約 0.1〜0.2）で、切れた穴はこれより大きくなる。
-KETA_VARIANTS = {'A': (1.95, 3.85), 'B': (2.00, 3.90), 'C': (2.05, 3.95), 'D': (2.10, 4.00)}
-FLOOR_T = 1.89                             # 床の柱の穴の幅（柱の厚さ方向、試し切りで決める）
-MORTISE_T = 1.79                          # ほぞ穴の幅（柱の厚さ方向、試し切りで決める）
-MORTISE_W = TENON_W           # 描く寸法はほぞと同じ（切り幅の分だけすき間ができる）
+KETA_VARIANTS = {k: tuple(v) for k, v in zip('ABCD', J['桁']['穴_試し'])}   # 描く寸法（切り幅 0.2 で実寸は +0.2）
+FLOOR_T = 1.74                             # 床の柱の穴の幅（柱の厚さ方向、試し切りで決める）
+MORTISE_T = 1.64                          # ほぞ穴の幅（柱の厚さ方向、試し切りで決める）
+MORTISE_W = TENON_W - 0.3     # 2.1：切り幅 0.2 でほぞ（実寸 2.2）に対して穴は 2.3
+FLOOR_L = 3.8                 # 床の柱の穴の長さ：柱の幅 4.0 は実寸 3.8、穴は実寸 4.0
 
 m = r.File3dm.Read(M3)
 LAY = {l.Name: i for i, l in enumerate(m.Layers)}
@@ -255,6 +256,8 @@ def _try_sheet(name, w1, h1, note, build, mat, texts1):
         oy = (2 - i) * (h1 + gap)
         build(s, 0, oy, lay[k])
         for l in label_num(k, 1.2, oy + h1 - 3.0, 2.0): s.add(l, 'eng')
+        if w1 == 82:                                                 # 20 mm 角にも段の番号（飛んでもわかるように）
+            for l in label_num(k, 63.5, oy + h1 - 3.5, 2.0): s.add(l, 'eng')
         if mat == '彫り':
             pw = TRY['彫り']['出力'][i]; sp = TRY['彫り']['速度']
         else:
@@ -266,39 +269,35 @@ def _try_sheet(name, w1, h1, note, build, mat, texts1):
 
 def test_sheets():
     from shapely.geometry import LineString
-    # T1：航空ベニヤ 0.8（桁の穴 4 種、柱の足 4 枚、20 mm 角）
-    def t1(s, ox, oy, lay):
-        s.add(box(ox, oy, ox + 90, oy + 45), 'ref')
-        for i, (k, c) in enumerate(KETA_VARIANTS.items()):
-            x = ox + 8 + i * 11
-            s.add(box(x - 4, oy + 22, x + 5, oy + 40), lay)
-            s.add(stadium(x + 0.5, oy + 31, c[0], c[1]), lay)
-            for l in label_num(k, x - 0.5, oy + 23.5): s.add(l, 'eng')
-        s.add(box(ox + 54, oy + 22, ox + 74, oy + 42), lay)          # 20 mm 角
-        for j in range(4):                                           # 柱の足：幅 4.0、ほぞ 2.4×5.5
-            x = ox + 5 + j * 9
-            foot = unary_union([box(x, 5.5, x + 4.0, 18), box(x + 0.8, 0, x + 3.2, 5.6)])
-            s.add(affinity.translate(foot, 0, oy + 1), lay)
-    _try_sheet('01_試し切り_T1_航空ベニヤ0.8', 90, 45,
-               '航空ベニヤ 0.8：出力 3 段 × （桁の穴 A〜D、柱の足 4 枚、20 mm 角）', t1, '航空ベニヤ0.8',
-               [(91, 2, '各組：桁の穴 A〜D・20mm 角・柱の足 4 枚', 1.6)])
+    # T1b：航空ベニヤ 0.8、桁の穴だけ（10-26：切り幅 0.2 を受けて小さく描き直した）。出力は 13% の 1 段
+    s = Sheet('01_試し切り_T1b_桁の穴_航空ベニヤ0.8', 50, 22, '航空ベニヤ 0.8：桁の穴 A〜D（描いた寸法、実寸は約 +0.2）。速度 40・出力 13%')
+    s.add(box(0, 0, 50, 22), 'ref')
+    for i, (k, c) in enumerate(KETA_VARIANTS.items()):
+        x = 6 + i * 11
+        s.add(box(x - 4, 2, x + 5, 20))
+        s.add(stadium(x + 0.5, 12, c[0], c[1]))
+        for l in label_num(k, x - 0.5, 3.5): s.add(l, 'eng')
+    s.save([(51, 18, 'A 1.80×3.70（実寸約 2.00×3.90）', 1.6), (51, 14, 'B 1.85×3.75（約 2.05×3.95）', 1.6),
+            (51, 10, 'C 1.90×3.80（約 2.10×4.00）', 1.6), (51, 6, 'D 1.95×3.85（約 2.15×4.05）', 1.6)])
     # T2：シナ 3（ほぞ穴 4 種）
     def t2(s, ox, oy, lay):
         s.add(box(ox, oy, ox + 60, oy + 20), lay)
+        s.add(box(ox + 62, oy, ox + 82, oy + 20), lay)               # 20 mm 角（切り幅）
         for i, t in enumerate(J['柱']['ほぞ穴の幅_試し']):
             x = ox + 8 + i * 13
             s.add(box(x, oy + 8, x + MORTISE_W, oy + 8 + t), lay)
             for l in label_num(i + 1, x + 0.4, oy + 3): s.add(l, 'eng')
-    _try_sheet('01_試し切り_T2_シナ3', 60, 20, 'シナ 3 mm：出力 3 段 × ほぞ穴 1〜4（幅 1.65／1.72／1.79／1.86 × 2.40）',
+    _try_sheet('01_試し切り_T2_シナ3', 82, 20, 'シナ 3 mm：出力 3 段 × ほぞ穴 1〜4（描いた幅 1.50／1.57／1.64／1.71 × 2.10）と 20 mm 角',
                t2, 'シナ3', [])
     # T3：シナ 1.7（床の柱の穴 4 種）
     def t3(s, ox, oy, lay):
         s.add(box(ox, oy, ox + 60, oy + 20), lay)
+        s.add(box(ox + 62, oy, ox + 82, oy + 20), lay)               # 20 mm 角（切り幅）
         for i, t in enumerate(J['床']['柱の穴_試し']):
             x = ox + 8 + i * 13
-            s.add(box(x, oy + 8, x + 4.0, oy + 8 + t), lay)
+            s.add(box(x, oy + 8, x + FLOOR_L, oy + 8 + t), lay)
             for l in label_num(i + 1, x + 1, oy + 3): s.add(l, 'eng')
-    _try_sheet('01_試し切り_T3_シナ1.7', 60, 20, 'シナ 1.7 mm：出力 3 段 × 床の柱の穴 1〜4（4.0 × 1.75／1.82／1.89／1.96）',
+    _try_sheet('01_試し切り_T3_シナ1.7', 82, 20, 'シナ 1.7 mm：出力 3 段 × 床の柱の穴 1〜4（描いた寸法 3.8 × 1.60／1.67／1.74／1.81）と 20 mm 角',
                t3, 'シナ1.7', [])
     # T4：彫りの試し（谷積みの目地、畑の線、点）。彫りの出力を 3 段に：彫る線の色を段ごとに変える
     s = Sheet('01_試し切り_T4_彫り', 115, 98, 'KROMA 1 か シナ：彫りの出力 3 段 × （谷積みの目地 45°、畑の平行線、点）')
@@ -390,7 +389,7 @@ def floors():
     upper = clean(hadashi, 1e5)
     lower = clean(close(unary_union([hadashi, dosoku])).intersection(A), 1e5)
     found = clean(unary_union([hadashi, dosoku, doma]).buffer(30).buffer(-30), 1e5)
-    col_hole = [col_rect(g, 4.0, FLOOR_T) for g in cols]
+    col_hole = [col_rect(g, FLOOR_L, FLOOR_T) for g in cols]
     mortise = [col_rect(g, MORTISE_W, MORTISE_T) for g in cols]
     opn = lambda g: g.buffer(-25, join_style=2).buffer(25, join_style=2)       # 細いひげを取る
     upper, lower, found = opn(upper), opn(lower), opn(found)
