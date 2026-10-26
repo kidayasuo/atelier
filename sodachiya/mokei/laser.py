@@ -499,24 +499,27 @@ def roof_parts():
     return up, panels
 
 def roof_sheets():
+    """10-26 ユーザー：床（04）の残りの帯（約 841×220）から上の層を取る → 上の層と下の層を別のファイルに"""
     up, panels = roof_parts()
     ang = sheet_angle()
     U = to_sheet(up, ang, (0, 0)); P = [to_sheet(p, ang, (0, 0)) for p in panels]
     b = U.bounds; U = affinity.translate(U, -b[0], -b[1]); P = [affinity.translate(p, -b[0], -b[1]) for p in P]
     h = U.bounds[3]
-    s = Sheet('06_本館の屋根_シナ1.7', 841, 594, 'シナ 1.7 A1：本館の屋根 上の層（光の筋の穴 18 本、南の軒まで）と下の層（スパンごとの板 19 枚）')
-    s.add(box(0, 0, 841, 594), 'ref')
+    s = Sheet('06a_本館の屋根_上の層_シナ1.7', 841, 220, 'シナ 1.7：本館の屋根 上の層（南の軒まで、光の筋の穴 18 本）。床（04）の残りの帯 841×220 から')
+    s.add(box(0, 0, 841, 220), 'ref')
     s.add(U)
-    # 下の層：弧のまま上の層の下に並べる（同じ並びで、番号を彫る）
+    s.save([(0, h + 3, '本館の屋根 上の層（南の軒まで、光の筋の穴 18 本）', 4)])
     pb = unary_union(P).bounds
+    s = Sheet('06b_本館の屋根_下の層_シナ1.7', 841, 594, 'シナ 1.7：本館の屋根 下の層（スパン 1〜19 の板、梁 2 枚のあいだに落とし込む）')
+    s.add(box(0, 0, 841, 594), 'ref')
     for i, p in enumerate(P):
-        q = affinity.translate(p, 0, -pb[1] - (pb[3] - pb[1]) - 10)
+        q = affinity.translate(p, 0, -pb[1])
         s.add(q)
         c = q.centroid                                   # スパンの番号を彫る（南から 1〜19、板の裏になる面に）
         txt = str(len(P) - i)                            # 角度の小さい方が北（左が南）
         for j, ch in enumerate(txt):
             for l in label_num(ch, c.x - len(txt) * 0.8 + j * 1.6, c.y - 0.8, 1.6): s.add(l, 'eng')
-    s.save([(0, h + 3, '上：上の層（南の軒まで、光の筋の穴 18 本）　下：下の層（スパン 1〜19 の板、南から）', 4)])
+    s.save([(0, pb[3] - pb[1] + 3, '本館の屋根 下の層（スパン 1〜19、南から）。残りは西館の床に', 4)])
     return U.bounds, pb
 
 if __name__ == '__main__':
