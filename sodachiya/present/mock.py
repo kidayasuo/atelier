@@ -74,7 +74,7 @@ for o in m.Objects:
             F.append((f[0], f[1], f[2]))
             if f[3] != f[2]:
                 F.append((f[0], f[2], f[3]))
-        objs.append(dict(layer=ln, kind="mesh", V=V, F=np.array(F)))
+        objs.append(dict(layer=ln, name=o.Attributes.Name or "", kind="mesh", V=V, F=np.array(F)))
     elif isinstance(g, r.Extrusion):
         P = []
         prof, prof_closed = None, True
@@ -91,7 +91,7 @@ for o in m.Objects:
                     prof_closed = c.IsClosed
         if P:
             # 平面は押し出しの断面（下の輪郭）そのもので描く。凸包にすると折れた塀などが大きな三角になる
-            objs.append(dict(layer=ln, kind="solid", V=np.array(P) / 1000, prof=prof, prof_closed=prof_closed))
+            objs.append(dict(layer=ln, name=o.Attributes.Name or "", kind="solid", V=np.array(P) / 1000, prof=prof, prof_closed=prof_closed))
     elif isinstance(g, r.Brep):
         for fi in range(len(g.Faces)):
             mm = g.Faces[fi].GetMesh(r.MeshType.Any)
@@ -99,9 +99,9 @@ for o in m.Objects:
                 continue
         bb = g.GetBoundingBox()
         P = [(x, y, z) for x in (bb.Min.X, bb.Max.X) for y in (bb.Min.Y, bb.Max.Y) for z in (bb.Min.Z, bb.Max.Z)]
-        objs.append(dict(layer=ln, kind="solid", V=np.array(P) / 1000))
+        objs.append(dict(layer=ln, name=o.Attributes.Name or "", kind="solid", V=np.array(P) / 1000))
     elif isinstance(g, (r.PolylineCurve, r.NurbsCurve, r.LineCurve)):
-        objs.append(dict(layer=ln, kind="curve", V=np.array(curve_pts(g)) / 1000))
+        objs.append(dict(layer=ln, name=o.Attributes.Name or "", kind="curve", V=np.array(curve_pts(g)) / 1000))
 
 
 def L(prefix):
@@ -1490,6 +1490,17 @@ if SITE_FROM_UPD:
             xx, yy = x_ + _rng.uniform(-0.9, 0.9), y_ + _rng.uniform(-0.6, 0.6)
             if not _BRIDGE.contains(Point(xx, yy)) and _BED.buffer(-0.4).contains(Point(xx, yy)) and yy > np.interp(xx, _xs, _wv) + 1.6:
                 _TUFTS.append((xx, yy))
+    # みなみのさんかく・砂場・水・小屋の屋根（ユーザー、10-26夜：更新係の図に無い色と屋根を足す）
+    _pg_ = lambda o: (lambda g_: g_ if g_ is not None and g_.geom_type.endswith("Polygon") else None)(_poly_of(o))
+    _uu = lambda gs: unary_union([g for g in gs if g is not None]).buffer(0) if any(g is not None for g in gs) else Polygon()
+    _MINAMI = _uu([_pg_(o) for o in _rp_("62_")]).difference(COVER)                  # 屋根の下は塗らない
+    _SANDP = _uu([_pg_(o) for o in _rp_("78_") if o["kind"] == "solid" and abs(o["V"][:, 2].max() + 0.15) < 0.02]
+                 + [_pg_(o) for o in _rp_("95_") if ("砂場" in o["name"] or "粒の遊び場" in o["name"])])
+    _WATERP = _uu([_pg_(o) for o in _rp_("78_") if o["kind"] == "solid" and abs(o["V"][:, 2].max() - 0.15) < 0.02]
+                  + [_pg_(o) for o in _rp_("95_") if "あめのわ（" in o["name"]]
+                  + [_pg_(o) for o in _rp_("92_") if any(k_ in o["name"] for k_ in ("床の噴水", "霧のわ（", "滝壺の水面"))])
+    _RAINP = _uu([_pg_(o) for o in _rp_("92_") if "雨庭" in o["name"]])
+    print("配置図に足す：みなみのさんかく", round(_MINAMI.area, 1), "砂", round(_SANDP.area, 1), "水", round(_WATERP.area, 1), "雨庭", round(_RAINP.area, 1), "小屋の屋根", round(_HUT.area, 1), "m2")
     for gr, suf in (("l", "_線.pdf"), ("c", "_色.pdf")):
         _nd = fitz.open(); _pg = _nd.new_page(width=W * MM, height=H * MM)
         # 向こうの紙の外（南の高野川の水面など）は、こちらの描いた線と色で補う（ユーザー 10-26夕：南へ延ばして川を見せる）
@@ -1512,6 +1523,11 @@ if SITE_FROM_UPD:
         _cl = fitz.Rect((_ia[0] - _off[0] + 0.35) * MM, (_ia[1] - _off[1] + 0.35) * MM, (_ia[2] - _off[0] - 0.35) * MM, (_ia[3] - _off[1] - 0.35) * MM)
         _pg.show_pdf_page(fitz.Rect((_ia[0] + 0.35) * MM, (_ia[1] + 0.35) * MM, (_ia[2] - 0.35) * MM, (_ia[3] - 0.35) * MM), _src, 0, clip=_cl)   # 枠の線は入れない
         if gr == "c":
+            _fillg(_pg, _MINAMI, _hx("#DDE9CC"))                                           # みなみのさんかくを緑に（芝かどうかは別。向こうの図の白い地の上に）
+            _fillg(_pg, _SANDP, _hx("#EFE2B8"))                                            # 砂場・粒の遊び場
+            _fillg(_pg, _WATERP, _hx("#BFDDEE"))                                           # 水遊び（水のテーブル・噴水・あめのわ・霧のわ）
+            _fillg(_pg, _RAINP, _hx("#DCE4E6"))                                            # 雨庭（玉石の浜）
+            _fillg(_pg, _HUT, _hx("#5E636C"))                                              # 園庭の小屋の屋根（片流れ、更新係の図に無い）
             _fillg(_pg, _WATER.difference(_BRIDGE), _hx("#CFE3EF"))
             for xx, yy, rr, an in _STONES:
                 _fillg(_pg, affinity.rotate(affinity.scale(Point(xx, yy).buffer(rr, 8), 1.0, 0.7), an), _hx("#E4DED0"))
@@ -1521,6 +1537,9 @@ if SITE_FROM_UPD:
                 _fillg(_pg, _WATER.difference(_BRIDGE), _hx("#CFE3EF"))
             for xx, yy, rr, an in _STONES:
                 _fillg(_pg, affinity.rotate(affinity.scale(Point(xx, yy).buffer(rr, 8), 1.0, 0.7), an), None, _hx("#9C9587"), 0.35)
+            _fillg(_pg, _SANDP, None, _hx("#A89A70"), 0.3)
+            _fillg(_pg, _WATERP, None, _hx("#6FA3C4"), 0.3)
+            _fillg(_pg, _HUT, None, _hx("#222222"), 0.5)
             for xx, yy in _TUFTS:
                 for da, ln_ in ((-28, 0.26), (-10, 0.34), (8, 0.36), (26, 0.27)):
                     t_ = np.radians(90 + da)
