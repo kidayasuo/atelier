@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+plt.rcParams["pdf.fonttype"] = 42   # 文字は文字のまま（Type42、Illustrator で書体を置き換える）
 from matplotlib.patches import Rectangle, Polygon, Circle, FancyArrowPatch, Wedge
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

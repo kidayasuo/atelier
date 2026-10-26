@@ -5,6 +5,7 @@ import math
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+plt.rcParams["pdf.fonttype"] = 42   # 文字は文字のまま（Type42、Illustrator で書体を置き換える）
 from matplotlib.patches import Polygon, Circle, Ellipse
 
 plt.rcParams["font.family"] = "Noto Sans CJK JP"
