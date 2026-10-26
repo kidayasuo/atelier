@@ -1560,10 +1560,10 @@ for gr in ("c", "l", "t", "o"):                                               # 
 # 太陽の線（方位を兼ねる、ユーザー 10-26夜）：配置図の左上。線は素材の図、時刻とNは Apple Chancery の文字の部品
 sys.path.insert(0, os.path.join(HERE, "tools"))
 import sun_rays
-# 地の色は二つ（ユーザー、10-27：c 中の灰・d 屋根の色）。.ai には中の灰を置き、屋根の色はリンクを差し替えて使う
-_SUNF = os.path.join(HERE, "sozai", "13a_太陽の線_中の灰.pdf")
-_SD, _SL = sun_rays.make(_SUNF, float(np.degrees(np.arctan2(_nv[1], _nv[0]))), bg="#A9ADB3", ring="#FFFFFF")
-sun_rays.make(os.path.join(HERE, "sozai", "13b_太陽の線_屋根の色.pdf"), float(np.degrees(np.arctan2(_nv[1], _nv[0]))), bg="#5A5F68", ring="#FFFFFF")
+# 地の色は二つ（ユーザー、10-27：c 中の灰・d 屋根の色）。.ai には屋根の色を置く（中の灰は控え）
+_SUNF = os.path.join(HERE, "sozai", "13b_太陽の線_屋根の色.pdf")                  # 屋根の色に決めた（ユーザー、10-27 0:24）
+_SD, _SL = sun_rays.make(_SUNF, float(np.degrees(np.arctan2(_nv[1], _nv[0]))), bg="#5A5F68", ring="#FFFFFF")
+sun_rays.make(os.path.join(HERE, "sozai", "13a_太陽の線_中の灰.pdf"), float(np.degrees(np.arctan2(_nv[1], _nv[0]))), bg="#A9ADB3", ring="#FFFFFF")
 for _old in ("13_太陽の線.pdf",):
     if os.path.exists(os.path.join(HERE, "sozai", _old)): os.remove(os.path.join(HERE, "sozai", _old))
 _sux, _suy = sx + 3, sy + sh - 3 - _SD
