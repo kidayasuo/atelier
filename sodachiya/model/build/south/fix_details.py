@@ -1005,6 +1005,71 @@ for _o in m.Objects:
     _f = foot(_o.Geometry)
     if _f is None: continue
     _F2.setdefault(_ln[:3], []).append((_f, _o.Attributes, _bb.Min.Z, _bb.Max.Z)); drop.add(str(_o.Attributes.Id))
+# ================================================================ 本館：乳児室の南の妻（本館係、10-26夜、ユーザー：比べる絵の B2＋格子）
+# 開口は架構の水平に合わせ、ガラスの引き戸の上端を東の縁側の鴨居（h2385〜2445）と同じ高さで一本に通す。鴨居より上（一年中軒の影）は
+# 杉の壁（大和張り）を梁の下端まで。ガラス戸の外に杉の縦格子（見付30・見込45、120おき、上の大和張りの割りとそろえる）を固定し、
+# 戸を開けても格子が柵になる（はう子が外へ出ない、外気は入る）。冬至の南中の日は格子を約75%抜け、床に縞の日だまり。
+# 開口は v1.75〜11.45（東の端は梁が柱の際で下がるので 0.35 の袖壁、西の受け取り土間の側の袖壁と対に）。ガラスの引き戸 6 枚（2 本のレール、引き違い 3 組）。
+# 内縁側の端（v12.2〜13.5、同じ南の面・軒の下）のガラスの外にも同じ格子（室内側のガラスはそのまま）。外縁側（v13.5〜15）は通り道なので開けたまま。
+def _gplate(u0_, u1_, v0_, v1_, zb_, zt_, n_=None):
+    vs_ = np.linspace(v0_, v1_, n_ or max(2, int((v1_ - v0_) / 0.25) + 1)); mm = r.Mesh()
+    for v_ in vs_:
+        for uu_, z_ in ((u0_, zb_(v_)), (u1_, zb_(v_)), (u1_, zt_(v_)), (u0_, zt_(v_))):
+            x_, y_ = xy(uu_, v_); mm.Vertices.Add(float(x_), float(y_), float(z_))
+    k_ = len(vs_)
+    for i in range(k_ - 1):
+        b0, b1 = 4 * i, 4 * (i + 1)
+        for j in range(4):
+            j2 = (j + 1) % 4; mm.Faces.AddFace(b0 + j, b0 + j2, b1 + j2, b1 + j)
+    mm.Faces.AddFace(0, 3, 2, 1); e_ = 4 * (k_ - 1); mm.Faces.AddFace(e_, e_ + 1, e_ + 2, e_ + 3)
+    mm.Normals.ComputeNormals(); mm.Compact(); return mm
+def _join(ms):
+    out_ = r.Mesh()
+    for mm in ms: out_.Append(mm)
+    out_.Normals.ComputeNormals(); out_.Compact(); return out_
+_KAM0, _KAM1 = 2385.0, 2445.0
+_SV0, _SV1 = 1.75, 11.45
+_BB = (lambda v: _beam_bot(v)) if '_beam_bot' in globals() else (lambda v: 3356.0 - (v - 0.525) * 83.3)
+L16S = new_layer('16s_本館_南の妻のガラスの引き戸（乳児室）', (150, 200, 230))
+L17G = new_layer('17g_本館_南の妻の縦格子（杉 30×45、120おき）', (169, 134, 92))
+L18_ = lidx('18_'); L17_ = lidx('17_')
+_pw = (_SV1 - _SV0) / 6
+for i_ in range(6):                                                      # ガラスの引き戸（外のレール u0.02〜0.05、内 u0.06〜0.09、引き違い）
+    a_ = _SV0 + i_ * _pw - (0.02 if i_ % 2 else 0); b_ = _SV0 + (i_ + 1) * _pw + (0.0 if i_ % 2 else 0.02)
+    uu = (0.06, 0.09) if i_ % 2 else (0.02, 0.05)
+    at_ = r.ObjectAttributes(); at_.LayerIndex = L16S; at_.Name = f'南の妻のガラスの引き戸（{i_ + 1}、引き違い）'
+    new_objs.append((_gplate(uu[0], uu[1], max(a_, _SV0), min(b_, _SV1), lambda v: 0.0, lambda v: _KAM0 - 10.0, 2), at_))
+at_ = r.ObjectAttributes(); at_.LayerIndex = L18_; at_.Name = '南の妻の鴨居（東の縁側の鴨居と同じ高さ）'
+new_objs.append((_gplate(0.0, 0.11, _SV0, _SV1, lambda v: _KAM0, lambda v: _KAM1), at_))
+at_ = r.ObjectAttributes(); at_.LayerIndex = L17_; at_.Name = '南の妻の杉の壁（鴨居の上、大和張り）'
+new_objs.append((_gplate(-0.03, 0.11, _SV0, _SV1, lambda v: _KAM1, lambda v: max(_KAM1 + 1.0, _BB(v) - 2.0)), at_))
+for v0_, v1_ in ((_SV1, 11.8),):                                           # 東の袖壁（梁が柱の際で下がる所）
+    at_ = r.ObjectAttributes(); at_.LayerIndex = L17_; at_.Name = '南の妻の東の袖壁'
+    new_objs.append((_gplate(-0.03, 0.11, v0_, v1_, lambda v: 0.0, lambda v: _BB(v) - 2.0), at_))
+def _lattice(v0_, v1_, zt_, name_):
+    bars = [_gplate(-0.23, -0.185, v_, v_ + 0.03, lambda v: -150.0, lambda v: zt_, 2) for v_ in np.arange(v0_ + 0.045, v1_ - 0.03, 0.12)]
+    bars.append(_gplate(-0.185, -0.155, v0_, v1_, lambda v: zt_ - 45.0, lambda v: zt_, 2))           # 上の押さえ（格子の裏、見えない側）
+    at_ = r.ObjectAttributes(); at_.LayerIndex = L17G; at_.Name = name_
+    new_objs.append((_join(bars), at_)); return len(bars) - 1
+_nb = _lattice(_SV0, _SV1, _KAM1, '南の妻の縦格子（乳児室、ガラス戸の外に固定）')
+_nb += _lattice(12.2, 13.5, _KAM1, '南の妻の縦格子（内縁側の端）')
+# 受け取り土間の戸（v0.2〜1.4）も杉の格子戸に（ユーザー 10-26夜）：框（見付60）・ガラス・外の縦格子（見付30・見込45、120おき）。
+# 上端は南の妻の鴨居の線（h2385〜2445）にそろえ、南の面に一本の水平線を通す。土間の床は −300、戸は外開き（plan01 の弧）。鴨居より上は杉の壁。
+_DV0, _DV1 = 0.20, 1.40
+_L66 = lidx('66_')
+_fr = [_gplate(-0.03, 0.03, _DV0, _DV0 + 0.06, lambda v: -300.0, lambda v: _KAM0 - 10.0, 2), _gplate(-0.03, 0.03, _DV1 - 0.06, _DV1, lambda v: -300.0, lambda v: _KAM0 - 10.0, 2),
+       _gplate(-0.03, 0.03, _DV0 + 0.06, _DV1 - 0.06, lambda v: -300.0, lambda v: -180.0, 2), _gplate(-0.03, 0.03, _DV0 + 0.06, _DV1 - 0.06, lambda v: _KAM0 - 70.0, lambda v: _KAM0 - 10.0, 2)]
+at_ = r.ObjectAttributes(); at_.LayerIndex = _L66; at_.Name = '受け取り土間の格子戸（框、杉）'; new_objs.append((_join(_fr), at_))
+at_ = r.ObjectAttributes(); at_.LayerIndex = L16S; at_.Name = '受け取り土間の格子戸のガラス'
+new_objs.append((_gplate(-0.006, 0.006, _DV0 + 0.06, _DV1 - 0.06, lambda v: -180.0, lambda v: _KAM0 - 70.0, 2), at_))
+_db = [_gplate(-0.075, -0.03, v_, v_ + 0.03, lambda v: -180.0, lambda v: _KAM0 - 70.0, 2) for v_ in np.arange(_DV0 + 0.105, _DV1 - 0.09, 0.12)]
+at_ = r.ObjectAttributes(); at_.LayerIndex = _L66; at_.Name = '受け取り土間の格子戸（縦格子 30×45、120おき）'; new_objs.append((_join(_db), at_))
+at_ = r.ObjectAttributes(); at_.LayerIndex = L18_; at_.Name = '受け取り土間の戸の鴨居（南の妻の鴨居と一本）'
+new_objs.append((_gplate(0.0, 0.11, _DV0, _DV1, lambda v: _KAM0, lambda v: _KAM1), at_))
+at_ = r.ObjectAttributes(); at_.LayerIndex = L17_; at_.Name = '受け取り土間の戸の上の杉の壁'
+new_objs.append((_gplate(-0.03, 0.11, _DV0, _DV1, lambda v: _KAM1, lambda v: _BB(v) - 2.0), at_))
+log.append(f'本館：乳児室の南の妻（ガラスの引き戸 6 枚 16s・鴨居 h{_KAM0:.0f}〜{_KAM1:.0f}・上の杉の壁・外の縦格子 {_nb} 本 17g、内縁側の端にも格子）')
+
 # 屋根の厚み（10-26夜）：元の屋根の面より上にあった本館の物を RT_TOP 上げる（越屋根の蓋・ルーバー・LED、外壁と越屋根の立ち上がりの上端）。
 # 北の妻の壁の上端は屋根の立体の下面（梁の上端）まで下げる（屋根の中に食い込まない）。
 _LUP = {lidx('17_'), lidx('50a'), lidx('50b'), lidx('50c')}

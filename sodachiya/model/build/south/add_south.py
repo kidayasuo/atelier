@@ -195,7 +195,7 @@ def zr(x,y):
 sloped(ramp,60,L_rp,zr)
 # 入口：扉（受け取り土間の南の妻）と背くらべの柱（北山杉 φ200、h=3.0 m）
 d0,d1=P(RK+200,th19),P(RO-300,th19)
-wall_along([d0,d1],lambda x,y:-300,lambda x,y:1950,50,L_ent)
+# 10-26夜：受け取り土間の戸は杉の格子戸に（ユーザー）。fix_details.py の「乳児室の南の妻」で作る（ここでは作らない）
 post=d1+t*350+(d1-d0)/np.linalg.norm(d1-d0)*350
 circ=r.Circle(r.Point3d(float(post[0]),float(post[1]),-300.0),100.0).ToNurbsCurve()
 m.Objects.AddExtrusion(r.Extrusion.Create(circ,3300.0,True),attr(L_ent))
