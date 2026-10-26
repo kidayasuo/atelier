@@ -452,11 +452,13 @@ def draw_cut(A, items, insul=False):
             A.fill(pc, lay, fc='0.62', z=5); A.lines(segs, lay, lw=0.15, z=6)
         elif k == 'volume':
             A.lines(segs, lay, lw=0.3, z=6)
+        elif insul and re.match(r'^(10|20)_', ob['layer']) and roof_build(A, pc):
+            pass                                   # 厚みのある屋根の立体：屋根の構成で描いた（roof_build）
         else:
             A.fill(pc, lay, fc='k', z=6); A.lines(segs, lay, lw=0.25, z=6)
         if pc is not None and k != 'glass': occ.append(pc.buffer(0))
         n = num(ob['layer'])
-        if insul and re.match(r'^(10|20)_', ob['layer']) and segs:   # 屋根の本体だけ（10t・10p などの光の筋・太陽光の面には描かない）      # 屋根（3dm では厚みの無い面）：面の下 50〜200 に断熱（垂木の間 150、仮）
+        if insul and re.match(r'^(10|20)_', ob['layer']) and segs and not getattr(A, '_roof_built', {}).get(id(pc)):   # 屋根の本体だけ（10t・10p などの光の筋・太陽光の面には描かない）      # 屋根（3dm では厚みの無い面）：面の下 50〜200 に断熱（垂木の間 150、仮）
             ls_ = unary_union([LineString(q) for q in segs if len(q) >= 2])
             ls_ = linemerge(ls_) if ls_.geom_type == 'MultiLineString' else ls_
             bands = []
@@ -479,6 +481,41 @@ def draw_cut(A, items, insul=False):
                 A.fill(band, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
     if FLOORS: occ += floor_build(A, FLOORS)
     return unary_union(occ) if occ else None
+
+# 屋根の構成（決定事項（共通）の「屋根の構成」、ユーザー 10-26夜）：上から 太陽光・野地板・通気層 97／断熱 150（外張り）／
+# 気密・構造用合板 24（現し）／垂木 60×150＠455（現し）。屋根の立体（厚み約420、本館係 84299df）の切り口の中に、上面からの深さで層を描く。
+# 断熱は外皮の内（A.insul_x）だけ、軒の出は断熱なし。垂木は断面 B・C（垂木を横に切る）では 455 おきの小さな断面、断面 A（垂木に沿う）は見えがかりの線
+RB_LAYERS = (97, 247, 271, 421)
+def roof_build(A, pc):
+    """pc：屋根の切り口（閉じた形）。厚み 300 以上なら構成を描いて True、薄い（前の面だけの屋根）なら False"""
+    if pc is None or pc.is_empty: return False
+    T_ = lambda d: shp_affinity.translate(pc, 0, -d)
+    if pc.intersection(T_(300)).area < 0.05 * pc.area: return False
+    band = lambda a, b: pc.intersection(T_(a)).difference(T_(b)) if b else pc.intersection(T_(a))
+    lay = '01_切断（構造・壁）'
+    A.fill(pc, lay, fc='w', z=6)
+    xc = getattr(A, 'insul_x', None)
+    ins = band(RB_LAYERS[0], RB_LAYERS[1])
+    if xc and not ins.is_empty: ins = ins.intersection(box(xc[0], -1e5, xc[1], 1e5))
+    if not ins.is_empty: A.fill(ins, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+    ply = band(RB_LAYERS[1], RB_LAYERS[2])
+    if not ply.is_empty: A.fill(ply, lay, fc='#E9DCC4', z=6.4)
+    # 層の境の細線（上面から 40＝太陽光の下、97、247、271）
+    for d_ in (40, 97, 247, 271):
+        ln_ = T_(d_).boundary.intersection(pc.buffer(-1))
+        ln_ = ln_.difference(T_(d_ + 1).buffer(0.5)) if not ln_.is_empty else ln_
+        if not ln_.is_empty: A.geom_lines(ln_, lay, lw=0.07, color='0.3', z=6.6)
+    raf = band(RB_LAYERS[2], RB_LAYERS[3] + 30)
+    if getattr(A, 'rafter_cut', False) and not raf.is_empty:     # 垂木の断面（455 おき）
+        x0, _, x1, _ = raf.bounds; rs = []
+        for x in np.arange(math.floor(x0 / 455) * 455, x1, 455):
+            g = box(x - 30, -1e5, x + 30, 1e5).intersection(raf)
+            if not g.is_empty and g.area > 2000: rs.append(g)
+        if rs:
+            g = unary_union(rs); A.fill(g, lay, fc='#E9DCC4', z=6.55); A.geom_lines(g.boundary, lay, lw=0.1, z=6.6)
+    A.geom_lines(pc.boundary, lay, lw=0.25, z=6.7)
+    A.__dict__.setdefault('_roof_built', {})[id(pc)] = True
+    return True
 
 # 床の構成（本館係 10-23夜10・西館係 10-23夜15、決定事項_本館）：スギ板t30＋合板t28／大引90・鋼製束／床下 有効約450／
 # ベタ基礎の底板t200（基礎断熱の内側＝熱をためる重さ）、底板の上端 FL−0.6。基礎断熱は底盤の外周の下と立ち上がりの内側
@@ -1213,7 +1250,8 @@ def make_sections():
     extX = (-17500, 21500, -2600, 10500)
     for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
         A = S.axes(30 + i * (390 + 15), H_ - 40 - 161 - 45 - 131, extX)
-        A.insul_x = (-1e5, 12000)
+        A.insul_x = (-1e5, 13500)                   # 外皮の線は v13.5（縁側の中ほどの杉の壁とガラス戸）
+        A.rafter_cut = True                         # 東西に切る：垂木（南北）を横に切る
         cutb = section_u(A, theta_u(val))
         westx = min([b[0] for k, b in cutb.items() if k.startswith('21_')] or [-900])
         chain_dims(A, [westx, -900, 0, 1600, 12000, 13500, 15000], -900)
