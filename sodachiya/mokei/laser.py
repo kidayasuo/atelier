@@ -50,7 +50,7 @@ def profile_rz(g, k):
     segs = [c.SegmentCurve(i) for i in range(c.SegmentCount)] if isinstance(c, r.PolyCurve) else [c]
     pts = []
     for s in segs:
-        n = 2 if isinstance(s, r.LineCurve) else 60
+        n = 2 if isinstance(s, r.LineCurve) else (60 if len(segs) > 1 else 720)   # 1 本の曲線の断面は細かく（西館の梁の丸い頭、10-26）
         for p in sample_curve(s, n)[:-1]:
             pts.append((math.hypot(p.X - CX, p.Y - CY), p.Z))
     return np.array(pts)
@@ -165,6 +165,7 @@ class Sheet:
     def __init__(self, name, w, h, note):
         self.name, self.w, self.h, self.note = name, w, h, note
         self.cut, self.eng, self.ref = [], [], []
+        self.tab_pts = []      # つなぎの位置を指定する点（外形の近くの点。無い部品は周の 1/4・3/4）
         # レイヤー：(名前, SVG の色, DXF の色番号, 説明)。出力の試しでは切る線の色を増やす
         self.layers = [('ref', '#000000', 7, 'REF_delete', '参考（切らない・送る前に消す）'),
                        ('eng', '#0000FF', 5, 'ENGRAVE_blue', '彫る（青）'),
@@ -189,7 +190,7 @@ class Sheet:
     TAB_MAX = 250      # これより小さい部品の外形に 2 か所のつなぎ（大きい板は付けない）
     def tab_gap(self):
         # 航空ベニヤ 0.8 は弱く（10-26 ユーザー：もう少し弱く）：切り残し 0.35 → 残る木 約 0.15
-        return 0.35 if self.name.startswith(('01_試し切り_T1', '02_', '03')) else self.TAB_GAP
+        return 0.35 if self.name.startswith(('01_試し切り_T1', '02_', '03', '07_')) else self.TAB_GAP
     def tabbed(self, geoms):
         """小さい部品が飛ばないように、外形に 2 か所の切り残し（周の 1/4 と 3/4、直線の所）を入れる。穴には付けない"""
         from shapely.geometry import LineString
@@ -203,7 +204,9 @@ class Sheet:
                 if max(b[2] - b[0], b[3] - b[1]) > self.TAB_MAX or p.exterior.length < 12:
                     out.append(p); continue
                 ext = LineString(p.exterior.coords); Lx = ext.length; h = self.tab_gap() / 2
-                cuts = sorted([Lx * 0.25, Lx * 0.75])
+                mine = [q for q in self.tab_pts if ext.distance(q) < 0.6]
+                cuts = sorted([ext.project(q) for q in mine]) if len(mine) >= 2 else sorted([Lx * 0.25, Lx * 0.75])
+                cuts = [min(max(c, h + 0.01), Lx - h - 0.01) for c in cuts[:2]]
                 segs = [substring(ext, cuts[0] + h, cuts[1] - h), substring(ext, cuts[1] + h, Lx), substring(ext, 0, cuts[0] - h)]
                 out += segs
                 out += [LineString(i.coords) for i in p.interiors]
@@ -219,6 +222,7 @@ class Sheet:
         dx, dy = self.MARGIN - b[0], (self.h - self.MARGIN) - b[3]
         for k in keys:
             setattr(self, k, [affinity.translate(g, dx, dy) for g in getattr(self, k)])
+        self.tab_pts = [affinity.translate(q, dx, dy) for q in self.tab_pts]
         return [(x + dx, y + dy, t, sz) for x, y, t, sz in texts]
 
     def save(self, texts=()):
@@ -522,9 +526,162 @@ def roof_sheets():
     s.save([(0, pb[3] - pb[1] + 3, '本館の屋根 下の層（スパン 1〜19、南から）。残りは西館の床に', 4)])
     return U.bounds, pb
 
+# ================= 7. 西館の架構 =================
+def _frame_no(ang):
+    """架構の番号（南から）：本館の架構 1（南の妻）の角度から 3 m ごと"""
+    a = sorted(set(round(math.atan2(g.PathStart.Y - CY, g.PathStart.X - CX) % (2 * math.pi), 4) for g in cols))
+    # 本館の柱の角度は東西で少しずれるので、まとめて 20 本の中心へ
+    a = np.array(a); a1 = a.max(); step = (a.max() - a.min()) / 19
+    return int(round((a1 - ang) / step)) + 1
+
+def _ang(g):
+    b = g.GetBoundingBox()
+    return math.atan2((b.Min.Y + b.Max.Y) / 2 - CY, (b.Min.X + b.Max.X) / 2 - CX) % (2 * math.pi)
+
+def _holes(g, clr):
+    return [stadium(*to_model(np.array([hole_center(g, k)]))[0], clr[0], clr[1]) for k in range(1, g.ProfileCount)]
+
+def west_parts(clr):
+    """西館の架構の部品（柱は本館と同じ作り：0.8 を 2 枚、肩が GL、ほぞ。梁・2 階の床梁は 0.8 を 2 枚で柱を挟む）。
+    返す：[(名前, 架構の番号, 形, つなぎの点)]"""
+    out = []
+    for g in objs('22a_西館_柱'):
+        part, hc = column_part(g, clr)
+        b = part.bounds; xc = (b[0] + b[2]) / 2
+        tabs = [Point(xc, b[1]), Point(xc, b[3])]          # つなぎはほぞの先と頭の上（長い辺には付けない、10-26）
+        k = _frame_no(_ang(g))
+        for _ in range(2): out.append(('柱', k, part, tabs))
+    seen = set()
+    for lay, nm in (('22b_西館_梁', '梁'), ('22c_西館_2階床梁', '床梁')):
+        for g in objs(lay):
+            P = to_model(profile_rz(g, 0))
+            part = Polygon(P).buffer(0)
+            for h_ in _holes(g, clr): part = part.difference(h_)
+            if part.geom_type == 'MultiPolygon': part = max(part.geoms, key=lambda q: q.area)   # 細いかけらを捨てる
+            part = part.buffer(0.05, join_style=2).buffer(-0.05, join_style=2)
+            out.append((nm, _frame_no(_ang(g)), part, None))
+    return out
+
+def _upright(part):
+    """細長い部品を横に寝かせる（いちばん小さい外接長方形の長い辺を水平に）"""
+    mr = part.minimum_rotated_rectangle; c = np.array(mr.exterior.coords)
+    e = [c[1] - c[0], c[2] - c[1]]; v = max(e, key=lambda x: np.hypot(*x))
+    return -math.degrees(math.atan2(v[1], v[0]))
+
+def west_sheets():
+    clr = KETA_VARIANTS[J['桁']['選んだ穴']['名']]
+    parts = west_parts(clr)
+    items = []
+    for nm, k, part, tabs in parts:
+        if nm == '柱':
+            g = part; tp = tabs
+        else:
+            a = _upright(part); c = part.centroid
+            g = affinity.rotate(part, a, origin=c); tp = None
+        b = g.bounds
+        items.append((nm, k, affinity.translate(g, -b[0], -b[1]),
+                      [affinity.translate(q, -b[0], -b[1]) for q in tp] if tp else None))
+    # 棚に並べる（高い順）：300×600 の板（590×295 を使う）
+    W, H, gap = 590, 295, 1.6
+    items.sort(key=lambda it: (-(it[2].bounds[3]), it[0]))
+    sheets = [[]]; x = y = rowh = 0
+    for it in items:
+        w, h = it[2].bounds[2], it[2].bounds[3]
+        if x + w > W:
+            x = 0; y += rowh + gap; rowh = 0
+        if y + h > H:
+            sheets.append([]); x = y = rowh = 0
+        sheets[-1].append((it, x, y)); x += w + gap; rowh = max(rowh, h)
+    for si, lst in enumerate(sheets):
+        s = Sheet(f'07_西館の架構_{si + 1}_航空ベニヤ0.8', 600, 300,
+                  f'航空ベニヤ 0.8 300×600：西館の架構（柱は 2 枚で 1 本、梁・2 階の床梁は 2 枚で柱を挟む）桁の穴 D。番号＝架構（南から）')
+        s.add(box(0, 0, 600, 300), 'ref')
+        for (nm, k, g, tp), x, y in lst:
+            q = affinity.translate(g, x, H - y - g.bounds[3])
+            s.add(q)
+            if tp: s.tab_pts += [affinity.translate(t, x, H - y - g.bounds[3]) for t in tp]
+            # 架構の番号を彫る（部品の中ほど、裏になる面）
+            c = q.representative_point(); txt = str(k)
+            if nm == '柱':
+                bb = q.bounds; c = Point((bb[0] + bb[2]) / 2, bb[1] + 14)
+            for j, ch in enumerate(txt):
+                for l in label_num(ch, c.x - len(txt) * 0.6 + j * 1.2, c.y - 0.6, 1.2): s.add(l, 'eng')
+        s.save([(0, -4, f'{len(lst)} 個', 3)])
+    return [len(l) for l in sheets]
+
+# ================= 8. 本館の外壁 =================
+YAMATO = 1.05      # 大和張りの板の線（彫り）の間隔 mm（実寸 105）
+def _wall_faces(name):
+    g = objs(name)[0]
+    V, F = g.Vertices, g.Faces
+    P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
+    for j in range(len(F)):
+        f = F[j]; idx = list(dict.fromkeys([f[0], f[1], f[2], f[3]])); q = P[idx]
+        n = np.cross(q[1] - q[0], q[2] - q[0])
+        if np.linalg.norm(n) < 1e-6: continue
+        n /= np.linalg.norm(n); c = q.mean(0)
+        rv = np.array([c[0] - CX, c[1] - CY, 0]); rv /= np.linalg.norm(rv); tv = np.array([-rv[1], rv[0], 0])
+        rr = np.hypot(q[:, 0] - CX, q[:, 1] - CY)
+        th = np.arctan2(q[:, 1] - CY, q[:, 0] - CX) % (2 * np.pi)
+        yield q, n @ rv, n @ tv, rr, th
+
+def honkan_walls():
+    """西の外壁（弧を展開、外から見て左＝北）、越屋根の東の立ち上がり、北の妻壁（外から見て左＝東）、南の妻の西の端"""
+    west, riser, north, south = [], [], [], []
+    RW, RR = 205370.0, 203480.0
+    for q, nr, nt, rr, th in _wall_faces('17_本館_外壁（西・南北の妻）'):
+        if abs(nr) > 0.9 and rr.mean() > 205300:
+            west.append(Polygon(np.column_stack((th * RW, q[:, 2]))).buffer(0.5))
+        elif abs(nr) > 0.9 and 203300 < rr.mean() < 203550 and q[:, 2].min() > 3500:
+            riser.append(Polygon(np.column_stack((th * RR, q[:, 2]))).buffer(0.5))
+        elif abs(nt) > 0.9:
+            a = math.degrees(th.mean())
+            if a < 171.5: north.append(Polygon(np.column_stack((rr, q[:, 2]))).buffer(0.5))
+            elif a > 186.3: south.append(Polygon(np.column_stack((-rr, q[:, 2]))).buffer(0.5))
+    out = {}
+    for k, L_ in (('西の外壁', west), ('越屋根の東の立ち上がり', riser), ('北の妻', north), ('南の妻の西の端', south)):
+        u = unary_union(L_).buffer(-0.5)
+        u = affinity.scale(u, S, S, origin=(0, 0))
+        u = unary_union([p for p in getattr(u, 'geoms', [u]) if p.minimum_rotated_rectangle.buffer(-1.0).area > 0])   # 幅 2 mm 未満のかけらを捨てる
+        b = u.bounds
+        out[k] = affinity.translate(u, -b[0], -b[1])
+    # 外から見て左＝北にする（角度が大きい方が南。展開の u は南へ増える → そのままで左が北）
+    return out
+
+def yamato_lines(poly):
+    """大和張りの縦の線（彫り）。窓の穴は避ける"""
+    from shapely.geometry import LineString
+    b = poly.bounds; out = []
+    for x in np.arange(b[0] + YAMATO, b[2], YAMATO):
+        g = LineString([(x, b[1] - 1), (x, b[3] + 1)]).intersection(poly.buffer(-0.3))
+        if not g.is_empty: out.append(g)
+    return out
+
+def wall_sheets():
+    W = honkan_walls()
+    s = Sheet('08_本館の外壁_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：本館の外壁（西は弧を展開、北の妻、南の妻の西の端、越屋根の東の立ち上がり）。大和張りの線は彫り')
+    s.add(box(0, 0, 600, 300), 'ref')
+    y = 0; texts = []
+    rows = [['西の外壁'], ['越屋根の東の立ち上がり'], ['北の妻', '南の妻の西の端']]
+    for row in rows:
+        x = 0; rowh = 0
+        for k in row:
+            g = W[k]
+            q = affinity.translate(g, x, 300 - y - g.bounds[3])
+            s.add(q)
+            if k != '越屋根の東の立ち上がり':
+                for ln in yamato_lines(q): s.add(ln, 'eng')
+            texts.append((x, 300 - y - g.bounds[3] - 3, k, 2.5))
+            x += g.bounds[2] + 4; rowh = max(rowh, g.bounds[3])
+        y += rowh + 8
+    s.save(texts)
+    return {k: tuple(round(v, 1) for v in g.bounds[2:]) for k, g in W.items()}
+
 if __name__ == '__main__':
     test_sheets()
     frame_sheets()
     print('本館の床', floor_sheets())
     print('本館の屋根', roof_sheets())
+    print('西館の架構', west_sheets())
+    print('本館の外壁', wall_sheets())
     print('ok', OUT)
