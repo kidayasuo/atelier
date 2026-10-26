@@ -183,6 +183,27 @@ class Sheet:
             elif g.geom_type == 'MultiLineString':
                 out += [np.array(x.coords) for x in g.geoms]
         return out
+    TAB_GAP = 0.5      # つなぎ（タブ）：描く切れ目の長さ。切り幅 0.2 で、残る木は約 0.3
+    TAB_MAX = 250      # これより小さい部品の外形に 2 か所のつなぎ（大きい板は付けない）
+    def tabbed(self, geoms):
+        """小さい部品が飛ばないように、外形に 2 か所の切り残し（周の 1/4 と 3/4、直線の所）を入れる。穴には付けない"""
+        from shapely.geometry import LineString
+        from shapely.ops import substring
+        out = []
+        for g in geoms:
+            for p in getattr(g, 'geoms', [g]):
+                if p.geom_type != 'Polygon' or not getattr(self, 'tabs', True):
+                    out.append(p); continue
+                b = p.bounds
+                if max(b[2] - b[0], b[3] - b[1]) > self.TAB_MAX or p.exterior.length < 12:
+                    out.append(p); continue
+                ext = LineString(p.exterior.coords); Lx = ext.length; h = self.TAB_GAP / 2
+                cuts = sorted([Lx * 0.25, Lx * 0.75])
+                segs = [substring(ext, cuts[0] + h, cuts[1] - h), substring(ext, cuts[1] + h, Lx), substring(ext, 0, cuts[0] - h)]
+                out += segs
+                out += [LineString(i.coords) for i in p.interiors]
+        return out
+
     def save(self, texts=()):
         os.makedirs(OUT, exist_ok=True)
         # SVG（mm、y は下向きに反転）
@@ -194,7 +215,7 @@ class Sheet:
         for lay, col, _, _, name in self.layers:
             if not getattr(self, lay): continue
             L.append(f'<g id="{name}" fill="none" stroke="{col}" stroke-width="0.01">')
-            for g in getattr(self, lay):
+            for g in (self.tabbed(getattr(self, lay)) if lay.startswith('cut') else getattr(self, lay)):
                 for a in self.rings(g):
                     closed = len(a) > 2 and np.allclose(a[0], a[-1])
                     L.append(f'<path d="{path(a)}{" Z" if closed else ""}"/>')
@@ -212,7 +233,7 @@ class Sheet:
                 if col not in ('#000000',): L_.rgb = tuple(int(col[i:i + 2], 16) for i in (1, 3, 5))
             msp = doc.modelspace()
             for lay, col, ci, ln, _ in self.layers:
-                for g in getattr(self, lay):
+                for g in (self.tabbed(getattr(self, lay)) if lay.startswith('cut') else getattr(self, lay)):
                     for a in self.rings(g):
                         e = msp.add_lwpolyline([tuple(p) for p in a], dxfattribs={'layer': ln})
                         if col != '#000000': e.rgb = tuple(int(col[i:i + 2], 16) for i in (1, 3, 5))

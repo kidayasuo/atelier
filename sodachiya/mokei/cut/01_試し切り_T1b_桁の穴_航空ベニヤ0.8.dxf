@@ -493,7 +493,7 @@ $SKPOLY
   9
 $TDCREATE
  40
-2461340.507233796
+2461340.516770833
   9
 $TDUCREATE
  40
@@ -501,7 +501,7 @@ $TDUCREATE
   9
 $TDUPDATE
  40
-2461340.507233796
+2461340.516770833
   9
 $TDUUPDATE
  40
@@ -553,7 +553,7 @@ $SPLINESEGS
   9
 $HANDSEED
   5
-56
+5E
   9
 $SURFTAB1
  70
@@ -933,11 +933,11 @@ $PSTYLEMODE
   9
 $FINGERPRINTGUID
   2
-{37090207-3BE8-4902-B0B7-B3F2ACCDCD71}
+{7EA4E5F6-A61B-41FC-B20C-D8C5E1CEC968}
   9
 $VERSIONGUID
   2
-{16A1CEA0-C0B9-480B-889B-FF848EFF5CBD}
+{49CAF2FA-A606-482D-A473-C5931B7ADFB1}
   9
 $EXTNAMES
 290
@@ -1781,7 +1781,7 @@ ACAD
   0
 APPID
   5
-53
+5B
 330
 3
 100
@@ -1795,7 +1795,7 @@ HATCHBACKGROUNDCOLOR
   0
 APPID
   5
-54
+5C
 330
 3
 100
@@ -2673,13 +2673,13 @@ CUT_red
 100
 AcDbPolyline
  90
-5
+4
  70
 0
  10
 11.0
  20
-2.0
+15.75
  10
 11.0
  20
@@ -2688,6 +2688,32 @@ AcDbPolyline
 2.0
  20
 20.0
+ 10
+2.0
+ 20
+6.75
+  0
+LWPOLYLINE
+  5
+48
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+3
+ 70
+0
+ 10
+2.0
+ 20
+6.25
  10
 2.0
  20
@@ -2699,7 +2725,33 @@ AcDbPolyline
   0
 LWPOLYLINE
   5
-48
+49
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+2
+ 70
+0
+ 10
+11.0
+ 20
+2.0
+ 10
+11.0
+ 20
+15.25
+  0
+LWPOLYLINE
+  5
+4A
 330
 17
 100
@@ -3241,7 +3293,7 @@ AcDbPolyline
   0
 LWPOLYLINE
   5
-49
+4B
 330
 17
 100
@@ -3253,13 +3305,13 @@ CUT_red
 100
 AcDbPolyline
  90
-5
+4
  70
 0
  10
 22.0
  20
-2.0
+15.75
  10
 22.0
  20
@@ -3268,6 +3320,32 @@ AcDbPolyline
 13.0
  20
 20.0
+ 10
+13.0
+ 20
+6.75
+  0
+LWPOLYLINE
+  5
+4C
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+3
+ 70
+0
+ 10
+13.0
+ 20
+6.25
  10
 13.0
  20
@@ -3279,7 +3357,33 @@ AcDbPolyline
   0
 LWPOLYLINE
   5
-4A
+4D
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+2
+ 70
+0
+ 10
+22.0
+ 20
+2.0
+ 10
+22.0
+ 20
+15.25
+  0
+LWPOLYLINE
+  5
+4E
 330
 17
 100
@@ -3821,7 +3925,7 @@ AcDbPolyline
   0
 LWPOLYLINE
   5
-4B
+4F
 330
 17
 100
@@ -3833,13 +3937,13 @@ CUT_red
 100
 AcDbPolyline
  90
-5
+4
  70
 0
  10
 33.0
  20
-2.0
+15.75
  10
 33.0
  20
@@ -3848,6 +3952,32 @@ AcDbPolyline
 24.0
  20
 20.0
+ 10
+24.0
+ 20
+6.75
+  0
+LWPOLYLINE
+  5
+50
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+3
+ 70
+0
+ 10
+24.0
+ 20
+6.25
  10
 24.0
  20
@@ -3859,7 +3989,33 @@ AcDbPolyline
   0
 LWPOLYLINE
   5
-4C
+51
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+2
+ 70
+0
+ 10
+33.0
+ 20
+2.0
+ 10
+33.0
+ 20
+15.25
+  0
+LWPOLYLINE
+  5
+52
 330
 17
 100
@@ -4401,7 +4557,7 @@ AcDbPolyline
   0
 LWPOLYLINE
   5
-4D
+53
 330
 17
 100
@@ -4413,13 +4569,13 @@ CUT_red
 100
 AcDbPolyline
  90
-5
+4
  70
 0
  10
 44.0
  20
-2.0
+15.75
  10
 44.0
  20
@@ -4428,6 +4584,32 @@ AcDbPolyline
 35.0
  20
 20.0
+ 10
+35.0
+ 20
+6.75
+  0
+LWPOLYLINE
+  5
+54
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+3
+ 70
+0
+ 10
+35.0
+ 20
+6.25
  10
 35.0
  20
@@ -4439,7 +4621,33 @@ AcDbPolyline
   0
 LWPOLYLINE
   5
-4E
+55
+330
+17
+100
+AcDbEntity
+  8
+CUT_red
+420
+16711680
+100
+AcDbPolyline
+ 90
+2
+ 70
+0
+ 10
+44.0
+ 20
+2.0
+ 10
+44.0
+ 20
+15.25
+  0
+LWPOLYLINE
+  5
+56
 330
 17
 100
@@ -4981,7 +5189,7 @@ AcDbPolyline
   0
 TEXT
   5
-4F
+57
 330
 17
 100
@@ -5011,7 +5219,7 @@ AcDbText
   0
 TEXT
   5
-50
+58
 330
 17
 100
@@ -5041,7 +5249,7 @@ AcDbText
   0
 TEXT
   5
-51
+59
 330
 17
 100
@@ -5071,7 +5279,7 @@ AcDbText
   0
 TEXT
   5
-52
+5A
 330
 17
 100
@@ -6089,7 +6297,7 @@ CREATED_BY_EZDXF
   3
 WRITTEN_BY_EZDXF
 350
-55
+5D
   0
 DICTIONARYVAR
   5
@@ -6101,11 +6309,11 @@ DictionaryVariables
 280
 0
   1
-1.4.5 @ 2026-10-26T03:10:25.020747+00:00
+1.4.5 @ 2026-10-26T03:24:09.782543+00:00
   0
 DICTIONARYVAR
   5
-55
+5D
 330
 2D
 100
@@ -6113,7 +6321,7 @@ DictionaryVariables
 280
 0
   1
-1.4.5 @ 2026-10-26T03:10:25.026203+00:00
+1.4.5 @ 2026-10-26T03:24:09.789961+00:00
   0
 ENDSEC
   0
