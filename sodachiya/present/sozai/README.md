@@ -32,7 +32,7 @@
 | 1枚目 | `present/out/_site_l_upd.pdf` | 切り抜き (238, 34)–(603, 443) mm | 1.00 倍 |
 | 1枚目 | `present/out/_site_t.pdf` | 切り抜き (238, 34)–(603, 443) mm | 1.00 倍 |
 | 1枚目 | `present/out/_site_o.pdf` | 切り抜き (238, 34)–(603, 443) mm | 1.00 倍 |
-| 1枚目 | `present/sozai/13_太陽の線.pdf` | 全体 | 1.00 倍 |
+| 1枚目 | `present/sozai/13a_太陽の線_中の灰.pdf` | 全体 | 1.00 倍 |
 | 2枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 36)–(772, 153) mm | 1.00 倍 |
 | 2枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 199)–(772, 316) mm | 1.00 倍 |
 | 3枚目 | `drawings/sodachiya_plan_1-100.pdf` | 全体 | 1.00 倍 |

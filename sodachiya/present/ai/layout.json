@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-26 23:55",
+"generated": "2026-10-27 00:06",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -194,11 +194,11 @@
 ]
 },
 {
-"id": "p1.link.13_太陽の線",
-"name": "図 13_太陽の線.pdf",
+"id": "p1.link.13a_太陽の線_中の灰",
+"name": "図 13a_太陽の線_中の灰.pdf",
 "kind": "link",
 "layer": "図",
-"file": "present/sozai/13_太陽の線.pdf",
+"file": "present/sozai/13a_太陽の線_中の灰.pdf",
 "x": 240.59,
 "y": 37.0,
 "w": 50.0,
@@ -1149,7 +1149,7 @@
 "s": "8",
 "size_pt": 7.48,
 "font": "Apple-Chancery",
-"color": "#D8DCE2",
+"color": "#F2F3F4",
 "align": "left",
 "mock_hash": "2b5dd"
 },
@@ -1163,7 +1163,7 @@
 "s": "12",
 "size_pt": 7.48,
 "font": "Apple-Chancery",
-"color": "#D8DCE2",
+"color": "#F2F3F4",
 "align": "left",
 "mock_hash": "5970c8"
 },
@@ -1177,7 +1177,7 @@
 "s": "16",
 "size_pt": 7.48,
 "font": "Apple-Chancery",
-"color": "#D8DCE2",
+"color": "#F2F3F4",
 "align": "left",
 "mock_hash": "5970cc"
 },
@@ -1191,7 +1191,7 @@
 "s": "6",
 "size_pt": 7.48,
 "font": "Apple-Chancery",
-"color": "#D8DCE2",
+"color": "#F2F3F4",
 "align": "left",
 "mock_hash": "2b5db"
 },
@@ -1205,7 +1205,7 @@
 "s": "18",
 "size_pt": 7.48,
 "font": "Apple-Chancery",
-"color": "#D8DCE2",
+"color": "#F2F3F4",
 "align": "left",
 "mock_hash": "5970ce"
 },
@@ -1219,7 +1219,7 @@
 "s": "N",
 "size_pt": 9.45,
 "font": "Apple-Chancery",
-"color": "#D8DCE2",
+"color": "#F2F3F4",
 "align": "left",
 "mock_hash": "2b5f3"
 },

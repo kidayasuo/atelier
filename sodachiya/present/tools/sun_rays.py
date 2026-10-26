@@ -29,16 +29,23 @@ def scol(adeg):
     return to_rgb(STOPS[-1][1])
 
 
-def make(path, north_deg, R=20.0, margin=5.0, lw_pt=1.8):
+def make(path, north_deg, R=20.0, margin=5.0, lw_pt=1.8, bg=None, stops=None, ncol=None, ring=None, outline=None):
     """north_deg：紙の上で北の向き（+xから反時計回り、度）。R：線の最大の長さ（mm）。
     戻り値：(直径mm, 文字のリスト[(s, x, y, ha)]（丸の左下からmm、y上向き）)"""
+    global STOPS
+    bg = BG if bg is None else bg; ncol = NCOL if ncol is None else ncol
+    _st0 = STOPS
+    if stops: STOPS = stops
     NA = np.radians(north_deg)
     pdir = lambda az: np.array([np.cos(NA - az), np.sin(NA - az)])
     D = 2 * (R + margin)
     c = np.array([R + margin, R + margin])
     fig = plt.figure(figsize=(D / 25.4, D / 25.4))
     ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(0, D); ax.set_ylim(0, D); ax.set_aspect(1); ax.axis("off")
-    ax.add_patch(plt.Circle(tuple(c), R + margin * 0.8, fc=BG, ec="none", zorder=0))
+    if bg != "none":
+        ax.add_patch(plt.Circle(tuple(c), R + margin * 0.8, fc=bg, ec=ring or "none", lw=0.5, zorder=0))
+    elif ring:
+        ax.add_patch(plt.Circle(tuple(c), R + margin * 0.8, fc="none", ec=ring, lw=0.5, zorder=0))
     labels = []
     for dec, z in ((-23.44, 2), (23.44, 3)):
         hrs = [h for h in range(0, 24) if np.degrees(sun(dec, (h - 12) * 15)[0]) >= MIN_ALT]
@@ -47,15 +54,18 @@ def make(path, north_deg, R=20.0, margin=5.0, lw_pt=1.8):
             k = np.sin(a)
             al = 0.82 + 0.18 * min(1, k / np.sin(np.radians(60)))
             p = c + pdir(az) * R * np.cos(a)
+            if outline:                                  # 白い線を淡い地で見せる縁取り
+                ax.plot([c[0], p[0]], [c[1], p[1]], color=outline, lw=lw_pt + 0.6, solid_capstyle="round", zorder=z - 0.5)
             ax.plot([c[0], p[0]], [c[1], p[1]], color=(*scol(np.degrees(a)), al), lw=lw_pt, solid_capstyle="round", zorder=z)
             if h in (hrs[0], hrs[-1]) or (dec < 0 and h == 12):
                 q = c + pdir(az) * (R * np.cos(a) + 2.4)
                 labels.append((str(h), q[0], q[1], "center"))
     n = pdir(0)
     ax.annotate("", xy=tuple(c + n * (R + 1)), xytext=tuple(c + n * (R - 7)),
-                arrowprops=dict(arrowstyle="-|>,head_length=0.35,head_width=0.18", lw=0.7, color=NCOL), zorder=7)
+                arrowprops=dict(arrowstyle="-|>,head_length=0.35,head_width=0.18", lw=0.7, color="#F2F3F4" if ncol == NCOL else ncol), zorder=7)
     q = c + n * (R - 10)
     labels.append(("N", q[0], q[1], "center"))
     fig.savefig(path, transparent=True)
     plt.close(fig)
+    STOPS = _st0
     return D, labels

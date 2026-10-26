@@ -1560,14 +1560,18 @@ for gr in ("c", "l", "t", "o"):                                               # 
 # 太陽の線（方位を兼ねる、ユーザー 10-26夜）：配置図の左上。線は素材の図、時刻とNは Apple Chancery の文字の部品
 sys.path.insert(0, os.path.join(HERE, "tools"))
 import sun_rays
-_SUNF = os.path.join(HERE, "sozai", "13_太陽の線.pdf")
-_SD, _SL = sun_rays.make(_SUNF, float(np.degrees(np.arctan2(_nv[1], _nv[0]))))
+# 地の色は二つ（ユーザー、10-27：c 中の灰・d 屋根の色）。.ai には中の灰を置き、屋根の色はリンクを差し替えて使う
+_SUNF = os.path.join(HERE, "sozai", "13a_太陽の線_中の灰.pdf")
+_SD, _SL = sun_rays.make(_SUNF, float(np.degrees(np.arctan2(_nv[1], _nv[0]))), bg="#A9ADB3", ring="#FFFFFF")
+sun_rays.make(os.path.join(HERE, "sozai", "13b_太陽の線_屋根の色.pdf"), float(np.degrees(np.arctan2(_nv[1], _nv[0]))), bg="#5A5F68", ring="#FFFFFF")
+for _old in ("13_太陽の線.pdf",):
+    if os.path.exists(os.path.join(HERE, "sozai", _old)): os.remove(os.path.join(HERE, "sozai", _old))
 _sux, _suy = sx + 3, sy + sh - 3 - _SD
 embed(1, _SUNF, None, _sux, _suy, 1.0)
 for _s, _x, _y, _ha in _SL:                     # 文字は図の上に（見本では貼った図の上に描く TOPT）。中心合わせ：幅の半分と高さの1/3を戻す
     _th = 1.9 if _s != "N" else 2.4
     _tw = fitz.Font(fontfile=FONT_ALT["Apple-Chancery"]).text_length(_s, _th / 0.72) 
-    TOPT[1].append((_sux + _x - _tw / 2, _suy + _y - _th * 0.35, _s, _th, False, "Apple-Chancery", sun_rays.NCOL))
+    TOPT[1].append((_sux + _x - _tw / 2, _suy + _y - _th * 0.35, _s, _th, False, "Apple-Chancery", "#F2F3F4"))
 scalebar(ax, sx + 6, sy - 22, 200, 20)
 # いちばん下の帯：沿川の景観立面　昼（左）・夜（右）1/300（ユーザー、10-26：2枚目から戻す。配置図の高野川の辺のすぐ下で、川の向こうから見た姿）
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
