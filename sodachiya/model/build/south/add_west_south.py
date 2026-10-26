@@ -552,6 +552,8 @@ for run in runs:
     ze_ = np.array([ze_[max(0, i - 5): i + 6].mean() for i in range(len(ze_))])   # 縁の高さの小さなぎざぎざをならす
     for i, e_ in enumerate(run): run[i] = e_ + (ze_[i], float(sl_[i]))
 def zt_tip(e_, dd): return e_[6] + e_[7] * (dd + 30.0)
+RT_W = 420.0                                     # 10-27：屋根に厚み（上面は梁の上端＝この面の 420 上）。軒樋・鎖樋は上面の先に合わせる
+def zt_top(e_, dd): return zt_tip(e_, dd) + RT_W
 n_eave = 0; gut_line = []
 for run in runs:
     if len(run) < 3: continue
@@ -577,7 +579,7 @@ if len(gut_line) > 3:
     # 軒樋は軒先に沿う（上端＝屋根の先の 20 下、深さ 150）。閉じた箱：内・外の線 × 上・下
     gm = r.Mesh(); nseg = len(seg)
     for e_ in seg:
-        zt_ = zt_tip(e_, e_[3] - GUT_W) - 20.0
+        zt_ = zt_top(e_, e_[3] - GUT_W) - 20.0
         for dd in (e_[3] - GUT_W, e_[3]):
             c_ = e_[1] + e_[2] * dd
             for zz in (zt_ - 150.0, zt_): gm.Vertices.Add(float(c_[0]), float(c_[1]), float(zz))
@@ -588,11 +590,11 @@ if len(gut_line) > 3:
         gm.Faces.AddFace(*( (A_, A_ + 1, A_ + 3, A_ + 2) if not flip else (A_, A_ + 2, A_ + 3, A_ + 1)))
     gm.Normals.ComputeNormals(); gm.Compact()
     at = r.ObjectAttributes(); at.LayerIndex = L_RAIN; new.Objects.AddMesh(gm, at)
-    g_bot = min(zt_tip(e_, e_[3] - GUT_W) for e_ in seg) - 170.0; g_top = g_bot + 150.0
+    g_bot = min(zt_top(e_, e_[3] - GUT_W) for e_ in seg) - 170.0; g_top = g_bot + 150.0
     gpath = LineString([e_[1] + e_[2] * (e_[3] - GUT_W / 2) for e_ in seg])
     def chain_at(c_):
         c_ = np.asarray(c_, float); e_ = min(seg, key=lambda e: np.hypot(*(e[1] - c_)))
-        mesh_prism(Point(*c_).buffer(18, 8), -300.0, const(zt_tip(e_, e_[3] - GUT_W) - 170.0), L_RAIN)
+        mesh_prism(Point(*c_).buffer(18, 8), -300.0, const(zt_top(e_, e_[3] - GUT_W) - 170.0), L_RAIN)
     pN = np.array(xy(40.6, -14.99)); qN = gpath.interpolate(gpath.project(Point(*pN))); chain_at((qN.x, qN.y))
     _qS = gpath.interpolate(gpath.project(Point(*xy(21.6, -12.6))))            # 南：勝手口の北の端から約0.5北の軒先（回り込んだ下屋の上、外構の集水で受ける。10-24 アプローチ係）
     pS = np.array([_qS.x, _qS.y]); chain_at(pS)

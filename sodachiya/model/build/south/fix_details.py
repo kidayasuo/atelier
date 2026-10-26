@@ -957,38 +957,101 @@ if slits:
     at_g2 = r.ObjectAttributes(); at_g2.LayerIndex = L20T
     if MAT_FROST >= 0: at_g2.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; at_g2.MaterialIndex = MAT_FROST
     SL20 = unary_union([strip(cc, ax, nrm, t0, t1, -90, 90) for cc, ax, nrm, t0, t1 in slits])
-    # 屋根の本体（20 の面それぞれ）から筋を抜く
-    roofs20 = []
+    # 屋根に厚み（10-27、ユーザー・監修 20261026-1936）：下面＝梁の上端（今までの屋根の面）、上面＝その 420 上（軒・棟は水平のまま、
+    # 勾配も同じ。棟 8.15 → 8.57、軒 4.65 → 5.07）。構成は本館と同じ（太陽光／野地板／通気層 45／透湿防水／木質繊維 t150 外張り／気密／
+    # 構造用合板 t24 現し／垂木 60×150）。屋根の面（20 の面それぞれ）を上へ 420 の閉じた立体にし、光の筋を厚さいっぱい抜く。
+    RT_W = 420.0
+    def _thicken(g, dz):
+        T_ = tris(g)
+        if not len(T_): return None
+        tm_ = trimesh.Trimesh(T_.reshape(-1, 3), np.arange(len(T_) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=0)
+        tm_.update_faces(tm_.nondegenerate_faces()); tm_.remove_unreferenced_vertices()
+        V_, F_ = np.asarray(tm_.vertices), np.asarray(tm_.faces); n_ = len(V_)
+        if np.mean(tm_.face_normals[:, 2]) < 0: F_ = F_[:, ::-1]                       # 上向きの面に
+        Vt = np.vstack([V_, V_ + [0, 0, dz]])
+        Ft = [F_[:, ::-1], F_ + n_]                                                     # 下面（下向き）・上面（上向き）
+        ed = np.sort(np.vstack([F_[:, [0, 1]], F_[:, [1, 2]], F_[:, [2, 0]]]), axis=1)
+        uq, cnt = np.unique(ed, axis=0, return_counts=True); bset = {tuple(e_) for e_ in uq[cnt == 1]}
+        side = []
+        for a_, b_, c_ in F_:                                                           # 縁の辺の向きは面の向きにそろえる
+            for p_, q_ in ((a_, b_), (b_, c_), (c_, a_)):
+                if tuple(sorted((p_, q_))) in bset: side += [[p_, q_, q_ + n_], [p_, q_ + n_, p_ + n_]]
+        Ft.append(np.array(side, int).reshape(-1, 3))
+        M_ = _mf.Manifold(_mf.Mesh(vert_properties=Vt.astype(np.float32), tri_verts=np.vstack(Ft).astype(np.uint32)))
+        return M_ if not M_.is_empty() else None
+    def _m2r(M_):
+        g_ = M_.to_mesh(); mm_ = r.Mesh()
+        for x_, y_, z_ in np.asarray(g_.vert_properties)[:, :3]: mm_.Vertices.Add(float(x_), float(y_), float(z_))
+        for a_, b_, c_ in np.asarray(g_.tri_verts): mm_.Faces.AddFace(int(a_), int(b_), int(c_))
+        mm_.Normals.ComputeNormals(); mm_.Compact(); return mm_
+    _sl_ms = []
+    for _pg in getattr(SL20.buffer(0), 'geoms', [SL20.buffer(0)]):
+        _slit_tm = trimesh.creation.extrude_polygon(_pg, 14000.0); _slit_tm.apply_translation([0, 0, -1000.0])
+        _sl_ms.append(_mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_slit_tm.vertices, np.float32), tri_verts=np.asarray(_slit_tm.faces, np.uint32))))
+    _SLIT_M = _mf.Manifold.batch_boolean(_sl_ms, _mf.OpType.Add)
+    roofs20 = []; _n_thk20 = 0
     for o in m.Objects:
         if o.Attributes.LayerIndex != L20 or not isinstance(o.Geometry, r.Mesh): continue
         fp = foot(o.Geometry)
         if fp is None: continue
         roofs20.append(fp)
-        if fp.intersection(SL20).area < 1e4: continue
-        drop.add(str(o.Attributes.Id))
-        new_objs.append((drape(fp.difference(SL20), 0.0), o.Attributes))
+        M_ = _thicken(o.Geometry, RT_W)
+        if M_ is None:
+            if fp.intersection(SL20).area >= 1e4:
+                drop.add(str(o.Attributes.Id)); new_objs.append((drape(fp.difference(SL20), 0.0, RT_W), o.Attributes))
+            continue
+        if fp.intersection(SL20).area >= 1e4: M_ = M_ - _SLIT_M
+        drop.add(str(o.Attributes.Id)); new_objs.append((_m2r(M_), o.Attributes)); _n_thk20 += 1
+    log.append(f'西館：屋根 {_n_thk20} 片を梁の上端から 420 の閉じた立体に（光の筋を厚さいっぱい抜いた）')
     RP20 = unary_union(roofs20)
+    # 筋の両側の梁の下端（鏡面の板の下の端）：2 枚の梁（22b）に下から鉛直の線を当てる
+    _bmt = [closed_mesh(bm.get(str(o.Attributes.Id), cur_g(o))) for o in m.Objects if o.Attributes.LayerIndex == L22B]
+    _BT = trimesh.util.concatenate([trimesh.Trimesh(mesh_V(g_), np.array([[g_.Faces[i][0], g_.Faces[i][1], g_.Faces[i][2]] for i in range(g_.Faces.Count)]), process=False) for g_ in _bmt])
+    _BI = trimesh.ray.ray_triangle.RayMeshIntersector(_BT)
+    def beam_bottom(P):
+        org = np.c_[P[:, 0], P[:, 1], np.zeros(len(P))]; d = np.tile([0, 0, 1.0], (len(P), 1))
+        loc, ir, _ = _BI.intersects_location(org, d, multiple_hits=True)
+        zb = np.full(len(P), np.nan)
+        for (x, y, z), k in zip(loc, ir):
+            if np.isnan(zb[k]) or z < zb[k]: zb[k] = z
+        return zb
+    L20M = new_layer('20m_西館_光の筋の鏡面（アルミ）', (200, 205, 210))
+    a20m = r.ObjectAttributes(); a20m.LayerIndex = L20M
+    def mirror(cc, ax, nrm, t0, t1, a, b_, ztop_d, step=250.0):
+        """筋の側面（nrm の a〜b_）に、梁の下端から屋根の面＋ztop_d までの薄い板（step ごとの角柱の集まり）"""
+        mm_ = r.Mesh(); sgn = 1 if a > 0 else -1
+        ts = np.r_[np.arange(t0, t1, step), t1]
+        for ta, tb in zip(ts, ts[1:]):
+            P4 = np.array([cc + ax * ta + nrm * a, cc + ax * tb + nrm * a, cc + ax * tb + nrm * b_, cc + ax * ta + nrm * b_])
+            zr = roof_z(P4); zb_ = beam_bottom(P4 + nrm * sgn * 45.0)               # 梁の中ほど（筋の縁から 45 外）の下端
+            if np.isnan(zb_).any(): zb_ = zr - 600.0
+            base = len(mm_.Vertices)
+            for (x_, y_), z_ in zip(P4, zb_): mm_.Vertices.Add(float(x_), float(y_), float(z_))
+            for (x_, y_), z_ in zip(P4, zr): mm_.Vertices.Add(float(x_), float(y_), float(z_ + ztop_d))
+            for f_ in ((0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)):
+                mm_.Faces.AddFace(*[base + i for i in f_])
+        mm_.Normals.ComputeNormals(); mm_.Compact(); return mm_
     for cc, ax, nrm, t0, t1 in slits:
         uc_ = uv(*cc)[0]; e = 1 if np.dot(ax, np.array(xy(uc_, EASTV)) - np.array(xy(uc_, -10))) > 0 else -1     # 東（高い側）の向き
         tE = t1 if e > 0 else t0; tW = t0 if e > 0 else t1
         lo, hi = min(tW, tE), max(tW, tE)
-        new_objs.append((drape(strip(cc, ax, nrm, lo, hi, -150, -90), 0.0, 60.0), a20))     # 立ち上がり
-        new_objs.append((drape(strip(cc, ax, nrm, lo, hi, 90, 150), 0.0, 60.0), a20))
+        new_objs.append((drape(strip(cc, ax, nrm, lo, hi, -150, -90), RT_W, RT_W + 60.0), a20))     # 立ち上がり（屋根の上面の上）
+        new_objs.append((drape(strip(cc, ax, nrm, lo, hi, 90, 150), RT_W, RT_W + 60.0), a20))
         # 東の端は越屋根の西の立ち上がりがふさぐ（端の立ち上がりは足さない）
         glo, ghi = min(tW, tE), max(tW, tE)                                    # ガラスは越屋根の立ち上がりから西の軒先まで（水はそのまま軒樋へ）
-        new_objs.append((drape(strip(cc, ax, nrm, glo, ghi, -150, 150), 60.0, 72.0), at_g2))    # 乳白ガラス t12
+        new_objs.append((drape(strip(cc, ax, nrm, glo, ghi, -150, 150), RT_W + 60.0, RT_W + 72.0), at_g2))    # 乳白ガラス（複層：遮熱 Low-E＋乳白の合わせ）
         _ln = LineString([cc + ax * (tW - 2000 * e), cc + ax * (tW + 4000 * e)]).intersection(WSi_W.exterior)
         _pts = [_ln] if _ln.geom_type == 'Point' else list(getattr(_ln, 'geoms', []))
         if _pts:
             tS = min((np.dot(np.array([q.x, q.y]) - cc, ax) for q in _pts), key=lambda t: abs(t - tW))
-            new_objs.append((drape(strip(cc, ax, nrm, tS - 6, tS + 6, -90, 90), -250.0, 60.0), at_g2))   # 外皮の線の固定ガラス（2枚の梁のあいだ）
-        for a_, b_ in ((-102, -90), (90, 102)):                                                  # 筋の内側の板
-            new_objs.append((drape(strip(cc, ax, nrm, t0, t1, a_, b_), -150.0, 0.0), a20))
+            new_objs.append((drape(strip(cc, ax, nrm, tS - 6, tS + 6, -88, 88), -250.0, RT_W + 60.0), at_g2))   # 外皮の線の固定ガラス（2枚の梁のあいだ、複層）
+        for a_, b_ in ((-90, -88), (88, 90)):                                                    # 筋の内側：ガラスの下から梁の下端まで鏡面のアルミ t2
+            new_objs.append((mirror(cc, ax, nrm, t0, t1, a_, b_, RT_W + 60.0), a20m))
     pv20 = RP20.buffer(-150.0, join_style=2)                  # 軒先の水切り150を残す（10-24、本館と同じ）
     pv20 = pv20.difference(Polygon([xy(u_, 1.0) for u_ in np.arange(19, 53.1, 0.5)] + [xy(u_, -2.85) for u_ in np.arange(53, 18.9, -0.5)]))   # 越屋根の蓋の西の縁（10-25：−2.25 → −2.85）
     pv20 = pv20.difference(unary_union([strip(cc, ax, nrm, t0 - 200, t1 + 200, -250, 250) for cc, ax, nrm, t0, t1 in slits]))
     a_pv2 = r.ObjectAttributes(); a_pv2.LayerIndex = L20P
-    new_objs.append((drape(pv20, 20.0), a_pv2))
+    new_objs.append((drape(pv20, RT_W + 20.0), a_pv2))                       # 屋根の上面の 20 上
     log.append(f'西館：光の筋 {len(slits)} 本（u ' + '・'.join(f'{uv(*s[0])[0]:.0f}' for s in slits) +
                f'、2 枚の梁のあいだ 180、越屋根から軒先まで、乳白ガラス、20t）、屋根材型の太陽光 {pv20.area / 1e6:.0f} m²（20p）')
 

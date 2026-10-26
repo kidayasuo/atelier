@@ -12,6 +12,8 @@ VOID=1600.0          # 西館の換気の吹抜（東の縁から d 0–1.6 m）
 Lyr={i:l.FullPath for i,l in enumerate(m.Layers)}
 roofm=[o.Geometry for o in m.Objects if Lyr[o.Attributes.LayerIndex]=='20_西館_屋根'][0]
 V=np.array([(roofm.Vertices[i].X,roofm.Vertices[i].Y,roofm.Vertices[i].Z) for i in range(len(roofm.Vertices))])
+RT=420.0             # 10-27（ユーザー・監修）：屋根に厚み。屋根の上面は梁の上端（この面）の 420 上なので、越屋根の物はみな 420 上げる
+V[:,2]+=RT
 ZTOP=V[:,2].max()
 E=V[V[:,2]>ZTOP-5][:,:2]
 E=np.unique(E.round(0),axis=0)
@@ -56,14 +58,14 @@ ne=len(edge)
 for d in (0.0,VOID):
     for i in range(1,ne-2):                     # 延長した端の区間には立ち上がりを付けない
         q=[(i,d-60),(i+1,d-60),(i+1,d+60),(i,d+60)]
-        bot=[(*Pw(a,b),zw(a,b)-250) for a,b in q]; top=[(*Pw(a,b),ZC-S*b) for a,b in q]
+        bot=[(*Pw(a,b),zw(a,b)-250-RT) for a,b in q]; top=[(*Pw(a,b),ZC-S*b) for a,b in q]
         m.Objects.AddMesh(mesh_prism(bot,top),attr(L_mon))
 L_end=layer('70e_西館_越屋根_妻（壁と同じ材で閉じる）',(215,200,175))
 for i in (1,ne-2):                              # 南北の端は屋根から蓋の下まで壁で閉じる
     for dd0,dd1 in zip(np.linspace(-60,VOID+60,6),np.linspace(-60,VOID+60,6)[1:]):
         p0,p1=Pw(i,dd0),Pw(i,dd1); t_=(Pw(i+1 if i==1 else i-1,0)-Pw(i,0)); t_=t_/np.linalg.norm(t_)*60
         q=[p0-t_,p1-t_,p1+t_,p0+t_]
-        m.Objects.AddMesh(mesh_prism([(*x,zroof_at(x)-250) for x in q],[(*x,ZC+GAP-S*float(np.dot(x-edge[i][0],edge[i][1]))) for x in q]),attr(L_end))
+        m.Objects.AddMesh(mesh_prism([(*x,zroof_at(x)-250-RT) for x in q],[(*x,ZC+GAP-S*float(np.dot(x-edge[i][0],edge[i][1]))) for x in q]),attr(L_end))
 # 蓋（屋根と平行）
 lidtop=lambda i,d: ZTOP+CURB+GAP+GT-S*d
 # 棟（東の縁）は弧の中心 C のまわりの円（半径 R0、ずれ 2 mm 以内）で、蓋・LED・ルーバーの高さは d（棟からの距離）だけで決まる
