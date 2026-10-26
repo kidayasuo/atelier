@@ -162,6 +162,13 @@ class Sheet:
     def __init__(self, name, w, h, note):
         self.name, self.w, self.h, self.note = name, w, h, note
         self.cut, self.eng, self.ref = [], [], []
+        # レイヤー：(名前, SVG の色, DXF の色番号, 説明)。出力の試しでは切る線の色を増やす
+        self.layers = [('ref', '#000000', 7, 'REF_delete', '参考（切らない・送る前に消す）'),
+                       ('eng', '#0000FF', 5, 'ENGRAVE_blue', '彫る（青）'),
+                       ('cut', '#FF0000', 1, 'CUT_red', '切る（赤）')]
+    def add_layer(self, key, col, aci, dxfname, label):
+        setattr(self, key, [])
+        self.layers.append((key, col, aci, dxfname, label))
     def add(self, geom, layer='cut'):
         getattr(self, layer).append(geom)
     def rings(self, geom):
@@ -183,8 +190,8 @@ class Sheet:
             return 'M' + ' L'.join(f'{x:.3f},{H - y:.3f}' for x, y in a)
         L = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{self.w}mm" height="{self.h}mm" viewBox="0 0 {self.w} {self.h}">']
         L.append(f'<!-- {self.note} -->')
-        for lay, col in (('ref', '#000000'), ('eng', '#0000FF'), ('cut', '#FF0000')):
-            name = {'ref': '参考（切らない・送る前に消す）', 'eng': '彫る（青）', 'cut': '切る（赤）'}[lay]
+        for lay, col, _, _, name in self.layers:
+            if not getattr(self, lay): continue
             L.append(f'<g id="{name}" fill="none" stroke="{col}" stroke-width="0.01">')
             for g in getattr(self, lay):
                 for a in self.rings(g):
@@ -199,14 +206,15 @@ class Sheet:
         try:
             import ezdxf
             doc = ezdxf.new(units=4)
-            for lay, ci in (('cut', 1), ('eng', 5), ('ref', 7)):
-                doc.layers.add({'cut': 'CUT_red', 'eng': 'ENGRAVE_blue', 'ref': 'REF_delete'}[lay], color=ci)
+            for lay, col, ci, ln, _ in self.layers:
+                L_ = doc.layers.add(ln, color=ci)
+                if col not in ('#000000',): L_.rgb = tuple(int(col[i:i + 2], 16) for i in (1, 3, 5))
             msp = doc.modelspace()
-            for lay in ('cut', 'eng', 'ref'):
-                ln = {'cut': 'CUT_red', 'eng': 'ENGRAVE_blue', 'ref': 'REF_delete'}[lay]
+            for lay, col, ci, ln, _ in self.layers:
                 for g in getattr(self, lay):
                     for a in self.rings(g):
-                        msp.add_lwpolyline([tuple(p) for p in a], dxfattribs={'layer': ln})
+                        e = msp.add_lwpolyline([tuple(p) for p in a], dxfattribs={'layer': ln})
+                        if col != '#000000': e.rgb = tuple(int(col[i:i + 2], 16) for i in (1, 3, 5))
             for x, y, t, sz in texts:
                 msp.add_text(t, dxfattribs={'layer': 'REF_delete', 'height': sz}).set_placement((x, y))
             doc.saveas(os.path.join(OUT, self.name + '.dxf'))
@@ -227,55 +235,94 @@ def label_num(n, x, y, h=1.6):
     return [LineString([(x + p[0], y + p[1]) for p in P[s]]) for s in segs[str(n)]]
 
 # ================= 1. 試し切り =================
+# 出力を 3 段（弱・中・強）で試す。段ごとに切る線の色を変え（1＝赤、2＝橙、3＝紫）、
+# 同じ中身を 3 つ並べる。各組の左上に段の番号を彫る。レーザーのソフトで色ごとに出力を割り当てる。
+TRY = J['レーザーの試し']
+
+def _levels(s):
+    for k, col in TRY['色'].items():
+        if k == '1': continue
+        s.add_layer(f'cut{k}', col, {'2': 30, '3': 6}[k], f'CUT_{k}', f'切る・出力{k}')
+    return {'1': 'cut', '2': 'cut2', '3': 'cut3'}
+
+def _try_sheet(name, w1, h1, note, build, mat, texts1):
+    """build(s, ox, oy, layer)：1 組を (ox, oy) に描く。3 組を縦に並べる"""
+    gap = 4
+    s = Sheet(name, w1, 3 * h1 + 2 * gap, note)
+    lay = _levels(s)
+    texts = []
+    for i, k in enumerate(('1', '2', '3')):
+        oy = (2 - i) * (h1 + gap)
+        build(s, 0, oy, lay[k])
+        for l in label_num(k, 1.2, oy + h1 - 3.0, 2.0): s.add(l, 'eng')
+        if mat == '彫り':
+            pw = TRY['彫り']['出力'][i]; sp = TRY['彫り']['速度']
+        else:
+            pw = TRY[mat]['出力'][i]; sp = TRY[mat]['速度']
+        texts.append((w1 + 1, oy + h1 / 2, f'{k}：速度 {sp} mm/s・出力 {pw}%', 2))
+    for t in texts1: texts.append(t)
+    s.w = w1 + 45
+    s.save(texts)
+
 def test_sheets():
     from shapely.geometry import LineString
-    texts = []
-    # T1：航空ベニヤ 0.8（桁の穴 4 種、柱の足の試し 2 本分、20 mm 角）
-    s = Sheet('01_試し切り_T1_航空ベニヤ0.8', 90, 45, '航空ベニヤ 0.8：桁の穴 A〜D、柱の足（2 枚で 1 本）、20 mm 角で切り幅を測る')
-    s.add(box(0, 0, 90, 45), 'ref')
-    for i, (k, c) in enumerate(KETA_VARIANTS.items()):
-        x = 6 + i * 11
-        s.add(box(x - 4, 22, x + 5, 40))
-        s.add(stadium(x + 0.5, 31, c[0], c[1]))
-        for l in label_num(k, x - 0.5, 23.5): s.add(l, 'eng')
-    s.add(box(50, 22, 70, 42))                                   # 20 mm 角
-    for j in range(4):                                           # 柱の足：幅 4.0、ほぞ 2.4×5.5
-        x = 5 + j * 9
-        foot = unary_union([box(x, 5.5, x + 4.0, 18), box(x + 0.8, 0, x + 3.2, 5.6)])
-        s.add(affinity.translate(foot, 0, 1))
-    texts += [(50, 18, '20mm 角：ノギスで測る', 2), (40, 2, '柱の足 4 枚（2 枚ずつ貼る）', 2)]
-    s.save(texts)
+    # T1：航空ベニヤ 0.8（桁の穴 4 種、柱の足 4 枚、20 mm 角）
+    def t1(s, ox, oy, lay):
+        s.add(box(ox, oy, ox + 90, oy + 45), 'ref')
+        for i, (k, c) in enumerate(KETA_VARIANTS.items()):
+            x = ox + 8 + i * 11
+            s.add(box(x - 4, oy + 22, x + 5, oy + 40), lay)
+            s.add(stadium(x + 0.5, oy + 31, c[0], c[1]), lay)
+            for l in label_num(k, x - 0.5, oy + 23.5): s.add(l, 'eng')
+        s.add(box(ox + 54, oy + 22, ox + 74, oy + 42), lay)          # 20 mm 角
+        for j in range(4):                                           # 柱の足：幅 4.0、ほぞ 2.4×5.5
+            x = ox + 5 + j * 9
+            foot = unary_union([box(x, 5.5, x + 4.0, 18), box(x + 0.8, 0, x + 3.2, 5.6)])
+            s.add(affinity.translate(foot, 0, oy + 1), lay)
+    _try_sheet('01_試し切り_T1_航空ベニヤ0.8', 90, 45,
+               '航空ベニヤ 0.8：出力 3 段 × （桁の穴 A〜D、柱の足 4 枚、20 mm 角）', t1, '航空ベニヤ0.8',
+               [(91, 2, '各組：桁の穴 A〜D・20mm 角・柱の足 4 枚', 1.6)])
     # T2：シナ 3（ほぞ穴 4 種）
-    s = Sheet('01_試し切り_T2_シナ3', 60, 20, 'シナ 3 mm：ほぞ穴（布基礎・中の層）幅 1.65〜1.86 × 2.40')
-    s.add(box(0, 0, 60, 20))
-    for i, t in enumerate(J['柱']['ほぞ穴の幅_試し']):
-        x = 8 + i * 13
-        s.add(box(x, 8, x + MORTISE_W, 8 + t))
-        for l in label_num(i + 1, x + 0.4, 3): s.add(l, 'eng')
-    s.save([(1, 21, 'ほぞ穴 1=1.65 2=1.72 3=1.79 4=1.86', 2)])
+    def t2(s, ox, oy, lay):
+        s.add(box(ox, oy, ox + 60, oy + 20), lay)
+        for i, t in enumerate(J['柱']['ほぞ穴の幅_試し']):
+            x = ox + 8 + i * 13
+            s.add(box(x, oy + 8, x + MORTISE_W, oy + 8 + t), lay)
+            for l in label_num(i + 1, x + 0.4, oy + 3): s.add(l, 'eng')
+    _try_sheet('01_試し切り_T2_シナ3', 60, 20, 'シナ 3 mm：出力 3 段 × ほぞ穴 1〜4（幅 1.65／1.72／1.79／1.86 × 2.40）',
+               t2, 'シナ3', [])
     # T3：シナ 1.7（床の柱の穴 4 種）
-    s = Sheet('01_試し切り_T3_シナ1.7', 60, 20, 'シナ 1.7 mm：床の柱の穴 4.0 × 1.75〜1.96')
-    s.add(box(0, 0, 60, 20))
-    for i, t in enumerate(J['床']['柱の穴_試し']):
-        x = 8 + i * 13
-        s.add(box(x, 8, x + 4.0, 8 + t))
-        for l in label_num(i + 1, x + 1, 3): s.add(l, 'eng')
-    s.save([(1, 21, '床の穴 1=1.75 2=1.82 3=1.89 4=1.96（柱の厚さ方向）', 2)])
-    # T4：彫りの試し（谷積みの目地、畑の線、点）
-    s = Sheet('01_試し切り_T4_彫り', 70, 30, 'KROMA 1 か シナ：彫りの出力の試し（谷積みの目地 45°、畑の平行線、点）')
-    s.add(box(0, 0, 70, 30))
-    q = box(3, 3, 27, 27); lines = []
-    for k in np.arange(-30, 60, 3.5):                          # 45° の格子（石 約 35 cm）
-        lines += [LineString([(k, 0), (k + 40, 40)]), LineString([(k + 40, 0), (k, 40)])]
-    for ln in lines:
-        g = ln.intersection(q)
-        if not g.is_empty: s.add(g, 'eng')
-    for k in np.arange(31, 47, 0.6 * 1.0 + 0.0):               # 畑の畝 60 cm
-        s.add(LineString([(k, 5), (k, 25)]), 'eng')
-    for xx in np.arange(50, 67, 1.2):                          # 砂場の点
-        for yy in np.arange(5, 25, 1.2):
-            s.add(LineString([(xx, yy), (xx + 0.15, yy)]), 'eng')
-    s.save([(1, 31, '左：谷積み 45° ／ 中：畑 0.6 ピッチ ／ 右：点 1.2 ピッチ', 2)])
+    def t3(s, ox, oy, lay):
+        s.add(box(ox, oy, ox + 60, oy + 20), lay)
+        for i, t in enumerate(J['床']['柱の穴_試し']):
+            x = ox + 8 + i * 13
+            s.add(box(x, oy + 8, x + 4.0, oy + 8 + t), lay)
+            for l in label_num(i + 1, x + 1, oy + 3): s.add(l, 'eng')
+    _try_sheet('01_試し切り_T3_シナ1.7', 60, 20, 'シナ 1.7 mm：出力 3 段 × 床の柱の穴 1〜4（4.0 × 1.75／1.82／1.89／1.96）',
+               t3, 'シナ1.7', [])
+    # T4：彫りの試し（谷積みの目地、畑の線、点）。彫りの出力を 3 段に：彫る線の色を段ごとに変える
+    s = Sheet('01_試し切り_T4_彫り', 115, 98, 'KROMA 1 か シナ：彫りの出力 3 段 × （谷積みの目地 45°、畑の平行線、点）')
+    s.add_layer('eng2', '#00A0FF', 4, 'ENGRAVE_2', '彫る・出力2')
+    s.add_layer('eng3', '#00C000', 3, 'ENGRAVE_3', '彫る・出力3')
+    texts = []
+    for i, (k, lay) in enumerate((('1', 'eng'), ('2', 'eng2'), ('3', 'eng3'))):
+        oy = (2 - i) * 34
+        s.add(box(0, oy, 70, oy + 30), 'cut')
+        q = box(3, oy + 3, 27, oy + 27); lines = []
+        for kk in np.arange(-30, 60, 3.5):                       # 45° の格子（石 約 35 cm）
+            lines += [LineString([(kk, oy), (kk + 40, oy + 40)]), LineString([(kk + 40, oy), (kk, oy + 40)])]
+        for ln in lines:
+            g = ln.intersection(q)
+            if not g.is_empty: s.add(g, lay)
+        for kk in np.arange(31, 47, 0.6):                        # 畑の畝 60 cm
+            s.add(LineString([(kk, oy + 5), (kk, oy + 25)]), lay)
+        for xx in np.arange(50, 67, 1.2):                        # 砂場の点
+            for yy in np.arange(oy + 5, oy + 25, 1.2):
+                s.add(LineString([(xx, yy), (xx + 0.15, yy)]), lay)
+        for l in label_num(k, 0.6, oy + 26.5, 2.0): s.add(l, lay)
+        texts.append((71, oy + 15, f'{k}：速度 {TRY["彫り"]["速度"]}・出力 {TRY["彫り"]["出力"][i]}%', 2))
+    texts.append((71, 2, '左：谷積み 中：畑 右：点。外形（赤）は切る出力で', 1.6))
+    s.save(texts)
 
 # ================= 2・3. 架構 =================
 def frame_parts(clr):
