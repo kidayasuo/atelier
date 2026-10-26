@@ -1098,9 +1098,29 @@ def section_arc(A, Rc, depth=30000):
     def RTH(P):
         d = P[..., :2] - C; return np.hypot(d[..., 0], d[..., 1]), unwrap(np.arctan2(d[..., 1], d[..., 0]))
     X = lambda th: SGN * (th - TH_S[0]) * Rc
+    # 南は敷地の境で止める（10-26 ユーザー・監修：弧は高野川の崖を浅い角度で斜めに切るので、崖が横に引き伸ばされ、
+    # 園庭の地面の線も崖の外まで出ていた。川との関係は園庭の断面に任せる）。境の外の切り口・見えがかりは描かず、境に破断線
+    site_ = [P for ln, P in CURVES if ln.startswith('00')]
+    XCUT = -1e9
+    if site_:
+        sp_ = max((Polygon(np.asarray(P)[:, :2]).buffer(0) for P in site_), key=lambda g: g.area)
+        ths = TH_S[0] - SGN * np.linspace(0, 30000, 3001) / Rc
+        ins = [sp_.contains(Point(*(C + Rc * np.array([math.cos(t), math.sin(t)])))) for t in ths]
+        k_ = next((i for i, v in enumerate(ins) if not v), None)
+        if k_: XCUT = float(X(ths[k_ - 1]))
+    CLIP = box(XCUT, -1e5, 1e6, 1e5)
+    def _clipsegs(segs):
+        out = []
+        for q in segs:
+            if min(q[0][0], q[1][0]) >= XCUT: out.append(q); continue
+            if max(q[0][0], q[1][0]) <= XCUT: continue
+            g = LineString(q).intersection(CLIP)
+            if g.geom_type == 'LineString' and g.length > 0: out.append(list(g.coords))
+        return out
     far, cuts = [], []
     for ob in OBJ:
         if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98 or num(ob['layer']) in (3, 4): continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
+        if num(ob['layer']) == 2: continue                    # 高野川の護岸は敷地の外（上の XCUT）
         T = ob['T']; rr, th = RTH(T)
         if rr.max() < Rc or rr.min() > Rc + depth: continue
         if rr.min() < Rc < rr.max():
@@ -1114,16 +1134,26 @@ def section_arc(A, Rc, depth=30000):
                     if sg[i] != sg[j]:
                         t = ff[i] / (ff[i] - ff[j]); pts.append((X(tt[i] + (tt[j] - tt[i]) * t), tri[i][2] + (tri[j][2] - tri[i][2]) * t))
                 if len(pts) == 2: segs.append(pts)
-            cuts.append((ob, poche(segs), segs))
+            pc_ = poche(segs)
+            if pc_ is not None and not pc_.is_empty and XCUT > -1e8: pc_ = pc_.intersection(CLIP)
+            segs = _clipsegs(segs)
+            if segs: cuts.append((ob, pc_, segs))
         if num(ob['layer']) in (2, 90, 12, 13): continue      # 川の護岸・園庭の地形は切り口だけ、床組は床の構成で描く
         keep = rr.max(1) >= Rc
         T2 = np.stack([X(th[keep]), T[keep][:, :, 2]], -1)
-        if len(T2): far.append((max(0, rr.min() - Rc), ob, silhouette(T2)))
+        if len(T2):
+            sil_ = silhouette(T2)
+            if sil_ is not None and not sil_.is_empty and XCUT > -1e8: sil_ = sil_.intersection(CLIP)
+            if sil_ is not None and not sil_.is_empty: far.append((max(0, rr.min() - Rc), ob, sil_))
     occ = draw_cut(A, cuts, insul=True)
     far = merge_fine_far(far)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
-    A.lines([[(-5000, -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
+    A.lines([[(max(-5000, XCUT), -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
+    if XCUT > -1e8:                                       # 破断線（敷地の境）
+        zz_ = [-1300, -300, 600, 900, 1200, 1500, 6500]; xx_ = [XCUT, XCUT, XCUT, XCUT - 250, XCUT + 250, XCUT, XCUT]
+        A.lines([np.c_[xx_, zz_]], '10_見えがかり', lw=0.13, z=8)
+        A.text(XCUT - 300, -1100, '敷地の境', 5, '80_図名・縮尺・方位', ha='right', va='center', color='0.35')
     cutb = {}
     for ob, pc, S2 in cuts:
         if not S2: continue
@@ -1178,9 +1208,8 @@ def make_sections():
     cutb = section_arc(A, SECTIONS[0][2])
     levels(A, cutb, 64300, True)
     A.text(extA[0] + 300, extA[3] - 200, f'断面 A　{SECTIONS[0][3]}', 9, '80_図名・縮尺・方位', ha='left', va='top')
-    A.text(extA[0] + 300, -5400, '← 南（高野川）', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
+    A.text(extA[0] + 300, -5400, '← 南（高野川の側）', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
     A.text(56000, -2400, '北 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')
-    A.text(-9000, -4900, '高野川の護岸（現況、寸法は仮）', 5, '80_図名・縮尺・方位', ha='center', va='bottom', color='0.35')
     extX = (-17500, 21500, -2600, 10500)
     for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
         A = S.axes(30 + i * (390 + 15), H_ - 40 - 161 - 45 - 131, extX)
