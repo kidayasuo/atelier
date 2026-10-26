@@ -434,10 +434,17 @@ for o in m.Objects:
     if tm_.is_watertight: continue
     ms_ = _plates(T, _THK[li_], stair=(li_ == lidx('25_')))         # 面ごとの板（押し出し）に（10-25 ソリッド係、ユーザー）
     if not ms_: continue
-    if li_ == lidx('24_') and (U[:, 1] < -4.9).any() and (U[:, 1] > -2.3).any() and T[:, :, 2].max() > 7000:   # 階段の箱：西の面に階段の下の倉庫の戸（10-25）
+    if li_ == lidx('24_') and (U[:, 1] < -4.9).any() and (U[:, 1] > -3.1).any() and T[:, :, 2].max() > 7000:   # 階段の箱：西の面に階段の下の倉庫の戸（10-25）
         _tb = trimesh.creation.extrude_polygon(R(*STAIR_DOOR, -5.3, -4.7, 0.05), 1750.0)
         _box = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
         ms_ = [M_ - _box for M_ in ms_]
+        # 階段の箱の南の面（u30）の登り口と2階の降り口（10-27、ユーザー：登り口が壁でほぼ塞がっている）。元の面は u30 の面が床から
+        # 箱の天まで一枚で、東の一折れの登り口（1階）も西の一折れの降り口（2階）も開いていなかった
+        for _ob in (R(29.7, 30.3, -2.85, -4.0, 0.05), R(29.7, 30.3, -4.0, -4.94, 0.05)):
+            _z0, _z1 = (-10.0, 3170.0) if _ob.bounds and _ob.centroid and uv(_ob.centroid.x, _ob.centroid.y)[1] > -4.0 else (3170.0, 3250.0 + 2100.0)
+            _tb = trimesh.creation.extrude_polygon(_ob, _z1 - _z0); _tb.apply_translation([0, 0, _z0])
+            _cut = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
+            ms_ = [M_ - _cut for M_ in ms_]
     # 板は別々の立体のまま（触れるだけ、重ならない）。頂点も板ごとに別にして、Rhino 版で板ごとの押し出しになるように
     mm = r.Mesh()
     for M_ in ms_:
