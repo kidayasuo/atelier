@@ -36,6 +36,15 @@
     var carried = 0;
     if (out.exists) {                                  // 前の .ai にある木田さんの物（印の無い物）を新しい .ai へ写す（ユーザー、10-26）
         try {
+            // 配置図が紙の上で動いたか（前に組んだときの目印 layout_built.json、無ければ layout.json の anchors_prev）
+            var bf = File(SDY.here.fsName + "/layout_built.json"), OB = null, an = L.anchors ? L.anchors["p1.siteplan"] : null, ao = null, ab1 = -1;
+            try { if (bf.exists) { OB = SDY.readJSON(bf); } } catch (e) {}
+            ao = (OB && OB.anchors && OB.anchors["p1.siteplan"]) || (L.anchors_prev ? L.anchors_prev["p1.siteplan"] : null);
+            for (i = 0; i < n; i++) { if (L.pages[i].no === 1) { ab1 = i; } }
+            if (an && ao && ab1 >= 0) {
+                var ddx = an.origin[0] - ao.origin[0], ddy = an.origin[1] - ao.origin[1];
+                if (Math.abs(ddx) > 0.05 || Math.abs(ddy) > 0.05) { SDY.planShift = { ab: ab1, win: ao.window, dx: ddx, dy: ddy, n: 0 }; }
+            }
             var oldDoc = app.open(out);
             carried = SDY.copyUserItems(oldDoc, doc);
             oldDoc.close(SaveOptions.DONOTSAVECHANGES);
@@ -57,6 +66,7 @@
     doc.saveAs(out, new IllustratorSaveOptions());
     try { File(SDY.here.fsName + "/layout.json").copy(SDY.here.fsName + "/layout_built.json"); } catch (e) {}   // 組んだときの位置（書き出しで、動かした部品だけを残すため）
     var msg = "組みました：" + made + " 個（隠した " + skipped + " 個）、前の .ai から写した木田さんの物 " + carried + " 個\n" + out.fsName;
+    if (SDY.planShift && SDY.planShift.n) { msg += "\n配置図の上の物 " + SDY.planShift.n + " 個を、配置図と一緒に " + Math.round(SDY.planShift.dx) + "・" + Math.round(SDY.planShift.dy) + " mm 動かしました"; }
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + SDY.missing.join("\n"); }
     if (!SDY.font("W3")) { msg += "\n\nヒラギノ角ゴシックが見つからないので、書体は既定のままです。"; }
     alert(msg);

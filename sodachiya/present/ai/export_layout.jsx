@@ -80,6 +80,20 @@
             }
         }
     }
+    for (i = 0; i < doc.groupItems.length; i++) {      // 配置図の切り抜きの四角（使う大きさ、ユーザー 10-26夕）
+        try {
+            var cg = doc.groupItems[i];
+            if (cg.name !== "配置図（切り抜き）" || !cg.clipped) { continue; }
+            for (k = 0; k < cg.pathItems.length; k++) {
+                if (!cg.pathItems[k].clipping) { continue; }
+                b = cg.pathItems[k].geometricBounds; ai = SDY.abOf(doc, b); if (ai < 0) { break; }
+                r = SDY.ab(doc, ai);
+                out.siteclip = { artboard: ai + 1, x: (b[0] - r[0]) / K, y: (r[1] - b[1]) / K, w: (b[2] - b[0]) / K, h: (b[1] - b[3]) / K };
+                break;
+            }
+        } catch (e3) { bad.push("配置図の切り抜き（" + e3.message + "）"); }
+    }
+    if (LB && LB.anchors) { out.anchors = LB.anchors; }   // 組んだときの配置図の目印（木田さんの物がどの配置図の上に描かれたか）
     var ui = SDY.userItems(doc), q;                    // 木田さんが足した物も台帳に（プレゼンの準備が読む）
     out.user_items = [];
     for (q = 0; q < ui.length; q++) { try { out.user_items.push(SDY.describe(doc, ui[q])); } catch (e2) {} }

@@ -807,7 +807,7 @@ NAT = [("用水を借りる", ["高野川の上の堰で取った水が、松ヶ
 cy = M + 8 + 26.0 + 400                          # 上の段の下端の目安（配置図の上）
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
-VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -6.0, QY1 + 14.0  # 川と橋は端だけ、北の道は全幅と少し先まで（ユーザー）
+VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -21.0, QY1 + 8.0  # 南へ延ばして高野川が見えるように、北は用水路の尻尾をやめて矢印と名前だけ（ユーザー、10-26夕）
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx, sy = M + 6, H - M - 16 - 3 - sh                            # 配置図は上の帯のすぐ下まで上げる（ユーザー、10-26：配置図の注を消し、下の景観立面との窮屈さを解く）
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
@@ -817,11 +817,43 @@ BAND_Y0 = ((M + 3) + (sy - 30) - BAND_H + 6.5) / 2
 T(ax, sx + 120, sy - 18, "配置図", 6.0, bold=True)                 # 題は図の下に、大きく（ユーザー、10-26）
 T(ax, sx + 120 + 3 * 8.4 + 4, sy - 18, "1/200　高野川を下に（川向こうから見る向き、北は右上）", 3.4)
 xf = xform(sx, sy, 200, VX0, VY0)
+# 素材の配置図は見せる窓より大きく描き、Illustratorの切り抜きの四角で使う大きさを選ぶ（ユーザー、10-26夕）
+BX0, BX1, BY0, BY1 = VX0 - 12.0, VX1 + 10.0, VY0 - 6.0, VY1 + 6.0                # 北は紙の上の縁まで（A1の紙の外は描けない）
+bsx, bsy = sx + (BX0 - VX0) * 5, sy + (BY0 - VY0) * 5
+bsw, bsh = (BX1 - BX0) * 5, (BY1 - BY0) * 5
+# 図の置き場所の目印（3dmを回した座標の(0,0)が紙のどこか、左上からmm）。前の窓（南−6 m、北＋14 m）からのずれで、木田さんの描いた物を一緒に動かす
+_org = xf(np.array([[0.0, 0.0]]))[0]
+_top = sy + sh
+_org_prev = (sx + (0 - VX0) * 5, _top - (QY1 + 14.0) * 5)
+PLAN_ANCHOR = dict(origin=[round(_org[0], 2), round(H - _org[1], 2)], window=[round(sx, 2), round(H - sy - sh, 2), round(sw, 2), round(sh, 2)])
+PLAN_ANCHOR_PREV = dict(origin=[round(_org_prev[0], 2), round(H - _org_prev[1], 2)],
+                        window=[round(sx, 2), round(H - _top, 2), round(sw, 2), round((QY1 + 14.0 + 6.0) * 5, 2)])
+# 見本に描く木田さんの物も、描いたときの配置図の目印から今の目印へ動かす（layout_user.json の anchors、無ければ前の窓）
+try:
+    _ua = json.load(open(os.path.join(HERE, "ai", "layout_user.json"), encoding="utf-8")).get("anchors", {}).get("p1.siteplan") or PLAN_ANCHOR_PREV
+except Exception:
+    _ua = PLAN_ANCHOR_PREV
+_udx, _udy = PLAN_ANCHOR["origin"][0] - _ua["origin"][0], PLAN_ANCHOR["origin"][1] - _ua["origin"][1]
+
+
+def _shift_ui(d, dx, dy):
+    if "x" in d: d["x"] += dx
+    if "y" in d: d["y"] += dy
+    if d.get("pts"): d["pts"] = [[[q[0] + dx, q[1] + dy] for q in pt_] for pt_ in d["pts"]]
+    for ch in d.get("children", []) or []: _shift_ui(ch, dx, dy)
+
+
+if abs(_udx) + abs(_udy) > 0.05:
+    _w = _ua["window"]
+    for _ui in USER_ITEMS.get(1, []):
+        _cx, _cy = _ui.get("x", 0) + _ui.get("w", 0) / 2, _ui.get("y", 0) + _ui.get("h", 0) / 2
+        if _w[0] <= _cx <= _w[0] + _w[2] and _w[1] <= _cy <= _w[1] + _w[3]:
+            _shift_ui(_ui, _udx, _udy)
 # 配置図は別の図に描き、線・色・文字の三つに分けて書き出す（ユーザー、10-25朝：配置図として書き、その上に色、文字。
 # 園庭のチャットの図（garden01）は重ねない。屋根・外構・園庭はすべて3dmから）。1枚目にはこの三つを重ねて貼る
 _ax_page, _fig_page = ax, fig
 figS, ax = page()
-rp = clip_rect(ax, sx, sy, sw, sh)
+rp = clip_rect(ax, bsx, bsy, bsw, bsh)                          # 大きい方の窓で描く（見本には見せる窓だけ貼る）
 st = len(ax.patches); stl = len(ax.lines)
 SGRP = {"l": [], "c": [], "t": []}
 _snap = [0, 0, 0, 0]
@@ -1261,7 +1293,10 @@ _mk("l")
 T(ax, _nx + _nv[0] * 16, _ny + _nv[1] * 16, "N", 3.2, ha="center", va="center", bold=True)
 _mk("t")
 lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
-lab(ax, xf, R3inv([33.5, 58.8])[0], "用水路（北から来て、ここから暗渠で敷地の北の角へ）", (-4, 9), size=2.6, color="#1F6FB2", ha="right")
+# 北の用水路は尾を描かず、窓の北の端から入ってくる矢印と名前だけ（ユーザー、10-26夕）
+_yh = xf(np.array([[33.5, min(58.8, VY1 - 3.0)]]))[0]; _yt = xf(np.array([[33.5, VY1 - 0.3]]))[0]
+ax.annotate("", xy=tuple(_yh), xytext=tuple(_yt), arrowprops=dict(arrowstyle="-|>,head_length=1.2,head_width=0.6", lw=1.2, color="#1F6FB2"), zorder=45)
+T(ax, _yt[0] - 2.5, _yt[1] - 3.5, "用水路（北から来て、暗渠で敷地の北の角へ）", 2.6, "#1F6FB2", ha="right")
 _g66 = unary_union([g_ for g_ in (_sh(o) for o in _rp_("66_")) if g_ is not None])
 if not _g66.is_empty:
     lab(ax, xf, R3inv(np.array(_g66.centroid.coords))[0], "公園からの入口（木戸）", (-25, 2), size=2.6, color="#4A3A2A", ha="right", bold=True)
@@ -1406,12 +1441,21 @@ if SITE_FROM_UPD:
     _pw, _ph = _XJ["paper_mm"]
     for gr, suf in (("l", "_線.pdf"), ("c", "_色.pdf")):
         _nd = fitz.open(); _pg = _nd.new_page(width=W * MM, height=H * MM)
+        # 向こうの紙の外（南の高野川の水面など）は、こちらの描いた線と色で補う（ユーザー 10-26夕：南へ延ばして川を見せる）
+        _ia = (_off[0] + 10, _off[1] + 10, _off[0] + _pw - 10, _off[1] + _ph - 10)      # 向こうの図の描いてある範囲（紙の縁から10 mm内）
+        _bw = (bsx, H - bsy - bsh, bsx + bsw, H - bsy)
+        for _r in ((_bw[0], _bw[1], _bw[2], _ia[1]), (_bw[0], _ia[3], _bw[2], _bw[3]),
+                   (_bw[0], max(_bw[1], _ia[1]), _ia[0], min(_bw[3], _ia[3])), (_ia[2], max(_bw[1], _ia[1]), _bw[2], min(_bw[3], _ia[3]))):
+            _r = (max(_r[0], 0), max(_r[1], 0), min(_r[2], W), min(_r[3], H))
+            if _r[2] - _r[0] > 0.1 and _r[3] - _r[1] > 0.1:
+                _cr = fitz.Rect(_r[0] * MM, _r[1] * MM, _r[2] * MM, _r[3] * MM)
+                _pg.show_pdf_page(_cr, fitz.open(_SITE_PDF[gr]), 0, clip=_cr)
         _pg.show_pdf_page(fitz.Rect(_off[0] * MM, _off[1] * MM, (_off[0] + _pw) * MM, (_off[1] + _ph) * MM), fitz.open(_SPB + suf), 0)
         _fn = os.path.join(OUT, f"_site_{gr}_upd.pdf"); _nd.save(_fn); _nd.close()
         _SITE_PDF[gr] = _fn
     print("配置図：線と色は更新係の配置図から（ずれ", np.round(_off, 1), "mm）")
 _SCLIP = (sx, H - sy - sh, sx + sw, H - sy)                                  # 元のPDFのmm（左上から）
-for gr in ("c", "l", "t", "o", "s"):                                          # 1枚目：色 → 線 → 文字 → 風と視線 → 太陽の順に重ねる
+for gr in ("c", "l", "t", "o"):                                               # 1枚目：色 → 線 → 文字 → 風と視線の順に重ねる（太陽は外した、ユーザー 10-26）
     embed(1, _SITE_PDF[gr], _SCLIP, sx, sy, 1.0)
 scalebar(ax, sx + 6, sy - 22, 200, 20)
 # いちばん下の帯：沿川の景観立面　昼（左）・夜（右）1/300（ユーザー、10-26：2枚目から戻す。配置図の高野川の辺のすぐ下で、川の向こうから見た姿）
@@ -1427,7 +1471,7 @@ SOZAI_FILES = [("01a", "配置図　1/200　線（屋根伏せ・外構・園庭
                ("01b", "配置図　1/200　色（屋根・太陽光・光の筋・園庭・水・木）", "色", "いちばん下に置く"),
                ("01c", "配置図　1/200　文字（建物と園庭の名前・道の注・方位のN）", "文字", "いちばん上に置く"),
                ("01d", "配置図　1/200　夏の夜の風と比叡への視線（重ねる層、地は透明）", "風と視線", "文字の上に重ねる"),
-               ("01e", "配置図　1/200　太陽の通り道（夏至・冬至の日の出・日の入り、重ねる層）", "太陽", "文字の上に重ねる")]
+]
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
 # 引き出しの点（紙のmm）
@@ -1902,15 +1946,15 @@ for key, name, gr_nm, note in SOZAI_FILES:                    # 配置図の三�
     fn = f"{key}_配置図_1-200_{gr_nm}.pdf"
     SITEMAP[_SITE_PDF[gr]] = fn
     nd = fitz.open()
-    pg_ = nd.new_page(width=sw * MM, height=sh * MM)
-    pg_.show_pdf_page(pg_.rect, fitz.open(_SITE_PDF[gr]), 0, clip=fitz.Rect(_SCLIP[0] * MM, _SCLIP[1] * MM, _SCLIP[2] * MM, _SCLIP[3] * MM))
+    pg_ = nd.new_page(width=bsw * MM, height=bsh * MM)                    # 大きい方の窓（Illustratorで切り抜く）
+    pg_.show_pdf_page(pg_.rect, fitz.open(_SITE_PDF[gr]), 0, clip=fitz.Rect(bsx * MM, (H - bsy - bsh) * MM, (bsx + bsw) * MM, (H - bsy) * MM))
     hs = hashlib.md5(pg_.get_pixmap(dpi=40).samples).hexdigest()
     nd.save(os.path.join(SZ, fn), garbage=3, deflate=True)
     nd.close()
     old = _st.get(fn, {})
     _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
-    _rows.insert(len([r_ for r_ in _rows if r_.startswith("| 01")]), f"| {key} | `{fn}` | {name} | 1枚目 | {sw:.0f}×{sh:.0f} | {_st[fn]['updated']} | {note} |")
-for _old in ("01_配置図_1-200.pdf",):
+    _rows.insert(len([r_ for r_ in _rows if r_.startswith("| 01")]), f"| {key} | `{fn}` | {name} | 1枚目 | {bsw:.0f}×{bsh:.0f}（見本は{sw:.0f}×{sh:.0f}で切り抜き） | {_st[fn]['updated']} | {note} |")
+for _old in ("01_配置図_1-200.pdf", "01e_配置図_1-200_太陽.pdf"):          # 太陽の素材（空）は外す（ユーザー、10-26夕）
     if os.path.exists(os.path.join(SZ, _old)):
         os.remove(os.path.join(SZ, _old))
     _st.pop(_old, None)
@@ -1948,7 +1992,7 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
-ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, embeds=embeds, topl=TOPL, topt=TOPT,
+ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], anchors={"p1.siteplan": PLAN_ANCHOR}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT,
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
 
 # 壁に貼ったときの全体（3枚＋2枚）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る

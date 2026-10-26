@@ -126,6 +126,25 @@ SDY.placeLink = function (doc, lay, i, p) {
     var it = lay.placedItems.add();
     it.file = f;
     var tl = SDY.P(doc, i, p.x, p.y), s = p.scale || 1, K = SDY.K;
+    if (!p.clip && p.clipgroup) {                    // 大きく描いた配置図を一つの切り抜きのグループに（四角を動かして使う大きさを選ぶ、ユーザー 10-26夕）
+        it.width = p.w * K; it.height = p.h * K;
+        it.position = tl;
+        SDY.tag(it, p);
+        var cg = null, q;
+        for (q = 0; q < lay.groupItems.length; q++) { if (lay.groupItems[q].name === p.clipgroup) { cg = lay.groupItems[q]; break; } }
+        if (!cg) {
+            cg = lay.groupItems.add(); cg.name = p.clipgroup;
+            it.move(cg, ElementPlacement.PLACEATBEGINNING);
+            var ct = SDY.P(doc, i, p.cliprect[0], p.cliprect[1]);
+            var cr = cg.pathItems.rectangle(ct[1], ct[0], p.cliprect[2] * K, p.cliprect[3] * K);
+            cr.filled = false; cr.stroked = false; cr.name = "切り抜きの四角（これを動かす・大きさを変える）";
+            cr.move(cg, ElementPlacement.PLACEATBEGINNING);
+            cg.clipped = true;
+        } else {
+            it.move(cg.pageItems[0], ElementPlacement.PLACEAFTER);   // 四角のすぐ下＝前に入れた物の上
+        }
+        return it;
+    }
     if (!p.clip) {
         it.width = p.w * K; it.height = p.h * K;
         it.position = tl;
@@ -377,6 +396,11 @@ SDY.copyUserItems = function (src, dst) {             // 前の .ai の木田さ
             if (ai >= 0 && ai < dst.artboards.length) {
                 ra = src.artboards[ai].artboardRect; rb = dst.artboards[ai].artboardRect;
                 dup.translate(rb[0] - ra[0], rb[1] - ra[1]);
+                var sp = SDY.planShift, gb = it.geometricBounds;
+                if (sp && ai === sp.ab) {                  // 配置図の上に描いた物は、配置図が紙の上で動いた分だけ一緒に動かす
+                    var cx = ((gb[0] + gb[2]) / 2 - ra[0]) / SDY.K, cy = (ra[1] - (gb[1] + gb[3]) / 2) / SDY.K, w = sp.win;
+                    if (cx >= w[0] && cx <= w[0] + w[2] && cy >= w[1] && cy <= w[1] + w[3]) { dup.translate(sp.dx * SDY.K, -sp.dy * SDY.K); sp.n++; }
+                }
             }
             n++;
         } catch (e) { SDY.missing.push("木田さんの物（" + (it.name || it.typename) + "）を写せなかった：" + e.message); }

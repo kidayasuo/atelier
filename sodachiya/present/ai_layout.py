@@ -35,9 +35,10 @@ def write(c):
     em = lambda size_mm: size_mm / 0.72                                # em（mm）
     rel = lambda p: os.path.relpath(p, ROOT).replace(os.sep, "/")
     try:
-        user = json.load(open(os.path.join(AI, "layout_user.json"), encoding="utf-8")).get("parts", {})
+        _USER_ALL = json.load(open(os.path.join(AI, "layout_user.json"), encoding="utf-8"))
     except Exception:
-        user = {}
+        _USER_ALL = {}
+    user = _USER_ALL.get("parts", {})
     pages = []
     for pi, fig in enumerate(figs):
         no = pi + 1
@@ -94,8 +95,13 @@ def write(c):
                 continue
             if src in c["sitemap"]:
                 fn = c["sitemap"][src]
+                _uc = _USER_ALL.get("siteclip")                 # Illustratorで選んだ切り抜き（export_layout.jsx）
+                if _uc:
+                    x, w, h = _uc["x"], _uc["w"], _uc["h"]; y = H - _uc["y"] - h
+                bx, by, bw, bh = c["sitebig"]                   # 素材は大きい窓、切り抜きの四角が見せる窓（一つのグループに四つ、ユーザー 10-26夕）
                 add(dict(id=f"sozai.{fn.split('_')[0]}", name=f"素材 {fn[:-4]}", kind="link", layer="図", file=rel(os.path.join(HERE, "sozai", fn)),
-                         x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2), clip=None, scale=1))
+                         x=round(bx, 2), y=round(by, 2), w=round(bw, 2), h=round(bh, 2), clip=None, scale=1,
+                         clipgroup="配置図（切り抜き）", cliprect=[round(x, 2), round(H - y - h, 2), round(w, 2), round(h, 2)]))
             else:
                 full = clip[0] == 0 and clip[1] == 0
                 add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {os.path.basename(src)}", kind="link", layer="図",
@@ -187,6 +193,7 @@ def write(c):
                frame=dict(margin=M, header=16, title=dict(s="こどもたちの育ち舎", x=M + 4, y=M + 11, size_pt=pt(6.5), font="W6"),
                           footer=dict(s="建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", x=W - M - 4, y=H - M - 4, size_pt=pt(3.0), font="W3", align="right"),
                           lw_rect=0.6, lw_header=0.4, color="#222222"),
+               anchors=c.get("anchors", {}), anchors_prev=c.get("anchors_prev", {}),
                pages=pages)
     json.dump(out, open(os.path.join(AI, "layout.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=0)
     print("Illustratorの割付：", ", ".join(f"{p['no']}枚目 {len(p['parts'])}部品" for p in pages))
