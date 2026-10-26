@@ -704,6 +704,108 @@ def wall_sheets():
     s.save(texts)
     return {k: tuple(round(v, 1) for v in g.bounds[2:]) for k, g in W.items()}
 
+# ================= 9. 室内の壁（本館 38・西館 24） =================
+def _panel(g):
+    """薄い壁のメッシュを立面の板に：平面の長い向き（主成分）を u、高さを z（自分の下端から）にして、
+    板の面を向く面だけを投影して合わせる（戸の開口が穴や切り欠きになる）。返す：(板, 平面の中心, 向き, 厚さ, 下端 z)"""
+    V, F = g.Vertices, g.Faces
+    P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
+    c = P[:, :2].mean(0); xy = P[:, :2] - c
+    _, _, vt = np.linalg.svd(xy, full_matrices=False); ax, nx = vt[0], vt[1]
+    T = np.ptp(xy @ nx); H = np.ptp(P[:, 2])
+    if T > 250 or H < 600: return None
+    z0 = P[:, 2].min(); polys = []
+    for j in range(len(F)):
+        f = F[j]; idx = list(dict.fromkeys([f[0], f[1], f[2], f[3]])); q = P[idx]
+        n = np.cross(q[1] - q[0], q[2] - q[0])
+        if np.linalg.norm(n) < 1e-6: continue
+        n /= np.linalg.norm(n)
+        if abs(n[:2] @ nx) < 0.9: continue
+        pg = Polygon(np.column_stack(((q[:, :2] - c) @ ax, q[:, 2] - z0)))
+        if pg.area > 1: polys.append(pg.buffer(0.5))
+    if not polys: return None
+    u = unary_union(polys).buffer(-0.5)
+    u = affinity.scale(u, S, S, origin=(0, 0))
+    u = unary_union([p_ for p_ in getattr(u, 'geoms', [u]) if p_.area > 2])
+    if u.is_empty: return None
+    b = u.bounds
+    return affinity.translate(u, -b[0], -b[1]), c, ax, T, z0
+
+def interior_parts():
+    out = []
+    for lay, tag in (('38_しつらえ_間仕切り・框・腰壁', '本館'), ('24_西館_間仕切り', '西館')):
+        for g in objs(lay):
+            if not isinstance(g, r.Mesh): continue
+            pn = _panel(g)
+            if pn: out.append((tag,) + pn)
+    return out
+
+def _shelf(items, W, H, gap=2.0):
+    sheets = [[]]; x = y = rowh = 0
+    for it in sorted(items, key=lambda it: -it[1].bounds[3]):
+        w, h = it[1].bounds[2], it[1].bounds[3]
+        if x + w > W: x = 0; y += rowh + gap; rowh = 0
+        if y + h > H: sheets.append([]); x = y = rowh = 0
+        sheets[-1].append((it, x, y)); x += w + gap; rowh = max(rowh, h)
+    return sheets
+
+def interior_sheets():
+    parts = interior_parts()
+    items = [(f'{i + 1}', pn[1], pn) for i, pn in enumerate(parts)]
+    items = [(n, g, pn) for n, g, pn in items]
+    sh = _shelf([(n, g) for n, g, _ in items], 590, 290)
+    names = {}
+    for si, lst in enumerate(sh):
+        s = Sheet(f'09_室内の壁_{si + 1}_航空ベニヤ0.6', 600, 300,
+                  '航空ベニヤ 0.6 300×600：本館と西館の室内の壁・腰壁・框（番号は 10_室内の壁の配置図 と同じ）。高さは床の上面から')
+        s.add(box(0, 0, 600, 300), 'ref')
+        for (n, g), x, y in lst:
+            q = affinity.translate(g, x, 290 - y - g.bounds[3])
+            s.add(q)
+            c = q.representative_point()
+            for j, ch in enumerate(n):
+                for l in label_num(ch, c.x - len(n) * 0.6 + j * 1.2, c.y - 0.6, 1.2): s.add(l, 'eng')
+        s.save([])
+    # 配置図（1/100、平面）：壁の位置と番号
+    import matplotlib; matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+    plt.rcParams['font.family'] = 'Noto Sans CJK JP'
+    ang = sheet_angle()
+    up = plan('10_本館_屋根')
+    flo = unary_union([plan('12_本館_床（はだし ±0）'), plan('14_本館_外縁側（土足 −150）'), plan('15_本館_海峡（土足 −150）')])
+    wfl = unary_union([plan(n) for n in ('31_1F_遊戯室', '32_1F_キッチン', '33_1F_東の帯（はだし ±0、ホールと一続き）', '34_1F_食べる土間') if n in LAY])
+    path = os.path.join(OUT, '10_室内の壁の配置図.pdf')
+    with PdfPages(path) as pdf:
+        for tag in ('本館', '西館'):
+            fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4)); axp = fig.add_axes([0, 0, 1, 1])
+            ub = to_sheet(unary_union([flo, wfl]), ang, (0, 0)).bounds
+            off = (20 - ub[0], 60 - ub[1])
+            ts = lambda g: affinity.translate(to_sheet(g, ang, (0, 0)), *off)
+            for base in (flo, wfl):
+                for gg in getattr(base, 'geoms', [base]):
+                    q = ts(gg)
+                    xs, ys = q.exterior.xy; axp.plot(xs, ys, color='0.75', lw=0.4)
+            for g in list(cols) + list(objs('22a_西館_柱')):
+                b_ = g.GetBoundingBox() if not isinstance(g, MeshCol) else None
+                pc = Point((b_.Min.X + b_.Max.X) / 2, (b_.Min.Y + b_.Max.Y) / 2) if b_ else Point(g.PathStart.X, g.PathStart.Y)
+                q = ts(pc); axp.plot([q.x], [q.y], 's', color='0.3', ms=2)
+            for (n, g, pn) in items:
+                if pn[0] != tag and tag == '西館' and False: pass
+                tg, panel, c, ax_, T, z0 = pn
+                L_ = panel.bounds[2] / S
+                a = np.array(c) - ax_ * L_ / 2; b = np.array(c) + ax_ * L_ / 2
+                from shapely.geometry import LineString
+                ln = ts(LineString([a, b])); xs, ys = ln.xy
+                col = 'tab:red' if tg == tag else '0.6'
+                axp.plot(xs, ys, color=col, lw=1.2)
+                mid = ln.interpolate(0.5, normalized=True)
+                axp.text(mid.x, mid.y, n, fontsize=5, color=col, ha='center', va='center')
+            axp.set_xlim(0, 841); axp.set_ylim(0, 594); axp.set_aspect('equal'); axp.axis('off')
+            axp.text(20, 20, f'室内の壁の配置図：{tag}の壁を赤（番号＝09 の板の番号）。A1 に 100% で印刷すると模型と同じ大きさ', fontsize=10)
+            pdf.savefig(fig); plt.close(fig)
+    return len(parts), [len(l) for l in sh]
+
 if __name__ == '__main__':
     test_sheets()
     frame_sheets()
@@ -712,4 +814,5 @@ if __name__ == '__main__':
     print('本館の屋根', roof_sheets())
     print('西館の架構', west_sheets())
     print('本館の外壁', wall_sheets())
+    print('室内の壁', interior_sheets())
     print('ok', OUT)
