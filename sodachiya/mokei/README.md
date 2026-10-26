@@ -1,6 +1,6 @@
 # 育ち舎　1/100 模型
 
-担当：模型作成のチャット。寸法は `../data/mokei.json`、レーザー用のデータ（DXF）はこのフォルダに出す。3dm（`../model/sodachiya_exact_mesh.3dm`）は読むだけ。
+担当：模型作成のチャット。寸法は `../data/mokei.json`、レーザー用のデータ（SVG）はこのフォルダに出す。3dm（`../model/sodachiya_exact_mesh.3dm`）は読むだけ。
 
 ## 考え方
 
