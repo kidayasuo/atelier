@@ -1244,7 +1244,7 @@ ELEV_FILL = lambda ob: ('#DCE9F2' if kind(ob['layer']) == 'glass' else
                         '#BDBDBD' if num(ob['layer']) in (10, 20, 26, 28) else
                         '#E9DCC4' if num(ob['layer']) in (11, 22, 18, 30, 50) or ob['layer'].startswith(('16', '19b', '89')) and kind(ob['layer']) != 'glass' else
                         'white')
-YAMATO, YAMATO_P = (17, 21), 120        # 杉の大和張りの外壁（本館 17・西館 21）、見えの割り 約120
+YAMATO, YAMATO_P = (17, 21), 120        # 杉の大和張りの外壁（本館 17・西館 21、ほかに機械室 35_ の塊も、10-26）、見えの割り 約120
 def yamato_lines(A, mode, ob, vis):
     """見る人に向く立った面ごとに、壁に沿って 120 おきの縦の線（面の上の位置で割るので、弧や斜めの壁では見えの間隔が詰まる）。
     同じ物の奥の面（反対側の壁の内側など）は手前の面で隠す。線は物の見える所（vis）だけ。"""
@@ -1252,7 +1252,7 @@ def yamato_lines(A, mode, ob, vis):
     T = ob['T']; nrm = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]); L = np.linalg.norm(nrm, axis=1)
     ok = L > 1e-6; T = T[ok]; nrm = nrm[ok] / L[ok, None]
     vd = np.array(ELEV_VIEWS[[v[0] for v in ELEV_VIEWS].index(mode)][3], float)
-    face = (np.abs(nrm[:, 2]) < 0.15) & (np.abs(nrm[:, :2] @ vd) > 0.2)          # 立った面で、見る人の側に向くか背を向けるか
+    face = (np.abs(nrm[:, 2]) < 0.15) & ((nrm[:, :2] @ vd) < -0.2)                # 立った面で、見る人の側に向く面（外向きの法線、10-26）
     T = T[face]; nrm = nrm[face]
     if not len(T): return
     t2 = np.stack([-nrm[:, 1], nrm[:, 0]], -1); t2 /= np.linalg.norm(t2, axis=1, keepdims=True)
@@ -1288,76 +1288,218 @@ def yamato_lines(A, mode, ob, vis):
     g = unary_union(segs).intersection(vis.buffer(-8))
     if not g.is_empty: A.geom_lines(g, '09b_立面_大和張り', lw=0.05, color='0.45', z=2.5)
 
+ELEV_RES = 10.0          # 見える所を決める格子（mm）。1/100 で 0.1 mm（水切り 20 mm の上下の縁が線になるように）
+def _raster(tris_hz, depth, ids, shape, x0, z0, R, zb, ib, chunk=3_000_000, it=None):
+    """三角形（見る面の (h, z) と奥行き）を格子に描き、格子ごとにいちばん手前の奥行き zb と物の番号 ib を残す（z バッファ）"""
+    ny, nx = shape
+    X = (tris_hz[:, :, 0] - x0) / R; Y = (tris_hz[:, :, 1] - z0) / R
+    ix0 = np.clip(np.floor(X.min(1)).astype(int), 0, nx - 1); ix1 = np.clip(np.ceil(X.max(1)).astype(int), 0, nx - 1)
+    iy0 = np.clip(np.floor(Y.min(1)).astype(int), 0, ny - 1); iy1 = np.clip(np.ceil(Y.max(1)).astype(int), 0, ny - 1)
+    w = ix1 - ix0 + 1; h = iy1 - iy0 + 1; n = (w * h).astype(np.int64)
+    ax, ay, bx, by, cx, cy = X[:, 0], Y[:, 0], X[:, 1], Y[:, 1], X[:, 2], Y[:, 2]
+    den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+    good = np.abs(den) > 1e-9
+    order = np.nonzero(good)[0]
+    cs = np.cumsum(n[order]); start = 0
+    while start < len(order):
+        end = max(start + 1, int(np.searchsorted(cs, (cs[start - 1] if start else 0) + chunk)) + 1)
+        sel = order[start:end]; start = end
+        cnt = n[sel]; tot = int(cnt.sum())
+        if tot == 0: continue
+        t = np.repeat(sel, cnt)
+        k = np.arange(tot) - np.repeat(np.cumsum(cnt) - cnt, cnt)
+        px = ix0[t] + k % w[t]; py = iy0[t] + k // w[t]
+        fx = px + 0.5; fy = py + 0.5
+        l1 = ((by[t] - cy[t]) * (fx - cx[t]) + (cx[t] - bx[t]) * (fy - cy[t])) / den[t]
+        l2 = ((cy[t] - ay[t]) * (fx - cx[t]) + (ax[t] - cx[t]) * (fy - cy[t])) / den[t]
+        l3 = 1 - l1 - l2
+        ins = (l1 >= -1e-6) & (l2 >= -1e-6) & (l3 >= -1e-6)
+        if not ins.any(): continue
+        t, px, py, l1, l2, l3 = t[ins], px[ins], py[ins], l1[ins], l2[ins], l3[ins]
+        dd = l1 * depth[t, 0] + l2 * depth[t, 1] + l3 * depth[t, 2]
+        flat = py * nx + px
+        np.minimum.at(zb, flat, dd)
+        win = dd <= zb[flat] + 1e-6
+        ib[flat[win]] = ids[t[win]]
+        if it is not None: it[flat[win]] = t[win]
+
+def _mask_poly(mask, x0, z0, R):
+    """格子の真偽 → 形（m m）。外の輪と穴は向きで分ける"""
+    from skimage import measure
+    if not mask.any(): return Polygon()
+    M = np.pad(mask.astype(np.uint8), 1)
+    outs, holes = [], []
+    for c in measure.find_contours(M, 0.5):
+        if len(c) < 4: continue
+        pts = np.c_[x0 + (c[:, 1] - 1 + 0.5) * R, z0 + (c[:, 0] - 1 + 0.5) * R]
+        pg = Polygon(pts)
+        if not pg.is_valid: pg = pg.buffer(0)
+        if pg.is_empty or pg.area < 4 * R * R: continue
+        sa = 0.5 * np.sum(pts[:-1, 0] * pts[1:, 1] - pts[1:, 0] * pts[:-1, 1])
+        (outs if sa > 0 else holes).append(pg)
+    if not outs: return Polygon()
+    g = unary_union(outs)
+    if holes: g = g.difference(unary_union(holes))
+    return g.buffer(R * 0.3, join_style=2).buffer(-R * 0.3, join_style=2)
+
+def _fill_cracks(zb, ib, it, ny, nx, gap=50.0):
+    """幅 1 ます（ELEV_RES）の割れ目をふさぐ：別々の立体に分けた壁のあいだの 1 mm ほどのすき間に格子の中心が落ちると、
+    そこだけ奥が見えて、塗りの白い筋と、線の切れ端（すき間の縁）が出ていた（10-26）。両隣が手前で近い奥行きなら両隣でふさぐ。
+    1/100 で 0.1 mm より細いすき間は図に描けないので、本当のすき間を消すことにはならない"""
+    Z = zb.reshape(ny, nx); I = ib.reshape(ny, nx); T = it.reshape(ny, nx)
+    for ax in (1, 0):
+        Zs = Z if ax == 1 else Z.T; Is = I if ax == 1 else I.T; Ts = T if ax == 1 else T.T
+        a, c, b = Zs[:, :-2], Zs[:, 1:-1], Zs[:, 2:]
+        fin = np.isfinite(a) & np.isfinite(b)
+        crk = fin & (np.abs(np.where(fin, a - b, 0)) < gap) & (c > np.maximum(a, b) + gap)
+        r_, c_ = np.nonzero(crk); c_ = c_ + 1
+        src = np.where(Zs[r_, c_ - 1] <= Zs[r_, c_ + 1], c_ - 1, c_ + 1)
+        Zs[r_, c_] = Zs[r_, src]; Is[r_, c_] = Is[r_, src]; Ts[r_, c_] = Ts[r_, src]
+
+ELEV_OUTLINE_ONLY = ('30_', '50c', '29_', '50b', '16b', '10p', '20p', '16e', '58', '50d')
+def _feature_edges(T, vd, crease_deg=25.0):
+    """物の三角形 T（3D）から、立面に描く線になる辺：折れ目（隣の面と crease_deg 以上折れる）・縁（面が片側だけ）・
+    輪郭（隣の面の一方が見る人に向き、もう一方が背を向ける：丸い柱など）→ (n, 2, 3)"""
+    import trimesh as _tm
+    try:
+        m = _tm.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3), process=False)
+        m.merge_vertices(digits_vertex=1)
+    except Exception:
+        return np.zeros((0, 2, 3))
+    if len(m.faces) == 0: return np.zeros((0, 2, 3))
+    V = m.vertices; out = []
+    try:
+        adj = m.face_adjacency; ang = m.face_adjacency_angles; e = m.face_adjacency_edges
+        fn = m.face_normals; s0 = fn[adj[:, 0]] @ vd; s1 = fn[adj[:, 1]] @ vd
+        tri = m.triangles; el = np.linalg.norm(tri - np.roll(tri, 1, axis=1), axis=2).max(1)
+        alt = 2 * m.area_faces / np.maximum(el, 1e-9)                            # いちばん長い辺に対する高さ
+        good = alt > 8.0
+        big = good[adj[:, 0]] & good[adj[:, 1]]                                   # 細い三角形（面の向きが当てにならない）の折れは線にしない
+        # 細い三角形の帯を挟んで同じ平面に戻る所も線にしない：両側の大きい面どうしで比べる代わりに、折れの両側が同じ平面かを頂点で確かめる
+        keep = (ang > math.radians(crease_deg)) | ((s0 < 0) != (s1 < 0))      # 候補は広く取り、本当の線かは画面の上で確かめる（elevation）
+        out.append(V[e[keep]])
+    except Exception:
+        pass
+    eu = m.edges_sorted; g = _tm.grouping.group_rows(eu, require_count=1)
+    if len(g): out.append(V[eu[g]])
+    return np.concatenate(out) if out else np.zeros((0, 2, 3))
+
 def elevation(A, mode, objs):
+    """立面（水平な視線の正投影）。見える所は z バッファ（ELEV_RES の格子）で三角形ごとに手前・奥を決め、塗りは物ごとの見える所。
+    線は物の折れ目・縁・輪郭の辺（_feature_edges）を z バッファで隠線処理して、見える所だけ（水切り・壁の出隅・軒先・窓の枠の線も出る）。
+    （10-26 監修、ユーザー：製図として完全に正しく。前は物ごと・塊ごとに手前から塗り、線は物の外形だけだったので、重なる順の取り違え
+    （屋根の白抜け・窓の欠け）と、物の中の線（水切りなど）の抜けがあった）。ガラスは向こうを隠さない：ガラスの奥の線は細い灰色"""
     _, H, D, _ = ELEV[mode]
-    items = []
+    vd = np.array(ELEV_VIEWS[[v[0] for v in ELEV_VIEWS].index(mode)][3], float); vd3 = np.array([vd[0], vd[1], 0.0])
+    R = ELEV_RES
+    recs = []
     for ob in objs:
         T = ob['T']
-        if num(ob['layer']) in (10, 20):
-            # 屋根（厚みの無い面）：見る人の側へ下がっている三角形だけ（向こうへ下がる面は棟の向こうで見えない）
-            P3 = T.reshape(-1, 3)
-            Q = np.concatenate([np.stack([H(P3).reshape(-1, 3), D(P3).reshape(-1, 3)], -1), T[:, :, 2:3]], -1)
-            nrm = np.cross(Q[:, 1] - Q[:, 0], Q[:, 2] - Q[:, 0]); nrm *= np.sign(nrm[:, 2:3] + 1e-12)
-            keep = nrm[:, 1] < -1e-6 * np.linalg.norm(nrm, axis=1)      # 上向きの法線が見る人（奥行きの小さい側）を向く
-            T = T[keep]
-            if not len(T): continue
         P = T.reshape(-1, 3); h = H(P).reshape(-1, 3); d = D(P).reshape(-1, 3)
-        T2 = np.stack([h, T[:, :, 2]], -1)
-        # 長いもの（弧に沿う桁・壁・屋根）は 3 m ごとに分けて、手前・奥の順を部分ごとに（建物が弧なので端が手前に来る）
-        key = np.floor(h.mean(1) / 3000.0) if h.max() - h.min() > 4000 else np.zeros(len(h))
-        # 奥行きの大きいもの（削る段で一つの立体にまとめた外壁など、手前の西の壁と奥の東の壁・妻・越屋根の立ち上がりが一つの物）は
-        # 奥行き 2 m ごとにも分ける。分けないと奥の壁の形が手前の深さで先に塗られ、手前の壁の窓や、そのあいだの屋根を白く隠していた
-        # （10-26 監修、ユーザー：道路の側の立面図の屋根が一部白く抜けている。西の窓も東の壁の開口と重なる所しか出ていなかった）
-        if d.max() - d.min() > 4000:
-            key = key * 1000 + np.floor(d.mean(1) / 2000.0)
-        whole = silhouette(T2) if len(np.unique(key)) > 1 else None
-        for kk in np.unique(key):
-            sel = key == kk
-            sil = silhouette(T2[sel])
-            edge = None
-            if whole is not None and sil is not None:          # 線は全体の外形から（分け目の線は描かない）
-                edge = whole.boundary.intersection(sil.buffer(3))
-            items.append((d[sel].min(), (ob, edge), sil))
-    items.sort(key=lambda t: t[0])
-    occ = Polygon(); gocc = Polygon(); wvis = {}
-    for i, (_, (ob, edge0), sil) in enumerate(items):
-        if sil is None or sil.is_empty: continue
-        k = kind(ob['layer'])
-        try:
-            vis = sil.difference(occ) if not occ.is_empty else sil
-        except Exception:                      # 形が細かすぎて GEOS が穴を割り当てられないとき：少し丸めてからもう一度
-            occ = occ.buffer(0.5).buffer(-0.5).simplify(1); sil = sil.buffer(0)
-            try: vis = sil.difference(occ)
-            except Exception: continue
+        recs.append((ob, np.stack([h, T[:, :, 2]], -1), d))
+    allh = np.concatenate([r_[1][:, :, 0].ravel() for r_ in recs]); allz = np.concatenate([r_[1][:, :, 1].ravel() for r_ in recs])
+    x0, z0 = allh.min() - 2 * R, allz.min() - 2 * R
+    nx = int(math.ceil((allh.max() - x0) / R)) + 3; ny = int(math.ceil((allz.max() - z0) / R)) + 3
+    zbO = np.full(nx * ny, np.inf); ibO = np.full(nx * ny, -1, np.int32); itO = np.full(nx * ny, -1, np.int64)
+    zbG = np.full(nx * ny, np.inf); ibG = np.full(nx * ny, -1, np.int32)
+    GL_ = [i for i, r_ in enumerate(recs) if kind(r_[0]['layer']) == 'glass']
+    OP_ = [i for i, r_ in enumerate(recs) if kind(r_[0]['layer']) != 'glass']
+    NRM = np.zeros((1, 3))
+    for grp, zb, ib, it in ((OP_, zbO, ibO, itO), (GL_, zbG, ibG, None)):
+        if not grp: continue
+        T2s = np.concatenate([recs[i][1] for i in grp]); ds = np.concatenate([recs[i][2] for i in grp])
+        ids = np.concatenate([np.full(len(recs[i][1]), i, np.int32) for i in grp])
+        _raster(T2s, ds, ids, (ny, nx), x0, z0, R, zb, ib, it=it)
+        if it is not None:                                                       # 見えている面の向き（線の判定に使う）
+            T3 = np.concatenate([recs[i][0]['T'] for i in grp]); NRM = np.cross(T3[:, 1] - T3[:, 0], T3[:, 2] - T3[:, 0])
+            NRM /= np.maximum(np.linalg.norm(NRM, axis=1, keepdims=True), 1e-9)
+    _fill_cracks(zbO, ibO, itO, ny, nx)
+    glass_front = (zbG < zbO)
+    ibO2 = ibO.reshape(ny, nx); gf2 = glass_front.reshape(ny, nx); ibG2 = ibG.reshape(ny, nx)
+    GOCC = _mask_poly(gf2, x0, z0, R)
+    wvis = {}; allsil = []
+    present = set(np.unique(ibO[ibO >= 0]).tolist()) | set(np.unique(ibG[(ibG >= 0) & glass_front]).tolist())
+    order = sorted(present, key=lambda i: float(recs[i][2].min()))
+    TOL = 30.0
+    for i in order:
+        ob, T2, d = recs[i]; k = kind(ob['layer'])
+        vis = _mask_poly(((ibG2 == i) & gf2) if k == 'glass' else (ibO2 == i), x0, z0, R)
         if vis.is_empty: continue
-        if num(ob['layer']) in YAMATO and k != 'glass': wvis.setdefault(id(ob), (ob, []))[1].append(vis)
+        sil = silhouette(T2)
+        if sil is not None and not sil.is_empty: allsil.append(sil)
+        fvis = vis.difference(GOCC) if (k != 'glass' and not GOCC.is_empty) else vis
+        if (num(ob['layer']) in YAMATO or ob['layer'].startswith('35_')) and k != 'glass' and not fvis.is_empty: wvis.setdefault(id(ob), (ob, []))[1].append(fvis)
         lay = LAYER_OF[k][1]
         fc = ELEV_FILL(ob)
-        if fc != 'white': A.fill(vis, lay, fc=fc, z=1, seam=True)
-        eb = edge0 if edge0 is not None else sil.boundary
-        edge = eb.difference(occ.buffer(2)) if not occ.is_empty else eb
-        if k != 'glass' and not gocc.is_empty and edge.intersects(gocc):
-            # ガラスの奥に透けて見える線は細く淡く（手前の形が読めるように。弧なので妻からは奥の架構が全部透ける）
-            A.geom_lines(edge.difference(gocc), lay, lw=0.13, color='k', z=3)
-            A.geom_lines(edge.intersection(gocc), lay, lw=0.06, color='0.55', z=3)
+        if fc != 'white' and not fvis.is_empty: A.fill(fvis, lay, fc=fc, z=1, seam=True)
+        # 細かく繰り返す物（ルーバー・LED・ガラリ・太陽光の板・天井扇・ロゴ）は、1/100 で線が詰まって黒くなるので外形だけ（前のとおり）
+        if ob['layer'].startswith(ELEV_OUTLINE_ONLY):
+            if sil is not None and not sil.is_empty:
+                eg = sil.boundary.intersection(vis.buffer(1.5 * R))
+                if not eg.is_empty: A.geom_lines(eg, lay, lw=0.09 if k == 'glass' else 0.13, color='#3d6f9a' if k == 'glass' else 'k', z=3)
+            continue
+        # 線：折れ目・縁・輪郭の辺を細かく区切り、z バッファで見える所だけ
+        E = _feature_edges(ob['T'], vd3)
+        if not len(E): continue
+        P = E.reshape(-1, 3); eh = H(P).reshape(-1, 2); ed = D(P).reshape(-1, 2); ez = P[:, 2].reshape(-1, 2)
+        L2 = np.hypot(eh[:, 1] - eh[:, 0], ez[:, 1] - ez[:, 0]); ok = L2 > 1.0
+        eh, ed, ez, L2 = eh[ok], ed[ok], ez[ok], L2[ok]
+        if not len(L2): continue
+        ns_all = np.maximum(2, np.ceil(L2 / R).astype(int) + 1)
+        front, back = [], []
+        cs = np.cumsum(ns_all); st0 = 0
+        while st0 < len(L2):                                          # 辺を区切って少しずつ（大きな物で記憶があふれないように）
+            en0 = int(np.searchsorted(cs, (cs[st0 - 1] if st0 else 0) + 1_000_000)) + 1
+            en0 = max(st0 + 1, min(en0, len(L2)))
+            sl = slice(st0, en0); st0 = en0
+            ehc, edc, ezc, L2c, ns = eh[sl], ed[sl], ez[sl], L2[sl], ns_all[sl]
+            eid = np.repeat(np.arange(len(L2c)), ns); t = (np.arange(ns.sum()) - np.repeat(np.cumsum(ns) - ns, ns)) / np.repeat(ns - 1, ns)
+            sh = ehc[eid, 0] + t * (ehc[eid, 1] - ehc[eid, 0]); sz = ezc[eid, 0] + t * (ezc[eid, 1] - ezc[eid, 0]); sd = edc[eid, 0] + t * (edc[eid, 1] - edc[eid, 0])
+            px = np.clip(((sh - x0) / R).astype(int), 0, nx - 1); py = np.clip(((sz - z0) / R).astype(int), 0, ny - 1); fl = py * nx + px
+            # 辺の両側（画面で辺に直角に 1 ます）の見えている面をくらべ、奥行きか面の向きか物が変わる所だけを線にする
+            # （同じ平面がつながっている所の継ぎ目・まとめた立体の内側に残ったすき間の面は線にしない。水切りの上下の縁は奥行きが変わるので線になる）
+            dh_ = (ehc[:, 1] - ehc[:, 0]) / L2c; dz_ = (ezc[:, 1] - ezc[:, 0]) / L2c
+            oh = -dz_[eid] * 1.0 * R; oz = dh_[eid] * 1.0 * R
+            def at_(hh, zz):
+                qx = np.clip(((hh - x0) / R).astype(int), 0, nx - 1); qy = np.clip(((zz - z0) / R).astype(int), 0, ny - 1); return qy * nx + qx
+            fa_, fb_ = at_(sh + oh, sz + oz), at_(sh - oh, sz - oz)
+            za, zb_ = zbO[fa_], zbO[fb_]; ta, tb = itO[fa_], itO[fb_]
+            na = np.where((ta >= 0)[:, None], NRM[np.maximum(ta, 0)], 0.0); nb = np.where((tb >= 0)[:, None], NRM[np.maximum(tb, 0)], 0.0)
+            cosab = np.abs((na * nb).sum(1))
+            zc = zbO[fl]; fin3 = np.isfinite(za) & np.isfinite(zb_) & np.isfinite(zc)
+            # 奥行きの段：両側と真ん中の 2 階の差（斜めに見る壁は奥行きが一様に変わるので、両側の差だけだと段に見えて、
+            # 窓の区切りで分けた壁の継ぎ目が線になっていた、10-26）
+            step = np.abs(np.where(fin3, za + zb_ - 2 * np.where(fin3, zc, 0), 0)) > 8.0
+            disc = ((np.isinf(za) != np.isinf(zb_)) | (np.isinf(za) != np.isinf(zc)) | step
+                    | (cosab < math.cos(math.radians(20))) | (ibO[fa_] != ibO[fb_]))
+            nearest = np.minimum(za, zb_)
+            if k == 'glass':
+                seen = (sd <= zbO[fl] + TOL) & (sd <= zbG[fl] + TOL)
+                behind = np.zeros_like(seen)
+            else:
+                seen = (sd <= nearest + TOL) & disc                       # 物の番号では決めない（まとめた外壁は手前と奥の壁が同じ物）
+                behind = seen & (zbG[fl] < sd - TOL)                      # ガラスの奥
+            br = np.r_[0, np.cumsum(ns)]
+            for mask, outl in ((seen & ~behind, front), (behind, back)):
+                if not mask.any(): continue
+                for j in np.unique(eid[mask]):
+                    mm = mask[br[j]:br[j + 1]]; hh = sh[br[j]:br[j + 1]]; zz = sz[br[j]:br[j + 1]]
+                    dmm = np.diff(np.r_[0, mm.astype(np.int8), 0]); st = np.nonzero(dmm == 1)[0]; en = np.nonzero(dmm == -1)[0] - 1
+                    for a_, b_ in zip(st, en):
+                        if b_ > a_: outl.append([(hh[a_], zz[a_]), (hh[b_], zz[b_])])
+        if k == 'glass':
+            if front: A.lines(front, lay, lw=0.09, color='#3d6f9a', z=3)
         else:
-            A.geom_lines(edge, lay, lw={'glass': 0.09}.get(k, 0.13), color={'glass': '#3d6f9a'}.get(k, 'k'), z=3)
-        if k != 'glass':
-            occ = unary_union([occ, sil]) if not occ.is_empty else sil
-            if i % 40 == 39: occ = occ.simplify(1)
-        else:
-            gv = vis.buffer(-2)
-            if not gv.is_empty: gocc = unary_union([gocc, gv]) if not gocc.is_empty else gv
-            if i % 40 == 39 and not gocc.is_empty: gocc = gocc.simplify(1)
+            if front: A.lines(front, lay, lw=0.13, color='k', z=3)
+            if back: A.lines(back, lay, lw=0.06, color='0.55', z=3)
     for ob, vs in wvis.values():                                       # 外壁の大和張り：縦の板の線
         yamato_lines(A, mode, ob, unary_union(vs))
     # 建物の外形（空との境）を太い線に：見えがかり 0.13 の中で建物の形が読めるように（線の強弱）
-    allocc = unary_union([g_ for g_ in (occ, gocc) if not g_.is_empty]) if not (occ.is_empty and gocc.is_empty) else occ
-    if not allocc.is_empty:
-        allocc = allocc.buffer(3, join_style=2).buffer(-3, join_style=2)
+    if allsil:
+        allocc = unary_union(allsil).buffer(3, join_style=2).buffer(-3, join_style=2)
         ext = [LineString(p.exterior.coords) for p in getattr(allocc, 'geoms', [allocc]) if p.geom_type == 'Polygon' and p.area > 2e5]
         if ext: A.geom_lines(unary_union(ext), '09_立面の外形', lw=0.3, color='k', z=3.5)
-    return items
+    return order
 
 def elev_marks(A, mode, objs, h0, h1, with_levels=True):
     """GL の線、高さの記号、通り芯（東・西は架構 1〜20、南・北は W・E）"""
