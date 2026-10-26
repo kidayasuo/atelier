@@ -242,20 +242,16 @@ fence = SL(Q([(25.0, FENCE_D), (32.0, FENCE_D)]))
 fx = fence.intersection(WB.exterior)
 fx = min(getattr(fx, "geoms", [fx]), key=lambda q: q.distance(SPt(P(25.0, FENCE_D))))
 FENCE_S1 = inv((fx.x, fx.y))[0]
-line([P(22.7, PD), P(G0, PD)], lw=1.8, c=C["wood"], z=7.5)             # board fence: east side of the staff bike pocket, up to the building
-line([P(G1, PD), P(SX, PD)], lw=1.8, c=C["wood"], z=7.5)
+import yamato                                                          # 塀はすべてスギの大和張り（ユーザー 10-27）
+yamato.plan(line, P(22.7, PD), P(G0, PD), C["wood"])                   # 職員の駐輪の東の塀（ひろばの道路側）、建物まで
+yamato.plan(line, P(G1, PD), P(SX, PD), C["wood"])
 line([P(G0, PD), P(G0, PD + (G1 - G0))], lw=0.4, c="#555555", z=7.6)    # staff gate leaf (opens into the plaza)
 ax.add_patch(Circle(P((G0 + G1) / 2, PD), 0.16, fc="#555555", ec="white", lw=0.4, zorder=14))
 # park gate (kido) 1.2 wide just SE of the park tip; lattice h1.8 from the gate to the infant fence
 GA0, GA1 = 0.3, 1.5
-line([E(0, 0), E(GA0, 0)], lw=1.6, c=C["wood"], z=7.5)
+yamato.plan(line, E(0, 0), E(GA0, 0), C["wood"])
 lat_end = np.array(inv(FENCE_END)); La = float((lat_end - TIP) @ EE)
-line([E(GA1, 0), FENCE_END], lw=0.4, c=C["wood"], z=7.5)                # 胴縁（板は下で表裏に）
-# 公園側の塀＝スギの大和張り（外壁と同じ、ユーザー 10-27）：縦の板を表と裏に交互、割り 120
-_ps = PARK_SCREEN; _bo = (_ps["rail"]["t"] + _ps["board_t"]) / 2
-for _k, a in enumerate(np.arange(GA1 + _ps["board_w"] / 2, La - _ps["board_w"] / 2 + 1e-6, _ps["pitch"])):
-    _o = _bo if _k % 2 == 0 else -_bo
-    line([E(a - _ps["board_w"] / 2, _o), E(a + _ps["board_w"] / 2, _o)], lw=0.9, c=C["wood"], z=7.6)
+yamato.plan(line, E(GA1, 0), FENCE_END, C["wood"])                    # 公園側の塀＝スギの大和張り（外壁と同じ、ユーザー 10-27）
 ax.add_patch(Arc(E(GA0, 0), 2.4, 2.4, angle=math.degrees(math.atan2(*(np.array(E(1, 0)) - np.array(E(0, 0)))[::-1])),
                  theta1=0, theta2=90, lw=0.35, color="#555555", zorder=7.6))
 LINE = Q([(SX, PD), (22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D), tuple(TIP)]) + [FENCE_END]
@@ -450,7 +446,7 @@ legend = [
     ("16", "駐車5台・乗入れ1か所・スピードバンプ（歩道を続ける）"),
     ("17", "来客の歩道 1.1（車から公園の木戸へ）"),
     ("18", "駐輪 %d台（子乗せ 0.7・0.65 ピッチ）" % N_BIKE),
-    ("19", "板塀 h1.8（道路側、西日と視線よけ）"),
+    ("19", "大和張りの塀 h1.8（道路側、西日と視線よけ、外壁と同じスギ）"),
 ]
 LX = 221
 def leg_row(y, k, txt, r=1.6):
@@ -467,7 +463,7 @@ for i, (k, u, v, t) in enumerate(infant200.ITEMS):
 for (k, u, v, t) in infant200.ITEMS:
     q = W(u, v); ax.add_patch(Circle(q, 0.55, fc="white", ec="black", lw=0.35, zorder=20)); T(q, str(k), 4.6, z=21)
 
-notes = ("職員の自転車：板塀をひろばの西で東へ2.0下げ、建物ぎわまでのポケットに%d台（搬入路から、北の端は下屋の下）。東の塀の南の端に職員の通用口0.9（ひろばへ開く）。縁台と棚は1.6東へ。\n" % STAFF_N + 
+notes = ("職員の自転車：大和張りの塀をひろばの西で東へ2.0下げ、建物ぎわまでのポケットに%d台（搬入路から、北の端は下屋の下）。東の塀の南の端に職員の通用口0.9（ひろばへ開く）。縁台と棚は1.6東へ。\n" % STAFF_N + 
          "行事の日の自転車：車での来園は断り、駐車場を駐輪に（車室1つに約6〜8台）。あふれは公園の道路側の角に一時的に（市と相談、園庭への搬入の道と非常用の門の前は空ける）。\n"
          "西館の西の軒の雨：南の端は鎖樋から石の受け桝を通ってひろばの下の地中の雨水槽（約2m³）へ、菜園の脇の手押しポンプで汲んで子どもが水やり（あふれは浸透桝）、北の端は鎖樋で道路側の雨庭（浸透、約4.1×0.7）へ。\n"
          "見送りの小径：生垣 h1.2（常緑、中にメッシュ柵 h1.2）／下草 0.3／洗い出し 1.9（平ら、ベビーカー可）／砂利 0.2（壁の足もとの跳ね返り止め。屋根と越屋根の蓋は東へ流れる）。\n"

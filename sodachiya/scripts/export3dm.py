@@ -51,21 +51,19 @@ P, Q, srect, E, W = A.P, A.Q, A.srect, A.E, A.W
 for h in A.HEDGE: wall(Q(h), 1.2, "70_外構_生垣・塀・格子")
 wall([P(A.S_PATH0, A.HEDGE_D), P(*A.TIP)], 1.2, "70_外構_生垣・塀・格子")
 _pd0, _pd = A.STAFF_BIKE["pocket"][2], A.STAFF_BIKE["pocket"][3]; _g0, _g1 = A.STAFF_BIKE["gate"]
-wall([P(22.7, _pd), P(_g0, _pd)], 1.8, "70_外構_生垣・塀・格子")          # board fence: east side of the staff bike pocket
-wall([P(_g1, _pd), P(A.SX, _pd)], 1.8, "70_外構_生垣・塀・格子")
-wall([P(_g0 + 0.03, _pd), P(_g1 - 0.03, _pd)], 1.8, "72_外構_柱")                          # staff gate leaf (closed)
+import yamato
+yamato.to3dm(slab, P(22.7, _pd), P(_g0, _pd), "70_外構_生垣・塀・格子")          # board fence: east side of the staff bike pocket
+yamato.to3dm(slab, P(_g1, _pd), P(A.SX, _pd), "70_外構_生垣・塀・格子")
+yamato.to3dm(slab, P(_g0 + 0.03, _pd), P(_g1 - 0.03, _pd), "72_外構_柱")                          # staff gate leaf (closed)
 for _k, _s in enumerate(A.STAFF_POS):                                                    # staff bikes (outlines on the ground)
     _d0 = _pd0 + (0.05 if _k % 2 == 0 else 0.2)
     add_curve([P(_s - 0.15, _d0), P(_s + 0.15, _d0), P(_s + 0.15, _d0 + 1.75), P(_s - 0.15, _d0 + 1.75)], "74_外構_駐車・駐輪・バンプ", close=True)
 slab(srect(*A.WOOD), 0, 1.2, "75_外構_ひろばの家具")                                      # wood rack next to the kamado
-# 公園側の塀＝スギの大和張り（ユーザー 10-27）：胴縁3段＋縦の板を表と裏に交互
-_ps = A.PARK_SCREEN; _bo = (_ps["rail"]["t"] + _ps["board_t"]) / 2; _bw = _ps["board_w"] / 2; _bt = _ps["board_t"] / 2
-for _z in _ps["rail"]["z"]:
-    slab([E(A.GA1, -_ps["rail"]["t"] / 2), E(A.La, -_ps["rail"]["t"] / 2), E(A.La, _ps["rail"]["t"] / 2), E(A.GA1, _ps["rail"]["t"] / 2)], _z, _ps["rail"]["w"], "70_外構_生垣・塀・格子")
-for _k, _a in enumerate(np.arange(A.GA1 + _bw, A.La - _bw + 1e-6, _ps["pitch"])):
-    _o = _bo if _k % 2 == 0 else -_bo
-    slab([E(_a - _bw, _o - _bt), E(_a + _bw, _o - _bt), E(_a + _bw, _o + _bt), E(_a - _bw, _o + _bt)], _ps["foot"], _ps["h"] - _ps["foot"], "70_外構_生垣・塀・格子")
-wall([E(0, 0), E(A.GA0, 0)], 1.8, "70_外構_生垣・塀・格子")
+import yamato                                                                            # 塀と木戸はすべてスギの大和張り（ユーザー 10-27）
+L70 = "70_外構_生垣・塀・格子"
+yamato.to3dm(slab, E(A.GA1, 0), A.FENCE_END, L70)                                         # 公園側の塀
+yamato.to3dm(slab, E(0, 0), E(A.GA0, 0), L70)
+yamato.to3dm(slab, E(A.GA0 + 0.02, 0), E(A.GA1 - 0.02, 0), "72_外構_柱")                   # 公園の木戸の扉（閉じた位置）
 # 71 roofs (flat placeholders, 100 thick): kido 2.6, temizu 2.7, lean-to 2.6, back-door canopy 2.6
 slab(srect(*A.TEM), 2.7, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 import north_common as _NC0
@@ -185,13 +183,13 @@ m.Objects.AddBrep(sph, attr(L79))
 # 70・72・76・77 西館の周りと北（north_common.py、data/approachA.json の NORTH）
 import north_common as NC
 def polys(g): return [q for q in getattr(g, "geoms", [g]) if q.geom_type == "Polygon" and not q.is_empty]
-for f in NC.FENCE: wall(f, NC.N["FENCE_H"], "70_外構_生垣・塀・格子")                   # 読書の庭の板塀
+for f in NC.FENCE: yamato.to3dm(slab, f[0], f[1], "70_外構_生垣・塀・格子", h=NC.N["FENCE_H"])                   # 読書の庭の塀（大和張り）
 _gm = tuple((NC.np.array(NC.GATE[0]) + NC.np.array(NC.GATE[1])) / 2)
 for _a, _b in ((NC.GATE[0], _gm), (_gm, NC.GATE[1])):                                         # 角の両開きの木戸（閉じた位置、扉2枚）
-    wall([_a, _b], NC.N["KOMICHI_GATE"]["h"], "72_外構_柱", 0.05)
+    yamato.to3dm(slab, _a, _b, "72_外構_柱", h=NC.N["KOMICHI_GATE"]["h"])
 for q in NC.GATE: post(q, NC.N["KOMICHI_GATE"]["h"] + 0.1)
-wall(NC.NE_FENCE, NC.NG["h"], "70_外構_生垣・塀・格子")                                     # 北のもりの北の端の板塀（10-25）
-wall(NC.NE_GATE, NC.NG["h"], "72_外構_柱", 0.05)                                              # その木戸（閉じた位置）
+yamato.to3dm(slab, NC.NE_FENCE[0], NC.NE_FENCE[1], "70_外構_生垣・塀・格子", h=NC.NG["h"])                                     # 北のもりの北の端の塀（大和張り、10-25）
+yamato.to3dm(slab, NC.NE_GATE[0], NC.NE_GATE[1], "72_外構_柱", h=NC.NG["h"])                                              # その木戸（閉じた位置）
 for q in (NC.NE_FENCE[0], NC.NE_GATE[0], NC.NE_GATE[1]): post(q, NC.NG["h"] + 0.1)
 for g in (NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.GRAVEL, NC.KOMICHI):
     for q in polys(g): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)

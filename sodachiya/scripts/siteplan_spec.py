@@ -60,7 +60,7 @@ def write(g):
     L("かまど", P(25.0, 8.1), "small")
     _tk = g["RAIN"]["S_TANK"]
     L("雨水槽（地中）・手押しポンプ", P(sum(_tk["s"]) / 2, _tk["d"][1] + 0.5), "small", note="鎖樋→受け桝→地中の槽→菜園の脇のポンプ")
-    L("板塀 h1.8", P(28.0, g["FENCE_D"] + 0.6), "small", along=ROAD)
+    L("大和張りの塀 h1.8", P(28.0, g["FENCE_D"] + 0.6), "small", along=ROAD)
     L("生垣 h1.2", P(10.0, g["HEDGE_D"] - 0.7), "small", along=ROAD)
     L("西館の南の入口", W(21.0, -2.0), "small")
     # --- 南：線の外（駐車・駐輪・搬入）
@@ -74,7 +74,7 @@ def write(g):
     # --- 北：西館の周り
     L("読書の庭（モミジ・苔）", NC.READ.centroid.coords[0], "name")
     L("角の両開きの木戸", NC.T(sum(NC.N["KOMICHI_GATE"]["t"]) / 2, NC.FN - 1.0), "small")
-    L("板塀 h1.8", NC.T(16.5, NC.FN - 0.6), "small", along=_r(NC.t2))
+    L("大和張りの塀 h1.8", NC.T(16.5, NC.FN - 0.6), "small", along=_r(NC.t2))
     L("北の小径", NC.KOMICHI.centroid.coords[0], "small")
     L("機械室の戸", NC.T(sum(NC.N["MECH_DOOR"]["t"]) / 2, -0.6), "small")
     L("キンモクセイ・ギンモクセイの刈り込み", NC.P(41.0, -0.9), "small", along=ROAD)
@@ -112,7 +112,7 @@ def write(g):
              "文字の大きさは kind：key（場所の名前、9pt くらい）・name（7pt）・small（5.5pt）・context（周りの名前、7pt、灰色）。along があれば線に沿わせ、無ければ紙に水平。"
              "note は文字の下に小さく（省いてよい）。",
         "layers": {                                              # 1/200 の描き方（線の太さは紙の mm）
-            "70_外構_生垣・塀・格子": {"draw": "line", "lw": 0.35, "note": "板塀・格子は濃い茶、生垣は緑の帯（3dm の厚みのまま塗る）"},
+            "70_外構_生垣・塀・格子": {"draw": "line", "lw": 0.35, "note": "塀と木戸はすべてスギの大和張り（ユーザー 10-27、外壁と同じ）：3dm は板と胴縁の箱、1/200 では塀の線（濃い茶）に表裏の板の短い線（二重の破線に見える）でも、太い一本の線でもよい。生垣は緑の帯"},
             "71_外構_屋根（木戸・手水・下屋）": {"draw": "outline", "ls": "dashed", "lw": 0.18, "note": "頭上の屋根は破線（建物の屋根伏せと同じ扱いでもよい）"},
             "72_外構_柱": {"draw": "fill", "fc": "black", "note": "■ 小さく"},
             "73_外構_アーチの棚": {"draw": "outline", "ls": "dashed", "lw": 0.13, "fc": "#9DBE7A", "alpha": 0.25, "note": "ムベの棚：薄い緑を重ねる、桁と梁は細い破線"},
@@ -135,7 +135,7 @@ def write(g):
                      "note": "西の道沿い 1.0 は歩道（白）。灰色の範囲には入れない"},
         "entrance": {"xy": _r(E((GA0 + GA1) / 2, 0)), "mark": "red_dot", "note": "セキュリティの線の出入口（公園の木戸）"},
         "security_line": {"pts": [_r(q) for q in g["LINE"]], "style": "赤い破線 0.25",
-                          "note": "線は板塀・生垣・格子と建物の外壁でつながる。ここは南の生垣の線だけ、北は板塀（70）と木戸がそのまま線"},
+                          "note": "線は大和張りの塀・生垣と建物の外壁でつながる。ここは南の生垣の線だけ、北は大和張りの塀（70）と木戸がそのまま線"},
         "walks": {"pts": [[_r(q) for q in w] for w in g["WALKS"]], "style": "茶の細い破線（道すじ）", "note": "一つ目が保護者と子の道すじ、ほかは来客・駐輪から"},
         "counts": [
             "駐車 5台（うち搬入 1）・乗入れ 1か所",
