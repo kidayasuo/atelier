@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Polygon as MPoly
 from matplotlib.font_manager import FontProperties
-from shapely.geometry import Polygon, MultiPolygon, MultiPoint, LineString
+from shapely.geometry import Polygon, MultiPolygon, MultiPoint, LineString, Point
 from shapely.ops import unary_union
 import fitz
 
@@ -716,6 +716,19 @@ _nv = np.array([_nv[0] * np.cos(_rr) - _nv[1] * np.sin(_rr), _nv[0] * np.sin(_rr
 SITE_C = {k: np.array(v) for k, v in dict(N=(0.0, 0.0), E=(34.86, -43.83), S=(-14.44, -83.04),
                                          SW=(-21.91, -73.65), NW=(-25.83, -20.54)).items()}
 
+# 敷地の北東の辺から顔を出す道（今の住宅のあいだを高野川に並行に通る道の続き、PLATEAU）は描かない（ユーザー、10-26夜）。周辺の形は s の座標
+_neN, _neE = to_s(np.atleast_2d(SITE_C["N"]))[0], to_s(np.atleast_2d(SITE_C["E"]))[0]
+_NEe = LineString([_neN, _neE])
+_ned = (_neE - _neN) / np.linalg.norm(_neE - _neN); _nen = np.array([_ned[1], -_ned[0]])
+if Polygon(to_s(np.array(list(SITE_C.values())))).contains(Point(*(np.array(_NEe.centroid.coords[0]) + _nen))): _nen = -_nen
+_neA, _neB = _neN + (_neE - _neN) * 0.2, _neN + (_neE - _neN) * 0.95       # 辺の両端（北の道・東の角）にかかる道は残す
+_NESTRIP = Polygon([_neA, _neB, _neB + _nen * 40, _neA + _nen * 40])
+_RD3 = unary_union([g for ln, g in CTX if ln.startswith("03_") and g is not None]).buffer(0)
+_x = _RD3.intersection(_NESTRIP)
+_NESTUB = unary_union([g for g in getattr(_x, "geoms", [_x]) if g.geom_type == "Polygon" and g.distance(_NEe) < 1.0])
+if not _NESTUB.is_empty:
+    print("北東の辺から出る道を消す：", round(_NESTUB.area, 1), "m2　辺から", round(max(float(np.dot(np.array(c_) - _neN, _nen)) for g_ in getattr(_NESTUB, "geoms", [_NESTUB]) for c_ in g_.exterior.coords), 1), "m まで")
+    CTX = [(ln, (g.difference(_NESTUB.buffer(0.05)) if ln.startswith("03_") and g is not None else g)) for ln, g in CTX]
 # 沿川の景観立面：川の辺に直角に、川の向こうから。3dmの建物と周りの建物（PLATEAU）・崖を投影して影絵で（1/300）
 _eRv = (SITE_C["S"] - SITE_C["E"]) / np.linalg.norm(SITE_C["S"] - SITE_C["E"])
 _oRv = np.array([-_eRv[1], _eRv[0]])
@@ -1451,6 +1464,13 @@ if SITE_FROM_UPD:
                 _cr = fitz.Rect(_r[0] * MM, _r[1] * MM, _r[2] * MM, _r[3] * MM)
                 _pg.show_pdf_page(_cr, fitz.open(_SITE_PDF[gr]), 0, clip=_cr)
         _pg.show_pdf_page(fitz.Rect(_off[0] * MM, _off[1] * MM, (_off[0] + _pw) * MM, (_off[1] + _ph) * MM), fitz.open(_SPB + suf), 0)
+        if not _NESTUB.is_empty:                 # 向こうの図の北東の辺から出る道を白で消す（更新係に直してもらうまで、ユーザー 10-26夜）
+            _wp = _NESTUB.buffer(0.12 if gr == "l" else 0.03, join_style=2).difference(Polygon(to_s(np.array(list(SITE_C.values())))).buffer(0.25, join_style=2))
+            for g_ in getattr(_wp, "geoms", [_wp]):
+                if g_.geom_type != "Polygon" or g_.area < 0.01: continue
+                _q = xf(np.array(rot(g_).exterior.coords))
+                _sh = _pg.new_shape(); _sh.draw_polyline([fitz.Point(u_ * MM, (H - v_) * MM) for u_, v_ in _q])
+                _sh.finish(color=None, fill=(1, 1, 1), closePath=True); _sh.commit()
         _fn = os.path.join(OUT, f"_site_{gr}_upd.pdf"); _nd.save(_fn); _nd.close()
         _SITE_PDF[gr] = _fn
     print("配置図：線と色は更新係の配置図から（ずれ", np.round(_off, 1), "mm）")
