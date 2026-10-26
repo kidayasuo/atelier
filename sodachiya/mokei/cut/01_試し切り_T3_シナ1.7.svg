@@ -84,7 +84,7 @@
 <path d="M51.000,60.000 L51.000,58.040 L47.000,58.040 L47.000,60.000 L51.000,60.000 Z"/>
 </g>
 <g id="参考の文字（送る前に消す）" fill="#000000" stroke="none" font-family="sans-serif">
-<text x="61.00" y="10.00" font-size="2">1：速度 25 mm/s・出力 35%</text>
-<text x="61.00" y="34.00" font-size="2">2：速度 25 mm/s・出力 42%</text>
-<text x="61.00" y="58.00" font-size="2">3：速度 25 mm/s・出力 50%</text>
+<text x="61.00" y="10.00" font-size="2">1：速度 20 mm/s・出力 13%</text>
+<text x="61.00" y="34.00" font-size="2">2：速度 20 mm/s・出力 16%</text>
+<text x="61.00" y="58.00" font-size="2">3：速度 20 mm/s・出力 20%</text>
 </g></svg>
