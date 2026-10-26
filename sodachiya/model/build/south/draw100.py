@@ -1547,7 +1547,9 @@ def make_siteplan():
         g = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if ob['layer'].split('_')[0] in layers]
         g = [x.buffer(20) for x in g if x is not None and not x.is_empty]
         return unary_union(g).buffer(-20) if g else None
-    roof = U(('10', '20', '51', '35'))
+    # 外形は光の筋（10t・20t）と越屋根の蓋も含めて一つに（10-26 監修、ユーザー：本館と西館で屋根の描かれ方が違う）。
+    # 西館の屋根は光の筋ごとに別の片なので、片ごとの外形が太い線で描かれていた（本館は一枚の屋根に穴なので外形だけ）
+    roof = U(('10', '20', '51', '35', '10t', '20t', '50a', '28'))
     if roof is not None:
         roof = unary_union([Polygon(x.exterior) for x in getattr(roof, 'geoms', [roof]) if x.geom_type == 'Polygon' and x.area > 1e6])
         A.fill(roof, '01_切断（構造・壁）', fc='#F2F0EC', z=3)
