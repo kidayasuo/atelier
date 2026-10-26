@@ -662,6 +662,10 @@ FENCE_RET = (R(-8.57, -8.45, 0.96, 1.40, 0.05), -300.0, 900.0)
 import mapbox_earcut as _ec
 SL_U = [3.0 * k for k in range(1, 19)]; SL_V = (1.76, 15.0); SL_GL = 13.5; SL_HALF = 0.09
 ROOF_Z = lambda v: 4150.0 - v * 1000.0 / 12.0
+# 10-26夜（ユーザー、決定事項（共通）の「屋根の構成」、監修の項 20261026-1936）：屋根に厚み。下面＝梁の上端（＝垂木の下、元の面の 150 下）、
+# 上面＝その 420 上（元の面の 270 上）。構成：太陽光 約40／野地板／通気層 45／透湿防水／木質繊維 t150（外張り）／気密／構造用合板 t24（現し）／垂木 60×150。
+# 元の面より上にあった物（光の筋のガラス・立ち上がり・太陽光・越屋根の蓋・ルーバー・LED・外壁と越屋根の立ち上がりの上端）は 270 上げる。
+RT_BOT, RT_TOP = -150.0, 270.0
 def zuv(x, y): return ROOF_Z(uv(x, y)[1])
 def sheet(poly, dz, li, col=None, mat=None):
     """平面形（穴あり可）を屋根の面から dz 上に、屋根と平行な面で"""
@@ -691,6 +695,26 @@ def slab(poly, dz0, dz1):
             j = (i + 1) % n; mm.Faces.AddFace(i, j, j + n, i + n)
         mm.Normals.ComputeNormals(); mm.Compact(); out_.append(mm)
     return out_
+def thick(poly, dz0, dz1):
+    """平面形（穴あり可）を屋根の面から dz0〜dz1 の閉じた板に（屋根と平行）"""
+    out_ = []
+    for p in ([poly] if poly.geom_type == 'Polygon' else list(poly.geoms)):
+        if p.area < 1e3: continue
+        p = p.simplify(0.5)
+        rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
+        V2 = np.vstack(rings); n = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+        tri_ = _ec.triangulate_float64(V2, ends).reshape(-1, 3)
+        mm = r.Mesh()
+        for dz in (dz0, dz1):
+            for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zuv(x, y) + dz))
+        for a, b, c in tri_: mm.Faces.AddFace(int(a), int(c), int(b)); mm.Faces.AddFace(int(a + n), int(b + n), int(c + n))
+        st = 0
+        for e in ends:
+            for i in range(st, int(e)):
+                j = i + 1 if i + 1 < e else st; mm.Faces.AddFace(i, j, j + n, i + n)
+            st = int(e)
+        mm.Normals.ComputeNormals(); mm.Compact(); out_.append(mm)
+    return out_
 def new_layer(name, rgb, mat=None):
     for i, l in enumerate(m.Layers):
         if l.Name == name: return i
@@ -717,7 +741,8 @@ else:
 if src is not None:
     kind_, i0, g0, at0 = src
     RP = roof_main_poly(g0)
-    roof_new = sheet(RP.difference(SLOTS), 0.0, L10)
+    MON_OPEN = R(-1.0, 58.5, -1.0, 1.66, 0.2)          # 越屋根の下（西吹き抜けの上、v 1.66 の東の立ち上がりまで）は屋根を開ける（前は面が残っていた）
+    roof_new = thick(RP.difference(SLOTS).difference(MON_OPEN), RT_BOT, RT_TOP)
     if kind_ == 'new': new_objs.pop(i0)
     else: drop.add(str(at0.Id))
     for mm in roof_new: new_objs.append((mm, at0))
@@ -725,13 +750,13 @@ if src is not None:
     at_g = r.ObjectAttributes(); at_g.LayerIndex = L10T
     if MAT_FROST >= 0: at_g.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; at_g.MaterialIndex = MAT_FROST
     for u in SL_U:
-        for mm in slab(R(u - 0.15, u - SL_HALF, SL_V[0] - 0.1, SL_V[1], 0.2), 0.0, 60.0): new_objs.append((mm, a10))          # 立ち上がり（南）
-        for mm in slab(R(u + SL_HALF, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), 0.0, 60.0): new_objs.append((mm, a10))          # 立ち上がり（北）
-        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_V[0] - 0.1, SL_V[0], 0.05), 0.0, 60.0): new_objs.append((mm, a10))      # 立ち上がり（西の端）
-        for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), 60.0, 72.0): new_objs.append((mm, at_g))           # 乳白ガラス t12（東は軒先で止める、水はそのまま落ちる）
-        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス
-        for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（垂木の小口をふさぐ）
-            for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), -150.0, 0.0): new_objs.append((mm, a10))
+        for mm in slab(R(u - 0.15, u - SL_HALF, SL_V[0] - 0.1, SL_V[1], 0.2), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))          # 立ち上がり（南）
+        for mm in slab(R(u + SL_HALF, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))          # 立ち上がり（北）
+        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_V[0] - 0.1, SL_V[0], 0.05), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))      # 立ち上がり（西の端）
+        for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), RT_TOP + 60.0, RT_TOP + 72.0): new_objs.append((mm, at_g))     # 乳白ガラス（複層、東は軒先で止める）
+        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, RT_TOP + 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス（複層）
+        for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（屋根の層の小口をふさぐ、厚さいっぱい）
+            for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), RT_BOT, RT_TOP): new_objs.append((mm, a10))
     # 10-25夜（ユーザー）：南の軒にも同じ太陽光を載せて、屋根の本体から切れ目なく続ける（軒は屋根の面の延長、u −4.2〜0）。
     # 軒の外の縁は本体の軒先と同じく 150 手前まで。越屋根の蓋の下（v < 1.95、u > −0.35）は本体と同じく除き、蓋より南の軒は西の縁（v −0.45）の 150 手前まで。
     EAVE = None
@@ -739,13 +764,16 @@ if src is not None:
         g = o.Geometry
         if o.Attributes.LayerIndex != L10 or not isinstance(g, r.Mesh) or str(o.Attributes.Id) in drop: continue
         u0_, u1_, v0_, v1_, z0_, z1_ = bbox_uv(g)
-        if u1_ < 0.05 and u0_ < -3.0: EAVE = roof_main_poly(g); break
+        if u1_ < 0.05 and u0_ < -3.0:
+            EAVE = roof_main_poly(g); drop.add(str(o.Attributes.Id))
+            for mm in thick(EAVE, RT_BOT, RT_TOP): new_objs.append((mm, o.Attributes))      # 南の軒も同じ厚さ（軒裏＝梁の上端の高さ）
+            break
     ALL = unary_union([RP, EAVE.buffer(1.0)]).buffer(-1.0) if EAVE is not None else RP
     pv_box = unary_union([R(-10.0, 57.49, 1.95, 14.85, 0.25), R(-10.0, -0.35, -1.0, 14.85, 0.25)])
     pv = ALL.buffer(-150.0, join_style=2).intersection(pv_box).intersection(unary_union([RP, EAVE]) if EAVE is not None else RP)
     pv = pv.difference(R(-0.36, 57.49, -1.0, 1.95, 0.1)).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
-    for mm in sheet(pv, 20.0, L10P): new_objs.append((mm, a_pv))
+    for mm in sheet(pv, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))
     log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から軒先まで、乳白ガラス）、'
                f'屋根材型の太陽光 {pv.area / 1e6:.0f} m²（10p）')
     PV_AREA = pv.area / 1e6
@@ -757,8 +785,43 @@ if src is not None:
     VENTS = [(19.5, '静養室'), (31.5, '多目的便所'), (41.1, '職員の個室'), (10.5, '0・1歳のおむつ替え・沐浴')]
     for uu, nm in VENTS:
         a_v = r.ObjectAttributes(); a_v.LayerIndex = L50D; a_v.Name = f'換気扇の吹き出し口（{nm}、φ100、逆流止め）'
-        for mm in slab(R(uu - 0.3, uu + 0.3, 1.56, 1.64, 0.05), 175.0, 305.0): new_objs.append((mm, a_v))
+        for mm in slab(R(uu - 0.3, uu + 0.3, 1.56, 1.64, 0.05), RT_TOP + 175.0, RT_TOP + 305.0): new_objs.append((mm, a_v))
     log.append(f'本館：換気扇の吹き出し口 {len(VENTS)} か所（越屋根の東の口）')
+    # 光の筋は鏡面の光ダクト（ユーザー 10-26夜、決定事項（共通）の「屋根の構成」）：溝（2 枚の梁のあいだ 180）の両側を、ガラスの下から梁の下端まで
+    # 鏡面のアルミ t2 で張る（反射率 約0.95）。室内の分（v 1.76〜13.5、外皮の線の固定ガラスまで）。溝の下の端はふさがない。
+    # 東の柱（v 約11.8〜12.2）は 2 枚の梁のあいだに入るので、その所は柱の上端から上だけ。
+    L10M = new_layer('10m_本館_光の筋の鏡面（アルミ）', (205, 210, 215))
+    _bm = None
+    for o in m.Objects:
+        if LN[o.Attributes.LayerIndex].startswith('11b') and isinstance(o.Geometry, r.Extrusion):
+            _nc = o.Geometry.Profile3d(0, 0).ToNurbsCurve()
+            _pp = [(uv(_nc.Points[i].X, _nc.Points[i].Y)[1], _nc.Points[i].Z) for i in range(len(_nc.Points))]
+            _bm = Polygon(_pp).buffer(0); break
+    def _beam_bot(v):
+        if _bm is None: return ROOF_Z(v) - 750.0
+        ln_ = LineString([(v, -1e4), (v, 1e5)]).intersection(_bm)
+        return ln_.bounds[1] if not ln_.is_empty else ROOF_Z(v) - 750.0
+    _COLS = [(11.78, 12.22, 3020.0)]
+    def _mirror(u0_, u1_, v0_, v1_, zb_):
+        vs_ = np.linspace(v0_, v1_, max(2, int((v1_ - v0_) / 0.25) + 1)); mm = r.Mesh()
+        for v_ in vs_:
+            zt_ = ROOF_Z(v_) + RT_TOP + 60.0; zz = zb_(v_)
+            for uu_, z_ in ((u0_, zz), (u1_, zz), (u1_, zt_), (u0_, zt_)):
+                x_, y_ = xy(uu_, v_); mm.Vertices.Add(float(x_), float(y_), float(z_))
+        n_ = len(vs_)
+        for i in range(n_ - 1):
+            b0, b1 = 4 * i, 4 * (i + 1)
+            for k in range(4):
+                k2 = (k + 1) % 4; mm.Faces.AddFace(b0 + k, b0 + k2, b1 + k2, b1 + k)
+        mm.Faces.AddFace(0, 3, 2, 1); e_ = 4 * (n_ - 1); mm.Faces.AddFace(e_, e_ + 1, e_ + 2, e_ + 3)
+        mm.Normals.ComputeNormals(); mm.Compact(); return mm
+    a_m = r.ObjectAttributes(); a_m.LayerIndex = L10M; a_m.Name = '光の筋の鏡面（アルミ t2、反射率 約0.95）'
+    _nmir = 0
+    for u in SL_U:
+        for uu0, uu1 in ((u - SL_HALF, u - SL_HALF + 0.002), (u + SL_HALF - 0.002, u + SL_HALF)):
+            for v0_, v1_, zb_ in ((SL_V[0], _COLS[0][0], _beam_bot), (_COLS[0][0], _COLS[0][1], lambda v: _COLS[0][2]), (_COLS[0][1], SL_GL - 0.006, _beam_bot)):
+                new_objs.append((_mirror(uu0, uu1, v0_, v1_, zb_), a_m)); _nmir += 1
+    log.append(f'本館：光の筋の鏡面 {_nmir} 片（10m、梁の下端から屋根のガラスの下まで、v {SL_V[0]}〜{SL_GL}）')
 # 機械室（おむすび）に蓄電池の場所（ユーザー、10-23：夜と停電のときに使う、園は災害時の拠点にもなる）。
 # 機械室は 3dm では塊なので、中に箱を置いて場所だけ示す（約 1.2×2.0 = 2.4 m²、h1.6、家具程度）。
 L35 = lidx('35_')
@@ -942,6 +1005,30 @@ for _o in m.Objects:
     _f = foot(_o.Geometry)
     if _f is None: continue
     _F2.setdefault(_ln[:3], []).append((_f, _o.Attributes, _bb.Min.Z, _bb.Max.Z)); drop.add(str(_o.Attributes.Id))
+# 屋根の厚み（10-26夜）：元の屋根の面より上にあった本館の物を RT_TOP 上げる（越屋根の蓋・ルーバー・LED、外壁と越屋根の立ち上がりの上端）。
+# 北の妻の壁の上端は屋根の立体の下面（梁の上端）まで下げる（屋根の中に食い込まない）。
+_LUP = {lidx('17_'), lidx('50a'), lidx('50b'), lidx('50c')}
+def _raise(g, ln):
+    V = mesh_V(g); U = np.array([uv(x, y) for x, y in V[:, :2]])
+    if ln.startswith('50') and U[:, 1].mean() < -0.8: return False              # 西館の越屋根は西館係
+    rz = np.array([ROOF_Z(v) for v in U[:, 1]])
+    up = V[:, 2] > rz + 10.0
+    gab = ln.startswith('17_') and U[:, 0].min() > 57.1 and U[:, 1].max() > 5.0      # 北の妻の壁（u 57.19〜57.34、v −0.35〜12）
+    if gab:
+        hi = V[:, 2] > rz + RT_BOT
+        if not hi.any(): return False
+        V[hi, 2] = rz[hi] + RT_BOT
+    else:
+        if not up.any(): return False
+        V[up, 2] += RT_TOP
+    mesh_set(g, V); g.Normals.ComputeNormals(); return True
+_nr = 0
+for o in m.Objects:
+    if o.Attributes.LayerIndex in _LUP and isinstance(o.Geometry, r.Mesh) and str(o.Attributes.Id) not in drop:
+        _nr += _raise(o.Geometry, LN[o.Attributes.LayerIndex])
+for mm, at in new_objs:
+    if at.LayerIndex in _LUP: _nr += _raise(mm, LN[at.LayerIndex])
+log.append(f'本館：屋根の厚み（梁の上端から 420、元の面の {RT_TOP:.0f} 上）に合わせて {_nr} 物の上端を上げた・北の妻の上端を屋根の下面へ')
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)

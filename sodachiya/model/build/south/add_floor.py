@@ -29,15 +29,17 @@ slab(outer,-300,-150,L_out)
 # 断熱ガラス戸：r=191.5 の線、FL ±0 から 2.6 m（海峡の口は開閉する引戸として同じ線上）
 gl=[P(RG,a) for a in np.linspace(TH[0],th19,60)]
 # 10-21：引き戸＋鴨居の上は枠なしの固定ガラスで屋根の下まで。10-26（ユーザー）：鴨居の上端を梁の下端（ガラスの線 v13.5 で h2450）の 5 下 h2445 まで上げた（鴨居 h2385〜2445、戸 h2375）
-KAMOI=2385; ZUND=lambda x,y: ztop(rr_of(x,y))-250
+KAMOI=2385; ZUND=lambda x,y: ztop(rr_of(x,y))-150   # 鴨居の上の固定ガラスは屋根の立体の下面（梁の上端）まで（10-26夜）
 L_kam=layer('18_本館_鴨居・建具枠（木）',(150,110,70))
 # 10-24夜（ユーザーの決定、監修と相談）：架構のスパンごとに半分FIX＋半分片引き戸、19スパンとも同じ向き。
 # 各スパンの南の半分が開く側、戸は北の半分のFIXの室内側（西）を走る（閉じた形で、戸は南の半分に、FIXに 50 かかる）。
 # ガラスは強化か合わせ。衝突防止に園のロゴをエッチング：板の真ん中、こどもの目の高さ（中心 FL+1.0）、大人の目の高さ（FL+1.5）に小さな印。
 # 0・1歳（スパン1–4）の低い所には入れない（ユーザー：はいはいの子はぶつかってよい）。戸の板の印は少しずらす（開けて重なっても模様に見える）。
-L_logo=layer('16e_本館_ガラスのロゴ（衝突防止、エッチング、FIX）',(60,90,110))
-L_dc=layer('16d_本館_縁側の片引き戸（閉）',(150,200,230))
-L_do=layer('16o_本館_縁側の片引き戸（開）',(150,200,230))
+# 10-26夜（ユーザー、監修の計算）：FIX をやめて杉の壁に（各スパンの北の半分）。光の筋の鏡面化と組で、中ほどの昼光率は約3.5%。
+# 壁は外が大和張り・内が杉板、厚さ 135（RG−100〜RG+35、戸のレール RG+40〜80 の外）。床（外縁側 −150）から鴨居の下まで。外壁と同じ 97（→ 17）。
+L_ew=layer('97_本館_外壁（西・南北の妻）',(196,160,118))
+L_dc=layer('16d_本館_縁側のガラスの片引き戸（閉）',(150,200,230))
+L_do=layer('16o_本館_縁側のガラスの片引き戸（開）',(150,200,230))
 for _i,_l in enumerate(m.Layers):
     if _l.Name=='16o_本館_縁側の片引き戸（開）': _l.Visible=False                # 開けた位置は最初は隠す（Rhinoで表示を切り替えて見比べる）
 # 10-25：本物のロゴ（sodachiya/logo/sodachiya_logo.svg、黒＝エッチング）。形は毎回 SVG から読む（ユーザーが書き換えてもよい）。
@@ -96,12 +98,12 @@ for k in range(19):
     fix=[P(RG,a) for a in np.linspace(a_n,mid,8)]
     door_c=[P(RG+60,a) for a in np.linspace(mid-50/RG,a_s,8)]                 # 閉：南の半分、FIX に 50 かかる
     _L=(a_s-(mid-50/RG)); door_o=[P(RG+60,a) for a in np.linspace(a_n,a_n+_L,8)]
-    wall_along(fix,lambda x,y:0,lambda x,y:KAMOI,30,L_gl)                   # FIX
+    wall_along([P(RG-50,a) for a in np.linspace(a_n,mid,8)],lambda x,y:-150,lambda x,y:KAMOI,100,L_ew)    # 杉の壁（前の FIX、10-26夜）：外の 100 は外縁側の上（−150）から
+    wall_along([P(RG+17.5,a) for a in np.linspace(a_n,mid,8)],lambda x,y:0,lambda x,y:KAMOI,35,L_ew)      # 内の 35（杉板の面）は内縁側の床の上から
     wall_along(door_c,lambda x,y:0,lambda x,y:KAMOI-10,40,L_dc)             # 片引き戸（閉）
     wall_along(door_o,lambda x,y:0,lambda x,y:KAMOI-10,40,L_do)             # 片引き戸（開）
     span_no=19-k                                                             # 南から数えたスパンの番号
     if span_no>=5:                                                           # 0・1歳（スパン1–4）の低い所には入れない
-        _marks(P(RG,(a_n+mid)/2), 15.5, L_logo)                              # FIX の室内側の面（RG+15）から 0.5
         _marks(P(RG,(mid-50/RG+a_s)/2), 80.5, L_dc)                          # 戸の室内側の面（RG+80）から 0.5（閉）
         _marks(P(RG,a_n+_L/2), 80.5, L_do)                                   # 戸（開）
 wall_along(gl,lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)               # 鴨居
@@ -111,12 +113,16 @@ wall_along(gl,lambda x,y:KAMOI+60,ZUND,20,L_gl)                             # �
 from shapely.geometry import Point
 L_gal=layer('16b_本館_蹴込みのガラリ（夏の夜の外気を床下へ）',(90,90,90))
 _kb=kai.buffer(300)
-_gp=[P(RG-15,a) for a in np.linspace(TH[0],th19,240)]
-_run=[]
-for p_ in _gp+[None]:
-    if p_ is not None and not _kb.contains(Point(*p_)): _run.append(p_); continue
+# 杉の壁の所（各スパンの北の半分）は、ガラリを壁の足もと（外面 RG−100 の外）に（10-26夜）
+_WALLA=[(min(TH[k],(TH[k]+(TH[k+1] if k<18 else th19))/2),max(TH[k],(TH[k]+(TH[k+1] if k<18 else th19))/2)) for k in range(19)]
+_inw=lambda a: any(lo<=a<=hi for lo,hi in _WALLA)
+_run=[]; _prev=None
+for a in list(np.linspace(TH[0],th19,240))+[None]:
+    f=None if a is None else _inw(a)
+    p_=None if a is None else P(RG-110 if f else RG-15,a)
+    if p_ is not None and not _kb.contains(Point(*p_)) and (f==_prev or not _run): _run.append(p_); _prev=f; continue
     if len(_run)>=2: wall_along(_run,lambda x,y:-130,lambda x,y:-20,20,L_gal)
-    _run=[]
+    _run=[p_] if (p_ is not None and not _kb.contains(Point(*p_))) else []; _prev=f
 for a_ in (TH[0],th19):                                         # 内縁側の南北の端もガラスで閉じる
     wall_along([P(RG,a_),P(RC,a_)],lambda x,y:0,ZUND,30,L_gl)
 # --- 室の色の板（スパン 7〜19。1〜6 は add_south の 0・1 歳／2 歳） ---
