@@ -268,7 +268,8 @@ def place(geom, x, y):
 
 def label_num(n, x, y, h=1.6):
     """彫る数字（試し切りの番号）：線の 7 セグメント"""
-    segs = {'1': 'bc', '2': 'abged', '3': 'abgcd', '4': 'fgbc', 'A': 'efabcg', 'B': 'fedcg', 'C': 'afed', 'D': 'bcdeg'}
+    segs = {'0': 'abcdef', '1': 'bc', '2': 'abged', '3': 'abgcd', '4': 'fgbc', '5': 'afgcd', '6': 'afgedc', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg',
+            'A': 'efabcg', 'B': 'fedcg', 'C': 'afed', 'D': 'bcdeg'}
     w = h * 0.55
     P = {'a': ((0, h), (w, h)), 'b': ((w, h), (w, h / 2)), 'c': ((w, h / 2), (w, 0)), 'd': ((0, 0), (w, 0)),
          'e': ((0, 0), (0, h / 2)), 'f': ((0, h / 2), (0, h)), 'g': ((0, h / 2), (w, h / 2))}
@@ -462,15 +463,65 @@ def floor_sheets():
     s.add(affinity.translate(U, 8, 8))
     s.add(affinity.translate(Lw, 8, 8 + h + 8))
     s.save([(8, 8 + 2 * (h + 8) + 4, '下：上の層（はだし ±0）　上：下の層（はだし＋外縁側・海峡）　受け取り土間は 2 枚とも無し', 4),
-            (8, 8 + 2 * (h + 8) + 10, f'3 段目（{h:.0f} mm）は屋根の下の層のために空けておく', 4)])
+            (8, 8 + 2 * (h + 8) + 10, f'3 段目の空きは西館の床などに使う（屋根は 06）', 4)])
     s = Sheet('05_本館の布基礎_シナ3', 841, 594, 'シナ 3 A1：本館の布基礎（床の外形＋受け取り土間）。ほぞ穴 2.1×1.64（実寸 約 2.3×1.86）')
     s.add(box(0, 0, 841, 594), 'ref')
     s.add(affinity.translate(F, 8, 8))
     s.save([(8, h + 16, f'本館の布基礎（{w:.0f}×{h:.0f} mm）。残りは敷地・西館の布基礎に使う', 4)])
     return w, h
 
+# ================= 6. 本館の屋根 =================
+ROOF_GAP = 190      # 下の層の板の端：架構の中心線から（梁 2 枚の外面 180＋すき間 10、実寸 mm）。切り幅 0.1 で、すき間は片側 約 0.2
+ROOF_R = (191.53e3, 203.37e3)   # 下の層の東西：縁側のガラス戸の線（191.5）から、一本の線（越屋根の東の立ち上がり、203.4）まで
+
+def sheet_angle():
+    ws = sorted([g for g in cols if profile_rz(g, 0)[:, 0].max() > 204000],
+                key=lambda g: math.atan2(g.PathStart.Y - CY, g.PathStart.X - CX))
+    p0 = np.array([ws[0].PathStart.X, ws[0].PathStart.Y]); p1 = np.array([ws[-1].PathStart.X, ws[-1].PathStart.Y])
+    return -math.atan2(p1[1] - p0[1], p1[0] - p0[0])
+
+def roof_parts():
+    """上の層＝3dm の屋根（10）の平面（光の筋の穴 18 本つき、南の軒まで）。
+    下の層＝室内の上だけ、スパンごとの板 19 枚（梁 2 枚のあいだに落とし込む。板のすき間が光の筋の下になる）"""
+    up = plan('10_本館_屋根')
+    slots = [Polygon(h) for h in up.interiors]
+    a = sorted(math.atan2(sl.centroid.y - CY, sl.centroid.x - CX) % (2 * math.pi) for sl in slots)
+    step = (a[-1] - a[0]) / (len(a) - 1)
+    frames = [a[0] - step] + a + [a[-1] + step]          # 架構 1〜20 の中心線の角度（両端は妻）
+    panels = []
+    r1, r2 = ROOF_R
+    for k in range(len(frames) - 1):
+        rs = np.linspace(r1, r2, 40)
+        def edge(t0, sgn):
+            return [(CX + rr_ * math.cos(t0 + sgn * ROOF_GAP / rr_), CY + rr_ * math.sin(t0 + sgn * ROOF_GAP / rr_)) for rr_ in rs]
+        e0 = edge(frames[k], +1); e1 = edge(frames[k + 1], -1)
+        panels.append(Polygon(e0 + e1[::-1]))
+    return up, panels
+
+def roof_sheets():
+    up, panels = roof_parts()
+    ang = sheet_angle()
+    U = to_sheet(up, ang, (0, 0)); P = [to_sheet(p, ang, (0, 0)) for p in panels]
+    b = U.bounds; U = affinity.translate(U, -b[0], -b[1]); P = [affinity.translate(p, -b[0], -b[1]) for p in P]
+    h = U.bounds[3]
+    s = Sheet('06_本館の屋根_シナ1.7', 841, 594, 'シナ 1.7 A1：本館の屋根 上の層（光の筋の穴 18 本、南の軒まで）と下の層（スパンごとの板 19 枚）')
+    s.add(box(0, 0, 841, 594), 'ref')
+    s.add(U)
+    # 下の層：弧のまま上の層の下に並べる（同じ並びで、番号を彫る）
+    pb = unary_union(P).bounds
+    for i, p in enumerate(P):
+        q = affinity.translate(p, 0, -pb[1] - (pb[3] - pb[1]) - 10)
+        s.add(q)
+        c = q.centroid                                   # スパンの番号を彫る（南から 1〜19、板の裏になる面に）
+        txt = str(len(P) - i)                            # 角度の小さい方が北（左が南）
+        for j, ch in enumerate(txt):
+            for l in label_num(ch, c.x - len(txt) * 0.8 + j * 1.6, c.y - 0.8, 1.6): s.add(l, 'eng')
+    s.save([(0, h + 3, '上：上の層（南の軒まで、光の筋の穴 18 本）　下：下の層（スパン 1〜19 の板、南から）', 4)])
+    return U.bounds, pb
+
 if __name__ == '__main__':
     test_sheets()
     frame_sheets()
     print('本館の床', floor_sheets())
+    print('本館の屋根', roof_sheets())
     print('ok', OUT)
