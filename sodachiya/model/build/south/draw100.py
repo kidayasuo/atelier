@@ -743,6 +743,17 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             g_ = unary_union(sils); g_ = max(getattr(g_, 'geoms', [g_]), key=lambda x: x.area); q_ = _pl(g_, 50)
             cr = unary_union([box(q_.x - 350, q_.y - 110, q_.x + 350, q_.y + 110), box(q_.x - 110, q_.y - 350, q_.x + 110, q_.y + 350)])
             A.fill(shp_affinity.translate(cr, 0, 900), '06_部屋の色', fc='#D33A3A', z=0.85)
+    # 0・1歳の水まわり（沐浴・小さな便器・おむつ替え）と2歳のトイレは、部屋の板の中にある（面積は保育室に含める）ので、
+    # 色だけ水まわりに塗る（ユーザー 10-26：平面図の0・1歳、2歳のトイレをトイレの色に）。範囲は scripts/plan01.py の water core（u9〜12）・
+    # plan02.py の toilet（u12〜14.7）、v1.6〜4.6（しつらえの段がこの二つの図から部屋を作る）
+    if level_z < 1000:
+        _kid = unary_union([unary_union(v) for k, v in BYL.items() if re.search(r'0・1歳|2歳', k)]) if BYL else Polygon()
+        def _uvrect(u0, u1, v0, v1):
+            us = np.linspace(u0, u1, 12)
+            return Polygon([at(205000 - v0 * 1000, theta_u(u * 1000)) for u in us] + [at(205000 - v1 * 1000, theta_u(u * 1000)) for u in us[::-1]])
+        for r_ in ((9.0, 12.0, 1.6, 4.6), (12.0, 14.7, 1.6, 4.6)):
+            g_ = _uvrect(*r_).intersection(_kid.buffer(-5, join_style=2)) if not _kid.is_empty else Polygon()
+            if not g_.is_empty: A.fill(g_, '06_部屋の色', fc=C_WATER, z=0.82)
     if level_z < 1000:                               # 床の板（部屋の層でない）
         for ob in objs:
             c_ = SLAB_COLOR.get(ob['layer'].split('_')[0])
@@ -1294,6 +1305,11 @@ def elevation(A, mode, objs):
         T2 = np.stack([h, T[:, :, 2]], -1)
         # 長いもの（弧に沿う桁・壁・屋根）は 3 m ごとに分けて、手前・奥の順を部分ごとに（建物が弧なので端が手前に来る）
         key = np.floor(h.mean(1) / 3000.0) if h.max() - h.min() > 4000 else np.zeros(len(h))
+        # 奥行きの大きいもの（削る段で一つの立体にまとめた外壁など、手前の西の壁と奥の東の壁・妻・越屋根の立ち上がりが一つの物）は
+        # 奥行き 2 m ごとにも分ける。分けないと奥の壁の形が手前の深さで先に塗られ、手前の壁の窓や、そのあいだの屋根を白く隠していた
+        # （10-26 監修、ユーザー：道路の側の立面図の屋根が一部白く抜けている。西の窓も東の壁の開口と重なる所しか出ていなかった）
+        if d.max() - d.min() > 4000:
+            key = key * 1000 + np.floor(d.mean(1) / 2000.0)
         whole = silhouette(T2) if len(np.unique(key)) > 1 else None
         for kk in np.unique(key):
             sel = key == kk
