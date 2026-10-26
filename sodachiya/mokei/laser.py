@@ -159,6 +159,8 @@ def beam_part(clr, centers):
     return part
 
 # ---------- 書き出し ----------
+WRITE_DXF = os.environ.get('DXF') == '1'   # 10-26 ユーザー：SVG で切れるので DXF は作らない（要るときは DXF=1）
+
 class Sheet:
     def __init__(self, name, w, h, note):
         self.name, self.w, self.h, self.note = name, w, h, note
@@ -228,6 +230,7 @@ class Sheet:
             L.append(f'<text x="{x:.2f}" y="{H - y:.2f}" font-size="{sz}">{t}</text>')
         L.append('</g></svg>')
         open(os.path.join(OUT, self.name + '.svg'), 'w').write('\n'.join(L))
+        if not WRITE_DXF: return
         try:
             import ezdxf
             doc = ezdxf.new(units=4)
