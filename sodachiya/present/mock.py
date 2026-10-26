@@ -1451,18 +1451,80 @@ if SITE_FROM_UPD:
 if SITE_FROM_UPD:
     _off = _our(_P1) - _thr(_P1)                                  # 向こうの紙をこちらの紙のどこに置くか（左上から mm）
     _pw, _ph = _XJ["paper_mm"]
+    _ia = (_off[0] + 10, _off[1] + 10, _off[0] + _pw - 10, _off[1] + _ph - 10)      # 向こうの図の描いてある範囲（紙の縁から10 mm内、ここに枠の線がある）
+    _ytl = lambda yr: H - (sy + (yr - VY0) * 5)                                     # 回した座標のy（m）→ こちらの紙の上からmm
+    _yr_of = lambda ytl: VY0 + ((H - ytl) - sy) / 5
+    _YW = _yr_of(_ia[3])                                                            # 向こうの図の南の端＝高野川の水際（回した座標）
+    _P = lambda xy: [fitz.Point(u_ * MM, (H - v_) * MM) for u_, v_ in xf(np.asarray(xy, float))]
+    def _fillg(pg_, g_, fc, ec=None, w=0.0, op=1.0):
+        for q_ in getattr(g_, "geoms", [g_]):
+            if q_.geom_type != "Polygon" or q_.is_empty: continue
+            sh_ = pg_.new_shape(); sh_.draw_polyline(_P(q_.exterior.coords))
+            for r_ in q_.interiors: sh_.draw_polyline(_P(r_.coords))
+            sh_.finish(color=ec, fill=fc, width=w, closePath=True, even_odd=True, fill_opacity=op); sh_.commit()
+    _hx = lambda c_: tuple(int(c_[k:k + 2], 16) / 255 for k in (1, 3, 5))
+    _rng = np.random.default_rng(7)
+    # 河原（ユーザー、10-26夜：もっと河原らしく）：水際をゆるく揺らし、水際に丸石の帯、河川敷に草の印
+    _BED = unary_union([_sh(o) for o in _rp_("02_") if o.get("V") is not None and o["V"][:, 2].max() - o["V"][:, 2].min() < 0.8
+                        and -5.7 < o["V"][:, 2].max() < -4.0 and _sh(o) is not None]).buffer(0.02).buffer(-0.02)   # 河川敷（草の平ら）
+    _xs = np.linspace(BX0, BX1, 240)
+    def _bot(x_):                                 # 河川敷の南の端（水際）
+        q_ = LineString([(x_, BY0 - 5), (x_, 0)]).intersection(_BED)
+        return q_.bounds[1] if not q_.is_empty else np.nan
+    _yb = np.array([_bot(x_) for x_ in _xs])
+    _yb = np.where(np.isnan(_yb), np.nanmin(_yb), _yb)
+    _yb = np.convolve(np.pad(_yb, 6, mode="edge"), np.ones(13) / 13, mode="valid")      # 片の段をならす
+    _wv = _yb + 0.35 * np.sin(_xs * 0.9) + 0.25 * np.sin(_xs * 2.3 + 1.0) + 0.15
+    _WATER = Polygon(list(zip(_xs, _wv)) + [(BX1, BY0 - 1), (BX0, BY0 - 1)])
+    _RDR = unary_union([rot(g) for ln, g in CTX if ln.startswith("03_") and g is not None]).buffer(0)
+    _BRIDGE = _RDR.intersection(Polygon([(BX0, BY0 - 1), (BX1, BY0 - 1), (BX1, _YW + 1), (BX0, _YW + 1)]))
+    _STONES = []
+    for x_ in np.arange(BX0, BX1, 0.42):
+        for k_ in range(2):
+            xx = x_ + _rng.uniform(-0.2, 0.2); yy = np.interp(xx, _xs, _wv) + _rng.uniform(0.1, 1.3) * (1 if k_ else 0.55)
+            if not _BRIDGE.contains(Point(xx, yy)):
+                _STONES.append((xx, yy, _rng.uniform(0.07, 0.17), _rng.uniform(0, 180)))
+    _TUFTS = []
+    for x_ in np.arange(BX0 + 0.8, BX1, 2.6):
+        for y_ in np.arange(float(np.min(_yb)) + 2.2, -6.0, 2.4):
+            xx, yy = x_ + _rng.uniform(-0.9, 0.9), y_ + _rng.uniform(-0.6, 0.6)
+            if not _BRIDGE.contains(Point(xx, yy)) and _BED.buffer(-0.4).contains(Point(xx, yy)) and yy > np.interp(xx, _xs, _wv) + 1.6:
+                _TUFTS.append((xx, yy))
     for gr, suf in (("l", "_線.pdf"), ("c", "_色.pdf")):
         _nd = fitz.open(); _pg = _nd.new_page(width=W * MM, height=H * MM)
         # 向こうの紙の外（南の高野川の水面など）は、こちらの描いた線と色で補う（ユーザー 10-26夕：南へ延ばして川を見せる）
-        _ia = (_off[0] + 10, _off[1] + 10, _off[0] + _pw - 10, _off[1] + _ph - 10)      # 向こうの図の描いてある範囲（紙の縁から10 mm内）
         _bw = (bsx, H - bsy - bsh, bsx + bsw, H - bsy)
-        for _r in ((_bw[0], _bw[1], _bw[2], _ia[1]), (_bw[0], _ia[3], _bw[2], _bw[3]),
+        for _r in ((_bw[0], _bw[1], _bw[2], _ia[1]),
                    (_bw[0], max(_bw[1], _ia[1]), _ia[0], min(_bw[3], _ia[3])), (_ia[2], max(_bw[1], _ia[1]), _bw[2], min(_bw[3], _ia[3]))):
             _r = (max(_r[0], 0), max(_r[1], 0), min(_r[2], W), min(_r[3], H))
             if _r[2] - _r[0] > 0.1 and _r[3] - _r[1] > 0.1:
                 _cr = fitz.Rect(_r[0] * MM, _r[1] * MM, _r[2] * MM, _r[3] * MM)
                 _pg.show_pdf_page(_cr, fitz.open(_SITE_PDF[gr]), 0, clip=_cr)
-        _pg.show_pdf_page(fitz.Rect(_off[0] * MM, _off[1] * MM, (_off[0] + _pw) * MM, (_off[1] + _ph) * MM), fitz.open(_SPB + suf), 0)
+        # 南（向こうの図の外）：水と橋だけ（こちらの描いた川の線は描かない）
+        if gr == "c":
+            _fillg(_pg, _WATER, _hx("#CFE3EF"))
+            _fillg(_pg, _BRIDGE, _hx("#F7F7F7"))
+            _fillg(_pg, _PARK_R, _hx("#D9E8C6"))                                        # 公園を緑に（ユーザー、10-26夜）
+            if _g73a: _fillg(_pg, _ARCH, _hx("#C9DFB0"))                                  # ムベのアーチの範囲を緑に
+        else:
+            _fillg(_pg, _BRIDGE, None, _hx("#999999"), 0.2)
+        _src = fitz.open(_SPB + suf)
+        _cl = fitz.Rect((_ia[0] - _off[0] + 0.35) * MM, (_ia[1] - _off[1] + 0.35) * MM, (_ia[2] - _off[0] - 0.35) * MM, (_ia[3] - _off[1] - 0.35) * MM)
+        _pg.show_pdf_page(fitz.Rect((_ia[0] + 0.35) * MM, (_ia[1] + 0.35) * MM, (_ia[2] - 0.35) * MM, (_ia[3] - 0.35) * MM), _src, 0, clip=_cl)   # 枠の線は入れない
+        if gr == "c":
+            _fillg(_pg, _WATER.difference(_BRIDGE), _hx("#CFE3EF"))
+            for xx, yy, rr, an in _STONES:
+                _fillg(_pg, affinity.rotate(affinity.scale(Point(xx, yy).buffer(rr, 8), 1.0, 0.7), an), _hx("#E4DED0"))
+        else:
+            if not _BED.is_empty:                 # 河川敷の片の継ぎ目の線を、同じ緑で覆って消す（上の縁の線は残す）
+                _fillg(_pg, _BED.buffer(-0.06).difference(_BRIDGE).difference(_WATER), _hx("#DDE8D0"))
+                _fillg(_pg, _WATER.difference(_BRIDGE), _hx("#CFE3EF"))
+            for xx, yy, rr, an in _STONES:
+                _fillg(_pg, affinity.rotate(affinity.scale(Point(xx, yy).buffer(rr, 8), 1.0, 0.7), an), None, _hx("#9C9587"), 0.35)
+            for xx, yy in _TUFTS:
+                for da, ln_ in ((-28, 0.26), (-10, 0.34), (8, 0.36), (26, 0.27)):
+                    t_ = np.radians(90 + da)
+                    _pg.draw_line(*_P([(xx, yy), (xx + np.cos(t_) * ln_, yy + np.sin(t_) * ln_)]), color=_hx("#7E9C6A"), width=0.35)
         if not _NESTUB.is_empty:                 # 向こうの図の北東の辺から出る道を白で消す（更新係に直してもらうまで、ユーザー 10-26夜）
             _wp = _NESTUB.buffer(0.12 if gr == "l" else 0.03, join_style=2).difference(Polygon(to_s(np.array(list(SITE_C.values())))).buffer(0.25, join_style=2))
             for g_ in getattr(_wp, "geoms", [_wp]):
