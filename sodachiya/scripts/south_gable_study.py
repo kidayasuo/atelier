@@ -90,6 +90,22 @@ CASES2 = [
       'ガラス約{g:.0f} m²。弱み：欄間は西で高さ約0.9、東で0にすぼまる（梁の下端の勾配）。']),
 ]
 
+# ---- 第3版（10-26 21:38、ユーザー：B1とB2の中間、B2寄り）
+def band(zt): return lambda: [(V0, V1, 0, zt, 'glass'), (V0, V1, zt, None, 'wall')]
+CASES3 = [
+    ('B2-a　上端 1.95（受け取り土間の戸の上端にそろえる）', band(1.95),
+     ['同じ南の妻にある受け取り土間の戸（h1.95）の上端と一本の線にそろえる。妻の面の中に水平線が一本だけ通る。',
+      'ガラス戸は低め（1.95）。大人はくぐる感じは無いが、戸としては低い側。上の杉の壁が厚く、水平の帯がはっきりする。',
+      'ガラス約{g:.0f} m²。']),
+    ('B2-b　上端 2.15（中間、B2寄り）', band(2.15),
+     ['戸として標準的な高さ。上の杉の壁は西で約1.1、東で約0.2の台形で、壁の帯が東の端まで消えずに残る（B2では東で三角に消える）。',
+      '東の縁側の鴨居（2.385）とは角で約0.24ずれる。角は柱（v12）と内縁側の端のガラスで切れるので、ずれは目立ちにくい。',
+      'ガラス約{g:.0f} m²。']),
+    ('B2　上端 2.385（東の縁側の鴨居の線、前の案）', band(KAMOI),
+     ['東の縁側の鴨居と角を回って一本の線。上の杉の壁は東へ細くなり、東の端では梁の下端（柱の際で約2.3）がガラスの上端より下がるので、そこだけガラスを梁に合わせて切る。',
+      'ガラス約{g:.0f} m²。']),
+]
+
 def area(spec):
     s = 0.0
     for a, b, z0, z1, k in spec:
@@ -100,12 +116,12 @@ def area(spec):
 
 W, H = 420, 297
 fig = plt.figure(figsize=(W / 25.4, H / 25.4))
-fig.text(14 / W, 1 - 13 / H, '乳児室（0・1歳）の南の開口を比べる' + ('' if os.environ.get('SG_SET', '1') == '1' else '（2）架構の水平に合わせる'), fontsize=14, weight='bold')
+fig.text(14 / W, 1 - 13 / H, '乳児室（0・1歳）の南の開口を比べる' + {'1': '', '2': '（2）架構の水平に合わせる', '3': '（3）B1とB2の中間'}[os.environ.get('SG_SET', '1')], fontsize=14, weight='bold')
 fig.text(14 / W, 1 - 19.5 / H, '本館係　2026-10-26　左：南の妻の立面（南から北を見る、右が東）1/125　右：v6 で切った断面（西を見る、左が南）1/125、南中の日。'
          '京都 北緯35.0°、妻の向き 約173°（ほぼ真南）。南の軒・屋根の厚みはどの案も同じ', fontsize=7.2, color='#555')
 S = 1 / 125 * 1000
 SET = os.environ.get('SG_SET', '1')
-for i, (name, fn, notes) in enumerate(CASES if SET == '1' else CASES2):
+for i, (name, fn, notes) in enumerate({'1': CASES, '2': CASES2, '3': CASES3}[SET]):
     spec = fn(); g = area(spec)
     top = H - 30 - i * 88
     fig.text(14 / W, (top - 2) / H, name, fontsize=10.5, weight='bold')
@@ -188,5 +204,5 @@ fig.text(14 / W, 8 / H, '日の角度は南中の高さ（夏至78°・春秋分
          '日だまりは冬至の南中の床の上の日の範囲（ガラスで日が当たる高さから）。', fontsize=6.3, color='#555')
 os.makedirs(OUT, exist_ok=True)
 for ext in ('pdf', 'png'):
-    fig.savefig(os.path.join(OUT, f'sodachiya_south_gable_study{"" if SET == "1" else "_2"}.{ext}'), dpi=200 if ext == 'png' else None)
+    fig.savefig(os.path.join(OUT, f'sodachiya_south_gable_study{"" if SET == "1" else "_" + SET}.{ext}'), dpi=200 if ext == 'png' else None)
 print('written', SET)
