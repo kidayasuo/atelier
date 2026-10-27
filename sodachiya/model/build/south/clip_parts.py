@@ -264,6 +264,19 @@ for ln, L in MERGE.items():
     if len(L) < 2: continue
     U = mf.Manifold.batch_boolean([q['M'] for q in L], mf.OpType.Add)
     if U.is_empty() or U.status() != mf.Error.NoError: continue
+    # 足した後に残る厚みの無い膜（片の面が 0.5 mm ほど食い違う継ぎ目にできる、体積ほぼ 0 の体）は捨てる
+    # （監修 10-27 夜：西館の外壁に膜が 17、Rhino で継ぎ目が透けて見えた。本当の片は最小でも 1e6 mm³ 程度）
+    bodies = U.decompose()
+    keep = [b for b in bodies if b.volume() >= 1e5]
+    if len(keep) < len(bodies):
+        stats['merge_sliver_' + ln.split('_')[0]] += len(bodies) - len(keep)
+        if not keep: continue
+        U = mf.Manifold.compose(keep)
+    # 4枚以上の面が集まる辺（片の継ぎ目の背中合わせの面）を数で出す：0 でなければ片の作り方を直す（担当の係）
+    V_, F_ = from_manifold(U)
+    tm_ = trimesh.Trimesh(V_, F_)
+    _, cnt_ = np.unique(tm_.edges_sorted, axis=0, return_counts=True)
+    stats['merge_nonmanifold_' + ln.split('_')[0]] = int((cnt_ > 2).sum())
     L[0]['M'] = U; L[0]['new'] = True
     for q in L[1:]: q['delete'] = True
     stats['merge_' + ln.split('_')[0]] = len(L)
