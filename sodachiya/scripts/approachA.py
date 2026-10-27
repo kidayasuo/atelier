@@ -283,8 +283,8 @@ _east = SL([_eN, FENCE_END])
 TRI_POSTS = [P(*TIP), _e0, _ec, SL([_e0, _ec]).interpolate(0.5, normalized=True).coords[0]] \
     + [_east.interpolate(_east.project(SPt(P(sx, 15.1)))).coords[0] for sx in (3.6, 1.2)] \
     + [b0 for b0, _ in TRI_BEAMS if SPt(b0).distance(SPt(P(*TIP))) > 0.5]          # 西の門の柱（FENCE_END）は門の柱が受ける
-for g in TRI_GIRDERS: line(g, lw=0.9, c=C["wood"], z=10.5)
-for b0, b1 in TRI_BEAMS: line([b0, b1], lw=0.55, c=C["wood"], z=10.5)
+for g in TRI_GIRDERS: line(g, lw=0.6, c=C["wood"], ls=(0, (3, 1.5)), z=10.5)           # 頭上（h2.25）なので破線
+for b0, b1 in TRI_BEAMS: line([b0, b1], lw=0.4, c=C["wood"], ls=(0, (2, 1.5)), z=10.5)
 for p in TRI_POSTS:
     post(p, 0.14); ax.add_patch(Circle(p, 0.35, fc="#9DBE7A", ec="none", zorder=10.4, alpha=0.8))      # ムベを柱の足もとに
 for q in [TRI.representative_point()] + [SPt(TRI.centroid.x + dx, TRI.centroid.y + dy) for dx, dy in ((1.2, -0.6), (-1.0, 0.8), (0.3, 1.4))]:
@@ -316,9 +316,9 @@ if PERGOLA:
     PG_D = HEDGE_D + HW + 0.15
     s_fr = [inv(W(u, 0))[0] for u in (0.75, 3, 6, 9)]          # frames u = 3, 6, 9 (+ start just north of the kido roof)
     s_a, s_b = s_fr[0], TEM[0]
-    line([P(s_a, PG_D), P(s_b, PG_D)], lw=0.9, c=C["wood"], z=10.5)                     # 桁 on the posts
+    line([P(s_a, PG_D), P(s_b, PG_D)], lw=0.6, c=C["wood"], ls=(0, (3, 1.5)), z=10.5)   # 桁 on the posts（頭上なので破線）
     for s in np.arange(s_a, s_b + 0.01, (s_b - s_a) / round((s_b - s_a) / 1.5)):
-        line([P(s, PG_D), P(s, WALL_D)], lw=0.55, c=C["wood"], z=10.5)                 # arched beams (plan)
+        line([P(s, PG_D), P(s, WALL_D)], lw=0.4, c=C["wood"], ls=(0, (2, 1.5)), z=10.5)   # arched beams (plan, overhead)
     for s in [s_a] + s_fr[1:] + [s_b]:
         post(P(s, PG_D), 0.14)
         ax.add_patch(Circle(P(s, PG_D - 0.05), 0.35, fc="#9DBE7A", ec="none", zorder=10.4, alpha=0.8))   # ムベ at the post foot
@@ -426,7 +426,7 @@ T((sx + 13.5, sy + 0.17), "1/200", 6)
 fig.text(PL / 297, 410 / 420, "育ち舎　外構の図（南半分）　アプローチ A 案", fontsize=13, weight="medium", va="top")
 fig.text(PL / 297, 402 / 420, "1/200（A3）　2026-10-23　駐車は南、ひろばは北。公園 → 木戸 → ポーチ（0〜2歳）／見送りの小径 → 手水 → ひろば → 海峡の口（3〜5歳）。",
          fontsize=6.6, va="top", color="#444444")
-fig.text(PL / 297, 396.5 / 420, "破線＝頭上の屋根・軒・キャップ　■＝柱　赤い破線＝セキュリティの線（内側は保護者の領域）　● 赤＝線の出入口（公園の木戸）　┅ 道すじ",
+fig.text(PL / 297, 396.5 / 420, "破線＝頭上の屋根・軒・キャップ・ムベの棚の桁と梁　■＝柱　赤い破線＝セキュリティの線（内側は保護者の領域）　● 赤＝線の出入口（公園の木戸）　┅ 道すじ",
          fontsize=6.0, va="top", color="#666666")
 legend = [
     ("1", "公園の木戸。線の出入口はここだけ。入るとムベの棚の下"),
