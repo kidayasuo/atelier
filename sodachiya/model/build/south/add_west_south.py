@@ -343,7 +343,7 @@ def surf(poly, zfun, li, col=None):
         if col is not None: at.ColorSource = r.ObjectColorSource.ColorFromObject; at.ObjectColor = (*col, 255)
         new.Objects.AddMesh(mm, at)
 if EXT.area > 1e5:
-    surf(EXT.buffer(20).intersection(WS), roof_z, L_ROOF)                       # 屋根の面をそのまま延ばす（重なり 20）
+    surf(EXT.buffer(20).intersection(WS), roof_f, L_ROOF)                       # 屋根の面の式をそのまま延ばす（重なり 20、10-27夜：前は近くの点に当てはめた面で、屋根の式から最大約10 cm ずれた）
     flat(EXT.buffer(20).intersection(WS), 10, lidx('31_'))                      # 遊戯室の床の板
     print('skin beyond WN: %.2f m2, roof z at the new eave %.0f' % (EXT.area / 1e6, min(roof_z(*c) for c in np.asarray(EXT.exterior.coords))))
 # 外壁（21）は一つの閉じた立体（10-27夜、三代目の西館係。ユーザー：Rhino のレイトレースで北の妻に段差や穴ぼこ、シェーディングで北と西の壁が消える）。
