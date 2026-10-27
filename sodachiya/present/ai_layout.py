@@ -160,9 +160,9 @@ def write(c):
                              color=sp["color"], align=sp["ha"] if sp["ha"] in ("left", "center", "right") else "left",
                              group=sp.get("group"), mock_hash=djb2(sp["s"])))
                 elif sp["kind"] == "line":
-                    add(dict(id=f"site.l.{(sp.get('group') or 'x').split('.')[-1]}", name=sp.get("name", "配置図の注の線"), kind="line", layer="説明",
+                    add(dict(id=sp.get("id") or f"site.l.{(sp.get('group') or 'x').split('.')[-1]}", name=sp.get("name", "配置図の注の線"), kind="line", layer="説明",
                              pts=[[round(q[0], 2), round(H - q[1], 2)] for q in sp["pts"]], color=sp["color"], lw=sp["lw"], dot=sp.get("dot"),
-                             group=sp.get("group")))
+                             arrow=sp.get("arrow"), group=sp.get("group")))
                 elif sp["kind"] == "circle":
                     add(dict(id=f"site.{sp['id']}", name=sp["name"], kind="circle", layer="説明",
                              x=round(sp["cx"] - sp["r"], 2), y=round(H - sp["cy"] - sp["r"], 2), w=round(2 * sp["r"], 2), h=round(2 * sp["r"], 2),
@@ -170,7 +170,7 @@ def write(c):
         for p in parts:
             g_ = p.get("group")
             if g_:
-                p["group_name"] = "突き出た木" if g_ == "site.g.tree" else "配置図の注　" + g_.split(".")[-1]
+                p["group_name"] = "突き出た木" if g_ == "site.g.tree" else ("縮尺" if g_ == "site.g.縮尺" else "配置図の注　" + g_.split(".")[-1])
         # ユーザーの割付を優先
         for p in parts:
             u = user.get(p["id"])

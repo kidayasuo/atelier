@@ -209,6 +209,14 @@ SDY.makeLine = function (doc, lay, i, p) {
     var pi = g.pathItems.add();
     pi.setEntirePath(pts);
     pi.filled = false; pi.stroked = true; pi.strokeColor = SDY.rgb(p.color); pi.strokeWidth = p.lw || 0.6;
+    if (p.arrow) {                                         // 終わりの点に矢じり（長さ p.arrow mm）
+        var b = pts[pts.length - 1], a = pts[pts.length - 2], ux = b[0] - a[0], uy = b[1] - a[1], ul = Math.sqrt(ux * ux + uy * uy), L = p.arrow * K;
+        ux /= ul; uy /= ul;
+        var tri = g.pathItems.add();
+        tri.setEntirePath([b, [b[0] - ux * L - uy * L * 0.35, b[1] - uy * L + ux * L * 0.35], [b[0] - ux * L + uy * L * 0.35, b[1] - uy * L - ux * L * 0.35]]);
+        tri.closed = true; tri.stroked = false; tri.filled = true; tri.fillColor = SDY.rgb(p.color);
+        pi.setEntirePath(pts.slice(0, pts.length - 1).concat([[b[0] - ux * L * 0.8, b[1] - uy * L * 0.8]]));   // 線は矢じりの中で止める
+    }
     if (p.dot) {
         var e = pts[pts.length - 1], rr = p.dot * K;
         var d = g.pathItems.ellipse(e[1] + rr, e[0] - rr, 2 * rr, 2 * rr);

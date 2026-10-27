@@ -1323,8 +1323,10 @@ _mk("t")
 lab(ax, xf, SITE_C["NW"] + 0.12 * _LN * _eN + 3.5 * _oN, "北の道（車を止めて建物と庭の手入れ）", (0, 0), size=2.6)
 # 北の用水路は尾を描かず、窓の北の端から入ってくる矢印と名前だけ（ユーザー、10-26夕）
 _yh = xf(np.array([[33.5, min(58.8, VY1 - 3.0)]]))[0]; _yt = xf(np.array([[33.5, VY1 - 0.3]]))[0]
-ax.annotate("", xy=tuple(_yh), xytext=tuple(_yt), arrowprops=dict(arrowstyle="-|>,head_length=1.2,head_width=0.6", lw=1.2, color="#1F6FB2"), zorder=45)
-T(ax, _yt[0] - 2.5, _yt[1] - 3.5, "用水路（北から来て、暗渠で敷地の北の角へ）", 2.6, "#1F6FB2", ha="right")
+# 矢印も配置図に焼き込まず、文字と一つのグループの部品に（ユーザー、10-27：配置図は純粋に、書き込むものは別のオブジェクト）
+SITEPARTS.append(dict(kind="line", id="site.l.用水路の矢印", pts=[tuple(_yt), tuple(_yh)], color="#1F6FB2", lw=1.2, arrow=2.4,
+                      group="site.g.用水路", name="用水路の矢印"))
+T(ax, _yt[0] - 2.5, _yt[1] - 3.5, "用水路（北から来て、暗渠で敷地の北の角へ）", 2.6, "#1F6FB2", ha="right", group="site.g.用水路")
 _g66 = unary_union([g_ for g_ in (_sh(o) for o in _rp_("66_")) if g_ is not None])
 if not _g66.is_empty:
     lab(ax, xf, R3inv(np.array(_g66.centroid.coords))[0], "公園からの入口（木戸）", (-25, 2), size=2.6, color="#4A3A2A", ha="right", bold=True)
@@ -1397,15 +1399,17 @@ _hv = _rot_cw(_nv, _BRG)                                   # 配置図の上で�
 _win = Polygon([(VX0, VY0), (VX1, VY0), (VX1, VY1), (VX0, VY1)]).buffer(-1.5)
 _far = LineString([_MOUc, _MOUc + _hv * 200]).intersection(_win)
 _sl = [tuple(_HALLc), tuple(_MOUc), tuple(np.array(_far.coords)[-1])]
-_q = xf(np.array(_sl))
-ax.plot(_q[:, 0], _q[:, 1], color="#7A5A9A", lw=0.9, ls=(0, (4, 2.5)), zorder=21, solid_capstyle="round")
-ax.annotate("", xy=tuple(_q[-1]), xytext=tuple(_q[-1] - (_q[-1] - _q[-2]) / np.linalg.norm(_q[-1] - _q[-2]) * 5),
-            arrowprops=dict(arrowstyle="-|>", lw=0.9, color="#7A5A9A"), zorder=21)
-for _qq in _q[:2]:
-    ax.add_patch(plt.Circle(tuple(_qq), 0.9, fc="#7A5A9A", ec="none", zorder=21))
-_mk("o")
-T(ax, _q[-1][0] - 2, _q[-1][1] + 3, f"比叡山へ　約{_DIST:.0f} km", 2.8, "#5E4380", bold=True, ha="right")
-T(ax, (_q[0][0] + _q[1][0]) / 2 + 2, (_q[0][1] + _q[1][1]) / 2 - 4, "ホールから築山の頂の向こうに比叡", 2.4, "#5E4380")
+HIEI_ON = False                                          # 比叡への視線の矢印は外す（ユーザー、10-27）
+if HIEI_ON:
+    _q = xf(np.array(_sl))
+    ax.plot(_q[:, 0], _q[:, 1], color="#7A5A9A", lw=0.9, ls=(0, (4, 2.5)), zorder=21, solid_capstyle="round")
+    ax.annotate("", xy=tuple(_q[-1]), xytext=tuple(_q[-1] - (_q[-1] - _q[-2]) / np.linalg.norm(_q[-1] - _q[-2]) * 5),
+                arrowprops=dict(arrowstyle="-|>", lw=0.9, color="#7A5A9A"), zorder=21)
+    for _qq in _q[:2]:
+        ax.add_patch(plt.Circle(tuple(_qq), 0.9, fc="#7A5A9A", ec="none", zorder=21))
+    _mk("o")
+    T(ax, _q[-1][0] - 2, _q[-1][1] + 3, f"比叡山へ　約{_DIST:.0f} km", 2.8, "#5E4380", bold=True, ha="right")
+    T(ax, (_q[0][0] + _q[1][0]) / 2 + 2, (_q[0][1] + _q[1][1]) / 2 - 4, "ホールから築山の頂の向こうに比叡", 2.4, "#5E4380")
 # 太陽の通り道（北緯35.05°、大気差なし：cos A＝sin δ／cos φ）。配置図の左上の空きに、配置図と同じ向きの方位円
 SUN_ON = False                                           # 太陽の通り道は外す（ユーザー、10-26 9:50：前に自分で作ったものを使う）。素材01eは空のまま残す
 if SUN_ON:
@@ -1609,7 +1613,19 @@ for _s, (_x, _y) in _AL.items():
     TOPT[1].append((_cx, _amy + _y + _dy - _th * 0.35, _s, _th, _s in ("敷地", "N", "高野川"), None, "#2E333A" if _s == "敷地" else ("#2F6FA0" if _s == "高野川" else "#333333")))
 TOPT[1].append((_amx, _amy + _AH + 3, "地域のなかの敷地　1/10000", 3.0, True))
 TOPT[1].append((_amx, _amy - 4.5, "出典：国土交通省 Project PLATEAU（京都市 2025）の建物・道路・土地利用から作図", 1.9, False))
-scalebar(ax, sx + 6, sy - 22, 200, 20)
+# 縮尺のスケールは部品に（ユーザー、10-27：「その他の絵」ごと隠したので、一つのグループで出す）
+def scalebar_parts(x, y, scale, meters, grp):
+    k = 1000 / scale; hb = 1.2; n_ = meters // 5
+    for i in range(n_):
+        SITEPARTS.append(dict(kind="line", id=f"{grp}.bar{i}", pts=[(x + i * 5 * k, y + hb / 2), (x + (i + 1) * 5 * k, y + hb / 2)],
+                              color="#222222" if i % 2 == 0 else "#FFFFFF", lw=hb * 72 / 25.4, group=f"site.g.{grp}", name=f"縮尺 {i}"))
+    SITEPARTS.append(dict(kind="line", id=f"{grp}.frame", pts=[(x, y), (x + meters * k, y), (x + meters * k, y + hb), (x, y + hb), (x, y)],
+                          color="#222222", lw=0.3, group=f"site.g.{grp}", name="縮尺の枠"))
+    SITEPARTS.append(dict(kind="text", x=x, y=y - 4, s="0", size=2.4, color="#222222", bold=False, ha="center", va="baseline", group=f"site.g.{grp}"))
+    SITEPARTS.append(dict(kind="text", x=x + meters * k, y=y - 4, s=f"{meters} m", size=2.4, color="#222222", bold=False, ha="center", va="baseline", group=f"site.g.{grp}"))
+
+
+scalebar_parts(sx + 6, sy - 22, 200, 20, "縮尺")
 # いちばん下の帯：沿川の景観立面　昼（左）・夜（右）1/300（ユーザー、10-26：2枚目から戻す。配置図の高野川の辺のすぐ下で、川の向こうから見た姿）
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
 _bx0 = M + 6; _bx1 = W - M - 6 - _lw1
@@ -2055,6 +2071,12 @@ for si in range(1, 6):
                 pg.draw_polyline(P_, color=_hx(sp["color"]), width=sp["lw"])
                 if sp.get("dot"):
                     pg.draw_circle(P_[-1], sp["dot"] * MM, color=_hx(sp["color"]), fill=_hx(sp["color"]))
+                if sp.get("arrow"):                       # 終わりの点に矢じり（長さ arrow mm）
+                    _a, _b = np.array(sp["pts"][-2], float), np.array(sp["pts"][-1], float)
+                    _u = (_b - _a) / np.linalg.norm(_b - _a); _n = np.array([-_u[1], _u[0]]); L_ = sp["arrow"]
+                    _tri = [_b, _b - _u * L_ + _n * L_ * 0.35, _b - _u * L_ - _n * L_ * 0.35]
+                    pg.draw_polyline([fitz.Point(q[0] * MM, (H - q[1]) * MM) for q in _tri] + [fitz.Point(_b[0] * MM, (H - _b[1]) * MM)],
+                                     color=_hx(sp["color"]), fill=_hx(sp["color"]), width=0)
         for sp in SITEPARTS:
             if sp["kind"] != "text":
                 continue
