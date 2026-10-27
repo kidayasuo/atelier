@@ -496,7 +496,7 @@
   },
   "catwalk": {
     "h": 3.0,
-    "inset": 0.25,
+    "inset": 0.24,
     "width": 0.9,
     "u_start": 36.2,
     "north_u": 47.0,

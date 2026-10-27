@@ -105,6 +105,12 @@ dbr = (c_ld - c_net) / np.linalg.norm(c_ld - c_net)
 BR_ZONE = LineString([c_net, c_ld]).buffer(P['bridge']['width'] * 500, cap_style=2)
 rail(HIGH.union(RING), H, ring_in.buffer(5).union(BR_ZONE).union(LOW.buffer(5)))
 rail(LOW.union(LAND), H2, BR_ZONE.union(HIGH.buffer(300)))
+# 北の段（10-28、監修の項 20261028-0015 の 3）：段ごとの西の開いた縁にも柵（前は段だけ柵が無く、西へ落ちると 1.9〜2.8 m）
+for k in range(sp['n']):
+    wa = sp['w0'] + (sp['w1'] - sp['w0']) * k / sp['n']; wb = sp['w0'] + (sp['w1'] - sp['w0']) * (k + 1) / sp['n']
+    STP = CAT.intersection(RWw(cw['north_u'], 60, wa, wb))
+    risers = unary_union([RWw(cw['north_u'], 60, w_ - 0.01, w_ + 0.01) for w_ in (wa, wb)])   # 段の境（蹴上げの線、v 一定の弧）には柵を立てない
+    rail(STP, H - sp['rise'] * 1000 * (k + 1), risers)
 K.prism(ring_in.buffer(40).difference(ring_in), H - 150, H, L_NET, STEEL)       # ネットを留める鋼の輪
 # ---------------------------------------------------------------- 網の吊り橋（輪 h3.0 → 踊り場 h2.0、真ん中が垂れる）
 bw = P['bridge']['width'] * 1000; sag = P['bridge']['sag'] * 1000
@@ -114,11 +120,11 @@ for i in range(13):
     t = i / 12; z = H + (ld['h'] * 1000 - H) * t - 4 * sag * t * (1 - t); c = pa + (pb - pa) * t
     G.append([[*(c + nrm * s), z] for s in np.linspace(-bw / 2, bw / 2, 5)])
 K.surface(G, L_NET, (122, 90, 54))
-for s in (-1, 1):                                               # 両脇の網の壁（上の綱 h0.9）
+for s in (-1, 1):                                               # 両脇の網の壁（上の綱 h1.1）
     G = []
     for i in range(13):
         t = i / 12; z = H + (ld['h'] * 1000 - H) * t - 4 * sag * t * (1 - t); c = pa + (pb - pa) * t + nrm * s * bw / 2
-        G.append([[*c, z], [*c, z + 900]])
+        G.append([[*c, z], [*c, z + RAIL]])                     # 10-28（監修の項 0015 の 7）：900 → 1,100（キャットウォークの柵と同じ）
     K.surface(G, L_NET, (122, 90, 54))
 # ---------------------------------------------------------------- 丸い材は円の押し出し（10-28、監修の項 2346：前は 6〜8 角の網目）
 def rod(p0, p1, rad, li, col):
