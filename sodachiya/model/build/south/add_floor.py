@@ -46,64 +46,33 @@ L_ho=layer('16i_本館_縁側の片引き戸の框（杉、開）',(196,160,118)
 for _li in (L_do,L_ho): m.Layers[_li].Visible=False                          # 開けた位置は最初は隠す（Rhinoで表示を切り替えて見比べる）
 # 戸の板：框は見付 60（縦框・上框）・下框 90、見込み 40（戸の厚さ）。ガラスは框の中に t12（強化か合わせ）、戸の厚さの真ん中。
 DOOR_R=RG+60; DOOR_GL=12
-def door_leaf(a0,a1,li_f,li_g):
+def door_leaf(a0,a1,li_f,li_g,mark=False):
     da=np.sign(a1-a0)*60/DOOR_R; inner=np.linspace(a0+da,a1-da,8)
     for b0,b1 in ((a0,a0+da),(a1-da,a1)):                                   # 縦框
         wall_along([P(DOOR_R,b0),P(DOOR_R,b1)],lambda x,y:0,lambda x,y:KAMOI-10,40,li_f)
     wall_along([P(DOOR_R,a) for a in inner],lambda x,y:0,lambda x,y:90,40,li_f)                    # 下框
     wall_along([P(DOOR_R,a) for a in inner],lambda x,y:KAMOI-70,lambda x,y:KAMOI-10,40,li_f)       # 上框
-    wall_along([P(DOOR_R,a) for a in inner],lambda x,y:90,lambda x,y:KAMOI-70,DOOR_GL,li_g)       # ガラス
-# 10-25：本物のロゴ（sodachiya/logo/sodachiya_logo.svg、黒＝エッチング）。形は毎回 SVG から読む（ユーザーが書き換えてもよい）。
-# 200 単位＝ロゴの直径 → ガラスでは φ180。ガラスの室内側の面から 0.5 離して厚さ 1.0 の薄い板（閉じた立体）。中心 FL+1.0。
+    # ガラス（7 片。真ん中の片に、ロゴを貼る場所をユーザー文字列 'etch' で書いておく → 最後の段 materials.py が絵を貼る）
+    pts=[P(DOOR_R,a) for a in inner]
+    for i,(p0,p1) in enumerate(zip(pts,pts[1:])):
+        d=np.array(p1)-np.array(p0); d/=np.linalg.norm(d); nrm=np.array([-d[1],d[0]])*DOOR_GL/2
+        q=[np.array(p0)-nrm,np.array(p1)-nrm,np.array(p1)+nrm,np.array(p0)+nrm]
+        at=attr(li_g)
+        if mark and i==3: at.SetUserString('etch',_etch((a0+a1)/2))
+        m.Objects.AddMesh(mesh_prism([(x[0],x[1],90.0) for x in q],[(x[0],x[1],float(KAMOI-70)) for x in q]),at)
+# 10-25：本物のロゴ（sodachiya/logo/sodachiya_logo.svg、黒＝エッチング）。φ180、中心 FL+1.0、ガラスの室内側の面に。
 # 大人の目の高さ（FL+1.5）には幅 10・長さ 600 の細い横の帯。
-import os as _os, re as _re
-import mapbox_earcut as _ec
-from shapely.geometry import Polygon as _Pg
-from shapely.ops import unary_union as _uu
-def _logo_polys(path):
-    src=open(path,encoding='utf-8').read(); out=[]
-    for mm in _re.finditer(r'<path\b([^>]*)/?>', src):
-        d=_re.search(r'\sd="([^"]*)"', mm.group(1)).group(1)
-        rings=[]
-        for sub in _re.split(r'[Mm]', d)[1:]:
-            pts=[tuple(map(float,q)) for q in _re.findall(r'(-?[\d.]+)[ ,](-?[\d.]+)', sub)]
-            if len(pts)>=3: rings.append(_Pg(pts).buffer(0))
-        g=None
-        for rg in rings: g=rg if g is None else g.symmetric_difference(rg)   # fill-rule evenodd
-        if g is not None: out.append(g)
-    return _uu(out)
-_LOGO_SVG=_os.path.join(_os.environ.get('SODACHIYA_ROOT',''),'logo','sodachiya_logo.svg')   # run_all.sh が SODACHIYA_ROOT を渡す
-_LOGO=_logo_polys(_LOGO_SVG) if _os.path.exists(_LOGO_SVG) else None
-print('logo', _LOGO_SVG, 'ok' if _LOGO is not None else 'なし（場所の帯だけ）')
-def _plate(g2, c, off, li, thick=1.0):
-    """g2：(x, z) の平面形（x はガラスに沿って南が +、z は上が +、mm）を、ガラスの線上の点 c の室内側 off の面に厚さ thick の板で。
-    一つのロゴは一つの物（離れた輪・線は同じ網目の中の別の閉じた立体）。白の艶消し（エッチングに似せる、ソリッド係 10-25）"""
-    d=np.array(c)-C; d=d/np.linalg.norm(d); t=np.array([-d[1],d[0]])            # d：室内（西）、t：南
-    M=r.Mesh()
-    for pg in getattr(g2,'geoms',[g2]):
-        if pg.is_empty or pg.area<0.5: continue
-        # 閉じた板（trimesh の押し出し。earcut は穴のある輪で三角形が欠け、閉じなかった：ソリッド係 10-25）
-        import trimesh as _tm
-        tp=_tm.creation.extrude_polygon(pg, thick)
-        bb=len(M.Vertices)
-        for x,z,h in np.asarray(tp.vertices):
-            q=np.array(c)+d*(off+h)+t*x; M.Vertices.Add(float(q[0]),float(q[1]),float(z))
-        fl=np.cross(np.r_[t,0.0],[0,0,1.0]) @ np.r_[d,0.0] < 0                 # (x, z, h) → (t, 上, d) の向きで裏返るか
-        for a_,b_,c_ in np.asarray(tp.faces):
-            if fl: M.Faces.AddFace(int(bb+a_),int(bb+c_),int(bb+b_))
-            else: M.Faces.AddFace(int(bb+a_),int(bb+b_),int(bb+c_))
-    if len(M.Faces)==0: return
-    M.Normals.ComputeNormals(); M.Compact()
-    a_=r.ObjectAttributes(); a_.LayerIndex=li; a_.Name='園のロゴ（エッチング）'
-    a_.ColorSource=r.ObjectColorSource.ColorFromObject; a_.ObjectColor=(245,245,242,255)   # 白の艶消し（すりガラスに似せる）
-    m.Objects.AddMesh(M,a_)
-def _marks(c, off, li):
-    if _LOGO is not None:
-        from shapely import affinity as _af
-        g=_af.scale(_LOGO.buffer(0), 0.9, -0.9, origin=(100,100))             # 200 → 180 mm、SVG の y（下が +）を上が + に
-        g=_af.translate(g, -100, 1000-100)
-        _plate(g.buffer(0), c, off, li)                                     # ロゴで一つの物
-    _plate(_Pg([(-300,1495),(300,1495),(300,1505),(-300,1505)]), c, off, li)  # 大人の目の高さの細い帯（同じ作り方）
+# 10-27（ユーザー：ガラスのロゴのエッチングは、テクスチャマッピングで単に絵を貼り付けて）：ここでは形を作らない（前の網目は
+# 1 枚約 1 万の三角形でファイルが重かった）。戸のガラスの物に、貼る場所だけを書く。絵（SVG から毎回作る PNG）と貼る板は
+# 最後の段 materials.py が両方の 3dm に足す。
+import json as _json
+def _etch(ang):
+    """ガラスの室内側の面（RG+60+6）の上の、戸の左右の真ん中。n：室内（西）向きの法線、t：南（室内から見て右）"""
+    c=np.array(P(DOOR_R+DOOR_GL/2,ang)); d=(c-np.array(C)); d=d/np.linalg.norm(d); t=np.array([-d[1],d[0]])
+    f=lambda v: [round(float(x),3) for x in v]
+    return _json.dumps(dict(n=f([d[0],d[1],0.0]),t=f([t[0],t[1],0.0]),
+        marks=[dict(kind='logo',c=f([c[0],c[1],1000.0]),w=180,h=180),                 # 園のロゴ φ180、中心 FL+1.0
+               dict(kind='band',c=f([c[0],c[1],1500.0]),w=600,h=10)]),ensure_ascii=False)   # 大人の目の高さの帯
 for k in range(19):
     a_n,a_s=TH[k],(TH[k+1] if k<18 else th19); mid=(a_n+a_s)/2
     fix=[P(RG,a) for a in np.linspace(a_n,mid,8)]
@@ -120,12 +89,10 @@ for k in range(19):
     _q=_ring(a_n,mid); m.Objects.AddMesh(mesh_prism([(x,y,-150.0) for x,y in _q],[(x,y,KAMOI+60.0) for x,y in _q]),attr(L_ew))
     _q=_ring(a_b,mid); m.Objects.AddMesh(mesh_prism([(x,y,KAMOI+60.0) for x,y in _q],[(x,y,float(ZUND(x,y))) for x,y in _q]),attr(L_ew))
     wall_along([P(RG,a) for a in np.linspace(mid,a_s,8)],lambda x,y:KAMOI+60,ZUND,20,L_gl)   # 鴨居の上の固定ガラス（戸の側の半分だけ）
-    door_leaf(mid-50/RG,a_s,L_hc,L_dc)                                      # 片引き戸（閉）
-    door_leaf(a_n,a_n+_L,L_ho,L_do)                                          # 片引き戸（開）
     span_no=19-k                                                             # 南から数えたスパンの番号
-    if span_no>=5:                                                           # 0・1歳（スパン1–4）の低い所には入れない
-        _marks(P(RG,(mid-50/RG+a_s)/2), 60+DOOR_GL/2+0.5, L_dc)             # ガラスの室内側の面（RG+66）から 0.5（閉）
-        _marks(P(RG,a_n+_L/2), 60+DOOR_GL/2+0.5, L_do)                       # 戸（開）
+    mk=span_no>=5                                                            # 0・1歳（スパン1–4）の低い所には入れない
+    door_leaf(mid-50/RG,a_s,L_hc,L_dc,mk)                                   # 片引き戸（閉）
+    door_leaf(a_n,a_n+_L,L_ho,L_do,mk)                                       # 片引き戸（開）
 wall_along(gl,lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)               # 鴨居
 # 鴨居の上の固定ガラスは、上のスパンごとの所で戸の側の半分だけに作る（10-27）。鴨居は通し（壁と重なる所は優先順位で削られる）
 # 10-24：床下の風の道（決定事項（共通）の「床下の風の道」）。外縁側（−150）から内縁側（±0）への段の蹴込みにガラリ
