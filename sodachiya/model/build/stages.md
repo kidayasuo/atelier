@@ -8,10 +8,10 @@
 | 0 | 架構・西館 | `data/wnew.pkl`・`model/build/ideas/roof_geo.py`・`model/build/south/run_exact_new.py`・`model/build/vendor/plans_rhino/sodachiya_frames_gh.py`・`archive/handoff_1018/t/`の10ファイル・`model/build/vendor/mock2/`の2ファイル |
 | 1 | 南端 | `model/build/south/add_south.py` |
 | 2 | 浮いた蓋 | `model/build/south/add_monitor_west.py`・`model/build/south/add_south.py` |
-| 3 | 床 | `model/build/south/add_floor.py`・`model/build/south/add_south.py` |
+| 3 | 床 | `model/build/south/add_floor.py`・`model/build/south/add_south.py`・`model/build/south/uv.py` |
 | 4 | しつらえ | `model/build/shitsu/add_shitsurae.py`・`model/build/shitsu/capture.py`・`model/build/shitsu/ref/plan01.py`・`model/build/shitsu/ref/plan02.py`・`model/build/shitsu/ref/plan04.py`・`scripts/plan01.py`・`scripts/plan02.py`・`scripts/plan04.py` |
 | 5 | 外構の取り込み | `model/build/south/finish.py`・`model/sodachiya_approachA_layers.3dm` |
-| 6 | 西館の外壁と開口 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_west_south.py`・`model/build/south/meshkit.py`・`model/build/south/roofw.py`・`model/build/south/uv.py` |
+| 6 | 西館の外壁と開口 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_west_south.py`・`model/build/south/meshkit.py`・`model/build/south/roofw.py` |
 | 7 | 遊戯室 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_play.py` |
 | 7p | 遊戯室の取り込み | `model/build/south/add_play_import.py`・`model/sodachiya_play_layers.3dm` |
 | 7b | ホールの林 | `data/forest.json`・`model/build/south/add_hall.py` |
