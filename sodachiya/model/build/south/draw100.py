@@ -2,7 +2,7 @@
 使い方: python3 draw100.py MODEL_MESH.3dm OUTDIR
 - 平面：FL+1500 で切る（2 階は 2FL+1000、西館の南西の軒が低い）。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
   見えがかりは近いもの（高いもの）から順に、手前の形で後ろの線を切って描く（隠れ線を消した線だけ）。
-  屋根の外形は破線（梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
+  屋根の外形など切断より上の物は想像線（二点鎖線、梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
 - 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
 - 断面：A は円筒面 r=197 m で切って展開（西を見る）。B・C は架構に平行な鉛直面（北を見る）、奥 3.2 m まで。
   通り芯、幅の寸法、高さの記号（GL・FL・2FL・屋根・越屋根の蓋・西館の最高）。
@@ -239,18 +239,28 @@ DL = {
     '10_見えがかり': (7, 13, 'Continuous'),
     '11_見えがかり（家具）': (8, 9, 'Continuous'),
     '12_見えがかり（ガラス）': (5, 9, 'Continuous'),
-    '20_上部（屋根の外形・梁）': (8, 9, 'DASHED'),
+    '20_上部（屋根の外形・梁）': (8, 9, 'PHANTOM'),     # 切断より上の物：想像線（細い二点鎖線、JIS A 0150）
+    '15_地盤': (8, 9, 'Continuous'),                  # 断面の GL の下の地盤の記号（斜線）
     '30_敷地・外構': (8, 9, 'Continuous'),
     '40_通り芯': (1, 9, 'DASHDOT'),
     '41_通り芯の符号': (1, 13, 'Continuous'),
     '50_寸法': (3, 9, 'Continuous'),
     '51_高さ': (3, 9, 'Continuous'),
     '60_部屋名・面積': (7, 13, 'Continuous'),
-    '70_断面の位置': (6, 13, 'DASHDOT'),
+    '70_断面の位置': (6, 9, 'DASHDOT'),
     '80_図名・縮尺・方位': (7, 18, 'Continuous'),
     '90_図枠': (7, 25, 'Continuous'),
 }
 PT2MM = 0.3528   # 1 pt = 0.3528 mm（紙の上）
+
+# JIS の製図（JIS A 0150 建築製図通則、学生の課題の範囲、ユーザー 10-28）：
+# 線の太さは 3 つ（A1・1/100）：太 0.35（切断面の外形・GL）、中 0.18（建具の切り口・寸法の端の斜線）、細 0.09〜0.13（見えがかり・寸法線・中心線・かくれ線・想像線）
+LW_CUT, LW_MID, LW_THIN = 0.35, 0.18, 0.09
+LS_HIDDEN = (0, (3, 2))                    # かくれ線（破線）
+LS_CHAIN = (0, (10, 3, 2, 3))              # 中心線・通り芯・切断線（一点鎖線）
+LS_PHANTOM = (0, (14, 3, 2, 3, 2, 3))      # 想像線（二点鎖線）：切断より上にある物（屋根の外形・越屋根・2 階の床の縁・光の筋など）
+# 文字の大きさ（紙の上）：図名 3.9 mm ＞ 室名 2.8 mm ＞ 寸法・高さ・注 2.5 mm
+PT_TITLE, PT_ROOM, PT_DIM, PT_NOTE = 11, 8, 7.1, 7.1
 
 def git_stamp():
     try:
@@ -424,10 +434,10 @@ def draw_cut(A, items, insul=False):
         g = GW['partition']
         A.fill(g, lay, fc='w', z=5.5)
         edge = g.boundary.difference(GW['wall'].buffer(1)) if 'wall' in GW else g.boundary
-        A.geom_lines(edge, lay, lw=0.2, z=6.2)
+        A.geom_lines(edge, lay, lw=LW_CUT, z=6.2)
         occ.append(g)
     if 'wall' in GW:
-        g = GW['wall']; A.fill(g, lay, fc='k', z=6); A.geom_lines(g.boundary, lay, lw=0.25, z=6); occ.append(g)
+        g = GW['wall']; A.fill(g, lay, fc='k', z=6); A.geom_lines(g.boundary, lay, lw=LW_CUT, z=6); occ.append(g)
     # 層に分けた屋根（本館係 df33150：上の層 10_・構造用合板 10r_・垂木 10v_、西館も分けたら 20・20r・20v）は、
     # 三つを一つの切り口にまとめて屋根の構成で描く（垂木は 455 おきの仮の断面でなく 10v の本当の切り口）
     roof_done = set()
@@ -465,13 +475,13 @@ def draw_cut(A, items, insul=False):
             if k != 'glass' and pc is not None: occ.append(pc.buffer(0))
             continue
         elif k == 'furn':
-            A.fill(pc, lay, fc='0.62', z=5); A.lines(segs, lay, lw=0.15, z=6)
+            A.fill(pc, lay, fc='0.62', z=5); A.lines(segs, lay, lw=LW_MID, z=6)
         elif k == 'volume':
-            A.lines(segs, lay, lw=0.3, z=6)
+            A.lines(segs, lay, lw=LW_CUT, z=6)
         elif insul and re.match(r'^(10|20)_', ob['layer']) and roof_build(A, pc):
             pass                                   # 厚みのある屋根の立体：屋根の構成で描いた（roof_build）
         else:
-            A.fill(pc, lay, fc='k', z=6); A.lines(segs, lay, lw=0.25, z=6)
+            A.fill(pc, lay, fc='k', z=6); A.lines(segs, lay, lw=LW_CUT, z=6)
         if pc is not None and k != 'glass': occ.append(pc.buffer(0))
         n = num(ob['layer'])
         if insul and re.match(r'^(10|20)_', ob['layer']) and segs and not getattr(A, '_roof_built', {}).get(id(pc)):   # 屋根の本体だけ（10t・10p などの光の筋・太陽光の面には描かない）      # 屋根（3dm では厚みの無い面）：面の下 50〜200 に断熱（垂木の間 150、仮）
@@ -484,7 +494,7 @@ def draw_cut(A, items, insul=False):
             if bands:
                 bb = unary_union(bands); xc = getattr(A, 'insul_x', None)          # 軒の出（外）は除く
                 if xc: bb = bb.intersection(box(xc[0], -1e5, xc[1], 1e5))
-                A.fill(bb, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+                insul_fill(A, bb)
         if insul and pc is not None and not pc.is_empty:
             band = None
             if False:
@@ -494,9 +504,31 @@ def draw_cut(A, items, insul=False):
             elif n == 15:                          # 海峡（土間）：スラブの下 50（仮）
                 band = shp_affinity.translate(pc, 0, -50).difference(pc.buffer(1))
             if band is not None and not band.is_empty and band.area > 1e4:
-                A.fill(band, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+                insul_fill(A, band)
     if FLOORS: occ += floor_build(A, FLOORS)
     return unary_union(occ) if occ else None
+
+# 断熱材：JIS の保温材の記号（帯の中に細いジグザグ）。前は黄の帯に斜線（斜線は 1/100 ではコンクリートの記号に読める）。
+# 黄の塗りは残す（凡例：make_sections の legend_materials）
+C_INSUL = '#F3D98B'
+def insul_fill(A, g, z=6.5):
+    if g is None or g.is_empty: return
+    A.fill(g, '05_断熱（仮）', fc=C_INSUL, z=z)
+    for q in getattr(g, 'geoms', [g]):
+        if q.geom_type != 'Polygon' or q.area < 2e4: continue
+        x0, y0, x1, y1 = q.bounds; horiz = (x1 - x0) >= (y1 - y0)
+        L = max(x1 - x0, y1 - y0); t = q.area / max(L, 1)                 # 帯の厚さ（おおよそ）
+        if t < 90: continue                                               # 薄い帯（基礎断熱 50 など）は塗りだけ
+        p = min(max(t, 100), 250); pts = []
+        lo, hi = (x0, x1) if horiz else (y0, y1)
+        for k, s_ in enumerate(np.arange(lo + p / 2, hi, p)):
+            cut = q.intersection(LineString([(s_, y0 - 1), (s_, y1 + 1)]) if horiz else LineString([(x0 - 1, s_), (x1 + 1, s_)]))
+            if cut.is_empty: continue
+            b = cut.bounds; a_, b_ = (b[1], b[3]) if horiz else (b[0], b[2])
+            w = b_ - a_; v = a_ + 0.15 * w if k % 2 == 0 else b_ - 0.15 * w
+            pts.append((s_, v) if horiz else (v, s_))
+        if len(pts) >= 2:
+            A.geom_lines(LineString(pts).intersection(q.buffer(1)), '05_断熱（仮）', lw=LW_THIN, color='0.3', z=z + 0.05)
 
 # 屋根の構成（決定事項（共通）の「屋根の構成」、ユーザー 10-26夜）：上から 太陽光・野地板・通気層 97／断熱 150（外張り）／
 # 気密・構造用合板 24（現し）／垂木 60×150＠455（現し）。屋根の立体（厚み約420、本館係 84299df）の切り口の中に、上面からの深さで層を描く。
@@ -515,7 +547,7 @@ def roof_build(A, pc, rafters=None):
     xc = getattr(A, 'insul_x', None)
     ins = band(RB_LAYERS[0], RB_LAYERS[1])
     if xc and not ins.is_empty: ins = ins.intersection(box(xc[0], -1e5, xc[1], 1e5))
-    if not ins.is_empty: A.fill(ins, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+    if not ins.is_empty: insul_fill(A, ins)
     ply = band(RB_LAYERS[1], RB_LAYERS[2])
     if not ply.is_empty: A.fill(ply, lay, fc='#E9DCC4', z=6.4)
     # 層の境の細線（上面から 40＝太陽光の下、97、247、271）
@@ -534,7 +566,7 @@ def roof_build(A, pc, rafters=None):
             if not g.is_empty and g.area > 2000: rs.append(g)
         if rs:
             g = unary_union(rs); A.fill(g, lay, fc='#E9DCC4', z=6.55); A.geom_lines(g.boundary, lay, lw=0.1, z=6.6)
-    A.geom_lines(pc.boundary, lay, lw=0.25, z=6.7)
+    A.geom_lines(pc.boundary, lay, lw=LW_CUT, z=6.7)
     A.__dict__.setdefault('_roof_built', {})[id(pc)] = True
     return True
 
@@ -563,10 +595,10 @@ def floor_build(A, pcs):
             slab.append(box(a - 200, SLAB_TOP - SLAB_T - 150, b + 200, SLAB_TOP - 150))
         conc = unary_union(slab + [box(x0, SLAB_TOP - SLAB_T, x0 + RISE_T, -FL_BOARD - 90), box(x1 - RISE_T, SLAB_TOP - SLAB_T, x1, -FL_BOARD - 90)])
         for a, b in pits: conc = conc.difference(box(a - 200 + RISE_T, SLAB_TOP - 150, b + 200 - RISE_T, SLAB_TOP + 1))
-        A.fill(conc, lay, fc='0.72', z=6); A.geom_lines(conc.boundary, lay, lw=0.18, z=6.1); occ.append(conc)
+        A.fill(conc, lay, fc='0.72', z=6); A.geom_lines(conc.boundary, lay, lw=LW_CUT, z=6.1); occ.append(conc)
         ins = unary_union([box(x0 + RISE_T, SLAB_TOP, x0 + RISE_T + INS_T, -FL_BOARD - 90), box(x1 - RISE_T - INS_T, SLAB_TOP, x1 - RISE_T, -FL_BOARD - 90),
                            box(x0, SLAB_TOP - SLAB_T - INS_T, x0 + INS_W, SLAB_TOP - SLAB_T), box(x1 - INS_W, SLAB_TOP - SLAB_T - INS_T, x1, SLAB_TOP - SLAB_T)])
-        A.fill(ins, '05_断熱（仮）', fc='#F3D98B', z=6.5, hatch='////')
+        insul_fill(A, ins)
         for a, b in boards:
             A.lines([[(max(a, x0 + RISE_T), -FL_BOARD - 90), (min(b, x1 - RISE_T), -FL_BOARD - 90)]], '10_見えがかり', lw=0.07, color='0.4', z=5)   # 大引の下端（見えがかり）
     return occ
@@ -585,7 +617,7 @@ def draw_visible(A, items, occ):
     return occ
 
 # ---------------------------------------------------------------- 平面
-UP_DASH = r'^(23|28|30|50a|50c|51w|82|83)_'   # 切断より上でも破線で示す物（越屋根・2階の床の縁・遊戯室の上の遊具・天袋、10-27 監修）
+UP_DASH = r'^(23|28|30|50a|50c|51w|82|83)_'   # 切断より上でも想像線（二点鎖線、10-28 JIS）で示す物（越屋根・2階の床の縁・遊戯室の上の遊具・天袋、10-27 監修）
 ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_', ln))
 # 部屋の色（決定事項（共通）の「色」、プレゼンの準備 renkei/open/20261024-1927-present、ユーザー10-24夜）：
 # こどもの部屋は緑のグラデーション、こどものみんなの場所、通り・つなぐ場所（はだし）とその土足、大人は一つの色相（キッチンは濃く）、水まわり
@@ -623,10 +655,10 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             if zz.min() >= zcut and zz.min() < level_z + 3000: hidden.append(ob); continue                 # 切断より上の窓（高窓）：破線
             if zz.max() <= zcut and zz.min() >= level_z + 50: hidden_low.append(ob)                         # 切断より下の窓（地窓）：壁の中なら破線（下）
         z = ob['T'][:, :, 2]
-        if re.match(r'^(10t|20t)_', ob['layer']) and z.min() >= zcut: up_dash.append(ob); continue      # 光の筋：上部の破線（10-27 監修）
+        if re.match(r'^(10t|20t)_', ob['layer']) and z.min() >= zcut: up_dash.append(ob); continue      # 光の筋：上部の想像線（10-27 監修、10-28 二点鎖線）
         if num(ob['layer']) in (10, 20) and not (ob['layer'].startswith('10s_') and z.min() < level_z + 100): continue   # 屋根（太陽光も）は上部の外形だけ（2階では軒が切断の高さより低い所がある）。南の軒の柱（10s、床から）は切る
         if num(ob['layer']) == 25: stairs.append(ob); continue                                                   # 階段は踏面の線と矢印で（下）
-        if num(ob['layer']) == 94 and z.max() > zcut: overhead.append(ob); continue   # 園庭の木：樹冠を破線で
+        if num(ob['layer']) == 94 and z.max() > zcut: overhead.append(ob); continue   # 園庭の木：樹冠を想像線で
         # 切断より上の物は描かない。ただし越屋根・2階の床の縁（吹抜の縁）・遊戯室の上の遊具・天袋だけは破線（10-27 監修：1.5 m より上は見えない、あえて示す物は点線）
         if z.min() >= zcut:
             if re.match(UP_DASH, ob['layer']): up_dash.append(ob)
@@ -699,17 +731,17 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             hidden_win(centerlines(fp))
     below.sort(key=lambda ob: -ob['T'][:, :, 2].max())
     draw_visible(A, [(ob, silhouette(ob['T'][:, :, :2])) for ob in below if ob['layer'].split('_')[0] not in STREET_NOLINE], occ)
-    # 上部：屋根は片をまとめた外形だけ（片の継ぎ目・光の筋・太陽光の線は部屋を横切るので描かない、10-24）、木の樹冠は一本ずつ
+    # 上部（想像線＝細い二点鎖線、JIS A 0150）：屋根は片をまとめた外形だけ（片の継ぎ目・光の筋・太陽光の線は部屋を横切るので描かない、10-24）、木の樹冠は一本ずつ
     roof_sil = [silhouette(ob['T'][:, :, :2]) for ob in overhead if num(ob['layer']) in (10, 20) and re.match(r'^(10|20)_', ob['layer'])]
     roof_sil = [g.buffer(30) for g in roof_sil if g is not None and not g.is_empty]
     if roof_sil:
         ru = unary_union(roof_sil).buffer(-30)
         ru = unary_union([Polygon(g.exterior) for g in getattr(ru, 'geoms', [ru]) if g.geom_type == 'Polygon'])   # 光の筋の穴は外形に入れない
-        A.geom_lines(ru.boundary, '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
+        A.geom_lines(ru.boundary, '20_上部（屋根の外形・梁）', lw=LW_THIN, color='0.4', ls=LS_PHANTOM, z=7)
     for ob in overhead:
         if num(ob['layer']) in (10, 20): continue
-        A.geom_lines(silhouette(ob['T'][:, :, :2]), '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
-    # 切断より上の、あえて示す物（光の筋・越屋根・2階の床の縁＝吹抜の縁・遊戯室の上の遊具・天袋）：レイヤーごとに外形をまとめて細い破線。切った壁の上は描かない
+        A.geom_lines(silhouette(ob['T'][:, :, :2]), '20_上部（屋根の外形・梁）', lw=LW_THIN, color='0.4', ls=LS_PHANTOM, z=7)
+    # 切断より上の、あえて示す物（光の筋・越屋根・2階の床の縁＝吹抜の縁・遊戯室の上の遊具・天袋）：レイヤーごとに外形をまとめて細い二点鎖線（想像線）。切った壁の上は描かない
     WALLS = unary_union([pc.buffer(0) for ob, pc, sg in items if (wall_group(ob) or kind(ob['layer']) == 'struct') and pc is not None and not pc.is_empty]) if items else Polygon()
     byl_up = {}
     for ob in up_dash:
@@ -719,7 +751,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
         g = unary_union(gs).buffer(-5)
         ln_g = g.boundary if g.geom_type in ('Polygon', 'MultiPolygon') else g
         if not WALLS.is_empty: ln_g = ln_g.difference(WALLS.buffer(5))
-        A.geom_lines(ln_g, '20_上部（屋根の外形・梁）', lw=0.08, color='0.45', ls=(0, (4, 2.5)), z=7)
+        A.geom_lines(ln_g, '20_上部（屋根の外形・梁）', lw=LW_THIN, color='0.45', ls=LS_PHANTOM, z=7)
     # 階段（JIS の製図の慣習、10-27 監修）：1 階は上り口から切断の位置までの踏面を実線、切断の位置に斜めの二重の破断線、その先は描かない。
     # 矢印は上り口から破断線まで「上」。2 階は階段全体を実線、降り口から矢印「下」。手すりの線（段の両脇から 60 内）も
     for ob in stairs:
@@ -805,7 +837,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
         A.lines([path], '45_階段', lw=0.13, z=7)
         d_ = path[-1] - path[-2]; d_ = d_ / max(np.linalg.norm(d_), 1e-6); nn = np.array([-d_[1], d_[0]])
         A.lines([[path[-1] - d_ * 250 + nn * 120, path[-1], path[-1] - d_ * 250 - nn * 120]], '45_階段', lw=0.13, z=7)
-        A.text(path[0][0], path[0][1], lab, 5.5, '45_階段', box=True)
+        A.text(path[0][0], path[0][1], lab, PT_NOTE, '45_階段', box=True)
     # 吹抜（2 階）：西館の 1 階の部屋の上で、2 階の床の無い所。対角の細い線と「吹抜」
     if level_z > 1000:
         f1 = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^(31|32|33|34|36|57)_', ob['layer'])]
@@ -820,7 +852,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
                 A.geom_lines(LineString([a_, b_]).intersection(g), '45_吹抜', lw=0.07, color='0.45', z=5)
             from shapely.ops import polylabel as _pl
             q = _pl(g, 50)
-            A.text(q.x, q.y, '吹抜' + ('（遊戯室）' if g.area > 50e6 else ''), 6, '45_吹抜', box=True)
+            A.text(q.x, q.y, '吹抜' + ('（遊戯室）' if g.area > 50e6 else ''), PT_NOTE, '45_吹抜', box=True)
     # 開き戸：開いた位置の板（90°）と、閉じた位置からの弧（3dm の戸の板の名前に吊元と開く向き、add_inner.py）。
     # 板も弧も壁の外に（10-27 監修）：板や弧が切った壁の中に入る所は、図では吊元を壁の面へ寄せる（3dm の名前の吊元が壁の中にあるときも）
     def swing_door(hp, cd, od, R_):
@@ -964,12 +996,12 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             from shapely.ops import polylabel as _pl
             p = _pl(g.buffer(-150) if g.buffer(-150).geom_type == 'Polygon' and not g.buffer(-150).is_empty else g, 20)   # 壁からいちばん遠い点（線に重ならない）
             nm_ = room_name(ob["layer"])
-            # 字の幅（1/100、5.5pt ≒ 1 字 0.19 m）が部屋の短い方の幅の 8 割を超えたら「・」で折る
+            # 字の幅（1/100、PT_ROOM の 1 字）が部屋の短い方の幅の 8 割を超えたら「・」で折る
             mr_ = np.array(g.minimum_rotated_rectangle.exterior.coords); wmin = min(np.linalg.norm(mr_[1] - mr_[0]), np.linalg.norm(mr_[2] - mr_[1]))
-            if len(nm_) * 190 > 0.8 * wmin and '・' in nm_:
+            if len(nm_) * PT_ROOM * PT2MM * 100 > 0.8 * wmin and '・' in nm_:
                 i_ = nm_.index('・', len(nm_) // 3) if '・' in nm_[len(nm_) // 3:] else nm_.index('・')
                 nm_ = nm_[:i_ + 1] + '\n' + nm_[i_ + 1:]
-            A.text(p.x, p.y, f'{nm_}\n{a / 1e6:.1f} m²', 5.5, '60_部屋名・面積', box=True)
+            A.text(p.x, p.y, f'{nm_}\n{a / 1e6:.1f} m²', PT_ROOM, '60_部屋名・面積', box=True)
 
 def unwrap(a):
     """角度を π のまわりに（建物は中心の西、±π をまたぐので）"""
@@ -1006,28 +1038,28 @@ def plan_grid(A):
     rd = 185300
     for k in range(19):
         t0, t1 = TH_S[k], TH_S[k + 1]
-        A.lines([np.array([at(rd, t) for t in np.linspace(t0, t1, 8)])], '50_寸法', lw=0.09, color='#2E7D32')
-        for t in (t0, t1): A.lines([[at(rd - 250, t), at(rd + 250, t)]], '50_寸法', lw=0.09, color='#2E7D32')
+        A.lines([np.array([at(rd, t) for t in np.linspace(t0, t1, 8)])], '50_寸法', lw=LW_THIN, color='#2E7D32')
+        for t in (t0, t1): dim_ends(A, [at(rd, t)], at(rd, t + 1e-4) - at(rd, t), color='#2E7D32', ext=250)
         p = at(rd - 450, (t0 + t1) / 2)
         ang = math.degrees((t0 + t1) / 2) + 90
-        A.text(p[0], p[1], '3,000', 4.5, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
+        A.text(p[0], p[1], '3,000', PT_DIM, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
     p = at(rd - 1300, (TH_S[0] + TH_S[-1]) / 2)
-    A.text(p[0], p[1], '19 × 3,000 = 57,000（背骨 r=205 m で）', 5.5, '50_寸法', rot=((math.degrees((TH_S[0] + TH_S[-1]) / 2) + 180) % 180) - 90, color='#2E7D32')
+    A.text(p[0], p[1], '19 × 3,000 = 57,000（背骨 r=205 m で）', PT_DIM, '50_寸法', rot=((math.degrees((TH_S[0] + TH_S[-1]) / 2) + 180) % 180) - 90, color='#2E7D32')
 
 def plan_vdims(A):
     """本館の幅の寸法（南の妻の外、放射の向き）：西の外壁の外面・W 通り・西吹き抜け・E 通り・内縁側・軒先"""
     th = theta_u(-4300)
     vs = [-0.35, 0.0, 1.6, 12.0, 13.5, 15.0]
     pts = [at(205000 - v * 1000, th) for v in vs]
-    A.lines([[pts[0], pts[-1]]], '50_寸法', lw=0.09, color='#2E7D32')
+    A.lines([[pts[0], pts[-1]]], '50_寸法', lw=LW_THIN, color='#2E7D32')
     d_ = (pts[-1] - pts[0]) / np.linalg.norm(pts[-1] - pts[0]); nn = np.array([-d_[1], d_[0]])
-    for q in pts: A.lines([[q - nn * 250, q + nn * 250]], '50_寸法', lw=0.09, color='#2E7D32')
+    dim_ends(A, pts, d_, color='#2E7D32', ext=250)
     ang = math.degrees(math.atan2(d_[1], d_[0]))
     for v0, v1, q0, q1 in zip(vs, vs[1:], pts, pts[1:]):
         mid = (q0 + q1) / 2 + nn * 450 * (1 if (v1 - v0) > 1 else 2.2)
-        A.text(mid[0], mid[1], f'{round((v1 - v0) * 1000):,}', 4.5, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
+        A.text(mid[0], mid[1], f'{round((v1 - v0) * 1000):,}', PT_DIM, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
     q = (pts[0] + pts[-1]) / 2 - nn * 900
-    A.text(q[0], q[1], f'{round((vs[-1] - vs[0]) * 1000):,}（西の外壁の外面〜軒先）', 5, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
+    A.text(q[0], q[1], f'{round((vs[-1] - vs[0]) * 1000):,}（西の外壁の外面〜軒先）', PT_DIM, '50_寸法', rot=((ang + 90) % 180) - 90, color='#2E7D32')
 
 def _uv(P2):
     """モデルの xy（mm）→ (u, v)：u は南の妻から北へ（背骨 r=205 m の弧長）、v は西の外壁の線から東へ"""
@@ -1043,10 +1075,9 @@ def _ext(A, p, q, sh):
 def arc_dim(A, u0, u1, v, label, sh=np.zeros(2), L=None, pt=None):
     """u0〜u1 の弧の寸法線（v の線の上）。L：書く長さ（無ければ v の線の上の弧長）"""
     P = np.array([_xy(u, v) for u in np.linspace(u0, u1, 48)]) + sh
-    A.lines([P], DIML, lw=0.09, color=DIMC, z=9)
+    A.lines([P], DIML, lw=LW_THIN, color=DIMC, z=9)
     for u in (u0, u1):
-        c_, r_ = _xy(u, v) + sh, _xy(u, v - 1) - _xy(u, v); r_ = r_ / np.linalg.norm(r_)
-        A.lines([[c_ - r_ * 220, c_ + r_ * 220]], DIML, lw=0.09, color=DIMC, z=9)
+        dim_ends(A, [_xy(u, v) + sh], _xy(u + 1, v) - _xy(u, v), z=9)
     um = (u0 + u1) / 2; t = _xy(um + 1, v) - _xy(um, v); ang = math.degrees(math.atan2(t[1], t[0]))
     if L is None: L = abs(u1 - u0) * (205000 - v) / 205000
     m_ = _xy(um, v - 450) + sh
@@ -1114,20 +1145,23 @@ def plan_section_marks(A):
     for nm, kind_, val, _ in SECTIONS:
         if kind_ == 'u':
             th = theta_u(val); a, b = at(184000, th), at(222000, th)
-            A.lines([[a, b]], '70_断面の位置', lw=0.13, ls=(0, (12, 3, 2, 3)), z=10)
+            A.lines([[a, b]], '70_断面の位置', lw=LW_THIN, ls=LS_CHAIN, z=10)
             tdir = at(205000, theta_u(val + 1)) - at(205000, th); tdir /= np.linalg.norm(tdir)
             ends = (a, b)
+            lu = (b - a) / np.linalg.norm(b - a)
+            A.lines([[a, a + lu * 1500], [b, b - lu * 1500]], '70_断面の位置', lw=LW_CUT, z=11)     # 切断線の両端は太く（JIS A 0150）
         else:
             ths = np.linspace(theta_u(-9000), theta_u(62000), 200)
             P = np.array([at(val, t) for t in ths])
-            A.lines([P], '70_断面の位置', lw=0.13, ls=(0, (12, 3, 2, 3)), z=10)
+            A.lines([P], '70_断面の位置', lw=LW_THIN, ls=LS_CHAIN, z=10)
             ends = (P[0], P[-1])
+            A.lines([P[:5], P[-5:]], '70_断面の位置', lw=LW_CUT, z=11)                               # 両端を太く（約 1.4 m）
         for q in ends:
             if kind_ == 'arc':
                 d = q - C; tdir = -d / np.linalg.norm(d)      # 西（r の大きい方）を見る
                 tdir = d / np.linalg.norm(d)
-            A.lines([[q, q + tdir * 1600]], '70_断面の位置', lw=0.35, z=11)
-            A.lines([[q + tdir * 1600 + np.array([-tdir[1], tdir[0]]) * 300, q + tdir * 2100, q + tdir * 1600 - np.array([-tdir[1], tdir[0]]) * 300]], '70_断面の位置', lw=0.35, z=11)
+            A.lines([[q, q + tdir * 1600]], '70_断面の位置', lw=LW_CUT, z=11)                      # 見る向きの矢
+            A.lines([[q + tdir * 1600 + np.array([-tdir[1], tdir[0]]) * 300, q + tdir * 2100, q + tdir * 1600 - np.array([-tdir[1], tdir[0]]) * 300]], '70_断面の位置', lw=LW_CUT, z=11)
             A.text(q[0], q[1], nm, 8, '70_断面の位置', box=True)
 
 def objs_for_plan(level):
@@ -1135,7 +1169,7 @@ def objs_for_plan(level):
     for ob in OBJ:
         n = num(ob['layer'])
         if ob['layer'].startswith('47'): continue
-        if level == 1 and n in (41, 42, 43, 44, 45): continue      # 2階の床（23）は 1 階では切断より上：縁を破線で（plan）
+        if level == 1 and n in (41, 42, 43, 44, 45): continue      # 2階の床（23）は 1 階では切断より上：縁を想像線で（plan）
         if n in (90, 98): continue                     # 園庭の地形のメッシュは平面では描かない（等高線 91 で）
         if n in (3, 4): continue                       # 周辺（PLATEAU）は plan_context で外形だけ
         out.append(ob)
@@ -1255,11 +1289,11 @@ def make_plans():
     tx, ty = paper(14, H_ - 16)
     A.text(tx, ty, '平面図　1階　FL+1500 で切断／2階（西館）2FL+1000 で切断　1/100', 11, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
     tx, ty = paper(14, H_ - 26)
-    A.text(tx, ty, '高野川を下に（配置図と同じ向き）。2階は西の道路の外に同じ向きで置いた（遊戯室は吹き抜けから見下ろす）。一点鎖線は敷地の境', 6, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    A.text(tx, ty, '高野川を下に（配置図と同じ向き）。2階は西の道路の外に同じ向きで置いた（遊戯室は吹き抜けから見下ろす）。一点鎖線は敷地の境。二点鎖線は切断より上にある物（屋根の外形・越屋根・2階の床の縁など）', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
     bx, by = paper(14, 40)
     for i in range(5):
         A.ax.add_patch(plt.Rectangle((bx + i * 1000, by), 1000, 150, fc='k' if i % 2 == 0 else 'white', ec='k', lw=LW(0.1), zorder=12))
-    A.text(bx, by + 500, '0', 5, '80_図名・縮尺・方位', raw=True); A.text(bx + 5000, by + 500, '5 m', 5, '80_図名・縮尺・方位', raw=True)
+    A.text(bx, by + 500, '0', PT_NOTE, '80_図名・縮尺・方位', raw=True); A.text(bx + 5000, by + 500, '5 m', PT_NOTE, '80_図名・縮尺・方位', raw=True)
     nd = np.array([-math.sin(ph), math.cos(ph)]); pd = np.array([-nd[1], nd[0]])
     c0 = np.array(paper(24, 175))
     A.lines([[c0 - nd * 1700, c0 + nd * 1700]], '80_図名・縮尺・方位', lw=0.25, raw=True)
@@ -1277,7 +1311,7 @@ def make_plans():
                 A.ax.add_patch(plt.Rectangle((lx + k * 260, yy), 260, 550, fc=kc, ec='none', zorder=12))
         else:
             A.ax.add_patch(plt.Rectangle((lx, yy), 1300, 550, fc=c, ec='none', zorder=12))
-        A.text(lx + 1600, yy + 275, t, 5.5, '80_図名・縮尺・方位', ha='left', va='center', raw=True)
+        A.text(lx + 1600, yy + 275, t, PT_NOTE, '80_図名・縮尺・方位', ha='left', va='center', raw=True)
     return S
 
 # ---------------------------------------------------------------- 断面
@@ -1297,39 +1331,48 @@ def levels(A, cutb, x_text, has_west):
         zt = max(z, last + 420); last = zt
         A.lines([[(x_text - 300, z), (x_text, z + 260), (x_text - 600, z + 260), (x_text - 300, z)]], '51_高さ', lw=0.1, color='#2E7D32')
         A.lines([[(x_text - 900, z), (x_text + 200, z)]], '51_高さ', lw=0.09, color='#2E7D32')
-        A.text(x_text + 300, zt + 60, f'{nm}　{"+" if z > 0 else "±" if z == 0 else "−"}{abs(z):,.0f}', 5, '51_高さ', ha='left', va='bottom', color='#2E7D32')
+        A.text(x_text + 300, zt + 60, f'{nm}　{"+" if z > 0 else "±" if z == 0 else "−"}{abs(z):,.0f}', PT_DIM, '51_高さ', ha='left', va='bottom', color='#2E7D32')
 
 def chain_dims(A, xs, y, label_fmt='{:,.0f}'):
     xs = sorted(xs)
-    A.lines([[(xs[0], y), (xs[-1], y)]], '50_寸法', lw=0.09, color='#2E7D32')
-    for x in xs: A.lines([[(x, y - 200), (x, y + 200)]], '50_寸法', lw=0.09, color='#2E7D32')
+    A.lines([[(xs[0], y), (xs[-1], y)]], '50_寸法', lw=LW_THIN, color='#2E7D32')
+    dim_ends(A, [(x, y) for x in xs], (1, 0), color='#2E7D32')
     for a, b in zip(xs, xs[1:]):
-        if b - a > 300: A.text((a + b) / 2, y + 150, label_fmt.format(b - a), 4.8, '50_寸法', va='bottom', color='#2E7D32')
+        if b - a > 300: A.text((a + b) / 2, y + 150, label_fmt.format(b - a), PT_DIM, '50_寸法', va='bottom', color='#2E7D32')
 
 # ---------------------------------------------------------------- 要所の寸法（プレゼンの準備 20261027-1836、ユーザー：要求図面なので重要な所に寸法）
 # 数はすべて 3dm から（切り口・見えがかり・物の三角形）。色は今の緑、字は約 2.3 mm（6.5 pt）。
-DIMC, DIMPT, DIML = '#2E7D32', 6.5, '50_寸法'
+DIMC, DIMPT, DIML = '#2E7D32', PT_DIM, '50_寸法'
+def dim_ends(A, ends, t, layer=None, color=None, ext=180, z=9):
+    """寸法の端（JIS A 0150）：寸法補助線の出（細い実線、寸法線の両側へ ext）と、端末記号の斜線（寸法線から 45°、長さ 2.5 mm、中の太さ）。
+    t：寸法線の向き（モデルの座標、向きの正負はどちらでも同じ）"""
+    layer = layer or DIML; color = color or DIMC
+    t = np.asarray(t, float); t = t / max(np.linalg.norm(t), 1e-9); n = np.array([-t[1], t[0]]); s_ = (t + n) / math.sqrt(2)
+    for e in ends:
+        e = np.asarray(e, float)
+        A.lines([[e - n * ext, e + n * ext]], layer, lw=LW_THIN, color=color, z=z)
+        A.lines([[e - s_ * 125, e + s_ * 125]], layer, lw=LW_MID, color=color, z=z)
 def _dimtxt(v, label): return f'{abs(v):,.0f}' + (f'　{label}' if label else '')
 def vdim(A, x, z0, z1, label='', side=-1):
-    """縦の寸法線（断面・立面の x, z）。side=-1：字は線の左、+1：右"""
+    """縦の寸法線（断面・立面の x, z）。字は線の左に、図面の右から読む向き（JIS A 0150）。side は前の名残（使わない）"""
     if z0 is None or z1 is None or abs(z1 - z0) < 20: return
-    A.lines([[(x, z0), (x, z1)]], DIML, lw=0.09, color=DIMC, z=9)
-    for z in (z0, z1): A.lines([[(x - 180, z), (x + 180, z)]], DIML, lw=0.09, color=DIMC, z=9)
-    A.text(x + side * 140, (z0 + z1) / 2, _dimtxt(z1 - z0, label), DIMPT, DIML, ha='right' if side < 0 else 'left', va='center', rot=90, color=DIMC, box=True)
+    A.lines([[(x, z0), (x, z1)]], DIML, lw=LW_THIN, color=DIMC, z=9)
+    dim_ends(A, [(x, z0), (x, z1)], (0, 1), z=9)
+    A.text(x - 140, (z0 + z1) / 2, _dimtxt(z1 - z0, label), DIMPT, DIML, ha='right', va='center', rot=90, color=DIMC, box=True)
 def hdim(A, x0, x1, z, label='', above=True):
-    """横の寸法線（断面・立面）"""
+    """横の寸法線（断面・立面）。字は線の上（JIS A 0150）。above は前の名残（使わない）"""
     if x0 is None or x1 is None or abs(x1 - x0) < 20: return
     x0, x1 = sorted((x0, x1))
-    A.lines([[(x0, z), (x1, z)]], DIML, lw=0.09, color=DIMC, z=9)
-    for x in (x0, x1): A.lines([[(x, z - 180), (x, z + 180)]], DIML, lw=0.09, color=DIMC, z=9)
-    A.text((x0 + x1) / 2, z + (130 if above else -130), _dimtxt(x1 - x0, label), DIMPT, DIML, va='bottom' if above else 'top', color=DIMC, box=True)
+    A.lines([[(x0, z), (x1, z)]], DIML, lw=LW_THIN, color=DIMC, z=9)
+    dim_ends(A, [(x0, z), (x1, z)], (1, 0), z=9)
+    A.text((x0 + x1) / 2, z + 130, _dimtxt(x1 - x0, label), DIMPT, DIML, va='bottom', color=DIMC, box=True)
 def ldim(A, p, q, label='', off=0.0, pt=DIMPT):
     """平面の斜めの寸法線（モデルの xy、mm）。off：字を線から離す量（線の左へ +）"""
     p, q = np.asarray(p, float), np.asarray(q, float); d = q - p; L = float(np.linalg.norm(d))
     if L < 20: return
     t = d / L; n = np.array([-t[1], t[0]])
-    A.lines([[p, q]], DIML, lw=0.09, color=DIMC, z=9)
-    for e in (p, q): A.lines([[e - n * 220, e + n * 220]], DIML, lw=0.09, color=DIMC, z=9)
+    A.lines([[p, q]], DIML, lw=LW_THIN, color=DIMC, z=9)
+    dim_ends(A, [p, q], t, z=9)
     ang = math.degrees(math.atan2(t[1], t[0])); m_ = (p + q) / 2 + n * (260 + off)
     txt = _dimtxt(L, label)
     tl = sum(1.0 if ord(ch) > 255 else 0.6 for ch in txt) * pt * 0.3528 * 100      # 字の長さ（モデルの mm、1/100）
@@ -1459,6 +1502,18 @@ def merge_fine_objs(objs):
         out.append(dict(L[0], T=np.concatenate([o['T'] for o in L]), name='（まとめて外形）'))
     return out
 
+# 地盤の記号（JIS A 0150）：断面の GL の線の下に細い斜線の帯（深さ 300、間 200）。切った基礎・床の所は除く
+def ground_hatch(A, x0, x1, occ, d=300, pitch=200, gl=-300):
+    strip = box(x0, gl - d, x1, gl)
+    if occ is not None and not occ.is_empty:
+        strip = strip.difference(occ.buffer(20))
+        for g in getattr(occ, 'geoms', [occ]):          # GL より下へ出る物（基礎）は、その幅の中（床下）も地盤でない
+            b = g.bounds
+            if b[1] < gl - 50 and b[3] > gl: strip = strip.difference(box(b[0] - 20, gl - d - 1, b[2] + 20, gl + 1))
+    if strip.is_empty: return
+    segs = [LineString([(x - d, gl - d), (x, gl)]) for x in np.arange(x0, x1 + d, pitch)]
+    A.geom_lines(unary_union(segs).intersection(strip), '15_地盤', lw=LW_THIN, color='0.35', z=7.9)
+
 def section_u(A, theta, depth=3200):
     u_r = np.array([math.cos(theta), math.sin(theta), 0.])
     u_t = np.array([-math.sin(theta), math.cos(theta), 0.])
@@ -1485,7 +1540,8 @@ def section_u(A, theta, depth=3200):
     far = merge_fine_far(far)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
-    A.lines([[(-17500, -300), (17800, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)   # GL
+    A.lines([[(-17500, -300), (17800, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8)   # GL
+    ground_hatch(A, -17500, 17800, occ)
     cutb = {}
     for ob, pc, S2 in cuts:
         if not S2: continue
@@ -1551,11 +1607,12 @@ def section_arc(A, Rc, depth=30000):
     far = merge_fine_far(far)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
-    A.lines([[(max(-5000, XCUT), -300), (64000, -300)]], '01_切断（構造・壁）', lw=0.35, z=8)
+    A.lines([[(max(-5000, XCUT), -300), (64000, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8)
+    ground_hatch(A, max(-5000, XCUT), 64000, occ)
     if XCUT > -1e8:                                       # 破断線（敷地の境）
         zz_ = [-1300, -300, 600, 900, 1200, 1500, 6500]; xx_ = [XCUT, XCUT, XCUT, XCUT - 250, XCUT + 250, XCUT, XCUT]
         A.lines([np.c_[xx_, zz_]], '10_見えがかり', lw=0.13, z=8)
-        A.text(XCUT - 300, -1100, '敷地の境', 5, '80_図名・縮尺・方位', ha='right', va='center', color='0.35')
+        A.text(XCUT - 300, -1100, '敷地の境', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='center', color='0.35')
     cutb = {}
     for ob, pc, S2 in cuts:
         if not S2: continue
@@ -1591,23 +1648,23 @@ def airflow(A, playroom=False):
         arrow(night_in + [(-1500, zf), (-1650, 150)], ls=dash)
         arrow([(-1650, 450), (-1700, 6000), (-1500, 7600), (-1400, 8900)], ls=dash)
         arrow([(-300, 4430), (-650, 4430), (-750, 4250), (-1250, 4100)], ls=dash)
-        A.text(-1900, 9050, '夏の夜：床下の冷気と覗き窓から、遊戯室の吹き抜けを上って西館の越屋根へ', 5, '45_換気', ha='right', va='bottom', color=col)
-        A.text(400, 5300, '昼（中間期）は本館の越屋根のすき間から外へ', 5, '45_換気', ha='left', va='bottom', color=col)
+        A.text(-1900, 9050, '夏の夜：床下の冷気と覗き窓から、遊戯室の吹き抜けを上って西館の越屋根へ', PT_NOTE, '45_換気', ha='right', va='bottom', color=col)
+        A.text(400, 5300, '昼（中間期）は本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col)
     else:                                          # 断面 B は海峡（土間、床下は無い）
-        A.text(400, 5300, '本館の越屋根のすき間から外へ', 5, '45_換気', ha='left', va='bottom', color=col)
-    A.text(6500, roof(6500) - 560, '梁間（梁と梁と屋根のあいだ）を西へ上る', 5, '45_換気', ha='center', va='top', color=col)
-    A.text(14600, 1300, '昼：縁側のガラス戸を開けて', 5, '45_換気', ha='right', va='bottom', color=col)
+        A.text(400, 5300, '本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col)
+    A.text(6500, roof(6500) - 560, '梁間（梁と梁と屋根のあいだ）を西へ上る', PT_NOTE, '45_換気', ha='center', va='top', color=col)
+    A.text(14600, 1300, '昼：縁側のガラス戸を開けて', PT_NOTE, '45_換気', ha='right', va='bottom', color=col)
     if playroom:
-        A.text(12900, 120, '夏の夜：段の蹴込みのガラリから床下へ（底板を冷やす）→ すき間の下で西館の床下へ', 5, '45_換気', ha='right', va='bottom', color=col)
+        A.text(12900, 120, '夏の夜：段の蹴込みのガラリから床下へ（底板を冷やす）→ すき間の下で西館の床下へ', PT_NOTE, '45_換気', ha='right', va='bottom', color=col)
 
 
 WEST_WALL_NOTE = ('西館の外壁：構造用合板の耐力壁', '（窓ごと通す、開口は補強）', '西の面は室内側にも合板（両面）')
 def west_wall_note(A, westx, z=2000, x_t=None):
     """西館の外壁（西の面・北西の斜め・南北の妻）の構造の注（西館係 20261027-1511、決定事項_西館の「構造」）。
     断面 B の西の外壁の外（道の側）、奥に見える西館の低い軒（約2 m）より西に字、引き出し線は壁の切り口まで"""
-    x_t = (westx - 2500) if x_t is None else x_t; dz = 330     # 西館の軒先・最高の寸法線があればその外
+    x_t = (westx - 2500) if x_t is None else x_t; dz = 360     # 西館の軒先・最高の寸法線があればその外
     for j, t in enumerate(WEST_WALL_NOTE):
-        A.text(x_t, z + dz * (1 - j), t, 5, '81_注', ha='right', va='center')
+        A.text(x_t, z + dz * (1 - j), t, PT_NOTE, '81_注', ha='right', va='center')
     A.lines([[(x_t + 80, z), (westx + 60, z)]], '81_注', lw=0.09, color='k', z=9)
     A.ax.add_patch(plt.Circle((westx + 60, z), 45, fc='k', ec='none', zorder=9))      # 断面は回さない（phi=0）
 
@@ -1620,9 +1677,9 @@ def make_sections():
     cutb = section_arc(A, SECTIONS[0][2])
     levels(A, cutb, 64300, True)
     sec_dims_a(A)
-    A.text(extA[0] + 300, extA[3] - 200, f'断面 A　{SECTIONS[0][3]}', 9, '80_図名・縮尺・方位', ha='left', va='top')
-    A.text(extA[0] + 300, -5400, '← 南（高野川の側）', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
-    A.text(56000, -2400, '北 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')
+    A.text(extA[0] + 300, extA[3] - 200, f'断面図 A　1/100　{SECTIONS[0][3]}', PT_TITLE, '80_図名・縮尺・方位', ha='left', va='top')
+    A.text(extA[0] + 300, -5400, '← 南（高野川の側）', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='bottom')
+    A.text(56000, -2400, '北 →', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='bottom')
     extX = (-17500, 21500, -2600, 10500)
     for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
         A = S.axes(30 + i * (390 + 15), H_ - 40 - 161 - 45 - 131, extX)
@@ -1638,14 +1695,34 @@ def make_sections():
         airflow(A, playroom=(nm == 'C'))
         xnote = sec_dims_ew(A, westx)
         if i == 0 and westx < -2000: west_wall_note(A, westx, x_t=xnote)
-        A.text(extX[0] + 300, extX[3] - 200, f'断面 {nm}　{cap_}', 9, '80_図名・縮尺・方位', ha='left', va='top')
-        A.text(extX[0] + 300, -2400, '← 西', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
-        A.text(16000, -2400, '東 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')
+        A.text(extX[0] + 300, extX[3] - 200, f'断面図 {nm}　1/100　{cap_}', PT_TITLE, '80_図名・縮尺・方位', ha='left', va='top')
+        A.text(extX[0] + 300, -2400, '← 西', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='bottom')
+        A.text(16000, -2400, '東 →', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='bottom')
         if i == 0:
             for j in range(5):
                 A.ax.add_patch(plt.Rectangle((-9000 + j * 1000, -2450), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
-            A.text(-9000, -2050, '0', 5, '80_図名・縮尺・方位'); A.text(-4000, -2050, '5 m', 5, '80_図名・縮尺・方位')
+            A.text(-9000, -2050, '0', PT_NOTE, '80_図名・縮尺・方位'); A.text(-4000, -2050, '5 m', PT_NOTE, '80_図名・縮尺・方位')
+    legend_materials(S, 30, 165)
     return S
+
+def legend_materials(S, x_mm, y_mm):
+    """断面の凡例（材料構造表示記号、JIS A 0150 の 1/100 の簡略表示）。紙の (x_mm, y_mm) から右へ"""
+    L = S.axes(x_mm, y_mm, (0, 40000, 0, 2000))
+    L.text(0, 1700, '凡例（材料構造の表示、1/100 の簡略表示）', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='center')
+    lay = '01_切断（構造・壁）'; x = 0; y0, y1 = 300, 900
+    def item(label, draw):
+        nonlocal x
+        draw(x); L.text(x + 1500, (y0 + y1) / 2, label, PT_NOTE, '80_図名・縮尺・方位', ha='left', va='center'); x += 1500 + len(label) * 260 + 700
+    def cut_(x): g = box(x, y0, x + 1200, y1); L.fill(g, lay, fc='k', z=6); L.geom_lines(g.boundary, lay, lw=LW_CUT, z=6)
+    def conc_(x): g = box(x, y0, x + 1200, y1); L.fill(g, lay, fc='0.72', z=6); L.geom_lines(g.boundary, lay, lw=LW_CUT, z=6.1)
+    def wood_(x): g = box(x, y0, x + 1200, y1); L.fill(g, lay, fc='#E9DCC4', z=6); L.geom_lines(g.boundary, lay, lw=0.1, z=6.1)
+    def ins_(x): insul_fill(L, box(x, y0 + 150, x + 1200, y1 - 150)); L.geom_lines(box(x, y0 + 150, x + 1200, y1 - 150).boundary, lay, lw=LW_THIN, z=6.6)
+    def ground_(x): L.lines([[(x, y1), (x + 1200, y1)]], lay, lw=LW_CUT, z=8); ground_hatch(L, x, x + 1200, None, gl=y1)
+    item('切断した構造・壁・床', cut_)
+    item('基礎（コンクリート）', conc_)
+    item('木（構造用合板・垂木）', wood_)
+    item('断熱材（保温材）', ins_)
+    item('地盤', ground_)
 
 # ---------------------------------------------------------------- 立面
 # 建物の軸に合わせた 5 面（ユーザー：東西南北より建物の軸に沿って）。どれも水平な視線の正投影。
@@ -1951,13 +2028,13 @@ def elevation(A, mode, objs):
     if allsil:
         allocc = unary_union(allsil).buffer(3, join_style=2).buffer(-3, join_style=2)
         ext = [LineString(p.exterior.coords) for p in getattr(allocc, 'geoms', [allocc]) if p.geom_type == 'Polygon' and p.area > 2e5]
-        if ext: A.geom_lines(unary_union(ext), '09_立面の外形', lw=0.3, color='k', z=3.5)
+        if ext: A.geom_lines(unary_union(ext), '09_立面の外形', lw=LW_CUT, color='k', z=3.5)
     return order
 
 def elev_marks(A, mode, objs, h0, h1, with_levels=True):
     """GL の線、高さの記号、通り芯（東・西は架構 1〜20、南・北は W・E）"""
     _, H, D, right = ELEV[mode]
-    A.lines([[(h0 - 2500, -300), (h1 + 2500, -300)]], '01_切断（構造・壁）', lw=0.4, z=8)
+    A.lines([[(h0 - 2500, -300), (h1 + 2500, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8)
     zs = {}
     for ob in objs:
         n = num(ob['layer']); zt = ob['T'][:, :, 2].max()
@@ -1969,7 +2046,7 @@ def elev_marks(A, mode, objs, h0, h1, with_levels=True):
         zt = max(z, last + 420); last = zt
         A.lines([[(x_text - 300, z), (x_text, z + 260), (x_text - 600, z + 260), (x_text - 300, z)]], '51_高さ', lw=0.1, color='#2E7D32')
         A.lines([[(x_text - 900, z), (x_text + 200, z)]], '51_高さ', lw=0.09, color='#2E7D32')
-        A.text(x_text + 300, zt + 60, f'{nm}　{"+" if z > 0 else "±" if z == 0 else "−"}{abs(z):,.0f}', 5, '51_高さ', ha='left', va='bottom', color='#2E7D32')
+        A.text(x_text + 300, zt + 60, f'{nm}　{"+" if z > 0 else "±" if z == 0 else "−"}{abs(z):,.0f}', PT_DIM, '51_高さ', ha='left', va='bottom', color='#2E7D32')
     if not ELEV_GRID:
         return
     if mode in ('garden', 'road', 'river'):
@@ -2078,15 +2155,15 @@ def make_elevations(views, title, note_row):
         elevation(A, mode, objs); elev_exterior(A, mode, objs, h.min(), h.max()); elev_marks(A, mode, objs, h.min(), h.max(), lv)
         elev_dims(A, mode, objs, h.min(), h.max())
         print('elevation', mode, '幅（紙 mm）', round((ext[1] - ext[0]) / 100), 'x', round(x_mm))
-        A.text(ext[0] + 300, zr[1] - 100, f'{ttl}　1/100　（{cap_}）', 8.5, '80_図名・縮尺・方位', ha='left', va='top')
+        A.text(ext[0] + 300, zr[1] - 100, f'{ttl}　1/100　（{cap_}）', PT_TITLE, '80_図名・縮尺・方位', ha='left', va='top')
         if first:
             sx = h.max() + 2000
             for j in range(5):
                 A.ax.add_patch(plt.Rectangle((sx + j * 1000, -2150), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
-            A.text(sx, -1750, '0', 5, '80_図名・縮尺・方位'); A.text(sx + 5000, -1750, '5 m', 5, '80_図名・縮尺・方位')
+            A.text(sx, -1750, '0', PT_NOTE, '80_図名・縮尺・方位'); A.text(sx + 5000, -1750, '5 m', PT_NOTE, '80_図名・縮尺・方位')
             first = False
     S.text_paper(W_ - 15, 26, '建物と、その手前の外構（塀・柵・木戸・棚・柱、細い線）。駐車・駐輪・室内の家具は省いた。灰色は屋根の面、薄い青はガラス（奥は細い灰色の線で透けて見える）。建物の外形は太い線。'
-                 + note_row, 6, ha='right', color='0.35')
+                 + note_row, PT_NOTE, ha='right', color='0.35')
     return S
 
 ELEV_SHEETS = [('sodachiya_elevations_1-100', lambda: make_elevations(
