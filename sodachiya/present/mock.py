@@ -1521,6 +1521,7 @@ if SITE_FROM_UPD:
                   + [_pg_(o) for o in _rp_("92_") if any(k_ in o["name"] for k_ in ("床の噴水", "霧のわ（", "滝壺の水面"))])
     _RAINP = _uu([_pg_(o) for o in _rp_("92_") if "雨庭" in o["name"]])
     print("配置図に足す：みなみのさんかく", round(_MINAMI.area, 1), "砂", round(_SANDP.area, 1), "水", round(_WATERP.area, 1), "雨庭", round(_RAINP.area, 1), "小屋の屋根", round(_HUT.area, 1), "m2")
+    _shp_ = _sh                                   # 下の「北東の辺から出る道」で _sh が図形に上書きされるので、形を取る関数を取っておく
     for gr, suf in (("l", "_線.pdf"), ("c", "_色.pdf")):
         _nd = fitz.open(); _pg = _nd.new_page(width=W * MM, height=H * MM)
         # 向こうの紙の外（南の高野川の水面など）は、こちらの描いた線と色で補う（ユーザー 10-26夕：南へ延ばして川を見せる）
@@ -1548,6 +1549,12 @@ if SITE_FROM_UPD:
             _fillg(_pg, _WATERP, _hx("#BFDDEE"))                                           # 水遊び（水のテーブル・噴水・あめのわ・霧のわ）
             _fillg(_pg, _RAINP, _hx("#DCE4E6"))                                            # 雨庭（玉石の浜）
             _fillg(_pg, _HUT, _hx("#5E636C"))                                              # 園庭の小屋の屋根（片流れ、更新係の図に無い）
+            # 周りの道を少し濃く（ユーザー 10-27夜：西の道とその先の白い敷地の差をつける）。敷地の中は塗らない
+            _fillg(_pg, _RDR.difference(_SITEP.buffer(0.05)), _hx("#E2E2E0"))
+            # 西の道沿いの歩道（幅 1 m）を洗い出しのベージュに、スピードバンプは今までの灰のまま（ユーザー 10-27夜）
+            _swS = _SITEP.intersection(LineString([_A_ - _tW * 10, _B_ + _tW * 10]).buffer(1.0, cap_style=2)).intersection(_slab).difference(_PARK_R.buffer(0.02))
+            _bumps = [g_ for g_ in (_shp_(o_) for o_ in _rp_("74_") if o_["kind"] == "solid") if g_ is not None and g_.area > 0.2 and g_.intersection(_swS).area > 0.5 * g_.area]
+            _fillg(_pg, _swS.difference(unary_union(_bumps)) if _bumps else _swS, _hx("#EDDDBA"))
             _fillg(_pg, _WATER.difference(_BRIDGE), _hx("#CFE3EF"))
             for xx, yy, rr, an in _STONES:
                 _fillg(_pg, affinity.rotate(affinity.scale(Point(xx, yy).buffer(rr, 8), 1.0, 0.7), an), _hx("#E4DED0"))
