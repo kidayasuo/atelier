@@ -1603,6 +1603,8 @@ def elev_marks(A, mode, objs, h0, h1, with_levels=True):
         A.lines([[(x_text - 300, z), (x_text, z + 260), (x_text - 600, z + 260), (x_text - 300, z)]], '51_高さ', lw=0.1, color='#2E7D32')
         A.lines([[(x_text - 900, z), (x_text + 200, z)]], '51_高さ', lw=0.09, color='#2E7D32')
         A.text(x_text + 300, zt + 60, f'{nm}　{"+" if z > 0 else "±" if z == 0 else "−"}{abs(z):,.0f}', 5, '51_高さ', ha='left', va='bottom', color='#2E7D32')
+    if not ELEV_GRID:
+        return
     if mode in ('garden', 'road', 'river'):
         for k, th in enumerate(TH_S, 1):
             x = float(H(np.array([at(205000, th)]))[0])
@@ -1615,8 +1617,9 @@ def elev_marks(A, mode, objs, h0, h1, with_levels=True):
             A.lines([[(x, -1300), (x, -400)]], '40_通り芯', lw=0.09, color='#B03030', z=2)
             A.bubble(x, -1800, nm, rad=380, pt=5.5)
 
+ELEV_GRID = False                                      # 立面図に通り芯の丸と番号を描かない（ユーザー 10-27、プレゼンの準備：薄い円がたくさん見える）
 EXT_LINE = ('60', '66', '70', '71', '72', '73')      # 外構：細い線だけ（塗らない）
-EXT_TREE = ('77', '79', '94')                         # 樹木：淡い輪郭だけ
+EXT_TREE = ()                                          # 樹木は描かない（ユーザー 10-27：薄い円がたくさん見える、消す）。前は ('77', '79', '94') の淡い輪郭
 def elev_exterior(A, mode, objs, h0, h1):
     """建物の手前（見る人の側）の外構と樹木を、建物の上に線だけで（10-27 プレゼンの準備 20261027-0707、ユーザー）。
     手前かどうか：物の中ほどの位置で、建物（ガラスを除く）のいちばん手前の奥行きより手前にあるもの。建物の幅の外の物は、
@@ -1681,7 +1684,7 @@ def make_elevations(views, title, note_row):
                 A.ax.add_patch(plt.Rectangle((sx + j * 1000, -2150), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
             A.text(sx, -1750, '0', 5, '80_図名・縮尺・方位'); A.text(sx + 5000, -1750, '5 m', 5, '80_図名・縮尺・方位')
             first = False
-    S.text_paper(W_ - 15, 26, '建物と、その手前の外構（塀・柵・木戸・棚・柱、細い線）・樹木（淡い緑の輪郭、手前 15 m まで）。駐車・駐輪・室内の家具は省いた。灰色は屋根の面、薄い青はガラス（奥は細い灰色の線で透けて見える）。建物の外形は太い線。'
+    S.text_paper(W_ - 15, 26, '建物と、その手前の外構（塀・柵・木戸・棚・柱、細い線）。駐車・駐輪・室内の家具は省いた。灰色は屋根の面、薄い青はガラス（奥は細い灰色の線で透けて見える）。建物の外形は太い線。'
                  + note_row, 6, ha='right', color='0.35')
     return S
 
