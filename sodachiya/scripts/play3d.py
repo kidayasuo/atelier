@@ -128,12 +128,12 @@ for i in range(17):
     G.append([[c_net[0] + rr * math.cos(a), c_net[1] + rr * math.sin(a), z] for a in np.linspace(0, 2 * math.pi, 49)])
 K.surface(G, L_NET, (122, 90, 54))
 K.tube([*c_net, nt['bottom_h'] * 1000 - 20], [*c_net, nt['bottom_h'] * 1000 + 20], nt['bottom_r'] * 1000 + 40, nt['bottom_r'] * 1000 + 40, L_NET, STEEL, n=24)
-# ---------------------------------------------------------------- 吊り材 φ16（重さは西館の梁へ。梁の位置 u 36〜48、3.0 ごと）
+# ---------------------------------------------------------------- 吊り材 M20（φ20、10-27：M16 では揺れ・跳びの衝撃に余裕が無い。重さは西館の梁へ。梁の位置 u 36〜48、3.0 ごと）
 beams_u = [36.0, 39.0, 42.0, 45.0, 48.0]
 for u in beams_u:                                               # キャットウォークの外側の縁
     if u >= cw['u_start'] - 0.5:
         u = max(u, cw['u_start'] + 0.1)
-        p = X(u, cw['inset'] + cw['width'] - 0.05); K.tube([*p, H], [*p, under_roof(*p)], 8, 8, L_NET, STEEL, n=6)
+        p = X(u, cw['inset'] + cw['width'] - 0.05); K.tube([*p, H], [*p, under_roof(*p)], 10, 10, L_NET, STEEL, n=6)
 vs = P['support']['v_spread'] * 1000
 for k in range(rg['rods']):                                     # 輪：ハの字 3 組、上は梁 u 39・42・45
     a = 2 * math.pi * (k + 0.5) / rg['rods']; rr_ = (rg['inner_r'] + rg['outer_r']) / 2 * 1000
@@ -142,10 +142,15 @@ for k in range(rg['rods']):                                     # 輪：ハの�
     q = np.array(xy(ub, vv)); along = X(ub, 0.0) - X(ub, 1.0); along /= np.linalg.norm(along)
     q = q + along * vs * (1 if k % 2 else -1)
     if -0.9 - uv(*q)[1] < 0.25: q = np.array(xy(ub, -0.9 - 0.25))   # 上端は壁の内面（東から0.15）より0.1内側まで（設計監修10-23：東の壁に入っていた）
-    K.tube([*p, H], [*q, under_roof(*q)], 8, 8, L_NET, STEEL, n=6)
+    K.tube([*p, H], [*q, under_roof(*q)], 10, 10, L_NET, STEEL, n=6)
 # 輪を東の柱へ突っ張る水平材（輪の東の端 → 東の壁）
 pe = c_net + np.array(X(nt['u'], 0.0) - c_net) / np.linalg.norm(X(nt['u'], 0.0) - c_net) * rg['outer_r'] * 1000
 K.tube([*pe, H - 60], [*X(nt['u'], 0.15), H - 60], 40, 40, L_NET, STEEL, n=8)   # 柱の内面（＝壁の内面、東から0.15）で止める（設計監修10-23）
+# 輪とキャットウォークをつなぐ材（10-27、監修の略算）：網の吊り橋が輪を北西へ引く力（満員 約8.4 kN、u の向き 約7.8）を、東の柱の弱い向きに
+# 掛けず、キャットウォーク（突っ張り）→ 北の段 → 踊り場（北の壁・北西の斜めの面に固める）→ 吊り橋 → 輪 の閉じた輪で受ける。u42〜45 の東寄り。
+_bl = P['support'].get('bridge_loop', {}); pc_ = X(_bl.get('u', 44.4), cw['inset'] + cw['width'] - 0.05)
+pr_ = c_net + (pc_ - c_net) / np.linalg.norm(pc_ - c_net) * rg['outer_r'] * 1000
+K.tube([*pr_, H - 60], [*pc_, H - 60], 40, 40, L_NET, STEEL, n=8)
 # ---------------------------------------------------------------- はしご（踊り場へ、段 200）
 la = P['ladder']; b0 = X(*la['base']); b1 = X(*la['top']); dl = (b1 - b0) / np.linalg.norm(b1 - b0); nl = np.array([-dl[1], dl[0]]) * la['width'] * 500
 zl = la['h'] * 1000

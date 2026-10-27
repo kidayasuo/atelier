@@ -542,6 +542,123 @@ for o in m.Objects:
     _n_col += 1; _gmax = max(_gmax, gap)
 log.append(f'西館：外壁ぎわの柱 {_n_col} 本の外の面を足もとから頭まで壁の内面にそろえた（いちばん大きいすき間 {_gmax:.0f} mm）')
 
+# 3e) 構造の直し（10-27、ユーザー・監修の略算、プロジェクトの「構造_西館_略算」「構造_西館_見直し_10-27昼」、項 20261027-0932-kanshu）
+# 1. 屋根の梁（22b）：2 枚組のせい 700 → 800（強い集成材 E105-F300 相当）。上端（＝屋根の下面）はそのまま、下へ深くする
+#    （輪郭の点を、梁の上端の線からの深さで 800/700 倍。西の端のハンチもそれに比例）。
+# 2. 東の桁（22d、z 約7.3〜7.7）は梁の東の端の穴を通っていた（梁の下端が約半分欠かれていた）→ 梁の下端より下へ下げ、梁の穴をふさぐ。
+#    柱の頭つなぎ・水平構面の弦材として柱に留める（金物）。
+# 3. 2 階の床梁を受ける骨格の柱：架構 u24・u27 の、1 階のキッチンの東の壁の線（v −3.4）に 180×400（22a、床梁の 2 枚のあいだ、FL〜2 階の床の下）。
+#    キッチンの東の面の配膳口・返却口・受け取り台は柱を避けて割り直した（add_west_south.py）。
+# 4. 東の高窓の帯（z 4.89〜6.09）：東の柱は帯で継がずに通す（3dm でも通っている）。帯の上下の縁に横材（まぐさ・窓台、120×180、
+#    柱と柱のあいだ、外壁の内面の内側）。柱と壁の面材を帯の上下で一体に留める。
+# 5. 階段の箱（u30〜33.9）を骨格の耐力壁に：南の面が u30 の床梁を全幅で、東西の面が u33 の床梁を受ける。箱の角・開口の両脇・
+#    床梁の下に柱 120×120（壁の厚みの中、22a）、倉庫の戸の上にまぐさ（22d）。箱の壁の下に基礎の立ち上がり（3dm には描かない）。
+_XNEW = []                                             # 新しい押し出し（書き出しで out.Objects.Add）
+def _xbox(u0_, u1_, v0_, v1_, z0_, z1_, li_, name_):
+    """u・v の四角（放射の線と弧の弦）を z0〜z1 に立てた押し出し（Rhino 版で押し出しのまま）"""
+    P_ = [xy(u0_, v0_), xy(u1_, v0_), xy(u1_, v1_), xy(u0_, v1_)]
+    a2_ = sum((P_[i][0] * P_[(i + 1) % 4][1] - P_[(i + 1) % 4][0] * P_[i][1]) for i in range(4))
+    if a2_ < 0: P_ = P_[::-1]                                                     # 反時計回り（上向きに押し出す）
+    pl_ = r.Polyline([r.Point3d(float(x_), float(y_), float(z0_)) for x_, y_ in P_ + [P_[0]]])
+    e_ = r.Extrusion.Create(pl_.ToNurbsCurve(), float(z1_ - z0_), True)
+    at_ = r.ObjectAttributes(); at_.LayerIndex = li_; at_.Name = name_
+    _XNEW.append((e_, at_)); return e_
+# 1・2) 梁を深く、東の穴をふさぐ
+BEAM_K = 800.0 / 700.0
+def _deepen(g):
+    pl = g.GetProfilePlane(0.0)
+    O = np.array([pl.Origin.X, pl.Origin.Y, pl.Origin.Z])
+    X = np.array([pl.XAxis.X, pl.XAxis.Y, pl.XAxis.Z]); Y = np.array([pl.YAxis.X, pl.YAxis.Y, pl.YAxis.Z])
+    S_ = extedit.outer_samples(g, 1200)
+    hd = np.array([X[0], X[1]]) if abs(X[2]) < 0.5 else np.array([Y[0], Y[1]]); hd = hd / np.linalg.norm(hd)
+    s_ = (S_[:, :2] - O[:2]) @ hd
+    bins = np.linspace(s_.min(), s_.max(), 41); mx = []
+    for a_, b_ in zip(bins, bins[1:]):
+        k_ = (s_ >= a_) & (s_ < b_)
+        if k_.any(): i_ = np.argmax(np.where(k_, S_[:, 2], -1e18)); mx.append((s_[i_], S_[i_, 2]))   # 区間のいちばん高い点（の位置）
+    mx = np.array(mx); mid = mx[int(len(mx) * 0.1):int(len(mx) * 0.9)]
+    cf = np.polyfit(mid[:, 0], mid[:, 1], 1)                                       # 梁の上端の線 z = a s + b
+    ztop = lambda s: cf[0] * s + cf[1]
+    a, b = g.PathStart, g.PathEnd
+    curves2d = []; n_hole = 0
+    for k_, nc in enumerate(extedit.profiles3d(g)):
+        W = extedit._weights(nc); P = extedit._pts(nc)
+        if k_ == 0:
+            sp = (P[:, :2] - O[:2]) @ hd; zt = ztop(sp); dep = zt - P[:, 2]
+            P[:, 2] = np.where(dep > 0, zt - dep * BEAM_K, P[:, 2])
+        else:
+            vh = np.mean([uv(x_, y_)[1] for x_, y_ in P[:, :2]])
+            if vh > -2.0: n_hole += 1; continue                                    # 東の桁の穴（桁を下げたので要らない）
+        Q = np.c_[(P - O) @ X, (P - O) @ Y, np.zeros(len(P))]
+        extedit._set_pts(nc, Q, W); curves2d.append(nc)
+    e = r.Extrusion()
+    if not e.SetPathAndUp(a, b, pl.YAxis): return None, 0
+    if not e.SetOuterProfile(curves2d[0], True): return None, 0
+    for c2 in curves2d[1:]:
+        if not e.AddInnerProfile(c2): return None, 0
+    return e, n_hole
+_n_deep = 0; _n_hole = 0; _BEAM_BOT_E = {}               # 架構の u → 東の桁の線（v −1.30）での梁の下端（2 枚のうち低いほう）
+for o in m.Objects:
+    if o.Attributes.LayerIndex != L22B: continue
+    k_ = str(o.Attributes.Id); g = cur_g(o)
+    if not isinstance(g, r.Extrusion) or k_ in _bn2: continue
+    e, nh = _deepen(g)
+    if e is None: continue
+    EXT[k_] = e; _n_deep += 1; _n_hole += nh
+    S_ = extedit.outer_samples(e, 2000); U_ = to_uv_arr(S_)
+    near_ = np.abs(U_[:, 1] + 1.30) < 0.03
+    if near_.any():
+        uk = round(float(np.median(U_[:, 0])) / 3.0) * 3.0 if U_[:, 0].mean() > 22 else 21.3
+        _BEAM_BOT_E[uk] = min(_BEAM_BOT_E.get(uk, 1e9), float(S_[near_, 2].min()))
+log.append(f'西館：屋根の梁 {_n_deep} 枚のせいを 700 → 800 に（上端はそのまま、下へ）。東の端の桁の穴 {_n_hole} をふさいだ')
+_n_g = 0; _gz = []
+for o in m.Objects:
+    if o.Attributes.LayerIndex != L22D: continue
+    k_ = str(o.Attributes.Id); g = cur_g(o)
+    if not isinstance(g, r.Extrusion): continue
+    S_ = extedit.samples(g, 40); U_ = to_uv_arr(S_)
+    if not (U_[:, 1].mean() > -1.6 and S_[:, 2].min() > 6500): continue              # 東の桁（屋根の高さ）だけ
+    def _bot_at(uu):
+        ks = sorted(_BEAM_BOT_E, key=lambda q: abs(q - uu))
+        return _BEAM_BOT_E[ks[0]] if ks and abs(ks[0] - uu) < 0.6 else None
+    a_, b_ = g.PathStart, g.PathEnd
+    ua, ub = uv(a_.X, a_.Y)[0], uv(b_.X, b_.Y)[0]
+    za_, zb_ = _bot_at(ua), _bot_at(ub)
+    if za_ is None or zb_ is None: continue
+    S0 = extedit.samples(g, 60, ends=(0.0,)); S1 = extedit.samples(g, 60, ends=(1.0,))
+    dza, dzb = (za_ - 10.0) - S0[:, 2].max(), (zb_ - 10.0) - S1[:, 2].max()
+    def _path(A, B, dza=dza, dzb=dzb):
+        A[2] += dza; B[2] += dzb; return A, B
+    e = extedit.edit(g, None, _path)
+    if e is None: continue
+    EXT[k_] = e; _n_g += 1; _gz.append(min(dza, dzb))
+log.append(f'西館：東の桁 {_n_g} 本を梁の下端の 10 下へ（下げた量 約{-np.mean(_gz) if _gz else 0:.0f} mm）')
+# 3) 2 階の床梁を受ける柱
+for uc in (24.0, 27.0):
+    _xbox(uc - 0.09, uc + 0.09, -3.20, -3.60, 0.0, 3170.0, L22A, f'骨格の柱 180×400（架構 u{uc:.0f}、2 階の床梁を受ける、キッチンの東の壁の線）')
+# 4) 東の高窓の帯の上下の横材
+_ecol = []
+for o in m.Objects:
+    if o.Attributes.LayerIndex != L22A: continue
+    S_ = extedit.samples(cur_g(o), 20) if isinstance(cur_g(o), r.Extrusion) else tris(o.Geometry).reshape(-1, 3)
+    U_ = to_uv_arr(S_)
+    if U_[:, 1].max() > -0.9 or U_[:, 1].mean() < -2.0 or S_[:, 2].max() < 6500: continue
+    _ecol.append((U_[:, 0].min(), U_[:, 0].max()))
+_ecol.sort()
+BAND_Z0, BAND_Z1 = 4894.0, 6094.0
+_segs = [(a_[1], b_[0]) for a_, b_ in zip(_ecol, _ecol[1:])] + [(_ecol[-1][1], 50.75)] if _ecol else []
+for u0_, u1_ in _segs:
+    if u1_ - u0_ < 0.3: continue
+    _xbox(u0_ + 0.002, u1_ - 0.002, -1.052, -1.172, BAND_Z0 - 180.0, BAND_Z0, L22D, '東の高窓の帯の窓台（120×180、柱と柱のあいだ）')
+    _xbox(u0_ + 0.002, u1_ - 0.002, -1.052, -1.172, BAND_Z1, BAND_Z1 + 180.0, L22D, '東の高窓の帯のまぐさ（120×180、柱と柱のあいだ）')
+log.append(f'西館：骨格の柱 2 本（u24・u27、v −3.4、180×400）、東の高窓の帯の窓台・まぐさ {2 * len(_segs)} 本')
+# 5) 階段の箱の柱とまぐさ（壁の芯 v −2.99・−5.0、u30・33（床梁の下）・33.9、開口の両脇）
+_BOXC = [(30.0, -2.99), (30.0, -5.0), (30.96, -2.99), (30.24, -5.0), (31.56, -5.0), (33.0, -2.99), (33.0, -5.0), (33.9, -2.99), (33.9, -5.0)]
+for uc, vc in _BOXC:
+    _xbox(uc - 0.06, uc + 0.06, vc - 0.06, vc + 0.06, 0.0, 3170.0, L22A, f'階段の箱の柱 120×120（骨格の耐力壁、u{uc:.2f}）')
+_xbox(STAIR_DOOR[0] - 0.12, STAIR_DOOR[1] + 0.12, -4.94, -5.06, 1750.0, 1930.0, L22D, '階段の箱の倉庫の戸のまぐさ（120×180）')
+log.append(f'西館：階段の箱を骨格の耐力壁に（柱 {len(_BOXC)} 本 120×120、倉庫の戸のまぐさ、u30・u33 の床梁を受ける）')
+
 # ================================================================ 屋根の下面（西館 20・本館 10）
 def roof_mesh(li):
     T = [tris(o.Geometry) for o in m.Objects if o.Attributes.LayerIndex == li]
@@ -1061,6 +1178,7 @@ if slits:
             for f_ in ((0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)):
                 mm_.Faces.AddFace(*[base + i for i in f_])
         mm_.Normals.ComputeNormals(); mm_.Compact(); return mm_
+    L22T = None; _n22t = 0
     for cc, ax, nrm, t0, t1 in slits:
         uc_ = uv(*cc)[0]; e = 1 if np.dot(ax, np.array(xy(uc_, EASTV)) - np.array(xy(uc_, -10))) > 0 else -1     # 東（高い側）の向き
         tE = t1 if e > 0 else t0; tW = t0 if e > 0 else t1
@@ -1077,6 +1195,22 @@ if slits:
             new_objs.append((drape(strip(cc, ax, nrm, tS - 6, tS + 6, -88, 88), -250.0, RT_W + 60.0), at_g2))   # 外皮の線の固定ガラス（2枚の梁のあいだ、複層）
         for a_, b_ in ((-90, -88), (88, 90)):                                                    # 筋の内側：ガラスの下から梁の下端まで鏡面のアルミ t2
             new_objs.append((mirror(cc, ax, nrm, t0, t1, a_, b_, RT_W + 60.0), a20m))
+        # 光の筋をまたいで屋根の面をつなぐ（10-27、ユーザー・監修の略算、決定事項（共通）の「地震の力は骨格で受ける」）：2 枚の梁の上端に
+        # 溝をまたぐ鋼の平板 6×60（長さ 340、梁の上端に彫り込み）を約 0.9 mおき、外壁の内面から越屋根の側まで。筋の両端は溝をまたぐ縁の材
+        # （杉 60×150、垂木の高さ、鏡面のあいだ）：越屋根の側と軒先の側。屋根の上からの見えは変えない。本館の 10k と同じ。
+        if L22T is None: L22T = new_layer('22t_西館_光の筋をまたぐつなぎ（鋼の平板・縁の材）', (120, 120, 125))
+        tIn = (tS if _pts else tW + 1200.0 * e) + 300.0 * e; tOut = tE - 300.0 * e          # 平板の範囲（外壁の内面の内 0.3 〜 越屋根の側の 0.3 手前）
+        _pl22 = r.Mesh(); _nk1 = 0
+        for t_ in np.arange(min(tIn, tOut), max(tIn, tOut) + 1.0, 900.0):
+            _pl22.Append(drape(strip(cc, ax, nrm, t_ - 30.0, t_ + 30.0, -170.0, 170.0), -6.0, 0.0)); _nk1 += 1
+        _pl22.Normals.ComputeNormals(); _pl22.Compact()
+        a_k = r.ObjectAttributes(); a_k.LayerIndex = L22T; a_k.Name = f'光の筋をまたぐ鋼の平板 6×60（架構 u{uc_:.0f}、{_nk1} 枚、約 0.9 mおき）'
+        new_objs.append((_pl22, a_k)); _n22t += _nk1
+        for ta_, tb_, nm_ in ((tE - 60.0 * e, tE, '越屋根の側'), (tW + 150.0 * e, tW + 210.0 * e, '軒先の側')):
+            a_e = r.ObjectAttributes(); a_e.LayerIndex = L22T; a_e.Name = f'光の筋の端の縁の材（杉 60×150、{nm_}、架構 u{uc_:.0f}）'
+            a_e.ColorSource = r.ObjectColorSource.ColorFromObject; a_e.ObjectColor = (196, 160, 118, 255)
+            new_objs.append((drape(strip(cc, ax, nrm, min(ta_, tb_), max(ta_, tb_), -87.0, 87.0), 0.0, 150.0), a_e))
+    log.append(f'西館：光の筋をまたぐつなぎ（22t）：鋼の平板 {_n22t} 枚（{len(slits)} 本の筋、約 0.9 mおき）と筋の両端の縁の材 {2 * len(slits)}')
     pv20 = RP20.buffer(-150.0, join_style=2)                  # 軒先の水切り150を残す（10-24、本館と同じ）
     pv20 = pv20.difference(Polygon([xy(u_, 1.0) for u_ in np.arange(19, 53.1, 0.5)] + [xy(u_, -2.85) for u_ in np.arange(53, 18.9, -0.5)]))   # 越屋根の蓋の西の縁（10-25：−2.25 → −2.85）
     pv20 = pv20.difference(unary_union([strip(cc, ax, nrm, t0 - 200, t1 + 200, -250, 250) for cc, ax, nrm, t0, t1 in slits]))
@@ -1216,6 +1350,7 @@ for o in m.Objects:
     if str(o.Attributes.Id) in drop or str(o.Attributes.Id) in col_drop or str(o.Attributes.Id) in beam_drop: continue
     out.Objects.Add(EXT.get(str(o.Attributes.Id), o.Geometry), o.Attributes)      # 22a〜d は動かした押し出し（EXT）
 for mm, at in new_objs + col_new + beam_new: out.Objects.AddMesh(mm, at)
+for g_, at_ in _XNEW: out.Objects.Add(g_, at_)                                 # 構造の直し（10-27）の柱・横材（押し出し）
 K = Kit(out)
 ZF2 = 3250.0
 _cutE = R(19.0, 35.0, 2.0, EDGE2, 0.1)                        # 2 階の床の東の縁より東（吹き抜け）
