@@ -273,14 +273,18 @@ TRI = max(getattr(TRI, "geoms", [TRI]), key=lambda q: q.area)
 poly(TRI, fc="#EFE8DA", ec="none", z=2.4)
 _e0 = W(-0.1, -1.05); _ec = W(-4.25, -1.05)                           # 軒の縁の桁（ポーチの西の縁、ベビーカーの外）
 TRI_END = FENCE_END
-TRI_GIRDERS = [[P(_sa, _PGD), P(*TIP)], [P(*TIP), FENCE_END], [_e0, _ec], [_eN, FENCE_END]]   # 桁：小径の続き・格子の線・軒の縁・東の縁（一本の線の柵の上、腰掛けを避けて柱）
+# 軒の縁の桁の北の端は柱を立てず、本館の南西の角の柱に金物で留めた梁で受ける（ユーザー 10-27：小径の口の柱をやめる。小径の棚が梁を本館の壁へ留めるのと同じ構成）
+_wb = SL([W(-0.1, -0.35), W(-0.1, -6.0)]).intersection(SL([P(_sa, _PGD), P(*TIP)]))
+_wb = (_wb.x, _wb.y) if not _wb.is_empty else P(*TIP)
+TRI_WALLBEAM = [W(-0.1, -0.35), _wb]                                   # 本館の角の柱 → 小径の続きの桁（その上を軒の縁の桁の北の端が受ける）
+TRI_GIRDERS = [[P(_sa, _PGD), P(*TIP)], [P(*TIP), FENCE_END], [_e0, _ec], [_eN, FENCE_END], TRI_WALLBEAM]   # 桁：小径の続き・格子の線・軒の縁・東の縁（一本の線の柵の上、腰掛けを避けて柱）
 TRI_BEAMS = []
 for sb in (_sa - 1.5, _sa - 3.0, _sa - 4.5, _sa - 6.0, _sa - 7.5):     # 梁は 1.5 ごと（小径と同じ）、格子から東の縁まで
     seg = SL([P(*_lat(sb)), P(sb, 18.0)]).intersection(TRI.buffer(0.06))
     seg = max(getattr(seg, "geoms", [seg]), key=lambda q: q.length) if not seg.is_empty else seg
     if not seg.is_empty and seg.length > 0.6: TRI_BEAMS.append((seg.coords[0], seg.coords[-1]))
 _east = SL([_eN, FENCE_END])
-TRI_POSTS = [P(*TIP), _e0, _ec, SL([_e0, _ec]).interpolate(0.5, normalized=True).coords[0]] \
+TRI_POSTS = [P(*TIP), _ec, SL([_e0, _ec]).interpolate(0.5, normalized=True).coords[0]] \
     + [_east.interpolate(_east.project(SPt(P(sx, 15.1)))).coords[0] for sx in (3.6, 1.2)] \
     + [b0 for b0, _ in TRI_BEAMS if SPt(b0).distance(SPt(P(*TIP))) > 0.5]          # 西の門の柱（FENCE_END）は門の柱が受ける
 for g in TRI_GIRDERS: line(g, lw=0.6, c=C["wood"], ls=(0, (3, 1.5)), z=10.5)           # 頭上（h2.25）なので破線
