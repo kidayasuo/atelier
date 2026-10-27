@@ -21,6 +21,7 @@
 | 7d | 壁の端をそろえる | `model/build/south/join_walls.py` |
 | 7e | 室内の戸 | `model/build/south/add_inner.py` |
 | 7f | 優先順位で削る | `data/wnew.pkl`・`model/build/south/clip_parts.py` |
+| 7g | 大和張り | `model/build/south/yamato.py` |
 | 8 | 護岸と園庭の取り込み | `model/build/south/add_site.py`・`model/sodachiya_garden_layers.3dm` |
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
 | 10 | Rhino版 | `data/wnew.pkl`・`data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
