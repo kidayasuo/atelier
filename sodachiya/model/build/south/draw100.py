@@ -1431,7 +1431,7 @@ def _fill_cracks(zb, ib, it, ny, nx, gap=50.0):
         src = np.where(Zs[r_, c_ - 1] <= Zs[r_, c_ + 1], c_ - 1, c_ + 1)
         Zs[r_, c_] = Zs[r_, src]; Is[r_, c_] = Is[r_, src]; Ts[r_, c_] = Ts[r_, src]
 
-ELEV_OUTLINE_ONLY = ('30_', '50c', '29_', '50b', '16b', '10p', '20p', '16e', '58', '50d')
+ELEV_OUTLINE_ONLY = ('30_', '50c', '29_', '50b', '16b', '10p', '20p', '16e', '58', '50d', '17g')
 def _feature_edges(T, vd, crease_deg=25.0):
     """物の三角形 T（3D）から、立面に描く線になる辺：折れ目（隣の面と crease_deg 以上折れる）・縁（面が片側だけ）・
     輪郭（隣の面の一方が見る人に向き、もう一方が背を向ける：丸い柱など）→ (n, 2, 3)"""
@@ -1604,6 +1604,46 @@ def elev_marks(A, mode, objs, h0, h1, with_levels=True):
             A.lines([[(x, -1300), (x, -400)]], '40_通り芯', lw=0.09, color='#B03030', z=2)
             A.bubble(x, -1800, nm, rad=380, pt=5.5)
 
+EXT_LINE = ('60', '66', '70', '71', '72', '73')      # 外構：細い線だけ（塗らない）
+EXT_TREE = ('77', '79', '94')                         # 樹木：淡い輪郭だけ
+def elev_exterior(A, mode, objs, h0, h1):
+    """建物の手前（見る人の側）の外構と樹木を、建物の上に線だけで（10-27 プレゼンの準備 20261027-0707、ユーザー）。
+    手前かどうか：物の中ほどの位置で、建物（ガラスを除く）のいちばん手前の奥行きより手前にあるもの。建物の幅の外の物は、
+    建物の手前の線（建物のいちばん手前の奥行き）より手前で 25 m 以内。木は 25 m より奥を描かない（園庭の側は木が多い）"""
+    _, H, D, _ = ELEV[mode]
+    B = [ob for ob in objs if kind(ob['layer']) != 'glass']
+    bh = np.concatenate([H(ob['T'].reshape(-1, 3)) for ob in B]); bd = np.concatenate([D(ob['T'].reshape(-1, 3)) for ob in B])
+    BIN = 1000.0; kb = np.floor(bh / BIN).astype(int); front = {}
+    for k_, d_ in zip(kb, bd): front[k_] = min(front.get(k_, np.inf), d_)
+    d_all = float(bd.min())
+    n_line = n_tree = 0; ids = {id(o) for o in objs}; parts_ = {}
+    for ob in OBJ:
+        ln = ob['layer']; pre = ln.split('_')[0]
+        tree = pre in EXT_TREE
+        if not (tree or pre in EXT_LINE): continue
+        if id(ob) in ids: continue
+        P = ob['T'].reshape(-1, 3); h = H(P); d = D(P)
+        hc = float(np.median(h))
+        if hc < h0 - 1000 or hc > h1 + 1000: continue
+        fd = front.get(int(math.floor(hc / BIN)), np.inf)
+        ref = fd if np.isfinite(fd) else d_all
+        if float(np.median(d)) > ref - 200: continue                     # 建物の奥（または中）
+        if float(np.median(d)) < ref - 25000: continue                    # 遠すぎる
+        sil = silhouette(np.stack([h, P[:, 2]], -1).reshape(-1, 3, 2))
+        if sil is None or sil.is_empty: continue
+        sil = sil.intersection(box(h0 - 1000, -300, h1 + 1000, 1e6))      # GL より下は描かない
+        if sil.is_empty: continue
+        if tree:
+            if float(np.median(d)) < ref - 15000: continue                # 木は手前 15 m まで
+            A.geom_lines(sil.boundary, '12_立面_外構・樹木', lw=0.05, color='#9DBB88', z=4); n_tree += 1
+        else:
+            parts_.setdefault(pre, []).append(sil); n_line += 1
+    # 塀・柵は板ごとの物（大和張りの板 135 と胴縁）なので、レイヤーごとに足し合わせた外形を線に（板ごとの外形だと 1/100 で黒く詰まる）
+    for pre, L in parts_.items():
+        g = unary_union([x.buffer(15) for x in L]).buffer(-15)
+        if not g.is_empty: A.geom_lines(g.boundary, '12_立面_外構・樹木', lw=0.07, color='0.25', z=4)
+    print('elevation', mode, '外構', n_line, '樹木', n_tree)
+
 def make_elevations(views, title, note_row):
     """views=[(mode, row, x の位置 'center' か mm, 高さの記号を描くか)]、row は上から 0, 1, 2"""
     W_, H_ = 841, 594
@@ -1622,7 +1662,7 @@ def make_elevations(views, title, note_row):
         x_mm = (W_ - (ext[1] - ext[0]) / 100) / 2 if xpos == 'center' else xpos
         y_mm = top - row * (hgt + gap)
         A = S.axes(x_mm, y_mm, ext)
-        elevation(A, mode, objs); elev_marks(A, mode, objs, h.min(), h.max(), lv)
+        elevation(A, mode, objs); elev_exterior(A, mode, objs, h.min(), h.max()); elev_marks(A, mode, objs, h.min(), h.max(), lv)
         A.text(ext[0] + 300, zr[1] - 100, f'{ttl}　1/100　（{cap_}）', 8.5, '80_図名・縮尺・方位', ha='left', va='top')
         if first:
             sx = h.max() + 2000
@@ -1630,7 +1670,7 @@ def make_elevations(views, title, note_row):
                 A.ax.add_patch(plt.Rectangle((sx + j * 1000, -2150), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
             A.text(sx, -1750, '0', 5, '80_図名・縮尺・方位'); A.text(sx + 5000, -1750, '5 m', 5, '80_図名・縮尺・方位')
             first = False
-    S.text_paper(W_ - 15, 26, '描いているのは建物だけ（園庭・外構（柵など）・樹木・室内の家具は省いた）。灰色は屋根の面、薄い青はガラス（奥は細い灰色の線で透けて見える）。建物の外形は太い線。'
+    S.text_paper(W_ - 15, 26, '建物と、その手前の外構（塀・柵・木戸・棚・柱、細い線）・樹木（淡い緑の輪郭、手前 15 m まで）。駐車・駐輪・室内の家具は省いた。灰色は屋根の面、薄い青はガラス（奥は細い灰色の線で透けて見える）。建物の外形は太い線。'
                  + note_row, 6, ha='right', color='0.35')
     return S
 
