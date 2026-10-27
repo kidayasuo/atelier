@@ -116,6 +116,7 @@ for o in m.Objects:
     if len(T): OBJ.append(dict(layer=ln, T=T, col=lcol(o), name=o.Attributes.Name or ''))
 print('objects', len(OBJ), 'curves', len(CURVES))
 HAS17Y = any(ob['layer'].startswith('17y_') for ob in OBJ)     # 大和張りの上板が 3dm にある（yamato.py、10-28）
+HAS21Y = any(ob['layer'].startswith('21y_') for ob in OBJ)     # 西館の上板（yamato_west.py、10-28 西館係）
 
 def num(ln):
     mm_ = re.match(r'(\d+)', ln); return int(mm_.group(1)) if mm_ else -1
@@ -396,7 +397,7 @@ def wall_group(ob):
     """壁としてまとめて描くもの：構造・外壁・間仕切り（struct）と、しつらえの間仕切り・腰壁（38）"""
     k = kind(ob['layer'])
     n = num(ob['layer'])
-    if ob['layer'].startswith('17y_'): return None  # 大和張りの上板（15 mm、外壁の外）：外壁として塗らない（本館係、10-28）
+    if ob['layer'].startswith(('17y_', '21y_')): return None  # 大和張りの上板（15 mm、外壁の外）：外壁として塗らない（本館係、10-28）
     if n in (17, 21): return 'wall'                 # 外壁：黒く塗る
     if n in (24, 18, 38): return 'partition'        # 間仕切り（間柱＋スギ板の軽い壁、10-23夜の構法 A・B・C）：白抜きの二本線
     return None
@@ -501,7 +502,7 @@ def draw_cut(A, items, insul=False):
             band = None
             if False:
                 pass
-            elif n in (17, 21) and not ob['layer'].startswith('17y_'):   # 外壁：壁の中（両面 25 を残して）。上板（17y）は除く
+            elif n in (17, 21) and not ob['layer'].startswith(('17y_', '21y_')):   # 外壁：壁の中（両面 25 を残して）。上板（17y・21y）は除く
                 band = pc.buffer(-25)
             elif n == 15:                          # 海峡（土間）：スラブの下 50（仮）
                 band = shp_affinity.translate(pc, 0, -50).difference(pc.buffer(1))
@@ -1962,6 +1963,7 @@ def elevation(A, mode, objs):
         fvis = vis.difference(GOCC) if (k != 'glass' and not GOCC.is_empty) else vis
         # 3dm に上板（17y、yamato.py）があれば、本館（17）と機械室（35）の合成の縦線は描かない（上板の輪郭と二重になる）。西館（21）は合成のまま
         if HAS17Y and ob['layer'].startswith(('17', '35_')): pass
+        elif HAS21Y and ob['layer'].startswith(('21_', '21y_')): pass   # 西館（21）も上板（21y）があれば合成の縦線を描かない（西館係、10-28）
         elif (num(ob['layer']) in YAMATO or ob['layer'].startswith('35_')) and k != 'glass' and not fvis.is_empty: wvis.setdefault(id(ob), (ob, []))[1].append(fvis)
         lay = LAYER_OF[k][1]
         fc = ELEV_FILL(ob)
