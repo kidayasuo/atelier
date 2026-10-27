@@ -80,7 +80,7 @@ jobs:
           python3 .github/scripts/sodachiya_publish.py
           for i in 1 2 3 4 5; do
             git push && exit 0
-            git pull --rebase -q || exit 1
+            git pull --rebase --autostash -q || exit 1
             sleep 5
           done
           exit 1

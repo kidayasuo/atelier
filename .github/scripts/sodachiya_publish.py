@@ -52,7 +52,11 @@ else:
                 who.append(n)
     who = who or ['更新係']
     tail = '\n'.join(txt.splitlines()[-25:])
-    dests = [f'{n}=未:自分の直しで止まっていないか見る' for n in who] + ['設計監修=知らせ:止まった']
+    if re.search(r'ModuleNotFoundError|ImportError|No such file or directory: .?/(tmp|home)/', txt):
+        # 作業場の誤り（部品が足りない・作業場の場所）：係の直しではないので、自動の作り直しを持つ監修だけに
+        dests = ['設計監修=未:作業場の誤り（setup.sh か .github/）']
+    else:
+        dests = [f'{n}=未:自分の直しで止まっていないか見る' for n in who] + ['設計監修=知らせ:止まった']
     p = run(*INBOX, 'new', ME, f'自動の作り直しが止まった（{head}）', *dests).stdout.strip()
     body = open(os.path.join(S, p), encoding='utf-8').read()
     note = (f'自動の作り直し（{head}まで）が止まったので、できたものは push していない。'
