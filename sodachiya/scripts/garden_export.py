@@ -192,7 +192,7 @@ if FL:
 curve_ad(s["culvert"], 92, "暗渠（用水路 → みなもと）", z=-0.6, drape=False)
 am = G["AMAOCHI"]
 cl = []
-for u in np.linspace(am["u"][0], am["u"][1], 140):
+for u in np.linspace(am["u"][1], am["u"][0], 140):        # 北の端から南へ（流れの向き）。南の端の落とし口へつなぐ（前は北の端から落とし口へ54 mの帯が渡っていた、10-27）
     a, d = gc.AD(*gc.UV(u, G["EDGE_V"])); cl.append((a, d, H(a, d) - am["depth"]))
 for (a0_, d0_), (a1_, d1_) in zip(am["outlet"][:-1], am["outlet"][1:]):
     for t in np.linspace(0, 1, 8)[1:]:
