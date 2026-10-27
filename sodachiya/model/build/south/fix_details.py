@@ -2018,6 +2018,35 @@ if _L19C_: K.prism(R(STAIR_DOOR[0] - 0.05, STAIR_DOOR[1] + 0.05, -5.12, -5.09, 0
 log.append('西館：階段の下の倉庫 %.1f m²（36b、戸は階段の箱の西の面 u%.2f〜%.2f）' % (_stg.area / 1e6, *STAIR_DOOR))
 K.prism(R(21.16, 32.95, -2.56, -2.50, 0.1), ZF2, ZF2 + 1100.0, L38)       # 2 階の東の縁（東の帯への吹き抜け、10-25：1.0 → 1.6）
 K.prism(R(32.97, 33.03, -2.93, -2.56, 0.02), ZF2, ZF2 + 1100.0, L38)      # 2 階の北の口（遊戯室の吹き抜け、10-27：箱の東の外まで）
+# 階段の柵と手すり（10-28、監修の項 20261028-0015 の 2。決定事項_遊戯室の柵の決まり：縦格子・すき間 90・横桟なし・h1,100、ここでは厚さ 30 の面で表す）
+# 段の位置は _stair_tris と同じ（蹴上 3250/18、踏面 0.2625、東の一折れ u30.9→33 を上る、西の一折れ u33→30.9 を上る）。
+_RS, _G = 3250.0 / 18, 0.2625
+_SU0, _SUL = STAIR_U0 + STAIR_FOOT, STAIR_U0 + STAIR_FOOT + 8 * _G
+_VW1, _VE0 = round(stair_v25(-3.45), 3), round(stair_v25(-3.35), 3)            # 2 本の階段のあいだのすき間（西の一折れの東の縁・東の一折れの西の縁）
+def _z_west(x_, y_):                                                            # 西の一折れの段鼻の線（u30.9 で 2FL、u33 で踊り場）
+    u_ = min(max(uv(x_, y_)[0], _SU0), _SUL); return 9 * _RS + (_SUL - u_) / (_SUL - _SU0) * 9 * _RS
+_vm = (_VW1 + _VE0) / 2
+# 1. 2 本の階段のあいだ：すき間の真ん中に柵（床から、高いほうの西の一折れの段鼻の 1,100 上まで。下は倉庫との仕切りを兼ねる）
+K.prism(R(_SU0, _SUL, _vm - 0.015, _vm + 0.015, 0.05), 0.0, lambda x_, y_: _z_west(x_, y_) + 1100.0, L38)
+# 2. 2 階の着き口の北の縁（u30.9）の東の半分：下は東の一折れの登り口（落ちると 3.25 m）
+K.prism(R(_SU0 - 0.03, _SU0, _vm - 0.015, -3.05, 0.02), ZF2, ZF2 + 1100.0, L38)
+# 3. 手すり（令25条）：両方の一折れの壁の側に φ35、段鼻から 800（箱の壁の内面から 0.06 離して、受け金物で壁に）
+def _rod(p0, p1, rad, li):
+    p0 = np.asarray(p0, float); p1 = np.asarray(p1, float); d_ = p1 - p0; L_ = float(np.linalg.norm(d_))
+    pl_ = r.Plane(r.Point3d(*map(float, p0)), r.Vector3d(*map(float, d_ / L_)))
+    c_ = r.Circle(float(rad)).ToNurbsCurve(); c_.Transform(r.Transform.PlaneToPlane(r.Plane.WorldXY(), pl_))
+    best = None
+    for ex in (r.Extrusion.Create(c_, L_, True), r.Extrusion.Create(c_, -L_, True)):
+        if ex is None: continue
+        bb = ex.GetBoundingBox(); mid = np.array([(bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2, (bb.Min.Z + bb.Max.Z) / 2])
+        dm = np.linalg.norm(mid - (p0 + p1) / 2)
+        if best is None or dm < best[0]: best = (dm, ex)
+    if best is not None:
+        at_ = r.ObjectAttributes(); at_.LayerIndex = li; at_.Name = '階段の手すり φ35（段鼻から 800）'; out.Objects.AddExtrusion(best[1], at_)
+_vhE, _vhW = -3.05 - 0.06, -4.94 + 0.06
+_rod([*np.ravel(xy(_SU0, _vhE)), 800.0], [*np.ravel(xy(_SUL, _vhE)), 9 * _RS + 800.0], 17.5, L38)          # 東の一折れ（東の壁）
+_rod([*np.ravel(xy(_SUL, _vhW)), 9 * _RS + 800.0], [*np.ravel(xy(_SU0, _vhW)), 18 * _RS + 800.0], 17.5, L38)   # 西の一折れ（西の壁）
+log.append(f'西館：階段の柵（2 本のあいだ v{_vm:.3f}、高いほうの段鼻 +1,100）・2 階の着き口の北の縁の柵（u{_SU0}、h1,100）・手すり 2 本（φ35、h800）')
 for _f, _li, _z in _F31: K.flat(_f.difference(_STX), _z, _li)
 # 東の帯の吹き抜け（スパン 8〜11、u 21〜33）に天井扇（10-25、ユーザー：設置は可能？ → 吹き抜けを 1.6 にして入る）。
 # 遊戯室の天井扇（スパン 12〜17）と同じ φ1.1・h6.0、吹き抜けの真ん中（v −1.8、西館の東の壁の内面から 0.75）。
