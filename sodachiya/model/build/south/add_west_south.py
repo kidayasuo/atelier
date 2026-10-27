@@ -43,6 +43,7 @@ rename('33_', '33_1F_東の帯（はだし ±0、ホールと一続き）')
 L_MED = lidx('59_1F_医務'); L_WV = lidx('59_1F_西吹き抜け'); L_FURN = lidx('37_')
 L_OFF7 = layer('59_1F_事務（スパン 7、おはようの窓口）', hexc('E9DCC4'))
 L_DOOR = layer('89_遊戯室_搬入の大戸（閉じた状態）', (150, 110, 70))   # レイヤー表を new へ写す前に作る（後で作ると大戸が 00 に落ちる）
+L_WD = layer('19b_西館_外の戸（木、開き戸）', (150, 110, 70))   # 10-27：調理の職員の外からの戸が 00_敷地 に落ちていた（ここで作る）
 L_RAIN = layer('21g_西館_軒樋・鎖樋（道路の側）', (120, 120, 125))     # 同じく写す前に
 L_STG_T = layer('59_1F_倉庫（すき間、先生の道）', hexc('D9D3EC'))      # 10-25：本館と西館のすき間の倉庫（写す前に）
 L_STG_P = layer('59_1F_倉庫（すき間、遊戯室）', hexc('D9D3EC'))
@@ -389,7 +390,6 @@ pane_u(21.075, -4.4, -3.5, 450, 1050)                                         # 
 pane_u(21.075, -9.6, -4.6, 800, 2270)                                         # キッチンの南のガラス
 # 遊戯室の窓・大戸：壁の厚さの中ほどの薄い板
 PANES.append((FP_BAND, HB_SILL, HB_HEAD, L_GL))
-L_WD = layer('19b_西館_外の戸（木、開き戸）', (150, 110, 70))
 PANES.append((R(28.5, 29.3, -14.5, -12.3), 0, 2100, L_WD))     # 調理の職員の外からの戸（開口だけで戸が無かった）
 print('hall face: open to lid', round(ZLID_E), 'high window', round(HB_SILL), round(HB_HEAD))
 mid_ring = WS.buffer(-60, join_style=2).difference(WS.buffer(-90, join_style=2))
