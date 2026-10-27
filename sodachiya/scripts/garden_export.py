@@ -20,6 +20,7 @@ LAY = {}
 NAMES = {90: ("90_園庭_地形（GL からの起伏、メッシュ）", (196, 186, 150)), 91: ("91_園庭_等高線（0.2 m、名前に高さ）", (138, 122, 92)),
          92: ("92_園庭_水（小川・雨の川・床の噴水・乳児の床の噴水・雨庭・護岸の溝）", (76, 141, 184)), 93: ("93_園庭_小屋（便所・倉庫・コンポストの間）", (155, 118, 83)),
          94: ("94_園庭_木の幹（名前＝種類）", (111, 100, 80)), "94c": ("94c_園庭_樹冠（葉、名前＝種類）", (111, 143, 87)), 95: ("95_園庭_遊び場（砂場・粒・すりばち・柳の家）", (168, 142, 88)),
+         "95w": ("95w_園庭_鉄棒の柱（栗の丸太）", (140, 110, 80)), "95m": ("95m_園庭_鉄棒の棒（ステンレス）", (150, 155, 162)),
          96: ("96_園庭_石（橋・飛び石・バルブます）", (110, 104, 92)), 97: ("97_園庭_車の道・木戸", (183, 169, 140)), "97h": ("97h_園庭_生垣（葉、のぞきの低い生垣 h0.6）", (120, 150, 90)),
          98: ("98_園庭_等高線の板（閉じた形：+は高さ L 以上、−は L 以下のくぼみ）", (200, 120, 60)),
          99: ("99_園庭_雨の川（玉石の溝、本館の雨落ち）", (140, 134, 119))}
@@ -295,6 +296,28 @@ curve_ad([gr(-hl, -hw), gr(hl, -hw), gr(hl, hw), gr(-hl, hw)], 95, "粒の遊び
 curve_ad([gr(-hl, hw + 0.35), gr(hl, hw + 0.35)], 95, "帆布を巻いた棒")
 B = G["BOWL"]; curve_ad(ell(B["c"], (B["r"], B["r"])), 95, "すりばち（お話の輪、大雨の日は雨の池）", close=True)
 W = G["WILLOW"]; curve_ad(ell(W["c"], (W["r"], W["r"])), 95, "柳の家（生きたヤナギのドーム φ3）", close=True)
+
+# ---- 95w・95m 鉄棒ひと組（10-27 ユーザー）：柱＝栗の丸太（閉じた円柱）、棒＝ステンレス φ25（閉じた円柱） ----
+BR = G.get("BAR")
+if BR:
+    cb, sb = math.cos(math.radians(BR["rot"])), math.sin(math.radians(BR["rot"]))
+    br = lambda u, v: (BR["c"][0] + u * cb - v * sb, BR["c"][1] + u * sb + v * cb)
+    z0 = H(*BR["c"])                                   # その場で平らにならす
+    n_ = len(BR["bars"]); u0 = -BR["span"] * n_ / 2
+    def circ(p, n, rad):
+        c = r.Circle(p, rad); c.Plane = r.Plane(p, n); return c
+    def post(u, h):
+        p = P3(*br(u, 0), z=z0)
+        cyl = r.Cylinder(circ(p, r.Vector3d(0, 0, 1), BR["post_d"] / 2 * 1000), h * 1000)
+        m.Objects.AddBrep(cyl.ToBrep(True, True), at("95w", f"鉄棒の柱（栗の丸太 φ{BR['post_d'] * 1000:.0f}、h{h:.2f}）"))
+    for i in range(n_ + 1):
+        hs = [BR["bars"][j] for j in (i - 1, i) if 0 <= j < n_]
+        post(u0 + i * BR["span"], max(hs) + BR["post_over"])
+    for j, hb in enumerate(BR["bars"]):
+        p0 = P3(*br(u0 + j * BR["span"], 0), z=z0 + hb); p1 = P3(*br(u0 + (j + 1) * BR["span"], 0), z=z0 + hb)
+        ax_ = r.Vector3d(p1.X - p0.X, p1.Y - p0.Y, p1.Z - p0.Z)
+        cyl = r.Cylinder(circ(p0, ax_, BR["bar_d"] / 2 * 1000), ax_.Length())
+        m.Objects.AddBrep(cyl.ToBrep(True, True), at("95m", f"鉄棒の棒（ステンレス φ{BR['bar_d'] * 1000:.0f}、h{hb:.2f}）"))
 
 # ---- 96 石 ----
 for q in G["SEKIMORI"].get("steps", []):

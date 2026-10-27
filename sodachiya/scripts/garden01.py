@@ -308,6 +308,20 @@ poly(ax, P([_gr(-_hl - .15, -_hw - .15), _gr(_hl + .15, -_hw - .15), _gr(_hl + .
 poly(ax, P([_gr(-_hl, -_hw), _gr(_hl, -_hw), _gr(_hl, _hw), _gr(-_hl, _hw)]), fc="#EFE6CF", ec="#A88E58", lw=0.3, z=5.5, hatch="...")
 line(ax, XS([_gr(-_hl, _hw + .35), _gr(_hl, _hw + .35)]), lw=2.2, c="#C9B48E", z=5.6)   # 帆布を巻いた棒
 T(ax, X(*_gr(0, _hw + 0.9)), "帆布の巻き取り", 3.4, c="#6B5A3A", rot=-38, z=9.3)
+# 鉄棒ひと組（10-27 ユーザー）：3段の低い鉄棒、点線は安全の範囲
+BR = G.get("BAR")
+if BR:
+    _cb, _sb = math.cos(math.radians(BR["rot"])), math.sin(math.radians(BR["rot"]))
+    def _br(u, v):
+        return (BR["c"][0] + u * _cb - v * _sb, BR["c"][1] + u * _sb + v * _cb)
+    _zl, _zw = BR["zone"][0] / 2, BR["zone"][1] / 2
+    poly(ax, P([_br(-_zl, -_zw), _br(_zl, -_zw), _br(_zl, _zw), _br(-_zl, _zw)]), fc="none", ec="#5A4630", lw=0.5, z=20, ls=(0, (2, 1.5)))
+    _n = len(BR["bars"]); _u0 = -BR["span"] * _n / 2
+    line(ax, XS([_br(_u0, 0), _br(-_u0, 0)]), lw=1.0, c="#3F444A", z=20.1)
+    for i in range(_n + 1):
+        ax.add_patch(Circle(X(*_br(_u0 + i * BR["span"], 0)), BR["post_d"] / 2 + 0.05, fc=C["wood"], ec="#5A4630", lw=0.4, zorder=20.2))
+    _hs = "・".join(f"{h:.2f}" for h in BR["bars"])
+    T(ax, X(*_br(0, -_zw - 0.9)), f"鉄棒（3段 h{_hs}）", 4.0, c="#5A4630", rot=-38, z=21, fontweight="bold")
 # 小さな滝と滝壺（みなもと）
 _FL = G["STREAM"].get("fall")
 if _FL:
@@ -462,7 +476,7 @@ ax.text(sx + 13.5, sy + 0.25, "1/200　高野川を下に（北は右上）", fo
 # ================= 見出しと凡例 =================
 fx = fig.text
 fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 8", fontsize=15, ha="left", va="baseline")
-fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-25　遊具を置かず、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
+fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-27　遊具は鉄棒ひと組だけ、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
    fontsize=7.2, ha="left", color="#444444")
 fx(14 / PW, 1 - 30 / PH, "地形は GL（＝FL−300）からの高さ。等高線 0.2 m ごと（1 m を太く）。築山の位置と形はこの図で決め直した（Keynote の位置は前提にしていない）。",
    fontsize=6.0, ha="left", color="#666666")
