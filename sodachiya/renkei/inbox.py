@@ -11,11 +11,14 @@
                                                新しい項の下書き（open/ に作り、パスを出す。本文は後から書く）
   python3 renkei/inbox.py mark <項のファイル> 更新係 済 [ひとこと]
                                                自分の行の状態を変える（未→済、知らせ→読んだ）
-  python3 renkei/inbox.py mine 更新係           自分あての未と知らせの項の本文だけを出す（連携を全部読まない）
+  python3 renkei/inbox.py mine 更新係           自分あての未と知らせの項の本文だけを出す（連携を全部読まない）。
+                                               出した知らせは「読んだ」にする（10-27：知らせは取りに行くもの。--keep で残す）
   python3 renkei/inbox.py log 監修 "一行"        変更の記録に一行（log/<チャット>.md、チャットごとのファイル）
   python3 renkei/inbox.py log --since 1023      変更の記録を日付で並べて出す（10-23 から）
 
 状態：未（依頼、やってほしい）／知らせ（読んでほしい）／済（依頼を片づけた）／読んだ（知らせを読んだ）。
+知らせ（10-27）：受け箱には出さない（ユーザーが知らせのために回らなくてよい）。各チャットは作業の始めに mine で読む。
+自動の作り直し（GitHub Actions、.github/workflows/sodachiya_build.yml）も「自動の作り直し」の名前で項と記録を書く。
 あて先「ユーザー」の未は、受け箱の「ユーザーへの問い」に出る（答えを聞いたチャットが済にする）。
 すべての行が 済 か 読んだ になった項は、次に受け箱を作ったとき done/ へ移る（だれが作ってもよい）。
 """
@@ -28,8 +31,8 @@ JST = dt.timezone(dt.timedelta(hours=9))
 # チャットの名前（受け箱の行の順）と、ファイル名に使う英字
 CHATS = [('本館係', 'honkan'), ('西館係', 'nishikan'), ('アプローチ係', 'approach'), ('園庭', 'garden'),
          ('更新係', 'koushin'), ('ソリッド係', 'solid'), ('設計監修', 'kanshu'), ('模型作成', 'mokei'), ('プレゼンの準備', 'present'),
-         ('ユーザー', 'user')]
-ALIAS = {'監修': '設計監修', '3dmと図の更新係': '更新係', '模型': '模型作成', 'プレゼン': 'プレゼンの準備',
+         ('ユーザー', 'user'), ('自動の作り直し', 'auto')]
+ALIAS = {'自動': '自動の作り直し', '監修': '設計監修', '3dmと図の更新係': '更新係', '模型': '模型作成', 'プレゼン': 'プレゼンの準備',
          'アプローチ': 'アプローチ係', '本館': '本館係', '西館': '西館係', 'ソリッド': 'ソリッド係', 'ソリッドがかり': 'ソリッド係'}
 SLUG = dict(CHATS)
 STATES = ('未', '知らせ', '済', '読んだ')
@@ -83,13 +86,16 @@ def inbox():
     now = dt.datetime.now(JST).strftime('%m-%d %H:%M')
     out = ['# 育ち舎　受け箱（自動。手で書かない）', '',
            f'{now}に`sodachiya/renkei/inbox.py`が`renkei/open/`から作った。中身は各項のファイル（`renkei/open/<項>.md`）。',
-           '使い方：ユーザーは行に「未」か「知らせ」があるチャットに行き「お願い」など何か一言だけ言う（言葉は何でもよい。言われたチャットは受け箱の自分の行を片づける）。決まりは「役割分担」の「連携と受け箱」。', '',
-           '| チャット | 未の依頼 | 知らせ（未読） |', '|---|---|---|']
+           '使い方：ユーザーは行に「未」があるチャットに行き「お願い」など何か一言だけ言う（言葉は何でもよい。言われたチャットは受け箱の自分の行を片づける）。'
+           '知らせはここに出さない：各チャットが作業の始めに`inbox.py mine`で読む（ユーザーは知らせのために回らなくてよい、10-27）。'
+           '3dm・全体の図・面積表の作り直しは自動（push の後 約30分、GitHub Actions）。決まりは「役割分担」の「連携と受け箱」。', '',
+           '| チャット | 未の依頼 | （知らせ） |', '|---|---|---|']
     cell = lambda xs: f'{len(xs)}件：' + '／'.join(t for t, _ in xs) if xs else 'なし'
     for n, _ in CHATS:
-        if n == 'ユーザー':
+        if n in ('ユーザー', '自動の作り直し'):
             continue
-        out.append(f'| {n} | {cell(rows[n]["未"])} | {cell(rows[n]["知らせ"])} |')
+        k = len(rows[n]["知らせ"])
+        out.append(f'| {n} | {cell(rows[n]["未"])} | {f"{k}件" if k else ""} |')
     q = rows['ユーザー']['未'] + rows['ユーザー']['知らせ']
     out += ['', '**ユーザーへの問い（返事待ち）**：' + ('／'.join(note or t for t, note in q) if q else 'なし'),
             '', '（各チャットは`python3 renkei/inbox.py mine <係>`で自分あての項の中身を読む）']
@@ -137,12 +143,21 @@ def mark(path, who, state, *note):
     print(f'{os.path.basename(path)}：{who}＝{state}')
 
 
-def mine(who):
+def mine(who, *opt):
     who = name(who)
+    read = []
     for p in items():
         title, to, lines = parse(p)
         if any(n == who and s in ('未', '知らせ') for _, n, s, _ in to):
             print(f'=== {os.path.basename(p)}\n' + '\n'.join(lines).rstrip() + '\n')
+            if '--keep' not in opt and any(n == who and s == '知らせ' for _, n, s, _ in to):
+                for i, n, s, note in to:
+                    if n == who and s == '知らせ':
+                        lines[i] = f'- {who}：読んだ' + (f'　{note}' if note else '')
+                open(p, 'w', encoding='utf-8').write('\n'.join(lines))
+                read.append(os.path.basename(p))
+    if read:
+        print(f'（知らせ {len(read)}件を「読んだ」にした。commit・push して受け箱を作り直す）')
 
 
 def log(*args):

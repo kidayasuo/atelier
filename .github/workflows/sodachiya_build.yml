@@ -1,0 +1,89 @@
+# 育ち舎：3dm・全体の図・面積表の自動の作り直し（設計監修、10-27。ユーザー：伝令をなくす）
+# 作り直しが読むもの（data・取り込み用ファイル・作り直しのスクリプト）が push されたら、
+# model/build/run_all.sh --publish を走らせ、できたものを commit して push する。
+# - 走っている間に来た push は一つの「待ち」にまとまり、終わったら最新の main で一回だけ走る。
+# - 前の自動の作り直しから、読むものが変わっていなければ何もしない。
+# - check で止まった・段が止まったときは、できたものを push せず、連携の項（renkei/open/）を立てる。
+name: sodachiya build
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sodachiya/data/**'
+      - 'sodachiya/scripts/plan01.py'
+      - 'sodachiya/scripts/plan02.py'
+      - 'sodachiya/scripts/plan04.py'
+      - 'sodachiya/model/build/**'
+      - '!sodachiya/model/build/**/*.md'
+      - 'sodachiya/model/*_layers.3dm'
+      - 'sodachiya/archive/handoff_1018/**'
+      - 'sodachiya/logo/sodachiya_logo.svg'
+      - 'sodachiya/present/kadai_map.json'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '読むものが変わっていなくても作り直す'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: sodachiya-build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: 少し待って続けての push をまとめる
+        if: github.event_name == 'push'
+        run: sleep 120
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 200
+      - name: 作り直しが要るか
+        id: need
+        run: |
+          python3 .github/scripts/sodachiya_need.py "${{ inputs.force }}" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        if: steps.need.outputs.build == 'yes'
+        with:
+          python-version: '3.12'
+      - name: 作業場の用意
+        if: steps.need.outputs.build == 'yes'
+        run: |
+          sudo apt-get update -q >/dev/null
+          sudo apt-get install -y -q strace fonts-noto-cjk >/dev/null
+          sudo mkdir -p /home/claude /tmp/claude-0
+          sudo chown -R "$USER" /home/claude /tmp/claude-0
+          cd sodachiya && bash model/build/setup.sh
+      - name: 作り直し（run_all.sh --publish）
+        id: run
+        if: steps.need.outputs.build == 'yes'
+        run: |
+          cd sodachiya
+          set +e
+          bash model/build/run_all.sh /tmp/claude-0/out base --publish > /tmp/claude-0/run.txt 2>&1
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          tail -n 40 /tmp/claude-0/run.txt
+      - name: push（通ったとき）または連携の項（止まったとき）
+        if: steps.need.outputs.build == 'yes'
+        env:
+          CODE: ${{ steps.run.outputs.code }}
+          SINCE: ${{ steps.need.outputs.since }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 .github/scripts/sodachiya_publish.py
+          for i in 1 2 3 4 5; do
+            git push && exit 0
+            git pull --rebase -q || exit 1
+            sleep 5
+          done
+          exit 1
+      - name: 止まったら赤に
+        if: steps.need.outputs.build == 'yes' && steps.run.outputs.code != '0'
+        run: exit 1
