@@ -284,6 +284,7 @@ _n_stair = 0
 STAIR_U0, STAIR_FOOT, STAIR_U1 = 30.0, 0.9, 33.9
 def stair_u(u): return STAIR_U0 + (u - STAIR_U0) * (STAIR_U1 - STAIR_U0) / 3.0 if STAIR_U0 - 0.1 <= u <= 33.1 else u   # 箱の壁・床を北へ伸ばす
 STAIR_STG = (30.06, STAIR_U1 - 0.06, -4.94, round(stair_v25(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
+STAIR_DOOR_H = 2100.0   # 10-28（監修の項 20261028-0015 の 15）：戸の高さ 1750 → 2100（ほかの室内の戸と同じ。上の段の裏 u31.6 で約 z2.67 なので納まる）
 
 def _plates(T, thk, stair=False):
     """面だけの物（三角形 T）→ 平らな面ごとの板（閉じた立体、manifold3d）の組。板はそれぞれ押し出し（Rhino 版で押し出しになる）。
@@ -441,7 +442,7 @@ for o in m.Objects:
     ms_ = _plates(T, _THK[li_], stair=(li_ == lidx('25_')))         # 面ごとの板（押し出し）に（10-25 ソリッド係、ユーザー）
     if not ms_: continue
     if li_ == lidx('24_') and (U[:, 1] < -4.9).any() and (U[:, 1] > -3.1).any() and T[:, :, 2].max() > 7000:   # 階段の箱：西の面に階段の下の倉庫の戸（10-25）
-        _tb = trimesh.creation.extrude_polygon(R(*STAIR_DOOR, -5.3, -4.7, 0.05), 1750.0)
+        _tb = trimesh.creation.extrude_polygon(R(*STAIR_DOOR, -5.3, -4.7, 0.05), STAIR_DOOR_H)
         _box = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
         ms_ = [M_ - _box for M_ in ms_]
         # 階段の箱の南の面（u30）の登り口と2階の降り口（10-27、ユーザー：登り口が壁でほぼ塞がっている）。元の面は u30 の面が床から
@@ -656,7 +657,7 @@ log.append(f'西館：骨格の柱 2 本（u24・u27、v −3.4、180×400）、
 _BOXC = [(30.0, -2.99), (30.0, -5.0), (30.96, -2.99), (30.24, -5.0), (31.56, -5.0), (33.0, -2.99), (33.0, -5.0), (33.9, -2.99), (33.9, -5.0)]
 for uc, vc in _BOXC:
     _xbox(uc - 0.06, uc + 0.06, vc - 0.06, vc + 0.06, 0.0, 3170.0, L22A, f'階段の箱の柱 120×120（骨格の耐力壁、u{uc:.2f}）')
-_xbox(STAIR_DOOR[0] - 0.12, STAIR_DOOR[1] + 0.12, -4.94, -5.06, 1750.0, 1930.0, L22D, '階段の箱の倉庫の戸のまぐさ（120×180）')
+_xbox(STAIR_DOOR[0] - 0.12, STAIR_DOOR[1] + 0.12, -4.94, -5.06, STAIR_DOOR_H, STAIR_DOOR_H + 180.0, L22D, '階段の箱の倉庫の戸のまぐさ（120×180）')
 log.append(f'西館：階段の箱を骨格の耐力壁に（柱 {len(_BOXC)} 本 120×120、倉庫の戸のまぐさ、u30・u33 の床梁を受ける）')
 # 6) 階段の上の頭のあき（10-28、監修の項 20261028-0015 の 1）：u33 の 2 階の床梁（2 枚組 u32.82〜33.18、下端 z2400）が
 #    階段（1 本目の上の段・踊り場・2 本目の下の段）の上を横切り、踊り場の上のあきが 0.78 m だった。梁を階段の箱の東西の壁の内面
@@ -2013,7 +2014,7 @@ _stg = R(STAIR_STG[0], STAIR_STG[1], STAIR_STG[2], STAIR_STG[3], 0.05)
 K.flat(_stg, 10.0, _L36B)
 for _f, _li in _F36: K.flat(_f.difference(_stg.buffer(1)), 10.0, _li)
 _L19C_ = [i for i, l in enumerate(out.Layers) if l.Name.startswith('19c_')]
-if _L19C_: K.prism(R(STAIR_DOOR[0] - 0.05, STAIR_DOOR[1] + 0.05, -5.12, -5.09, 0.05), 10.0, 1750.0, _L19C_[0])
+if _L19C_: K.prism(R(STAIR_DOOR[0] - 0.05, STAIR_DOOR[1] + 0.05, -5.12, -5.09, 0.05), 10.0, STAIR_DOOR_H, _L19C_[0])
 log.append('西館：階段の下の倉庫 %.1f m²（36b、戸は階段の箱の西の面 u%.2f〜%.2f）' % (_stg.area / 1e6, *STAIR_DOOR))
 K.prism(R(21.16, 32.95, -2.56, -2.50, 0.1), ZF2, ZF2 + 1100.0, L38)       # 2 階の東の縁（東の帯への吹き抜け、10-25：1.0 → 1.6）
 K.prism(R(32.97, 33.03, -2.93, -2.56, 0.02), ZF2, ZF2 + 1100.0, L38)      # 2 階の北の口（遊戯室の吹き抜け、10-27：箱の東の外まで）
