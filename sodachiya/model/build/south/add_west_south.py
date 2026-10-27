@@ -148,7 +148,7 @@ def ztop(x, y):
     return roof_z(x, y) + (ztop_old(q.x, q.y) - roof_z(q.x, q.y))
 
 # ---------------------------------------------------------------- 形の道具
-def mesh_prism(poly, z0, zfun, li, col=None):
+def mesh_prism(poly, z0, zfun, li, col=None, name=None):
     """平面形 poly（穴あり可）を z0 から zfun(x,y) まで（天端は点ごと）"""
     polys = [poly] if poly.geom_type == 'Polygon' else list(poly.geoms)
     for p in polys:
@@ -174,6 +174,7 @@ def mesh_prism(poly, z0, zfun, li, col=None):
             st = e
         mm.Normals.ComputeNormals(); mm.Compact()
         a = r.ObjectAttributes(); a.LayerIndex = li
+        if name: a.Name = name
         if col is not None:
             a.ColorSource = r.ObjectColorSource.ColorFromObject; a.ObjectColor = (*col, 255)
         new.Objects.AddMesh(mm, a)
@@ -293,21 +294,21 @@ if PJ and os.path.exists(PJ):
 _RK = WS.exterior
 def _s_of(u):
     return _RK.project(Point(*xy(u, face_v(u))))
-def win_u(u0, u1, z0, z1):
+def win_u(u0, u1, z0, z1, name=None):
     """西・北西の面（u の範囲）の窓：外周に沿う帯を足元の形に"""
     a_, b_ = sorted((_s_of(u0), _s_of(u1)))
     if b_ - a_ > _RK.length / 2:                                    # 外周の始まり（u約41）をまたぐ
         fp = unary_union([_sub(_RK, b_, _RK.length).buffer(400.0, cap_style=2), _sub(_RK, 0.0, a_).buffer(400.0, cap_style=2)])
     else:
         fp = _sub(_RK, a_, b_).buffer(400.0, cap_style=2)
-    OPEN.append((fp, z0, z1)); PANES.append((fp, z0, z1, L_GL)); return fp
-def win_gable(u_face, v0, v1, z0, z1):
+    OPEN.append((fp, z0, z1)); PANES.append((fp, z0, z1, L_GL, name)); return fp
+def win_gable(u_face, v0, v1, z0, z1, name=None):
     """南北の妻（u 一定の面）の窓"""
     fp = R(u_face - 0.4, u_face + 0.4, min(v0, v1), max(v0, v1), 0.05)
-    OPEN.append((fp, z0, z1)); PANES.append((fp, z0, z1, L_GL)); return fp
+    OPEN.append((fp, z0, z1)); PANES.append((fp, z0, z1, L_GL, name)); return fp
 WIN_LOG = []
-def _w(kind, *a):
-    (win_u if kind == 'u' else win_gable)(*a); WIN_LOG.append((kind, a))
+def _w(kind, *a, name=None):
+    (win_u if kind == 'u' else win_gable)(*a, name=name); WIN_LOG.append((kind, a))
 ZF2_ = 3250.0
 # キッチン（西の面、スパン 24〜27）：作業台の上 h1.0〜2.0、幅 2.2（引き違い）。南西の丸みの先 u22.6〜23.9 にも同じ高さの細い窓
 _w('u', 24.4, 26.6, 1000.0, 2000.0)
@@ -324,10 +325,14 @@ _w('u', 42.5, 43.7, 450.0, 1050.0)       # 丸いベンチ（u42.15〜44）に�
 _w('u', 49.0, 49.9, 2300.0, 3000.0)      # 踊り場（h2.0）の子の目：北西の道を見下ろす
 _w('g', 51.0, -0.9 - 3.6, -0.9 - 4.8, 2150.0, 3100.0)   # 北の妻：吊り橋・段（h2〜3）から北の庭（水切り h3.25 の下に収める）
 # 2 階：横一文字。西の低い軒の壁（2FL+0.4〜+0.8）に休憩室・更衣・会議室を通す一本の帯（架構の線の柱の所で区切る）
+# 10-28（ユーザー、監修の項 20261028-0015 の 9）：腰が低い（400・800、1,100 未満）ので、柵は付けずに開き方を限る（見えは変えない）。
+# 内倒し窓（室内から拭ける）でストッパーにより開く幅を 100 mm 未満に（こどもが体を出せない）。3dm の形は閉じた姿のまま、名前で示す。
+# 2 階は職員だけの所だが、こどもが上がることもあるので同じにする。
+WIN2_NAME = '2階の外への窓（腰 %d、内倒し・ストッパーで開く幅 100 mm 未満、柵なし、10-28 監修の項 0015 の 9）'
 for a_, b_ in ((22.75, 23.88), (24.12, 26.88), (27.12, 29.88), (30.12, 32.88)):
-    _w('u', a_, b_, ZF2_ + 400.0, ZF2_ + 800.0)
-# 休憩室の南の妻：座った目の高さ（2FL+0.8〜+1.3）で川と空を見る横長の窓
-_w('g', 21.0, -2.9, -9.0, ZF2_ + 800.0, ZF2_ + 1300.0)
+    _w('u', a_, b_, ZF2_ + 400.0, ZF2_ + 800.0, name=WIN2_NAME % 400)
+# 休憩室の南の妻：座った目の高さ（2FL+0.8〜+1.3）で川と空を見る横長の窓（腰 800 なので同じく開く幅を限る）
+_w('g', 21.0, -2.9, -9.0, ZF2_ + 800.0, ZF2_ + 1300.0, name=WIN2_NAME % 800)
 print('windows (10-26):', len(WIN_LOG))
 # ---------------------------------------------------------------- 外皮が架構の輪郭（WN）より外へ出た所：屋根を延ばし、床を足す（10-23、西館係）
 EXT = WS.difference(WN).buffer(-1).buffer(1)
@@ -434,8 +439,9 @@ PANES.append((FP_BAND, HB_SILL, HB_HEAD, L_GL))
 PANES.append((R(28.5, 29.3, -14.5, -12.3), 0, 2100, L_WD))     # 調理の職員の外からの戸（開口だけで戸が無かった）
 print('hall face: open to lid', round(ZLID_E), 'high window', round(HB_SILL), round(HB_HEAD))
 mid_ring = WS.buffer(-60, join_style=2).difference(WS.buffer(-90, join_style=2))
-for fp, z0, z1, li in PANES:
-    mesh_prism(mid_ring.intersection(fp), float(z0), const(float(z1)), li)
+for pn in PANES:
+    fp, z0, z1, li = pn[:4]
+    mesh_prism(mid_ring.intersection(fp), float(z0), const(float(z1)), li, name=pn[4] if len(pn) > 4 else None)
 # すき間の南の端のガラス：海峡の床 −150 から すき間の蓋の下まで
 lid = []
 for o in new.Objects:

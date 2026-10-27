@@ -558,8 +558,13 @@ for o in m.Objects:
         for x_, y_, z_ in np.asarray(g_.vert_properties)[:, :3]: mm.Vertices.Add(float(x_), float(y_), float(z_))
         for a_, b_, c_ in np.asarray(g_.tri_verts): mm.Faces.AddFace(int(a_) + o_, int(b_) + o_, int(c_) + o_)
     mm.Normals.ComputeNormals()
-    beam_new.append((mm, o.Attributes)); beam_drop.add(str(o.Attributes.Id)); _n_thk += 1
+    at_ = o.Attributes
+    if li_ == lidx('27_') and U[:, 0].min() > 32.9 and U[:, 0].max() < 33.1:
+        # 10-28（ユーザー、監修の項 20261028-0015 の 9）：会議室から遊戯室を見る室内窓（腰 850、下は遊戯室へ約 4.1 m）ははめ殺し。柵は付けない（見えは変えない）
+        at_.Name = '室内窓（2階の会議室から遊戯室を見る、はめ殺し、腰 850、10-28 監修の項 0015 の 9）'; _log_win27 = True
+    beam_new.append((mm, at_)); beam_drop.add(str(o.Attributes.Id)); _n_thk += 1
 log.append(f'西館：面だけの間仕切り・階段・室内窓 {_n_thk} 個に厚みを付けて閉じた')
+if globals().get('_log_win27'): log.append('西館：会議室から遊戯室を見る室内窓（u33）をはめ殺しに（名前、監修の項 0015 の 9）')
 log.append(f'西館：階段と階段の箱 {_n_stair} 個を細くした（東の面 v−2.2 → −2.99、一本 0.9、南の口のあき 柱の所 約1.30・柱のあいだ 約1.88）')
 
 # 3d) 外壁ぎわの柱の外の面を、足もとから頭まで外壁の内面にそろえる（10-25、ユーザーの問い・監修）。
