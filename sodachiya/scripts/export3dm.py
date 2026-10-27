@@ -43,6 +43,51 @@ def wall(pts, h, lay, z0=0.0):                                 # vertical strip 
 def slab(pts, z0, t, lay):                                     # closed outline extruded upward t
     e = up(pl(pts, z0, True), t, True)
     if e: m.Objects.AddExtrusion(e, attr(lay))
+def smooth_outline(pts, z=0.0, tol=0.001, corner=15.0):        # 細かい折れ線（円弧を分けた点）を、直線と円弧の閉じた PolyCurve にする（10-28）
+    q = [tuple(p[:2]) for p in pts]
+    if q[0] == q[-1]: q = q[:-1]
+    n = len(q)
+    def turn(i):
+        a, b, c = q[i - 1], q[i], q[(i + 1) % n]
+        d = math.degrees(math.atan2(c[1] - b[1], c[0] - b[0]) - math.atan2(b[1] - a[1], b[0] - a[0]))
+        return abs((d + 180) % 360 - 180)
+    cs = [i for i in range(n) if turn(i) >= corner] or [0]
+    q = q[cs[0]:] + q[:cs[0]]; cs = [(c - cs[0]) % n for c in cs] + [n]; q = q + [q[0]]
+    def seg_dev(i, j):                                          # line i→j: max distance of the points between
+        a, b = np.array(q[i]), np.array(q[j]); d = b - a; L = np.hypot(*d)
+        if L < 1e-9: return 0.0, None
+        return max([abs(d[0] * (q[k][1] - a[1]) - d[1] * (q[k][0] - a[0])) / L for k in range(i + 1, j)] + [0.0]), None
+    def arc_dev(i, j):                                          # 3-point arc through i, the middle point (by length) and j
+        if j - i < 2: return 1e9, None
+        cum = np.concatenate([[0], np.cumsum([math.dist(q[k], q[k + 1]) for k in range(i, j)])])
+        k = i + 1 + int(np.argmin(np.abs(cum[1:-1] - cum[-1] / 2)))
+        (ax, ay), (bx, by), (cx, cy) = q[i], q[k], q[j]
+        D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+        if abs(D) < 1e-12: return 1e9, None
+        ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / D
+        uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / D
+        R = math.hypot(ax - ux, ay - uy)
+        dev = max(abs(math.hypot(q[m_][0] - ux, q[m_][1] - uy) - R) for m_ in range(i, j + 1))
+        sag = max(abs(math.hypot((q[m_][0] + q[m_ + 1][0]) / 2 - ux, (q[m_][1] + q[m_ + 1][1]) / 2 - uy) - R) for m_ in range(i, j))
+        return (dev if sag <= 3 * tol else 1e9), k                # 点の間で弧が折れ線から離れすぎない（弦の中点で 3 mm まで）
+    pc = r.PolyCurve()
+    for s0, s1 in zip(cs[:-1], cs[1:]):
+        i = s0
+        while i < s1:
+            j = i + 1; kind = ("L", None)
+            for jj in range(i + 1, s1 + 1):
+                if seg_dev(i, jj)[0] <= tol: j, kind = jj, ("L", None)
+                else:
+                    d, k = arc_dev(i, jj)
+                    if d <= tol: j, kind = jj, ("A", k)
+                    elif jj - i > 2: break
+            if kind[0] == "L": pc.Append(r.LineCurve(P3(q[i], z), P3(q[j], z)))
+            else: pc.Append(r.Arc(P3(q[i], z), P3(q[kind[1]], z), P3(q[j], z)))
+            i = j
+    return pc
+def slab_smooth(pts, z0, t, lay):                              # slab() の、輪郭を直線と円弧にした版
+    e = up(smooth_outline(pts, z0), t, True)
+    if e: m.Objects.AddExtrusion(e, attr(lay))
 POSTS = []                                                       # 柱の中心と半径（塀の板を柱の間に納めるため、10-27）
 def post(p, h, s=0.12, lay="72_外構_柱"):
     x, y = p; q = [(x - s / 2, y - s / 2), (x + s / 2, y - s / 2), (x + s / 2, y + s / 2), (x - s / 2, y + s / 2)]
@@ -77,7 +122,7 @@ _Y.to3dm(slab, E(A.GA0 + 0.02, 0), E(A.GA1 - 0.02, 0), "72_外構_柱")         
 slab(srect(*A.TEM), 2.7, 0.1, "71_外構_屋根（木戸・手水・下屋）")
 import north_common as _NC0
 NC_WS = _NC0.WS
-slab(list(A.LEAN_ROOF.exterior.coords)[:-1], 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")      # 下屋＋南西の丸みへの回り込み（勝手口の庇は外した、10-24）
+slab_smooth(list(A.LEAN_ROOF.exterior.coords)[:-1], 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")      # 下屋＋南西の丸みへの回り込み（勝手口の庇は外した、10-24）
 for _g in getattr(A.LEAN_GUTTER, "geoms", [A.LEAN_GUTTER]): add_curve(list(_g.coords), "75_外構_ひろばの家具", 2.6)   # 下屋の軒樋
 # 72 posts
 s0, s1, d0, d1 = A.TEM
