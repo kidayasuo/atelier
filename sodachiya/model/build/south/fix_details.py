@@ -799,11 +799,28 @@ ROOF_Z = lambda v: 4150.0 - v * 1000.0 / 12.0
 RT_BOT, RT_TOP = -150.0, -41.0      # 10-27夜：梁の上端（RT_BOT）の上は通気垂木・野地・屋根材の約 110 だけ（断熱は梁のあいだ）
 def zuv(x, y): return ROOF_Z(uv(x, y)[1])
 def _rdz(dz, x, y): return dz(*uv(x, y)) if callable(dz) else dz      # 10-27夜：屋根の面からの高さは (u, v) の関数でもよい（軒の細らせ）
+_SPAN_STRIPS = None
+def _by_span(poly):
+    """10-27夜（監修の項 20261027-2020 の 3）：屋根の面は v だけで高さが決まる弧の面なので、大きな多角形をそのまま三角形に分けると
+    面の境が棟から軒へ斜めに走って折れる。架構の線（u = 3(k−1)）でスパンごとに切ってから分ける"""
+    global _SPAN_STRIPS
+    if _SPAN_STRIPS is None:
+        _SPAN_STRIPS = [R(3.0 * k, 3.0 * (k + 1), -6.0, 17.0, 0.25) for k in range(-3, 21)]
+    ps = [poly] if poly.geom_type == 'Polygon' else list(getattr(poly, 'geoms', []))
+    out = []
+    for p in ps:
+        if p.geom_type != 'Polygon' or p.area < 1e3: continue
+        b_ = [uv(x, y)[0] for x, y in np.asarray(p.exterior.coords)]
+        if max(b_) - min(b_) <= 3.05: out.append(p); continue
+        for st in _SPAN_STRIPS:
+            q = p.intersection(st)
+            for g_ in ([q] if q.geom_type == 'Polygon' else [x for x in getattr(q, 'geoms', []) if x.geom_type == 'Polygon']):
+                if g_.area >= 1e3: out.append(g_)
+    return out
 def sheet(poly, dz, li, col=None, mat=None):
     """平面形（穴あり可）を屋根の面から dz 上に、屋根と平行な面で"""
     ms = []
-    for p in ([poly] if poly.geom_type == 'Polygon' else list(poly.geoms)):
-        if p.area < 1e3: continue
+    for p in _by_span(poly):
         p = p.simplify(1.0)
         rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
         V2 = np.vstack(rings); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
@@ -830,8 +847,7 @@ def slab(poly, dz0, dz1):
 def thick(poly, dz0, dz1):
     """平面形（穴あり可）を屋根の面から dz0〜dz1 の閉じた板に（屋根と平行）"""
     out_ = []
-    for p in ([poly] if poly.geom_type == 'Polygon' else list(poly.geoms)):
-        if p.area < 1e3: continue
+    for p in _by_span(poly):
         p = p.simplify(0.5)
         rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
         V2 = np.vstack(rings); n = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
