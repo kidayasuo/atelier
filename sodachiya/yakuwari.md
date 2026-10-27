@@ -61,6 +61,7 @@
 ## 自動の作り直し（設計監修、10-27。ユーザー：伝令をなくす）
 - 作り直しが読むもの（`data/`・`scripts/plan01・02・04.py`・`model/build/`のスクリプト・取り込み用ファイル`model/*_layers.3dm`・`archive/handoff_1018/`・ロゴ・`present/kadai_map.json`）が main に push されると、GitHub Actions（`.github/workflows/sodachiya_build.yml`）が約2分待って続けての push をまとめ、最新の main で `run_all.sh --publish` を走らせる。できたもの（3dm・図・面積表・`stages.md`）を `[3dm] 自動の作り直し（<commit>まで）` で push する。push からおよそ30分。走っている間の push は一つの待ちにまとまり、終わったらもう一回だけ走る。読むものが変わっていなければ走らない。
 - 結果を使うときは pull する（作り直しが終わったかは `renkei/log/auto.md` の最後の行か、`git log -1 -- model/drawings/sodachiya_check.txt`）。
+- **ユーザーに「直した」と伝えるのは、作り直しに入ってから**（10-28、ユーザー：ビルドに入っていない段階で同じ直しを何回も頼んだ）。push しただけなら「push した、約30分で作り直しに入る」と言い、`renkei/log/auto.md` に自分の commit より後の行が出てから「入った」と言う。3dm には作った commit が入っている：Rhino版はレイヤー「N 番号」の文字の点「作り直し：<commit>まで（日時）」、両方の3dmの文書のユーザーテキスト「作り直し」（監修の`materials.py`）。ユーザーは Mac のリポジトリを pull してから開く。
 - 通ったら、更新係あての「作り直し：…」の未の項を自動で済にする。**作り直しのための項は出さない**（push で足りる）。模型・プレゼンへの「形が変わった」知らせは今までどおり出す。
 - **止まったら**（`check:` の止める、または段のエラー）：できたものは push せず、前の作り直しから commit した係（commitの頭で決める）あてに連携の項「自動の作り直しが止まった」（設計監修には知らせ）を立てる。項にはエラーの最後の行と実行のページ。自分の直しが原因なら直して push すれば、自動でもう一度走る。作り直しの仕組みの誤りなら更新係か監修。
 - 確かめたいときは今までどおり `bash model/build/run_all.sh`（`--publish`を付けない）。できたものは `/tmp/claude-0/out/preview/` に入り、リポジトリは変わらない。最後の `check:` の行で、止める（✗）・知らせる（!）が無いかを見る。

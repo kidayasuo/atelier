@@ -182,6 +182,39 @@ def add_etch(m, layers, mat_index):
     return n
 
 
+# 作り直しの印（設計監修、10-28。ユーザー：ビルドに入っていない段階で同じ直しを何回も頼んだ）：どの commit から作ったかを
+# 3dm に書く。Rhino で「どこまで入っているか」を見るため。文書のユーザーテキスト（DocumentUserText の「作り直し」）と、
+# Rhino版にはレイヤー「N 番号」に文字の点（TextDot、南の妻の南 z 10 m）。作り直すたびに前の点は消して置き直す。
+import subprocess, datetime
+
+
+def _build_info():
+    try:
+        sha = subprocess.run(['git', '-C', ROOT, 'log', '-1', '--format=%h'], capture_output=True, text=True).stdout.strip()
+    except Exception:
+        sha = ''
+    now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%m-%d %H:%M')
+    return f'{sha or "?"}まで（{now} 作り直し）'
+
+
+BUILD = _build_info()
+
+
+def stamp(m):
+    m.Strings['作り直し'] = BUILD
+    li = next((i for i, L in enumerate(m.Layers) if L.Name.startswith('N ')), None)
+    if li is None:
+        return                                                      # メッシュの版（番号のレイヤーが無い）は文書のテキストだけ
+    for o in list(m.Objects):
+        if o.Attributes.GetUserString('build_stamp'):
+            m.Objects.Delete(o.Attributes.Id)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from uv import xy
+    x, y = xy(-3.0, 7.0)
+    a = r.ObjectAttributes(); a.LayerIndex = li; a.Name = '作り直しの印'; a.SetUserString('build_stamp', BUILD)
+    m.Objects.AddTextDot('作り直し：' + BUILD, r.Point3d(x, y, 10000.0), a)
+
+
 def apply(path):
     m = r.File3dm.Read(path)
     # その場で書き換える（グループ・親子のレイヤー・物の属性を失わないため）。同じ名前の素材があれば使い回す
@@ -224,7 +257,8 @@ def apply(path):
             name = rule if isinstance(rule, str) else '（素材なし）'
         count[name] = count.get(name, 0) + 1
     ne = add_etch(m, layers, mat_index)
-    m.Write(os.path.abspath(path), 8)                               # 絶対の場所で書く（絵の場所を 3dm からの相対でも残すため）
+    stamp(m)
+    m.Write(os.path.abspath(path), 8)                              # 絶対の場所で書く（絵の場所を 3dm からの相対でも残すため）
     print(f'materials: {path.split("/")[-1]}：素材 {len(idx)}・物 {len(m.Objects)}・ガラスのロゴの板 {ne}'
           + (f'・素材なし {len(missing)}（{"、".join(missing[:8])}）' if missing else ''))
     return count
