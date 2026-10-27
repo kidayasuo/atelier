@@ -64,7 +64,7 @@ L_end=layer('70e_西館_越屋根_妻（壁と同じ材で閉じる）',(215,200
 for i in (1,ne-2):                              # 南北の端は屋根から蓋の下まで壁で閉じる
     for dd0,dd1 in zip(np.linspace(-60,VOID+60,6),np.linspace(-60,VOID+60,6)[1:]):
         p0,p1=Pw(i,dd0),Pw(i,dd1); t_=(Pw(i+1 if i==1 else i-1,0)-Pw(i,0)); t_=t_/np.linalg.norm(t_)*60
-        q=[p0-t_,p1-t_,p1+t_,p0+t_]
+        q=[p0,p1,p1+2*t_,p0+2*t_]                # 10-27夜：外の面を外壁の外面（棟の端＝妻の外面）にそろえ、内へ 120（前は端を中心に ±60 で、北の妻から 59 出て段に見えた）
         m.Objects.AddMesh(mesh_prism([(*x,zroof_at(x)-250-RT) for x in q],[(*x,ZC+GAP-S*float(np.dot(x-edge[i][0],edge[i][1]))) for x in q]),attr(L_end))
 # 蓋（屋根と平行）
 lidtop=lambda i,d: ZTOP+CURB+GAP+GT-S*d

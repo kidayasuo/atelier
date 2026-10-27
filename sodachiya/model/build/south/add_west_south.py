@@ -210,9 +210,11 @@ for o in m.Objects:
             p = g.Vertices[i]; uu, vv = uv(p.X, p.Y)
             if 21 < uu < 30 and -1.2 < vv < -0.4: _lid.append(p.Z)
 ZLID_E = min(_lid) if _lid else 4400.0
-FP_HALL = R(21.15, 33.0, -1.4, -0.5)          # 南の壁の角（u 21–21.15）は残す。10-27（ユーザー）：スパン11 も開け、キッチンの前からスパン11 まで本館へひと続きに開く（柱が見える）
+FP_HALL = R(21.25, 33.0, -1.4, -0.5)          # 南の壁の角（u 21–21.15）は残す。10-27（ユーザー）：スパン11 も開け、キッチンの前からスパン11 まで本館へひと続きに開く（柱が見える）
 HB_SILL = ZLID_E + 350.0; HB_HEAD = HB_SILL + 1200.0   # 東の高窓（蓋の上の外壁に横長の窓、はめ殺し）
-FP_BAND = R(21.15, 50.85, -1.4, -0.5)          # 10-24（ユーザー）：東の面いっぱいの一本の帯（2階・遊戯室とも、遊戯室の東の高窓もこれにまとめた）
+FP_BAND = R(21.25, 50.75, -1.4, -0.5)          # 10-24（ユーザー）：東の面いっぱいの一本の帯（2階・遊戯室とも、遊戯室の東の高窓もこれにまとめた）
+# 10-27夜：帯とホールの範囲の端を南北の妻の内面（u21.15・50.85）から 0.1 内へ（端が妻の内面と同じ面にあると、東の壁の内面が帯の上下で
+# 幅 0 の所でつながり、Rhino版で面の輪郭が自分と交わって表示されなかった）
 OPEN = [  # (足元の形, 下, 上)  上=None は天端まで
     (R(20.6, 21.4, -2.75, -0.95), 0, 2270),       # 入口の引き戸 1.8
     (R(20.6, 21.4, -4.4, -3.5), 450, 1050),       # 今日のごはんの窓（子どもの高さ）
@@ -344,42 +346,72 @@ if EXT.area > 1e5:
     surf(EXT.buffer(20).intersection(WS), roof_z, L_ROOF)                       # 屋根の面をそのまま延ばす（重なり 20）
     flat(EXT.buffer(20).intersection(WS), 10, lidx('31_'))                      # 遊戯室の床の板
     print('skin beyond WN: %.2f m2, roof z at the new eave %.0f' % (EXT.area / 1e6, min(roof_z(*c) for c in np.asarray(EXT.exterior.coords))))
-WALLC = None
-base = wall_ring.difference(unary_union([o[0] for o in OPEN]))
-mesh_prism(base, 0.0, ztop, L_WALL)
+# 外壁（21）は一つの閉じた立体（10-27夜、三代目の西館係。ユーザー：Rhino のレイトレースで北の妻に段差や穴ぼこ、シェーディングで北と西の壁が消える）。
+# 前は、開口の足元ごとに外壁の輪を片に切り、高さごとの角柱を積んでいた。片ごとに輪郭を簡略化（0.5）していたので、となりの片との境が
+# 1 mm 未満ずれ、削る段で足し合わせると細い隙間・厚さの無い三角形・3 枚以上の面が集まる辺が残った（北・西・南の面で 47 本）。
+# Rhino版にすると、同じ平面の三角形をまとめた面の輪郭が自分と交わり（穴の角と外の縁が一点で触れる）、Rhino が面を表示できなかった。
+# 今：外壁の輪を床から天端まで一つの角柱にし、開口（足元の形×高さ）をまとめて引き、水切り・すき間の北の端の壁を足した一つの立体にする
+# （manifold3d、原点を近くに移して float32 の桁落ちを避ける）。形は前と同じ。
+import manifold3d as _mf
+WALL_ADD, WALL_SUB = [], []
+_O = np.array(WS.centroid.coords[0])
+def prism_vf(poly, z0, zfun, seg=None):
+    """平面形（穴あり可）を z0 から zfun(x, y) まで、閉じた角柱の (V, F) の列（V は _O を原点に）"""
+    out_ = []
+    for p in ([poly] if poly.geom_type == 'Polygon' else [g for g in getattr(poly, 'geoms', []) if g.geom_type == 'Polygon']):
+        if p.area < 100: continue
+        p = _orient(p.simplify(0.2), 1.0)
+        if seg: p = p.segmentize(seg)
+        def _dedup(c):                              # 3 mm より近い続きの点は一つに（外周の始まり u41 などで 1 mm の細い面が残っていた）
+            c = np.asarray(c)[:-1]; k = [0]
+            for i in range(1, len(c)):
+                if np.linalg.norm(c[i] - c[k[-1]]) >= 3.0: k.append(i)
+            if len(k) > 1 and np.linalg.norm(c[k[-1]] - c[k[0]]) < 3.0: k.pop()
+            return c[k]
+        rings = [_dedup(p.exterior.coords)] + [_dedup(h.coords) for h in p.interiors]
+        V2 = np.vstack(rings); n = len(V2)
+        ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+        tri = earcut.triangulate_float64(V2 - _O, ends).reshape(-1, 3)
+        if len(tri) != n - 2 + 2 * (len(rings) - 1): raise RuntimeError('外壁の片の三角分けが欠けた（%d / %d）' % (len(tri), n - 2 + 2 * (len(rings) - 1)))
+        zt = np.maximum(np.array([zfun(x, y) for x, y in V2]), z0 + 5)
+        V = np.vstack([np.c_[V2 - _O, np.full(n, z0)], np.c_[V2 - _O, zt]])
+        F = [tri[:, [0, 2, 1]], tri + n]
+        st = 0
+        for e in ends:
+            i = np.arange(st, e); j = np.r_[i[1:], st]
+            F += [np.c_[i, j, j + n], np.c_[i, j + n, i + n]]; st = e
+        out_.append((V, np.vstack(F).astype(np.uint32)))
+    return out_
+def _man(vf):
+    V, F = vf
+    M = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(V, np.float32), tri_verts=np.asarray(F, np.uint32)))
+    if M.status() != _mf.Error.NoError or M.is_empty(): raise RuntimeError('外壁の片が閉じていない')
+    if M.volume() < 0: raise RuntimeError('外壁の片が裏返し')
+    return M
+WALL_ADD += prism_vf(wall_ring, 0.0, ztop)      # 細かく分けない（細い輪で一直線に並んだ点があると earcut が三角を落とす）
+for fp, zb, zt in OPEN:                       # 足元が床（0）の開口は床の下まで、天端まで（None）の開口は屋根の上まで引く
+    z0_ = -200.0 if zb <= 0 else float(zb); z1_ = 20000.0 if zt is None else float(zt)
+    WALL_SUB += prism_vf(fp.intersection(WS.buffer(200.0)), z0_, const(z1_))
 # 水切り（10-26 2時、ユーザー・監修）：大和張りは縦の長尺（〜6 m）で継がず、押縁もやめた（重なりが継ぎ目を覆うので押縁は飾りになる）。
 # 6 m を超える南北の妻だけ、2 階の床の高さに水切りを一本（壁から 30 出る薄い板 t20、妻の幅いっぱい、外皮）
-_ring_out = WS.buffer(30.0, join_style=2).difference(WS)
+_ring_out = WS.buffer(30.0, join_style=2).difference(WS).buffer(1.0, join_style=2)     # 外壁の外面に 1 食い込ませて一つの立体に
 # 端は角の丸みの終わり（まっすぐな壁に移る所）まで回す（10-26 監修：前は丸みの途中 u21.05・v−7.2 で切れ、立面で壁の途中で止まって見えた）。
 # 南：u21 の妻 → 丸み → 西の壁に移る (u23.65, v−12.92)。北：u51 の妻 → 丸み → 北西の斜めの壁に移る (u50.08, v−7.68)
 for box_ in (R(20.9, 23.65, -13.1, -0.92, 0.05), R(50.08, 51.1, -7.9, -0.92, 0.05)):
-    mesh_prism(_ring_out.intersection(box_), 3250.0, const(3270.0), L_WALL)
-GRP = {}                                         # 同じ足元の開口（覗き窓と高窓など）はまとめて、残る壁を上下に分ける
-for fp, zb, zt in OPEN: GRP.setdefault(id(fp), [fp, []])[1].append((zb, zt))
-# 足元が重なる開口（10-24：東の面いっぱいの高窓の帯と、覗き窓・口②・ホールの範囲）は、重なりで区切ってから開口をまとめる
-def _clean(g):
-    """差の残りの髪の毛ほどの細い筋（二つの片をつなぐ幅0の帯）を切る。つながったままだと一つの多角形として三角に分けられ、
-    窓の所まで壁でふさいでいた（10-26、窓が増えて足元が重なる所が増えた）"""
-    return g.buffer(-0.5, join_style=2).buffer(0.5, join_style=2)
-cells = []
-for fp, iv in GRP.values():
-    rest = wall_ring.intersection(fp); nxt = []
-    for g, ivs in cells:
-        a = _clean(g.intersection(fp)); b = _clean(g.difference(fp))
-        if a.area > 100: nxt.append((a, ivs + iv))
-        if b.area > 100: nxt.append((b, ivs))
-        rest = rest.difference(g)
-    rest = _clean(rest)
-    if rest.area > 100: nxt.append((rest, list(iv)))
-    cells = nxt
-for piece, iv in cells:
-    iv = sorted(iv, key=lambda t: t[0]); z = 0.0
-    for zb, zt in iv:
-        if z is None: break
-        if zb > z: mesh_prism(piece, z, const(float(zb)), L_WALL)
-        if zt is None: z = None; break
-        z = max(z, float(zt))
-    if z is not None: mesh_prism(piece, z, ztop, L_WALL)
+    WALL_ADD += prism_vf(_ring_out.intersection(box_), 3250.0, const(3270.0))
+def emit_wall():
+    """外壁の立体を一つにまとめて 21 に書く（すき間の北の端の壁を足した後に呼ぶ）"""
+    A_ = _mf.Manifold.batch_boolean([_man(x) for x in WALL_ADD], _mf.OpType.Add)
+    S_ = _mf.Manifold.batch_boolean([_man(x) for x in WALL_SUB], _mf.OpType.Add) if WALL_SUB else None
+    W_ = A_ - S_ if S_ is not None else A_
+    if W_.status() != _mf.Error.NoError or W_.is_empty(): raise RuntimeError('外壁の立体が作れなかった')
+    g_ = W_.to_mesh(); V_ = np.asarray(g_.vert_properties)[:, :3].astype(float); F_ = np.asarray(g_.tri_verts)
+    mm = r.Mesh()
+    for x_, y_, z_ in V_: mm.Vertices.Add(float(x_ + _O[0]), float(y_ + _O[1]), float(z_))
+    for a_, b_, c_ in F_: mm.Faces.AddFace(int(a_), int(b_), int(c_))
+    mm.Normals.ComputeNormals(); mm.Compact()
+    at = r.ObjectAttributes(); at.LayerIndex = L_WALL; new.Objects.AddMesh(mm, at)
+    print('west wall: one solid, %d tris, %.2f m3, genus %d (openings %d)' % (len(F_), W_.volume() / 1e9, W_.genus(), len(WALL_SUB)))
 
 # ガラス・建具（厚さ 30、壁の中ほど）
 def pane_u(u, v0, v1, z0, z1, t=0.03):
@@ -418,8 +450,21 @@ for o in new.Objects:
             p = g.Vertices[i]; uu, vv = uv(p.X, p.Y)
             if 49.0 < uu < 52.5 and -1.2 < vv < 0.3: lidN.append(p.Z)
 zlidN = min(lidN) if lidN else zlid
-mesh_prism(R(51.0 - T_W / 1000, 51.0, -0.90, -0.36, 0.05), 0.0, const(zlidN), L_WALL)
+# 外面は北の妻の外面（WS の北の辺）の延長にぴったり（前の R(50.85, 51.0) は妻の外面と 0.1 mm ずれて細い面が残った）。西館の東の壁に 20 食い込ませる
+_gn = np.array([c for c in WS.exterior.coords if abs(uv(*c)[0] - 51.0) < 0.01])
+_ga, _gb = _gn[np.argmax(np.array([uv(*c)[1] for c in _gn]))], _gn[np.argmin(np.array([uv(*c)[1] for c in _gn]))]
+_gd = (_ga - _gb) / np.linalg.norm(_ga - _gb); _gin = np.array(xy(50.0, uv(*_ga)[1])) - _ga; _gin = _gin - _gd * (_gin @ _gd); _gin /= np.linalg.norm(_gin)
+def _gat(vt):                                    # 北の辺の延長の上で v = vt の点
+    lo, hi = -3000.0, 3000.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if uv(*(_ga + _gd * mid))[1] < vt: lo = mid
+        else: hi = mid
+    return _ga + _gd * lo
+_g0, _g1 = _gat(-0.92), _gat(-0.36)
+WALL_ADD.extend(prism_vf(Polygon([_g0, _g1, _g1 + _gin * T_W, _g0 + _gin * T_W]), 0.0, const(zlidN)))
 print('gap north wall top', round(zlidN))
+emit_wall()
 
 # ---------------------------------------------------------------- 床
 WNi = WN.buffer(-T_W, join_style=2)
