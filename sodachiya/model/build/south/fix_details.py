@@ -881,22 +881,37 @@ if src is not None:
     L10V = new_layer('10v_本館_垂木（杉 60×150 @455、現し）', (196, 160, 118))
     a_r = r.ObjectAttributes(); a_r.LayerIndex = L10R; a_r.Name = '構造用合板 t24（屋根の水平構面、現し）'
     P_ROOF = RP.difference(SLOTS).difference(MON_OPEN)
-    roof_new = thick(P_ROOF, RT_PLY, RT_TOP)
+    # 10-27（ユーザー：軒は細くスマートに。約200でも分厚い。非常に重要なので後で壊さないように）：外皮の線（縁側の杉の壁の外面 v13.6）より東の軒は外なので、
+    # 断熱・通気の層（厚さ420）を持たない。東の軒は梁の上に直に載る薄い板（構造用合板 t24＋金属の屋根 20、太陽光を入れて見付け約64）。
+    # 垂木は梁と梁のあいだに落とし込み（上端＝梁の上端）、軒先から 0.4 下げて止める。軒先には梁の 2 枚組の小口が並んで見える。
+    # 室内の上（v ≤ 13.6）は今までどおり 420。外皮の線で屋根の上面に段ができ、段の面は金属の屋根の鼻（10）。
+    VE = 13.6; EAVE_PLY, EAVE_TOP = RT_BOT + 24.0, RT_BOT + 44.0
+    _BIG = lambda u0_, u1_, v0_, v1_: R(u0_, u1_, v0_, v1_, 0.25)
+    P_IN = P_ROOF.intersection(_BIG(-10.0, 60.0, -3.0, VE))
+    P_EAST = P_ROOF.intersection(_BIG(0.0, 60.0, VE, 16.0))
+    roof_new = thick(P_IN, RT_PLY, RT_TOP)
     if kind_ == 'new': new_objs.pop(i0)
     else: drop.add(str(at0.Id))
     for mm in roof_new: new_objs.append((mm, at0))
-    for mm in thick(P_ROOF, RT_RAF, RT_PLY): new_objs.append((mm, a_r))
+    for mm in thick(P_IN, RT_RAF, RT_PLY): new_objs.append((mm, a_r))
+    a_ep = r.ObjectAttributes(); a_ep.LayerIndex = L10R; a_ep.Name = '東の軒の板（構造用合板 t24、軒裏に現し）'
+    for mm in thick(P_EAST, RT_BOT, EAVE_PLY): new_objs.append((mm, a_ep))
+    a_em = r.ObjectAttributes(); a_em.LayerIndex = L10; a_em.Name = '東の軒の金属の屋根（t20）'
+    for mm in thick(P_EAST, EAVE_PLY, EAVE_TOP): new_objs.append((mm, a_em))
+    a_fs = r.ObjectAttributes(); a_fs.LayerIndex = L10; a_fs.Name = '外皮の線の屋根の鼻（金属、東の軒との段）'
+    for mm in thick(P_ROOF.intersection(_BIG(0.0, 60.0, VE, VE + 0.02)), EAVE_TOP, RT_TOP): new_objs.append((mm, a_fs))
     a10 = r.ObjectAttributes(); a10.LayerIndex = L10
     at_g = r.ObjectAttributes(); at_g.LayerIndex = L10T
     if MAT_FROST >= 0: at_g.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; at_g.MaterialIndex = MAT_FROST
     for u in SL_U:
-        for mm in slab(R(u - 0.15, u - SL_HALF, SL_V[0] - 0.1, SL_V[1], 0.2), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))          # 立ち上がり（南）
-        for mm in slab(R(u + SL_HALF, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))          # 立ち上がり（北）
+        for mm in slab(R(u - 0.15, u - SL_HALF, SL_V[0] - 0.1, VE, 0.2), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))          # 立ち上がり（南、外皮の線まで）
+        for mm in slab(R(u + SL_HALF, u + 0.15, SL_V[0] - 0.1, VE, 0.2), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))          # 立ち上がり（北）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_V[0] - 0.1, SL_V[0], 0.05), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))      # 立ち上がり（西の端）
-        for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, SL_V[1], 0.2), RT_TOP + 60.0, RT_TOP + 72.0): new_objs.append((mm, at_g))     # 乳白ガラス（複層、東は軒先で止める）
+        for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, VE, 0.2), RT_TOP + 60.0, RT_TOP + 72.0): new_objs.append((mm, at_g))     # 乳白ガラス（複層、外皮の線まで）
+        for mm in slab(R(u - SL_HALF, u + SL_HALF, VE, SL_V[1], 0.2), EAVE_TOP - 12.0, EAVE_TOP): new_objs.append((mm, at_g))     # 東の軒の筋：軒の板の面に合わせた単板の合わせガラス t12（外なので複層にしない）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, RT_TOP + 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス（複層）
         for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（屋根の層の小口をふさぐ、厚さいっぱい）
-            for mm in slab(R(uu, uu + 0.012, SL_V[0], SL_V[1], 0.2), RT_BOT, RT_TOP): new_objs.append((mm, a10))
+            for mm in slab(R(uu, uu + 0.012, SL_V[0], VE, 0.2), RT_BOT, RT_TOP): new_objs.append((mm, a10))
     # 10-25夜（ユーザー）：南の軒にも同じ太陽光を載せて、屋根の本体から切れ目なく続ける（軒は屋根の面の延長、u −4.2〜0）。
     # 軒の外の縁は本体の軒先と同じく 150 手前まで。越屋根の蓋の下（v < 1.95、u > −0.35）は本体と同じく除き、蓋より南の軒は西の縁（v −0.45）の 150 手前まで。
     EAVE = None
@@ -911,9 +926,9 @@ if src is not None:
             break
     # 垂木：架構の線（光の筋）で切り、スパンごとに一本の真っすぐな材（自分の側の梁に載せる、垂木を切らない）。南の軒は架構 1 をまたいで片持ち。
     # 筋の側は小口をふさぐ板（u ± 0.090〜0.102）の外で止める。v は越屋根の東の立ち上がりの東（1.79）から 455 おき、軒先とけらば（西の軒の縁）にも一本。
-    FOOT = unary_union([P_ROOF] + ([EAVE] if EAVE is not None else [])).difference(
+    FOOT = unary_union([P_IN.intersection(_BIG(-10.0, 57.19, -3.0, VE))] + ([EAVE] if EAVE is not None else [])).difference(
         unary_union([R(u - SL_HALF - 0.012, u + SL_HALF + 0.012, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
-    _VR = sorted({round(1.79 + 0.455 * i, 3) for i in range(-5, 30) if -0.42 <= 1.79 + 0.455 * i <= 14.97} | {14.97, -0.42})
+    _VR = sorted({round(1.79 + 0.455 * i, 3) for i in range(-5, 30) if -0.42 <= 1.79 + 0.455 * i <= 14.97} | {14.97, -0.42, VE - 0.03})
     _UR = [-5.0] + SL_U + [58.5]
     _nr = 0
     for vc in _VR:
@@ -923,13 +938,37 @@ if src is not None:
                 if q_.area < 0.02e6: continue
                 a_rf = r.ObjectAttributes(); a_rf.LayerIndex = L10V; a_rf.Name = f'垂木 杉 60×150（v {vc:.2f}）'
                 for mm in thick(q_, RT_BOT, RT_RAF): new_objs.append((mm, a_rf)); _nr += 1
-    log.append(f'本館：屋根を層に分けた：垂木 {_nr} 本（10v、杉 60×150 @455）・構造用合板 t24（10r）・その上の層（10）')
+    # 東の軒の垂木：梁と梁のあいだ（2 枚組の外の面 u ± 0.18 のあいだ）に落とし込み、上端を梁の上端に。軒先から 0.4 下げる（板の片持ち 0.4）
+    _ne = 0
+    for vc in (VE + 0.06, VE + 0.51, VE + 0.96):
+        for k_ in range(19):
+            a_rf = r.ObjectAttributes(); a_rf.LayerIndex = L10V; a_rf.Name = f'東の軒の垂木 杉 60×150（梁のあいだに落とし込み、v {vc:.2f}）'
+            for mm in thick(R(3.0 * k_ + 0.18, 3.0 * k_ + 2.82, vc - 0.03, vc + 0.03, 99.0), RT_BOT - 150.0, RT_BOT): new_objs.append((mm, a_rf)); _ne += 1
+    log.append(f'本館：屋根を層に分けた：垂木 {_nr} 本（10v、杉 60×150 @455）・構造用合板 t24（10r）・その上の層（10）。'
+               f'東の軒（v{VE}〜15）は薄い板（合板 t24＋金属 20、垂木 {_ne} 本は梁のあいだ）')
     ALL = unary_union([RP, EAVE.buffer(1.0)]).buffer(-1.0) if EAVE is not None else RP
     pv_box = unary_union([R(-10.0, 57.49, 1.95, 14.85, 0.25), R(-10.0, -0.35, -1.0, 14.85, 0.25)])
     pv = ALL.buffer(-150.0, join_style=2).intersection(pv_box).intersection(unary_union([RP, EAVE]) if EAVE is not None else RP)
     pv = pv.difference(R(-0.36, 57.49, -1.0, 1.95, 0.1)).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
+    _east = _BIG(0.0, 60.0, VE - 0.15, 16.0)
+    pv_e = pv.intersection(_BIG(0.0, 60.0, VE + 0.15, 16.0)); pv = pv.difference(_east)      # 東の軒の太陽光は軒の板の上（段の縁から 150 離す）
     for mm in sheet(pv, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))
+    for mm in sheet(pv_e, EAVE_TOP + 20.0, L10P): new_objs.append((mm, a_pv))
+    pv = unary_union([pv, pv_e])
+    # 軒の見張り（ユーザー 10-27：軒は細く。非常に重要なので後で壊さないように）：東の軒先（v 14.9〜15.0、架構 2〜19 のあいだ）に載る屋根の物の
+    # いちばん下からいちばん上までが EAVE_MAX を超えたら作り直しを止める。軒を厚くする直しは、ユーザーに聞いてから。
+    EAVE_MAX = 80.0
+    _ez = []
+    for mm, at_ in new_objs:
+        if at_.LayerIndex not in (L10, L10R, L10P, L10T) or not isinstance(mm, r.Mesh): continue
+        for i_ in range(len(mm.Vertices)):
+            p_ = mm.Vertices[i_]; uu_, vv_ = uv(p_.X, p_.Y)
+            if vv_ > 14.9 and 3.3 < uu_ < 53.7: _ez.append(p_.Z - ROOF_Z(vv_))
+    _et = (max(_ez) - min(_ez)) if _ez else 0.0
+    if _et > EAVE_MAX:
+        raise SystemExit(f'✗ 東の軒先の見付けが {_et:.0f} mm（{EAVE_MAX:.0f} 以下に、ユーザー 10-27：軒は細く。決定事項（共通）の「軒は細く」）')
+    log.append(f'本館：東の軒先の見付け {_et:.0f} mm（{EAVE_MAX:.0f} 以下、軒の見張り）')
     log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から軒先まで、乳白ガラス）、'
                f'屋根材型の太陽光 {pv.area / 1e6:.0f} m²（10p）')
     PV_AREA = pv.area / 1e6
@@ -996,7 +1035,7 @@ if src is not None:
             _pl += slab(R(u - 0.17, u + 0.17, v_ - 0.03, v_ + 0.03, 0.05), RT_BOT - 6.0, RT_BOT)
         a_k = r.ObjectAttributes(); a_k.LayerIndex = L10K; a_k.Name = f'光の筋をまたぐ鋼の平板 6×60（架構 u{u:.0f}、{len(_VK)} 枚、約 0.9 mおき）'
         new_objs.append((_mjoin(_pl), a_k)); _nk += len(_VK)
-        for v0_, v1_, nm_ in ((SL_V[0], SL_V[0] + 0.06, '越屋根の側'), (SL_V[1] - 0.21, SL_V[1] - 0.15, '軒先の側')):
+        for v0_, v1_, nm_ in ((SL_V[0], SL_V[0] + 0.06, '越屋根の側'), (VE - 0.21, VE - 0.15, '外皮の線の側')):
             a_e = r.ObjectAttributes(); a_e.LayerIndex = L10K; a_e.Name = f'光の筋の端の縁の材（杉 60×150、{nm_}、架構 u{u:.0f}）'
             a_e.ColorSource = r.ObjectColorSource.ColorFromObject; a_e.ObjectColor = (196, 160, 118, 255)
             for mm in slab(R(u - SL_HALF + 0.003, u + SL_HALF - 0.003, v0_, v1_, 0.05), RT_BOT, RT_BOT + 150.0): new_objs.append((mm, a_e))

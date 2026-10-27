@@ -113,9 +113,12 @@ for k in range(19):
     # 壁は土台から屋根の下面（梁の上端）まで一枚（鴨居の上のガラスは戸の側の半分だけ）。梁の下端（h2450）より上は、
     # 架構の線の 180 の内（光の筋のすき間と梁）を避けて、梁の南の面から（壁の真上に抱き合わせの垂木、ホールダウン 15〜20 kN 級）
     a_b=a_n+np.sign(mid-a_n)*180/RG
-    for rr_,z0_,t_ in ((RG-50,-150,100),(RG+17.5,0,35)):                    # 外の 100 は外縁側の上（−150）から、内の 35（杉板の面）は内縁側の床から
-        wall_along([P(rr_,a) for a in np.linspace(a_n,mid,8)],lambda x,y,z0_=z0_:z0_,lambda x,y:KAMOI+60,t_,L_ew)
-        wall_along([P(rr_,a) for a in np.linspace(a_b,mid,8)],lambda x,y:KAMOI+60,ZUND,t_,L_ew)
+    # 10-27（ユーザー：FIX の壁に複雑な線）：前は外の 100 と内の 35 を別々に、弧の 7 区間ごとに箱を置いて重ねていたので、継ぎ目が残り、
+    # 二つの壁は Rhino 版で閉じた立体に戻らなかった。壁は厚さ 135（RG−100〜RG+35）の一つの立体を二つ（下：外縁側の上 −150 から鴨居の上 KAMOI+60、
+    # 上：梁の南の面から屋根の下面まで）にする。内縁側の床（±0）より下の分は床が削られる（優先順位 E＞F）。
+    _ring=lambda b0,b1: [P(RG-100,a) for a in np.linspace(b0,b1,8)]+[P(RG+35,a) for a in np.linspace(b1,b0,8)]
+    _q=_ring(a_n,mid); m.Objects.AddMesh(mesh_prism([(x,y,-150.0) for x,y in _q],[(x,y,KAMOI+60.0) for x,y in _q]),attr(L_ew))
+    _q=_ring(a_b,mid); m.Objects.AddMesh(mesh_prism([(x,y,KAMOI+60.0) for x,y in _q],[(x,y,float(ZUND(x,y))) for x,y in _q]),attr(L_ew))
     wall_along([P(RG,a) for a in np.linspace(mid,a_s,8)],lambda x,y:KAMOI+60,ZUND,20,L_gl)   # 鴨居の上の固定ガラス（戸の側の半分だけ）
     door_leaf(mid-50/RG,a_s,L_hc,L_dc)                                      # 片引き戸（閉）
     door_leaf(a_n,a_n+_L,L_ho,L_do)                                          # 片引き戸（開）
