@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-27 15:00",
+"generated": "2026-10-27 16:04",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -395,18 +395,18 @@
 "mock_hash": "2b770f7a"
 },
 {
-"id": "p1.t.越屋根の東の縁の光が水平に一",
-"name": "越屋根の東の縁の光が水平に一本",
+"id": "p1.t.本館と西館の越屋根の東の縁の",
+"name": "本館と西館の越屋根の東の縁の光が水平に二本",
 "kind": "text",
 "layer": "説明",
 "x": 516.1,
 "y": 566.9,
-"s": "越屋根の東の縁の光が水平に一本",
+"s": "本館と西館の越屋根の東の縁の光が水平に二本",
 "size_pt": 11.81,
 "font": "W3",
 "color": "#222222",
 "align": "left",
-"mock_hash": "6ec3ad82"
+"mock_hash": "ce2a163f"
 },
 {
 "id": "p1.ibox.nat.yousui",

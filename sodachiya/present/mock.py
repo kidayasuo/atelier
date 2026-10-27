@@ -738,7 +738,7 @@ if _oRv @ (SITE_C["E"] - SITE_C["NW"]) < 0:
     _oRv = -_oRv                                     # 川の側
 _tdir, _ddir = -_eRv, -_oRv                          # 川から見て右へ（北東へ）、奥へ（北西へ）
 LE_T0, LE_T1, LE_Z0, LE_Z1, LE_SC = -22.0, 86.0, -6.5, 19.0, 300
-_mine = ("10", "11", "14", "16", "17", "18", "19", "20", "21", "22", "23", "28", "29", "35", "50")
+_mine = ("10", "11", "14", "16", "17", "18", "19", "20", "21", "22", "23", "28", "35", "50")   # 29（西館の越屋根の LED）は led
 
 
 def _elev_items():
@@ -747,7 +747,7 @@ def _elev_items():
         if o["kind"] != "mesh":
             continue
         ln = o["layer"]
-        cls = "ctx" if ln.startswith("04_") else ("cliff" if ln.startswith("02_") else ("led" if ln.startswith("50b") else ("me" if ln[:2] in _mine else None)))
+        cls = "ctx" if ln.startswith("04_") else ("cliff" if ln.startswith("02_") else ("led" if ln.startswith(("50b", "29_")) else ("me" if ln[:2] in _mine else None)))
         if cls is None:
             continue
         V = o["V"]
@@ -1614,7 +1614,7 @@ scalebar(ax, sx + 6, sy - 22, 200, 20)
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
 _bx0 = M + 6; _bx1 = W - M - 6 - _lw1
 title(ax, _bx0, BAND_Y0 - 5.5, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
-title(ax, _bx1, BAND_Y0 - 5.5, "沿川の景観立面　夜", "越屋根の東の縁の光が水平に一本")
+title(ax, _bx1, BAND_Y0 - 5.5, "沿川の景観立面　夜", "本館と西館の越屋根の東の縁の光が水平に二本")
 land_elev(ax, _bx0, BAND_Y0, False)
 land_elev(ax, _bx1, BAND_Y0, True)
 sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 1, _bx0, BAND_Y0, _lw1, _lh1)

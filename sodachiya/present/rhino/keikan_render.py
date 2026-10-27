@@ -31,7 +31,9 @@ SCALE = 300
 PASSES = 400                            # レイトレースの回数（多いほどざらつきが減る）
 DAY = datetime.datetime(2026, 11, 5, 10, 0)
 LAT, LON, TZ = 35.049106, 135.785095, 9.0
-LED_LAYER = "50b_越屋根_LED"
+LED_LAYERS = ("50b_越屋根_LED", "29_西館_越屋根_LED")   # 本館・西館の越屋根
+NIGHT = datetime.datetime(2026, 11, 5, 21, 0)   # 夜は太陽を地平の下にも置く（消すのが効かない Rhino があった）
+FRONT_CUT = -8000.0                     # 川の辺より手前（川の向こう岸の建物など）は隠す（mm、mock.py と同じ）
 LED_COLOR = System.Drawing.Color.FromArgb(255, 217, 138)
 
 HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "/Users/kida/Developer/atelier/sodachiya/present/rhino"
@@ -119,7 +121,7 @@ if sun is not None:
             pass
 
 
-def set_sun(on):
+def set_sun(on, when=DAY):
     if sun is None:
         say(u"太陽の設定が見つからない（Rhino の版の違い）。太陽パネルで手で：11/5 10:00、京都")
         return
@@ -127,7 +129,7 @@ def set_sun(on):
         sun.ManualControl = False
         sun.Latitude, sun.Longitude, sun.TimeZone = LAT, LON, TZ
         sun.DaylightSaving = False
-        sun.SetDateTime(DAY, System.DateTimeKind.Local)
+        sun.SetDateTime(when, System.DateTimeKind.Local)
     except Exception as e:
         say(u"太陽の時刻：", e)
     sun.Enabled = on
@@ -214,11 +216,53 @@ def capture(name):
         say(u"  通らなかった：", w, u"×", h)
 
 
-# ---------------------------------------------------------------- 夜の LED（一時的に光る材料を当てる）
+# ---------------------------------------------------------------- 一時的な変更（終わったら戻す）
+# 1）材料の無いレイヤーに、レイヤーの色の材料を当てる（3dm には材料がほとんど無く、レンダリングが白一色になった）
+added_mats = []
+layer_old = []
+used = set(o.Attributes.LayerIndex for o in doc.Objects)
+for lay in list(doc.Layers):
+    if lay.Index not in used or lay.RenderMaterialIndex >= 0:
+        continue
+    col = lay.Color
+    m_ = Rhino.DocObjects.Material()
+    m_.Name = u"作業_景観_" + lay.Name
+    if lay.Name.startswith("04_"):                       # 周りの建物（PLATEAU）：淡い灰
+        col = System.Drawing.Color.FromArgb(215, 215, 212)
+    elif lay.Name.startswith("02_"):                     # 護岸
+        col = System.Drawing.Color.FromArgb(190, 188, 182)
+    m_.DiffuseColor = col
+    if u"ガラス" in lay.Name:
+        m_.Transparency = 0.6
+        m_.Reflectivity = 0.2
+    k_ = doc.Materials.Add(m_)
+    added_mats.append(k_)
+    layer_old.append((lay.Index, lay.RenderMaterialIndex))
+    lay.RenderMaterialIndex = k_
+    doc.Layers.Modify(lay, lay.Index, True)
+
+# 2）川の辺より手前の物（向こう岸の建物）を隠す：視点は高野川の対岸
+hidden = []
+for o in doc.Objects:
+    try:
+        bb = o.Geometry.GetBoundingBox(True)
+    except Exception:
+        continue
+    if not bb.IsValid:
+        continue
+    dmax = max((c.X - S_MM[0]) * D_DIR[0] + (c.Y - S_MM[1]) * D_DIR[1] for c in bb.GetCorners())
+    if dmax < FRONT_CUT and o.Visible:
+        hidden.append(o.Id)
+for oid in hidden:
+    doc.Objects.Hide(oid, True)
+say(u"手前の物を隠した：", len(hidden), u"／材料を当てたレイヤー：", len(layer_old))
+
+# 3）夜の LED（光る材料）
 led_objs = []
 for lay in doc.Layers:
-    if lay.Name == LED_LAYER:
+    if lay.Name in LED_LAYERS:
         led_objs += list(doc.Objects.FindByLayer(lay) or [])
+say(u"LED：", len(led_objs))
 mat = Rhino.DocObjects.Material()
 mat.Name = "作業_景観_LED"
 mat.DiffuseColor = LED_COLOR
@@ -234,7 +278,7 @@ old_attr = [(o.Id, o.Attributes.Duplicate()) for o in led_objs]
 sky_on = None
 
 try:
-    set_sun(True)
+    set_sun(True, DAY)
     view.Redraw()
     capture("keikan_hiru.png")
 
@@ -249,16 +293,23 @@ try:
         doc.RenderSettings = rs
     except Exception:
         pass
-    set_sun(False)
+    set_sun(False, NIGHT)
     view.Redraw()
     capture("keikan_yoru.png")
 finally:
     for oid, a in old_attr:
         doc.Objects.ModifyAttributes(oid, a, True)
-    try:
-        doc.Materials.Delete(mi, True)
-    except Exception:
-        pass
+    for oid in hidden:
+        doc.Objects.Show(oid, True)
+    for li_, old_ in layer_old:
+        lay = doc.Layers[li_]
+        lay.RenderMaterialIndex = old_
+        doc.Layers.Modify(lay, li_, True)
+    for k_ in [mi] + added_mats:
+        try:
+            doc.Materials.Delete(k_, True)
+        except Exception:
+            pass
     if sun is not None:
         for k, v in saved.items():
             try:
@@ -267,6 +318,10 @@ finally:
                 pass
         try:
             rs.Sun = sun
+        except Exception:
+            pass
+        try:
+            doc.RenderSettings = rs
         except Exception:
             pass
     try:
