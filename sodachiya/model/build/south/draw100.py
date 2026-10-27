@@ -1,6 +1,6 @@
 """3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）、断面 3 つ（A 縦断・B 海峡・C 4 歳と遊戯室）、立面 4 つ
 使い方: python3 draw100.py MODEL_MESH.3dm OUTDIR
-- 平面：FL+1200 で切る（2 階は 2FL+1000、西館の南西の軒が低い）。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
+- 平面：FL+1500 で切る（2 階は 2FL+1000、西館の南西の軒が低い）。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
   見えがかりは近いもの（高いもの）から順に、手前の形で後ろの線を切って描く（隠れ線を消した線だけ）。
   屋根の外形は破線（梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
 - 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as MPoly, PathPatch
 from matplotlib.path import Path
 from matplotlib import font_manager
-from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString, box
+from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString, box, Point
 from shapely.ops import unary_union, polygonize, linemerge
 import mapbox_earcut as earcut
 
@@ -585,6 +585,7 @@ def draw_visible(A, items, occ):
     return occ
 
 # ---------------------------------------------------------------- 平面
+UP_DASH = r'^(23|28|30|50a|50c|51w|82|83)_'   # 切断より上でも破線で示す物（越屋根・2階の床の縁・遊戯室の上の遊具・天袋、10-27 監修）
 ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_', ln))
 # 部屋の色（決定事項（共通）の「色」、プレゼンの準備 renkei/open/20261024-1927-present、ユーザー10-24夜）：
 # こどもの部屋は緑のグラデーション、こどものみんなの場所、通り・つなぐ場所（はだし）とその土足、大人は一つの色相（キッチンは濃く）、水まわり
@@ -610,7 +611,7 @@ def room_name(ln):
 
 def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
     below, cut, swings, stairs = [], [], [], []
-    swings2, hidden, hidden_low, sliders = [], [], [], []
+    swings2, hidden, hidden_low, sliders, up_dash = [], [], [], [], []
     for ob in objs:
         if ROOM_LAYERS(ob['layer']): continue
         if ob['layer'].startswith('19d') and '開き戸' in ob.get('name', ''): swings.append(ob); continue   # 開き戸は開いた形と弧で（下）
@@ -621,11 +622,15 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             zz = ob['T'][:, :, 2]
             if zz.min() >= zcut and zz.min() < level_z + 3000: hidden.append(ob); continue                 # 切断より上の窓（高窓）：破線
             if zz.max() <= zcut and zz.min() >= level_z + 50: hidden_low.append(ob)                         # 切断より下の窓（地窓）：壁の中なら破線（下）
-        if num(ob['layer']) in (10, 20): continue                                            # 屋根（光の筋・太陽光も）は上部の外形だけ（2階では軒が切断の高さより低い所がある）
-        if num(ob['layer']) == 25: stairs.append(ob); continue                                                   # 階段は踏面の線と矢印で（下）
         z = ob['T'][:, :, 2]
+        if re.match(r'^(10t|20t)_', ob['layer']) and z.min() >= zcut: up_dash.append(ob); continue      # 光の筋：上部の破線（10-27 監修）
+        if num(ob['layer']) in (10, 20) and not (ob['layer'].startswith('10s_') and z.min() < level_z + 100): continue   # 屋根（太陽光も）は上部の外形だけ（2階では軒が切断の高さより低い所がある）。南の軒の柱（10s、床から）は切る
+        if num(ob['layer']) == 25: stairs.append(ob); continue                                                   # 階段は踏面の線と矢印で（下）
         if num(ob['layer']) == 94 and z.max() > zcut: overhead.append(ob); continue   # 園庭の木：樹冠を破線で
-        if z.min() >= zcut: continue
+        # 切断より上の物は描かない。ただし越屋根・2階の床の縁（吹抜の縁）・遊戯室の上の遊具・天袋だけは破線（10-27 監修：1.5 m より上は見えない、あえて示す物は点線）
+        if z.min() >= zcut:
+            if re.match(UP_DASH, ob['layer']): up_dash.append(ob)
+            continue
         if is_beam(ob['layer']): continue                                                # 梁は描かない（平面の切断より上、ユーザー10-24：梁は見えない）
         if z.max() > zcut: cut.append(ob)
         else: below.append(ob)
@@ -704,33 +709,103 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
     for ob in overhead:
         if num(ob['layer']) in (10, 20): continue
         A.geom_lines(silhouette(ob['T'][:, :, :2]), '20_上部（屋根の外形・梁）', lw=0.09, color='0.4', ls=(0, (6, 3)), z=7)
-    # 階段：踏面の輪郭（切断より下は実線、上は破線）、上り口からの矢印と「上」（2 階では降り口から「下」）
+    # 切断より上の、あえて示す物（光の筋・越屋根・2階の床の縁＝吹抜の縁・遊戯室の上の遊具・天袋）：レイヤーごとに外形をまとめて細い破線。切った壁の上は描かない
+    WALLS = unary_union([pc.buffer(0) for ob, pc, sg in items if (wall_group(ob) or kind(ob['layer']) == 'struct') and pc is not None and not pc.is_empty]) if items else Polygon()
+    byl_up = {}
+    for ob in up_dash:
+        g = silhouette(ob['T'][:, :, :2])
+        if g is not None and not g.is_empty: byl_up.setdefault(ob['layer'], []).append(g.buffer(5))
+    for ln_, gs in byl_up.items():
+        g = unary_union(gs).buffer(-5)
+        ln_g = g.boundary if g.geom_type in ('Polygon', 'MultiPolygon') else g
+        if not WALLS.is_empty: ln_g = ln_g.difference(WALLS.buffer(5))
+        A.geom_lines(ln_g, '20_上部（屋根の外形・梁）', lw=0.08, color='0.45', ls=(0, (4, 2.5)), z=7)
+    # 階段（JIS の製図の慣習、10-27 監修）：1 階は上り口から切断の位置までの踏面を実線、切断の位置に斜めの二重の破断線、その先は描かない。
+    # 矢印は上り口から破断線まで「上」。2 階は階段全体を実線、降り口から矢印「下」。手すりの線（段の両脇から 60 内）も
     for ob in stairs:
         T = ob['T']; flat = [t for t in T if np.ptp(t[:, 2]) < 1]
         lv = {}
         for t in flat: lv.setdefault(round(t[0, 2]), []).append(Polygon(t[:, :2]).buffer(0.5))
-        steps = []
-        for zz in sorted(lv):
+        zs = sorted(lv); steps = []
+        for i, zz in enumerate(zs):
             g = unary_union(lv[zz]).buffer(-0.5)
             if g.is_empty or g.area < 5e4: continue
-            steps.append((zz, g))
-            on2 = level_z > 1000
-            if on2 or zz + 180 <= zcut: A.geom_lines(g.boundary, '45_階段', lw=0.1, z=6)
-            elif zz <= zcut + 400: A.geom_lines(g.boundary, '45_階段', lw=0.08, color='0.4', ls=(0, (4, 2)), z=6)
-        if len(steps) >= 3:
-            path = np.array([np.array(g.centroid.coords[0]) for zz, g in steps if g.area < 1.0e6])
-            if level_z > 1000:
-                path = path[::-1]; lab = '下'
+            if steps and zz - steps[-1][0] < 80:                 # 段板の下面と上面：一つに（高さは上面、形は二つを合わせた外形）
+                steps[-1] = (zz, unary_union([steps[-1][1], g]))
+            else: steps.append((zz, g))
+        if len(steps) < 3: continue
+        on2 = level_z > 1000
+        # 走り（段の続き）と踊り場（大きい板）に分ける
+        flights, cur = [], []
+        for zz, g in steps:
+            if g.area < 1.0e6: cur.append((zz, g))
             else:
-                lab = '上'
-                # 切断の線（踏面の途中を斜めに切る）
-                k = max(1, sum(1 for zz, g in steps if zz <= zcut) - 1)
-                gk = steps[k][1]; c0 = np.array(gk.centroid.coords[0]); bb = np.array(gk.minimum_rotated_rectangle.exterior.coords)[:4]
-                A.lines([[bb[0] + (bb[2] - bb[0]) * 0.15, bb[2] - (bb[2] - bb[0]) * 0.15]], '45_階段', lw=0.18, z=7)
-            A.lines([path], '45_階段', lw=0.13, z=7)
-            d_ = path[-1] - path[-2]; d_ = d_ / max(np.linalg.norm(d_), 1e-6); nn = np.array([-d_[1], d_[0]])
-            A.lines([[path[-1] - d_ * 250 + nn * 120, path[-1], path[-1] - d_ * 250 - nn * 120]], '45_階段', lw=0.13, z=7)
-            A.text(path[0][0], path[0][1], lab, 5.5, '45_階段', box=True)
+                if cur: flights.append(cur); cur = []
+        if cur: flights.append(cur)
+        clip = None; brk = None
+        if not on2:
+            # 切断の高さを走りの中で求める（最後に切断より下の段と次の段の間を高さで割り振る）
+            nxt = {id(fl[-1][1]): next((zz for zz, g in steps if zz > fl[-1][0]), 1e9) for fl in flights}   # 走りの次の板（踊り場）の高さ
+            for fl in flights:
+                lo = [k for k, (zz, g) in enumerate(fl) if zz <= zcut]
+                if not lo: break
+                if len(lo) == len(fl) and nxt[id(fl[-1][1])] <= zcut: continue      # この走りと次の踊り場は切断より下：次の走りへ
+                k = lo[-1]
+                c = [np.array(g.centroid.coords[0]) for zz, g in fl]
+                if len(c) < 2: continue
+                dk = c[min(k + 1, len(c) - 1)] - c[max(k - 1, 0)]
+                dk = dk / np.linalg.norm(dk); go = np.mean([np.linalg.norm(c[i + 1] - c[i]) for i in range(len(c) - 1)])
+                rise = np.mean([fl[i + 1][0] - fl[i][0] for i in range(len(fl) - 1)])
+                pc_ = c[k] + dk * go * min(max((zcut - fl[k][0]) / rise, 0), 1.0)
+                nk = np.array([-dk[1], dk[0]])
+                wid = abs((np.array(fl[k][1].convex_hull.exterior.coords) - c[k]) @ nk).max()
+                brk = (pc_, dk, nk, wid, fl[:k + 1], fl)
+                break
+        # 段の線（上の段から順に、上の段の形で下の段の線を隠す）
+        if on2: vis_steps = steps
+        elif brk is not None:
+            pc_, dk, nk, wid, fl_lo, fl_ = brk
+            vis_steps = [(zz, g) for zz, g in steps if zz <= fl_lo[-1][0] and zz <= zcut]
+            s1 = pc_ - dk * 150 - nk * (wid + 20); s2 = pc_ + dk * 150 + nk * (wid + 20)     # 破断線（斜め）
+            far = 1e5
+            clip = Polygon([s1, s2, s2 - dk * far, s1 - dk * far])                            # 破断線より手前（上り口の側）だけ
+        else:
+            vis_steps = [(zz, g) for zz, g in steps if zz <= zcut]
+        occ_s = Polygon()
+        for zz, g in sorted(vis_steps, key=lambda q: -q[0]):
+            ln_ = g.boundary.difference(occ_s.buffer(2)) if not occ_s.is_empty else g.boundary
+            if clip is not None: ln_ = ln_.intersection(clip)
+            A.geom_lines(ln_, '45_階段', lw=0.1, z=6)
+            occ_s = unary_union([occ_s, g])
+        # 手すりの線：走りごとに、段の両脇から 60 内
+        for fl in flights:
+            if len(fl) < 2: continue
+            c = np.array([np.array(g.centroid.coords[0]) for zz, g in fl])
+            d0 = c[-1] - c[0]; d0 = d0 / np.linalg.norm(d0); n0 = np.array([-d0[1], d0[0]])
+            P_ = np.vstack([np.array(g.convex_hull.exterior.coords) for zz, g in fl])
+            t_ = (P_ - c[0]) @ d0; w_ = (P_ - c[0]) @ n0
+            for w in (w_.min() + 60, w_.max() - 60):
+                hl = LineString([c[0] + d0 * t_.min() + n0 * w, c[0] + d0 * t_.max() + n0 * w])
+                if not on2:
+                    if fl[0][0] > (brk[4][-1][0] if brk is not None else zcut): continue
+                    if clip is not None: hl = hl.intersection(clip)
+                A.geom_lines(hl, '45_階段', lw=0.07, color='0.3', z=6.2)
+        # 破断線（二重）
+        if brk is not None:
+            for o_ in (0, 70):
+                A.lines([[s1 - dk * o_, s2 - dk * o_]], '45_階段', lw=0.13, z=7)
+        # 矢印
+        if on2:
+            path = np.array([np.array(g.centroid.coords[0]) for zz, g in steps if g.area < 1.0e6])[::-1]; lab = '下'
+        else:
+            if brk is None: continue
+            path = np.array([np.array(g.centroid.coords[0]) for zz, g in brk[4]] + [brk[0] - brk[1] * 80])
+            lab = '上'
+        if len(path) < 2: continue
+        A.lines([path], '45_階段', lw=0.13, z=7)
+        d_ = path[-1] - path[-2]; d_ = d_ / max(np.linalg.norm(d_), 1e-6); nn = np.array([-d_[1], d_[0]])
+        A.lines([[path[-1] - d_ * 250 + nn * 120, path[-1], path[-1] - d_ * 250 - nn * 120]], '45_階段', lw=0.13, z=7)
+        A.text(path[0][0], path[0][1], lab, 5.5, '45_階段', box=True)
     # 吹抜（2 階）：西館の 1 階の部屋の上で、2 階の床の無い所。対角の細い線と「吹抜」
     if level_z > 1000:
         f1 = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^(31|32|33|34|36|57)_', ob['layer'])]
@@ -746,19 +821,39 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             from shapely.ops import polylabel as _pl
             q = _pl(g, 50)
             A.text(q.x, q.y, '吹抜' + ('（遊戯室）' if g.area > 50e6 else ''), 6, '45_吹抜', box=True)
-    # 開き戸：開いた位置の板（90°）と、閉じた位置からの弧（3dm の戸の板の名前に吊元と開く向き、add_inner.py）
+    # 開き戸：開いた位置の板（90°）と、閉じた位置からの弧（3dm の戸の板の名前に吊元と開く向き、add_inner.py）。
+    # 板も弧も壁の外に（10-27 監修）：板や弧が切った壁の中に入る所は、図では吊元を壁の面へ寄せる（3dm の名前の吊元が壁の中にあるときも）
+    def swing_door(hp, cd, od, R_):
+        if not WALLS.is_empty:
+            Wb = WALLS.buffer(-1)
+            for _ in range(3):
+                # 開いた板が、自分の壁（開く向きの厚さ）に入る分：開く向きへ壁の面まで
+                t_ = 0.0
+                while t_ < 400 and (Wb.contains(Point(*(hp + od * (t_ + 2) + cd * 18))) or Wb.contains(Point(*(hp + od * (t_ + 2) + cd * 2)))): t_ += 5
+                hp = hp + od * t_
+                # 開いた板が、脇の壁（開く向きに続く壁）に入る分：戸の幅の向きへ壁の面まで（戸の幅はその分だけ狭く描く）
+                leaf_ = Polygon([hp, hp + cd * 36, hp + cd * 36 + od * R_, hp + od * R_])
+                hit = leaf_.intersection(Wb)
+                if hit.is_empty or hit.area < 50: break
+                pts_ = np.vstack([np.array(g_.exterior.coords) for g_ in getattr(hit, 'geoms', [hit]) if g_.geom_type == 'Polygon'])
+                sft = max(((pts_ - hp) @ cd).max(), 0) + 5
+                hp = hp + cd * sft; R_ = R_ - sft
+        arc = [hp + (cd * math.cos(t_) + od * math.sin(t_)) * R_ for t_ in np.linspace(0, math.pi / 2, 30)]
+        sec = Polygon([hp] + arc)
+        if not WALLS.is_empty and sec.intersection(WALLS.buffer(-1)).area > 2e3:
+            print('  開き戸の弧が壁に入る（図では直せない、3dm で）', np.round(hp), round(sec.intersection(WALLS).area / 1e4) / 100, 'm²')
+        A.lines([np.array(arc)], '40_建具', lw=0.08, color='0.25', z=6)
+        A.fill(Polygon([hp, hp + cd * 36, hp + cd * 36 + od * R_, hp + od * R_]), '40_建具', fc='k', z=6)
+    sh2 = np.array(void_shift) if void_shift is not None else np.zeros(2)
     for ob in swings:
         if abs(ob['T'][:, :, 2].min() - level_z) > 600: continue
         mm_ = re.search(r'W(\d+) 吊元 (-?[\d.]+),(-?[\d.]+) 開く (-?[\d.]+),(-?[\d.]+)', ob['name'])
         if not mm_: continue
-        Wd = float(mm_.group(1)); hp = np.array([float(mm_.group(2)), float(mm_.group(3))]); od = np.array([float(mm_.group(4)), float(mm_.group(5))])
+        Wd = float(mm_.group(1)); hp = np.array([float(mm_.group(2)), float(mm_.group(3))]) + sh2; od = np.array([float(mm_.group(4)), float(mm_.group(5))])
         P_ = ob['T'][:, :, :2].reshape(-1, 2); far = P_[np.argmax(np.linalg.norm(P_ - hp, axis=1))]
         cd = (far - hp) / max(np.linalg.norm(far - hp), 1e-6)
-        R_ = Wd - 10
-        arc = [hp + (cd * math.cos(t_) + od * math.sin(t_)) * R_ for t_ in np.linspace(0, math.pi / 2, 30)]
-        A.lines([np.array(arc)], '40_建具', lw=0.08, color='0.25', z=6)
-        leaf = Polygon([hp - cd * 18, hp + cd * 18, hp + cd * 18 + od * R_, hp - cd * 18 + od * R_])
-        A.fill(leaf, '40_建具', fc='k', z=6)
+        cd = cd - od * (cd @ od); cd = cd / max(np.linalg.norm(cd), 1e-6)
+        swing_door(hp, cd, od, Wd - 10)
     # 機械室の両開きの戸（外開き）：扉ごとに、外の端を吊元に、機械室の外へ 90° 開いた形と弧
     if swings2:
         mach = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^35_', ob['layer'])]
@@ -775,10 +870,41 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
                 hp, far = (l[0], l[1]) if np.linalg.norm(l[0] - mid) > np.linalg.norm(l[1] - mid) else (l[1], l[0])
                 cd = (far - hp) / np.linalg.norm(far - hp); od = np.array([-cd[1], cd[0]])
                 if np.dot(od, l.mean(0) - mc) < 0: od = -od
-                R_ = np.linalg.norm(far - hp)
-                arc = [hp + (cd * math.cos(t_) + od * math.sin(t_)) * R_ for t_ in np.linspace(0, math.pi / 2, 30)]
-                A.lines([np.array(arc)], '40_建具', lw=0.08, color='0.25', z=6)
-                A.fill(Polygon([hp - cd * 18, hp + cd * 18, hp + cd * 18 + od * R_, hp - cd * 18 + od * R_]), '40_建具', fc='k', z=6)
+                swing_door(hp, cd, od, np.linalg.norm(far - hp))
+    # 引き戸（室内の片引き・引き分け、19c・19d・19e）：閉じた位置の板（切断の細線）と、引く側の線（開いた位置）。壁の中へ引き込むなら壁の中を破線（10-27 監修）。
+    # 引く側は、板の端の先に壁が続く側（add_inner.py の決め方と同じ）。隣に並ぶ板（引違い・引き分けの相手）の側へは引かない
+    sl_ = []
+    for ob in objs:
+        if not re.match(r'^(19c|19d|19e)_', ob['layer']) or '開き戸' in ob.get('name', ''): continue
+        z_ = ob['T'][:, :, 2]
+        if z_.min() > level_z + 300 or z_.max() < zcut: continue
+        fp = silhouette(ob['T'][:, :, :2])
+        if fp is None or fp.is_empty: continue
+        for cl in centerlines(fp):
+            if len(cl) == 2 and np.linalg.norm(np.subtract(cl[1], cl[0])) > 400: sl_.append(np.array(cl, float))
+    if sl_ and not WALLS.is_empty:
+        Wb = WALLS.buffer(-1)
+        for i, l in enumerate(sl_):
+            Lw = np.linalg.norm(l[1] - l[0]); d_ = (l[1] - l[0]) / Lw; n_ = np.array([-d_[1], d_[0]])
+            best = None
+            for e, sg in ((l[0], -1), (l[1], +1)):
+                s_ = d_ * sg
+                # 相手の板（平行で近く、この端の先にある）
+                if any(j != i and abs(abs((q[1] - q[0]) @ d_) / np.linalg.norm(q[1] - q[0]) - 1) < 0.02 and abs((q.mean(0) - l.mean(0)) @ n_) < 150
+                       and ((q.mean(0) - l.mean(0)) @ s_) > 0 and ((q.mean(0) - l.mean(0)) @ s_) < Lw + 200 for j, q in enumerate(sl_)): continue
+                ts = np.linspace(100, Lw * 0.9, 8)
+                pocket = np.mean([Wb.contains(Point(*(e + s_ * t))) for t in ts])
+                along = np.mean([any(Wb.contains(Point(*(e + s_ * t + n_ * k))) for k in (-200, -120, -70, 70, 120, 200)) for t in ts])
+                sc = max(pocket, along)
+                if sc >= 0.6 and (best is None or sc > best[0]): best = (sc, e, s_, pocket >= 0.6)
+            if best is None: continue
+            sc, e, s_, pk = best
+            ol = LineString([e + s_ * 30, e + s_ * Lw])
+            if pk:
+                A.geom_lines(ol, '40_建具', lw=0.13, color='w', ls=(0, (3, 2)), z=6.5)    # 壁の中（黒の上）は白い破線
+                A.geom_lines(ol.difference(WALLS), '40_建具', lw=0.09, color='0.3', ls=(0, (3, 2)), z=6.5)
+            else:
+                A.geom_lines(ol, '40_建具', lw=0.09, color='0.3', z=6.3)
     # 部屋名と面積（床の板から、壁芯。面積表 areas.py と同じ数え方：その階の床から 2.4 m までにある壁を除き、接する壁の半分を足す）
     WL = []
     for ob in objs:
@@ -1009,7 +1135,7 @@ def objs_for_plan(level):
     for ob in OBJ:
         n = num(ob['layer'])
         if ob['layer'].startswith('47'): continue
-        if level == 1 and n in (41, 42, 43, 44, 45, 23): continue
+        if level == 1 and n in (41, 42, 43, 44, 45): continue      # 2階の床（23）は 1 階では切断より上：縁を破線で（plan）
         if n in (90, 98): continue                     # 園庭の地形のメッシュは平面では描かない（等高線 91 で）
         if n in (3, 4): continue                       # 周辺（PLATEAU）は plan_context で外形だけ
         out.append(ob)
@@ -1095,7 +1221,7 @@ def make_plans():
         if num(ln) >= 70 or num(ln) < 2: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.55', z=1)
     objs1 = objs_for_plan(1)
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
-    plan(A, 1200, objs1, list(roofs), 0)
+    plan(A, 1500, objs1, list(roofs), 0)        # 1 階は FL+1500 で切る（10-27 監修）
     plan_grid(A); plan_section_marks(A); plan_dims(A)
     # 2階：西の道路の外へ、同じ向きで（ずらした物で描く）
     WB = [ob for ob in OBJ if num(ob['layer']) in (21, 23)]
@@ -1109,7 +1235,7 @@ def make_plans():
     o2 = []
     for ob in OBJ:
         n = num(ob['layer'])
-        if ob['layer'].startswith('47') or n in (90, 94, 98) or n < 20 or n in (50, 51) or n >= 60 and n < 80 or n > 89 and n < 100: continue
+        if ob['layer'].startswith('47') or n in (90, 94, 98) or n < 20 and not ob['layer'].startswith('19d') or n in (50, 51) or n >= 60 and n < 80 or n > 89 and n < 100: continue   # 2階の室内の戸（19d）も（10-27）
         if not west(ob): continue
         z = ob['T'][:, :, 2]
         upper = z.max() > 3000 or n in (21, 22, 25)
@@ -1127,7 +1253,7 @@ def make_plans():
     def paper(x_mm, y_mm):
         return ext[0] + (x_mm - MG) * 100, ext[2] + (y_mm - MG) * 100
     tx, ty = paper(14, H_ - 16)
-    A.text(tx, ty, '平面図　1階　FL+1200 で切断／2階（西館）2FL+1000 で切断　1/100', 11, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
+    A.text(tx, ty, '平面図　1階　FL+1500 で切断／2階（西館）2FL+1000 で切断　1/100', 11, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
     tx, ty = paper(14, H_ - 26)
     A.text(tx, ty, '高野川を下に（配置図と同じ向き）。2階は西の道路の外に同じ向きで置いた（遊戯室は吹き抜けから見下ろす）。一点鎖線は敷地の境', 6, '80_図名・縮尺・方位', ha='left', va='top', raw=True)
     bx, by = paper(14, 40)
