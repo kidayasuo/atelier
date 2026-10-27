@@ -18,12 +18,35 @@ L_gl=layer('85_本館_断熱ガラス戸（縁側の中ほど）',(150,200,230))
 a8n,a8s=span(8); akai=a8s-1500/RK
 kai=quad(RG,RO,akai,a8s,20)
 doma=quad(RK,RO,TH[17],th19)                                   # 受け取り土間（add_south で −300 の板あり）
-inner=quad(RG,RO,TH[0],th19,60).difference(kai).difference(doma)
-for g in getattr(inner,'geoms',[inner]):
-    if g.area>1e5: slab(g.simplify(3),-450,-10,L_fl)            # 床組（上面 −10、色付きの室の板 0〜10 の下）
-_in=quad(RG,RC,TH[0],th19,60).difference(kai)
-for g in getattr(_in,'geoms',[_in]): slab(g,-10,0,L_in)     # 内縁側の仕上げ
-slab(kai,-450,-150,L_kai)
+# 10-28（監修の項 20261027-2346 の 12・20261027-2020 の 4、ユーザー 10-27夜：曲線は架構だけ）：床・内縁側・海峡の板はスパンごとに真っすぐ
+# （架構の線 u=3k と 3k+3 の弦、外壁・縁側の杉の壁の squaring と同じ）。前は r の弧を 60 に分けた多角形で、弦の壁と 5 mm 食い違い、
+# 縁側の杉の壁（各スパンの北の半分、v 13.465〜13.6）で −150〜−10 だけ欠かれて 138 面になっていた。床の板は杉の壁の所で壁の内面
+# v 13.465 まで（壁の下まで全部の深さで止める）、戸の所はガラス戸の線 v 13.5 まで。一枚ずつ輪郭の押し出し。
+sys.path.insert(0,'/tmp/claude-0/t/south')
+from uv import xy as _xy
+from shapely.geometry import box as _box
+def _chord(u,v):
+    k=int(min(18,max(0,np.floor(u/3.0)))); f=(u-3.0*k)/3.0
+    return _xy(3.0*k,v)*(1.0-f)+_xy(3.0*(k+1),v)*f
+def _dense(ring):
+    P_=list(ring.coords); out_=[]
+    for (u0,v0),(u1,v1) in zip(P_,P_[1:]):
+        out_.append((u0,v0))
+        if abs(u1-u0)>1e-9:
+            for uk in sorted([3.0*k for k in range(20) if min(u0,u1)+1e-6<3.0*k<max(u0,u1)-1e-6],reverse=u1<u0):
+                out_.append((uk,v0+(v1-v0)*(uk-u0)/(u1-u0)))
+    return out_
+def _uvslab(g,z0,z1,li):
+    for gg in getattr(g,'geoms',[g]):
+        if gg.geom_type!='Polygon' or gg.area<0.05: continue
+        slab(Polygon([tuple(_chord(u,v)) for u,v in _dense(gg.exterior)]),z0,z1,li)
+U_KAI=(21.0,21.0+1.5*205.0/203.4); V_RG,V_RO,V_RC,V_RK,V_WALL=13.5,-0.2,12.0,1.6,13.465
+_kai=_box(U_KAI[0],V_RO,U_KAI[1],V_RG)
+_walls=unary_union([_box(3.0*s_-1.5,V_WALL,3.0*s_,V_RG) for s_ in range(1,20)])
+inner=_box(0.0,V_RO,57.0,V_RG).difference(_kai).difference(_box(0.0,V_RO,6.0,V_RK)).difference(_walls)
+_uvslab(inner,-450,-10,L_fl)                                    # 床組（上面 −10、色付きの室の板 0〜10 の下）
+_uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kai).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
+_uvslab(_kai,-450,-150,L_kai)
 outer=quad(RE,RG,TH[0],TH[18],60)                              # 外縁側（最後のスパンはスロープ）
 slab(outer,-300,-150,L_out)
 # 断熱ガラス戸：r=191.5 の線、FL ±0 から 2.6 m（海峡の口は開閉する引戸として同じ線上）

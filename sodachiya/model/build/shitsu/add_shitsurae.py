@@ -124,8 +124,11 @@ def loft(rec):
     g = SP(pts); u0, v0, u1, v1 = g.bounds
     for pu, pv in [(u0 + .05, v0 + .05), (u1 - .05, v0 + .05), (u0 + .05, v1 - .05), (u1 - .05, v1 - .05)]:
         solid_uv([(pu - .05, pv - .05), (pu + .05, pv - .05), (pu + .05, pv + .05), (pu - .05, pv + .05)], 0, 1100, L_PL)
-    for a, b in [((u0, v1), (u1, v1)), ((u0, v0), (u0, v1)), ((u1, v0), (u1, v1))]:   # 手すり（西の壁側をのぞく 3 辺）h+900（10-24、縦格子のすき間90以下）
-        panel_uv([a, b], 1200, 2100, 0.03, L_GL, (0.85, 0.75, 0.6, 1))
+    # 手すり（西の壁側をのぞく 3 辺、縦格子のすき間90以下）。10-28（監修の項 20261028-0015 の 8、安全）：h+900 → h+1,100（床 1200 から 2300）、
+    # 家具階段（ロフトの東の縁 v1 の前、u0+0.25〜u0+1.05、plan04 の bx(3.4, 4.2, …)）の所は上がり口として開ける
+    ga, gb = u0 + 0.25, u0 + 1.05
+    for a, b in [((u0, v1), (ga, v1)), ((gb, v1), (u1, v1)), ((u0, v0), (u0, v1)), ((u1, v0), (u1, v1))]:
+        panel_uv([a, b], 1200, 2300, 0.03, L_GL, (0.85, 0.75, 0.6, 1))
 def loft_step(rec):                  # 家具階段 1段0.2×5（10-24）：ロフトに近い段から 1000・800・600・400・200
     pts = rec['pts']; v = np.mean(pts[:, 1])
     k = int(round((v - 3.725) / 0.25)); h = max(200, 1000 - 200 * k)
@@ -163,11 +166,30 @@ def steps01(rec):                    # 0・1歳の上り下りの段々（150×3
 def hill(rec):                       # 2歳の山：等高線 k=1/0.66/0.33 を 0–300／300–600／600–900
     pts = clean(rec['pts']); g = SP(pts); A = g.area
     h0 = 0 if A > 6 else (300 if A > 2.5 else 600)
+    # 10-28（監修の項 20261027-2346 の 46）：いちばん内の等高線（k=0.33、約0.6 m²）は一つ外（k=0.66）と同じ 600–900 で、その中にまるごと入っていた → 作らない（形は変わらない）
+    if A < 1.2: return
     solid_uv(pts, h0, h0 + 300, L_PL, fc(rec))
 def cot(rec):
     solid_uv([tuple(p) for p in rec['pts']], 0, 120, L_COT)
 def nedoko(rec):                     # ねどこの囲い h900（u=5.6 の辺に開口）
     ring_uv([tuple(p) for p in rec['pts']], 0, 900, 0.03, L_P, (0.95, 0.93, 0.85, 1), gap=(5.5, 5.7, 5.2, 6.2))
+def hut_roof(rec):                   # 2歳の小屋の屋根（10-28、監修の項 20261028-0015 の 8、ユーザー：登れない屋根に）
+    # 前は h1000 の平らな板（登れた）。小屋の形（囲い u16.9〜17.95・v3.3〜4.6、h1000）は変えず、屋根を急な切妻（60°）に：
+    # 棟は v の向き（小屋の真ん中 u17.425）、軒は囲いの上端 h1000、棟 約 h1900。杉の板 t20 を勾配の面に直角に厚みをつけた平らな板 2 枚。
+    import math as _mt
+    g = SP(clean(rec['pts'])); _, v0, _, v1 = g.bounds
+    ua, ub = 16.9, 17.95; uc = (ua + ub) / 2; zt = 1000.0 + (uc - ua) * 1000.0 * _mt.tan(_mt.radians(60))
+    for (u_e, u_r) in ((ua, uc), (ub, uc)):
+        du = (u_r - u_e) * 1000.0; dz = zt - 1000.0; L = _mt.hypot(du, dz); nu, nz = -dz / L * np.sign(du), abs(du) / L   # 面の外向きの法線（u, z）
+        prof = [(u_e, 1000.0), (u_r, zt), (u_r + nu * 20 / 1000.0, zt + nz * 20), (u_e + nu * 20 / 1000.0, 1000.0 + nz * 20)]
+        V = [(*W(u, v), z) for v in (v0, v1) for u, z in prof]
+        M = r.Mesh()
+        for p_ in V: M.Vertices.Add(float(p_[0]), float(p_[1]), float(p_[2]))
+        F = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
+        P_ = np.array(V); vol = sum(np.dot(P_[f[0]], np.cross(P_[f[i]] - P_[f[0]], P_[f[i + 1]] - P_[f[0]])) for f in F for i in (1, 2))
+        if vol < 0: F = [f[::-1] for f in F]
+        for f in F: M.Faces.AddFace(*f)
+        M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M, attr(L_PL, fc(rec) or (0.92, 0.86, 0.72, 1)))
 def kubomi(rec):                     # 2歳の落ち着くくぼみ：囲い h1000、南に開口
     ring_uv([tuple(p) for p in rec['pts']], 0, 1000, 0.04, L_PL, fc(rec), gap=(16.85, 16.95, 3.55, 4.35))
 def mamagoto_posts(rec): solid_uv([tuple(p) for p in rec['pts']], 0, 1400, L_F, (0.3, 0.25, 0.2, 1))
@@ -180,14 +202,14 @@ T01 = {   # plan01（0・1歳、u ≤ 12）
     109: ('solid', -300, -150, L_F),                      # 式台 150
     110: ('panel', -150, 900, 0.04, L_F),                 # 木戸
     86: ('solid', 0, 300, L_F),                           # 窓辺の小上がり h300
-    111: ('panel', 300, 900, 0.03, L_F),                  # 格子の手すり h600
+    111: lambda rec: ring_uv(clean(rec['pts']), 300, 900, 0.03, L_F, fc(rec), gap=(5.99, 6.01, 0.9, 1.1)),   # 格子の手すり h600（10-28、監修の項 2346 の 37：西の端 u6.0 の短い辺は腰掛けの端の壁の中にまるごと入るので作らない）
     112: ('solid', 0, 900, L_P),
     117: ('solid', 0, 2400, L_P), 118: ('solid', 0, 2400, L_P),
     126: ('solid', 0, 850, L_WC), 129: ('solid', 0, 850, L_WC), 131: ('solid', 0, 850, L_WC),
     133: ('solid', 0, 300, L_WC), 134: ('solid', 0, 250, L_WC),
     140: ('table', 500, L_F), 141: ('solid', 0, 300, L_F),       # 先生の腰掛ける机（天板 500・座 300）
     144: ('table', 700, L_F), 145: ('solid', 0, 700, L_F),
-    149: nedoko, 153: ('solid', 0, 250, L_F), 155: ('solid', 1800, 1815, L_HI),
+    149: nedoko, 153: ('solid', 0, 250, L_F), 155: ('solid', 2100, 2115, L_HI),   # ねどこの天蓋（10-28、監修の項 20261028-0015 の 15：h1800 → h2100、大人の頭に当たらない、梁の下）
     158: basket, 162: ('solid', 0, 120, L_PL), 163: ('solid', 120, 200, L_PL),
     166: ('solid', 0, 600, L_F), 171: ('table', 350, L_F), 173: ('solid', 0, 200, L_F), 174: ('solid', 0, 200, L_F),
     178: cot, 180: ('solid', 0, 800, L_F), 183: ('solid', 0, 900, L_F),
@@ -204,7 +226,7 @@ T02 = {   # plan02（2歳、12 ≤ u ≤ 18.07）
     103: ('solid', 0, 100, L_WC), 106: ('solid', 0, 500, L_WC), 107: ('solid', 0, 260, L_WC),
     109: ('panel', 0, 900, 0.03, L_WC), 110: ('solid', 0, 300, L_F),
     113: ('solid', 0, 900, L_F), 116: ('solid', 0, 250, L_F), 118: ('solid', 0, 900, L_F),
-    120: kubomi, 123: ('solid', 1000, 1020, L_PL),
+    120: kubomi, 123: hut_roof,                           # 小屋の屋根（10-28：急な切妻、登れない）
     125: ('solid', 0, 500, L_WC), 129: ('solid', 0, 600, L_F), 130: ('solid', 0, 15, L_T),
     133: ('table', 400, L_F), 135: ('solid', 0, 220, L_F), 136: ('solid', 0, 220, L_F),
     140: cot, 142: ('solid', 0, 15, L_T), 144: mamagoto_posts, 145: ('solid', 1400, 1430, L_F), 146: ('solid', 0, 550, L_F),
@@ -372,7 +394,7 @@ from shapely.ops import unary_union as _uu
 _RJ = _uu(_roji) if _roji else None
 _LWC = next((i for i, l in enumerate(m.Layers) if l.Name == '59_1F_便所・倉庫'), None)
 if _RJ is not None and _LWC is not None:
-    L_PATH = layer('59_1F_通り抜け（こどもの小径）', (0xE9, 0xDF, 0xCF))
+    L_PATH = layer('59_1F_路地', (0xE9, 0xDF, 0xCF))     # 10-28（監修の項 20261028-0015 の 19）：名前は name.md の「路地」（前は「通り抜け（こどもの小径）」）
     def _uv_of(x, y):
         d = np.array([x, y]) - C; rr = np.hypot(*d); a = math.atan2(d[1], d[0]) % (2 * math.pi)
         return (TH19 - a) * 205.0, 205.0 - rr / 1000.0

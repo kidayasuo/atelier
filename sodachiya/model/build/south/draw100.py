@@ -626,7 +626,7 @@ C_ALL, C_STREET, C_DOSOKU, C_ADULT, C_ADULT2, C_WATER = '#F6E3A4', '#E9DFCF', '#
 def room_color(ln):
     n = ln.split('_')[0]
     if n in ('31', '34'): return C_ALL
-    if n in ('33', '56', '41') or re.search(r'1F_(ホール|西吹き抜け|通り抜け)', ln): return C_STREET
+    if n in ('33', '56', '41') or re.search(r'1F_(ホール|西吹き抜け|通り抜け|路地)', ln): return C_STREET
     if n in ('52',): return C_DOSOKU
     if n in ('32', '57'): return C_ADULT2
     if re.search(r'便所・倉庫|多目的便所|便所（こども）', ln): return C_WATER

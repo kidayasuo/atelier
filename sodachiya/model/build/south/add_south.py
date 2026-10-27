@@ -69,7 +69,7 @@ for _ in range(50):
 thp=TH[15]                                   # 2026-10-21：0・1 歳と 2 歳の境は架構 15（別チャットの平面図に合わせる）
 r01=rooms.intersection(quad(RC,RO,thp,th19,40)); r2=rooms.difference(quad(RC,RO,thp,th19,40))
 slab(doma,-300,-290,L_doma)
-for g,li in ((r01.intersection(quad(RC,RK,TH[K0],th19,40)),L_01),(r2.intersection(quad(RC,RK,TH[K0],th19,40)),L_2),(quad(RK,RO,TH[K0],TH[17],40),L_strip)):
+for g,li in ((r01.intersection(quad(RC,RK,TH[K0],th19,40)),L_01),(r2.intersection(quad(RC,RK,TH[K0],th19,40)),L_2),(quad(RK,RO,TH[15],TH[17],40),L_strip)):   # 56 窓辺は 0・1 歳の分（スパン 3〜4、u6〜12）だけ。10-28（監修の項 20261028-0015 の 17）：前はスパン 6 まで（u18）で、59 西吹き抜け（スパン 5〜19）と u12〜18 で二重だった
     for gg in getattr(g,'geoms',[g]):
         if gg.geom_type=='Polygon' and gg.area>0.5e6: slab(gg,0,10,li)
 dth=lambda mm: mm/RK

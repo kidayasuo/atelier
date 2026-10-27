@@ -1,6 +1,6 @@
 """ホールの北山杉の林（data/forest.json）、スパン 11 の割り当て（静養室ほか）、2 階の会議室の更衣・ロッカー
 使い方: python3 add_hall.py IN.3dm OUT.3dm FOREST.json
-- 林：TREES の (xy_mm, d, h) を床 ±0 から h まで円柱で、頂部は半球（6 版：すべて自立）。h が無い古い版は TOP の決まり（4.0 − v/12、西吹き抜け 4.4）。
+- 林：TREES の (xy_mm, d, h) を床 ±0 から h まで円の押し出しで（6 版：すべて自立。10-28：頂部の半球はやめた、Rhino 版で素直な円柱に）。h が無い古い版は TOP の決まり（4.0 − v/12、西吹き抜け 4.4）。
 - スパン 11（u 30–33、v 1.6–12）：静養室 v 1.6–4.3（西吹き抜けから戸、事務から見える室内窓）、記録・連絡の机 v 4.3–7.6（ホールへ開く）、
   園長室・応接 v 7.6–12。間仕切り h2400（ほかの保育室の間仕切りと同じ）。
 - 2 階の会議室（43）の南の端を職員の更衣・ロッカー（約 17 m²）に仕切る（遊戯室を見渡す北の窓の側は会議に残す）。
@@ -95,21 +95,12 @@ for t in F['TREES']:
     x, y = t['xy_mm']; v = t['v']; rr = t['d'] * 500; nn = 12 if t['d'] < 0.15 else 20
     if 'h' in t: top = t['h']                                         # 6 版：木ごとの高さ（床から、自立、頂部は半球）
     else: top = TOP['WEST_VOID_TOP'] if v < TOP['WEST_VOID_V'] else (4.0 - v / 12.0)
-    z1 = top * 1000 - rr
-    prof = [(rr, 0.0)] + [(rr * math.cos(math.radians(a)), z1 + rr * math.sin(math.radians(a))) for a in (0, 30, 55, 75)]
-    mm = r.Mesh()
-    for rk, zk in prof:
-        for k in range(nn):
-            th = 2 * math.pi * k / nn; mm.Vertices.Add(x + rk * math.cos(th), y + rk * math.sin(th), zk)
-    for j in range(len(prof) - 1):
-        for k in range(nn): mm.Faces.AddFace(j * nn + k, j * nn + (k + 1) % nn, (j + 1) * nn + (k + 1) % nn, (j + 1) * nn + k)
-    ib = mm.Vertices.Add(x, y, 0.0); it = mm.Vertices.Add(x, y, z1 + rr)
-    top_ring = (len(prof) - 1) * nn
-    for k in range(nn):
-        mm.Faces.AddFace(ib, (k + 1) % nn, k); mm.Faces.AddFace(top_ring + k, top_ring + (k + 1) % nn, it)
-    mm.Normals.ComputeNormals(); mm.Compact()
+    # 10-28（監修の項 20261027-2346 の 55）：幹は円の押し出し（φd、床 ±0 から h まで）。前は円柱＋頂部の半球を帯の網目にしていて、
+    # Rhino 版で 1 本 5 面の Brep（39 KB）になっていた。太さ・高さ（data/forest.json）は変えない（頂部の丸みは平らな端に）
+    cyl = r.Cylinder(r.Circle(r.Point3d(x, y, 0.0), rr), top * 1000.0)
+    mm = r.Extrusion.CreateCylinderExtrusion(cyl, True, True)
     at_ = r.ObjectAttributes(); at_.LayerIndex = L_TREE; at_.Name = f"{t.get('group', '')} φ{int(t['d'] * 1000)} h{top:.2f}"
-    out.Objects.AddMesh(mm, at_)
+    out.Objects.AddExtrusion(mm, at_)
     n += 1
 print('trees', n)
 

@@ -107,14 +107,111 @@ def welded_mesh(T):
     return mm
 
 # 西の柱の頭の、桁を抱く膨らみ（v −0.28 まで）が壁の中へ 80 mm 入るので、柱の外面 v −0.20 で平らに
-L11A = lidx('11a'); col_new = []; col_drop = set()
+# 10-28（監修の項 20261027-2346 の 11a）：柱は押し出しのまま、輪郭を線分と円弧だけに作り直す（前は柱の頭の曲線が 80 点の NURBS で、
+# 1 本 最大 127 KB。西の柱は網目にしてから平らにしていた）。穴（桁の楕円）はそのまま。曲線は 0.3 mm 以内の円弧の並びに。
+def _col_rebuild(g, vmin=None, tol=0.3):
+    """（10-28、監修の項 20261027-2346 の 11a）柱の押し出し g の外の輪郭を、線分と円弧だけに作り直す（穴＝桁の楕円はそのまま）。vmin：v がこれより小さい所は v=vmin の線へ"""
+    pl = g.GetProfilePlane(0.0)
+    O = np.array([pl.Origin.X, pl.Origin.Y, pl.Origin.Z]); X = np.array([pl.XAxis.X, pl.XAxis.Y, pl.XAxis.Z]); Y = np.array([pl.YAxis.X, pl.YAxis.Y, pl.YAxis.Z])
+    to2 = lambda p: np.array([(np.array([p.X, p.Y, p.Z]) - O) @ X, (np.array([p.X, p.Y, p.Z]) - O) @ Y])
+    def vof(q):
+        P = O + q[0] * X + q[1] * Y; return uv(P[0], P[1])[1]
+    pc = g.Profile3d(0, 0.0)
+    segs = [pc.SegmentCurve(i) for i in range(pc.SegmentCount)] if isinstance(pc, r.PolyCurve) else [pc]
+    xl = None
+    if vmin is not None:
+        v0_, v1_ = vof(np.array([0.0, 0.0])), vof(np.array([1000.0, 0.0]))
+        xl = (vmin - v0_) / ((v1_ - v0_) / 1000.0)
+        sx = np.sign((v1_ - v0_))
+    runs = []                                    # [(kind, pts)]：kind 'L' 線、'C' 曲線
+    for s in segs:
+        lin = isinstance(s, r.LineCurve) or s.IsLinear(0.01)
+        d = s.Domain; ts = [d.T0, d.T1] if lin else np.linspace(d.T0, d.T1, 1201)
+        Q = np.array([to2(s.PointAt(t)) for t in ts])
+        if xl is not None:
+            bad = (Q[:, 0] - xl) * sx < 0
+            if bad.any():
+                out, kinds = [], []
+                for i in range(len(Q)):
+                    if i and bad[i] != bad[i - 1]:
+                        a_, b_ = Q[i - 1], Q[i]; f = (xl - a_[0]) / (b_[0] - a_[0]); c_ = a_ + f * (b_ - a_); c_[0] = xl
+                        out.append(c_); kinds.append('x')
+                    q = Q[i].copy()
+                    if bad[i]: q[0] = xl
+                    out.append(q); kinds.append('b' if bad[i] else 'g')
+                # 連続する同じ種類で分ける（x は両方に入る）
+                cur, ck = [out[0]], kinds[0] if kinds[0] != 'x' else None
+                for q, k in zip(out[1:], kinds[1:]):
+                    if k == 'x':
+                        cur.append(q); runs.append(('L' if (ck == 'b' or lin) else 'C', np.array(cur))); cur = [q]; ck = None; continue
+                    if ck is None: ck = k
+                    cur.append(q)
+                if len(cur) > 1: runs.append(('L' if (ck == 'b' or lin) else 'C', np.array(cur)))
+                continue
+        runs.append(('L' if lin else 'C', Q))
+    # 曲線の並びを円弧に（3 点の円弧、ずれ tol 以下になるまで二つに分ける）
+    out = []
+    def arc_or_split(Q, i, j):
+        a, m_, b = Q[i], Q[(i + j) // 2], Q[j]
+        d_ = 2 * (a[0] * (m_[1] - b[1]) + m_[0] * (b[1] - a[1]) + b[0] * (a[1] - m_[1]))
+        P = Q[i:j + 1]
+        if abs(d_) > 1e-9:
+            ux = ((a @ a) * (m_[1] - b[1]) + (m_ @ m_) * (b[1] - a[1]) + (b @ b) * (a[1] - m_[1])) / d_
+            uy = ((a @ a) * (b[0] - m_[0]) + (m_ @ m_) * (a[0] - b[0]) + (b @ b) * (m_[0] - a[0])) / d_
+            c = np.array([ux, uy]); R = np.linalg.norm(a - c)
+            dev = np.abs(np.linalg.norm(P - c, axis=1) - R).max()
+            if dev < tol and R < 1e6: out.append(('A', a, m_, b)); return
+        t_ = b - a; L = np.linalg.norm(t_)
+        if L > 0:
+            dl = np.abs((P - a) @ np.array([-t_[1], t_[0]]) / L).max()
+            if dl < tol: out.append(('L', a, b)); return
+        if j - i < 4: out.append(('L', a, b)); return
+        k = (i + j) // 2; arc_or_split(Q, i, k); arc_or_split(Q, k, j)
+    for kind, Q in runs:
+        if np.linalg.norm(Q[-1] - Q[0]) < 1e-6 and len(Q) < 3: continue
+        if kind == 'L': out.append(('L', Q[0], Q[-1]))
+        else: arc_or_split(Q, 0, len(Q) - 1)
+    # 長さ 0 の線を捨て、端を前の片の終わりにそろえる
+    P3 = lambda q: r.Point3d(float(q[0]), float(q[1]), 0.0)
+    pc2 = r.PolyCurve(); prev = None; n_arc = 0
+    clean = [o for o in out if np.linalg.norm(o[-1] - o[1]) > 1e-4]
+    first = clean[0][1]
+    for k_, o in enumerate(clean):
+        a = prev if prev is not None else o[1]
+        b = first if k_ == len(clean) - 1 else o[-1]
+        if o[0] == 'L': pc2.Append(r.LineCurve(P3(a), P3(b)))
+        else: pc2.Append(r.Arc(P3(a), P3(o[2]), P3(b))); n_arc += 1
+        prev = b
+    holes = []
+    for k in range(1, g.ProfileCount):
+        nc = g.Profile3d(k, 0.0).ToNurbsCurve()
+        for i in range(len(nc.Points)):
+            p = nc.Points[i]; w = p.W if p.W else 1.0
+            q = np.array([p.X / w, p.Y / w, p.Z / w]) - O
+            nc.Points[i] = r.Point4d(float(q @ X) * w, float(q @ Y) * w, 0.0, w)
+        holes.append(nc)
+    e = r.Extrusion()
+    if not e.SetPathAndUp(g.PathStart, g.PathEnd, pl.YAxis): return None
+    if not e.SetOuterProfile(pc2, True): return None
+    for h in holes:
+        if not e.AddInnerProfile(h): return None
+    return e, len(clean), n_arc
+EXT_COL = {}
+L11A = lidx('11a'); col_new = []; col_drop = set(); _nc_w = _nc_e = 0
 for o in m.Objects:
-    if o.Attributes.LayerIndex != L11A: continue
+    if o.Attributes.LayerIndex != L11A or not isinstance(o.Geometry, r.Extrusion): continue
     T = tris(o.Geometry); U = to_uv_arr(T.reshape(-1, 3))
-    if U[:, 1].mean() > 1 or U[:, 1].min() > -0.205: continue
-    mm = closed_mesh(o.Geometry); map_mesh_uv(mm, lambda u, v, z: (u, max(v, -0.20), z)); mm.Compact()   # 閉じた網目で（10-25 監修：三角形のスープから溶接すると閉じず、Rhino で柱が透けて見えた）
-    col_new.append((mm, o.Attributes)); col_drop.add(str(o.Attributes.Id))
-log.append(f'本館：西の柱 {len(col_new)} 本の頭の膨らみを柱の外面（壁の内面）で平らに')
+    west = U[:, 1].mean() < 1 and U[:, 1].min() < -0.205
+    res_ = _col_rebuild(o.Geometry, -0.20 if west else None)
+    if res_ is None:
+        if west:
+            mm = closed_mesh(o.Geometry); map_mesh_uv(mm, lambda u, v, z: (u, max(v, -0.20), z)); mm.Compact()
+            col_new.append((mm, o.Attributes)); col_drop.add(str(o.Attributes.Id))
+        continue
+    EXT_COL[str(o.Attributes.Id)] = res_[0]
+    if west: _nc_w += 1
+    else: _nc_e += 1
+log.append(f'本館：柱 {_nc_w + _nc_e} 本の輪郭を線分と円弧に（押し出しのまま）、西の柱 {_nc_w} 本の頭の膨らみを柱の外面（壁の内面）で平らに。網目にした柱 {len(col_new)}')
 
 # 桁（Brep）→ メッシュで作り直す（楕円 幅 200×高さ 400、弧に沿って）
 def ellipse_tube(vc, zc, ua, ub, li, name):
@@ -177,7 +274,7 @@ log.append(f'西館：柱・桁 {n_c} 本を壁の内面まで（いちばん大
 from shapely.geometry import LineString
 import extedit
 beam_new = []; beam_drop = set()
-EXT = {}                                               # 物の Id → 動かした押し出し（22a〜d）
+EXT = dict(EXT_COL)                                    # 物の Id → 動かした押し出し（22a〜d、本館の柱 11a）
 def cur_g(o): return EXT.get(str(o.Attributes.Id), o.Geometry)
 _n_end = 0
 for o in m.Objects:
@@ -1108,9 +1205,11 @@ if src is not None:
         for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, VE, 0.2), RT_TOP + 60.0, RT_TOP + 72.0): new_objs.append((mm, at_g))     # 乳白ガラス（複層、外皮の線まで）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, VE, V_TIP, 0.2), RT_TOP - 12.0, RT_TOP): new_objs.append((mm, at_g))     # 東の軒の筋：屋根の面にそろえた合わせガラス t12（外なので単板）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, RT_TOP + 60.0, vert=True): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス（複層）
-        for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（上の層の小口をふさぐ）
-            for mm in slab(R(uu, uu + 0.012, SL_V[0], VE, 0.2), RT_BOT, RT_TOP): new_objs.append((mm, a10))
-            for mm in slab(R(uu, uu + 0.012, VE, V_TIP, 0.2), RT_TOP - EAVE_TIP, RT_TOP): new_objs.append((mm, a10))
+        # 筋の内側の板（上の層の小口をふさぐ）。10-28（監修の項 20261027-2346 の 10）：前は筋の外（u ± 0.09 の外 12）に置いていて、
+        # 上の層（野地＋屋根材 64）の中にまるごと入っていた。室内（v 13.5 まで）は鏡面（10m、ガラスの下から梁の下端まで）が小口をふさぐので作らない。
+        # 外皮の線より東（軒）は筋の中（u ± 0.09 の内 12）に、野地＋屋根材の板の下端から軒の合わせガラス（t12）の下まで。
+        for uu in (u - SL_HALF, u + SL_HALF - 0.012):
+            for mm in slab(R(uu, uu + 0.012, SL_GL + 0.006, V_TIP, 0.2), RT_TOP - EAVE_TIP, RT_TOP - 12.0): new_objs.append((mm, a10))
     def _purlin_box(k_, vc, ztop, q_, W=60.0, D=150.0):
         """10-27夜（ユーザー：母屋が長方形の押し出しでないのは変）：母屋は 60×150 の長方形の断面の真っすぐな材。
         軸はスパンの弦（架構の線 u=3k と 3k+3 の v=vc を結ぶ水平線）、断面は屋根の勾配（1/12）に直角に傾けた長方形
@@ -1936,7 +2035,7 @@ def _square(g):
     if prof.is_empty or prof.area < 100.0: return None
     out_ = []
     if along_u:
-        t0, t1 = v0, v1
+        t0, t1 = _SQ_T.get(_sq_key(g, U), (v0, v1)) if _SQ_LN[0].startswith('17_') else (v0, v1)
         for k_ in range(-2, 21):
             part = prof.intersection(Polygon([(3000.0 * k_, -1e4), (3000.0 * (k_ + 1), -1e4), (3000.0 * (k_ + 1), 1e5), (3000.0 * k_, 1e5)]))
             if part.is_empty or part.area < 50.0: continue
@@ -1955,18 +2054,35 @@ def _square(g):
     v_old = _sq_vol(V, T); v_new = sum(_sq_vol(*_sq_tris(q)) for q in out_)
     if v_old <= 0 or abs(v_new - v_old) / v_old > 0.06: return 'skip'
     return out_
+# 10-28（監修の項 20261027-2346 の 17：外壁は壁ごとに一つの立体）：同じ壁の線の片（開口の上下・横の片）は厚みの線をそろえる。前は片ごとの
+# 外形の幅で v0〜v1 を決めていて、開口のある片は 5 mm ほど細く、clip_parts の足し合わせで一つにならなかった（17 が 119 の体）。
+# 同じレイヤー・同じ壁の線（v の中ほどを 0.05 で丸める）の、u の向きに走る片の v の幅の外側（min v0〜max v1）に合わせる。
+def _sq_key(g, U):
+    return (round(float(np.median(U[:, 1])) * 20.0) / 20.0,)
+_SQ_T = {}; _SQ_LN = ['']
+def _sq_scan(g, li):
+    if not isinstance(g, r.Mesh) or not m.Layers[li].Name.startswith('17_'): return
+    V, T = _sq_tris(g)
+    if len(T) < 4: return
+    U = np.array([uv(x, y) for x, y in V[:, :2]]); u0, v0 = U.min(0); u1, v1 = U.max(0)
+    if v1 - v0 > u1 - u0 or v1 - v0 > 0.4: return
+    k = _sq_key(g, U); a, b = _SQ_T.get(k, (v0, v1)); _SQ_T[k] = (min(a, v0), max(b, v1))
+for o in m.Objects:
+    if str(o.Attributes.Id) not in drop: _sq_scan(o.Geometry, o.Attributes.LayerIndex)
+for mm, at in new_objs: _sq_scan(mm, at.LayerIndex)
+_SQ_T = {k: t for k, t in _SQ_T.items() if t[1] - t[0] < 0.4}
 _sq_n = _sq_k = 0; _sq_skip = []
 _sq_new = []
 for o in m.Objects:
     if str(o.Attributes.Id) in drop or not isinstance(o.Geometry, r.Mesh) or not LN[o.Attributes.LayerIndex].startswith(_SQ_PRE): continue
-    res_ = _square(o.Geometry)
+    _SQ_LN[0] = LN[o.Attributes.LayerIndex]; res_ = _square(o.Geometry)
     if res_ is None: continue
     if res_ == 'skip': _sq_skip.append(LN[o.Attributes.LayerIndex][:3]); continue
     drop.add(str(o.Attributes.Id)); _sq_new += [(q, o.Attributes) for q in res_]; _sq_n += 1; _sq_k += len(res_)
 _keep = []
 for mm, at in new_objs:
     if isinstance(mm, r.Mesh) and m.Layers[at.LayerIndex].Name.startswith(_SQ_PRE):
-        res_ = _square(mm)
+        _SQ_LN[0] = m.Layers[at.LayerIndex].Name; res_ = _square(mm)
         if res_ is not None and res_ != 'skip':
             _sq_new += [(q, at) for q in res_]; _sq_n += 1; _sq_k += len(res_); continue
         if res_ == "skip": _sq_skip.append(m.Layers[at.LayerIndex].Name[:3])
