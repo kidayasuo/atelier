@@ -43,7 +43,9 @@ def _uvslab(g,z0,z1,li):
 U_KAI=(21.0,21.0+1.5*205.0/203.4); V_RG,V_RO,V_RC,V_RK,V_WALL=13.5,-0.2,12.0,1.6,13.465
 _kai=_box(U_KAI[0],V_RO,U_KAI[1],V_RG)
 _walls=unary_union([_box(3.0*s_-1.5,V_WALL,3.0*s_,V_RG) for s_ in range(1,20)])
-inner=_box(0.0,V_RO,57.0,V_RG).difference(_kai).difference(_box(0.0,V_RO,6.0,V_RK)).difference(_walls)
+# 西の端は外壁の内面（v −0.1997、弦）の 1 mm 内、西の外壁の足もとの小さな壁（u30.0〜30.1、南の妻 v1.40〜1.75）の所は欠く（削る段で高さの途中まで欠かれて押し出しでなくなっていた）
+_stubs=unary_union([_box(29.99,-0.2,30.11,0.085),_box(-0.08,1.395,0.08,1.755)])
+inner=_box(0.0,-0.199,57.0,V_RG).difference(_kai).difference(_box(0.0,-0.199,6.0,V_RK)).difference(_walls).difference(_stubs)
 _uvslab(inner,-450,-10,L_fl)                                    # 床組（上面 −10、色付きの室の板 0〜10 の下）
 _uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kai).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
 _uvslab(_kai,-450,-150,L_kai)

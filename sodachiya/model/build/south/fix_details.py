@@ -2017,6 +2017,7 @@ def _square(g):
     ax = rad if along_u else tan
     d = np.einsum('ij,ij->i', N[:, :2], ax)
     profs = []
+    _bw = 0.6 if _SQ_LN[0].startswith('17_') else 0.05      # 10-28：外壁は片のあいだの 1 mm 未満のすき間を閉じて一つの立面の形に
     for sgn in (1, -1):
         sel = ok & (np.abs(N[:, 2]) < 0.05) & (sgn * d > 0.95)
         if not sel.any(): continue
@@ -2024,8 +2025,8 @@ def _square(g):
         for t_ in np.where(sel)[0]:
             tri = T[t_]; q = [((U[i, 0] if along_u else U[i, 1]) * 1000.0, V[i, 2]) for i in tri]
             pg = Polygon(q)
-            if pg.area > 1e-3: ps.append(pg.buffer(0.05, join_style=2))
-        if ps: profs.append(unary_union(ps).buffer(-0.05, join_style=2))
+            if pg.area > 1e-3: ps.append(pg.buffer(_bw, join_style=2))
+        if ps: profs.append(unary_union(ps).buffer(-_bw, join_style=2))
     if not profs: return None
     if len(profs) == 1: prof = profs[0]
     else:
@@ -2039,6 +2040,7 @@ def _square(g):
         for k_ in range(-2, 21):
             part = prof.intersection(Polygon([(3000.0 * k_, -1e4), (3000.0 * (k_ + 1), -1e4), (3000.0 * (k_ + 1), 1e5), (3000.0 * k_, 1e5)]))
             if part.is_empty or part.area < 50.0: continue
+            if part.bounds[2] - part.bounds[0] < 5.0: continue            # 10-28：架構の線をわずかに越えた片（幅 1 mm 未満、弧の点が線の外）は捨てる（Rhino で表示できない面になっていた）
             key = ('s', min(18, max(0, k_))); A_, c_, h_, n_ = _plane(key)
             P_of = lambda a, z, key=key: np.array([*xyk(key, a / 1000.0, t0), z])
             # 架構の線で切った所だけ、裏の面の点を同じスパンの弦（v = t1）の上に（留め：となりのスパンの片とちょうど合う）。ほかの端は面に直角
@@ -2066,13 +2068,51 @@ def _sq_scan(g, li):
     if len(T) < 4: return
     U = np.array([uv(x, y) for x, y in V[:, :2]]); u0, v0 = U.min(0); u1, v1 = U.max(0)
     if v1 - v0 > u1 - u0 or v1 - v0 > 0.4: return
-    k = _sq_key(g, U); a, b = _SQ_T.get(k, (v0, v1)); _SQ_T[k] = (min(a, v0), max(b, v1))
+    _SQ_T.setdefault(_sq_key(g, U), []).append((v0, v1))
 for o in m.Objects:
     if str(o.Attributes.Id) not in drop: _sq_scan(o.Geometry, o.Attributes.LayerIndex)
 for mm, at in new_objs: _sq_scan(mm, at.LayerIndex)
+def _sq_line(L):
+    """壁の線の厚みの範囲：片の中ほどの真ん中の値 ± いちばん薄い片の厚みの半分（弧の片の弦の向きのずれで外形の幅は厚みより数 mm 広い）"""
+    mid = float(np.median([(a + b) / 2 for a, b in L])); t = min(b - a for a, b in L)
+    return (mid - t / 2, mid + t / 2)
+_SQ_T = {k: _sq_line(L) for k, L in _SQ_T.items()}
 _SQ_T = {k: t for k, t in _SQ_T.items() if t[1] - t[0] < 0.4}
 _sq_n = _sq_k = 0; _sq_skip = []
 _sq_new = []
+# 10-28：外壁（17）の u の向きに走る片は、同じ壁の線ごとに一つの網にまとめてから平らな板にする（壁ごとに一つの立面の形＝輪郭−開口、
+# スパンごとに真っすぐ、架構の線で留め）。前は片ごとに作り直していて、越屋根の立ち上がり（約 1 m ごとの片）などが 0.3 mm ずれて一つにならなかった。
+_grp = {}
+def _sq_group_key(g, li):
+    if not isinstance(g, r.Mesh) or not m.Layers[li].Name.startswith('17_'): return None
+    V, T = _sq_tris(g)
+    if len(T) < 4: return None
+    U = np.array([uv(x, y) for x, y in V[:, :2]]); u0, v0 = U.min(0); u1, v1 = U.max(0)
+    if u1 < -0.6 or u0 > 57.9 or v0 < -0.6 or v1 > 15.2 or v1 - v0 > u1 - u0 or v1 - v0 > 0.4: return None
+    return (li,) + _sq_key(g, U)
+for o in m.Objects:
+    if str(o.Attributes.Id) in drop: continue
+    k_ = _sq_group_key(o.Geometry, o.Attributes.LayerIndex)
+    if k_ is not None: _grp.setdefault(k_, []).append(('o', o))
+for i_, (mm, at) in enumerate(new_objs):
+    k_ = _sq_group_key(mm, at.LayerIndex)
+    if k_ is not None: _grp.setdefault(k_, []).append(('n', i_))
+_gdone = set(); _ngrp = 0; _gskip = []
+for k_, L_ in _grp.items():
+    if len(L_) < 2: continue
+    big = r.Mesh(); at0_ = None
+    for kind, x in L_:
+        g_ = x.Geometry if kind == 'o' else new_objs[x][0]
+        big.Append(g_)
+        if at0_ is None: at0_ = x.Attributes if kind == 'o' else new_objs[x][1]
+    _SQ_LN[0] = m.Layers[k_[0]].Name; res_ = _square(big)
+    if res_ is None or res_ == 'skip': _gskip.append(f'v{k_[1]:.2f}:{len(L_)}{"×" if res_ is None else "体積"}'); continue
+    for kind, x in L_:
+        if kind == 'o': drop.add(str(x.Attributes.Id))
+        else: _gdone.add(x)
+    _sq_new += [(q, at0_) for q in res_]; _sq_n += len(L_); _sq_k += len(res_); _ngrp += 1
+if _gdone: new_objs[:] = [x for i_, x in enumerate(new_objs) if i_ not in _gdone]
+log.append(f'本館：外壁の壁の線 {_ngrp} 本を一つずつの立面の形にまとめた（まとめなかった線 {_gskip}）')
 for o in m.Objects:
     if str(o.Attributes.Id) in drop or not isinstance(o.Geometry, r.Mesh) or not LN[o.Attributes.LayerIndex].startswith(_SQ_PRE): continue
     _SQ_LN[0] = LN[o.Attributes.LayerIndex]; res_ = _square(o.Geometry)
@@ -2087,6 +2127,10 @@ for mm, at in new_objs:
             _sq_new += [(q, at) for q in res_]; _sq_n += 1; _sq_k += len(res_); continue
         if res_ == "skip": _sq_skip.append(m.Layers[at.LayerIndex].Name[:3])
     _keep.append((mm, at))
+def _sq_thin(q):
+    V_ = np.array([[q.Vertices[i].X, q.Vertices[i].Y] for i in range(len(q.Vertices))]); U_ = np.array([uv(x, y) for x, y in V_])
+    return min(np.ptp(U_[:, 0]), np.ptp(U_[:, 1])) < 0.005          # 10-28：架構の線をわずかに越えた幅 5 mm 未満の片（Rhino で表示できない面）は捨てる
+_sq_new = [(q, at) for q, at in _sq_new if not _sq_thin(q)]
 new_objs[:] = _keep + _sq_new
 from collections import Counter as _Ct
 log.append(f'本館：壁・ガラス・建具 {_sq_n} 物を平らな板（立面の形×厚み、スパンごとに真っすぐ）に作り直した（{_sq_k} 片）。作り直さなかった物 {len(_sq_skip)}（体積の差 6% 以上）：{dict(_Ct(_sq_skip))}')
