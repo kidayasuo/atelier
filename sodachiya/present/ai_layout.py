@@ -148,7 +148,7 @@ def write(c):
                      color=col, lw=0.6, dot=0.9))
         for i, (tx, ty, ts, th, tb, *ex) in enumerate(c["topt"].get(no, [])):
             add(dict(id=f"top.{_slug(ts)}", name=ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
-                     size_pt=pt(th), font=(ex[0] if ex else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"), align="left", mock_hash=djb2(ts)))
+                     size_pt=pt(th), font=(ex[0] if ex and ex[0] else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"), align="left", mock_hash=djb2(ts)))
         # 6) 配置図の中の文字・注の線・突き出た木（1枚目、ユーザー 10-25夕：一つずつ動かして書き換える。注の文字と線は一つのグループ）
         if no == 1:
             for sp in c.get("siteparts", []):

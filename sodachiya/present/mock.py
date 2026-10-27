@@ -1572,6 +1572,27 @@ for _s, _x, _y, _ha in _SL:                     # 文字は図の上に（見本
     _th = 1.9 if _s != "N" else 2.4
     _tw = fitz.Font(fontfile=FONT_ALT["Apple-Chancery"]).text_length(_s, _th / 0.72) 
     TOPT[1].append((_sux + _x - _tw / 2, _suy + _y - _th * 0.35, _s, _th, False, "Apple-Chancery", "#F2F3F4"))
+# 地域のなかの敷地（ユーザー、10-27：PLATEAU とともに）。北を上に 1/10000。置き場所はユーザーが選ぶ（いまは左下の仮の場所）
+import area_map
+_AMF = os.path.join(HERE, "sozai", "14_地域のなかの敷地_1-10000.pdf")
+_rt = []
+for o in L("10_") + L("20_") + L("35_"):
+    if o["kind"] == "mesh":
+        _rt += [Polygon(o["V"][f_, :2]).buffer(0.01) for f_ in o["F"] if Polygon(o["V"][f_, :2]).area > 1e-4]
+_ru = unary_union(_rt)
+_AW, _AH = 120.0, 96.0
+_AL = area_map.make(_AMF, os.path.join(HERE, "plateau_area.json.gz"), list(SITE_C.values()), [np.array(g_.exterior.coords) for g_ in getattr(_ru, "geoms", [_ru])], W=_AW, H=_AH)
+_amx, _amy = M + 6, BAND_Y0 + BAND_H + 14
+embed(1, _AMF, None, _amx, _amy, 1.0)
+_FR = fitz.Font(fontfile=FONT)
+for _s, (_x, _y) in _AL.items():
+    _th = {"高野川": 2.6, "京都工芸繊維大学": 2.4, "敷地": 2.4, "N": 2.6}.get(_s, 1.9)
+    _tw = _FR.text_length(_s, _th / 0.72)
+    _dx, _dy = {"敷地": (4, -1), "0": (0, 1.2), "200 m": (0, 1.2)}.get(_s, (0, 0))
+    _cx = _amx + _x + _dx - (0 if _s == "敷地" else _tw / 2)
+    TOPT[1].append((_cx, _amy + _y + _dy - _th * 0.35, _s, _th, _s in ("敷地", "N", "高野川"), None, "#D9462A" if _s == "敷地" else ("#2F6FA0" if _s == "高野川" else "#333333")))
+TOPT[1].append((_amx, _amy + _AH + 3, "地域のなかの敷地　1/10000", 3.0, True))
+TOPT[1].append((_amx, _amy - 4.5, "出典：国土交通省 Project PLATEAU（京都市 2025）の建物・道路・土地利用から作図", 1.9, False))
 scalebar(ax, sx + 6, sy - 22, 200, 20)
 # いちばん下の帯：沿川の景観立面　昼（左）・夜（右）1/300（ユーザー、10-26：2枚目から戻す。配置図の高野川の辺のすぐ下で、川の向こうから見た姿）
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
@@ -2002,7 +2023,7 @@ for si in range(1, 6):
     for ui_ in USER_ITEMS.get(si, []):                # 木田さんがIllustratorで足した物（export_layout.jsx の user_items）を見本にも（矢じりなどは出ない）
         _draw_user_item(pg, ui_)
     for (tx, ty, ts, th, tb, *ex) in TOPT[si]:
-        _fa = FONT_ALT.get(ex[0]) if ex else None
+        _fa = FONT_ALT.get(ex[0]) if ex and ex[0] else None
         _cc = tuple(int(ex[1][k:k + 2], 16) / 255 for k in (1, 3, 5)) if len(ex) > 1 else (0.1, 0.1, 0.1)
         pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname=("F_A" if _fa else ("F_B" if tb else "F_R")),
                        fontfile=_fa or (FONTB if tb else FONT), color=_cc)
