@@ -84,7 +84,7 @@ fill(U0, U1, 0, 1.6, C_LOOP)                 # west void (rail)
 fill(U0, U1, E, G, C_LOOP)
 fill(U0, U1, G, 15, "#E6DFD0")              # outer engawa (shoes, FL-150)
 # ---- walls & columns
-wall(U0, U1, -0.35, -0.20)                    # 西の外壁（柱の外、10-22）
+wall(U0, 30.1, -0.35, -0.20); wall(32.85, U1, -0.35, -0.20)   # 西の外壁（柱の外、10-22）。スパン11は西館へ開ける（戸なし、10-27）
 wall(57.19, 57.34, -0.35, 12)                 # north gable（架構の外、外皮の線）
 for uf in range(30, 58, 3):
     for vc in [0, 12]:
@@ -401,7 +401,7 @@ for a0, b0 in [(37.0, 38.2), (48.6, 49.8)]:                      # reading niche
     box(a0, b0, 0.08, 0.7, fc="#F3E7CF", lw=0.45, z=5)
     line([(a0, 0.72), (b0, 0.72)], lw=1.4, c="#9b6f8c", ls=(0, (1.5, 1)), z=6)
     ax.add_patch(Ellipse(P((a0 + b0) / 2, 0.5), 0.3, 0.8, fc="#E8D7E6", ec="#9b6f8c", lw=0.3, zorder=6))
-for a0, b0 in [(30.6, 32.6), (45.6, 47.6)]:                     # openings to the play hall (west building)
+for a0, b0 in [(45.6, 47.6)]:                                   # openings to the play hall (west building)
     box(a0, b0, -0.08, 0.08, fc="white", lw=0.0, ec="white", z=6)
     t((a0 + b0) / 2, -0.55, "遊戯室へ", size=4.4)
 # reading room at the north dead end ("本の奥"): no shelves
@@ -422,8 +422,6 @@ t(56.75, -2.6, "読書の庭（モミジ・苔）", size=4.2)
 t(54.4, 0.85, "", size=4)
 
 # ---------- 大人のトイレ（10-23夜、ユーザー：3か所とも性別を示さない個室）----------
-box(30.6, 32.6, -0.075, 0.075, lw=0.5, fc="#444444", z=7)      # 口①は閉じた（10-21、南の口へまとめた）
-box(30.62, 32.58, -0.75, -0.35, fc="white", lw=0, ec="white", z=9)   # 「遊戯室へ」の字を消す
 # スパン11：多目的便所（v1.6–4.3）｜記録・連絡の机（4.3–7.6）｜園長室・応接（7.6–12）
 fill(30.0, 33.0, 1.6, 4.3, C_WC, z=1.5)
 for vv in (4.3, 7.6):
@@ -481,10 +479,11 @@ def _wall_outline():
         for ring in [p.exterior] + list(p.interiors):
             ax.add_patch(Polygon([P(u, v) for u, v in ring.coords], closed=True, fc="none", ec="black", lw=0.5, zorder=5.5))
 # すき間の倉庫の口（10-25）：西の外壁の柱のあいだごとに引き違い戸（先生の道から）
-for _a, _b in [(30.1, 32.85), (33.15, 35.85), (36.15, 38.85), (39.15, 39.95)]:
+t(31.5, -0.55, "西館へ（開いたまま）", size=4.4)
+for _a, _b in [(33.15, 35.85), (36.15, 38.85), (39.15, 39.95)]:
     box(_a, _b, -0.36, -0.19, fc="white", lw=0, ec="white", z=5.6)
     line([(_a, -0.29), ((_a + _b) / 2 + 0.02, -0.29)], lw=0.6, z=5.7); line([((_a + _b) / 2 - 0.02, -0.26), (_b, -0.26)], lw=0.6, z=5.7)
-txt(36.5, -0.75, "すき間の倉庫（先生の道から）", size=4.4, color="#555555")
+txt(37.0, -0.75, "すき間の倉庫（先生の道から）", size=4.4, color="#555555")
 _wall_outline()
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.pdf"))
 fig.savefig(_os.path.join(OUT, "sodachiya_35_furniture.png"), dpi=220)
