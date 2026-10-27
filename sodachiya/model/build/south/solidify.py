@@ -1670,13 +1670,31 @@ def _build(W, T, curved, snap=True, graph=None):
                     y_ = st.pop()
                     for z_ in adj.get(y_, ()):
                         if z_ in sset: sset.discard(z_); comp.append(z_); st.append(z_)
-                mem = np.concatenate([regs[g] for g in comp])
                 if len(comp) == 1 and len(regs[comp[0]]) < 4: continue          # 平らな小さな面はそのまま
-                f_ = fit_graph(W, T[mem], sgn_ > 0, graph if isinstance(graph, dict) else None)
-                if f_ is None or f_[1] > 2.0: raise Fail('graph fit %s' % (None if f_ is None else round(f_[1], 2)))
-                gid = comp[0]
-                for g in comp: group[g] = gid
-                srf_of[gid] = f_[0]; gsel += comp
+                # 当てはめて、のらない片（角の丸み・けらばのねじれ）を外してもう一度。のる片だけを関数の面に、残りは平らな面のまま
+                use = list(comp); gr_ = None
+                for _ in range(3):
+                    if not use: break
+                    mem = np.concatenate([regs[g] for g in use])
+                    f_ = fit_graph(W, T[mem], sgn_ > 0, graph if isinstance(graph, dict) else None)
+                    if f_ is None: break
+                    gr_ = f_[0]
+                    ok_ = [g for g in use if max(gr_.dist(W[v]) for v in rverts[g]) < 0.5]
+                    if len(ok_) == len(use): break
+                    use = ok_
+                if gr_ is None or not use: continue
+                if sum(ra[g] for g in use) < 0.5 * sum(ra[g] for g in comp): continue
+                uset = set(use)
+                while uset:                                                      # のる片のつながる組ごとに一つの面
+                    a0 = uset.pop(); cc_ = [a0]; st2 = [a0]
+                    while st2:
+                        y_ = st2.pop()
+                        for z_ in adj.get(y_, ()):
+                            if z_ in uset: uset.discard(z_); cc_.append(z_); st2.append(z_)
+                    if len(cc_) < 3: continue
+                    gid = cc_[0]
+                    for g in cc_: group[g] = gid
+                    srf_of[gid] = gr_; gsel += cc_
     _gs = set(gsel)
     adj_seg = {k: {x for x in v if x not in _gs} for k, v in adj.items() if k not in _gs} if _gs else adj
     if curved:

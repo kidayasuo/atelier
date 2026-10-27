@@ -236,6 +236,13 @@ for oi, o in enumerate(m.Objects):
                 bg, info = SD.solid_from_mesh(W, T, graph=ROOF_SPEC)
                 if bg is not None and info.startswith('curved') and deviation([(bg, 'curved')], W, T) <= 15.0:
                     geo.append((bg, 'curved')); continue
+                if bg is None and info.startswith('not manifold'):                # 触れ合う片：manifold3d で一つの多様体に直してから
+                    done_ = False
+                    for Wm, Tm in SD.via_manifold(W, T):
+                        bg, info = SD.solid_from_mesh(Wm, Tm, graph=ROOF_SPEC)
+                        if bg is not None and info.startswith('curved') and deviation([(bg, 'curved')], W, T) <= 15.0:
+                            geo.append((bg, 'curved')); done_ = True; break
+                    if done_: continue
             # 平らな面でできた片（光の筋のガラス・ふさぐ板・平らな屋根の片）は、ふつうの道でちょうどの立体に。
             # 三角形ごとに面になる（ねじれた）片だけを線織面に
             g1 = SD.to_solids(W, T, sheet)
