@@ -1415,15 +1415,52 @@ if slits:
     _MPUR = _prism(unary_union([p_ for p_ in _purl if not p_.is_empty]))
     _MEAV = _prism(unary_union([p_ for p_ in _eave if not p_.is_empty]))
     _npur = 0
+    # 母屋（20v）はまっすぐな角材（60×150）：梁と梁のあいだの一本ずつを、両端（筋の帯・外壁の内面）を結ぶ弦に沿う長方形の押し出しに
+    # （10-27夜、ユーザー：母屋が長方形の押し出し以外になっているのは変。前は弧に沿う帯と屋根の層の交わりで、曲面のスパンでねじれた面だった）。
+    # 上面は母屋の上の面（屋根の面の関数から −174、軒は梁の上端 0）に両端で合わせ、断面は屋根の勾配に沿って傾ける（上面が合板の下面に添う）
+    _RF = _RWf['roof_f']
+    def _purlin(pg, vr, ztop):
+        pts = []
+        for g_ in getattr(pg, 'geoms', [pg]):
+            if g_.geom_type == 'Polygon' and g_.area > 1e4: pts += list(g_.exterior.coords)
+        if not pts: return None
+        us = [uv(x_, y_)[0] for x_, y_ in pts]; ua, ub = min(us), max(us)
+        if ub - ua < 0.2: return None
+        p0 = np.array(xy(ua, vr), float).ravel(); p1 = np.array(xy(ub, vr), float).ravel()
+        A = np.r_[p0, _RF(*p0) + ztop]; B = np.r_[p1, _RF(*p1) + ztop]; d = B - A; L_ = np.linalg.norm(d); d /= L_
+        pm = (p0 + p1) / 2; e_ = 50.0
+        gx = (_RF(pm[0] + e_, pm[1]) - _RF(pm[0] - e_, pm[1])) / (2 * e_); gy = (_RF(pm[0], pm[1] + e_) - _RF(pm[0], pm[1] - e_)) / (2 * e_)
+        nr = np.array([-gx, -gy, 1.0]); nr -= (nr @ d) * d; nr /= np.linalg.norm(nr)          # 屋根の面の法線（軸に直角に）
+        w = np.cross(nr, d); w /= np.linalg.norm(w)
+        c = [w * 30 + nr * 0, -w * 30, -w * 30 - nr * PUR_T, w * 30 - nr * PUR_T]             # 断面（上の辺の真ん中が軸）
+        V_ = np.array([A + q for q in c] + [B + q for q in c])
+        F_ = [[0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6], [0, 4, 5], [0, 5, 1], [1, 5, 6], [1, 6, 2], [2, 6, 7], [2, 7, 3], [3, 7, 4], [3, 4, 0]]
+        t_ = trimesh.Trimesh(V_, F_, process=False); trimesh.repair.fix_normals(t_)
+        return t_
+    _pm = []
+    for vr_, pg_ in zip([(-2.56 - 0.03) - 0.455 * k for k in range(len(_purl))], _purl):
+        for g_ in getattr(pg_, 'geoms', [pg_]):
+            t_ = _purlin(g_, vr_, -INS_T - PLY_T) if not g_.is_empty else None
+            if t_ is not None: _pm.append(t_)
+    for vr_, pg_ in zip([(-2.56 - 0.03) - 0.455 * k for k in range(len(_eave))], _eave):
+        for g_ in getattr(pg_, 'geoms', [pg_]):
+            t_ = _purlin(g_, vr_, 0.0) if not g_.is_empty else None
+            if t_ is not None: _pm.append(t_)
+    if _pm:
+        mm_ = r.Mesh()
+        for t_ in _pm:                                                   # 一本ずつ別の閉じた立体（頂点も別）
+            o_ = len(mm_.Vertices)
+            for x_, y_, z_ in t_.vertices: mm_.Vertices.Add(float(x_), float(y_), float(z_))
+            for a_, b_, c_ in t_.faces: mm_.Faces.AddFace(int(a_) + o_, int(b_) + o_, int(c_) + o_)
+        mm_.Normals.ComputeNormals(); new_objs.append((mm_, a20v)); _npur = len(_pm)
     for o, fp in _faces20:
-        for dz_, dz0_, at_, M_cut in ((0.0, -INS_T, o.Attributes, _MINT), (-INS_T, -INS_T - PLY_T, a20r, _MINT),
-                                      (-INS_T - PLY_T, -INS_T - PLY_T - PUR_T, a20v, _MPUR), (0.0, -PUR_T, a20v, _MEAV)):
+        for dz_, dz0_, at_, M_cut in ((0.0, -INS_T, o.Attributes, _MINT), (-INS_T, -INS_T - PLY_T, a20r, _MINT)):
             if M_cut is None: continue
             M_ = _thicken(o.Geometry, dz_, dz0_)
             if M_ is None: continue
             M_ = M_ ^ M_cut
             if M_.is_empty(): continue
-            new_objs.append((_m2r(M_), at_)); _npur += (at_ is a20v)
+            new_objs.append((_m2r(M_), at_))
     log.append(f'西館：屋根の構成（10-27夜）：梁の上 {RT_W:.0f}（屋根材 40・通気垂木と野地、軒先の見付け {RT_W - EAVE_RISE:.0f}）、梁のあいだに断熱 150（20）・合板 t24（20r）・母屋 60×150 @455（20v）、軒の下は母屋を梁の上端に落とし込む')
     # 筋の両側の梁の下端（鏡面の板の下の端）：2 枚の梁（22b）に下から鉛直の線を当てる
     _bmt = [closed_mesh(bm.get(str(o.Attributes.Id), cur_g(o))) for o in m.Objects if o.Attributes.LayerIndex == L22B]
