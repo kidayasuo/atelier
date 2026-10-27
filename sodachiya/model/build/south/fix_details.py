@@ -829,6 +829,29 @@ if src is not None:
             for v0_, v1_, zb_ in ((SL_V[0], _COLS[0][0], _beam_bot), (_COLS[0][0], _COLS[0][1], lambda v: _COLS[0][2]), (_COLS[0][1], SL_GL - 0.006, _beam_bot)):
                 new_objs.append((_mirror(uu0, uu1, v0_, v1_, zb_), a_m)); _nmir += 1
     log.append(f'本館：光の筋の鏡面 {_nmir} 片（10m、梁の下端から屋根のガラスの下まで、v {SL_V[0]}〜{SL_GL}）')
+    # 光の筋をまたいで屋根の面をつなぐ（10-27、ユーザー・監修の略算、決定事項（共通）の「地震の力は骨格で受ける」）：光の筋で屋根の合板（水平構面）が
+    # 架構ごとの帯に切れるので、2 枚の梁の上端に溝をまたぐ鋼の平板 6×60（梁の上端に彫り込み、長さ 340＝両側の梁 90 にかかる）を約 0.9 mおき。
+    # 東の柱（v 11.78〜12.22）の所は柱が 2 枚の梁をつなぐので平板は無し。筋の両端（越屋根の東の立ち上がりの側・軒先の側）は溝をまたぐ縁の材
+    # （杉 60×150、垂木の高さ、鏡面のあいだ）。合板の端は筋の両側の小口の受け材（垂木の高さ）に釘打ちし、受け材は梁にビス留め。屋根の上からの見えは変えない。
+    L10K = new_layer('10k_本館_光の筋をまたぐつなぎ（鋼の平板・縁の材）', (120, 120, 125))
+    def _mjoin(ms_):
+        o_ = r.Mesh()
+        for q_ in ms_: o_.Append(q_)
+        o_.Normals.ComputeNormals(); o_.Compact(); return o_
+    _VK = [round(2.2 + 0.9 * i, 2) for i in range(14)]
+    _VK = [v_ for v_ in _VK if not (_COLS[0][0] - 0.1 <= v_ <= _COLS[0][1] + 0.1)]
+    _nk = 0
+    for u in SL_U:
+        _pl = []
+        for v_ in _VK:
+            _pl += slab(R(u - 0.17, u + 0.17, v_ - 0.03, v_ + 0.03, 0.05), RT_BOT - 6.0, RT_BOT)
+        a_k = r.ObjectAttributes(); a_k.LayerIndex = L10K; a_k.Name = f'光の筋をまたぐ鋼の平板 6×60（架構 u{u:.0f}、{len(_VK)} 枚、約 0.9 mおき）'
+        new_objs.append((_mjoin(_pl), a_k)); _nk += len(_VK)
+        for v0_, v1_, nm_ in ((SL_V[0], SL_V[0] + 0.06, '越屋根の側'), (SL_V[1] - 0.21, SL_V[1] - 0.15, '軒先の側')):
+            a_e = r.ObjectAttributes(); a_e.LayerIndex = L10K; a_e.Name = f'光の筋の端の縁の材（杉 60×150、{nm_}、架構 u{u:.0f}）'
+            a_e.ColorSource = r.ObjectColorSource.ColorFromObject; a_e.ObjectColor = (196, 160, 118, 255)
+            for mm in slab(R(u - SL_HALF + 0.003, u + SL_HALF - 0.003, v0_, v1_, 0.05), RT_BOT, RT_BOT + 150.0): new_objs.append((mm, a_e))
+    log.append(f'本館：光の筋をまたぐつなぎ（10k）：鋼の平板 {_nk} 枚（{len(SL_U)} 本の筋、約 0.9 mおき、東の柱の所は除く）と筋の両端の縁の材 {2 * len(SL_U)}')
 # 機械室（おむすび）に蓄電池の場所（ユーザー、10-23：夜と停電のときに使う、園は災害時の拠点にもなる）。
 # 機械室は 3dm では塊なので、中に箱を置いて場所だけ示す（約 1.2×2.0 = 2.4 m²、h1.6、家具程度）。
 L35 = lidx('35_')
