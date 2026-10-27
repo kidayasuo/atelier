@@ -549,7 +549,7 @@ for run in runs:
     ze_ = np.array([ze_[max(0, i - 5): i + 6].mean() for i in range(len(ze_))])   # 縁の高さの小さなぎざぎざをならす
     for i, e_ in enumerate(run): run[i] = e_ + (ze_[i], float(sl_[i]))
 def zt_tip(e_, dd): return e_[6] + e_[7] * (dd + 30.0)
-RT_W = 420.0                                     # 10-27：屋根に厚み（上面は梁の上端＝この面の 420 上）。軒樋・鎖樋は上面の先に合わせる
+RT_W = 109.0                                     # 10-27夜：屋根の上面は梁の上端＝この面の約 109 上（前は 420）。軒樋・鎖樋は上面の先に合わせる
 def zt_top(e_, dd): return zt_tip(e_, dd) + RT_W
 n_eave = 0; gut_line = []
 for run in runs:

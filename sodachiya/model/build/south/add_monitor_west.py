@@ -12,7 +12,7 @@ VOID=1600.0          # 西館の換気の吹抜（東の縁から d 0–1.6 m）
 Lyr={i:l.FullPath for i,l in enumerate(m.Layers)}
 roofm=[o.Geometry for o in m.Objects if Lyr[o.Attributes.LayerIndex]=='20_西館_屋根'][0]
 V=np.array([(roofm.Vertices[i].X,roofm.Vertices[i].Y,roofm.Vertices[i].Z) for i in range(len(roofm.Vertices))])
-RT=420.0             # 10-27（ユーザー・監修）：屋根に厚み。屋根の上面は梁の上端（この面）の 420 上なので、越屋根の物はみな 420 上げる
+RT=109.0             # 10-27夜（ユーザー、本館係の項 20261027-1937）：屋根の上面は梁の上端（この面）の約 109 上（前は 420）。越屋根の物はみなその分上げる
 V[:,2]+=RT
 ZTOP=V[:,2].max()
 E=V[V[:,2]>ZTOP-5][:,:2]
