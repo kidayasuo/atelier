@@ -797,12 +797,46 @@ ROOF_Z = lambda v: 4150.0 - v * 1000.0 / 12.0
 # 上面＝その 420 上（元の面の 270 上）。構成：太陽光 約40／野地板／通気層 45／透湿防水／木質繊維 t150（外張り）／気密／構造用合板 t24（現し）／垂木 60×150。
 # 元の面より上にあった物（光の筋のガラス・立ち上がり・太陽光・越屋根の蓋・ルーバー・LED・外壁と越屋根の立ち上がりの上端）は 270 上げる。
 RT_BOT, RT_TOP = -150.0, -41.0      # 10-27夜：梁の上端（RT_BOT）の上は通気垂木・野地・屋根材の約 110 だけ（断熱は梁のあいだ）
+# 10-27夜（ユーザー：曲線が見られるのは架構のみ。壁・ガラス・屋根の板は必ず平面で、断面は長方形を面に直角に押し出した形（妻の三角形は別））：
+# 屋根の面はスパンごとの平面（架構の線 u=3k と 3k+3 の弦の上）。前は v だけで高さを決めた円錐の面を細かく三角形にしていた。
+# 架構の線をまたぐ小さな物（光の筋のガラス・立ち上がり・鋼の平板）は、その架構の線の接線の平面。どちらも架構の線の上では元の高さと 0.1 mm 以内で一致する。
+from shapely.geometry.polygon import orient as _orient
+def _k_of(u): return int(min(18, max(0, math.floor(u / 3.0))))
+_PL = {}
+def _plane(key):
+    if key not in _PL:
+        if key[0] == 's':
+            A_ = xy(3.0 * key[1], 0.0); B_ = xy(3.0 * (key[1] + 1), 0.0); c_ = (B_ - A_) / np.linalg.norm(B_ - A_)
+        else:
+            A_ = xy(3.0 * key[1], 0.0); c_ = xy(3.0 * key[1] + 0.001, 0.0) - A_; c_ /= np.linalg.norm(c_)
+        h_ = np.array([c_[1], -c_[0]])
+        if np.dot(h_, xy(3.0 * key[1], 1.0) - A_) < 0: h_ = -h_                 # h は v の増える向き（東、下り）
+        n_ = np.array([h_[0] / 12.0, h_[1] / 12.0, 1.0]); n_ /= np.linalg.norm(n_)
+        _PL[key] = (A_, c_, h_, n_)
+    return _PL[key]
+def zpl(key, x, y):
+    A_, c_, h_, n_ = _plane(key)
+    return ROOF_Z(((x - A_[0]) * h_[0] + (y - A_[1]) * h_[1]) / 1000.0)
+def xyk(key, u, v):
+    """(u, v) をその平面の多角形の上の点に：スパンは弦、架構の線は接線（曲がらない）"""
+    if key[0] == 's':
+        k_ = key[1]; f_ = (u - 3.0 * k_) / 3.0
+        return xy(3.0 * k_, v) * (1.0 - f_) + xy(3.0 * (k_ + 1), v) * f_
+    j_ = key[1]; b_ = xy(3.0 * j_, v); t_ = xy(3.0 * j_ + 0.001, v) - b_; t_ /= np.linalg.norm(t_)
+    return b_ + (u - 3.0 * j_) * 1000.0 * (RW - v * 1000.0) / RW * t_
+def key_for(p):
+    cu = uv(p.centroid.x, p.centroid.y)[0]; j_ = int(round(cu / 3.0))
+    if 0 <= j_ <= 19 and abs(cu - 3.0 * j_) < 0.3: return ('f', j_)
+    return ('s', _k_of(cu))
+def straight(key, p):
+    def m_(ring): return [tuple(xyk(key, *uv(x, y))) for x, y in np.asarray(ring.coords)]
+    q = Polygon(m_(p.exterior), [m_(h) for h in p.interiors]).buffer(0)
+    return q.simplify(0.5) if q.geom_type == 'Polygon' else max(getattr(q, 'geoms', [q]), key=lambda g_: g_.area).simplify(0.5)
 def zuv(x, y): return ROOF_Z(uv(x, y)[1])
 def _rdz(dz, x, y): return dz(*uv(x, y)) if callable(dz) else dz      # 10-27夜：屋根の面からの高さは (u, v) の関数でもよい（軒の細らせ）
 _SPAN_STRIPS = None
 def _by_span(poly):
-    """10-27夜（監修の項 20261027-2020 の 3）：屋根の面は v だけで高さが決まる弧の面なので、大きな多角形をそのまま三角形に分けると
-    面の境が棟から軒へ斜めに走って折れる。架構の線（u = 3(k−1)）でスパンごとに切ってから分ける"""
+    """10-27夜（監修の項 20261027-2020 の 3）：架構の線（u = 3k）でスパンごとに切る（屋根の面はスパンごとの平面）"""
     global _SPAN_STRIPS
     if _SPAN_STRIPS is None:
         _SPAN_STRIPS = [R(3.0 * k, 3.0 * (k + 1), -6.0, 17.0, 0.25) for k in range(-3, 21)]
@@ -810,58 +844,63 @@ def _by_span(poly):
     out = []
     for p in ps:
         if p.geom_type != 'Polygon' or p.area < 1e3: continue
-        b_ = [uv(x, y)[0] for x, y in np.asarray(p.exterior.coords)]
-        if max(b_) - min(b_) <= 3.05: out.append(p); continue
         for st in _SPAN_STRIPS:
+            if not st.intersects(p): continue
             q = p.intersection(st)
             for g_ in ([q] if q.geom_type == 'Polygon' else [x for x in getattr(q, 'geoms', []) if x.geom_type == 'Polygon']):
                 if g_.area >= 1e3: out.append(g_)
     return out
+def _plate(p, key, dz0, dz1, vert=False):
+    """平面形 p（その平面の多角形の上、穴あり可）を、屋根の面から dz0〜dz1 の閉じた板に。
+    ふつうは屋根の面に直角に押し出す（下の面を屋根の面から dz0（鉛直に測る）の平面に置き、法線の向きに）。
+    vert=True は鉛直の板（平面形が細く、面が鉛直：外皮の線の固定ガラスなど）：上下の縁は水平、横は鉛直。"""
+    A_, c_, h_, n_ = _plane(key); p = _orient(p, 1.0)
+    rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(hh.coords)[:-1] for hh in p.interiors]
+    V2 = np.vstack(rings); n = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+    tri_ = _ec.triangulate_float64(V2, ends).reshape(-1, 3)
+    mm = r.Mesh()
+    if vert:
+        cz = zpl(key, *V2.mean(0))
+        for dz in (dz0, dz1):
+            for x, y in V2: mm.Vertices.Add(float(x), float(y), float(cz + dz))
+    else:
+        t_ = (dz1 - dz0) * n_[2]
+        for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zpl(key, x, y) + dz0))
+        for x, y in V2:
+            z0_ = zpl(key, x, y) + dz0
+            mm.Vertices.Add(float(x + t_ * n_[0]), float(y + t_ * n_[1]), float(z0_ + t_ * n_[2]))
+    for a, b, c in tri_: mm.Faces.AddFace(int(a), int(c), int(b)); mm.Faces.AddFace(int(a + n), int(b + n), int(c + n))
+    st = 0
+    for e in ends:
+        for i in range(st, int(e)):
+            j = i + 1 if i + 1 < e else st; mm.Faces.AddFace(i, j, j + n, i + n)
+        st = int(e)
+    mm.Normals.ComputeNormals(); mm.Compact()
+    return mm
 def sheet(poly, dz, li, col=None, mat=None):
-    """平面形（穴あり可）を屋根の面から dz 上に、屋根と平行な面で"""
+    """平面形（穴あり可）を屋根の面から dz 上に、屋根と平行な面で（スパンごとの平面）"""
     ms = []
     for p in _by_span(poly):
-        p = p.simplify(1.0)
+        key = ('s', _k_of(uv(p.centroid.x, p.centroid.y)[0])); p = straight(key, p)
         rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
         V2 = np.vstack(rings); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
         tri_ = _ec.triangulate_float64(V2, ends).reshape(-1, 3)
         mm = r.Mesh()
-        for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zuv(x, y) + _rdz(dz, x, y)))
+        for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zpl(key, x, y) + dz))
         for a, b, c in tri_: mm.Faces.AddFace(int(a), int(b), int(c))
         mm.Normals.ComputeNormals(); mm.Compact(); ms.append(mm)
     return ms
-def slab(poly, dz0, dz1):
-    """屋根の面から dz0〜dz1（屋根と平行）の板"""
+def slab(poly, dz0, dz1, vert=False):
+    """屋根の面から dz0〜dz1 の板（架構の線の上の物はその接線の平面、ほかはスパンの平面。切らない）"""
     out_ = []
     for p in ([poly] if poly.geom_type == 'Polygon' else list(poly.geoms)):
-        p = p.simplify(0.5); V2 = np.asarray(p.exterior.coords)[:-1]; n = len(V2)
-        tri_ = _ec.triangulate_float64(V2, np.array([n], dtype=np.uint32)).reshape(-1, 3)
-        mm = r.Mesh()
-        for dz in (dz0, dz1):
-            for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zuv(x, y) + _rdz(dz, x, y)))
-        for a, b, c in tri_: mm.Faces.AddFace(int(a), int(c), int(b)); mm.Faces.AddFace(int(a + n), int(b + n), int(c + n))
-        for i in range(n):
-            j = (i + 1) % n; mm.Faces.AddFace(i, j, j + n, i + n)
-        mm.Normals.ComputeNormals(); mm.Compact(); out_.append(mm)
+        key = key_for(p); out_.append(_plate(straight(key, p), key, dz0, dz1, vert))
     return out_
 def thick(poly, dz0, dz1):
-    """平面形（穴あり可）を屋根の面から dz0〜dz1 の閉じた板に（屋根と平行）"""
+    """平面形（穴あり可）をスパンごとに切り、屋根の面から dz0〜dz1 の閉じた板に（屋根の面に直角に押し出す）"""
     out_ = []
     for p in _by_span(poly):
-        p = p.simplify(0.5)
-        rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
-        V2 = np.vstack(rings); n = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
-        tri_ = _ec.triangulate_float64(V2, ends).reshape(-1, 3)
-        mm = r.Mesh()
-        for dz in (dz0, dz1):
-            for x, y in V2: mm.Vertices.Add(float(x), float(y), float(zuv(x, y) + _rdz(dz, x, y)))
-        for a, b, c in tri_: mm.Faces.AddFace(int(a), int(c), int(b)); mm.Faces.AddFace(int(a + n), int(b + n), int(c + n))
-        st = 0
-        for e in ends:
-            for i in range(st, int(e)):
-                j = i + 1 if i + 1 < e else st; mm.Faces.AddFace(i, j, j + n, i + n)
-            st = int(e)
-        mm.Normals.ComputeNormals(); mm.Compact(); out_.append(mm)
+        key = ('s', _k_of(uv(p.centroid.x, p.centroid.y)[0])); out_.append(_plate(straight(key, p), key, dz0, dz1))
     return out_
 def new_layer(name, rgb, mat=None):
     for i, l in enumerate(m.Layers):
@@ -930,24 +969,57 @@ if src is not None:
     BAYS = P_IN.intersection(_BIG(0.0, 57.19, -3.0, VE)).difference(BEAMS)
     if kind_ == 'new': new_objs.pop(i0)
     else: drop.add(str(at0.Id))
-    for mm in thick(P_IN, RT_BOT, RT_TOP): new_objs.append((mm, at0))
-    for mm in thick(P_EAST, RT_BOT, f_top): new_objs.append((mm, at0))
+    # 10-27夜（ユーザー：屋根の板は必ず平面、長方形を面に直角に押し出した形。南の軒は屋根の面を一枚のまま）：梁の上の約 110 を
+    # 通気垂木 45（10b、60×45 @455、勾配の方向）と、その上の野地＋屋根材 64（10）の板に分ける。屋根の面は折れの無い一枚（スパンごとの平面）。
+    # 軒は細らせず、野地＋屋根材の板を通気垂木の先から 150 持ち出して、軒先の見付けを 64 に（東の軒・南の軒とも）。
+    at0.Name = '野地 t24＋屋根材と屋根材型の太陽光 40（梁の上、通気垂木の上）'
+    for mm in thick(P_ROOF, RT_TOP - EAVE_TIP, RT_TOP): new_objs.append((mm, at0))
+    L10B = new_layer('10b_本館_通気垂木（杉 60×45 @455、勾配の方向）', (196, 160, 118))
+    def _batten(key, P0, L_, W=60.0):
+        A_, c_, h_, n_ = _plane(key)
+        q_ = Polygon([P0 - W / 2 * c_, P0 + W / 2 * c_, P0 + W / 2 * c_ + L_ * h_, P0 - W / 2 * c_ + L_ * h_])
+        return q_
+    _nb = 0
+    a_b = r.ObjectAttributes(); a_b.LayerIndex = L10B; a_b.Name = '通気垂木 杉 60×45（勾配の方向、長ビスで母屋へ）'
+    for k_ in range(19):
+        key = ('s', k_)
+        for i_ in range(6):
+            ub = 3.0 * k_ + 0.30 + 0.455 * i_
+            P0 = xyk(key, ub, SL_V[0] - 0.06)
+            q_ = _batten(key, P0, (V_TIP - 0.15 - SL_V[0] + 0.06) * 1000.0).intersection(P_ROOF.buffer(1.0))
+            for g_ in ([q_] if q_.geom_type == 'Polygon' else [x for x in getattr(q_, 'geoms', []) if x.geom_type == 'Polygon']):
+                if g_.area < 0.02e6: continue
+                new_objs.append((_plate(g_.simplify(0.5), key, RT_BOT, RT_TOP - EAVE_TIP), a_b)); _nb += 1
     a_in = r.ObjectAttributes(); a_in.LayerIndex = L10; a_in.Name = '断熱 木質繊維ボード t150（梁のあいだ、上面＝梁の上端）'
     for mm in thick(BAYS, INS_BOT, RT_BOT): new_objs.append((mm, a_in))
     a_r = r.ObjectAttributes(); a_r.LayerIndex = L10R; a_r.Name = '構造用合板 t24（母屋の上、天井に現し、気密はこの上）'
     for mm in thick(BAYS, PLY_BOT, INS_BOT): new_objs.append((mm, a_r))
     if EAVE is not None:
-        for mm in thick(EAVE, RT_BOT, f_top): new_objs.append((mm, EAVE_AT))
+        EAVE_AT.Name = '南の軒：野地 t24＋屋根材と屋根材型の太陽光 40（通気垂木の先から 150 持ち出し、軒先の見付け 64）'
+        for mm in thick(EAVE, RT_TOP - EAVE_TIP, RT_TOP): new_objs.append((mm, EAVE_AT))
+        key0 = ('s', 0); EAVE_S = straight(key0, EAVE if EAVE.geom_type == 'Polygon' else max(EAVE.geoms, key=lambda g_: g_.area))
+        EIN = EAVE_S.buffer(-150.0, join_style=2)
+        ub = -0.30
+        while ub > -6.0:
+            P0 = xyk(key0, ub, -1.0)
+            q_ = _batten(key0, P0, 17000.0).intersection(EIN)
+            for g_ in ([q_] if q_.geom_type == 'Polygon' else [x for x in getattr(q_, 'geoms', []) if x.geom_type == 'Polygon']):
+                if g_.area < 0.02e6: continue
+                new_objs.append((_plate(g_.simplify(0.5), key0, RT_BOT, RT_TOP - EAVE_TIP), a_b)); _nb += 1
+            ub -= 0.455
+    log.append(f'本館：通気垂木 {_nb} 本（10b、60×45 @455、軒先の 150 手前まで）、野地＋屋根材 64 の板は折れの無い一枚（スパンごとの平面）')
     # 南の軒の骨（ユーザー 10-27夜、案 A）：塀（柵＝一本の線 v1.6、乳児の庭の外）の軒先に柱を一本、それより東は鋼の片持ちの骨（黒）で受ける。
     # 骨は約 1.5 mおき、架構 1 の梁の南の面（u −0.18）から軒先の 50 手前まで、上端＝梁の上端（軒の板の下）、せいは根元 200 → 先端 100（H-200×100 を細らせる）。
     # 骨の上の引っぱりは通気層の中の鋼の平板で架構 2 へ返す（3dm には描かない）。軒先の板の中に鋼の縁の材（骨の先をつなぎ、西の端は柱から持ち出す）。
     if EAVE is not None:
         L10S = new_layer('10s_本館_南の軒の鋼の骨と柱（黒）', (40, 40, 42))
         def _box(pts_uv, zf0, zf1):
-            mm = r.Mesh()
+            # 10-27夜：骨は真っすぐ（スパン 0 の弦と平行）、鉛直に立てる（フランジは水平、ウェブは鉛直の平らな板）
+            mm = r.Mesh(); zc_ = zpl(('s', 0), *xyk(('s', 0), pts_uv[0][0], 0.5 * (pts_uv[0][1] + pts_uv[2][1])))
             for zf in (zf0, zf1):
                 for (uu_, vv_) in pts_uv:
-                    x_, y_ = xy(uu_, vv_); mm.Vertices.Add(float(x_), float(y_), float(ROOF_Z(vv_) + zf(uu_, vv_)))
+                    x_, y_ = xyk(('s', 0), uu_, 0.5 * (pts_uv[0][1] + pts_uv[2][1])) + (vv_ - 0.5 * (pts_uv[0][1] + pts_uv[2][1])) * 1000.0 * _plane(('s', 0))[2]
+                    mm.Vertices.Add(float(x_), float(y_), float(zc_ + zf(uu_, vv_)))
             n_ = len(pts_uv)
             mm.Faces.AddFace(0, 3, 2, 1); mm.Faces.AddFace(n_, n_ + 1, n_ + 2, n_ + 3)
             for i_ in range(n_):
@@ -955,7 +1027,7 @@ if src is not None:
             mm.Normals.ComputeNormals(); mm.Compact(); return mm
         _nrib = 0
         for vc in [0.10] + [round(1.6 + 1.5 * i, 2) for i in range(9)] + [14.90]:
-            ue = u_edge(vc) + 0.05; u0r = -0.18
+            ue = u_edge(vc) + 0.15; u0r = -0.18            # 10-27夜：通気垂木と同じく軒先の 150 手前まで（軒先は野地＋屋根材 64 だけ）
             if ue > u0r - 0.3: continue
             dep = lambda uu_, vv_, ue=ue: -(200.0 + (100.0 - 200.0) * (uu_ - u0r) / (ue - u0r))
             a_s = r.ObjectAttributes(); a_s.LayerIndex = L10S; a_s.Name = f'南の軒の鋼の骨（片持ち、H-200×100 を細らせる、v {vc:.2f}）'
@@ -986,11 +1058,35 @@ if src is not None:
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_V[0] - 0.1, SL_V[0], 0.05), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))      # 立ち上がり（西の端）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, VE - 0.05, VE, 0.05), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))              # 立ち上がり（東の端、外皮の線）
         for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, VE, 0.2), RT_TOP + 60.0, RT_TOP + 72.0): new_objs.append((mm, at_g))     # 乳白ガラス（複層、外皮の線まで）
-        for mm in slab(R(u - SL_HALF, u + SL_HALF, VE, V_TIP, 0.2), lambda u_, v_: f_top(u_, v_) - 12.0, f_top): new_objs.append((mm, at_g))     # 東の軒の筋：屋根の面にそろえた合わせガラス t12（外なので単板）
-        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, RT_TOP + 60.0): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス（複層）
+        for mm in slab(R(u - SL_HALF, u + SL_HALF, VE, V_TIP, 0.2), RT_TOP - 12.0, RT_TOP): new_objs.append((mm, at_g))     # 東の軒の筋：屋根の面にそろえた合わせガラス t12（外なので単板）
+        for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, RT_TOP + 60.0, vert=True): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス（複層）
         for uu in (u - SL_HALF - 0.012, u + SL_HALF):                                                                       # 筋の内側の板（上の層の小口をふさぐ）
             for mm in slab(R(uu, uu + 0.012, SL_V[0], VE, 0.2), RT_BOT, RT_TOP): new_objs.append((mm, a10))
-            for mm in slab(R(uu, uu + 0.012, VE, V_TIP, 0.2), RT_BOT, f_top): new_objs.append((mm, a10))
+            for mm in slab(R(uu, uu + 0.012, VE, V_TIP, 0.2), RT_TOP - EAVE_TIP, RT_TOP): new_objs.append((mm, a10))
+    def _purlin_box(k_, vc, ztop, q_, W=60.0, D=150.0):
+        """10-27夜（ユーザー：母屋が長方形の押し出しでないのは変）：母屋は 60×150 の長方形の断面の真っすぐな材。
+        軸はスパンの弦（架構の線 u=3k と 3k+3 の v=vc を結ぶ水平線）、断面は屋根の勾配（1/12）に直角に傾けた長方形
+        （上の面が合板・梁の上端の面に沿う）、端は軸に直角（梁の側面とは 0.4° 以下の差で、すき間 0.5 mm 以下）。
+        前は平面形を屋根の面から上下に押し出したので、断面が平行四辺形（縦の辺が鉛直、上下が勾配）だった。"""
+        A_, B_ = xy(3.0 * k_, vc), xy(3.0 * (k_ + 1), vc)
+        c_ = (B_ - A_) / np.linalg.norm(B_ - A_)
+        h_ = np.array([c_[1], -c_[0]])
+        if np.dot(h_, xy(3.0 * k_ + 1.5, vc + 1.0) - xy(3.0 * k_ + 1.5, vc)) < 0: h_ = -h_      # h は v の増える向き（東）
+        P_ = np.asarray(q_.exterior.coords)[:-1] - A_
+        s0_, s1_ = float((P_ @ c_).min()), float((P_ @ c_).max())
+        z_top = ROOF_Z(vc) + ztop
+        t_ = np.array([1.0, -1.0 / 12.0]); t_ /= np.linalg.norm(t_)      # 勾配の向き（h, z）
+        n_ = np.array([-t_[1], t_[0]])                                    # 屋根の面に直角、上向き
+        sec = [W / 2 * t_, -W / 2 * t_, -W / 2 * t_ - D * n_, W / 2 * t_ - D * n_]
+        V_ = np.array([[*(A_ + s_ * c_ + hh * h_), z_top + zz] for s_ in (s0_, s1_) for hh, zz in sec])
+        F_ = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
+        vol = sum(np.dot(V_[f[0]], np.cross(V_[f[i]] - V_[f[0]], V_[f[i + 1]] - V_[f[0]])) for f in F_ for i in (1, 2))
+        if vol < 0: F_ = [f[::-1] for f in F_]                            # 面を外向きに
+        mm = r.Mesh()
+        for x_, y_, z_ in V_: mm.Vertices.Add(float(x_), float(y_), float(z_))
+        for f_ in F_: mm.Faces.AddFace(*f_)
+        mm.Normals.ComputeNormals(); mm.Compact()
+        return mm
     # 母屋：梁と梁のあいだ（2 枚組の外の面 u ± 0.18 のあいだ）を桁の方向に渡す。室内は合板の下（PUR_BOT〜PLY_BOT）、v 1.79 から 455 おき、
     # 外皮の線の杉の壁（v13.465〜13.6）の手前 v13.40 まで。軒の下は梁の上端にそろえて落とし込む（v13.66・14.11・14.56、軒先の 0.4 手前まで）。
     _nr = 0
@@ -1003,7 +1099,7 @@ if src is not None:
             for q_ in ([seg] if seg.geom_type == 'Polygon' else [g_ for g_ in getattr(seg, 'geoms', []) if g_.geom_type == 'Polygon']):
                 if q_.area < 0.02e6: continue
                 a_rf = r.ObjectAttributes(); a_rf.LayerIndex = L10V; a_rf.Name = f'母屋 杉 60×150（v {vc:.2f}{"、軒の下" if vc > VE else ""}）'
-                for mm in thick(q_, z0_, z1_): new_objs.append((mm, a_rf)); _nr += 1
+                new_objs.append((_purlin_box(k_, vc, z1_, q_), a_rf)); _nr += 1
     log.append(f'本館：屋根の構成（10-27夜）：母屋 {_nr} 本（10v）・合板 t24（10r）・断熱 t150 は梁のあいだ、梁の上は {RT_TOP - RT_BOT:.0f}、'
                f'東の軒は軒先で {EAVE_TIP:.0f}')
     ALL = unary_union([RP, EAVE.buffer(1.0)]).buffer(-1.0) if EAVE is not None else RP
@@ -1013,7 +1109,7 @@ if src is not None:
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
     _TAPER = unary_union([_BIG(0.0, 60.0, VE, 16.0), _BIG(-10.0, 0.0, -3.0, 16.0)]); pv_e = pv.intersection(_TAPER); pv_i = pv.difference(_TAPER)
     for mm in sheet(pv_i, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))
-    for mm in sheet(pv_e, lambda u_, v_: f_top(u_, v_) + 20.0, L10P): new_objs.append((mm, a_pv))           # 東の軒の上も屋根の面に沿って切れ目なく
+    for mm in sheet(pv_e, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))           # 東の軒の上も屋根の面に沿って切れ目なく
     # 軒の見張り（ユーザー 10-27：軒は細くスマートに。約200でも分厚い。非常に重要なので後で壊さないように）：東の軒先（v 14.9〜15.0、架構 2〜19 のあいだ）に
     # 載る屋根の物のいちばん下からいちばん上までが EAVE_MAX を超えたら作り直しを止める。軒を厚くする直しは、ユーザーに聞いてから。
     EAVE_MAX = 80.0
@@ -1038,7 +1134,7 @@ if src is not None:
     VENTS = [(19.5, '静養室'), (31.5, '多目的便所'), (41.1, '職員の個室'), (10.5, '0・1歳のおむつ替え・沐浴')]
     for uu, nm in VENTS:
         a_v = r.ObjectAttributes(); a_v.LayerIndex = L50D; a_v.Name = f'換気扇の吹き出し口（{nm}、φ100、逆流止め）'
-        for mm in slab(R(uu - 0.3, uu + 0.3, 1.56, 1.64, 0.05), RT_TOP + 175.0, RT_TOP + 305.0): new_objs.append((mm, a_v))
+        for mm in slab(R(uu - 0.3, uu + 0.3, 1.56, 1.64, 0.05), RT_TOP + 175.0, RT_TOP + 305.0, vert=True): new_objs.append((mm, a_v))
     log.append(f'本館：換気扇の吹き出し口 {len(VENTS)} か所（越屋根の東の口）')
     # 光の筋は鏡面の光ダクト（ユーザー 10-26夜、決定事項（共通）の「屋根の構成」）：溝（2 枚の梁のあいだ 180）の両側を、ガラスの下から梁の下端まで
     # 鏡面のアルミ t2 で張る（反射率 約0.95）。室内の分（v 1.76〜13.5、外皮の線の固定ガラスまで）。溝の下の端はふさがない。
@@ -1708,6 +1804,114 @@ for o in m.Objects:
 for mm, at in new_objs:
     if at.LayerIndex in _LUP: _nr += _raise(mm, LN[at.LayerIndex])
 log.append(f'本館：屋根の上面（梁の上端から {RT_TOP - RT_BOT:.0f}、元の面の {RT_TOP:+.0f}）に合わせて {_nr} 物の上端を上げた・北の妻の上端を屋根の下面へ')
+# ================================================================ 本館：壁・ガラス・建具を平らな板に（本館係、10-27夜）
+# ユーザー（10-27夜）：曲線が見られるのは架構のみ。壁やガラスは必ず平面で、長方形（妻は三角形もある）の形を面に直角に押し出したもの。
+# 前は弧（r = 205 m など）に沿って約 1 m ごとに折れ、端の面が放射の線（面と直角でない）、屋根の下の上端が厚みの向きに傾いていた。
+# 壁・ガラス・建具の一つずつを、立面の形（面に投影した輪郭、穴あり）× 厚み に作り直す：
+#   u の向きに走る物（西の外壁・縁側の杉の壁・ガラス戸・鴨居など）はスパンごとの弦の上で真っすぐ、厚みは弦に直角。
+#   v の向きに走る物（妻・袖壁）は放射の線の上で真っすぐ、厚みはそれに直角。
+# 立面の形は表と裏の面の輪郭の重なり（屋根の下で厚みの向きに傾いていた上端は低い方にそろう）。体積が 6% 以上変わる物は作り直さずに残して数える。
+_SQ_PRE = ('17_', '17g', '16_', '16b', '16d', '16o', '16h', '16i', '16s', '18_', '19e', '48_', '66_')
+def _sq_tris(g):
+    V = np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))]); T = []
+    for i in range(len(g.Faces)):
+        f = g.Faces[i]; T.append((f[0], f[1], f[2]))
+        if f[2] != f[3]: T.append((f[0], f[2], f[3]))
+    return V, np.array(T)
+def _sq_vol(V, T): return abs(trimesh.Trimesh(V - V.mean(0), T, process=False).volume)
+def _sq_prism(prof, P_of, off):
+    """prof：立面の形（(a, z) の多角形、mm）、P_of(a, z) → 表の面の点（x, y, z）、off：厚みのベクトル（裏の面へ）"""
+    ms = []
+    for p in ([prof] if prof.geom_type == 'Polygon' else list(getattr(prof, 'geoms', []))):
+        if p.geom_type != 'Polygon' or p.area < 50.0: continue
+        p = _orient(p.simplify(0.3), 1.0)
+        rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
+        V2 = np.vstack(rings); n = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+        tri_ = _ec.triangulate_float64(V2, ends).reshape(-1, 3)
+        V = np.array([P_of(a, z) for a, z in V2]); V = np.vstack([V, V + off])
+        F = [(a, c, b) for a, b, c in tri_] + [(a + n, b + n, c + n) for a, b, c in tri_]
+        st = 0
+        for e in ends:
+            for i in range(st, int(e)):
+                j = i + 1 if i + 1 < e else st; F.append((i, j, j + n)); F.append((i, j + n, i + n))
+            st = int(e)
+        F = np.array(F)
+        if np.einsum('ij,ij->i', V[F[:, 0]], np.cross(V[F[:, 1]], V[F[:, 2]])).sum() < 0: F = F[:, ::-1]
+        mm = r.Mesh()
+        for x_, y_, z_ in V: mm.Vertices.Add(float(x_), float(y_), float(z_))
+        for a, b, c in F: mm.Faces.AddFace(int(a), int(b), int(c))
+        mm.Normals.ComputeNormals(); mm.Compact(); ms.append(mm)
+    return ms
+def _square(g):
+    V, T = _sq_tris(g)
+    if len(T) < 4: return None
+    U = np.array([uv(x, y) for x, y in V[:, :2]]); u0, v0 = U.min(0); u1, v1 = U.max(0)
+    if u1 < -0.6 or u0 > 57.9 or v0 < -0.6 or v1 > 15.2: return None        # 本館の外（西館・外構）は触らない
+    du, dv = u1 - u0, v1 - v0
+    A, B, C = V[T[:, 0]], V[T[:, 1]], V[T[:, 2]]
+    N = np.cross(B - A, C - A); ar = np.linalg.norm(N, axis=1); ok = ar > 1e-6
+    N[ok] /= ar[ok, None]; cen = (A + B + C) / 3.0
+    along_u = dv <= du
+    # 面の向き：u に走る物は v の向き（放射）、v に走る物は u の向き（接線）
+    rad = np.array([[x - CX, y - CY] for x, y in cen[:, :2]]); rad /= np.linalg.norm(rad, axis=1)[:, None]
+    tan = np.stack([-rad[:, 1], rad[:, 0]], 1)
+    ax = rad if along_u else tan
+    d = np.einsum('ij,ij->i', N[:, :2], ax)
+    profs = []
+    for sgn in (1, -1):
+        sel = ok & (np.abs(N[:, 2]) < 0.05) & (sgn * d > 0.95)
+        if not sel.any(): continue
+        ps = []
+        for t_ in np.where(sel)[0]:
+            tri = T[t_]; q = [((U[i, 0] if along_u else U[i, 1]) * 1000.0, V[i, 2]) for i in tri]
+            pg = Polygon(q)
+            if pg.area > 1e-3: ps.append(pg.buffer(0.05, join_style=2))
+        if ps: profs.append(unary_union(ps).buffer(-0.05, join_style=2))
+    if not profs: return None
+    if len(profs) == 1: prof = profs[0]
+    else:
+        # ふつうは表と裏の重なり（屋根の下で厚みの向きに傾いた上端は低い方に）。大きく違う（越屋根の立ち上がりを兼ねる西の外壁の上端など）ときは高い方に
+        prof = profs[0].intersection(profs[1])
+        if prof.area < 0.97 * max(profs[0].area, profs[1].area): prof = profs[0].union(profs[1])
+    if prof.is_empty or prof.area < 100.0: return None
+    out_ = []
+    if along_u:
+        t0, t1 = v0, v1
+        for k_ in range(-2, 21):
+            part = prof.intersection(Polygon([(3000.0 * k_, -1e4), (3000.0 * (k_ + 1), -1e4), (3000.0 * (k_ + 1), 1e5), (3000.0 * k_, 1e5)]))
+            if part.is_empty or part.area < 50.0: continue
+            key = ('s', min(18, max(0, k_))); A_, c_, h_, n_ = _plane(key)
+            P_of = lambda a, z, key=key: np.array([*xyk(key, a / 1000.0, t0), z])
+            out_ += _sq_prism(part, P_of, np.array([*(h_ * (t1 - t0) * 1000.0), 0.0]))
+    else:
+        t0, t1 = u0, u1; vm = 0.5 * (v0 + v1)
+        b_ = xy(t0, vm); tv = xy(t0 + 0.001, vm) - b_; tv /= np.linalg.norm(tv)
+        rv = xy(t0, vm + 0.001) - b_; rv /= np.linalg.norm(rv)
+        P_of = lambda a, z: np.array([*(b_ + (a / 1000.0 - vm) * 1000.0 * rv), z])
+        out_ += _sq_prism(prof, P_of, np.array([*(tv * (t1 - t0) * 1000.0 * (RW - vm * 1000.0) / RW), 0.0]))
+    if not out_: return None
+    v_old = _sq_vol(V, T); v_new = sum(_sq_vol(*_sq_tris(q)) for q in out_)
+    if v_old <= 0 or abs(v_new - v_old) / v_old > 0.06: return 'skip'
+    return out_
+_sq_n = _sq_k = 0; _sq_skip = []
+_sq_new = []
+for o in m.Objects:
+    if str(o.Attributes.Id) in drop or not isinstance(o.Geometry, r.Mesh) or not LN[o.Attributes.LayerIndex].startswith(_SQ_PRE): continue
+    res_ = _square(o.Geometry)
+    if res_ is None: continue
+    if res_ == 'skip': _sq_skip.append(LN[o.Attributes.LayerIndex][:3]); continue
+    drop.add(str(o.Attributes.Id)); _sq_new += [(q, o.Attributes) for q in res_]; _sq_n += 1; _sq_k += len(res_)
+_keep = []
+for mm, at in new_objs:
+    if isinstance(mm, r.Mesh) and m.Layers[at.LayerIndex].Name.startswith(_SQ_PRE):
+        res_ = _square(mm)
+        if res_ is not None and res_ != 'skip':
+            _sq_new += [(q, at) for q in res_]; _sq_n += 1; _sq_k += len(res_); continue
+        if res_ == "skip": _sq_skip.append(m.Layers[at.LayerIndex].Name[:3])
+    _keep.append((mm, at))
+new_objs[:] = _keep + _sq_new
+from collections import Counter as _Ct
+log.append(f'本館：壁・ガラス・建具 {_sq_n} 物を平らな板（立面の形×厚み、スパンごとに真っすぐ）に作り直した（{_sq_k} 片）。作り直さなかった物 {len(_sq_skip)}（体積の差 6% 以上）：{dict(_Ct(_sq_skip))}')
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
