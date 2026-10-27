@@ -658,6 +658,53 @@ for uc, vc in _BOXC:
     _xbox(uc - 0.06, uc + 0.06, vc - 0.06, vc + 0.06, 0.0, 3170.0, L22A, f'階段の箱の柱 120×120（骨格の耐力壁、u{uc:.2f}）')
 _xbox(STAIR_DOOR[0] - 0.12, STAIR_DOOR[1] + 0.12, -4.94, -5.06, 1750.0, 1930.0, L22D, '階段の箱の倉庫の戸のまぐさ（120×180）')
 log.append(f'西館：階段の箱を骨格の耐力壁に（柱 {len(_BOXC)} 本 120×120、倉庫の戸のまぐさ、u30・u33 の床梁を受ける）')
+# 6) 階段の上の頭のあき（10-28、監修の項 20261028-0015 の 1）：u33 の 2 階の床梁（2 枚組 u32.82〜33.18、下端 z2400）が
+#    階段（1 本目の上の段・踊り場・2 本目の下の段）の上を横切り、踊り場の上のあきが 0.78 m だった。梁を階段の箱の東西の壁の内面
+#    （v−3.05・−4.94）のあいだで切り、東の片・西の片に分ける。梁の端は箱の壁と、その下の柱（u33、v−2.99・−5.0）が受ける（3e の 5）。
+#    押し出しのまま：輪郭の制御点のうち切る側にあるものを切り口の線（u 一定の放射の線の上で v＝切り口）へ寄せ、z を梁の上下端
+#    （2400〜3200）に収める。寄せた点は同じ点・同じ線に重なるので、切り口は縦の平らな面になる。穴（端の桁の穴）は残る片のほうに。
+#    u30.13 の梁は 2 階の着き口（u30〜30.9）の下で、下は 1 階の登り口・倉庫（あき 2.4 m）なので切らない。
+STAIR_CUT_V = (-4.94, -3.05)
+def _cut_beam(g, keep_east):
+    vc = STAIR_CUT_V[1] if keep_east else STAIR_CUT_V[0]
+    zb_ = min(p[2] for p in extedit.samples(g, 400) if STAIR_CUT_V[0] < uv(p[0], p[1])[1] < STAIR_CUT_V[1])
+    zt_ = max(p[2] for p in extedit.samples(g, 400) if STAIR_CUT_V[0] < uv(p[0], p[1])[1] < STAIR_CUT_V[1])
+    pl = g.GetProfilePlane(0.0)
+    O = np.array([pl.Origin.X, pl.Origin.Y, pl.Origin.Z])
+    X = np.array([pl.XAxis.X, pl.XAxis.Y, pl.XAxis.Z]); Y = np.array([pl.YAxis.X, pl.YAxis.Y, pl.YAxis.Z])
+    curves2d = []
+    for k_, nc in enumerate(extedit.profiles3d(g)):
+        W = extedit._weights(nc); P = extedit._pts(nc)
+        V_ = np.array([uv(x_, y_) for x_, y_ in P[:, :2]])
+        if k_ > 0:                                                    # 穴：残る片の側のものだけ
+            if (V_[:, 1].mean() > vc) != keep_east: continue
+        else:
+            cut = V_[:, 1] < vc if keep_east else V_[:, 1] > vc
+            for i in np.where(cut)[0]:
+                x_, y_ = xy(V_[i, 0], vc); P[i, 0], P[i, 1] = float(np.ravel(x_)[0]) if np.ndim(x_) else x_, float(np.ravel(y_)[0]) if np.ndim(y_) else y_
+                P[i, 2] = min(max(P[i, 2], zb_), zt_)
+        Q = np.c_[(P - O) @ X, (P - O) @ Y, np.zeros(len(P))]
+        extedit._set_pts(nc, Q, W); curves2d.append(nc)
+    e = r.Extrusion()
+    if not e.SetPathAndUp(g.PathStart, g.PathEnd, pl.YAxis): return None
+    if not e.SetOuterProfile(curves2d[0], True): return None
+    for c2 in curves2d[1:]:
+        if not e.AddInnerProfile(c2): return None
+    return e
+_n_cut = 0
+for o in list(m.Objects):
+    if o.Attributes.LayerIndex != L22C: continue
+    k_ = str(o.Attributes.Id); g = cur_g(o)
+    if not isinstance(g, r.Extrusion) or k_ in beam_drop: continue
+    ua_, ub_ = uv(g.PathStart.X, g.PathStart.Y)[0], uv(g.PathEnd.X, g.PathEnd.Y)[0]
+    if not (32.7 < min(ua_, ub_) and max(ua_, ub_) < 33.3): continue
+    eE, eW = _cut_beam(g, True), _cut_beam(g, False)
+    if eE is None or eW is None: continue
+    EXT[k_] = eE
+    at_ = r.ObjectAttributes(); at_.LayerIndex = o.Attributes.LayerIndex
+    at_.Name = (o.Attributes.Name or '2 階の床梁') + '（階段の上で切った西の片、10-28）'
+    _XNEW.append((eW, at_)); _n_cut += 1
+log.append(f'西館：u33 の 2 階の床梁 {_n_cut} 枚を階段の上（v{STAIR_CUT_V[0]}〜{STAIR_CUT_V[1]}、箱の東西の壁の内面のあいだ）で切った（端は箱の壁と柱が受ける）')
 
 # ================================================================ 屋根の下面（西館 20・本館 10）
 def roof_mesh(li):
