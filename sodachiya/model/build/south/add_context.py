@@ -1,6 +1,6 @@
 """周辺の道路と建物（PLATEAU、data/context_plateau.json）を 3dm に
 使い方: python3 add_context.py IN.3dm OUT.3dm data/context_plateau.json
-- 03_周辺_道路（PLATEAU）：道路 LOD1 の面を一枚にまとめ、平らに（敷地の GL −300 の 20 下、10-25 ユーザー）。西の道・北の道の建物の側の縁は敷地の境にそろえる。
+- 03_周辺_道路（PLATEAU）：道路 LOD1 の面を一枚にまとめ、平らに（敷地の GL −300 の 20 下、10-25 ユーザー）。厚さ 100 の押し出し（穴あり）。西の道・北の道の建物の側の縁は敷地の境にそろえる。
 - 04_周辺_建物（PLATEAU LOD1）：建物の外形を下端から上端まで押し出した箱（LOD1 なので屋根の形は無い）。
 - 敷地の中の今の住宅と、敷地の中を通る今の道は入れない（課題はそれを取り払った計画）。
 - 出典：国土交通省 Project PLATEAU（京都市 2025 年度）。
@@ -105,21 +105,17 @@ RD = unary_union([RD] + gaps).difference(S)
 RD = RD.buffer(20, join_style=2).buffer(-20, join_style=2).difference(S)
 print('road: 北東の辺の中ほどの道', skip_ne, 'removed')
 print('road: edges', len(EDG), 'gaps', len(gaps), round(sum(g.area for g in gaps) / 1e6, 1), 'm2')
+# 道路は外形と穴の閉じた押し出し（厚さ 100、上面は Z_RD）。Rhino版（段10）で輪郭と穴の Extrusion 一つになる
+# （10-27夜、監修の項 20261027-2346：前は平らな三角形の一枚で、Rhino版で 424 面・穴 42 の重いポリサーフェスになっていた）
+T_RD = 100.0
 for g in getattr(RD, 'geoms', [RD]):
     if g.geom_type != 'Polygon' or g.area < 1e5: continue
     g = g.simplify(20)
-    tris = constrained_delaunay_triangles(g)
-    mm = r.Mesh(); idx = {}
-    def vid(p):
-        k = (round(p[0], 1), round(p[1], 1))
-        if k not in idx: idx[k] = mm.Vertices.Add(p[0], p[1], Z_RD)
-        return idx[k]
-    for t in getattr(tris, 'geoms', [tris]):
-        c = list(t.exterior.coords)[:3]
-        mm.Faces.AddFace(vid(c[0]), vid(c[1]), vid(c[2]))
-    if mm.Faces.Count:
-        mm.Normals.ComputeNormals(); mm.Compact()
-        a = r.ObjectAttributes(); a.LayerIndex = L_RD; a.Name = '道路（平ら）'
-        m.Objects.AddMesh(mm, a); nr += 1
+    # 穴が外形や別の穴に一点で触れる所があると、押し出しの輪郭にならない（頂点が二つ重なる）。3 mm 縮めて離す（図には出ない）
+    g = g.buffer(-3, join_style=2)
+    n0 = len(m.Objects)
+    K.prism(g, Z_RD - T_RD, Z_RD, L_RD)
+    for o in list(m.Objects)[n0:]: o.Attributes.Name = '道路（平ら）'
+    nr += len(m.Objects) - n0
 m.Write(OUT, 8)
 print('context: bldg', nb, '(site', skip_b, 'removed)  road', nr, '(site', skip_r, 'removed) →', OUT, len(m.Objects))
