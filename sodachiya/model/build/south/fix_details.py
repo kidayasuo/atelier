@@ -948,9 +948,16 @@ if src is not None:
                                   (0.050, lambda uu_, vv_: RT_BOT + dep(uu_, vv_), lambda uu_, vv_: RT_BOT + dep(uu_, vv_) + 12.0)):  # 下のフランジ
                 new_objs.append((_box([(u0r, vc - hw_), (ue, vc - hw_), (ue, vc + hw_), (u0r, vc + hw_)], z0f, z1f), a_s))
             _nrib += 1
-        _up, _vp = u_edge(1.6) + 0.15, 1.6
+        # 柱は柵（一本の線）の南の端に立てる（柵と一つの線に。軒先まで出すと避難の帯にかかる）。柵が見つからなければ軒先の 150 内
+        _vp, _fu = 1.6, []
+        for o in m.Objects:
+            if not LN[o.Attributes.LayerIndex].startswith('60_') or not isinstance(o.Geometry, r.Mesh): continue
+            for i_ in range(len(o.Geometry.Vertices)):
+                q_ = o.Geometry.Vertices[i_]; uu_, vv_ = uv(q_.X, q_.Y)
+                if abs(vv_ - _vp) < 0.1 and uu_ < 0: _fu.append(uu_)
+        _up = (min(_fu) - 0.05) if _fu else u_edge(1.6) + 0.15
         _zt = ROOF_Z(_vp) + RT_BOT - 100.0
-        a_p = r.ObjectAttributes(); a_p.LayerIndex = L10S; a_p.Name = '南の軒の柱（鋼 角 100、塀＝一本の線の上、乳児の庭の外）'
+        a_p = r.ObjectAttributes(); a_p.LayerIndex = L10S; a_p.Name = '南の軒の柱（鋼 角 100、柵＝一本の線の南の端、乳児の庭の外）'
         tmp_ = r.File3dm(); Kt_ = Kit(tmp_); Kt_.prism(R(_up - 0.05, _up + 0.05, _vp - 0.05, _vp + 0.05, 0.05), -300.0, float(_zt), L10S)
         for o2 in tmp_.Objects: new_objs.append((o2.Geometry, a_p))
         log.append(f'本館：南の軒：鋼の片持ちの骨 {_nrib} 本（10s、約 1.5 mおき）と塀の所の柱 1 本（u {_up:.2f}・v {_vp}）、軒先の見付け {EAVE_TIP:.0f}')
