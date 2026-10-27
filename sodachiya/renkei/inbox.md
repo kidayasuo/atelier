@@ -1,6 +1,6 @@
 # 育ち舎　受け箱（自動。手で書かない）
 
-10-27 10:54に`sodachiya/renkei/inbox.py`が`renkei/open/`から作った。中身は各項のファイル（`renkei/open/<項>.md`）。
+10-27 10:57に`sodachiya/renkei/inbox.py`が`renkei/open/`から作った。中身は各項のファイル（`renkei/open/<項>.md`）。
 使い方：ユーザーは行に「未」があるチャットに行き「お願い」など何か一言だけ言う（言葉は何でもよい。言われたチャットは受け箱の自分の行を片づける）。知らせはここに出さない：各チャットが作業の始めに`inbox.py mine`で読む（ユーザーは知らせのために回らなくてよい、10-27）。3dm・全体の図・面積表の作り直しは自動（push の後 約30分、GitHub Actions）。決まりは「役割分担」の「連携と受け箱」。
 
 | チャット | 未の依頼 | （知らせ） |
@@ -13,10 +13,10 @@
 | ソリッド係 | なし | 4件 |
 | 設計監修 | なし |  |
 | 模型作成 | なし |  |
-| プレゼンの準備 | 1件：西館の構造の直し（ユーザー 10-27）と光の筋をまたぐ屋根のつなぎ（本館・西館）、「見せる北山杉の架構」を消す | 42件 |
+| プレゼンの準備 | なし |  |
 
 **ユーザーへの問い（返事待ち）**：なし
 
 （各チャットは`python3 renkei/inbox.py mine <係>`で自分あての項の中身を読む）
 
-（今回 done/ へ移した項：20261024-1441-kanshu.md・20261024-1446-kanshu-2.md・20261024-1449-nishikan.md・20261024-1459-garden.md・20261024-1502-approach.md・20261024-2328-present.md・20261024-2338-honkan.md・20261024-2354-honkan.md・20261025-1027-approach.md・20261025-1038-approach.md・20261025-1531-nishikan.md・20261025-1640-solid.md・20261025-1728-nishikan.md・20261025-1743-solid.md・20261025-2215-approach.md・20261025-2244-nishikan.md・20261026-0013-solid.md・20261026-0200-kanshu.md・20261026-0229-nishikan.md）
+（今回 done/ へ移した項：20261024-1540-honkan.md・20261024-1552-nishikan.md・20261024-1602-approach.md・20261024-1948-approach.md・20261024-2231-kanshu.md・20261024-2330-kanshu.md・20261025-0116-kanshu.md・20261025-0710-kanshu.md・20261025-0751-kanshu.md・20261025-0816-nishikan.md・20261025-0830-kanshu.md・20261025-1019-garden.md・20261025-1037-nishikan.md・20261025-1135-nishikan.md・20261025-1538-garden.md・20261025-1719-kanshu.md・20261025-1743-kanshu.md・20261025-1747-kanshu.md・20261025-2133-kanshu.md・20261025-2140-approach.md・20261025-2228-approach.md・20261025-2257-garden.md・20261026-0011-honkan.md・20261026-0044-kanshu.md・20261026-0133-honkan.md・20261026-0141-approach.md・20261026-0141-nishikan.md・20261026-0912-kanshu.md・20261026-0913-honkan.md・20261026-1526-kanshu.md・20261026-1936-kanshu.md・20261026-2043-kanshu.md・20261026-2103-honkan.md・20261026-2223-honkan.md・20261026-2351-honkan.md）
