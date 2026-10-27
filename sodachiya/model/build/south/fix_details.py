@@ -873,10 +873,19 @@ if src is not None:
     kind_, i0, g0, at0 = src
     RP = roof_main_poly(g0)
     MON_OPEN = R(-1.0, 58.5, -1.0, 1.66, 0.2)          # 越屋根の下（西吹き抜けの上、v 1.66 の東の立ち上がりまで）は屋根を開ける（前は面が残っていた）
-    roof_new = thick(RP.difference(SLOTS).difference(MON_OPEN), RT_BOT, RT_TOP)
+    # 10-27（監修の項 20261027-1700-kanshu、素材）：屋根の立体を層に分ける。室内に現す垂木と構造用合板を別のレイヤーに（素材が別）。
+    # 垂木 杉 60×150 @455（梁の上端＝RT_BOT から 150、10v）／構造用合板 t24（垂木の上、10r）／その上の層（断熱〜太陽光、10 のまま）。
+    # 垂木の上端＝前の屋根の面（RT_BOT + 150 = 0）。作り直しの「屋根の下面」は 10 と 10r の下面（合板の下）から垂木の 150 を下げた面＝梁の上端。
+    RT_RAF, RT_PLY = RT_BOT + 150.0, RT_BOT + 174.0
+    L10R = new_layer('10r_本館_屋根の構造用合板 t24（現し）', (214, 186, 146))
+    L10V = new_layer('10v_本館_垂木（杉 60×150 @455、現し）', (196, 160, 118))
+    a_r = r.ObjectAttributes(); a_r.LayerIndex = L10R; a_r.Name = '構造用合板 t24（屋根の水平構面、現し）'
+    P_ROOF = RP.difference(SLOTS).difference(MON_OPEN)
+    roof_new = thick(P_ROOF, RT_PLY, RT_TOP)
     if kind_ == 'new': new_objs.pop(i0)
     else: drop.add(str(at0.Id))
     for mm in roof_new: new_objs.append((mm, at0))
+    for mm in thick(P_ROOF, RT_RAF, RT_PLY): new_objs.append((mm, a_r))
     a10 = r.ObjectAttributes(); a10.LayerIndex = L10
     at_g = r.ObjectAttributes(); at_g.LayerIndex = L10T
     if MAT_FROST >= 0: at_g.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; at_g.MaterialIndex = MAT_FROST
@@ -897,8 +906,24 @@ if src is not None:
         u0_, u1_, v0_, v1_, z0_, z1_ = bbox_uv(g)
         if u1_ < 0.05 and u0_ < -3.0:
             EAVE = roof_main_poly(g); drop.add(str(o.Attributes.Id))
-            for mm in thick(EAVE, RT_BOT, RT_TOP): new_objs.append((mm, o.Attributes))      # 南の軒も同じ厚さ（軒裏＝梁の上端の高さ）
+            for mm in thick(EAVE, RT_PLY, RT_TOP): new_objs.append((mm, o.Attributes))      # 南の軒も同じ厚さ（軒裏＝梁の上端の高さ）
+            for mm in thick(EAVE, RT_RAF, RT_PLY): new_objs.append((mm, a_r))               # 軒裏も合板と垂木を現す
             break
+    # 垂木：架構の線（光の筋）で切り、スパンごとに一本の真っすぐな材（自分の側の梁に載せる、垂木を切らない）。南の軒は架構 1 をまたいで片持ち。
+    # 筋の側は小口をふさぐ板（u ± 0.090〜0.102）の外で止める。v は越屋根の東の立ち上がりの東（1.79）から 455 おき、軒先とけらば（西の軒の縁）にも一本。
+    FOOT = unary_union([P_ROOF] + ([EAVE] if EAVE is not None else [])).difference(
+        unary_union([R(u - SL_HALF - 0.012, u + SL_HALF + 0.012, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
+    _VR = sorted({round(1.79 + 0.455 * i, 3) for i in range(-5, 30) if -0.42 <= 1.79 + 0.455 * i <= 14.97} | {14.97, -0.42})
+    _UR = [-5.0] + SL_U + [58.5]
+    _nr = 0
+    for vc in _VR:
+        for k_ in range(len(_UR) - 1):
+            seg = R(_UR[k_], _UR[k_ + 1], vc - 0.03, vc + 0.03, 99.0).intersection(FOOT)
+            for q_ in ([seg] if seg.geom_type == 'Polygon' else [g_ for g_ in getattr(seg, 'geoms', []) if g_.geom_type == 'Polygon']):
+                if q_.area < 0.02e6: continue
+                a_rf = r.ObjectAttributes(); a_rf.LayerIndex = L10V; a_rf.Name = f'垂木 杉 60×150（v {vc:.2f}）'
+                for mm in thick(q_, RT_BOT, RT_RAF): new_objs.append((mm, a_rf)); _nr += 1
+    log.append(f'本館：屋根を層に分けた：垂木 {_nr} 本（10v、杉 60×150 @455）・構造用合板 t24（10r）・その上の層（10）')
     ALL = unary_union([RP, EAVE.buffer(1.0)]).buffer(-1.0) if EAVE is not None else RP
     pv_box = unary_union([R(-10.0, 57.49, 1.95, 14.85, 0.25), R(-10.0, -0.35, -1.0, 14.85, 0.25)])
     pv = ALL.buffer(-150.0, join_style=2).intersection(pv_box).intersection(unary_union([RP, EAVE]) if EAVE is not None else RP)

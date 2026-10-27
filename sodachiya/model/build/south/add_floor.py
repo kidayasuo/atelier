@@ -40,8 +40,19 @@ L_kam=layer('18_本館_鴨居・建具枠（木）',(150,110,70))
 L_ew=layer('97_本館_外壁（西・南北の妻）',(196,160,118))
 L_dc=layer('16d_本館_縁側のガラスの片引き戸（閉）',(150,200,230))
 L_do=layer('16o_本館_縁側のガラスの片引き戸（開）',(150,200,230))
-for _i,_l in enumerate(m.Layers):
-    if _l.Name=='16o_本館_縁側の片引き戸（開）': _l.Visible=False                # 開けた位置は最初は隠す（Rhinoで表示を切り替えて見比べる）
+# 10-27（監修の項 20261027-1704、一つのレイヤーには一つの素材）：戸の框（杉）を別のレイヤーに。ガラスは 16d・16o のまま。
+L_hc=layer('16h_本館_縁側の片引き戸の框（杉、閉）',(196,160,118))
+L_ho=layer('16i_本館_縁側の片引き戸の框（杉、開）',(196,160,118))
+for _li in (L_do,L_ho): m.Layers[_li].Visible=False                          # 開けた位置は最初は隠す（Rhinoで表示を切り替えて見比べる）
+# 戸の板：框は見付 60（縦框・上框）・下框 90、見込み 40（戸の厚さ）。ガラスは框の中に t12（強化か合わせ）、戸の厚さの真ん中。
+DOOR_R=RG+60; DOOR_GL=12
+def door_leaf(a0,a1,li_f,li_g):
+    da=np.sign(a1-a0)*60/DOOR_R; inner=np.linspace(a0+da,a1-da,8)
+    for b0,b1 in ((a0,a0+da),(a1-da,a1)):                                   # 縦框
+        wall_along([P(DOOR_R,b0),P(DOOR_R,b1)],lambda x,y:0,lambda x,y:KAMOI-10,40,li_f)
+    wall_along([P(DOOR_R,a) for a in inner],lambda x,y:0,lambda x,y:90,40,li_f)                    # 下框
+    wall_along([P(DOOR_R,a) for a in inner],lambda x,y:KAMOI-70,lambda x,y:KAMOI-10,40,li_f)       # 上框
+    wall_along([P(DOOR_R,a) for a in inner],lambda x,y:90,lambda x,y:KAMOI-70,DOOR_GL,li_g)       # ガラス
 # 10-25：本物のロゴ（sodachiya/logo/sodachiya_logo.svg、黒＝エッチング）。形は毎回 SVG から読む（ユーザーが書き換えてもよい）。
 # 200 単位＝ロゴの直径 → ガラスでは φ180。ガラスの室内側の面から 0.5 離して厚さ 1.0 の薄い板（閉じた立体）。中心 FL+1.0。
 # 大人の目の高さ（FL+1.5）には幅 10・長さ 600 の細い横の帯。
@@ -106,12 +117,12 @@ for k in range(19):
         wall_along([P(rr_,a) for a in np.linspace(a_n,mid,8)],lambda x,y,z0_=z0_:z0_,lambda x,y:KAMOI+60,t_,L_ew)
         wall_along([P(rr_,a) for a in np.linspace(a_b,mid,8)],lambda x,y:KAMOI+60,ZUND,t_,L_ew)
     wall_along([P(RG,a) for a in np.linspace(mid,a_s,8)],lambda x,y:KAMOI+60,ZUND,20,L_gl)   # 鴨居の上の固定ガラス（戸の側の半分だけ）
-    wall_along(door_c,lambda x,y:0,lambda x,y:KAMOI-10,40,L_dc)             # 片引き戸（閉）
-    wall_along(door_o,lambda x,y:0,lambda x,y:KAMOI-10,40,L_do)             # 片引き戸（開）
+    door_leaf(mid-50/RG,a_s,L_hc,L_dc)                                      # 片引き戸（閉）
+    door_leaf(a_n,a_n+_L,L_ho,L_do)                                          # 片引き戸（開）
     span_no=19-k                                                             # 南から数えたスパンの番号
     if span_no>=5:                                                           # 0・1歳（スパン1–4）の低い所には入れない
-        _marks(P(RG,(mid-50/RG+a_s)/2), 80.5, L_dc)                          # 戸の室内側の面（RG+80）から 0.5（閉）
-        _marks(P(RG,a_n+_L/2), 80.5, L_do)                                   # 戸（開）
+        _marks(P(RG,(mid-50/RG+a_s)/2), 60+DOOR_GL/2+0.5, L_dc)             # ガラスの室内側の面（RG+66）から 0.5（閉）
+        _marks(P(RG,a_n+_L/2), 60+DOOR_GL/2+0.5, L_do)                       # 戸（開）
 wall_along(gl,lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)               # 鴨居
 # 鴨居の上の固定ガラスは、上のスパンごとの所で戸の側の半分だけに作る（10-27）。鴨居は通し（壁と重なる所は優先順位で削られる）
 # 10-24：床下の風の道（決定事項（共通）の「床下の風の道」）。外縁側（−150）から内縁側（±0）への段の蹴込みにガラリ
