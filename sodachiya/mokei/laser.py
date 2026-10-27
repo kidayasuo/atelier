@@ -39,6 +39,9 @@ LAY = {l.Name: i for i, l in enumerate(m.Layers)}
 def objs(name):
     return [o.Geometry for o in m.Objects if o.Attributes.LayerIndex == LAY[name]]
 
+def objs_named(name):
+    return [(o.Attributes.Name or '', o.Geometry) for o in m.Objects if o.Attributes.LayerIndex == LAY[name]]
+
 # ---------- 形を読む ----------
 def sample_curve(c, n=240):
     d = c.Domain
@@ -159,6 +162,8 @@ def beam_part(clr, centers):
     return part
 
 # ---------- 書き出し ----------
+# 切った部品（ユーザー 10-28：本館の切った部品は変えない）。この SVG は書き出さない（設計が変わっても作り直さない）
+CUT_DONE = ('01_', '02_', '03a_', '03b_', '04_', '05_', '05b_', '06a_', '06b_')
 WRITE_DXF = os.environ.get('DXF') == '1'   # 10-26 ユーザー：SVG で切れるので DXF は作らない（要るときは DXF=1）
 
 class Sheet:
@@ -226,6 +231,8 @@ class Sheet:
         return [(x + dx, y + dy, t, sz) for x, y, t, sz in texts]
 
     def save(self, texts=()):
+        if self.name.startswith(CUT_DONE):
+            print('  切った部品なので書き出さない：', self.name); return
         texts = self.to_top_left(list(texts))
         os.makedirs(OUT, exist_ok=True)
         # SVG（mm、y は下向きに反転）
@@ -562,6 +569,84 @@ def roof_sheets():
     s.save([(0, pb[3] - pb[1] + 3, '本館の屋根 下の層（スパン 1〜19、南から）。残りは西館の床に', 4)])
     return U.bounds, pb
 
+# ================= 11. 西館の屋根（本館と同じ作り方、10-28） =================
+def west_frame_lines():
+    """西館の架構の線（平面、世界座標）：架構ごとに東の柱と西の柱の中心を結ぶ。返す：{架構の番号: (東の点, 西の点)}"""
+    pts = {}
+    for nm_, g in objs_named('22a_西館_柱'):
+        if g.ProfileCount == 1: continue                   # 桁の穴の無い柱（キッチン・階段の箱）は架構の線にしない
+        b = g.GetBoundingBox(); c = np.array([(b.Min.X + b.Max.X) / 2, (b.Min.Y + b.Max.Y) / 2])
+        pts.setdefault(_frame_no(_ang(g)), []).append(c)
+    out = {}
+    for k, ps in pts.items():
+        ps.sort(key=lambda c: math.hypot(c[0] - CX, c[1] - CY))
+        out[k] = (ps[0], ps[-1])
+    return out
+
+def west_roof_parts():
+    """上の層＝3dm の西館の屋根（20）の平面（光の筋の穴つき）。
+    下の層＝室内の上だけ、架構のあいだの板（梁 2 枚のあいだに落とし込む）。板の端は架構の線（柱の中心を結ぶ線）から ROOF_GAP。
+    室内＝西館の外壁（21）の内側（東の越屋根の下の帯は除く、本館の下の層が越屋根の立ち上がりまでなのと同じ）を 0.3 小さく。
+    北西の角の登り梁（u43.5、120 角の幅）の所も板を分ける。北の妻の架構 17 の北は外壁まで"""
+    from shapely.geometry import LineString
+    up = plan('20_西館_屋根')
+    wall = plan('21_西館_外壁')
+    holes = [Polygon(h) for p in getattr(wall, 'geoms', [wall]) for h in p.interiors]
+    room = max(holes, key=lambda q: q.area).buffer(-30, join_style=2)
+    fl = west_frame_lines(); ks = sorted(fl)
+    # 北は架構の番号の大きい方（角度の小さい方）。half(k, True)＝架構 k の線を北へ ROOF_GAP ずらした線より北
+    def half(k, toward_north):
+        e, w = fl[k]; d = (w - e) / np.linalg.norm(w - e); n = np.array([-d[1], d[0]])
+        a0 = math.atan2(e[1] - CY, e[0] - CX); p = e + n * 100
+        if (math.atan2(p[1] - CY, p[0] - CX) < a0) != toward_north: n = -n   # 北は角度が小さい
+        c = e + n * ROOF_GAP; L_ = 1e5
+        return Polygon([c - d * L_, c + d * L_, c + d * L_ + n * L_, c - d * L_ + n * L_])
+    panels = []
+    for i, k in enumerate(ks):
+        reg = room.intersection(half(k, True))
+        if i + 1 < len(ks): reg = reg.intersection(half(ks[i + 1], False))
+        if reg.is_empty or reg.area < 1e5: continue
+        panels.append((k, reg))
+    # 北西の角の登り梁 u43.5：その線の両側 70（120 の半分＋すき間 10）を抜く
+    for nm_, g in objs_named('22b_西館_梁'):
+        if '登り梁' not in nm_: continue
+        b = g.GetBoundingBox(); c = np.array([(b.Min.X + b.Max.X) / 2, (b.Min.Y + b.Max.Y) / 2])
+        d = (c - [CX, CY]) / np.linalg.norm(c - [CX, CY])
+        cut = LineString([np.array([CX, CY]) + d * 2.0e5, np.array([CX, CY]) + d * 2.3e5]).buffer(70, cap_style=2)
+        new = []
+        for k, reg in panels:
+            q = reg.difference(cut)
+            gs = sorted(getattr(q, 'geoms', [q]), key=lambda x: -x.area)
+            if len(gs) > 1 and gs[1].area > 1e5:
+                new += [(k, gs[0]), (k, gs[1])]
+            else:
+                new.append((k, gs[0]))
+        panels = new
+    return up, panels
+
+def west_roof_sheets():
+    up, panels = west_roof_parts()
+    fl = west_frame_lines(); ks = sorted(fl)
+    e0, e1 = fl[ks[0]][0], fl[ks[-1]][0]                     # 東の柱の列（架構 8 と 17）を水平に
+    ang = -math.atan2(e1[1] - e0[1], e1[0] - e0[0])
+    U = to_sheet(up, ang, (0, 0)); P = [(k, to_sheet(p, ang, (0, 0))) for k, p in panels]
+    b = U.bounds; U = affinity.translate(U, -b[0], -b[1]); P = [(k, affinity.translate(p, -b[0], -b[1])) for k, p in P]
+    nh = len(U.interiors) if U.geom_type == 'Polygon' else sum(len(q.interiors) for q in U.geoms)
+    s = Sheet('11a_西館の屋根_上の層_シナ1.7', 841, 594, f'シナ 1.7：西館の屋根 上の層（3dm の屋根の平面、軒まで、光の筋の穴 {nh} 本）')
+    s.add(box(0, 0, 841, 594), 'ref')
+    s.add(U)
+    s.save([(0, U.bounds[3] + 3, f'西館の屋根 上の層（光の筋の穴 {nh} 本）', 4)])
+    pb = unary_union([p for _, p in P]).bounds
+    s = Sheet('11b_西館の屋根_下の層_シナ1.7', 841, 594, f'シナ 1.7：西館の屋根 下の層（架構のあいだの板 {len(P)} 枚、梁 2 枚のあいだに落とし込む）。番号＝スパン（南の架構の番号）')
+    s.add(box(0, 0, 841, 594), 'ref')
+    for k, p in P:
+        q = affinity.translate(p, 0, -pb[1]); s.add(q)
+        c = q.representative_point(); txt = str(k)
+        for j, ch in enumerate(txt):
+            for l in label_num(ch, c.x - len(txt) * 0.8 + j * 1.6, c.y - 0.8, 1.6): s.add(l, 'eng')
+    s.save([(0, pb[3] - pb[1] + 3, f'西館の屋根 下の層（{len(P)} 枚、番号＝スパン）', 4)])
+    return (round(U.bounds[2], 1), round(U.bounds[3], 1), nh), [(k, round(p.bounds[2] - p.bounds[0], 1), round(p.bounds[3] - p.bounds[1], 1)) for k, p in P]
+
 # ================= 7. 西館の架構 =================
 def _frame_no(ang):
     """架構の番号（南から）：本館の架構 1（南の妻）の角度から 3 m ごと"""
@@ -581,15 +666,27 @@ def west_parts(clr):
     """西館の架構の部品（柱は本館と同じ作り：0.8 を 2 枚、肩が GL、ほぞ。梁・2 階の床梁は 0.8 を 2 枚で柱を挟む）。
     返す：[(名前, 架構の番号, 形, つなぎの点)]"""
     out = []
-    for g in objs('22a_西館_柱'):
-        part, hc = column_part(g, clr)
+    for nm_, g in objs_named('22a_西館_柱'):
+        if '階段の箱の柱' in nm_:
+            continue                                        # 階段の箱の 120 角の柱は作らない（ユーザー 10-28）
+        if g.ProfileCount == 1:
+            # キッチンの東の柱 180×400（10-28）：桁の穴が無い。本館の柱と同じ 0.8×2、幅は 400（4.0）、肩が GL、ほぞ
+            P = profile_rz(g, 0); b_ = g.GetBoundingBox()
+            x0, x1 = (P[:, 0].min() - R0) * S, (P[:, 0].max() - R0) * S
+            xc = (x0 + x1) / 2
+            part = unary_union([box(x0, 0, x1, (b_.Max.Z - GL) * S),
+                                box(xc - TENON_W / 2, -TENON_L, xc + TENON_W / 2, 0.01)])
+        else:
+            part, hc = column_part(g, clr)
         b = part.bounds; xc = (b[0] + b[2]) / 2
         tabs = [Point(xc, b[1]), Point(xc, b[3])]          # つなぎはほぞの先と頭の上（長い辺には付けない、10-26）
         k = _frame_no(_ang(g))
         for _ in range(2): out.append(('柱', k, part, tabs))
     seen = set()
     for lay, nm in (('22b_西館_梁', '梁'), ('22c_西館_2階床梁', '床梁')):
-        for g in objs(lay):
+        for nm_, g in objs_named(lay):
+            if '出し梁' in nm_ or '登り梁' in nm_:
+                continue                                    # 出し梁・北西の角の登り梁 u43.5 は 07 に入れない（10-28）
             P = to_model(profile_rz(g, 0))
             part = Polygon(P).buffer(0)
             for h_ in _holes(g, clr): part = part.difference(h_)
@@ -679,10 +776,27 @@ def honkan_walls():
         u = unary_union(L_).buffer(-0.5)
         u = affinity.scale(u, S, S, origin=(0, 0))
         u = unary_union([p for p in getattr(u, 'geoms', [u]) if p.minimum_rotated_rectangle.buffer(-1.0).area > 0])   # 幅 2 mm 未満のかけらを捨てる
+        if k == '越屋根の東の立ち上がり':
+            u = Polygon(RISER_CUT_ROOF)                    # 切った屋根に合わせ、前の 08 の形のまま
+        else:
+            u = _raise_top(u, WALL_RAISE, WALL_RAISE_Y0)
         b = u.bounds
         out[k] = affinity.translate(u, -b[0], -b[1])
     # 外から見て左＝北にする（角度が大きい方が南。展開の u は南へ増える → そのままで左が北）
     return out
+
+# 10-28 ユーザー：本館の外壁は切った架構・屋根（10-27夜の屋根の組み直しの前）に合わせる。
+# 今の 3dm では屋根が約 310 下がり外壁が 3.11 低いので、天端を 3.11 上げて前の 08 と同じ高さにする（開口・窓はそのまま）
+WALL_RAISE = 3.11
+WALL_RAISE_Y0 = 40.0       # これより上（FL+4000、窓・西の外壁の北の端の段より上）の外形の点だけ上げる（模型 mm、FL が 0）
+# 越屋根の東の立ち上がりは、今の 3dm では形も変わった（高さ 8.2→5.0）。切った屋根（06a）に載せるので、前の 08 の形のまま（模型 mm）
+RISER_CUT_ROOF = [(0, 0), (0, 6.8), (565.125, 6.8), (565.125, 8.2), (566.328, 8.2), (566.328, 1.213), (564.985, 1.213), (564.985, 0)]
+def _raise_top(u, dz, y0):
+    out = []
+    for p in getattr(u, 'geoms', [u]):
+        ext = [(x, y + dz if y > y0 else y) for x, y in p.exterior.coords]
+        out.append(Polygon(ext, [list(i.coords) for i in p.interiors]).buffer(0))
+    return unary_union(out)
 
 def yamato_lines(poly):
     """大和張りの縦の線（彫り）。窓の穴は避ける"""
@@ -760,6 +874,10 @@ def _shelf(items, W, H, gap=2.0):
 
 def interior_sheets():
     parts = interior_parts()
+    if not any(p_[0] == '西館' for p_ in parts):
+        # 10-28：今の 3dm の西館の間仕切り（24）は 1 つにつながった立体で、板に分けられない。前の 09・10 を残す
+        print('  西館の間仕切りが板に分けられない（24 が 1 つの立体）ので、09・10 は書き出さない')
+        return len(parts), None
     items = [(f'{i + 1}', pn[1], pn) for i, pn in enumerate(parts)]
     items = [(n, g, pn) for n, g, pn in items]
     sh = _shelf([(n, g) for n, g, _ in items], 590, 290)
@@ -816,12 +934,9 @@ def interior_sheets():
     return len(parts), [len(l) for l in sh]
 
 if __name__ == '__main__':
-    test_sheets()
-    frame_sheets()
-    print('本館の床', floor_sheets())
-    print('ベタ基礎の継ぎ足し', found_ext_sheets())
-    print('本館の屋根', roof_sheets())
+    # 01〜06（試し切り・本館の架構・床・ベタ基礎・屋根）は切った部品なので作り直さない（ユーザー 10-28、CUT_DONE）
     print('西館の架構', west_sheets())
     print('本館の外壁', wall_sheets())
+    print('西館の屋根', west_roof_sheets())
     print('室内の壁', interior_sheets())
     print('ok', OUT)
