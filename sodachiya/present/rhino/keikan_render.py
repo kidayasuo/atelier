@@ -4,7 +4,8 @@
 使い方（Rhino 8、Mac）：
   1. atelier を pull して、sodachiya/sodachiya.3dm を開く。
   2. ツール → スクリプト → 実行…（または コマンド RunPythonScript）で、このファイルを選ぶ。
-  3. いまのビューが一時的に景観立面の向きになり、レイトレースで昼・夜の2枚を書き出す（1枚に数分）。
+  3. いまのビューが一時的に景観立面の向きになり、レンダリング（Render）で昼・夜の2枚を書き出す（1枚に数分）。
+     画質（回数）は レンダリングの設定 → 「レンダリング」の最大回数で決まる。
      書き出し先：このファイルの隣の out/keikan_hiru.png・out/keikan_yoru.png（と、写った範囲の keikan_view.json）。
   4. 走り終わると、足した物・変えた設定は元に戻る（3dm は保存しなくてよい）。
   5. out/ の3つを push する（git add sodachiya/present/rhino/out）。mock.py が素材03・04にこの絵を使う。
@@ -134,6 +135,10 @@ def set_sun(on):
         rs.Sun = sun
     except Exception:
         pass
+    try:
+        doc.RenderSettings = rs     # RenderSettings は写しなので、戻して効かせる
+    except Exception:
+        pass
 
 
 def say(*a):
@@ -161,23 +166,52 @@ def _try_capture(w, h, transparent, passes):
         return None
 
 
+def _render_to(path):
+    """Rhino のレンダリング（Render コマンド、Cycles）で書き出す。線（曲線・辺）は写らない"""
+    old = {}
+    for k in ("UseViewportSize", "ImageSize", "TransparentBackground"):
+        try:
+            old[k] = getattr(rs, k)
+        except Exception:
+            pass
+    try:
+        rs.UseViewportSize = False
+        rs.ImageSize = System.Drawing.Size(W, H)     # ビューと同じ縦横の比なので、写る範囲は json のとおり
+        rs.TransparentBackground = True
+        doc.RenderSettings = rs
+    except Exception as e:
+        say(u"  レンダリングの大きさの設定：", e)
+    try:
+        Rhino.RhinoApp.RunScript(u"_-Render", False)
+        Rhino.RhinoApp.RunScript(u'_-SaveRenderWindowAs "%s"' % path, False)
+        Rhino.RhinoApp.RunScript(u"_-CloseRenderWindow", False)
+    finally:
+        try:
+            for k, v in old.items():
+                setattr(rs, k, v)
+            doc.RenderSettings = rs
+        except Exception:
+            pass
+    return os.path.exists(path)
+
+
 def capture(name):
     path = os.path.join(OUT, name)
     if os.path.exists(path):
         os.remove(path)
-    say(u"書き出し：", name, u"表示モード", vp.DisplayMode.EnglishName, u"ビュー", cw, u"×", ch)
-    # 大きい絵・透明な背景・レイトレースの回数が通らない Rhino があるので、順に試す
-    for w, h, tr, ps in [(W, H, True, PASSES), (W, H, False, PASSES), (W // 2, H // 2, True, PASSES), (W, H, True, 0)]:
+    say(u"書き出し：", name, u"ビュー", cw, u"×", ch, u"→", W, u"×", H)
+    # 1）レンダリング（Render）。表示モードの書き出し（ViewCapture）は Mac では線だけになった（10-27）
+    if _render_to(path):
+        say(u"  レンダリングで書いた：", path)
+        return
+    say(u"  レンダリングで書けなかった。表示モードの書き出し（不透明）で")
+    for w, h, tr, ps in [(W, H, False, PASSES), (W // 2, H // 2, False, PASSES)]:
         bmp = _try_capture(w, h, tr, ps)
         if bmp is not None:
             bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png)
-            say(u"  書いた：", path, w, u"×", h, u"透明" if tr else u"不透明")
+            say(u"  書いた：", path, w, u"×", h)
             return
-        say(u"  通らなかった：", w, u"×", h, u"透明" if tr else u"不透明", u"回数", ps)
-    # 最後の手：コマンドで書き出す（レイトレースは「レイトレース」の設定の回数まで描いてから書く）
-    cmd = u'-_ViewCaptureToFile "%s" _Width=%d _Height=%d _Scale=1 _DrawGrid=_No _DrawWorldAxes=_No _DrawCPlaneAxes=_No _TransparentBackground=_Yes _Enter' % (path, W, H)
-    Rhino.RhinoApp.RunScript(cmd, False)
-    say(u"  コマンドで：", u"書いた" if os.path.exists(path) else u"書けなかった", path)
+        say(u"  通らなかった：", w, u"×", h)
 
 
 # ---------------------------------------------------------------- 夜の LED（一時的に光る材料を当てる）
@@ -212,6 +246,7 @@ try:
     try:
         sky_on = rs.Skylight.Enabled
         rs.Skylight.Enabled = False
+        doc.RenderSettings = rs
     except Exception:
         pass
     set_sun(False)
@@ -237,6 +272,7 @@ finally:
     try:
         if sky_on is not None:
             rs.Skylight.Enabled = sky_on
+            doc.RenderSettings = rs
     except Exception:
         pass
     try:
