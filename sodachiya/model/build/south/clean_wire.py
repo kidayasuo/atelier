@@ -230,14 +230,16 @@ for oi, o in enumerate(m.Objects):
             if not gs:
                 geo += g1; continue
             srfs = [x.Faces[0].UnderlyingSurface() for x in gs if isinstance(x, r.Brep)]
-            if lc == '20p': th, cen = sheet[1], False         # 太陽光の板（屋根の面 +20）→ 屋根まで
+            _ed = np.sort(np.vstack([np.asarray(T)[:, [0, 1]], np.asarray(T)[:, [1, 2]], np.asarray(T)[:, [2, 0]]]), axis=1)
+            _closed = bool(len(_ed)) and bool((np.unique(_ed, axis=0, return_counts=True)[1] == 2).all())   # 辺がみな二つの面に共有＝閉じた片
+            if lc == '20p' and not _closed: th, cen = sheet[1], False         # 太陽光の板（屋根の面 +20）→ 屋根まで（閉じた屋根材は下の道、10-27夜）
             else: th, cen = thickness(W, T), True             # 薄い片は、測った厚みで面の両側に
             g2 = SD.solids_from_surfaces(srfs, th, cen)
             for x in gs:                                      # けらばの小さなメッシュ
                 if isinstance(x, r.Mesh):
                     Wm, Tm = mesh_arrays(x, WELD); g2 += SD.to_solids(Wm, Tm, sheet)
             # 線織面がもとの面から 10 mm より離れる片は、平らな面の立体（ちょうど、ただし面の数が多い）に
-            geo += g2 if lc == '20p' or deviation(g2, W, T) <= 10.0 else g1
+            geo += g2 if (lc == '20p' and not _closed) or deviation(g2, W, T) <= 10.0 else g1
     else:
         W, T0 = mesh_arrays(g, WELD)
         if len(T0) == 0: continue

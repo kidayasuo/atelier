@@ -242,6 +242,7 @@ for i_, o_ in enumerate(m.Objects):
     ln_ = LN[o_.Attributes.LayerIndex]
     if not (ln_.startswith(('10p_', '20p_')) and isinstance(o_.Geometry, r.Mesh)): continue
     V_, F_ = mesh_vf(o_.Geometry)
+    if trimesh.Trimesh(V_, F_, process=True).is_watertight: continue            # 閉じた屋根材（西館の 20p は屋根の層のいちばん上、10-27夜）は動かさない
     V_, F_ = trimesh.remesh.subdivide_to_size(V_, F_, max_edge=150.0)[:2]     # 大きな三角形のあいだで曲がった屋根が抜けないよう細かく
     top = V_[:, 2].max() + 5000
     loc, rid, _ = _rri.intersects_location(np.c_[V_[:, :2], np.full(len(V_), top)], np.tile([0, 0, -1.0], (len(V_), 1)), multiple_hits=False)
