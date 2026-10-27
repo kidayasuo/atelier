@@ -159,6 +159,15 @@ def close_extrusion(e):
     return None
 
 
+# 西館の屋根の面の関数と折れの位置（roofw.py、西館係）。Graph の面に使う
+try:
+    import pickle, roofw
+    _ROOT = os.environ.get('SODACHIYA_ROOT') or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
+    _RW = roofw.make(pickle.load(open(os.path.join(_ROOT, 'data', 'wnew.pkl'), 'rb'))['WN'])
+    ROOF_SPEC = dict(func=_RW['roof_f'], ubreaks=[21.0, 51.0] + [f + d for f in _RW['FRAMES'][1:] for d in (-0.09, 0.09)], vbreaks=[_RW['VRIDGE']])
+except Exception as _e:
+    print('roofw を読めない（西館の屋根は前の作り方）:', _e); ROOF_SPEC = None
+
 m = r.File3dm.Read(IN)
 out = r.File3dm()
 out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
@@ -221,6 +230,12 @@ for oi, o in enumerate(m.Objects):
     if west_roof:
         W, T0 = mesh_arrays(g, 0.5)                      # ruled_roof.py はこの溶接で作った（10-24）
         for T in components(T0):
+            # 屋根の層（20・20r・20p）の大きな片：上下の面を屋根の面の関数の面（Graph、建物の座標の双 3 次、折れは節点で）に、
+            # 縁は鉛直の平面・曲線の面（10-27 夜、ソリッド係：前は 300 の格子の平らな三角形の集まりで、Rhino 版で縁がぎざぎざ・約6,500面）
+            if lc in ('20', '20r', '20p') and len(T) > 500 and ROOF_SPEC is not None:
+                bg, info = SD.solid_from_mesh(W, T, graph=ROOF_SPEC)
+                if bg is not None and info.startswith('curved') and deviation([(bg, 'curved')], W, T) <= 15.0:
+                    geo.append((bg, 'curved')); continue
             # 平らな面でできた片（光の筋のガラス・ふさぐ板・平らな屋根の片）は、ふつうの道でちょうどの立体に。
             # 三角形ごとに面になる（ねじれた）片だけを線織面に
             g1 = SD.to_solids(W, T, sheet)

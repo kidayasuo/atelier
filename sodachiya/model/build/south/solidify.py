@@ -361,6 +361,111 @@ def ext_edge(pts, E, Pl):
     return dict(sub=sub, cv3=cv3, w=wc, ta=ta, tb=tb, at=at)
 
 
+def _knots(lo, hi, breaks, h, k=3):
+    """lo〜hi の節点（両端 k+1 重、折れの所 breaks は k 重＝C0 で折れてよい、そのあいだは h 以下の等間隔）"""
+    bs = sorted(x for x in breaks if lo + 1e-6 < x < hi - 1e-6)
+    pts = [lo] + bs + [hi]; kn = [lo] * (k + 1)
+    for i, (a_, b_) in enumerate(zip(pts, pts[1:])):
+        n = max(1, int(np.ceil((b_ - a_) / h)))
+        kn += list(np.linspace(a_, b_, n + 1)[1:-1])
+        kn += [b_] * (k if i < len(pts) - 2 else k + 1)
+    return np.array(kn)
+
+
+class Graph:
+    """建物の座標 (u, v)（uv.py：弧に沿う u・放射の v、m）の上の関数の面 z = S(u, v)（西館の屋根の層の上下の面）。
+    面は (x(u,v), y(u,v), S(u,v)) の双 3 次の B スプライン。屋根の面の折れ（架構の線の筋 ±0.09・u21・u51・棟の線 v−0.9）は
+    節点を 3 重にしてちょうど折る（前は平らな三角形の集まり、Rhino 版で縁がぎざぎざ）"""
+    kind = 'graph'
+
+    def __init__(self, tu, tv, CX, CY, CZ, flip):
+        from scipy.interpolate import BSpline
+        import uv as _uvm
+        self._uvm = _uvm
+        self.tu, self.tv, self.CX, self.CY, self.CZ, self.flip = tu, tv, CX, CY, CZ, flip
+        from scipy.interpolate import NdBSpline
+        _nd = NdBSpline((tu, tv), CZ, 3)
+        self.Sz = lambda u, v: float(_nd([[u, v]])[0])
+        self.udom = (float(tu[0]), float(tu[-1])); self.vdom2 = (float(tv[0]), float(tv[-1]))
+        if flip: self.vdom2 = (-self.vdom2[1], -self.vdom2[0])
+        self.uc = 0.0; self.sgn = 1
+
+    def _uv0(self, p):
+        u, v = self._uvm.uv(float(p[0]), float(p[1]))
+        u = min(max(float(np.ravel(u)[0]), self.tu[0]), self.tu[-1]); v = min(max(float(np.ravel(v)[0]), self.tv[0]), self.tv[-1])
+        return u, v
+
+    def uv(self, p, ref=None):
+        u, v = self._uv0(p); return (u, -v if self.flip else v)
+
+    def ang(self, p): return self._uv0(p)[0]
+
+    def proj(self, p):
+        u, v = self._uv0(p); x, y = self._uvm.xy(u, v)
+        return np.array([float(np.ravel(x)[0]), float(np.ravel(y)[0]), self.Sz(u, v)])
+
+    def dist(self, p):
+        u, v = self._uv0(p); return abs(float(p[2]) - self.Sz(u, v))
+
+    def surface(self, dom):
+        nu, nv = self.CZ.shape
+        ns = r.NurbsSurface.Create(3, False, 4, 4, nu, nv)
+        for i in range(nu):
+            for j in range(nv):
+                jj = nv - 1 - j if self.flip else j
+                ns.Points[(i, jj)] = r.Point4d(float(self.CX[i, j]), float(self.CY[i, j]), float(self.CZ[i, j]), 1.0)
+        for i, t in enumerate(self.tu[1:-1]): ns.KnotsU[i] = float(t)
+        tv = [-x for x in self.tv[::-1]] if self.flip else list(self.tv)
+        for j, t in enumerate(tv[1:-1]): ns.KnotsV[j] = float(t)
+        return ns
+
+
+def fit_graph(Wv, Tsel, up, spec=None, h=(0.5, 0.25)):
+    """三角形 Tsel の面を Graph に。spec = dict(func, ubreaks, vbreaks)（屋根の面の関数と折れの位置）。
+    面の高さが func＋一定なら func を、そうでなければ網目の高さ（光線）を写す。→ (Graph, ずれ mm) か None"""
+    from scipy.interpolate import BSpline
+    import uv as _uvm
+    spec = spec or {}
+    P = Wv[np.unique(Tsel)]
+    UV = np.array([[float(np.ravel(q)[0]) for q in _uvm.uv(x, y)] for x, y in P[:, :2]])
+    u0, v0 = UV.min(0) - 0.05; u1, v1 = UV.max(0) + 0.05
+    tu = _knots(u0, u1, spec.get('ubreaks', []), h[0]); tv = _knots(v0, v1, spec.get('vbreaks', []), h[1])
+    def samples(t):                                       # 各区間に 4 点
+        out = []
+        for a_, b_ in zip(t[:-1], t[1:]):
+            if b_ > a_ + 1e-9: out += list(np.linspace(a_, b_, 5)[:-1] + (b_ - a_) / 10)
+        return np.array(sorted(set(np.r_[out, t[0], t[-1]])))
+    su, sv = samples(tu), samples(tv)
+    XY = np.array([[[float(np.ravel(c)[0]) for c in _uvm.xy(u, v)] for v in sv] for u in su])
+    Zs = None; func = spec.get('func')
+    if func is not None:
+        fz = np.array([func(x, y) for x, y in P[:, :2]]); d = P[:, 2] - fz; cst = float(np.median(d))
+        if np.abs(d - cst).max() < 1.0:
+            Zs = np.array([[func(XY[i, j, 0], XY[i, j, 1]) + cst for j in range(len(sv))] for i in range(len(su))])
+    if Zs is None:
+        import trimesh
+        tm = trimesh.Trimesh(Wv, Tsel, process=False)
+        org = np.c_[XY.reshape(-1, 2), np.full(len(su) * len(sv), 1e5)]
+        loc, ir, _ = tm.ray.intersects_location(org, np.tile([0, 0, -1.0], (len(org), 1)), multiple_hits=False)
+        zg = np.full(len(org), np.nan); zg[ir] = loc[:, 2]; ok = ~np.isnan(zg)
+        if ok.sum() < 16: return None
+        from scipy.interpolate import NearestNDInterpolator
+        zg[~ok] = NearestNDInterpolator(org[ok, :2], zg[ok])(org[~ok, :2]); Zs = zg.reshape(len(su), len(sv))
+    Bu = BSpline.design_matrix(su, tu, 3).toarray(); Bv = BSpline.design_matrix(sv, tv, 3).toarray()
+    Pu = np.linalg.pinv(Bu); Pv = np.linalg.pinv(Bv)
+    fit = lambda M: Pu @ M @ Pv.T
+    CX, CY, CZ = fit(XY[..., 0]), fit(XY[..., 1]), fit(Zs)
+    # 面の向き：u × v が上向きか
+    gr = Graph(tu, tv, CX, CY, CZ, False)
+    um, vm = (tu[0] + tu[-1]) / 2, (tv[0] + tv[-1]) / 2
+    pa = np.array([float(np.ravel(c)[0]) for c in _uvm.xy(um, vm)]); pb = np.array([float(np.ravel(c)[0]) for c in _uvm.xy(um + 0.01, vm)])
+    pc = np.array([float(np.ravel(c)[0]) for c in _uvm.xy(um, vm + 0.01)])
+    nz = np.cross(np.r_[pb - pa, 0], np.r_[pc - pa, 0])[2]
+    if (nz > 0) != up: gr = Graph(tu, tv, CX, CY, CZ, True)
+    dev = max(gr.dist(p) for p in P)
+    return gr, dev
+
+
 def arc_nurbs(P, cen, t0, t1, dim, to2=None, ends=None):
     """円（楕円）の弧 P(t)（t は角度、cen は中心）を有理 2 次の NURBS に。to2 があれば平面の 2 次元へ写す"""
     if t1 < t0:                                   # 逆向き：s = −t で増える向きに
@@ -613,13 +718,13 @@ def merge_small(W, T, N, area, reg, regs, nb, amin=2.0):
     return [regs[i] for i in keep]
 
 
-def solid_from_mesh(W, T, curved=True):
-    """→ (rhino3dm.Brep か None, 情報の文字)"""
+def solid_from_mesh(W, T, curved=True, graph=None):
+    """→ (rhino3dm.Brep か None, 情報の文字)。graph：上下の面を z = S(x, y) の面にする（西館の屋根の層、値は屋根の面の関数か True）"""
     W = np.asarray(W, float); T = np.asarray(T, int)
     why = []
     for cv, sn in (((True, True), (False, True), (False, False)) if curved else ((False, True), (False, False))):
         try:
-            b = _build(W, T, cv, sn)
+            b = _build(W, T, cv, sn, graph=graph if cv else None)
             return b, ('curved' if cv else 'planar') + ('' if not why else '(' + why[0] + ')')
         except Fail as e:
             why.append(str(e))
@@ -1522,7 +1627,7 @@ def split_pinched(W, T):
     return (W, T) if Wl is None else (np.array(Wl), T2)
 
 
-def _build(W, T, curved, snap=True):
+def _build(W, T, curved, snap=True, graph=None):
     T = orient(T)
     W, T = split_pinched(np.asarray(W, float), T)
     he = topology(W, T)
@@ -1555,8 +1660,27 @@ def _build(W, T, curved, snap=True):
     # ---- 曲面のまとまり
     srf_of = [None] * nr          # 面（Plane・Cyl・Sph）
     group = list(range(nr))       # 面の番号（曲面はまとめた番号）
+    gsel = []
+    if graph is not None:         # 上下の面（法線の z が 0.5 より大）を z = S(u, v) の面に、つながる組ごとに（組ごとに高さのずれが違ってよい）
+        for sgn_ in (1, -1):
+            sset = {g for g in range(nr) if sgn_ * rn[g][2] > 0.5}       # 屋根の勾配（約 0.28）の面。端の斜めの切り口は入れない
+            while sset:
+                x0 = sset.pop(); comp = [x0]; st = [x0]
+                while st:
+                    y_ = st.pop()
+                    for z_ in adj.get(y_, ()):
+                        if z_ in sset: sset.discard(z_); comp.append(z_); st.append(z_)
+                mem = np.concatenate([regs[g] for g in comp])
+                if len(comp) == 1 and len(regs[comp[0]]) < 4: continue          # 平らな小さな面はそのまま
+                f_ = fit_graph(W, T[mem], sgn_ > 0, graph if isinstance(graph, dict) else None)
+                if f_ is None or f_[1] > 2.0: raise Fail('graph fit %s' % (None if f_ is None else round(f_[1], 2)))
+                gid = comp[0]
+                for g in comp: group[g] = gid
+                srf_of[gid] = f_[0]; gsel += comp
+    _gs = set(gsel)
+    adj_seg = {k: {x for x in v if x not in _gs} for k, v in adj.items() if k not in _gs} if _gs else adj
     if curved:
-        for kind, prm, G in segment_curved(W, rverts, rn, rp, ra, adj):
+        for kind, prm, G in segment_curved(W, rverts, rn, rp, ra, adj_seg):
             gid = G[0]
             for g in G: group[g] = gid
             cen = np.array([rp[g] for g in G])
@@ -1596,7 +1720,7 @@ def _build(W, T, curved, snap=True):
         s = srf_of[gid]
         if s.kind == 'plane':
             face_of_reg[G[0]] = len(faces); faces.append((s, G)); continue
-        if s.kind == 'ext':                                # 自由な曲線の面は分けない（輪にならない）
+        if s.kind in ('ext', 'graph'):                     # 自由な曲線の面・関数の面は分けない
             for g in G: face_of_reg[g] = len(faces)
             faces.append((s, G)); continue
         import copy
@@ -1709,6 +1833,20 @@ def _build(W, T, curved, snap=True):
         if L_ > 1e-9 and len(pts) > 2:
             dd = d / L_; off = pts - pts[0]; dev = np.linalg.norm(off - np.outer(off @ dd, dd), axis=1).max()
         else: dev = 0.0
+        if 'graph' in (sA.kind, sB.kind):                   # 関数の面との辺：二つの面の交わりの点を細かく取ってスプラインに
+            Q = [pts[0]]
+            for p0, p1 in zip(pts[:-1], pts[1:]):
+                for k_ in (1, 2, 3):
+                    q = p0 + (p1 - p0) * k_ / 4.0
+                    for _ in range(12): q = sB.proj(sA.proj(q))
+                    Q.append(q)
+                Q.append(p1)
+            Q = np.array(Q); tq = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(Q, axis=0), axis=1))]
+            keep = np.r_[True, np.diff(tq) > 1e-6]; Q = Q[keep]; tq = tq[keep]
+            if len(Q) >= 4:
+                from scipy.interpolate import make_interp_spline
+                e['type'] = 'fit3'; e['fit'] = dict(sp=make_interp_spline(tq, Q, k=3), t=tq, Q=Q)
+                return e
         if len(pts) == 2 or dev < EPS_LINE:
             e['type'] = 'line'
         else:
@@ -1808,6 +1946,13 @@ def _build(W, T, curved, snap=True):
         bp.clear(); bt.clear(); pend.clear()
     for e in E:
         typ = e['type']; pts = e['pts']
+        if typ == 'fit3':
+            flush3()
+            fx = e['fit']; sp = fx['sp']; kn = list(map(float, sp.t[1:-1])); cv = [np.array(c) for c in sp.c]
+            cv[0] = pts[0]; cv[-1] = pts[-1]; e['dom'] = (float(fx['t'][0]), float(fx['t'][-1]))
+            C3.append(O.nurbs(3, 4, kn, [tuple(map(float, c)) for c in cv], [1.0] * len(cv))); e['c3i'] = len(C3) - 1
+            e['sample'] = lambda t, sp=sp, a=e['dom']: sp(a[0] + (a[1] - a[0]) * t)
+            continue
         if typ == 'spl3':
             flush3()
             sx = e['spl']; sub = sx['sub']; kn = list(map(float, sub.t[1:-1])); cv = [np.array(c) for c in sx['cv3']]
@@ -1871,6 +2016,7 @@ def _build(W, T, curved, snap=True):
         dom = ((float(lo[0] - pad[0]), float(hi[0] + pad[0])), (float(lo[1] - pad[1]), float(hi[1] + pad[1])))
         if hasattr(s, 'vdom'): dom = (dom[0], tuple(s.vdom))
         if hasattr(s, 'udom'): dom = (tuple(s.udom), dom[1])
+        if hasattr(s, 'vdom2'): dom = (dom[0], tuple(s.vdom2))
         if s.kind == 'cyl':
             s.t0 = 0.0
         S.append(s.surface(dom)); si = len(S) - 1
@@ -1911,7 +2057,22 @@ def _build(W, T, curved, snap=True):
                     ti = len(Trec)
                     Trec.append([None, add([p0, p1]), -1, (vid[seq[0]], vid[seq[0]]), 0, 4, iso_flag(bmin, bmax, dom), li])
                     pend.append(ti); tis.append(ti)
-                if E[ei]['type'] == 'spl3' and s.kind in ('plane', 'ext'):
+                if E[ei]['type'] == 'fit3':
+                    flush()
+                    fx = E[ei]['fit']; sp = fx['sp']; tq = fx['t']
+                    if s.kind == 'plane':                           # uv は xyz の一次：3 次元の制御点の像でちょうど
+                        kn = list(map(float, sp.t[1:-1])); cv = [np.array(s.uv(c), float) for c in sp.c]
+                    else:
+                        from scipy.interpolate import make_interp_spline
+                        UV = np.array([s.uv(q, ref) for q in fx['Q']]); s2 = make_interp_spline(tq, UV, k=3)
+                        kn = list(map(float, s2.t[1:-1])); cv = [np.array(c, float) for c in s2.c]
+                    t_s, t_e = (tq[-1], tq[0]) if rev else (tq[0], tq[-1])
+                    if t_e < t_s: kn = [-x for x in kn[::-1]]; cv = cv[::-1]; pd2 = (-float(t_s), -float(t_e))
+                    else: pd2 = (float(t_s), float(t_e))
+                    cv[0] = np.array(uvs[0], float); cv[-1] = np.array(uvs[-1], float)
+                    C2.append(O.nurbs(2, 4, kn, [tuple(map(float, c)) for c in cv], [1.0] * len(cv)))
+                    arr = np.array(cv); ci = len(C2) - 1
+                elif E[ei]['type'] == 'spl3' and s.kind in ('plane', 'ext'):
                     flush()
                     sx = E[ei]['spl']; sub = sx['sub']
                     if s.kind == 'plane': cv = [np.array(s.uv(c)) for c in sx['cv3']]
@@ -1990,6 +2151,11 @@ def _pl_eval(pts, ts, t):
 def trim_uv(s, e, rev, ref):
     """辺 e を面 s の uv の点列に（トリムの向き：rev なら辺の逆）"""
     typ = e['type']; pts = e['pts']
+    if typ == 'fit3':
+        K = max(16, 2 * len(e['fit']['Q']))
+        Q = [e['sample'](t) for t in np.linspace(0, 1, K + 1)]; Q[0] = pts[0]; Q[-1] = pts[-1]
+        uv = [s.uv(p, ref) for p in Q]
+        return uv[::-1] if rev else uv
     if typ == 'spl3':
         K = max(16, 3 * len(e['spl']['cv3']))
         Q = [e['sample'](t) for t in np.linspace(0, 1, K + 1)]; Q[0] = pts[0]; Q[-1] = pts[-1]
