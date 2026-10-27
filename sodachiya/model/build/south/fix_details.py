@@ -1828,7 +1828,8 @@ def _sq_prism(prof, P_of, off):
         rings = [np.asarray(p.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in p.interiors]
         V2 = np.vstack(rings); n = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
         tri_ = _ec.triangulate_float64(V2, ends).reshape(-1, 3)
-        V = np.array([P_of(a, z) for a, z in V2]); V = np.vstack([V, V + off])
+        V = np.array([P_of(a, z) for a, z in V2])
+        V = np.vstack([V, np.array([off(a, z) for a, z in V2]) if callable(off) else V + off])
         F = [(a, c, b) for a, b, c in tri_] + [(a + n, b + n, c + n) for a, b, c in tri_]
         st = 0
         for e in ends:
@@ -1882,7 +1883,9 @@ def _square(g):
             if part.is_empty or part.area < 50.0: continue
             key = ('s', min(18, max(0, k_))); A_, c_, h_, n_ = _plane(key)
             P_of = lambda a, z, key=key: np.array([*xyk(key, a / 1000.0, t0), z])
-            out_ += _sq_prism(part, P_of, np.array([*(h_ * (t1 - t0) * 1000.0), 0.0]))
+            # 架構の線で切った所だけ、裏の面の点を同じスパンの弦（v = t1）の上に（留め：となりのスパンの片とちょうど合う）。ほかの端は面に直角
+            out_ += _sq_prism(part, P_of, lambda a, z, key=key, h_=h_: np.array([*xyk(key, a / 1000.0, t1), z]) if abs(a / 3000.0 - round(a / 3000.0)) < 1e-6
+                              else np.array([*(xyk(key, a / 1000.0, t0) + h_ * (t1 - t0) * 1000.0), z]))
     else:
         t0, t1 = u0, u1; vm = 0.5 * (v0 + v1)
         b_ = xy(t0, vm); tv = xy(t0 + 0.001, vm) - b_; tv /= np.linalg.norm(tv)
