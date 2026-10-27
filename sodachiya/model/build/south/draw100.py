@@ -1648,14 +1648,14 @@ def airflow(A, playroom=False):
         arrow(night_in + [(-1500, zf), (-1650, 150)], ls=dash)
         arrow([(-1650, 450), (-1700, 6000), (-1500, 7600), (-1400, 8900)], ls=dash)
         arrow([(-300, 4430), (-650, 4430), (-750, 4250), (-1250, 4100)], ls=dash)
-        A.text(-1900, 9050, '夏の夜：床下の冷気と覗き窓から、遊戯室の吹き抜けを上って西館の越屋根へ', PT_NOTE, '45_換気', ha='right', va='bottom', color=col)
-        A.text(400, 5300, '昼（中間期）は本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col)
+        A.text(-1900, 9050, '夏の夜：床下の冷気と覗き窓から、遊戯室の吹き抜けを上って西館の越屋根へ', PT_NOTE, '45_換気', ha='right', va='bottom', color=col, box=True)
+        A.text(400, 5300, '昼（中間期）は本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col, box=True)
     else:                                          # 断面 B は海峡（土間、床下は無い）
-        A.text(400, 5300, '本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col)
-    A.text(6500, roof(6500) - 560, '梁間（梁と梁と屋根のあいだ）を西へ上る', PT_NOTE, '45_換気', ha='center', va='top', color=col)
-    A.text(14600, 1300, '昼：縁側のガラス戸を開けて', PT_NOTE, '45_換気', ha='right', va='bottom', color=col)
+        A.text(400, 5300, '本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col, box=True)
+    A.text(4200, 2700, '梁間（梁と梁と屋根のあいだ）を西へ上る', PT_NOTE, '45_換気', ha='center', va='top', color=col, box=True)
+    A.text(14600, 800, '昼：縁側のガラス戸を開けて', PT_NOTE, '45_換気', ha='right', va='top', color=col, box=True)
     if playroom:
-        A.text(12900, 120, '夏の夜：段の蹴込みのガラリから床下へ（底板を冷やす）→ すき間の下で西館の床下へ', PT_NOTE, '45_換気', ha='right', va='bottom', color=col)
+        A.text(12900, 120, '夏の夜：段の蹴込みのガラリから床下へ（底板を冷やす）→ すき間の下で西館の床下へ', PT_NOTE, '45_換気', ha='right', va='bottom', color=col, box=True)
 
 
 WEST_WALL_NOTE = ('西館の外壁：構造用合板の耐力壁', '（窓ごと通す、開口は補強）', '西の面は室内側にも合板（両面）')
