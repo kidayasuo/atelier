@@ -1,4 +1,5 @@
 """作り直した面積表と干渉の一覧を、リポジトリの前の版（git の HEAD）と比べる（設計監修、10-24。本館係の依頼）。
+10-27から、push のたびの自動の作り直し（GitHub Actions、.github/workflows/sodachiya_build.yml）でも走る。止めるが出たら push せず、連携の項を立てる。
 
 使い方: python3 check_build.py REPO NEWDIR [REPORT.txt]
   REPO    sodachiya/ の場所
