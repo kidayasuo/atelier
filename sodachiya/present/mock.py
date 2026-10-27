@@ -1590,7 +1590,7 @@ for _s, (_x, _y) in _AL.items():
     _tw = _FR.text_length(_s, _th / 0.72)
     _dx, _dy = {"敷地": (4, -1), "0": (0, 1.2), "200 m": (0, 1.2)}.get(_s, (0, 0))
     _cx = _amx + _x + _dx - (0 if _s == "敷地" else _tw / 2)
-    TOPT[1].append((_cx, _amy + _y + _dy - _th * 0.35, _s, _th, _s in ("敷地", "N", "高野川"), None, "#D9462A" if _s == "敷地" else ("#2F6FA0" if _s == "高野川" else "#333333")))
+    TOPT[1].append((_cx, _amy + _y + _dy - _th * 0.35, _s, _th, _s in ("敷地", "N", "高野川"), None, "#2E333A" if _s == "敷地" else ("#2F6FA0" if _s == "高野川" else "#333333")))
 TOPT[1].append((_amx, _amy + _AH + 3, "地域のなかの敷地　1/10000", 3.0, True))
 TOPT[1].append((_amx, _amy - 4.5, "出典：国土交通省 Project PLATEAU（京都市 2025）の建物・道路・土地利用から作図", 1.9, False))
 scalebar(ax, sx + 6, sy - 22, 200, 20)

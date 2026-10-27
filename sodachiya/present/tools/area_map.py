@@ -30,13 +30,13 @@ def make(path, data_gz, site_xy, roofs_xy, W=120.0, H=96.0, scale=10000, center=
             ax.add_patch(MP(r["xy"], closed=True, fc="#FFFFFF", ec="#C9C9C9", lw=0.15, zorder=2, clip_path=clip))
     for b in D["bldg"]:
         if len(b["xy"]) > 2:
-            ax.add_patch(MP(b["xy"], closed=True, fc="#B9B9B6", ec="none", lw=0, zorder=3, clip_path=clip))
+            ax.add_patch(MP(b["xy"], closed=True, fc="#C3C3C0", ec="none", lw=0, zorder=3, clip_path=clip))
     site = Polygon(site_xy)
     # 敷地にかかる今の建物は描かない（課題の敷地は空き地として）
-    ax.add_patch(MP(np.array(site.buffer(1.0).exterior.coords), closed=True, fc="white", ec="none", zorder=3.5))
+    # 敷地は線で囲まず、色の濃さで（ユーザー、10-27）：地は周りの建物より濃い灰、屋根はさらに濃く
+    ax.add_patch(MP(np.array(site.exterior.coords), closed=True, fc="#8E939A", ec="none", zorder=3.5))
     for g in roofs_xy:
-        ax.add_patch(MP(g, closed=True, fc="#5A5F68", ec="none", zorder=4))
-    ax.add_patch(MP(np.array(site.exterior.coords), closed=True, fc="none", ec="#D9462A", lw=1.0, zorder=5))
+        ax.add_patch(MP(g, closed=True, fc="#2E333A", ec="none", zorder=4))
     ax.add_patch(plt.Rectangle((c[0] - hw, c[1] - hh), 2 * hw, 2 * hh, fc="none", ec="#888888", lw=0.4, zorder=6))
     # 方位（北は上）と縮尺（200 m）
     nx, ny = c[0] + hw - 6 / k, c[1] + hh - 13 / k
