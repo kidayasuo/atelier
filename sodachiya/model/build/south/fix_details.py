@@ -272,14 +272,18 @@ STAIR_IN = (-4.55, -2.25, -4.94, -3.05)   # 一本 0.9・あいだ 0.09
 def stair_v25(v):
     a, b, a2, b2 = STAIR_IN
     return a2 + (v - a) * (b2 - a2) / (b - a) if a - 0.1 <= v <= b + 0.1 else v
-def stair_narrow(T, f=None):
+def stair_narrow(T, f=None, su=False):
     f = f or stair_v
     P = T.reshape(-1, 3).copy(); Q = to_uv_arr(P)
     for i, (u_, v_) in enumerate(Q):
-        x_, y_ = xy(u_, f(v_)); P[i, 0], P[i, 1] = float(np.ravel(x_)[0]) if np.ndim(x_) else x_, float(np.ravel(y_)[0]) if np.ndim(y_) else y_
+        x_, y_ = xy(stair_u(u_) if su else u_, f(v_)); P[i, 0], P[i, 1] = float(np.ravel(x_)[0]) if np.ndim(x_) else x_, float(np.ravel(y_)[0]) if np.ndim(y_) else y_
     return P.reshape(T.shape)
 _n_stair = 0
-STAIR_STG = (30.06, 32.94, -4.94, round(stair_v25(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
+# 階段を北へ 0.9 延ばす（10-27、ユーザー：スパン11を本館の先生の道へ開け、南の口の通路から入る。はれのまを削らない素直な形）：
+# 箱は u30〜33.9。南の端 u30〜30.9 が 1 階の登り口（東の面から入る）と 2 階の着き口、東の一折れは u30.9 から北へ、踊り場は u33〜33.9。
+STAIR_U0, STAIR_FOOT, STAIR_U1 = 30.0, 0.9, 33.9
+def stair_u(u): return STAIR_U0 + (u - STAIR_U0) * (STAIR_U1 - STAIR_U0) / 3.0 if STAIR_U0 - 0.1 <= u <= 33.1 else u   # 箱の壁・床を北へ伸ばす
+STAIR_STG = (30.06, STAIR_U1 - 0.06, -4.94, round(stair_v25(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
 
 def _plates(T, thk, stair=False):
     """面だけの物（三角形 T）→ 平らな面ごとの板（閉じた立体、manifold3d）の組。板はそれぞれ押し出し（Rhino 版で押し出しになる）。
@@ -399,9 +403,10 @@ def _stair_tris():
     """西館の階段（25）を描き直す（10-25夜、ソリッド係の指摘：踏み板が一段おきに無い）。
     元の面は一折れ 9 段の蹴上げ（1F 0 → 踊り場 1625 → 2F 3250、1 段 180.6）に踏み板が 5 枚（踏面 0.375）しか無く、
     蹴上げが 181・361 の交互になっていた。一折れ 9 段・踏み板 8 枚・踏面 0.2625（2R+G＝0.62）、踊り場の奥行き 0.9（＝階段の幅）。
-    東の一折れ（v−3.35〜−2.25）は u30 から北へ上り、踊り場（u32.1〜33）、西の一折れ（v−4.55〜−3.45）は南へ上って u30 で 2 階の床。
+    東の一折れ（v−3.35〜−2.25）は u30.9 から北へ上り、踊り場（u33〜33.9）、西の一折れ（v−4.55〜−3.45）は南へ上って u30.9 で 2 階の床（10-27、箱を北へ0.9）。
     v は元の描き方の座標（このあと stair_narrow が箱の内面の幅へ縮める）。"""
-    RS, G, U0, UL = 3250.0 / 18, 0.2625, 30.0, 32.1
+    RS, G = 3250.0 / 18, 0.2625
+    U0, UL = STAIR_U0 + STAIR_FOOT, STAIR_U0 + STAIR_FOOT + 8 * G       # 10-27：登り口（u30〜30.9）の北から上る、踊り場は u33〜33.9
     quads = []
     def tread(u0, u1, v0, v1, z): quads.append([(u0, v0, z), (u1, v0, z), (u1, v1, z), (u0, v1, z)])
     def riser(u, v0, v1, z0, z1): quads.append([(u, v0, z0), (u, v1, z0), (u, v1, z1), (u, v0, z1)])
@@ -409,7 +414,8 @@ def _stair_tris():
     for k in range(1, 9):                                   # 東の一折れ
         riser(U0 + (k - 1) * G, E0, E1, (k - 1) * RS, k * RS); tread(U0 + (k - 1) * G, U0 + k * G, E0, E1, k * RS)
     riser(UL, E0, E1, 8 * RS, 9 * RS)
-    tread(UL, 33.0, W0, E1, 9 * RS)                         # 踊り場
+    tread(UL, STAIR_U1, W0, E1, 9 * RS)                     # 踊り場
+    tread(STAIR_U0, U0, W0, E1, 18 * RS)                    # 2 階の着き口（箱の南の端の上、登り口と倉庫の上）
     for k in range(1, 9):                                   # 西の一折れ
         riser(UL - (k - 1) * G, W0, W1, 9 * RS + (k - 1) * RS, 9 * RS + k * RS); tread(UL - k * G, UL - (k - 1) * G, W0, W1, 9 * RS + k * RS)
     riser(U0, W0, W1, 17 * RS, 18 * RS)
@@ -429,7 +435,7 @@ for o in m.Objects:
     if (U[:, 1] > -0.9).any(): continue                                  # 西館だけ
     if li_ in (lidx('24_'), lidx('25_')) and U[:, 0].min() > 29.9 and U[:, 0].max() < 33.1 and U[:, 1].min() > -5.05 and U[:, 1].max() < -2.15:
         if li_ == lidx('25_'): T = _stair_tris(); _log_stair = True   # 段を描き直す（元は一折れ 9 段の蹴上げに踏み板が 5 枚しか無かった）
-        T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
+        T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None, su=(li_ == lidx('24_'))); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
     tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
     if tm_.is_watertight: continue
     ms_ = _plates(T, _THK[li_], stair=(li_ == lidx('25_')))         # 面ごとの板（押し出し）に（10-25 ソリッド係、ユーザー）
@@ -440,8 +446,9 @@ for o in m.Objects:
         ms_ = [M_ - _box for M_ in ms_]
         # 階段の箱の南の面（u30）の登り口と2階の降り口（10-27、ユーザー：登り口が壁でほぼ塞がっている）。元の面は u30 の面が床から
         # 箱の天まで一枚で、東の一折れの登り口（1階）も西の一折れの降り口（2階）も開いていなかった
-        for _ob in (R(29.7, 30.3, -2.85, -4.0, 0.05), R(29.7, 30.3, -4.0, -4.94, 0.05)):
-            _z0, _z1 = (-10.0, 3170.0) if _ob.bounds and _ob.centroid and uv(_ob.centroid.x, _ob.centroid.y)[1] > -4.0 else (3170.0, 3250.0 + 2100.0)
+        # 10-27：箱を北へ延ばし、1 階の登り口は東の面（南の口の通路の側、u30〜30.9）、2 階の着き口は南の面いっぱい
+        for _ob, _z0, _z1 in ((R(STAIR_U0 + 0.06, STAIR_U0 + STAIR_FOOT, -2.7, -3.25, 0.05), -10.0, 3170.0),
+                              (R(29.7, 30.3, -3.1, -4.94, 0.05), 3170.0, 3250.0 + 2100.0)):
             _tb = trimesh.creation.extrude_polygon(_ob, _z1 - _z0); _tb.apply_translation([0, 0, _z0])
             _cut = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
             ms_ = [M_ - _cut for M_ in ms_]
@@ -1084,8 +1091,14 @@ for _o in m.Objects:
     if LN[_o.Attributes.LayerIndex].startswith('36_'):
         _f = foot(_o.Geometry)
         if _f is not None and _f.intersects(_stg0):
-            _f = Polygon([xy(_uu, stair_v(_vv)) for _uu, _vv in (uv(*c_) for c_ in _f.exterior.coords)]).buffer(0)   # 階段を細くした分（10-25）
+            _f = Polygon([xy(stair_u(_uu), stair_v(_vv)) for _uu, _vv in (uv(*c_) for c_ in _f.segmentize(200).exterior.coords)]).buffer(0)   # 階段を細くした分（10-25）・北へ延ばした分（10-27）
             _F36.append((_f, _o.Attributes.LayerIndex)); drop.add(str(_o.Attributes.Id))
+_STX = R(33.0, STAIR_U1 + 0.06, -2.93, -5.06, 0.02); _F31 = []                # 箱を北へ延ばした分を遊戯室の床（31）から除く（10-27）
+for _o in m.Objects:
+    if LN[_o.Attributes.LayerIndex].startswith('31_') and isinstance(_o.Geometry, r.Mesh):
+        _f = foot(_o.Geometry)
+        if _f is not None and _f.intersection(_STX).area > 1e4:
+            _F31.append((_f, _o.Attributes.LayerIndex, _o.Geometry.GetBoundingBox().Max.Z)); drop.add(str(_o.Attributes.Id))
 # 2 階の東の縁を v −1.9 → −2.5 へ（10-25、ユーザー：東の帯の吹き抜けを 1.0 → 1.6、越屋根と同じ幅）と、2 階の部屋の割り直し
 # （ユーザー：更衣室を客が通らないように戸、休憩室へは会議室への通路から、ホールの西の戸と休憩室の中の壁はやめる、便所と湯沸を分ける）
 EDGE2 = -2.5
@@ -1203,7 +1216,7 @@ _toilet = R(25.0, 27.0, -3.9, -5.3, 0.05)                          # 便所（�
 _yuwak = unary_union([R(24.0, 27.0, EDGE2, -3.9, 0.05), R(24.0, 25.0, -3.9, -5.0, 0.05)])   # 湯沸（吹き抜けの縁の開いた窪み）と食器棚の窪み
 _corr = R(27.75, 29.69, -5.0, -7.0, 0.05)                          # 会議室と休憩室への通路（更衣室の手前）
 for k, geom_fn in (('23_', lambda g: g.difference(_cutE)),
-                   ('41_', lambda g: unary_union([g.difference(_cutE).difference(_toilet), _yuwak, _corr])),
+                   ('41_', lambda g: unary_union([g.difference(_cutE).difference(_toilet), _yuwak, _corr, R(STAIR_U0, STAIR_U0 + STAIR_FOOT, -2.99, -5.0, 0.05)])),   # 階段の着き口（10-27）
                    ('42_', lambda g: _toilet),
                    ('44_', lambda g: unary_union([g, _uni('45_') or g]).difference(_cutE).difference(R(24.0, 27.75, EDGE2, -5.0, 0.05)).difference(_toilet)),
                    ('43b', lambda g: g.difference(_corr).difference(R(27.7, 29.75, -2.0, -7.0, 0.05)))):
@@ -1228,7 +1241,8 @@ _L19C_ = [i for i, l in enumerate(out.Layers) if l.Name.startswith('19c_')]
 if _L19C_: K.prism(R(STAIR_DOOR[0] - 0.05, STAIR_DOOR[1] + 0.05, -5.12, -5.09, 0.05), 10.0, 1750.0, _L19C_[0])
 log.append('西館：階段の下の倉庫 %.1f m²（36b、戸は階段の箱の西の面 u%.2f〜%.2f）' % (_stg.area / 1e6, *STAIR_DOOR))
 K.prism(R(21.16, 32.95, -2.56, -2.50, 0.1), ZF2, ZF2 + 1100.0, L38)       # 2 階の東の縁（東の帯への吹き抜け、10-25：1.0 → 1.6）
-K.prism(R(32.97, 33.03, -5.0, -2.56, 0.02), ZF2, ZF2 + 1100.0, L38)       # 2 階の北の口（遊戯室の吹き抜け）
+K.prism(R(32.97, 33.03, -2.93, -2.56, 0.02), ZF2, ZF2 + 1100.0, L38)      # 2 階の北の口（遊戯室の吹き抜け、10-27：箱の東の外まで）
+for _f, _li, _z in _F31: K.flat(_f.difference(_STX), _z, _li)
 # 東の帯の吹き抜け（スパン 8〜11、u 21〜33）に天井扇（10-25、ユーザー：設置は可能？ → 吹き抜けを 1.6 にして入る）。
 # 遊戯室の天井扇（スパン 12〜17）と同じ φ1.1・h6.0、吹き抜けの真ん中（v −1.8、西館の東の壁の内面から 0.75）。
 _LFAN = out.Layers.Add(r.Layer()); out.Layers[_LFAN].Name = '58b_西館_東の帯の吹き抜け_天井扇'; out.Layers[_LFAN].Color = (90, 122, 154, 255)
