@@ -4,7 +4,7 @@
 環境変数：CODE（run_all.sh の終わりの値）、SINCE（前の作り直しの commit）、RUN_URL（この実行のページ）。
 - 通った（CODE=0）：できたものを commit。更新係あての「作り直し：…」の未の項を済にする。変更の記録に一行。
 - 止まった：できたものを捨てる。前の作り直しから commit した係（commit の頭）あてに連携の項を立てる（設計監修には知らせ）。
-どちらも受け箱（renkei/inbox.md）を作り直して commit する。
+受け箱（renkei/inbox.md）は書かない（ほかのチャットの受け箱とぶつかるため、10-27）。
 """
 import os, re, subprocess, sys
 
@@ -67,8 +67,9 @@ else:
     run(*INBOX, 'log', ME, f'{head}で止まった（項 {os.path.basename(p)}）。{check}')
     msg = f'[3dm] 自動の作り直しが止まった（{head}）\n\n{check}\n{url}'
 
-run(*INBOX)
-run('git', 'add', '-A', 'renkei')
+# 受け箱（renkei/inbox.md）は書かない：作り直しの約30分のあいだにほかのチャットが受け箱を push するとぶつかる（10-27）。
+# 受け箱は次にどこかのチャットが inbox.py を走らせたときに作り直される。
+run('git', 'add', '-A', 'renkei/open', 'renkei/done', 'renkei/log')
 r = run('git', 'commit', '-q', '-m', msg)
 print(r.stdout, r.stderr)
 print(msg)

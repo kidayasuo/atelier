@@ -9,7 +9,8 @@ import fnmatch, subprocess, sys
 # ワークフローの paths と同じ（作り直しが読むもの）
 PATS = ['sodachiya/data/*', 'sodachiya/scripts/plan01.py', 'sodachiya/scripts/plan02.py', 'sodachiya/scripts/plan04.py',
         'sodachiya/model/build/*', 'sodachiya/model/*_layers.3dm', 'sodachiya/archive/handoff_1018/*',
-        'sodachiya/logo/sodachiya_logo.svg', 'sodachiya/present/kadai_map.json']
+        'sodachiya/logo/sodachiya_logo.svg', 'sodachiya/present/kadai_map.json',
+        '.github/workflows/sodachiya_build.yml', '.github/scripts/sodachiya_*.py']
 
 
 def git(*a):

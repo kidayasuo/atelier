@@ -19,6 +19,8 @@ on:
       - 'sodachiya/archive/handoff_1018/**'
       - 'sodachiya/logo/sodachiya_logo.svg'
       - 'sodachiya/present/kadai_map.json'
+      - '.github/workflows/sodachiya_build.yml'
+      - '.github/scripts/sodachiya_*.py'
   workflow_dispatch:
     inputs:
       force:
@@ -78,10 +80,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           python3 .github/scripts/sodachiya_publish.py
-          for i in 1 2 3 4 5; do
-            git push && exit 0
-            git pull --rebase --autostash -q || exit 1
-            sleep 5
+          # 作り直しのあいだにほかのチャットが push していたら、その上に載せ直す。
+          # できたもの・自動の記録はこの作り直しだけが書くので、ぶつかったら自分の側（-X theirs＝載せ直す側）を取る。
+          for i in 1 2 3 4 5 6; do
+            git push -q && exit 0
+            git fetch -q origin main
+            git stash -u -q || true
+            git rebase -q -X theirs origin/main || { git rebase --abort; echo "載せ直しに失敗"; exit 1; }
+            sleep $((i * 3))
           done
           exit 1
       - name: 止まったら赤に
