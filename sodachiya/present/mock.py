@@ -775,6 +775,22 @@ def land_elev(ax, x0, y0, night):
     ax.add_patch(Rectangle((x0, y0), w, h, fc="#18233A" if night else "#F7F9FB", ec="none", zorder=0.5))
     rp_ = clip_rect(ax, x0, y0, w, h)
     st_ = len(ax.patches)
+    # Rhino のレイトレースの絵があればそれを使う（present/rhino/keikan_render.py → rhino/out/、ユーザー 10-27）。無ければ影絵
+    _png = os.path.join(HERE, "rhino", "out", "keikan_yoru.png" if night else "keikan_hiru.png")
+    _vj = os.path.join(HERE, "rhino", "out", "keikan_view.json")
+    if os.path.exists(_png) and os.path.exists(_vj):
+        _v = json.load(open(_vj, encoding="utf-8"))
+        ax.add_patch(Rectangle((x0, y0), w, (0 - LE_Z0 - 5.0) * k, fc="#2E5D86" if night else "#DCE8EE", ec="none", zorder=0.8))
+        _xl, _yl = ax.get_xlim(), ax.get_ylim()
+        _im = ax.imshow(plt.imread(_png), extent=(x0 + (_v["t0"] / 1000 - LE_T0) * k, x0 + (_v["t1"] / 1000 - LE_T0) * k,
+                                                  y0 + (_v["z0"] / 1000 - LE_Z0) * k, y0 + (_v["z1"] / 1000 - LE_Z0) * k),
+                        origin="upper", interpolation="lanczos", zorder=2, aspect="auto")
+        _im.set_clip_path(rp_)
+        ax.set_xlim(_xl); ax.set_ylim(_yl)
+        for a_ in ax.patches[st_:]:
+            a_.set_clip_path(rp_)
+        print("沿川の景観立面：Rhino の絵", os.path.basename(_png), _v.get("made"))
+        return w, h
     dmax = max(d for c, d, g in ELEV) or 1
     for cls, dpt, g in sorted(ELEV, key=lambda e: -e[1]):
         if cls == "ctx":
