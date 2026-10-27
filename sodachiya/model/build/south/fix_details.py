@@ -1163,13 +1163,22 @@ _nb += _lattice(12.2, 13.5, _KAM1, '南の妻の縦格子（内縁側の端）')
 # 上端は南の妻の鴨居の線（h2385〜2445）にそろえ、南の面に一本の水平線を通す。土間の床は −300、戸は外開き（plan01 の弧）。鴨居より上は杉の壁。
 _DV0, _DV1 = 0.20, 1.40
 _L66 = lidx('66_')
-_fr = [_gplate(-0.03, 0.03, _DV0, _DV0 + 0.06, lambda v: -300.0, lambda v: _KAM0 - 10.0, 2), _gplate(-0.03, 0.03, _DV1 - 0.06, _DV1, lambda v: -300.0, lambda v: _KAM0 - 10.0, 2),
-       _gplate(-0.03, 0.03, _DV0 + 0.06, _DV1 - 0.06, lambda v: -300.0, lambda v: -180.0, 2), _gplate(-0.03, 0.03, _DV0 + 0.06, _DV1 - 0.06, lambda v: _KAM0 - 70.0, lambda v: _KAM0 - 10.0, 2)]
-at_ = r.ObjectAttributes(); at_.LayerIndex = _L66; at_.Name = '受け取り土間の格子戸（框、杉）'; new_objs.append((_join(_fr), at_))
-at_ = r.ObjectAttributes(); at_.LayerIndex = L16S; at_.Name = '受け取り土間の格子戸のガラス'
-new_objs.append((_gplate(-0.006, 0.006, _DV0 + 0.06, _DV1 - 0.06, lambda v: -180.0, lambda v: _KAM0 - 70.0, 2), at_))
-_db = [_gplate(-0.075, -0.03, v_, v_ + 0.03, lambda v: -180.0, lambda v: _KAM0 - 70.0, 2) for v_ in np.arange(_DV0 + 0.105, _DV1 - 0.09, 0.12)]
-at_ = r.ObjectAttributes(); at_.LayerIndex = _L66; at_.Name = '受け取り土間の格子戸（縦格子 30×45、120おき）'; new_objs.append((_join(_db), at_))
+# 10-27（ユーザー）：開き戸の振れが待ち受けのベビーカー置き場（戸の前 0.75）に当たるので、格子の引き分け戸に。
+# 2 枚とも南の妻の外側（外の格子の内、u −0.12〜−0.035）の上吊りのレールを引く：西の 1 枚（0.55）は外壁の角（v −0.35）まで、
+# 東の 1 枚（0.65）は袖壁（v1.4〜1.75）と乳児室の格子の前へ。両方開けて 1.2、人だけなら片方。室内側では引かない（0・1歳の部屋の框・腰壁、はう子の手）。
+# 3dm は閉めた位置。框（見付60）・ガラス・外の縦格子 30×45@120 は前と同じ。
+def _leaf(a_, b_, nm_):
+    fr_ = [_gplate(-0.075, -0.035, a_, a_ + 0.06, lambda v: -300.0, lambda v: _KAM0 - 10.0, 2), _gplate(-0.075, -0.035, b_ - 0.06, b_, lambda v: -300.0, lambda v: _KAM0 - 10.0, 2),
+           _gplate(-0.075, -0.035, a_ + 0.06, b_ - 0.06, lambda v: -290.0, lambda v: -180.0, 2), _gplate(-0.075, -0.035, a_ + 0.06, b_ - 0.06, lambda v: _KAM0 - 70.0, lambda v: _KAM0 - 10.0, 2)]
+    at_ = r.ObjectAttributes(); at_.LayerIndex = _L66; at_.Name = f'受け取り土間の格子の引き分け戸（{nm_}、框、杉）'; new_objs.append((_join(fr_), at_))
+    at_ = r.ObjectAttributes(); at_.LayerIndex = L16S; at_.Name = f'受け取り土間の格子の引き分け戸のガラス（{nm_}）'
+    new_objs.append((_gplate(-0.061, -0.049, a_ + 0.06, b_ - 0.06, lambda v: -180.0, lambda v: _KAM0 - 70.0, 2), at_))
+    db_ = [_gplate(-0.12, -0.075, v_, v_ + 0.03, lambda v: -180.0, lambda v: _KAM0 - 70.0, 2) for v_ in np.arange(a_ + 0.105, b_ - 0.09, 0.12)]
+    at_ = r.ObjectAttributes(); at_.LayerIndex = _L66; at_.Name = f'受け取り土間の格子の引き分け戸（{nm_}、縦格子 30×45、120おき）'; new_objs.append((_join(db_), at_))
+_DM = _DV0 + 0.55
+_leaf(_DV0, _DM, '西の1枚'); _leaf(_DM, _DV1, '東の1枚')
+at_ = r.ObjectAttributes(); at_.LayerIndex = L18_; at_.Name = '受け取り土間の引き分け戸の上吊りのレール（外、v −0.35〜2.05）'
+new_objs.append((_gplate(-0.13, -0.03, -0.35, _DV1 + 0.65, lambda v: _KAM0 - 10.0, lambda v: _KAM0 + 50.0, 2), at_))
 at_ = r.ObjectAttributes(); at_.LayerIndex = L18_; at_.Name = '受け取り土間の戸の鴨居（南の妻の鴨居と一本）'
 new_objs.append((_gplate(0.0, 0.11, _DV0, _DV1, lambda v: _KAM0, lambda v: _KAM1), at_))
 at_ = r.ObjectAttributes(); at_.LayerIndex = L17_; at_.Name = '受け取り土間の戸の上の杉の壁'
