@@ -93,7 +93,7 @@ from scipy.interpolate import LinearNDInterpolator
 _zo = LinearNDInterpolator(_P[:, :2], _P[:, 2])
 keep = [(g, a) for g, a in keep if not (a.LayerIndex == lidx('20_') and isinstance(g, r.Mesh) and len(g.Vertices) > 200)]
 _v_out = _RW['v_out']
-_us = np.unique(np.r_[[f_ + d_ for f_ in _RW['FRAMES'][1:] for d_ in (-0.09, 0.09)], np.arange(21.0, 23.6, 0.05), np.arange(23.6, 40.4, 0.25), np.arange(40.4, 44.1, 0.05), np.arange(44.1, 49.9, 0.25), np.arange(49.9, 51.0001, 0.02)])
+_us = np.unique(np.r_[[f_ + d_ for f_ in _RW['FRAMES'][1:] for d_ in (-0.09, 0.09)], _RW['KINKS'], np.arange(21.0, 23.6, 0.05), np.arange(23.6, 40.4, 0.25), np.arange(40.4, 44.1, 0.05), np.arange(44.1, 49.9, 0.25), np.arange(49.9, 51.0001, 0.02)])
 _us[0] += 0.0005; _us[-1] -= 0.0005
 _NV = 40
 rm = r.Mesh()
@@ -551,6 +551,18 @@ Z_LOW, Z_RAKE = 4760.0, 5100.0                 # 縁の屋根の高さ：これ�
 ringS = WS.exterior
 ring_ccw = ringS if Polygon(ringS).exterior.is_ccw else LineString(list(ringS.coords)[::-1])
 Ls = ring_ccw.length; NS = int(Ls / 100.0)
+# 北西の角（u42〜51）の軒先（10-27夜、ユーザー：実際に作る時もまっすぐの材で近似する、軒の高さは一定に）：屋根の線（架構の線と u43.5 の登り梁）を
+# 軒の点から外へ同じ割合だけ延ばした点（＝同じ高さ）を、まっすぐな水平の線で結ぶ。軒の出は西の面の 0.78 から北の妻へ細くなり、けらばの 0.3 に続く。
+_BAYS = _RW['BAYS']; _BL = {u_: _RW['beam_line'](u_) for u_ in _BAYS}
+_L42 = np.linalg.norm(_BL[42.0][1] - _BL[42.0][0]); _HT = 1.0 + (EAVE_LOW - GUT_W) / _L42          # 西の面の軒の出（屋根の面 0.78）と同じ高さ
+_CH = [_BL[u_][0] + _HT * (_BL[u_][1] - _BL[u_][0]) for u_ in _BAYS]
+_rake = WS.buffer(EAVE_RAKE, join_style=2).exterior                          # 北の妻のけらばの線（妻の外面の 0.3 外）
+_d_ = (_CH[-1] - _CH[-2]) / np.linalg.norm(_CH[-1] - _CH[-2])
+_hk = LineString([_CH[-1], _CH[-1] + _d_ * 3000.0]).intersection(_rake)
+_hk = [_hk] if _hk.geom_type == 'Point' else list(getattr(_hk, 'geoms', []))
+if _hk: _CH = _CH[:-1] + [min((np.array([q.x, q.y]) for q in _hk), key=lambda q: np.linalg.norm(q - _CH[-2]))]
+CHORD = LineString(_CH)
+print('NW eave: level straight chord through roof lines', _BAYS, 'tip z %.0f' % roof_f(*_CH[0]))
 eave_pts = []                                  # (s, p, n, d_eave, z_edge)
 for k in range(NS):
     s_ = Ls * k / NS
@@ -565,6 +577,11 @@ for k in range(NS):
     d_ = EAVE_LOW * (1 - f_) + EAVE_RAKE * f_
     hit = LineString([p_, p_ + n_ * 3000]).intersection(_site.exterior)
     hp = [hit] if hit.geom_type == 'Point' else list(getattr(hit, 'geoms', []))
+    if 42.0 <= uu_ < 50.995 and vv_ < -1.2:                                    # 北西の角：軒先はまっすぐな水平の線（CHORD）まで
+        hc = LineString([p_, p_ + n_ * 3000]).intersection(CHORD)
+        hc = [hc] if hc.geom_type == 'Point' else list(getattr(hc, 'geoms', []))
+        if hc:
+            d_ = min(np.hypot(h.x - p_[0], h.y - p_[1]) for h in hc) + GUT_W; f_ = 0.0
     if hp: d_ = min(d_, min(np.hypot(h.x - p_[0], h.y - p_[1]) for h in hp) - 100.0)
     eave_pts.append((s_, p_, n_, d_, ze, f_))
 # 東の面で切れる所から、つながった区間ごとに帯の面（内＝外皮の縁、外＝軒先）
@@ -593,7 +610,8 @@ for run in runs:
     sl_ = np.array([sl_[max(0, i - k_): i + k_ + 1].mean() for i in range(len(sl_))])
     ze_ = np.array([ze_[max(0, i - 5): i + 6].mean() for i in range(len(ze_))])   # 縁の高さの小さなぎざぎざをならす
     for i, e_ in enumerate(run): run[i] = e_ + (ze_[i], float(sl_[i]))
-def zt_tip(e_, dd): return e_[6] + e_[7] * (dd + 30.0)
+def zt_tip(e_, dd):                                  # 10-27夜：屋根の面の式（roofw）をそのまま延ばす（ならさない。軒の下の線が波打っていた）
+    q_ = e_[1] + e_[2] * dd; return float(roof_f(q_[0], q_[1]))
 RT_W = 109.0                                     # 10-27夜：屋根の上面は梁の上端＝この面の約 109 上（前は 420）。軒樋・鎖樋は上面の先に合わせる
 def zt_top(e_, dd): return zt_tip(e_, dd) + RT_W
 n_eave = 0; gut_line = []
@@ -602,11 +620,11 @@ for run in runs:
     mm = r.Mesh()
     for e_ in run:
         dd = e_[3] - GUT_W * (1 - e_[5])        # 軒は軒樋の分だけ屋根を控える
-        a_ = e_[1] - e_[2] * 20.0; b_ = e_[1] + e_[2] * dd
-        mm.Vertices.Add(float(a_[0]), float(a_[1]), float(zt_tip(e_, -20.0)))
-        mm.Vertices.Add(float(b_[0]), float(b_[1]), float(zt_tip(e_, dd)))
+        for t_ in (-20.0, dd / 2, dd):                                     # 内（外皮の縁の 20 内）・中・軒先の 3 列
+            c_ = e_[1] + e_[2] * t_; mm.Vertices.Add(float(c_[0]), float(c_[1]), float(zt_tip(e_, t_)))
     for k in range(len(run) - 1):
-        i0 = 2 * k; mm.Faces.AddFace(i0, i0 + 1, i0 + 3, i0 + 2)
+        i0 = 3 * k
+        mm.Faces.AddFace(i0, i0 + 1, i0 + 4, i0 + 3); mm.Faces.AddFace(i0 + 1, i0 + 2, i0 + 5, i0 + 4)
     mm.Normals.ComputeNormals(); mm.Compact()
     at = r.ObjectAttributes(); at.LayerIndex = L_ROOF; new.Objects.AddMesh(mm, at); n_eave += 1
     gut_line += [e_ for e_ in run if e_[5] < 0.05]

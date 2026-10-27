@@ -164,7 +164,7 @@ try:
     import pickle, roofw
     _ROOT = os.environ.get('SODACHIYA_ROOT') or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
     _RW = roofw.make(pickle.load(open(os.path.join(_ROOT, 'data', 'wnew.pkl'), 'rb'))['WN'])
-    ROOF_SPEC = dict(func=_RW['roof_f'], ubreaks=[21.0, 51.0] + [f + d for f in _RW['FRAMES'][1:] for d in (-0.09, 0.09)], vbreaks=[_RW['VRIDGE']])
+    ROOF_SPEC = dict(func=_RW['roof_f'], ubreaks=[21.0, 51.0] + [f + d for f in _RW['FRAMES'][1:] for d in (-0.09, 0.09)] + list(_RW.get('KINKS', [])), vbreaks=[_RW['VRIDGE']])   # KINKS：屋根の線（梁）で面が折れる（10-27夜、西館係）
 except Exception as _e:
     print('roofw を読めない（西館の屋根は前の作り方）:', _e); ROOF_SPEC = None
 

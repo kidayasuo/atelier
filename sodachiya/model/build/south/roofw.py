@@ -28,8 +28,8 @@ def make(WN):
         """放射の線 u と角を丸めない外形の、いちばん西の交点の v"""
         uu = min(max(u, 21.0005), 50.9995)
         ln = LineString([xy(uu, VRIDGE + 0.5), xy(uu, -40.0)]); x_ = ln.intersection(PSHARP.exterior)
-        pts = [x_] if x_.geom_type == 'Point' else list(getattr(x_, 'geoms', []))
-        return min(uv(q.x, q.y)[1] for q in pts)
+        pts = [c_ for g_ in getattr(x_, 'geoms', [x_]) for c_ in np.asarray(g_.coords)]   # 線が外形の辺に重なると LineString（10-27夜）
+        return min(uv(*c_)[1] for c_ in pts)
     _ve_cache = {}
     def roof_f(x, y):
         u, v = uv(x, y); k = round(u, 3)
@@ -48,17 +48,47 @@ def make(WN):
         # 平面 z = c0 + c1·x + c2·y を、棟の線と軒の線の上の点で最小二乗（両方の線の高さのずれを半分ずつにする）
         A_, B_ = [], []
         for uu in np.linspace(ua + HS, ub - HS, 25):
-            for vv in (VRIDGE, v_eave(uu)):
-                p = np.array(xy(uu, vv), float).ravel(); A_.append([1.0, p[0] - Pa[0], p[1] - Pa[1]]); B_.append(roof_c(*p))
+            for vv, w_ in ((VRIDGE, 1.0), (v_eave(uu), 30.0)):          # 10-27夜：軒を水平に（ユーザー：軒の高さは一定に）。ずれは棟の側へ
+                p = np.array(xy(uu, vv), float).ravel(); A_.append([w_, w_ * (p[0] - Pa[0]), w_ * (p[1] - Pa[1])]); B_.append(w_ * roof_c(*p))
         cf = np.linalg.lstsq(np.array(A_), np.array(B_), rcond=None)[0]
         planes.append((ua, ub, Pa, cf))
     def _pz(k, x, y):
         ua, ub, Pa, cf = planes[k]; return float(cf[0] + cf[1] * (x - Pa[0]) + cf[2] * (y - Pa[1]))
-    def _side(k, x, y):                       # k：スパンの番号（0〜6 が平面、7 は曲面）
-        return _pz(k, x, y) if 0 <= k < len(planes) else roof_c(x, y)
-    def roof_f(x, y):
+    # スパン15〜17（u42〜51、北西の角）は母屋がまっすぐ載る面（10-27夜、ユーザー：実際に作る時もまっすぐの材と板で近似する）。
+    # 架構の線（と u43.5 の登り梁）の屋根の線は棟（v −0.9、8.15）から軒（角を丸めない外形、4.65）へのまっすぐな線。となりの二本の線の
+    # 同じ高さの点を水平のまっすぐな線（母屋）で結んだ面にする。スパン16・17 は前の面と 1 mm 以内で同じ、スパン15 は軒がスパンの中で
+    # 曲がるので u43.5 に登り梁を一本足して二つに分けた（前の面との差は最大約 3 cm）。軒先も同じ線の上で水平になる。
+    BAYS = [21.0 + 3.0 * k for k in range(8)] + [43.5, 45.0, 48.0, 51.0]   # 10-27夜：西の面（スパン8〜14）も同じ作り方（平面のときは棟が±5 cm 狂い、架構の線で段）
+    def beam_line(u):
+        """屋根の線 u：棟の点と軒の点（平面、mm）"""
+        return np.array(xy(u, VRIDGE), float).ravel(), np.array(xy(u, v_eave(u)), float).ravel()
+    _BL = {u_: beam_line(u_) for u_ in BAYS}
+    def ruled_hs(x, y):
+        """点 (x, y) の (h, s, ベイの番号)：h＝棟 0 → 軒 1、s＝ベイの南の線 0 → 北の線 1（ベイの外へは延ばす）"""
         u, v = uv(x, y)
-        if u >= FR[-1] + HS: return roof_c(x, y)
+        k = int(np.clip(np.searchsorted(BAYS, u) - 1, 0, len(BAYS) - 2))
+        (Ra, Ea), (Rb, Eb) = _BL[BAYS[k]], _BL[BAYS[k + 1]]
+        p = np.array([x, y], float); h = 0.5; s_ = float(np.clip((u - BAYS[k]) / (BAYS[k + 1] - BAYS[k]), 0, 1))
+        for _ in range(40):
+            A_ = Ra + h * (Ea - Ra); B_ = Rb + h * (Eb - Rb); P_ = A_ + s_ * (B_ - A_)
+            J = np.c_[(1 - s_) * (Ea - Ra) + s_ * (Eb - Rb), B_ - A_]
+            d = np.linalg.solve(J, p - P_); h += d[0]; s_ += d[1]
+            if abs(d[0]) < 1e-12 and abs(d[1]) < 1e-12: break
+        return h, s_, k
+    def roof_ruled(x, y):
+        return ZRIDGE - (ZRIDGE - ZEAVE) * ruled_hs(x, y)[0]
+    def ruled_point(k, h, s_):
+        """ベイ k の (h, s) の点（x, y, z）"""
+        (Ra, Ea), (Rb, Eb) = _BL[BAYS[k]], _BL[BAYS[k + 1]]
+        A_ = Ra + h * (Ea - Ra); B_ = Rb + h * (Eb - Rb); P_ = A_ + s_ * (B_ - A_)
+        return np.array([P_[0], P_[1], ZRIDGE - (ZRIDGE - ZEAVE) * h])
+    def _side(k, x, y):                       # k：スパンの番号（0〜6 が平面、7 は北西の角）
+        return _pz(k, x, y) if 0 <= k < len(planes) else roof_ruled(x, y)
+    def roof_f(x, y):                          # 10-27夜：西館の屋根の面はすべて、屋根の線（梁）の同じ高さの点を水平のまっすぐな線（母屋）で結んだ面
+        return roof_ruled(x, y)
+    def roof_planes(x, y):                     # 前のスパンごとの平面（比べるため）
+        u, v = uv(x, y)
+        if u >= FR[-1] + HS: return roof_ruled(x, y)
         if u < FR[0]: return _pz(0, x, y)                                 # 南のけらば（u < 21）もスパン 8 の平面を延ばす（10-27夜、ソリッド係の項 20261027-2159：曲面に戻すと u21 で最大 2.8 cm の段）
         for j, f in enumerate(FR[1:], start=1):                          # 架構の線 u24〜42 の筋の中は一次で移る
             if abs(u - f) < HS:
@@ -86,4 +116,4 @@ def make(WN):
         u, v = uv(x, y); k = round(min(max(u, 21.0005), 50.9995), 3)
         if k not in _vo: _vo[k] = _v_out(k)[1]
         return ZRIDGE - (ZRIDGE - ZEAVE) * max(0.0, VRIDGE - v) / max(1e-6, VRIDGE - _vo[k])
-    return dict(roof_f=roof_f, roof_c=roof_c, plane_dev=_plane_dev, FRAMES=FR, roof_old=roof_old, v_out=_v_out, corners=_corners, PSHARP=PSHARP, VRIDGE=VRIDGE)
+    return dict(roof_f=roof_f, roof_c=roof_c, BAYS=BAYS, beam_line=beam_line, ruled_hs=ruled_hs, ruled_point=ruled_point, KINKS=[b_ for b_ in BAYS[1:-1]], roof_planes=roof_planes, plane_dev=_plane_dev, FRAMES=FR, roof_old=roof_old, v_out=_v_out, corners=_corners, PSHARP=PSHARP, VRIDGE=VRIDGE)

@@ -1276,6 +1276,40 @@ for o in m.Objects:
         tm_c.fix_normals()
         try: _cant_ms.append(_mf.Manifold(_mf.Mesh(vert_properties=np.asarray(tm_c.vertices, np.float32), tri_verts=np.asarray(tm_c.faces, np.uint32))))
         except Exception: pass
+# 北西の角の登り梁（10-27夜、ユーザー：母屋がまっすぐ載る屋根に。スパン15 は軒がスパンの中で曲がるので u43.5 に一本足して二つに分けた）：
+# 屋根の線 u43.5（棟から軒へまっすぐ）に、幅 120・鉛直のせい 800 の一本の登り梁（22b、上端＝梁の上端の面）。東の端は東の桁（22d、梁の下端の
+# 10 下）に載る（v −1.05 から）、西の端は外壁の内面。その先は出し梁（240 → 120、軒先の 0.1 手前）。光の筋は無し（筋は架構の線だけ）。
+U_RAF = 43.5
+_Rr, _Er = _RWf['beam_line'](U_RAF); _ax2 = (_Er - _Rr) / np.linalg.norm(_Er - _Rr); _w2 = np.array([-_ax2[1], _ax2[0]])
+_pE = np.array(xy(U_RAF, -1.05), float).ravel()
+_xw = LineString([_pE, _pE + _ax2 * 30000.0]).intersection(WSi_W.exterior)
+_xw = [_xw] if _xw.geom_type == 'Point' else list(getattr(_xw, 'geoms', []))
+_pW = min((np.array([q.x, q.y]) for q in _xw), key=lambda q: np.linalg.norm(q - _pE))
+_zr = lambda q: float(_RWf['roof_f'](float(q[0]), float(q[1])))
+def _slab_x(P0, P1, z0, z1, d0, d1, width, li, name):
+    """P0→P1（平面）の上端 z0→z1・鉛直のせい d0→d1、幅 width の材を、鉛直の側面の押し出しで（側面の形を幅の方向に押し出す）"""
+    q = [np.r_[P0, z0], np.r_[P1, z1], np.r_[P1, z1 - d1], np.r_[P0, z0 - d0]]
+    q = [x_ - np.r_[_w2 * width / 2, 0.0] for x_ in q]
+    crv = r.Polyline([r.Point3d(*map(float, x_)) for x_ in q + [q[0]]]).ToNurbsCurve()
+    best = None
+    for e_ in (r.Extrusion.Create(crv, width, True), r.Extrusion.Create(crv, -width, True)):
+        if e_ is None: continue
+        bb_ = e_.GetBoundingBox(); c_ = np.array([(bb_.Min.X + bb_.Max.X) / 2, (bb_.Min.Y + bb_.Max.Y) / 2])
+        d_ = abs((c_ - (P0 + P1) / 2) @ _w2)
+        if best is None or d_ < best[0]: best = (d_, e_)
+    at_ = r.ObjectAttributes(); at_.LayerIndex = li; at_.Name = name
+    _XNEW.append((best[1], at_)); return best[1]
+_slab_x(_pE, _pW, _zr(_pE), _zr(_pW), 800.0, 800.0, 120.0, L22B, '登り梁 120×800（北西の角、u43.5、棟から軒へ一本）')
+_L42 = np.linalg.norm(_RWf['beam_line'](42.0)[1] - _RWf['beam_line'](42.0)[0])
+_tipR = _Rr + (1.0 + (900.0 - 120.0) / _L42) * (_Er - _Rr) - _ax2 * 100.0          # 軒先（まっすぐな水平の線）の 0.1 手前
+_cR = _slab_x(_pW, _tipR, _zr(_pW), _zr(_tipR), 240.0, 120.0, 120.0, L22B, '出し梁（北西の角の登り梁 u43.5 の先、せい 240 → 120）')
+_CANT.append(_cR)
+_Tc = tri.tri_extrusion(_cR)
+if len(_Tc):
+    _tmc = trimesh.Trimesh(_Tc.reshape(-1, 3), np.arange(len(_Tc) * 3).reshape(-1, 3)); _tmc.merge_vertices(); _tmc.fix_normals()
+    try: _cant_ms.append(_mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tmc.vertices, np.float32), tri_verts=np.asarray(_tmc.faces, np.uint32))))
+    except Exception: pass
+log.append('西館：北西の角の登り梁 u43.5（120×800、東の桁から外壁の内面まで、出し梁つき）')
 # 外壁を出し梁の所だけ欠く
 _nwall = 0
 if _cant_ms:
@@ -1380,12 +1414,14 @@ if slits:
     _SLIT_M = _prism(SL20)
     _WSO = WS_W                                                              # 外皮の外面
     from shapely import distance as _sdist, points as _spts
+    _OUTL = WSL.exterior
     def _eave_dz0(V_):                                                       # 上の層の下面：外皮の線の内は梁の上端、外は軒先へ 45 上がる
-        d_ = _sdist(_spts(V_[:, :2]), _WSO)
-        return EAVE_RISE * np.clip(d_ / EAVE_OV, 0.0, 1.0)
+        d_ = _sdist(_spts(V_[:, :2]), _WSO); e_ = _sdist(_spts(V_[:, :2]), _OUTL)   # 10-27夜：軒の出の割合で（北西の角は軒の出が 0.78 → 0.3 に細くなる）
+        return EAVE_RISE * np.clip(d_ / np.maximum(d_ + e_, 1.0), 0.0, 1.0)
     # 梁のあいだ：外壁の内面の内側から、架構の線ごとの 2 枚の梁と光の筋の帯（±180）を除いた所
     BANDS = unary_union([Polygon([cc_ - ax_ * 30000 - np.array([-ax_[1], ax_[0]]) * 180, cc_ + ax_ * 30000 - np.array([-ax_[1], ax_[0]]) * 180,
                                   cc_ + ax_ * 30000 + np.array([-ax_[1], ax_[0]]) * 180, cc_ - ax_ * 30000 + np.array([-ax_[1], ax_[0]]) * 180]) for cc_, ax_ in pairs])
+    BANDS = unary_union([BANDS, Polygon([_pE - _ax2 * 3000 - _w2 * 60, _pE + _ax2 * 30000 - _w2 * 60, _pE + _ax2 * 30000 + _w2 * 60, _pE - _ax2 * 3000 + _w2 * 60])])   # 登り梁 u43.5
     roofs20 = []; _n_thk20 = 0; _ROOF_TOP = []; _INS = []
     L20R = new_layer('20r_西館_屋根の下面の構造用合板（t24、現し）', (214, 190, 150)); a20r = r.ObjectAttributes(); a20r.LayerIndex = L20R
     L20V = new_layer('20v_西館_母屋（杉 60×150 @455、現し）', (196, 160, 118)); a20v = r.ObjectAttributes(); a20v.LayerIndex = L20V
@@ -1412,47 +1448,6 @@ if slits:
         _rp = Polygon([xy(u_, _vr + 0.03) for u_ in _us] + [xy(u_, _vr - 0.03) for u_ in _us[::-1]])
         _purl.append(_rp.intersection(INT)); _eave.append(_rp.intersection(EAVEZ))
         _vr -= 0.455
-    _MPUR = _prism(unary_union([p_ for p_ in _purl if not p_.is_empty]))
-    _MEAV = _prism(unary_union([p_ for p_ in _eave if not p_.is_empty]))
-    _npur = 0
-    # 母屋（20v）はまっすぐな角材（60×150）：梁と梁のあいだの一本ずつを、両端（筋の帯・外壁の内面）を結ぶ弦に沿う長方形の押し出しに
-    # （10-27夜、ユーザー：母屋が長方形の押し出し以外になっているのは変。前は弧に沿う帯と屋根の層の交わりで、曲面のスパンでねじれた面だった）。
-    # 上面は母屋の上の面（屋根の面の関数から −174、軒は梁の上端 0）に両端で合わせ、断面は屋根の勾配に沿って傾ける（上面が合板の下面に添う）
-    _RF = _RWf['roof_f']
-    def _purlin(pg, vr, ztop):
-        pts = []
-        for g_ in getattr(pg, 'geoms', [pg]):
-            if g_.geom_type == 'Polygon' and g_.area > 1e4: pts += list(g_.exterior.coords)
-        if not pts: return None
-        us = [uv(x_, y_)[0] for x_, y_ in pts]; ua, ub = min(us), max(us)
-        if ub - ua < 0.2: return None
-        p0 = np.array(xy(ua, vr), float).ravel(); p1 = np.array(xy(ub, vr), float).ravel()
-        A = np.r_[p0, _RF(*p0) + ztop]; B = np.r_[p1, _RF(*p1) + ztop]; d = B - A; L_ = np.linalg.norm(d); d /= L_
-        pm = (p0 + p1) / 2; e_ = 50.0
-        gx = (_RF(pm[0] + e_, pm[1]) - _RF(pm[0] - e_, pm[1])) / (2 * e_); gy = (_RF(pm[0], pm[1] + e_) - _RF(pm[0], pm[1] - e_)) / (2 * e_)
-        nr = np.array([-gx, -gy, 1.0]); nr -= (nr @ d) * d; nr /= np.linalg.norm(nr)          # 屋根の面の法線（軸に直角に）
-        w = np.cross(nr, d); w /= np.linalg.norm(w)
-        c = [w * 30 + nr * 0, -w * 30, -w * 30 - nr * PUR_T, w * 30 - nr * PUR_T]             # 断面（上の辺の真ん中が軸）
-        V_ = np.array([A + q for q in c] + [B + q for q in c])
-        F_ = [[0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6], [0, 4, 5], [0, 5, 1], [1, 5, 6], [1, 6, 2], [2, 6, 7], [2, 7, 3], [3, 7, 4], [3, 4, 0]]
-        t_ = trimesh.Trimesh(V_, F_, process=False); trimesh.repair.fix_normals(t_)
-        return t_
-    _pm = []
-    for vr_, pg_ in zip([(-2.56 - 0.03) - 0.455 * k for k in range(len(_purl))], _purl):
-        for g_ in getattr(pg_, 'geoms', [pg_]):
-            t_ = _purlin(g_, vr_, -INS_T - PLY_T) if not g_.is_empty else None
-            if t_ is not None: _pm.append(t_)
-    for vr_, pg_ in zip([(-2.56 - 0.03) - 0.455 * k for k in range(len(_eave))], _eave):
-        for g_ in getattr(pg_, 'geoms', [pg_]):
-            t_ = _purlin(g_, vr_, 0.0) if not g_.is_empty else None
-            if t_ is not None: _pm.append(t_)
-    if _pm:
-        mm_ = r.Mesh()
-        for t_ in _pm:                                                   # 一本ずつ別の閉じた立体（頂点も別）
-            o_ = len(mm_.Vertices)
-            for x_, y_, z_ in t_.vertices: mm_.Vertices.Add(float(x_), float(y_), float(z_))
-            for a_, b_, c_ in t_.faces: mm_.Faces.AddFace(int(a_) + o_, int(b_) + o_, int(c_) + o_)
-        mm_.Normals.ComputeNormals(); new_objs.append((mm_, a20v)); _npur = len(_pm)
     for o, fp in _faces20:
         for dz_, dz0_, at_, M_cut in ((0.0, -INS_T, o.Attributes, _MINT), (-INS_T, -INS_T - PLY_T, a20r, _MINT)):
             if M_cut is None: continue
@@ -1461,6 +1456,47 @@ if slits:
             M_ = M_ ^ M_cut
             if M_.is_empty(): continue
             new_objs.append((_m2r(M_), at_))
+    # 母屋は一本ずつの長方形の押し出し（10-27夜、ユーザー：母屋が長方形の押し出し以外になっているのは変）。前は、屋根の面に沿う板を
+    # 弧に沿う帯で鉛直に切り出して一つの網目にまとめていたので、断面が平行四辺形・上下の面が曲面の片の集まりになっていた。
+    # 今：梁と梁のあいだ（INT・軒の下は EAVEZ）を通る弦をまっすぐな軸にし、その所の屋根の面（梁の上端）に当てはめた平面の上に、
+    # 上の面を合板の下面（室内、梁の上端の 174 下）か梁の上端（軒の下）にそろえ、幅 60 × せい 150（屋根の面に直角）の断面で押し出す。
+    def _purl_x(A2, B2, ztop, name_):
+        """平面の A2→B2（水平）、上の面の中心の高さ ztop の 60×150 の押し出し（断面は屋根の面に直角）"""
+        A3 = np.r_[A2, ztop]; B3 = np.r_[B2, ztop]; L_ = float(np.linalg.norm(B3 - A3)); d3 = (B3 - A3) / L_
+        M2 = (A2 + B2) / 2; e_ = 50.0
+        gx = (_RWf['roof_f'](M2[0] + e_, M2[1]) - _RWf['roof_f'](M2[0] - e_, M2[1])) / (2 * e_)
+        gy = (_RWf['roof_f'](M2[0], M2[1] + e_) - _RWf['roof_f'](M2[0], M2[1] - e_)) / (2 * e_)
+        N_ = np.array([-gx, -gy, 1.0]); N_ = N_ - d3 * (N_ @ d3); N_ /= np.linalg.norm(N_)
+        s3 = np.cross(d3, N_); s3 /= np.linalg.norm(s3)
+        C_ = [A3 + s3 * 30.0, A3 - s3 * 30.0, A3 - s3 * 30.0 - N_ * PUR_T, A3 + s3 * 30.0 - N_ * PUR_T]
+        crv = r.Polyline([r.Point3d(*map(float, c_)) for c_ in C_ + [C_[0]]]).ToNurbsCurve()
+        best = None; mid_ = (A3 + B3) / 2
+        for ex_ in (r.Extrusion.Create(crv, L_, True), r.Extrusion.Create(crv, -L_, True)):
+            if ex_ is None: continue
+            bb_ = ex_.GetBoundingBox(); dm = np.linalg.norm(np.array([(bb_.Min.X + bb_.Max.X) / 2, (bb_.Min.Y + bb_.Max.Y) / 2]) - mid_[:2])
+            if best is None or dm < best[0]: best = (dm, ex_)
+        if best is None: return 0
+        at_ = r.ObjectAttributes(); at_.LayerIndex = L20V; at_.Name = name_
+        _XNEW.append((best[1], at_)); return 1
+    # 母屋は一本ずつの長方形の押し出し（10-27夜、ユーザー：母屋が長方形の押し出し以外になっているのは変）。屋根の面（roofw）は、屋根の線（梁）の
+    # 同じ高さの点を水平のまっすぐな線で結んだ面なので、母屋はその線の上にちょうど載る。ベイごとに、長い方の梁で 455 おき、越屋根の西の縁の外から軒先まで。
+    # 室内は上の面＝合板の下面（梁の上端の 174 下）、軒の下は梁の上端にそろえて落とし込む。梁・登り梁の帯（BANDS）と外壁の内面で切る。
+    _B = _RWf['BAYS']; _npur = 0
+    for k in range(len(_B) - 1):
+        (Ra, Ea), (Rb, Eb) = _RWf['beam_line'](_B[k]), _RWf['beam_line'](_B[k + 1])
+        Lm = max(np.linalg.norm(Ea - Ra), np.linalg.norm(Eb - Rb))
+        h0 = max(_RWf['ruled_hs'](*np.array(xy(_B[k] + 0.25, EASTV - 0.06), float).ravel())[0],
+                 _RWf['ruled_hs'](*np.array(xy(_B[k + 1] - 0.25, EASTV - 0.06), float).ravel())[0])
+        for h in np.arange(h0, 1.0 + 1000.0 / Lm, 455.0 / Lm):
+            Pa = _RWf['ruled_point'](k, h, 0.0); Pb = _RWf['ruled_point'](k, h, 1.0)        # 梁の芯から芯（帯で切る）
+            ln2 = LineString([Pa[:2], Pb[:2]])
+            for reg_, off_, nm_ in ((INT, -INS_T - PLY_T, '梁から梁へ'), (EAVEZ, 0.0, '軒の下、梁の上端にそろえる')):
+                x_ = ln2.intersection(reg_)
+                for sg_ in getattr(x_, 'geoms', [x_]):
+                    if sg_.geom_type != 'LineString' or sg_.length < 300.0: continue
+                    _npur += _purl_x(np.array(sg_.coords[0]), np.array(sg_.coords[-1]), float(Pa[2]) + off_,
+                                     f'母屋 杉 60×150（水平、u{_B[k]:g}〜{_B[k + 1]:g}、高さ {Pa[2] / 1000:.2f}、{nm_}）')
+    log.append(f'西館：母屋 {_npur} 本（一本ずつの 60×150 の押し出し、となりの梁の同じ高さの点を結ぶ水平のまっすぐな材）')
     log.append(f'西館：屋根の構成（10-27夜）：梁の上 {RT_W:.0f}（屋根材 40・通気垂木と野地、軒先の見付け {RT_W - EAVE_RISE:.0f}）、梁のあいだに断熱 150（20）・合板 t24（20r）・母屋 60×150 @455（20v）、軒の下は母屋を梁の上端に落とし込む')
     # 筋の両側の梁の下端（鏡面の板の下の端）：2 枚の梁（22b）に下から鉛直の線を当てる
     _bmt = [closed_mesh(bm.get(str(o.Attributes.Id), cur_g(o))) for o in m.Objects if o.Attributes.LayerIndex == L22B]
@@ -1476,19 +1512,24 @@ if slits:
     L20M = new_layer('20m_西館_光の筋の鏡面（アルミ）', (200, 205, 210))
     a20m = r.ObjectAttributes(); a20m.LayerIndex = L20M
     def mirror(cc, ax, nrm, t0, t1, a, b_, ztop_d, step=250.0):
-        """筋の側面（nrm の a〜b_）に、梁の下端から屋根の面＋ztop_d までの薄い板（step ごとの角柱の集まり）"""
-        mm_ = r.Mesh(); sgn = 1 if a > 0 else -1
+        """筋の側面（nrm の a〜b_）に、梁の下端から屋根の面＋ztop_d までの薄い板。一枚の平らな板＝鉛直の面の輪郭を厚さの方向に押し出した
+        一つの押し出し（10-27夜：前は step ごとの角柱を一つの網目にまとめていて、Rhino 版で 1 枚 約 145 KB の面の集まりだった）"""
+        sgn = 1 if a > 0 else -1
         ts = np.r_[np.arange(t0, t1, step), t1]
-        for ta, tb in zip(ts, ts[1:]):
-            P4 = np.array([cc + ax * ta + nrm * a, cc + ax * tb + nrm * a, cc + ax * tb + nrm * b_, cc + ax * ta + nrm * b_])
-            zr = roof_z(P4); zb_ = beam_bottom(P4 + nrm * sgn * 45.0)               # 梁の中ほど（筋の縁から 45 外）の下端
-            if np.isnan(zb_).any(): zb_ = zr - 600.0
-            base = len(mm_.Vertices)
-            for (x_, y_), z_ in zip(P4, zb_): mm_.Vertices.Add(float(x_), float(y_), float(z_))
-            for (x_, y_), z_ in zip(P4, zr): mm_.Vertices.Add(float(x_), float(y_), float(z_ + ztop_d))
-            for f_ in ((0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)):
-                mm_.Faces.AddFace(*[base + i for i in f_])
-        mm_.Normals.ComputeNormals(); mm_.Compact(); return mm_
+        P2 = np.array([cc + ax * t_ + nrm * a for t_ in ts])
+        zt_ = roof_z(P2) + ztop_d; zb_ = beam_bottom(P2 + nrm * sgn * 45.0)       # 梁の中ほど（筋の縁から 45 外）の下端
+        zb_ = np.where(np.isnan(zb_), zt_ - ztop_d - 600.0, zb_)
+        from shapely.geometry import Polygon as _Pg
+        pg = _Pg(list(zip(ts, zt_)) + list(zip(ts[::-1], zb_[::-1]))).buffer(0).simplify(2.0)
+        if pg.geom_type != 'Polygon' or pg.area < 1e3: return None
+        Q = [np.r_[cc + ax * t_ + nrm * a, z_] for t_, z_ in np.asarray(pg.exterior.coords)]
+        crv = r.Polyline([r.Point3d(*map(float, q_)) for q_ in Q]).ToNurbsCurve()
+        th = float(b_ - a); best = None; want = cc + ax * (t0 + t1) / 2 + nrm * (a + b_) / 2
+        for e_ in (r.Extrusion.Create(crv, th, True), r.Extrusion.Create(crv, -th, True)):
+            if e_ is None: continue
+            bb_ = e_.GetBoundingBox(); d_ = abs((np.array([(bb_.Min.X + bb_.Max.X) / 2, (bb_.Min.Y + bb_.Max.Y) / 2]) - want) @ nrm)
+            if best is None or d_ < best[0]: best = (d_, e_)
+        return None if best is None else best[1]
     L22T = None; _n22t = 0
     for cc, ax, nrm, t0, t1 in slits:
         uc_ = uv(*cc)[0]; e = 1 if np.dot(ax, np.array(xy(uc_, EASTV)) - np.array(xy(uc_, -10))) > 0 else -1     # 東（高い側）の向き
@@ -1504,7 +1545,8 @@ if slits:
         new_objs.append((drape(strip(cc, ax, nrm, glo, ghi, -150, 150), RT_W + 60.0, RT_W + 72.0), at_g2))    # 乳白ガラス（複層：遮熱 Low-E＋乳白の合わせ）
         _pts = [True]; tS = tW                                                   # 筋の西の端＝外壁の内面の線（外皮の線の固定ガラスは要らなくなった）
         for a_, b_ in ((-90, -88), (88, 90)):                                                    # 筋の内側：ガラスの下から梁の下端まで鏡面のアルミ t2
-            new_objs.append((mirror(cc, ax, nrm, t0, t1, a_, b_, RT_W + 60.0), a20m))
+            _mx = mirror(cc, ax, nrm, t0, t1, a_, b_, RT_W + 60.0)
+            if _mx is not None: _XNEW.append((_mx, a20m))
         # 光の筋をまたいで屋根の面をつなぐ（10-27、ユーザー・監修の略算、決定事項（共通）の「地震の力は骨格で受ける」）：2 枚の梁の上端に
         # 溝をまたぐ鋼の平板 6×60（長さ 340、梁の上端に彫り込み、22t）を約 0.9 mおき、外壁の内面から越屋根の側まで。筋の両端は溝をまたぐ縁の材
         # （杉 60×150、垂木の高さ、鏡面のあいだ、垂木と同じ 20v）：越屋根の側と軒先の側。屋根の上からの見えは変えない。本館の 10k と同じ。
