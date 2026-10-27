@@ -110,8 +110,10 @@ for (va, vb) in A.TEA["benches_v"]: slab(A.rect(19.6, 20.5, va, vb, 2), 0, 0.42,
 slab(A.rect(19.3, 20.8, *A.TEA["shelf_v"], 2), 0, 0.9, "75_外構_ひろばの家具")
 slab(srect(18.9, 19.8, 10.7, 11.25), 0, 0.7, "75_外構_ひろばの家具")        # temizu basin
 for k in range(5):                                                           # strollers (outline)
-    u0 = -4.0 + 0.7 * k; add_curve(A.rect(u0 + 0.06, u0 + 0.64, -0.85, 0.15, 2), "75_外構_ひろばの家具", close=True)
-slab(A.rect(-3.6, -1.4, 1.05, 1.45, 2), 0, 0.42, "75_外構_ひろばの家具")      # porch bench
+    _st = A.PORCH["strollers"]; u1 = _st["u0"] - _st["pitch"] * k
+    if k < _st["n"]: add_curve(A.rect(u1 - _st["w"], u1, _st["v"][0], _st["v"][1], 2), "75_外構_ひろばの家具", close=True)
+_bn = A.PORCH["bench"]
+slab([E(_bn["a"][0], _bn["b"][0]), E(_bn["a"][1], _bn["b"][0]), E(_bn["a"][1], _bn["b"][1]), E(_bn["a"][0], _bn["b"][1])], 0, _bn["h"], "75_外構_ひろばの家具")      # 腰掛け（公園側の塀ぎわ）
 # 76 paving zones (outlines on the ground)
 for g in [A.plz]:
     for c in coords(g): add_curve(c, "76_外構_舗装の区分", close=True)
