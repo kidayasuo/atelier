@@ -17,6 +17,7 @@
   python3 renkei/inbox.py log --since 1023      変更の記録を日付で並べて出す（10-23 から）
 
 状態：未（依頼、やってほしい）／知らせ（読んでほしい）／済（依頼を片づけた）／読んだ（知らせを読んだ）。
+依頼（未）を出したら（10-27）：new が出す一行のとおり、返事の終わりにユーザーへ「〇〇に一言お願いします（題）」と伝える（ユーザーは受け箱を見張らない）。
 知らせ（10-27）：受け箱には出さない（ユーザーが知らせのために回らなくてよい）。各チャットは作業の始めに mine で読む。
 自動の作り直し（GitHub Actions、.github/workflows/sodachiya_build.yml）も「自動の作り直し」の名前で項と記録を書く。
 あて先「ユーザー」の未は、受け箱の「ユーザーへの問い」に出る（答えを聞いたチャットが済にする）。
@@ -125,6 +126,11 @@ def new(frm, title, *dests):
              '## 返事', '']
     open(p, 'w', encoding='utf-8').write('\n'.join(body))
     print(os.path.relpath(p, os.path.dirname(HERE)))
+    asks = [name(d.partition('=')[0]) for d in dests if d.partition('=')[2].startswith('未')]
+    asks = [n for n in asks if n not in ('ユーザー', '自動の作り直し', frm)]
+    if asks:
+        # 10-27：ユーザーが受け箱を見張らなくてよいように、依頼を出したチャットがその場で伝える
+        print(f'（返事の終わりに、ユーザーへ一行：「{"・".join(asks)}に一言お願いします（{title}）」）')
 
 
 def mark(path, who, state, *note):
