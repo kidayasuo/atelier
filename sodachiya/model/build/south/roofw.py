@@ -58,7 +58,8 @@ def make(WN):
         return _pz(k, x, y) if 0 <= k < len(planes) else roof_c(x, y)
     def roof_f(x, y):
         u, v = uv(x, y)
-        if u >= FR[-1] + HS or u < FR[0]: return roof_c(x, y)
+        if u >= FR[-1] + HS: return roof_c(x, y)
+        if u < FR[0]: return _pz(0, x, y)                                 # 南のけらば（u < 21）もスパン 8 の平面を延ばす（10-27夜、ソリッド係の項 20261027-2159：曲面に戻すと u21 で最大 2.8 cm の段）
         for j, f in enumerate(FR[1:], start=1):                          # 架構の線 u24〜42 の筋の中は一次で移る
             if abs(u - f) < HS:
                 zl, zr = _side(j - 1, x, y), _side(j, x, y); w = (u - (f - HS)) / (2 * HS)
