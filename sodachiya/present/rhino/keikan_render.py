@@ -4,7 +4,7 @@
 使い方（Rhino 8、Mac）：
   1. atelier を pull して、sodachiya/sodachiya.3dm を開く。
   2. ツール → スクリプト → 実行…（または コマンド RunPythonScript）で、このファイルを選ぶ。
-  3. 浮いたビュー「景観立面」ができ、レイトレースで昼・夜の2枚を書き出す（1枚に数分）。
+  3. いまのビューが一時的に景観立面の向きになり、レイトレースで昼・夜の2枚を書き出す（1枚に数分）。
      書き出し先：このファイルの隣の out/keikan_hiru.png・out/keikan_yoru.png（と、写った範囲の keikan_view.json）。
   4. 走り終わると、足した物・変えた設定は元に戻る（3dm は保存しなくてよい）。
   5. out/ の3つを push する（git add sodachiya/present/rhino/out）。mock.py が素材03・04にこの絵を使う。
@@ -52,18 +52,26 @@ def raytraced():
     return None
 
 
-# ---------------------------------------------------------------- ビュー（紙と同じ縦横の比の浮いたビュー）
-paper_w = (T1 - T0) / SCALE
-paper_h = (Z1 - Z0) / SCALE
-view = doc.Views.Find("景観立面", False)
-if view is None:
-    rect = System.Drawing.Rectangle(60, 60, 1440, int(1440 * paper_h / paper_w) + 40)
-    view = doc.Views.Add("景観立面", Rhino.Display.DefinedViewportProjection.Front, rect, True)
+# ---------------------------------------------------------------- ビュー（いま開いているビューを一時的に使う。終わったら元に戻す）
+# 浮いたビューは Mac で書き出しが通らなかった（10-27）ので使わない。前に作った「景観立面」の浮いたビューがあれば閉じる
+_old = doc.Views.Find("景観立面", False)
+if _old is not None and _old.Floating:
+    try:
+        _old.Close()
+    except Exception:
+        pass
+view = doc.Views.ActiveView
 vp = view.ActiveViewport
+saved_vi = Rhino.DocObjects.ViewportInfo(vp)
+saved_mode = vp.DisplayMode
 cw, ch = vp.Size.Width, vp.Size.Height
 tc, zc = (T0 + T1) / 2, (Z0 + Z1) / 2
-half_w = (T1 - T0) / 2
-half_h = half_w * ch / float(cw)          # ビューの比に合わせる（高さが紙より少し違えば、その分を json に書く）
+# 写す範囲（t0〜t1 × z0〜z1）がビューの縦横の比で全部入るように広げる（広げた分は json に書き、mock.py が切る）
+half_w, half_h = (T1 - T0) / 2, (Z1 - Z0) / 2
+if half_w / half_h > cw / float(ch):
+    half_h = half_w * ch / float(cw)
+else:
+    half_w = half_h * cw / float(ch)
 vp.ChangeToParallelProjection(True)
 target = P(tc, 0, zc)
 camera = P(tc, -400000.0, zc)
@@ -77,11 +85,13 @@ if mode:
     vp.DisplayMode = mode
 else:
     print("Raytraced display mode not found")
-doc.Views.ActiveView = view
 view.Redraw()
-W = int(round(paper_w * PX_PER_MM))
+W = int(round(2 * half_w / SCALE * PX_PER_MM))
 H = int(round(W * ch / float(cw)))
-json.dump(dict(t0=T0, t1=T1, z0=zc - half_h, z1=zc + half_h, scale=SCALE, px=[W, H],
+if max(W, H) > 8000:                     # 大きすぎる絵は Rhino が書けない
+    f_ = 8000.0 / max(W, H)
+    W, H = int(W * f_), int(H * f_)
+json.dump(dict(t0=tc - half_w, t1=tc + half_w, z0=zc - half_h, z1=zc + half_h, scale=SCALE, px=[W, H],
                made=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), note="t・z は mm（S から）。mock.py が読む"),
           open(os.path.join(OUT, "keikan_view.json"), "w"), indent=1)
 try:
@@ -165,7 +175,6 @@ def capture(name):
             return
         say(u"  通らなかった：", w, u"×", h, u"透明" if tr else u"不透明", u"回数", ps)
     # 最後の手：コマンドで書き出す（レイトレースは「レイトレース」の設定の回数まで描いてから書く）
-    view.Document.Views.ActiveView = view
     cmd = u'-_ViewCaptureToFile "%s" _Width=%d _Height=%d _Scale=1 _DrawGrid=_No _DrawWorldAxes=_No _DrawCPlaneAxes=_No _TransparentBackground=_Yes _Enter' % (path, W, H)
     Rhino.RhinoApp.RunScript(cmd, False)
     say(u"  コマンドで：", u"書いた" if os.path.exists(path) else u"書けなかった", path)
@@ -228,6 +237,11 @@ finally:
     try:
         if sky_on is not None:
             rs.Skylight.Enabled = sky_on
+    except Exception:
+        pass
+    try:
+        vp.SetViewProjection(saved_vi, True)
+        vp.DisplayMode = saved_mode
     except Exception:
         pass
     doc.Views.Redraw()
