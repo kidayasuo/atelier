@@ -1133,14 +1133,14 @@ if slits:
     # 勾配も同じ。棟 8.15 → 8.57、軒 4.65 → 5.07）。構成は本館と同じ（太陽光／野地板／通気層 45／透湿防水／木質繊維 t150 外張り／気密／
     # 構造用合板 t24 現し／垂木 60×150）。屋根の面（20 の面それぞれ）を上へ 420 の閉じた立体にし、光の筋を厚さいっぱい抜く。
     RT_W = 420.0
-    def _thicken(g, dz):
+    def _thicken(g, dz, dz0=0.0):
         T_ = tris(g)
         if not len(T_): return None
         tm_ = trimesh.Trimesh(T_.reshape(-1, 3), np.arange(len(T_) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=0)
         tm_.update_faces(tm_.nondegenerate_faces()); tm_.remove_unreferenced_vertices()
         V_, F_ = np.asarray(tm_.vertices), np.asarray(tm_.faces); n_ = len(V_)
         if np.mean(tm_.face_normals[:, 2]) < 0: F_ = F_[:, ::-1]                       # 上向きの面に
-        Vt = np.vstack([V_, V_ + [0, 0, dz]])
+        Vt = np.vstack([V_ + [0, 0, dz0], V_ + [0, 0, dz]])
         Ft = [F_[:, ::-1], F_ + n_]                                                     # 下面（下向き）・上面（上向き）
         ed = np.sort(np.vstack([F_[:, [0, 1]], F_[:, [1, 2]], F_[:, [2, 0]]]), axis=1)
         uq, cnt = np.unique(ed, axis=0, return_counts=True); bset = {tuple(e_) for e_ in uq[cnt == 1]}
@@ -1162,20 +1162,44 @@ if slits:
         _sl_ms.append(_mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_slit_tm.vertices, np.float32), tri_verts=np.asarray(_slit_tm.faces, np.uint32))))
     _SLIT_M = _mf.Manifold.batch_boolean(_sl_ms, _mf.OpType.Add)
     roofs20 = []; _n_thk20 = 0
+    RAF_W, RT_W0 = 150.0, 174.0                                   # 垂木のせい、合板の上（梁の上端から）
+    L20R = new_layer('20r_西館_屋根の下面の構造用合板（t24、現し）', (214, 190, 150)); a20r = r.ObjectAttributes(); a20r.LayerIndex = L20R
+    L20V = new_layer('20v_西館_垂木（杉 60×150 @455、現し）', (196, 160, 118)); a20v = r.ObjectAttributes(); a20v.LayerIndex = L20V
     for o in m.Objects:
         if o.Attributes.LayerIndex != L20 or not isinstance(o.Geometry, r.Mesh): continue
         fp = foot(o.Geometry)
         if fp is None: continue
         roofs20.append(fp)
-        M_ = _thicken(o.Geometry, RT_W)
-        if M_ is None:
+        # 屋根を層に分ける（10-27夕、監修の項 20261027-1700：室内から見上げると屋根の立体の素材（黒い金属）が見えていた）：
+        # 梁の上端から 0〜150 は垂木（20v、下で足す）、150〜174 は構造用合板 t24（20r、現し）、174〜420 が上の層（金属・太陽光〜断熱、20 のまま）。
+        M_ = _thicken(o.Geometry, RT_W, RT_W0)
+        Mr_ = _thicken(o.Geometry, RT_W0, RAF_W)
+        if M_ is None or Mr_ is None:
             if fp.intersection(SL20).area >= 1e4:
-                drop.add(str(o.Attributes.Id)); new_objs.append((drape(fp.difference(SL20), 0.0, RT_W), o.Attributes))
+                drop.add(str(o.Attributes.Id)); new_objs.append((drape(fp.difference(SL20), RT_W0, RT_W), o.Attributes))
+                new_objs.append((drape(fp.difference(SL20), RAF_W, RT_W0), a20r))
             continue
-        if fp.intersection(SL20).area >= 1e4: M_ = M_ - _SLIT_M
-        drop.add(str(o.Attributes.Id)); new_objs.append((_m2r(M_), o.Attributes)); _n_thk20 += 1
+        if fp.intersection(SL20).area >= 1e4: M_ = M_ - _SLIT_M; Mr_ = Mr_ - _SLIT_M
+        drop.add(str(o.Attributes.Id)); new_objs.append((_m2r(M_), o.Attributes)); new_objs.append((_m2r(Mr_), a20r)); _n_thk20 += 1
     log.append(f'西館：屋根 {_n_thk20} 片を梁の上端から 420 の閉じた立体に（光の筋を厚さいっぱい抜いた）')
     RP20 = unary_union(roofs20)
+    # 垂木（20v）：弧（v 一定）に沿って @455、梁から梁へ（光の筋の縁＝梁の内面で止まる）、梁の上端から 150。越屋根の下（屋根の面を開けた所）は無い。
+    _RAFZ = RP20.difference(SL20.buffer(0.5)); _vr = -2.56 - 0.03; _nraf = 0; _raf_rows = []
+    while _vr > -16.5:
+        _us = np.arange(18.0, 54.01, 0.25)
+        _rp = Polygon([xy(u_, _vr + 0.03) for u_ in _us] + [xy(u_, _vr - 0.03) for u_ in _us[::-1]])
+        _pc = _rp.intersection(_RAFZ)
+        for _pg in ([_pc] if _pc.geom_type == 'Polygon' else [q for q in getattr(_pc, 'geoms', []) if q.geom_type == 'Polygon']):
+            if _pg.area < 60.0 * 400.0: continue
+            _raf_rows.append(_pg); _nraf += 1
+        _vr -= 0.455
+    for _k in range(0, len(_raf_rows), 40):                         # 40 本ずつ一つの物に（物の数を増やしすぎない）
+        _mm = r.Mesh()
+        for _pg in _raf_rows[_k:_k + 40]: _mm.Append(drape(_pg, 0.0, RAF_W))
+        _mm.Normals.ComputeNormals(); _mm.Compact()
+        _av = r.ObjectAttributes(); _av.LayerIndex = L20V; _av.Name = '垂木 杉 60×150 @455（梁から梁へ、現し）'
+        new_objs.append((_mm, _av))
+    log.append(f'西館：屋根を層に分けた（上の層 20：梁の上端から 174〜420、構造用合板 t24 20r：150〜174、垂木 60×150 @455 20v：{_nraf} 本）')
     # 筋の両側の梁の下端（鏡面の板の下の端）：2 枚の梁（22b）に下から鉛直の線を当てる
     _bmt = [closed_mesh(bm.get(str(o.Attributes.Id), cur_g(o))) for o in m.Objects if o.Attributes.LayerIndex == L22B]
     _BT = trimesh.util.concatenate([trimesh.Trimesh(mesh_V(g_), np.array([[g_.Faces[i][0], g_.Faces[i][1], g_.Faces[i][2]] for i in range(g_.Faces.Count)]), process=False) for g_ in _bmt])
@@ -1221,8 +1245,8 @@ if slits:
         for a_, b_ in ((-90, -88), (88, 90)):                                                    # 筋の内側：ガラスの下から梁の下端まで鏡面のアルミ t2
             new_objs.append((mirror(cc, ax, nrm, t0, t1, a_, b_, RT_W + 60.0), a20m))
         # 光の筋をまたいで屋根の面をつなぐ（10-27、ユーザー・監修の略算、決定事項（共通）の「地震の力は骨格で受ける」）：2 枚の梁の上端に
-        # 溝をまたぐ鋼の平板 6×60（長さ 340、梁の上端に彫り込み）を約 0.9 mおき、外壁の内面から越屋根の側まで。筋の両端は溝をまたぐ縁の材
-        # （杉 60×150、垂木の高さ、鏡面のあいだ）：越屋根の側と軒先の側。屋根の上からの見えは変えない。本館の 10k と同じ。
+        # 溝をまたぐ鋼の平板 6×60（長さ 340、梁の上端に彫り込み、22t）を約 0.9 mおき、外壁の内面から越屋根の側まで。筋の両端は溝をまたぐ縁の材
+        # （杉 60×150、垂木の高さ、鏡面のあいだ、垂木と同じ 20v）：越屋根の側と軒先の側。屋根の上からの見えは変えない。本館の 10k と同じ。
         if L22T is None: L22T = new_layer('22t_西館_光の筋をまたぐつなぎ（鋼の平板・縁の材）', (120, 120, 125))
         tIn = (tS if _pts else tW + 1200.0 * e) + 300.0 * e; tOut = tE - 300.0 * e          # 平板の範囲（外壁の内面の内 0.3 〜 越屋根の側の 0.3 手前）
         _pl22 = r.Mesh(); _nk1 = 0
@@ -1232,7 +1256,7 @@ if slits:
         a_k = r.ObjectAttributes(); a_k.LayerIndex = L22T; a_k.Name = f'光の筋をまたぐ鋼の平板 6×60（架構 u{uc_:.0f}、{_nk1} 枚、約 0.9 mおき）'
         new_objs.append((_pl22, a_k)); _n22t += _nk1
         for ta_, tb_, nm_ in ((tE - 60.0 * e, tE, '越屋根の側'), (tW + 150.0 * e, tW + 210.0 * e, '軒先の側')):
-            a_e = r.ObjectAttributes(); a_e.LayerIndex = L22T; a_e.Name = f'光の筋の端の縁の材（杉 60×150、{nm_}、架構 u{uc_:.0f}）'
+            a_e = r.ObjectAttributes(); a_e.LayerIndex = L20V; a_e.Name = f'光の筋の端の縁の材（杉 60×150、{nm_}、架構 u{uc_:.0f}）'   # 杉は垂木の層（一つのレイヤーには一つの素材、10-27夕）
             a_e.ColorSource = r.ObjectColorSource.ColorFromObject; a_e.ObjectColor = (196, 160, 118, 255)
             new_objs.append((drape(strip(cc, ax, nrm, min(ta_, tb_), max(ta_, tb_), -87.0, 87.0), 0.0, 150.0), a_e))
     log.append(f'西館：光の筋をまたぐつなぎ（22t）：鋼の平板 {_n22t} 枚（{len(slits)} 本の筋、約 0.9 mおき）と筋の両端の縁の材 {2 * len(slits)}')
