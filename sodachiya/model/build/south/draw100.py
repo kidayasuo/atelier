@@ -1236,6 +1236,16 @@ def airflow(A, playroom=False):
         A.text(12900, 120, '夏の夜：段の蹴込みのガラリから床下へ（底板を冷やす）→ すき間の下で西館の床下へ', 5, '45_換気', ha='right', va='bottom', color=col)
 
 
+WEST_WALL_NOTE = ('西館の外壁：構造用合板の耐力壁', '（窓ごと通す、開口は補強）', '西の面は室内側にも合板（両面）')
+def west_wall_note(A, westx, z=2000):
+    """西館の外壁（西の面・北西の斜め・南北の妻）の構造の注（西館係 20261027-1511、決定事項_西館の「構造」）。
+    断面 B の西の外壁の外（道の側）、奥に見える西館の低い軒（約2 m）より西に字、引き出し線は壁の切り口まで"""
+    x_t = westx - 2500; dz = 330
+    for j, t in enumerate(WEST_WALL_NOTE):
+        A.text(x_t, z + dz * (1 - j), t, 5, '81_注', ha='right', va='center')
+    A.lines([[(x_t + 80, z), (westx + 60, z)]], '81_注', lw=0.09, color='k', z=9)
+    A.ax.add_patch(plt.Circle((westx + 60, z), 45, fc='k', ec='none', zorder=9))      # 断面は回さない（phi=0）
+
 def make_sections():
     W_, H_ = 841, 594
     S = Sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
@@ -1260,6 +1270,7 @@ def make_sections():
             A.bubble(x, -1750, nm2)
         levels(A, cutb, 17300, westx < -2000)
         airflow(A, playroom=(nm == 'C'))
+        if i == 0 and westx < -2000: west_wall_note(A, westx)
         A.text(extX[0] + 300, extX[3] - 200, f'断面 {nm}　{cap_}', 9, '80_図名・縮尺・方位', ha='left', va='top')
         A.text(extX[0] + 300, -2400, '← 西', 6, '80_図名・縮尺・方位', ha='left', va='bottom')
         A.text(16000, -2400, '東 →', 6, '80_図名・縮尺・方位', ha='right', va='bottom')
