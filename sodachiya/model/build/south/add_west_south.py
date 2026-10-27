@@ -397,8 +397,16 @@ for fp, zb, zt in OPEN:                       # 足元が床（0）の開口は�
 _ring_out = WS.buffer(30.0, join_style=2).difference(WS).buffer(1.0, join_style=2)     # 外壁の外面に 1 食い込ませて一つの立体に
 # 端は角の丸みの終わり（まっすぐな壁に移る所）まで回す（10-26 監修：前は丸みの途中 u21.05・v−7.2 で切れ、立面で壁の途中で止まって見えた）。
 # 南：u21 の妻 → 丸み → 西の壁に移る (u23.65, v−12.92)。北：u51 の妻 → 丸み → 北西の斜めの壁に移る (u50.08, v−7.68)
+# 10-28（監修の項 20261028-0015 の 12）：丸みの終わりで水切りの 30 が道路側の 1 m の線（＝西・北西のまっすぐな外壁の外面の延長）を越えていた
+# （u23.65 v−12.95、u50.11 v−7.70）。その線の内側で切る。
+def _inside_of(p0, p1):
+    p0 = np.array(xy(*p0), float).ravel(); p1 = np.array(xy(*p1), float).ravel(); d_ = (p1 - p0) / np.linalg.norm(p1 - p0); n_ = np.array([-d_[1], d_[0]])
+    if not WS.contains(Point(*((p0 + p1) / 2 + n_ * 500))): n_ = -n_
+    a_, b_ = p0 - d_ * 30000, p1 + d_ * 30000
+    return Polygon([a_, b_, b_ + n_ * 60000, a_ + n_ * 60000])
+_LINE_W = _inside_of((23.654, -12.919), (40.554, -14.983)); _LINE_NW = _inside_of((43.913, -14.188), (50.085, -7.675))
 for box_ in (R(20.9, 23.65, -13.1, -0.92, 0.05), R(50.08, 51.1, -7.9, -0.92, 0.05)):
-    WALL_ADD += prism_vf(_ring_out.intersection(box_), 3250.0, const(3270.0))
+    WALL_ADD += prism_vf(_ring_out.intersection(box_).intersection(_LINE_W).intersection(_LINE_NW), 3250.0, const(3270.0))
 def emit_wall():
     """外壁の立体を一つにまとめて 21 に書く（すき間の北の端の壁を足した後に呼ぶ）"""
     A_ = _mf.Manifold.batch_boolean([_man(x) for x in WALL_ADD], _mf.OpType.Add)
