@@ -22,6 +22,7 @@ MAX_R = 50000.0          # これより大きい半径は曲面にしない
 SPLIT = math.radians(170.0)
 EPS_LINE = 0.02          # 頂点が線・円にのっているとみなすずれ (mm)
 EPS8 = 8.0 * 1.4901161193847656e-08
+MESH_ONLY = False         # True のとき、閉じた立体は Brep にせず閉じたメッシュのまま（clean_wire.py が自由な形のレイヤーで）
 
 
 # ---------------------------------------------------------------- 曲面（平面・円柱・球）
@@ -769,6 +770,30 @@ def shells(T):
     return [np.asarray(T)[ix] for ix in lab.values()]
 
 
+def _bnd(T):
+    c = {}
+    for a, b, d in T:
+        for e in ((a, b), (b, d), (d, a)): k = (min(e), max(e)); c[k] = c.get(k, 0) + 1
+    return {k for k, v in c.items() if v == 1}
+
+
+def fill_shells(sh):
+    """shells で分けた組のうち、穴の縁がみな別の開いた組の縁にのる小さな組（穴をふさぐ三角形）は、その組に戻す。
+    （10-28：西館の屋根 u27.0 v−13.2 で、二つより多くの面が集まる辺に囲まれた三角形一枚が切り離され、
+    残りは蓋をされ、一枚は厚みをつけられて、同じ所に二つの立体が重なっていた）"""
+    sh = [np.asarray(x) for x in sh]
+    if len(sh) < 2: return sh
+    bd = [_bnd(x) for x in sh]
+    order = sorted(range(len(sh)), key=lambda i: len(sh[i]))
+    alive = set(range(len(sh)))
+    for i in order:
+        if i not in alive or not bd[i]: continue
+        for j in sorted(alive, key=lambda j: -len(sh[j])):
+            if j == i or not bd[j] or len(sh[j]) < len(sh[i]) or not bd[i] <= bd[j]: continue
+            sh[j] = np.vstack([sh[j], sh[i]]); bd[j] = _bnd(sh[j]); alive.discard(i); break
+    return [sh[i] for i in sorted(alive)]
+
+
 def split_nonmanifold(W, T):
     """四つ以上の三角形が集まる辺を、立体ごとの組に分け、頂点を写して別の辺にする（触れあう二つの立体・自分に触れる立体）。
     向きのそろったメッシュが前提：a→b の三角形は、辺のまわりを右回りに見て次の b→a の三角形と組になる（そのあいだが中身）"""
@@ -1002,7 +1027,13 @@ def spline_ok(P, t, sp, closed=False):
     th = np.r_[th[:1], th, th[-1:]]                       # 頂点ごとの折れ（両端はとなりの値）
     mid = sp((t[:-1] + t[1:]) / 2); dev = np.linalg.norm(mid - (P[:-1] + P[1:]) / 2, axis=1)
     allow = 0.05 + 0.3 * l * np.maximum(th[:-1], th[1:])
-    return bool(np.all(dev <= allow))
+    if not np.all(dev <= allow): return False
+    # 弦の 1/4・3/4 の所も、弦（線分）からの離れで（10-28：長い道路の輪郭で、なめらかな並びのスプラインが中ほど以外で数 m ふくらんでいた）
+    for f_ in (0.25, 0.75):
+        q = sp(t[:-1] + f_ * (t[1:] - t[:-1])); a = q - P[:-1]
+        s_ = np.clip(np.einsum('ij,ij->i', a, d) / np.maximum(l * l, 1e-18), 0, 1)
+        if not np.all(np.linalg.norm(a - s_[:, None] * d, axis=1) <= allow): return False
+    return True
 
 
 def spline_nurbs(sp, dim, to=None, rev=False):
@@ -1013,8 +1044,60 @@ def spline_nurbs(sp, dim, to=None, rev=False):
     return O.nurbs(dim, 4, kn, [tuple(c) for c in cv], [1.0] * len(cv))
 
 
+SPL_LMAX = 1500.0      # これより長い辺はスプラインの並びに入れない（10-28：道路の輪郭 91 m の並びが 2.6 m ふくらんでいた）
 SPL_SHORT = 100.0      # これより短い辺のあいだの小さな折れ（1.5° 未満）も曲線の並びに入れる（細かい節点の曲線を点にしたもの）。
                       # 長い辺の小さな折れ（本館の弧の多角形 3 m・0.84°）は入れない（決めたとおり多角形のまま）
+
+
+def _drop_collinear(Q, tol=0.005):
+    """閉じた多角形の、一直線にのる途中の点（tol mm 以内）を除く（10-28：本館の柱 11a の輪郭は 10 mm おきの格子で切った点が
+    直線の辺に並び、押し出しの輪郭が 10 mm の線分 約80 本になっていた）。形は変わらない"""
+    Q = np.asarray(Q, float); n = len(Q)
+    if n < 5: return Q
+    def off(a, b, p):
+        d = b - a; L = np.linalg.norm(d)
+        if L < 1e-9: return np.linalg.norm(p - a)
+        return abs(d[0] * (p[1] - a[1]) - d[1] * (p[0] - a[0])) / L
+    def inner(i, j):                                       # i から j（i < j、添字は n で回す）の途中の点がみな弦 i→j にのる
+        a, b = Q[i % n], Q[j % n]; d = b - a
+        for k in range(i + 1, j):
+            p = Q[k % n]
+            if off(a, b, p) > tol or (p - a) @ d <= 0 or (p - b) @ d >= 0: return False
+        return True
+    st = next((k for k in range(n) if not inner(k - 1, k + 1)), None)     # 角から始める
+    if st is None: return Q
+    out = [st]; i = st
+    while i < st + n:
+        j = i + 1
+        while j < st + n and inner(i, j + 1): j += 1
+        if j < st + n: out.append(j % n)
+        i = j
+    return Q[out] if 3 <= len(out) < n else Q
+
+
+def _ellipse_loop(Q, tol=0.05):
+    """閉じた多角形 Q（2 次元）が、なめらかな楕円にのるなら (中心, A, B, 軸 V（列が A・B の向き）)、でなければ None"""
+    Q = np.asarray(Q, float)
+    if len(Q) < 12: return None
+    m = Q.mean(0); P = Q - m; s = np.abs(P).max()
+    if s <= 0: return None
+    P = P / s; x, y = P[:, 0], P[:, 1]
+    D = np.c_[x * x, x * y, y * y, x, y, np.ones(len(x))]
+    _, _, vt = np.linalg.svd(D); a, b, c, d, e, f = vt[-1]
+    M = np.array([[a, b / 2], [b / 2, c]])
+    if np.linalg.det(M) <= 0: return None
+    c0 = np.linalg.solve(2 * M, -np.array([d, e])); k = -(f + 0.5 * np.array([d, e]) @ c0)
+    if abs(k) < 1e-15: return None
+    w, V = np.linalg.eigh(M / k)
+    if np.any(w <= 0): return None
+    A, B = 1 / np.sqrt(w) * s; cen = c0 * s + m
+    L = (Q - cen) @ V
+    ang = np.unwrap(np.arctan2(L[:, 1] / B, L[:, 0] / A)); st = np.diff(ang)
+    if not (np.all(st > 0) or np.all(st < 0)) or np.abs(st).max() > math.radians(30): return None
+    for px, py in L:
+        t = _ell_closest(px, py, A, B)
+        if math.hypot(A * math.cos(t) - px, B * math.sin(t) - py) > tol: return None
+    return cen, float(A), float(B), V
 
 
 def _curve_runs(Q):
@@ -1023,6 +1106,7 @@ def _curve_runs(Q):
     n = len(Q)
     arcs = [(a, b, 'arc') for a, b in _arc_runs(Q)]
     if arcs and arcs[0][:2] == (0, n): return arcs
+    if not arcs and _ellipse_loop(Q) is not None: return [(0, n, 'ell')]          # 輪全体が楕円（桁の穴、10-28）
     used = set()
     for a, b, _ in arcs: used |= {x % n for x in range(a, b + 1)}          # 円弧の端の点も：スプラインは円弧の端で終わる
     d = np.roll(Q, -1, axis=0) - Q; l = np.linalg.norm(d, axis=1)          # 辺 i：Q[i] → Q[i+1]
@@ -1032,6 +1116,7 @@ def _curve_runs(Q):
     # 辺の長さが急に変わる所（曲線に接する長い直線）は曲線の並びに入れない
     lr = np.array([max(l[i], l[i - 1]) / max(min(l[i], l[i - 1]), 1e-9) for i in range(n)])
     sm &= lr < 3.0
+    sm &= lmax < SPL_LMAX                                 # 長い辺の多角形（周辺の道路 PLATEAU、辺 2〜20 m）はスプラインにしない
     # 変曲点（折れがほとんど無い一点）：両どなりがなめらかなら並びに入れる
     sm2 = sm.copy()
     for i in range(n):
@@ -1082,10 +1167,21 @@ def _profile(Q2, to3, runs):
     n = len(Q2); pc = r.PolyCurve()
     runs = [tuple(x) + ('arc',) if len(x) == 2 else tuple(x) for x in runs]
     P3 = lambda q: r.Point3d(*map(float, to3(q)))
-    if [x[:2] for x in runs] == [(0, n)]:
+    if [x[:2] for x in runs] == [(0, n)] and runs[0][2] == 'arc':
         h = n // 2
         pc.Append(r.Arc(P3(Q2[0]), P3(Q2[h // 2]), P3(Q2[h])))
         pc.Append(r.Arc(P3(Q2[h]), P3(Q2[(h + n) // 2]), P3(Q2[0])))
+        return pc
+    if len(runs) == 1 and runs[0][2] == 'ell':
+        c, A, B, V = _ellipse_loop(Q2)
+        sa = (Q2[:, 0] * np.roll(Q2[:, 1], -1) - np.roll(Q2[:, 0], -1) * Q2[:, 1]).sum()
+        if (np.linalg.det(V) > 0) != (sa > 0): V = np.c_[V[:, 0], -V[:, 1]]       # 輪の回る向きのまま
+        o = np.asarray(to3(c), float); ex = np.asarray(to3(c + A * V[:, 0]), float) - o; ey = np.asarray(to3(c + B * V[:, 1]), float) - o
+        ez = np.cross(ex, ey); ez /= np.linalg.norm(ez)
+        e = r.Circle(r.Point3d(0, 0, 0), 1.0).ToNurbsCurve(); xf = r.Transform(1.0)
+        for i_, v_ in enumerate((ex, ey, ez, o)):
+            for j_ in range(3): setattr(xf, 'M%d%d' % (j_, i_), float(v_[j_]))
+        e.Transform(xf); pc.Append(e)
         return pc
     if [x[:2] for x in runs] == [(0, n // 2), (n // 2, n)] and all(x[2] == 'spl' for x in runs):
         for c in _closed_halves(Q2, to3): pc.Append(c)
@@ -1195,7 +1291,7 @@ def as_extrusion(W, T):
         Lh = (E - S) @ d
         if Lh < 0.5: continue
         to2 = lambda p: np.array([(p - S) @ X, (p - S) @ Y])
-        L2 = [np.array([to2(W[v]) for v in lp]) for lp in loops]
+        L2 = [_drop_collinear(np.array([to2(W[v]) for v in lp])) for lp in loops]
         sa = [0.5 * (Q[:, 0] * np.roll(Q[:, 1], -1) - np.roll(Q[:, 0], -1) * Q[:, 1]).sum() for Q in L2]
         k0 = int(np.argmax(np.abs(sa)))
         runs0 = _curve_runs(L2[k0])
@@ -1331,6 +1427,114 @@ def as_revolution(W, T):
     return b
 
 
+def as_lathe(W, T, nmin=12):
+    """鉛直な軸のまわりを一周する立体（北山杉の幹：円柱＋半球の頭、円錐台＋平らな端など）→ 輪郭（線・円弧）を 360° 回した面と、
+    平らな端の円の蓋の閉じた Brep（Brep.CreateFromRevSurface）。ならなければ None（10-28、監修の項 20261027-2346：
+    前は円柱の半分ずつ・球の半分ずつ・底の 5 面で 1 本 約26 KB）。
+    メッシュの頂点が、軸にのる点か、同じ高さ・同じ半径の nmin 角以上の輪にのり、輪が軸に沿って一つながりに並ぶこと。
+    輪郭は円弧（4 点以上が円にのる）と線で、つなぎ目はなめらか（折れ 1° 未満）。端が平らなら蓋"""
+    W = np.asarray(W, float); T = np.asarray(T, int); vs = np.unique(T.ravel()); P = W[vs]
+    if len(vs) < 2 * nmin: return None
+    zk = np.round(P[:, 2] / 0.05).astype(np.int64)
+    zs = np.unique(zk); cen = None
+    for z_ in zs:                                          # 軸：いちばん多い点の高さの輪で円を当てはめる
+        Q = P[zk == z_][:, :2]
+        if len(Q) < nmin: continue
+        c, R = fit_circle2(Q); d_ = np.abs(np.linalg.norm(Q - c, axis=1) - R)
+        if R < 1.0: continue
+        if (d_ < 0.05).sum() >= nmin: cen = c; break
+    if cen is None: return None
+    rr = np.linalg.norm(P[:, :2] - cen, axis=1)
+    # 輪（同じ高さ・同じ半径）ごとに
+    key = {}
+    for i, (z_, r_) in enumerate(zip(zk, np.round(rr / 0.05).astype(np.int64))):
+        key.setdefault((int(z_), int(r_) if r_ > 2 else 0), []).append(i)
+    lab = np.zeros(len(vs), int); rings = []
+    for k, ids in key.items():
+        if k[1] == 0:
+            if len(ids) != 1: return None                  # 軸の上の点は一つ
+        elif len(ids) < nmin: return None
+        lab[ids] = len(rings); rings.append((float(np.mean(rr[ids])) if k[1] else 0.0, float(np.mean(P[ids, 2])), len(ids)))
+    ns_ = {n_ for _, _, n_ in rings if n_ > 1}
+    if len(ns_) != 1 or len(rings) < 2: return None
+    nseg = ns_.pop()
+    vid = {v: k for k, v in enumerate(vs)}
+    # 輪のつながり（三角形の辺）が一本の道
+    adj = {i: set() for i in range(len(rings))}
+    for t in T:
+        ls = {lab[vid[x]] for x in t}
+        if len(ls) > 2: return None
+        if len(ls) == 2: a_, b_ = ls; adj[a_].add(b_); adj[b_].add(a_)
+    ends = [i for i in adj if len(adj[i]) <= 1]
+    if any(len(v) > 2 for v in adj.values()) or len(ends) != 2: return None
+    path = [ends[0]]
+    while len(path) < len(rings):
+        nx_ = [j for j in adj[path[-1]] if j not in path]
+        if len(nx_) != 1: return None
+        path.append(nx_[0])
+    prof = [rings[i][:2] for i in path]
+    # 体積を確かめる（輪どうしを結ぶ面だけでできている：n 角の多角形の回転体の体積と合う）
+    a, b, c = W[T[:, 0]], W[T[:, 1]], W[T[:, 2]]
+    vol = abs(np.einsum('ij,ij->i', a, np.cross(b, c)).sum() / 6)
+    f_ = nseg / (2 * math.pi) * math.sin(2 * math.pi / nseg)
+    vp = sum(math.pi * f_ * (h1 - h0) * (r0 * r0 + r0 * r1 + r1 * r1) / 3 for (r0, h0), (r1, h1) in zip(prof, prof[1:]))
+    if vol <= 0 or abs(abs(vp) - vol) > 0.005 * vol: return None
+    if prof[0][1] > prof[-1][1]: prof = prof[::-1]
+    # 平らな端は蓋に
+    cap0 = cap1 = False
+    if prof[0][0] == 0.0 and abs(prof[1][1] - prof[0][1]) < 0.05: prof = prof[1:]; cap0 = True
+    elif prof[0][0] > 0: cap0 = True
+    if prof[-1][0] == 0.0 and abs(prof[-2][1] - prof[-1][1]) < 0.05: prof = prof[:-1]; cap1 = True
+    elif prof[-1][0] > 0: cap1 = True
+    Q = np.array(prof)
+    if len(Q) < 2: return None
+    # 輪郭を円弧（4 点以上）と線に
+    segs = []; i = 0; n = len(Q)
+    while i < n - 1:
+        best = None
+        for j in range(n - 1, i + 2, -1):
+            Pj = Q[i:j + 1]; cc, R = fit_circle2(Pj)
+            if R < MAX_R and np.abs(np.linalg.norm(Pj - cc, axis=1) - R).max() < 0.05 and _arc_ok(Pj, cc, R): best = j; break
+        if best is not None: segs.append(('arc', i, best)); i = best
+        else:
+            j = i + 1
+            while j < n - 1:                                # 一直線の点をまとめる
+                d_ = Q[j + 1] - Q[i]; L_ = np.linalg.norm(d_)
+                if all(abs(d_[0] * (Q[k][1] - Q[i][1]) - d_[1] * (Q[k][0] - Q[i][0])) / L_ < 0.01 for k in range(i + 1, j + 1)): j += 1
+                else: break
+            segs.append(('line', i, j)); i = j
+    # つなぎ目はなめらか（向きの折れ 1° 未満）
+    def tang(sg, at_end):
+        k, i0, i1 = sg
+        if k == 'line': d_ = Q[i1] - Q[i0]
+        else:
+            cc, _ = fit_circle2(Q[i0:i1 + 1]); p_ = Q[i1] if at_end else Q[i0]; rv = p_ - cc; d_ = np.array([-rv[1], rv[0]])
+            nxt = Q[i0 + 1] - Q[i0]
+            if d_ @ (nxt if not at_end else Q[i1] - Q[i1 - 1]) < 0: d_ = -d_
+        return d_ / np.linalg.norm(d_)
+    for s0, s1 in zip(segs, segs[1:]):
+        if tang(s0, True) @ tang(s1, False) < math.cos(math.radians(1.0)): return None
+    X = W[vs[np.argmax(rr)]][:2] - cen; X = np.r_[X / np.linalg.norm(X), 0.0]
+    P3 = lambda q: r.Point3d(float(cen[0] + q[0] * X[0]), float(cen[1] + q[0] * X[1]), float(q[1]))
+    pc = r.PolyCurve()
+    for k, i0, i1 in segs:
+        if k == 'line': pc.Append(r.Line(P3(Q[i0]), P3(Q[i1])))
+        else: pc.Append(r.Arc(P3(Q[i0]), P3(Q[(i0 + i1) // 2]) if (i1 - i0) % 2 == 0 else P3(_arc_mid(Q[i0:i1 + 1])), P3(Q[i1])))
+    crv = pc if pc.SegmentCount > 1 else pc.SegmentCurve(0)
+    ax = r.Line(r.Point3d(float(cen[0]), float(cen[1]), 0.0), r.Point3d(float(cen[0]), float(cen[1]), 1.0))
+    rs = r.RevSurface.Create(crv, ax, 0.0, 2 * math.pi)
+    if rs is None: return None
+    b = r.Brep.CreateFromRevSurface(rs, cap0, cap1)
+    if b is None or not b.IsValid or not b.IsSolid: return None
+    return b
+
+
+def _arc_mid(P):
+    """円にのる点の並びの、弧の中ほどの点（2 次元）"""
+    c, R = fit_circle2(P); a = np.unwrap(np.arctan2(P[:, 1] - c[1], P[:, 0] - c[0])); m = (a[0] + a[-1]) / 2
+    return c + R * np.array([math.cos(m), math.sin(m)])
+
+
 def cap_holes(W, T):
     """開いた立体の、平らな縁の穴に蓋をする（三角形に分けて）。平らな板（全体が一つの平面）や、
     平らでない穴があれば None"""
@@ -1392,6 +1596,13 @@ def to_solids(W, T, sheet=('down', 10.0), _depth=0):
         if rv is not None: return [(rv, 'curved')]
     except Exception:
         pass
+    try:
+        lt = as_lathe(W, T)                              # 一周する回転体（北山杉の幹など、10-28）
+        if lt is not None: return [(lt, 'curved')]
+    except Exception:
+        pass
+    if MESH_ONLY and all(v_ == 2 for v_ in ec_.values()):
+        return [(submesh(W, T), 'mesh')]               # 自由な形（地形・水・雨の川）は閉じたメッシュのまま（監修 10-27：Brep にすると重い）
     b, info = solid_from_mesh(W, T)
     if b is not None:
         # 自由な形（クスノキ・地形・網の鉢など、三角形ごとに面になる）は閉じたメッシュのまま
@@ -1411,7 +1622,7 @@ def to_solids(W, T, sheet=('down', 10.0), _depth=0):
         for Wm, Tm in via_manifold(W, T):
             b, info2 = solid_from_mesh(Wm, Tm)
             if b is not None: return [(b, info2.split('(')[0])]
-        sh = shells(T)
+        sh = fill_shells(shells(T))
         if len(sh) > 1:
             out = []
             for T1 in sh: out += to_solids(W, T1, None, _depth + 1)

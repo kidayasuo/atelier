@@ -25,6 +25,7 @@ WELD = 0.01                      # 同じ頂点とみなす距離 (mm)。0.5 だ
 SHEET = {'03': ('down', 100.0), '10p': ('down', 20.0), '20p': ('down', 20.0), '83': ('both', 20.0),
          '90': ('base', 100.0), '78': ('base', 50.0)}
 DEFAULT_SHEET = ('down', 10.0)
+FREEFORM = ('90', '92', '99')     # 自由な形（地形・水・雨の川）は閉じたメッシュのまま（監修 10-27：Brep の三角形の寄せ集めは重い、90 だけで 4.3 MB）
 FENCE_T = 20.0                   # 開いた輪郭の押し出し（塀・柵・生垣の面）につける厚み (mm)
 
 P3 = lambda p: r.Point3d(float(p[0]), float(p[1]), float(p[2]))
@@ -207,6 +208,7 @@ for i in order:
 for mt in m.Materials: out.Materials.Add(mt)
 for gr in m.Groups: out.Groups.Add(gr)
 stat = {}
+SEEN = set()                 # 出した立体（レイヤー・種類・面の数・外接箱）：同じ物を二度出さない
 odd = {}                     # 閉じたソリッドにならなかった物（レイヤー → 数）
 def count(kind, layer):
     stat[kind] = stat.get(kind, 0) + 1
@@ -265,10 +267,18 @@ for oi, o in enumerate(m.Objects):
     else:
         W, T0 = mesh_arrays(g, WELD)
         if len(T0) == 0: continue
+        SD.MESH_ONLY = lc in FREEFORM
         for T in raw_shells(g, W, T0) or components(T0):
             g1 = SD.to_solids(W, T, sheet)
             if not g1: count('dropped', lname)                # 太さの無い針は捨てる
             geo += g1
+    keep = []
+    for x, kind in geo:                                   # 同じレイヤーに同じ形（種類・面の数・外接箱 0.1 mm）がもう出ていれば捨てる（10-28）
+        bb = x.GetBoundingBox(); nf = len(x.Faces) if isinstance(x, (r.Brep, r.Mesh)) else 0
+        kk = (a0.LayerIndex, type(x).__name__, nf) + tuple(round(v, 1) for v in (bb.Min.X, bb.Min.Y, bb.Min.Z, bb.Max.X, bb.Max.Y, bb.Max.Z))
+        if kk in SEEN: count('duplicate', lname); continue
+        SEEN.add(kk); keep.append((x, kind))
+    geo = keep
     grp = None
     if len(geo) > 1:
         grp = len(out.Groups); out.Groups.Add(r.Group())
