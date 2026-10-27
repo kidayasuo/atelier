@@ -2014,8 +2014,13 @@ def make_siteplan():
         else: A.fill(sil, '30_敷地・外構', fc='#D8D4CC', z=0.85)
         A.geom_lines(sil, '30_敷地・外構', lw=0.05, color='0.45', z=0.9)
     # 課題の敷地図をなぞった線は描かない（ユーザー10-26：道は PLATEAU の道、向かいの住宅3軒は課題の図の道の縁に沿わせた add_context.py）
+    # 敷地の境は外の一本だけ（00 には境から 1 m 内の線もある。ユーザー 10-27夜：配置図から 1 m の線を除く）
+    _c00 = [P for ln, P in CURVES if ln.startswith('00') and len(P) > 2]
+    _o00 = max(_c00, key=lambda P: abs(Polygon(P[:, :2]).area)) if _c00 else None
     for ln, P in CURVES:
-        if ln.startswith('00'): A.lines([P[:, :2]], '30_敷地・外構', lw=0.3, color='#C03030', ls=(0, (12, 3, 2, 3)), z=8); continue
+        if ln.startswith('00'):
+            if P is _o00: A.lines([P[:, :2]], '30_敷地・外構', lw=0.3, color='#C03030', ls=(0, (12, 3, 2, 3)), z=8)
+            continue
         if num(ln) == 91:                              # 等高線：0.2 mごと、0.4 mごとを太く（築山がはっきり、プレゼンの準備の描き方）
             zc = float(np.mean(P[:, 2])) / 1000.0 if P.shape[1] > 2 else 0.0
             ix = abs(((zc - 0.1) / 0.4) - round((zc - 0.1) / 0.4)) < 0.05
