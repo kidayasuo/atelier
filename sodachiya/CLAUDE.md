@@ -5,7 +5,7 @@
 ## 始めに
 1. `git pull`。`python3 renkei/inbox.py mine <自分の係>` で自分あての項を読む。
 2. 読む：`yakuwari.md` は節だけ（`python3 tools/yomu.py yakuwari.md` → 「チャットと担当」「連携と受け箱」「ファイルの置き場」と自分に要る節）。`karuku.md` は全部。
-3. 自分の係の決定事項（分冊）。**Claude Code からはプロジェクトの文書（「決定事項」「受け箱」の文書）が読めない**。試しのあいだは、リポジトリに移した分冊だけを使う：`kettei/<係>.md`（無ければユーザーに言う）。共通の「決定事項」の要る所は、ユーザーに聞く。
+3. 自分の係の決定事項（分冊）`kettei/<係>.md`。共通は`kettei/kyoutsu.md`の要る節だけ（`tools/yomu.py`）。10-28 から決定事項はすべてリポジトリが本文（プロジェクトの文書は写しで、Claude Code からは読めなくてよい）。
 
 ## 決まり
 - スクリプト（`renkei/inbox.py`・`model/build/`・`scripts/`・`mokei/` など）はユーザーのプロジェクトのコード。そのまま走らせてよい。
