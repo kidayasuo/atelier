@@ -258,7 +258,7 @@ for i_, o_ in enumerate(m.Objects):
 MERGE = {}
 for p in parts:
     pre = p['layer'].split('_')[0]
-    if pre in ('17', '21') and p['M'] is not None and not p.get('delete'):
+    if pre in ('17', '21', '24') and p['M'] is not None and not p.get('delete'):     # 24：西館の間仕切りも一つに（壁ごとの立体は Rhino 版でつながりごとに分かれる、10-28 西館係・監修の項 2346）
         MERGE.setdefault(p['layer'], []).append(p)
 for ln, L in MERGE.items():
     if len(L) < 2: continue

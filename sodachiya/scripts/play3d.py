@@ -120,20 +120,41 @@ for s in (-1, 1):                                               # 両脇の網�
         t = i / 12; z = H + (ld['h'] * 1000 - H) * t - 4 * sag * t * (1 - t); c = pa + (pb - pa) * t + nrm * s * bw / 2
         G.append([[*c, z], [*c, z + 900]])
     K.surface(G, L_NET, (122, 90, 54))
+# ---------------------------------------------------------------- 丸い材は円の押し出し（10-28、監修の項 2346：前は 6〜8 角の網目）
+def rod(p0, p1, rad, li, col):
+    p0 = np.asarray(p0, float); p1 = np.asarray(p1, float); d = p1 - p0; L_ = float(np.linalg.norm(d))
+    if L_ < 1.0: return
+    pl = r.Plane(r.Point3d(*map(float, p0)), r.Vector3d(*map(float, d / L_)))
+    c = r.Circle(float(rad)).ToNurbsCurve(); c.Transform(r.Transform.PlaneToPlane(r.Plane.WorldXY(), pl))
+    best = None
+    for ex in (r.Extrusion.Create(c, L_, True), r.Extrusion.Create(c, -L_, True)):
+        if ex is None: continue
+        bb = ex.GetBoundingBox(); mid = np.array([(bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2, (bb.Min.Z + bb.Max.Z) / 2])
+        dm = np.linalg.norm(mid - (p0 + p1) / 2)
+        if best is None or dm < best[0]: best = (dm, ex)
+    if best is not None: out.Objects.AddExtrusion(best[1], K.attr(li, col))
 # ---------------------------------------------------------------- 摺鉢ネット
-G = []
+# 10-28（監修の項 2346）：鉢は一つの回転体（断面＝厚さ 20 の帯を中心の軸のまわりに一周、閉じた立体）。前は 17×49 の四角形の面で 770 面
+_pr = []
 for i in range(17):
     t = i / 16; rr = (nt['bottom_r'] + (nt['ring_r'] - nt['bottom_r']) * t ** 1.6) * 1000
     z = (nt['bottom_h'] + (cw['h'] - nt['bottom_h']) * t) * 1000
-    G.append([[c_net[0] + rr * math.cos(a), c_net[1] + rr * math.sin(a), z] for a in np.linspace(0, 2 * math.pi, 49)])
-K.surface(G, L_NET, (122, 90, 54))
-K.tube([*c_net, nt['bottom_h'] * 1000 - 20], [*c_net, nt['bottom_h'] * 1000 + 20], nt['bottom_r'] * 1000 + 40, nt['bottom_r'] * 1000 + 40, L_NET, STEEL, n=24)
+    _pr.append((rr, z))
+_pr = np.array(_pr); _d = np.gradient(_pr, axis=0); _n = np.c_[_d[:, 1], -_d[:, 0]]; _n /= np.linalg.norm(_n, axis=1)[:, None]
+_sec = list(_pr + _n * 10.0) + list((_pr - _n * 10.0)[::-1])
+_crv = r.Curve.CreateControlPointCurve([r.Point3d(c_net[0] + q[0], c_net[1], q[1]) for q in _sec] + [r.Point3d(c_net[0] + _sec[0][0], c_net[1], _sec[0][1])], 1)
+_axis = r.Line(r.Point3d(c_net[0], c_net[1], 0.0), r.Point3d(c_net[0], c_net[1], 1000.0))
+_rev = r.RevSurface.Create(_crv, _axis, 0.0, 2 * math.pi)
+_bw = r.Brep.CreateFromRevSurface(_rev, False, False)
+out.Objects.AddBrep(_bw, K.attr(L_NET, (122, 90, 54)))
+print('net bowl: revolution solid', _bw.IsSolid, len(_bw.Faces))
+rod([*c_net, nt['bottom_h'] * 1000 - 20], [*c_net, nt['bottom_h'] * 1000 + 20], nt['bottom_r'] * 1000 + 40, L_NET, STEEL)
 # ---------------------------------------------------------------- 吊り材 M20（φ20、10-27：M16 では揺れ・跳びの衝撃に余裕が無い。重さは西館の梁へ。梁の位置 u 36〜48、3.0 ごと）
 beams_u = [36.0, 39.0, 42.0, 45.0, 48.0]
 for u in beams_u:                                               # キャットウォークの外側の縁
     if u >= cw['u_start'] - 0.5:
         u = max(u, cw['u_start'] + 0.1)
-        p = X(u, cw['inset'] + cw['width'] - 0.05); K.tube([*p, H], [*p, under_roof(*p)], 10, 10, L_NET, STEEL, n=6)
+        p = X(u, cw['inset'] + cw['width'] - 0.05); rod([*p, H], [*p, under_roof(*p)], 10, L_NET, STEEL)
 vs = P['support']['v_spread'] * 1000
 for k in range(rg['rods']):                                     # 輪：ハの字 3 組、上は梁 u 39・42・45
     a = 2 * math.pi * (k + 0.5) / rg['rods']; rr_ = (rg['inner_r'] + rg['outer_r']) / 2 * 1000
@@ -142,23 +163,23 @@ for k in range(rg['rods']):                                     # 輪：ハの�
     q = np.array(xy(ub, vv)); along = X(ub, 0.0) - X(ub, 1.0); along /= np.linalg.norm(along)
     q = q + along * vs * (1 if k % 2 else -1)
     if -0.9 - uv(*q)[1] < 0.25: q = np.array(xy(ub, -0.9 - 0.25))   # 上端は壁の内面（東から0.15）より0.1内側まで（設計監修10-23：東の壁に入っていた）
-    K.tube([*p, H], [*q, under_roof(*q)], 10, 10, L_NET, STEEL, n=6)
+    rod([*p, H], [*q, under_roof(*q)], 10, L_NET, STEEL)
 # 輪を東の柱へ突っ張る水平材（輪の東の端 → 東の壁）
 pe = c_net + np.array(X(nt['u'], 0.0) - c_net) / np.linalg.norm(X(nt['u'], 0.0) - c_net) * rg['outer_r'] * 1000
-K.tube([*pe, H - 60], [*X(nt['u'], 0.15), H - 60], 40, 40, L_NET, STEEL, n=8)   # 柱の内面（＝壁の内面、東から0.15）で止める（設計監修10-23）
+rod([*pe, H - 60], [*X(nt['u'], 0.15), H - 60], 40, L_NET, STEEL)   # 柱の内面（＝壁の内面、東から0.15）で止める（設計監修10-23）
 # 輪とキャットウォークをつなぐ材（10-27、監修の略算）：網の吊り橋が輪を北西へ引く力（満員 約8.4 kN、u の向き 約7.8）を、東の柱の弱い向きに
 # 掛けず、キャットウォーク（突っ張り）→ 北の段 → 踊り場（北の壁・北西の斜めの面に固める）→ 吊り橋 → 輪 の閉じた輪で受ける。u42〜45 の東寄り。
 _bl = P['support'].get('bridge_loop', {}); pc_ = X(_bl.get('u', 44.4), cw['inset'] + cw['width'] - 0.05)
 pr_ = c_net + (pc_ - c_net) / np.linalg.norm(pc_ - c_net) * rg['outer_r'] * 1000
-K.tube([*pr_, H - 60], [*pc_, H - 60], 40, 40, L_NET, STEEL, n=8)
+rod([*pr_, H - 60], [*pc_, H - 60], 40, L_NET, STEEL)
 # ---------------------------------------------------------------- はしご（踊り場へ、段 200）
 la = P['ladder']; b0 = X(*la['base']); b1 = X(*la['top']); dl = (b1 - b0) / np.linalg.norm(b1 - b0); nl = np.array([-dl[1], dl[0]]) * la['width'] * 500
 zl = la['h'] * 1000
 for s in (1, -1):
-    K.tube([*(b0 + nl * s), 0], [*(b1 + nl * s), zl], 25, 25, L_CW, WOOD, n=6)
+    rod([*(b0 + nl * s), 0], [*(b1 + nl * s), zl], 25, L_CW, WOOD)
 for k in range(1, int(round(la['h'] / la['rung']))):
     t = k * la['rung'] / la['h']; c = b0 + (b1 - b0) * t
-    K.tube([*(c + nl), zl * t], [*(c - nl), zl * t], 15, 15, L_CW, WOOD, n=6)
+    rod([*(c + nl), zl * t], [*(c - nl), zl * t], 15, L_CW, WOOD)
 # ---------------------------------------------------------------- すべり台（踊り場 h2.0 → 床）
 sl = P['slide']; s0 = X(*sl['from']); s1 = X(*sl['to']); dd = (s1 - s0) / np.linalg.norm(s1 - s0)
 z0s, z1s = sl['h'] * 1000, 350.0
@@ -191,7 +212,7 @@ fn = P['fans']
 for u in fn['u']:
     c = X(u, fn['w'])
     K.prism(Point(c).buffer(fn['d'] * 500, resolution=16), fn['h'] * 1000 - 40, fn['h'] * 1000, L_FAN)
-    K.tube([*c, fn['h'] * 1000], [*c, under_roof(*c)], 15, 15, L_FAN, n=6)
+    rod([*c, fn['h'] * 1000], [*c, under_roof(*c)], 15, L_FAN, (90, 90, 90))
 
 OUT = os.path.join(ROOT, 'model', 'sodachiya_play_layers.3dm')
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))

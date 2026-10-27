@@ -148,7 +148,7 @@ if MODE == 'doors':
                 if P_.area > 1: ps.append(P_.buffer(0))
         return unary_union(ps) if ps else Polygon()
     WALL = re.compile(r'^(17|21|24|38)_')
-    FILL = re.compile(r'^(16|19|19c|27|48|66|89)_')
+    FILL = re.compile(r'^(16|19|19c|19d|27|48|66|89)_')          # 19d：先に置いた室内の戸（10-28 西館係：u28.25 で戸が二重になっていた）
     W, F, ROOMS = [], [], []
     for o in m.Objects:
         ln = LN[o.Attributes.LayerIndex]; g = o.Geometry

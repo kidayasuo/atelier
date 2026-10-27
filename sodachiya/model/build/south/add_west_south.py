@@ -636,39 +636,56 @@ if len(gut_line) > 3:
         cur.append(b_)
     segs.append(cur)
     seg = max(segs, key=len)
-    # 軒樋は軒先に沿う（上端＝屋根の先の 20 下、深さ 150）。閉じた箱：内・外の線 × 上・下
-    gm = r.Mesh(); nseg = len(seg)
-    for e_ in seg:
-        zt_ = zt_top(e_, e_[3] - GUT_W) - 20.0
-        for dd in (e_[3] - GUT_W, e_[3]):
-            c_ = e_[1] + e_[2] * dd
-            for zz in (zt_ - 150.0, zt_): gm.Vertices.Add(float(c_[0]), float(c_[1]), float(zz))
-    for k in range(nseg - 1):
-        A_ = 4 * k; B_ = A_ + 4                     # 0:内下 1:内上 2:外下 3:外上
-        for i0, i1 in ((0, 1), (1, 3), (3, 2), (2, 0)): gm.Faces.AddFace(A_ + i0, B_ + i0, B_ + i1, A_ + i1)
-    for A_, flip in ((0, False), (4 * (nseg - 1), True)):
-        gm.Faces.AddFace(*( (A_, A_ + 1, A_ + 3, A_ + 2) if not flip else (A_, A_ + 2, A_ + 3, A_ + 1)))
-    gm.Normals.ComputeNormals(); gm.Compact()
-    at = r.ObjectAttributes(); at.LayerIndex = L_RAIN; new.Objects.AddMesh(gm, at)
+    # 軒樋は軒先に沿う（上端＝屋根の先の 20 下、深さ 150、幅 120）。10-28（監修の項 2346）：軒先の線をまっすぐな区間に分け（ずれ 2 mm）、
+    # 区間ごとに断面 120×150 の押し出し（前は 100 ごとの箱を一つの網目にまとめ、Rhino 版で 404 面）。北西の角は軒先がまっすぐな水平の線なのでそのまま
+    from shapely.geometry import LineString as _LS
+    _C3 = np.array([np.r_[e_[1] + e_[2] * (e_[3] - GUT_W / 2), zt_top(e_, e_[3] - GUT_W) - 20.0] for e_ in seg])
+    _keep = np.asarray(_LS(_C3[:, :2]).simplify(2.0).coords)
+    _ix = [int(np.argmin(np.linalg.norm(_C3[:, :2] - q_, axis=1))) for q_ in _keep]
+    _ngut = 0
+    for i0, i1 in zip(_ix, _ix[1:]):
+        if i1 <= i0: continue
+        A3, B3 = _C3[i0], _C3[i1]; d3 = B3 - A3; L_ = float(np.linalg.norm(d3))
+        if L_ < 10.0: continue
+        d3 /= L_; s3 = np.cross(d3, [0.0, 0.0, 1.0]); s3 /= np.linalg.norm(s3); n3 = np.cross(s3, d3)
+        Cq = [A3 + s3 * GUT_W / 2, A3 - s3 * GUT_W / 2, A3 - s3 * GUT_W / 2 - n3 * 150.0, A3 + s3 * GUT_W / 2 - n3 * 150.0]
+        crv = r.Polyline([r.Point3d(*map(float, q_)) for q_ in Cq + [Cq[0]]]).ToNurbsCurve()
+        best = None
+        for ex_ in (r.Extrusion.Create(crv, L_, True), r.Extrusion.Create(crv, -L_, True)):
+            if ex_ is None: continue
+            bb_ = ex_.GetBoundingBox(); dm = np.linalg.norm(np.array([(bb_.Min.X + bb_.Max.X) / 2, (bb_.Min.Y + bb_.Max.Y) / 2]) - (A3[:2] + B3[:2]) / 2)
+            if best is None or dm < best[0]: best = (dm, ex_)
+        if best is None: continue
+        at = r.ObjectAttributes(); at.LayerIndex = L_RAIN; at.Name = '軒樋 120×150'
+        new.Objects.AddExtrusion(best[1], at); _ngut += 1
     g_bot = min(zt_top(e_, e_[3] - GUT_W) for e_ in seg) - 170.0; g_top = g_bot + 150.0
     gpath = LineString([e_[1] + e_[2] * (e_[3] - GUT_W / 2) for e_ in seg])
     def chain_at(c_):
         c_ = np.asarray(c_, float); e_ = min(seg, key=lambda e: np.hypot(*(e[1] - c_)))
-        mesh_prism(Point(*c_).buffer(18, 8), -300.0, const(zt_top(e_, e_[3] - GUT_W) - 170.0), L_RAIN)
+        z0_, z1_ = -300.0, zt_top(e_, e_[3] - GUT_W) - 170.0                      # 10-28：円の押し出し（前は 8 角の網目）
+        cir = r.Circle(r.Point3d(float(c_[0]), float(c_[1]), float(z0_)), 18.0)
+        ex_ = r.Extrusion.Create(cir.ToNurbsCurve(), float(z1_ - z0_), True)
+        bb_ = ex_.GetBoundingBox()
+        if bb_.Max.Z < z0_ + 1: ex_ = r.Extrusion.Create(cir.ToNurbsCurve(), -float(z1_ - z0_), True)
+        at = r.ObjectAttributes(); at.LayerIndex = L_RAIN; at.Name = '鎖樋 φ36'
+        new.Objects.AddExtrusion(ex_, at)
     pN = np.array(xy(40.6, -14.99)); qN = gpath.interpolate(gpath.project(Point(*pN))); chain_at((qN.x, qN.y))
     _qS = gpath.interpolate(gpath.project(Point(*xy(21.6, -12.6))))            # 南：勝手口の北の端から約0.5北の軒先（回り込んだ下屋の上、外構の集水で受ける。10-24 アプローチ係）
     pS = np.array([_qS.x, _qS.y]); chain_at(pS)
-    print('eave: %d strips, low %.1f m / gutter %.1f m, lowest %.0f, chains N(u %.1f) S(u %.1f v %.1f)' %
-          (n_eave, len(seg) * Ls / NS / 1000, gpath.length / 1000, g_top, uv(qN.x, qN.y)[0], *uv(*pS)))
+    print('eave: %d strips, gutter %d pieces, low %.1f m / gutter %.1f m, lowest %.0f, chains N(u %.1f) S(u %.1f v %.1f)' %
+          (n_eave, _ngut, len(seg) * Ls / NS / 1000, gpath.length / 1000, g_top, uv(qN.x, qN.y)[0], *uv(*pS)))
 
 # ---------------------------------------------------------------- 調理の更衣・便所の戸（10-25、監修の指摘）
 # u28.25 の壁の2つの口（v−11.1〜−11.95 と v−12.14〜−13.18）は、自動の戸だとあいだの細い壁（0.19）の両側を吊元にして
 # 同じ向きに開き、弧がぶつかる。北の口（v−11.1〜−11.95）だけ吊元を反対の端（v−11.105）にする。
-_hp = tuple(float(v_) for v_ in np.ravel(xy(28.25, -11.105)))
+# 10-28（監修の項 2331・2346）：戸を開口（v−11.30〜−11.95）に合わせて W630 にし、吊元を北の端（−11.31）、前室（u の小さい側）へ開く
+# （前は W840 で開口より広く、90° に開くと板が北の間仕切りに重なった。自動の戸（add_inner.py）が同じ開口に二重に置かれていたのは 19d を見ていなかったため）
+_hp = tuple(float(v_) for v_ in np.ravel(xy(28.25, -11.31)))
+_od = np.ravel(xy(27.25, -11.31)) - np.ravel(xy(28.25, -11.31)); _od = _od / np.linalg.norm(_od)
 _at = r.ObjectAttributes(); _at.LayerIndex = L_19D
-_at.Name = '開き戸 W840 吊元 %.0f,%.0f 開く 0.0213,0.9998' % _hp
+_at.Name = '開き戸 W630 吊元 %.0f,%.0f 開く %.4f,%.4f' % (_hp[0], _hp[1], _od[0], _od[1])
 _mmd = r.Mesh()
-_pd = R(28.232, 28.268, -11.945, -11.105, 0.05)
+_pd = R(28.232, 28.268, -11.945, -11.31, 0.05)
 _tm = __import__('trimesh').creation.extrude_polygon(_pd, 2040.0)
 for x_, y_, z_ in _tm.vertices: _mmd.Vertices.Add(float(x_), float(y_), float(z_) + 10.0)
 for a_, b_, c_ in _tm.faces: _mmd.Faces.AddFace(int(a_), int(b_), int(c_))

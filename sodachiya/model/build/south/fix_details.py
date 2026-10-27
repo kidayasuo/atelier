@@ -1648,16 +1648,27 @@ if slits:
         # （杉 60×150、垂木の高さ、鏡面のあいだ、垂木と同じ 20v）：越屋根の側と軒先の側。屋根の上からの見えは変えない。本館の 10k と同じ。
         if L22T is None: L22T = new_layer('22t_西館_光の筋をまたぐつなぎ（鋼の平板・縁の材）', (120, 120, 125))
         tIn = (tS if _pts else tW + 1200.0 * e) + 300.0 * e; tOut = tE - 300.0 * e          # 平板の範囲（外壁の内面の内 0.3 〜 越屋根の側の 0.3 手前）
-        _pl22 = r.Mesh(); _nk1 = 0
+        # 10-28（監修の項 2346）：平板・縁の材は一つずつの押し出し（筋をまたぐ向きに水平、勾配の向きは屋根の面に沿う。前は屋根に沿わせた網目を筋ごとに一つに）
+        def _span_box(ta_, tb_, w0_, w1_, z0_, z1_, at_):
+            zr_ = lambda t_: float(_RWf['roof_f'](*(cc + ax * t_)))
+            Q = [np.r_[cc + ax * ta_ + nrm * w0_, zr_(ta_) + z0_], np.r_[cc + ax * tb_ + nrm * w0_, zr_(tb_) + z0_],
+                 np.r_[cc + ax * tb_ + nrm * w0_, zr_(tb_) + z1_], np.r_[cc + ax * ta_ + nrm * w0_, zr_(ta_) + z1_]]
+            crv = r.Polyline([r.Point3d(*map(float, q_)) for q_ in Q + [Q[0]]]).ToNurbsCurve()
+            L_ = float(w1_ - w0_); want = cc + ax * (ta_ + tb_) / 2 + nrm * (w0_ + w1_) / 2; best = None
+            for ex_ in (r.Extrusion.Create(crv, L_, True), r.Extrusion.Create(crv, -L_, True)):
+                if ex_ is None: continue
+                bb_ = ex_.GetBoundingBox(); dm = np.linalg.norm(np.array([(bb_.Min.X + bb_.Max.X) / 2, (bb_.Min.Y + bb_.Max.Y) / 2]) - want)
+                if best is None or dm < best[0]: best = (dm, ex_)
+            if best is not None: _XNEW.append((best[1], at_))
+        _nk1 = 0
         for t_ in np.arange(min(tIn, tOut), max(tIn, tOut) + 1.0, 900.0):
-            _pl22.Append(drape(strip(cc, ax, nrm, t_ - 30.0, t_ + 30.0, -170.0, 170.0), -6.0, 0.0)); _nk1 += 1
-        _pl22.Normals.ComputeNormals(); _pl22.Compact()
-        a_k = r.ObjectAttributes(); a_k.LayerIndex = L22T; a_k.Name = f'光の筋をまたぐ鋼の平板 6×60（架構 u{uc_:.0f}、{_nk1} 枚、約 0.9 mおき）'
-        new_objs.append((_pl22, a_k)); _n22t += _nk1
+            a_k = r.ObjectAttributes(); a_k.LayerIndex = L22T; a_k.Name = f'光の筋をまたぐ鋼の平板 6×60×340（架構 u{uc_:.0f}）'
+            _span_box(t_ - 30.0, t_ + 30.0, -170.0, 170.0, -6.0, 0.0, a_k); _nk1 += 1
+        _n22t += _nk1
         for ta_, tb_, nm_ in ((tE - 60.0 * e, tE, '越屋根の側'), (tW, tW + 60.0 * e, '外壁の側')):
             a_e = r.ObjectAttributes(); a_e.LayerIndex = L20V; a_e.Name = f'光の筋の端の縁の材（杉、通気垂木の高さ、{nm_}、架構 u{uc_:.0f}）'   # 杉は垂木の層（一つのレイヤーには一つの素材、10-27夕）
             a_e.ColorSource = r.ObjectColorSource.ColorFromObject; a_e.ObjectColor = (196, 160, 118, 255)
-            new_objs.append((drape(strip(cc, ax, nrm, min(ta_, tb_), max(ta_, tb_), -87.0, 87.0), 0.0, VENT_TOP), a_e))
+            _span_box(min(ta_, tb_), max(ta_, tb_), -87.0, 87.0, 0.0, VENT_TOP, a_e)
     log.append(f'西館：光の筋をまたぐつなぎ（22t）：鋼の平板 {_n22t} 枚（{len(slits)} 本の筋、約 0.9 mおき）と筋の両端の縁の材 {2 * len(slits)}')
     pv20 = RP20.buffer(-150.0, join_style=2)                  # 軒先の水切り150を残す（10-24、本館と同じ）
     pv20 = pv20.difference(Polygon([xy(u_, 1.0) for u_ in np.arange(19, 53.1, 0.5)] + [xy(u_, -2.85) for u_ in np.arange(53, 18.9, -0.5)]))   # 越屋根の蓋の西の縁（10-25：−2.25 → −2.85）
@@ -1940,9 +1951,10 @@ for k, geom_fn in (('23_', lambda g: g.difference(_cutE)),
     g0 = _uni(k); f0, a0, z0, z1 = _first(k)
     gn = geom_fn(g0).buffer(1).buffer(-1)
     if k == '23_':
-        for f_, a_, za, zb in _F2[k]:
-            if zb - za < 5: K.flat(f_.difference(_cutE), za, a_.LayerIndex)
-            else: K.prism(f_.difference(_cutE), za, zb, a_.LayerIndex)
+        # 10-28（監修の項 2346）：2 階の床は一つの平面形（片を足し、吹き抜けを除き、外壁の内面で切る）を 2FL−80 から 2FL まで押し出した一つの立体
+        # （前は片ごとの面を後で厚み付けし、縁の点を外壁の内面へ寄せていたので、Rhino 版で 117 面・曲面の片になった）
+        _f23 = unary_union([f_ for f_, a_, za, zb in _F2[k]]).buffer(1).buffer(-1).difference(_cutE).intersection(WNi)
+        K.prism(_f23.buffer(0), ZF2 - 80.0, ZF2, _F2[k][0][1].LayerIndex)
         continue
     K.flat(gn, z0, a0.LayerIndex)
 for _i, _l in enumerate(out.Layers):
