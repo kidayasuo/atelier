@@ -75,6 +75,9 @@ vp.SetViewProjection(vi, True)
 mode = raytraced()
 if mode:
     vp.DisplayMode = mode
+else:
+    print("Raytraced display mode not found")
+doc.Views.ActiveView = view
 view.Redraw()
 W = int(round(paper_w * PX_PER_MM))
 H = int(round(W * ch / float(cw)))
@@ -107,7 +110,7 @@ if sun is not None:
 
 def set_sun(on):
     if sun is None:
-        print("太陽の設定が見つからない（Rhino の版の違い）。太陽パネルで手で：11/5 10:00、京都")
+        say(u"太陽の設定が見つからない（Rhino の版の違い）。太陽パネルで手で：11/5 10:00、京都")
         return
     try:
         sun.ManualControl = False
@@ -115,7 +118,7 @@ def set_sun(on):
         sun.DaylightSaving = False
         sun.SetDateTime(DAY, System.DateTimeKind.Local)
     except Exception as e:
-        print("太陽の時刻：", e)
+        say(u"太陽の時刻：", e)
     sun.Enabled = on
     try:
         rs.Sun = sun
@@ -123,25 +126,49 @@ def set_sun(on):
         pass
 
 
-def capture(name):
+def say(*a):
+    # IronPython 2 でも Python 3 でも一行で出す
+    print(u" ".join([x if isinstance(x, type(u"")) else (x.decode("utf-8") if isinstance(x, bytes) else u"%s" % (x,)) for x in a]))
+
+
+def _try_capture(w, h, transparent, passes):
     vc = Rhino.Display.ViewCapture()
-    vc.Width, vc.Height = W, H
+    vc.Width, vc.Height = w, h
     vc.ScaleScreenItems = False
     vc.DrawAxes = False
     vc.DrawGrid = False
     vc.DrawGridAxes = False
-    vc.TransparentBackground = True
+    vc.TransparentBackground = transparent
+    if passes:
+        try:
+            vc.RealtimeRenderPasses = passes
+        except Exception:
+            pass
     try:
-        vc.RealtimeRenderPasses = PASSES
-    except Exception:
-        pass
-    bmp = vc.CaptureToBitmap(view)
-    if bmp is None:
-        print("書き出せなかった：", name)
-        return
+        return vc.CaptureToBitmap(view)
+    except Exception as e:
+        say(u"  ViewCapture の誤り：", e)
+        return None
+
+
+def capture(name):
     path = os.path.join(OUT, name)
-    bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png)
-    print("書いた：", path, W, "×", H)
+    if os.path.exists(path):
+        os.remove(path)
+    say(u"書き出し：", name, u"表示モード", vp.DisplayMode.EnglishName, u"ビュー", cw, u"×", ch)
+    # 大きい絵・透明な背景・レイトレースの回数が通らない Rhino があるので、順に試す
+    for w, h, tr, ps in [(W, H, True, PASSES), (W, H, False, PASSES), (W // 2, H // 2, True, PASSES), (W, H, True, 0)]:
+        bmp = _try_capture(w, h, tr, ps)
+        if bmp is not None:
+            bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png)
+            say(u"  書いた：", path, w, u"×", h, u"透明" if tr else u"不透明")
+            return
+        say(u"  通らなかった：", w, u"×", h, u"透明" if tr else u"不透明", u"回数", ps)
+    # 最後の手：コマンドで書き出す（レイトレースは「レイトレース」の設定の回数まで描いてから書く）
+    view.Document.Views.ActiveView = view
+    cmd = u'-_ViewCaptureToFile "%s" _Width=%d _Height=%d _Scale=1 _DrawGrid=_No _DrawWorldAxes=_No _DrawCPlaneAxes=_No _TransparentBackground=_Yes _Enter' % (path, W, H)
+    Rhino.RhinoApp.RunScript(cmd, False)
+    say(u"  コマンドで：", u"書いた" if os.path.exists(path) else u"書けなかった", path)
 
 
 # ---------------------------------------------------------------- 夜の LED（一時的に光る材料を当てる）
@@ -204,4 +231,4 @@ finally:
     except Exception:
         pass
     doc.Views.Redraw()
-print("おわり。out/ の keikan_hiru.png・keikan_yoru.png・keikan_view.json を push してください")
+say(u"おわり。out/ の keikan_hiru.png・keikan_yoru.png・keikan_view.json を push してください")
