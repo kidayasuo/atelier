@@ -6,7 +6,7 @@
   床の板の端が壁の外面・真ん中・内面のどこにあっても、壁の真ん中で数えたのと同じになる（設計監修、10-23）。
 - 延床面積＝1 階の床（本館の床・内縁側・海峡と各部屋の床の和）＋西館 2 階の床（23）＋園庭の小屋の便所と倉庫（data/garden.json の HUT、10-25）。これも壁芯（床の下の間仕切りは全部、外壁は半分を数える）。外縁側（14、土足の軒下）は含めない。
 - 園庭＝園庭の地形（90、だいさんかく・しずかのもり）＋みなみのさんかく（data/minami.json の AREA）。
-- 駐車は決定事項_外構の台数（南 3・北 2）。駐輪は決まっていない。
+- 駐車は決定事項_外構の台数（南 3・北 2）。駐輪は外構の図の台数（data/siteplan_approach.json の counts、保護者 12・職員 9）。
 課題の所要室は 2026-09-28 の課題文から。
 """
 import sys, os, re, json, csv, datetime, subprocess, numpy as np, rhino3dm as r
@@ -165,7 +165,11 @@ ROWS.append(dict(group='管理', room='倉庫', required='約 30', planned=round
                  parts=' ＋ '.join(f'{nm(k)} {v:.1f}' for k, v in p_st), judge='○' if a_st >= 27 else '',                                   # 足りない間は判定を空ける（検討中、ユーザーと相談、10-25）
                  note='道具入れとして確保した場所は全部数える（ユーザー 10-25）：1 階のスパン 14・17 の倉庫（教材庫）、本館と西館のすき間の倉庫、西館の階段の下の倉庫、園庭の小屋の倉庫。約 30 に足りない間は判定を空けている（検討中）'))
 ROWS.append(dict(group='管理', room='駐車場', required='5 台以上', planned=None, parts='南 3 台・北 2 台（うち 1 台は搬入）', judge='○', note='決定事項_外構'))
-ROWS.append(dict(group='管理', room='駐輪スペース', required='適宜', planned=None, parts='', judge='', note='未定'))
+# 駐輪：外構の図（approachA.py）が数えた台数を data/siteplan_approach.json の counts から読む（アプローチ係、10-28）
+_bk = next((c for c in json.load(open(os.path.join(DATA, 'siteplan_approach.json'), encoding='utf-8')).get('counts', []) if c.startswith('駐輪')), '')
+_bn = [int(x) for x in re.findall(r'(\d+)台', _bk)]
+ROWS.append(dict(group='管理', room='駐輪スペース', required='適宜', planned=None,
+                 parts=_bk.replace('駐輪 ', '') + (f'（計 {sum(_bn)} 台）' if _bn else ''), judge='○' if _bn else '', note='決定事項_外構'))
 # その他（課題文：自由に加えてよい）
 OTHER = []
 for keys, label in ((('59_1F_ホール', '41_'), 'ホール（1・2 階）'), (('56_', '59_1F_西吹き抜け'), '西吹き抜け（先生の道・窓辺）'),
