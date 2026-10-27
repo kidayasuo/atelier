@@ -134,6 +134,18 @@ def plan_shape(zmax=9.0, umax=None):
     return unary_union(ds).buffer(0.02).buffer(-0.02)
 
 
+def floor_shape(z=0.0):
+    """床の高さ z で切った幹・根張りの断面（u, w の shapely 形）。やわらかい床を幹のまわりで切るのに使う（10-28）。"""
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+    ds = []
+    for name, c, cut in branches():
+        for p in c:
+            dz = abs(p[2] - z)
+            if dz < p[3]: ds.append(Point(p[0], p[1]).buffer(math.sqrt(p[3] ** 2 - dz ** 2), resolution=12))
+    return unary_union(ds)
+
+
 def side_shape(wmin=-9.0, wmax=99.0):
     """東から見た外形（u, z の shapely 形）。w の範囲で枝を選ぶ（切断面の手前だけ、など）。"""
     from shapely.geometry import Point

@@ -66,7 +66,9 @@ K.prism(pit, -dep - 50, -dep, L_FL, (200, 180, 150))                            
 K.prism(pit.buffer(-50), -dep, -dep + pt['mat'] * 1000, L_FL, MAT)                          # マット
 # ---------------------------------------------------------------- 切り株とやわらかい床
 st = P['stump']; c_st = np.array(xy(st['u'], -0.9 - st['w']))
-K.prism(Point(c_st).buffer(st['soft_r'] * 1000, resolution=32).intersection(PLAY), 0.0, 30.0, L_FL, (239, 226, 200))
+STAIR_BOX = RW(29.9, 34.02, -1.0, 4.16)                 # 10-28（監修の項 0015 の 5）：φ6.6 に広げ、階段の箱で切る（幹のまわりの穴は取り込み用ファイル play3d.py の側）
+SOFT_ST = Point(c_st).buffer(st['soft_r'] * 1000, resolution=48).intersection(PLAY).intersection(RW(30.07, 60.0, -1.0, 20.0)).difference(STAIR_BOX)
+K.prism(SOFT_ST, 0.0, 30.0, L_FL, (239, 226, 200))
 K.tube([*c_st, 0], [*c_st, 1100], st['trunk_r'] * 1000, st['trunk_r'] * 900, L_ST, (168, 132, 86), n=16)
 up = np.array(xy(st['u'] + 1, -0.9 - st['w'])) - c_st; up /= np.linalg.norm(up)
 east = np.array(xy(st['u'], -0.9 - st['w'] + 1)) - c_st; east /= np.linalg.norm(east)

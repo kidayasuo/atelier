@@ -55,7 +55,16 @@ K.prism(pit, -dep - 50, -dep, L_FL, (200, 180, 150))
 K.prism(pit.buffer(-50), -dep, -dep + pt['mat'] * 1000, L_FL, MAT)
 # ---------------------------------------------------------------- 切り株（クスノキ）とやわらかい床
 st = P['stump']; c_st = X(st['u'], st['w'])
-K.prism(Point(c_st).buffer(st['soft_r'] * 1000, resolution=32).intersection(WNi).intersection(RWw(30.07, 60.0, -1.0, 20.0)), 0.0, 30.0, L_FL, (239, 226, 200))   # はれのまとの壁（u30）の北で止める（10-24夜）
+# 10-28（監修の項 0015 の 5）：φ4.8 → 約 φ6.6。はれのまとの壁（u30）の北、階段の箱（西の面の外 v−5.06）の西で止め、幹・根張りのまわり（床の断面 +20）はあける
+from play_tree import floor_shape
+def uw2xy(g):
+    gs = [g] if g.geom_type == 'Polygon' else list(g.geoms)
+    return unary_union([Polygon([X(*c) for c in gg.exterior.coords], [[X(*c) for c in h.coords] for h in gg.interiors]).buffer(0) for gg in gs])
+TRUNK = uw2xy(floor_shape(0.0)).buffer(20)
+STAIR_BOX = RWw(29.9, 34.02, -1.0, 4.16)
+SOFT_ST = (Point(c_st).buffer(st['soft_r'] * 1000, resolution=48).intersection(WNi).intersection(RWw(30.07, 60.0, -1.0, 20.0))
+           .difference(STAIR_BOX).difference(TRUNK))
+K.prism(SOFT_ST, 0.0, 30.0, L_FL, (239, 226, 200))
 # 木は骨格（stump.tree）から play_tree.py で滑らかな閉じた網目に（10-24、本物のライブオークを参考に）
 from play_tree import tree_mesh
 TV, TF = tree_mesh(0.025, 20000)          # 約2万面（Rhino版・3dmを軽く、10-24 本館係の知らせ）
@@ -72,6 +81,7 @@ ds = P['deck_steps']; n_ = len(ds['hs'])
 for k, h in enumerate(ds['hs']):
     ua = ds['u0'] + (ds['u1'] - ds['u0']) * k / n_; ub = ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_
     K.prism(RWw(ua, ub, ds['w0'], ds['w1']), 0.0, h * 1000, L_DK)
+print('やわらかい床：切り株のまわり %.1f m²' % (SOFT_ST.area / 1e6))
 # ---------------------------------------------------------------- 北の口のついたて（L 字、h2.4、吸音）
 sc = P['screen']
 K.prism(RWw(sc['u0'], sc['u1'], sc['w'], sc['w'] + sc['t']), 0.0, sc['h'] * 1000, L_DK)
