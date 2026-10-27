@@ -1725,7 +1725,7 @@ _dY = (H - 48.02) - _ny1; _ny0 += _dY; _ny1 += _dY       # 図の上端をアー
 _fx0, _fy0 = _nbx + 4, _ny0 + _CR
 _box_patch = Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5)
 ax.add_patch(_box_patch)
-T(ax, _nbx + 3, _ny1 - 6, "松ヶ崎の用水ネットワーク", 3.4, C_NAT, bold=True)
+T(ax, _nbx + _nw - 3, _ny1 - 6, "松ヶ崎の用水ネットワーク", 3.4, C_NAT, bold=True, ha="right")   # 右寄せ：左上は地域のなかの敷地（素材14）を重ねる（ユーザー、10-27）
 T(ax, _nbx + 6, _ny1 - 13, "N↑", 3.0, bold=True)
 _ym = lambda P: np.c_[_fx0 + (_yr(P)[:, 0] - _lo[0]) * _k, _fy0 + (_yr(P)[:, 1] - _lo[1]) * _k]
 for _rn, _rl in YS.get("roads", {}).items():             # 道は北山通だけ（ユーザー）
