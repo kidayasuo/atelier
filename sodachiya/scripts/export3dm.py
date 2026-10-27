@@ -16,7 +16,10 @@ def layer(name, rgb):
 for n, c in [("70_外構_生垣・塀・格子", (90, 122, 58)), ("71_外構_屋根（木戸・手水・下屋）", (80, 80, 80)), ("72_外構_柱", (20, 20, 20)),
              ("73_外構_アーチの棚", (122, 90, 54)), ("74_外構_駐車・駐輪・バンプ", (130, 130, 130)), ("75_外構_ひろばの家具", (185, 142, 94)),
              ("76_外構_舗装の区分", (200, 190, 170)), ("77_外構_樹木", (90, 140, 60)),
-             ("78_外構_みなみのさんかく（丘・小径・砂場・水）", (176, 138, 90)), ("79_外構_みなみのさんかく（木・ハーブ）", (110, 154, 78))]:
+             ("78_外構_みなみのさんかく（丘・小径・砂場・水）", (176, 138, 90)), ("79_外構_みなみのさんかく（木・ハーブ）", (110, 154, 78)),
+             # 一つのレイヤーには一つの素材（設計監修 10-27）：葉（樹冠・生垣・植え込み）は英字付きの別のレイヤーへ
+             ("70h_外構_生垣（葉）", (90, 140, 60)), ("77c_外構_樹冠・植え込み・苔（葉）", (110, 160, 80)),
+             ("79c_外構_みなみのさんかく_樹冠・ハーブ・緑の目隠し（葉）", (120, 170, 90))]:
     layer(n, c)
 def attr(name):
     a = r.ObjectAttributes(); a.LayerIndex = LAY[name]; return a
@@ -48,8 +51,8 @@ def coords(g):
 P, Q, srect, E, W = A.P, A.Q, A.srect, A.E, A.W
 
 # 70 hedges (h1.2), board fence (h1.8), lattice (h1.8)
-for h in A.HEDGE: wall(Q(h), 1.2, "70_外構_生垣・塀・格子")
-wall([P(A.S_PATH0, A.HEDGE_D), P(*A.TIP)], 1.2, "70_外構_生垣・塀・格子")
+for h in A.HEDGE: wall(Q(h), 1.2, "70h_外構_生垣（葉）")
+wall([P(A.S_PATH0, A.HEDGE_D), P(*A.TIP)], 1.2, "70h_外構_生垣（葉）")
 _pd0, _pd = A.STAFF_BIKE["pocket"][2], A.STAFF_BIKE["pocket"][3]; _g0, _g1 = A.STAFF_BIKE["gate"]
 import yamato
 yamato.to3dm(slab, P(22.7, _pd), P(_g0, _pd), "70_外構_生垣・塀・格子")          # board fence: east side of the staff bike pocket
@@ -120,8 +123,8 @@ for g in [A.plz]:
 for q in [srect(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D), srect(*A.DEL), srect(*A.VWALK)]:
     add_curve(q, "76_外構_舗装の区分", close=True)
 # 77 trees (canopy circles at 3.0, trunk line)
-for (p, rr) in [(P(25.0, 11.3), 1.9)]:                                         # 入江の木（公園の真ん中の木は無い、10-24）
-    c = r.Circle(P3(p, 3.0), rr * MM).ToNurbsCurve(); m.Objects.AddCurve(c, attr("77_外構_樹木"))
+for (p, rr) in [(P(24.4, 9.6), 1.9)]:                                          # 入江の木（外構の図と同じ位置、10-27 に P(25.0,11.3) から合わせた）
+    c = r.Circle(P3(p, 3.0), rr * MM).ToNurbsCurve(); m.Objects.AddCurve(c, attr("77c_外構_樹冠・植え込み・苔（葉）"))
     m.Objects.AddLine(P3(p, 0), P3(p, 3.0), attr("77_外構_樹木"))
 # 75・76 西館の西の軒の雨：南の地中の雨水槽・受け桝・手押しポンプと鎖樋（線）、北の雨庭（輪郭）と鎖樋
 R = A.RAIN
@@ -171,17 +174,18 @@ for name, h, e, hh, deg in MN.gates():
     wall([W(h[1], h[0]), W(e[1], e[0])], hh, L78, 0.05)
     hp = W(h[1], h[0]); post(hp, hh + 0.1, 0.12, L78)
 # 79 ハーブの帯（h0.3 の塊）、木（幹と樹冠の円）
-slab(mw(MN.HERB), 0, 0.3, L79)
+L79c = "79c_外構_みなみのさんかく_樹冠・ハーブ・緑の目隠し（葉）"
+slab(mw(MN.HERB), 0, 0.3, L79c)
 _sc = [W(y, x) for x, y in MN.SCREEN.coords]                     # 川の柵の緑の目隠し：ワイヤー h1.5 にムベ（緑の帯）
-wall(_sc, MN.RS["h"], L79)
+wall(_sc, MN.RS["h"], L79c)
 for (xy, k) in MN.screen_plants():
     m.Objects.AddLine(P3(W(xy[1], xy[0]), 0), P3(W(xy[1], xy[0]), MN.RS["h"]), attr(L79))
 tp = W(*MN.D["TREE"]["c"])
 m.Objects.AddLine(P3(tp, 0), P3(tp, 4.5), attr(L79))
 for zc, rr in ((MN.D["TREE"]["under"], MN.D["TREE"]["r"] * 0.8), (3.4, MN.D["TREE"]["r"]), (4.5, MN.D["TREE"]["r"] * 0.6)):
-    m.Objects.AddCurve(r.Circle(P3(tp, zc), rr * MM).ToNurbsCurve(), attr(L79))
+    m.Objects.AddCurve(r.Circle(P3(tp, zc), rr * MM).ToNurbsCurve(), attr(L79c))
 sph = r.Sphere(P3(tp, 3.4), MN.D["TREE"]["r"] * MM).ToBrep()
-m.Objects.AddBrep(sph, attr(L79))
+m.Objects.AddBrep(sph, attr(L79c))
 # 70・72・76・77 西館の周りと北（north_common.py、data/approachA.json の NORTH）
 import north_common as NC
 def polys(g): return [q for q in getattr(g, "geoms", [g]) if q.geom_type == "Polygon" and not q.is_empty]
@@ -197,8 +201,8 @@ for g in (NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.GRAVEL, NC.KOMICHI):
     for q in polys(g): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)
 _PL = NC.N["PLANTS"]
 for g, k in ((NC.HEDGE, "HEDGE"), (NC.MID, "MID"), (NC.LOW, "LOW")):                     # 香りの刈り込み・花の低木・低い香りの草（塊）
-    for q in polys(g): slab(list(q.simplify(0.02).exterior.coords)[:-1], 0, _PL[k]["h"], "77_外構_樹木")
+    for q in polys(g): slab(list(q.simplify(0.02).exterior.coords)[:-1], 0, _PL[k]["h"], "77c_外構_樹冠・植え込み・苔（葉）")
 for q in polys(NC.GAPRON): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)
-slab(list(NC.READ.simplify(0.02).exterior.coords)[:-1], 0, 0.03, "77_外構_樹木")        # 読書の庭の苔
+slab(list(NC.READ.simplify(0.02).exterior.coords)[:-1], 0, 0.03, "77c_外構_樹冠・植え込み・苔（葉）")        # 読書の庭の苔
 m.Write(OUTF, 7)
 print("wrote", OUTF, len(m.Objects), "objects")

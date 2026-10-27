@@ -63,7 +63,7 @@ FENCE.append([tuple(_q), (float(_c.x), float(_c.y))])          # short return to
 GATE = [T(G0, FN), T(G1, FN)]
 
 # ---- 読書の庭: the pocket between 西館 (north face), 本館 (west wall) and the fence
-_bulk = Polygon([T(T_FS - 0.5, FN), T(G0, FN), T(G0, 12), T(T_FS - 0.5, 12)])
+_bulk = Polygon([T(T_FS - 0.5, FN + 0.06), T(G0, FN + 0.06), T(G0, 12), T(T_FS - 0.5, 12)])   # 塀（大和張り、厚み約0.06）の内側から
 _CLOSED = unary_union([WS, HONKAN]).buffer(0.4, join_style=2).buffer(-0.4, join_style=2)   # buildings + the expansion gap
 _R = _bulk.difference(_CLOSED.buffer(0.02)).difference(MECH)
 _R = _R if _R.geom_type == "Polygon" else max(_R.geoms, key=lambda q: q.area)
@@ -98,7 +98,7 @@ MAPRON = tbox(MA["t"][0], MA["t"][1], 0.0, 1.16).difference(MECH)
 MSTRIP = BAND.intersection(tbox(N["FENCE_T_END"], 32.5, -0.5, 1.16)).difference(MECH).difference(MAPRON)
 MSTRIP = unary_union([g for g in getattr(MSTRIP, "geoms", [MSTRIP]) if g.area > 0.2])
 # the band outside the fence (between the road and the 板塀), except in front of the gate
-FSTRIP = _clean(BAND.intersection(tbox(T_FS, N["FENCE_T_END"], -0.5, FN)).difference(tbox(G0 - 0.2, G1 + 0.2, -0.5, FN)))
+FSTRIP = _clean(BAND.intersection(tbox(T_FS, N["FENCE_T_END"], -0.5, FN - 0.06)).difference(tbox(G0 - 0.2, G1 + 0.2, -0.5, FN)))   # 塀の外面まで
 GAPRON = BAND.intersection(tbox(G0 - 0.2, G1 + 0.2, -0.5, FN))
 MID = _clean(unary_union([FSTRIP, MSTRIP]))
 KOMICHI = tbox(G0 - 0.2, G1 + 0.4, FN, 6).difference(HONKAN).difference(MECH)
