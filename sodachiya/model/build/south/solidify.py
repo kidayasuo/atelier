@@ -15,7 +15,7 @@ import rhino3dm as r
 import onbrep as O
 
 TOL_PLANE = 0.5          # 平面からのずれ (mm)
-COS_PLANE = math.cos(math.radians(0.3))
+COS_PLANE = math.cos(math.radians(1.0))   # 10-27 監修の点検：0.3° では細い三角形の法線のずれで平らな面が切れた（階段の箱の壁）。弧の折れ 0.84° は TOL_PLANE（3 m で約44 mm）でまとまらない
 ANG_LO, ANG_HI = math.radians(1.5), math.radians(40.0)   # 曲面の候補になる隣どうしの折れ角
 FIT_TOL = 0.5            # 円柱・球の当てはめのずれ (mm)
 MAX_R = 50000.0          # これより大きい半径は曲面にしない
