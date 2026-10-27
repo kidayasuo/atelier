@@ -1299,13 +1299,42 @@ if slits:
     PV_T = 40.0; VENT_TOP = RT_W - PV_T                                 # いちばん上の屋根材 40（太陽光・金属）、その下が通気垂木＋野地（〜69）
     INS_T, PLY_T, PUR_T = 150.0, 24.0, 150.0                          # 断熱・合板・母屋
     EAVE_RISE, EAVE_OV = 45.0, 780.0                                  # 軒先で下面が上がる量、外皮の線から軒先まで
-    def _thicken(g, dz, dz0=0.0, sub=None, dzf=None):
+    _BASE = {}
+    def _base(g):
+        """屋根の面の網目。細かすぎる曲面の片（スパン15〜17、約1.2万面）は、屋根の面の関数（roofw の roof_f、元の面と一致）で 300 の格子に
+        作り直す（10-27夜：層ごとにその細かさで写すと作り直しがメモリで止まった）。関数と合わない片は元のまま"""
+        k_ = id(g)
+        if k_ in _BASE: return _BASE[k_]
         T_ = tris(g)
-        if not len(T_): return None
         tm_ = trimesh.Trimesh(T_.reshape(-1, 3), np.arange(len(T_) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=0)
         tm_.update_faces(tm_.nondegenerate_faces()); tm_.remove_unreferenced_vertices()
         V_, F_ = np.asarray(tm_.vertices), np.asarray(tm_.faces)
-        if sub: V_, F_ = trimesh.remesh.subdivide_to_size(V_, F_, max_edge=sub)[:2]
+        if len(F_) > 3000:
+            idx = np.linspace(0, len(V_) - 1, 300).astype(int)
+            if max(abs(_RWf['roof_f'](V_[i, 0], V_[i, 1]) - V_[i, 2]) for i in idx) < 2.0:
+                bd = trimesh.Trimesh(V_, F_, process=False).outline().discrete
+                rings = [np.asarray(b_)[:, :2] for b_ in bd]
+                rings = sorted(rings, key=lambda q: -abs(Polygon(q).area))
+                pg = Polygon(rings[0], [q for q in rings[1:]]).buffer(0)
+                if pg.geom_type == 'Polygon' and pg.is_valid:
+                    from scipy.spatial import Delaunay as _Dl
+                    from shapely import contains_xy as _cxy
+                    pg = pg.simplify(5.0)
+                    bpts = [np.asarray(LineString(r_.coords).segmentize(300.0).coords)[:-1] for r_ in [pg.exterior] + list(pg.interiors)]
+                    x0, y0, x1, y1 = pg.bounds
+                    GX, GY = np.meshgrid(np.arange(x0, x1, 300.0), np.arange(y0, y1, 300.0)); G = np.c_[GX.ravel(), GY.ravel()]
+                    inn = pg.buffer(-120.0); G = G[_cxy(inn, G[:, 0], G[:, 1])] if not inn.is_empty else G[:0]
+                    P2 = np.vstack(bpts + [G]); D = _Dl(P2); F2 = D.simplices
+                    cen = P2[F2].mean(1); F2 = F2[_cxy(pg, cen[:, 0], cen[:, 1])]
+                    V3 = np.c_[P2, [_RWf['roof_f'](x_, y_) for x_, y_ in P2]]
+                    tm3 = trimesh.Trimesh(V3, F2, process=True)
+                    if len(tm3.faces) and abs(tm3.area_faces.sum() - trimesh.Trimesh(V_, F_, process=False).area_faces.sum()) / trimesh.Trimesh(V_, F_, process=False).area_faces.sum() < 0.01:
+                        V_, F_ = np.asarray(tm3.vertices), np.asarray(tm3.faces)
+        _BASE[k_] = (V_, F_); return V_, F_
+    def _thicken(g, dz, dz0=0.0, sub=None, dzf=None):
+        if not len(tris(g)): return None
+        V_, F_ = _base(g)
+        if sub and len(F_) < 3000: V_, F_ = trimesh.remesh.subdivide_to_size(V_, F_, max_edge=sub)[:2]   # 粗い平らな面だけ細かく（曲面の片は元から細かい、10-27夜：作り直しがメモリで止まった）
         n_ = len(V_)
         if np.mean(trimesh.Trimesh(V_, F_, process=False).face_normals[:, 2]) < 0: F_ = F_[:, ::-1]   # 上向きの面に
         d0 = np.full(n_, dz0) if dzf is None else dzf(V_)
@@ -1351,7 +1380,7 @@ if slits:
         if fp is None: continue
         roofs20.append(fp); _faces20.append((o, fp))
         Mt_ = _thicken(o.Geometry, RT_W, VENT_TOP)                                     # いちばん上の屋根材（あとで 20p と 20 に分ける）
-        Mv_ = _thicken(o.Geometry, VENT_TOP, 0.0, sub=250.0, dzf=_eave_dz0)           # 通気垂木＋野地（軒は下面が上がる）
+        Mv_ = _thicken(o.Geometry, VENT_TOP, 0.0, sub=400.0, dzf=_eave_dz0)           # 通気垂木＋野地（軒は下面が上がる）
         if Mt_ is None or Mv_ is None: continue
         if _SLIT_M is not None and fp.intersection(SL20).area >= 1e4: Mt_ = Mt_ - _SLIT_M; Mv_ = Mv_ - _SLIT_M
         _ROOF_TOP.append((Mt_, o.Attributes))
