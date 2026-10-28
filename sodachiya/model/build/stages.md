@@ -16,12 +16,13 @@
 | 7p | 遊戯室の取り込み | `model/build/south/add_play_import.py`・`model/sodachiya_play_layers.3dm` |
 | 7b | ホールの林 | `data/forest.json`・`model/build/south/add_hall.py` |
 | 7c | 納まり | `data/approachA.json`・`data/wnew.pkl`・`model/build/south/extedit.py`・`model/build/south/fix_details.py`・`model/build/south/solids.py`・`archive/handoff_1018/t/`の1ファイル |
-| 7c2 | 2階の間仕切り | `model/build/south/add_inner.py`・`model/build/south/draw100.py` |
+| 7c2 | 2階の間仕切り | `model/build/south/add_inner.py`・`model/build/south/draw100.py`・`present/tools/make_ttf.py`・`scripts/fonts42.py` |
 | 7c3 | 間仕切りの構法 | `model/build/south/draw100.py`・`model/build/south/walls_spec.py` |
 | 7d | 壁の端をそろえる | `model/build/south/join_walls.py` |
 | 7e | 室内の戸 | `model/build/south/add_inner.py` |
 | 7f | 優先順位で削る | `data/wnew.pkl`・`model/build/south/clip_parts.py` |
 | 7g | 大和張り | `model/build/south/yamato.py` |
+| 7h | 大和張り（西館） | `data/wnew.pkl`・`model/build/south/yamato_west.py` |
 | 8 | 護岸と園庭の取り込み | `model/build/south/add_site.py`・`model/sodachiya_garden_layers.3dm` |
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
 | 10 | Rhino版 | `data/wnew.pkl`・`data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
