@@ -8,12 +8,18 @@
      画質（回数）は レンダリングの設定 → 「レンダリング」の最大回数で決まる。
      書き出し先：このファイルの隣の out/keikan_hiru.png・out/keikan_yoru.png（と、写った範囲の keikan_view.json）。
   4. 走り終わると、足した物・変えた設定は元に戻る（3dm は保存しなくてよい）。
+     昼・夜とも、ふだん隠している周りの建物（04_周辺_建物（PLATEAU LOD1）と親の「L 周辺の道路・建物…」）を
+     一時的に表示し、淡い暖かい灰（CONTEXT_COLOR）を当てる。夜は、スカイライトを切り、空を群青（NIGHT_SKY）の一色に、
+     背景は不透明にし、越屋根の LED の帯に沿って線の光源（LED_LIGHT_POWER）を一時的に置く。
+     コマンド行に「〜：効かなかった」と出たら、その設定はレンダリングのパネルで手で直す。
+     曲線（等高線・駐車の線・屋根の円など）は Render の絵には写らない。ビューのレンダリング表示で光って見えるのを消すには、
+     Rhino 設定＞表示モード＞レンダリング（またはレイトレース）＞オブジェクト＞曲線→「曲線を表示」を外す。
   5. out/ の3つを push する（git add sodachiya/present/rhino/out）。mock.py が素材03・04にこの絵を使う。
      絵が無いあいだは今までの影絵のまま。
 
 見る向き：高野川の向こうから、敷地の川の辺（S→E）に直角に（mock.py の「沿川の景観立面」と同じ）。
-平行投影、1/300 で 360×85 mm（横 108 m × 高さ 25.5 m）、背景は透明（空と川の色は mock.py が塗る）。
-昼：11/5 10:00 の太陽（京都）。夜：太陽を消し、越屋根の LED（50b）だけを光らせる。
+平行投影、1/300 で 360×85 mm（横 108 m × 高さ 25.5 m）、昼の背景は透明（空と川の色は mock.py が塗る）、夜は群青の空ごと不透明。
+昼：11/5 10:00 の太陽（京都）。夜：ナイトモード。太陽とスカイライトを消し、空は群青、越屋根の LED（50b・29）だけを光らせる。
 数字を変えたいときは下の「決める数」だけを直す。
 """
 import os, json, datetime
@@ -35,6 +41,11 @@ LED_LAYERS = ("50b_越屋根_LED", "29_西館_越屋根_LED")   # 本館・西�
 NIGHT = datetime.datetime(2026, 11, 5, 21, 0)   # 夜は太陽を地平の下にも置く（消すのが効かない Rhino があった）
 FRONT_CUT = -8000.0                     # 川の辺より手前（川の向こう岸の建物など）は隠す（mm、mock.py と同じ）
 LED_COLOR = System.Drawing.Color.FromArgb(255, 217, 138)
+LED_LIGHT_POWER = 1.0                   # LED の線の光源の強さ（Light.Intensity）。軒が暗ければ 2〜5、白く飛べば 0.3〜0.5
+LED_LIGHT_DROP = 60.0                   # 線の光源を LED の帯の下端からどれだけ下に置くか（mm）
+NIGHT_SKY = System.Drawing.Color.FromArgb(0x4C, 0x6C, 0xB3)   # 夜の空：群青色 #4C6CB3。もっと夜らしくは #1E2A5A など
+CONTEXT_COLOR = System.Drawing.Color.FromArgb(0xD9, 0xD6, 0xCF)  # 周りの建物（PLATEAU）：淡い暖かい灰。育ち舎を主役に
+CONTEXT_LAYER = u"04_周辺_建物"          # この名で始まるレイヤーと、その親を一時的に表示する
 
 HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "/Users/kida/Developer/atelier/sodachiya/present/rhino"
 OUT = os.path.join(HERE, "out")
@@ -148,6 +159,111 @@ def say(*a):
     print(u" ".join([x if isinstance(x, type(u"")) else (x.decode("utf-8") if isinstance(x, bytes) else u"%s" % (x,)) for x in a]))
 
 
+def _sky_get():
+    """スカイライトが点いているか（読めなければ None）"""
+    for f in (lambda: doc.RenderSettings.Skylight.Enabled,
+              lambda: doc.RenderSettings.SkylightEnabled,
+              lambda: doc.Lights.Skylight.Enabled):
+        try:
+            v = f()
+            if v is not None:
+                return bool(v)
+        except Exception:
+            pass
+    return None
+
+
+def set_skylight(on):
+    """スカイライトを点ける・消す。Rhino の版で書き方が違うので、いくつか試し、読み直して確かめる"""
+    tried = []
+    # 1）Rhino 8：RenderSettings.Skylight（Rhino.Render.Skylight）。写しなので戻す
+    try:
+        r_ = rs     # 太陽と同じ写しに書く（別の写しを戻すと太陽の変更が消える）
+        sk = r_.Skylight
+        try:
+            sk.BeginChange(Rhino.Render.RenderContent.ChangeContexts.Program)
+        except Exception:
+            pass
+        sk.Enabled = on
+        try:
+            sk.EndChange()
+        except Exception:
+            pass
+        try:
+            r_.Skylight = sk
+        except Exception:
+            pass
+        doc.RenderSettings = r_
+        tried.append(u"RenderSettings.Skylight")
+    except Exception as e:
+        say(u"  スカイライト（RenderSettings.Skylight）：", e)
+    # 2）古い書き方：RenderSettings.SkylightEnabled
+    if _sky_get() != on:
+        try:
+            r_ = rs
+            r_.SkylightEnabled = on
+            doc.RenderSettings = r_
+            tried.append(u"SkylightEnabled")
+        except Exception as e:
+            say(u"  スカイライト（SkylightEnabled）：", e)
+    # 3）光源の表：doc.Lights.Skylight
+    if _sky_get() != on:
+        try:
+            doc.Lights.Skylight.Enabled = on
+            tried.append(u"Lights.Skylight")
+        except Exception as e:
+            say(u"  スカイライト（Lights.Skylight）：", e)
+    now = _sky_get()
+    if now == on:
+        say(u"スカイライト：", u"点けた" if on else u"消した", u"（", u"・".join(tried), u"）")
+    else:
+        say(u"スカイライト：効かなかった（いま", now, u"）。レンダリングのパネルの「スカイライト」を手で",
+            u"オンに" if on else u"オフに")
+
+
+BG_KEYS = ("BackgroundStyle", "BackgroundColorTop", "BackgroundColorBottom")
+
+
+def bg_save():
+    out = {}
+    for k in BG_KEYS:
+        try:
+            out[k] = getattr(doc.RenderSettings, k)
+        except Exception:
+            pass
+    return out
+
+
+def bg_set(vals):
+    """背景（様式・色）を当てる。vals は {名前: 値}"""
+    r_ = rs
+    for k, v in vals.items():
+        try:
+            setattr(r_, k, v)
+        except Exception as e:
+            say(u"  背景の", k, u"：効かなかった", e)
+    try:
+        doc.RenderSettings = r_
+    except Exception as e:
+        say(u"  背景：効かなかった", e)
+
+
+def night_sky():
+    try:
+        style = Rhino.Display.BackgroundStyle.SolidColor
+    except Exception:
+        style = None
+    vals = dict(BackgroundColorTop=NIGHT_SKY, BackgroundColorBottom=NIGHT_SKY)
+    if style is not None:
+        vals["BackgroundStyle"] = style
+    bg_set(vals)
+    try:
+        c_ = doc.RenderSettings.BackgroundColorTop
+        say(u"夜の空：", u"#%02X%02X%02X" % (c_.R, c_.G, c_.B), doc.RenderSettings.BackgroundStyle)
+    except Exception:
+        say(u"夜の空：読み直せなかった。レンダリングのパネルの「背景」を単色・群青に")
+
+
 def _try_capture(w, h, transparent, passes):
     vc = Rhino.Display.ViewCapture()
     vc.Width, vc.Height = w, h
@@ -168,7 +284,7 @@ def _try_capture(w, h, transparent, passes):
         return None
 
 
-def _render_to(path):
+def _render_to(path, transparent=True):
     """Rhino のレンダリング（Render コマンド、Cycles）で書き出す。線（曲線・辺）は写らない"""
     old = {}
     for k in ("UseViewportSize", "ImageSize", "TransparentBackground"):
@@ -179,7 +295,7 @@ def _render_to(path):
     try:
         rs.UseViewportSize = False
         rs.ImageSize = System.Drawing.Size(W, H)     # ビューと同じ縦横の比なので、写る範囲は json のとおり
-        rs.TransparentBackground = True
+        rs.TransparentBackground = transparent     # 昼は透明（空は mock.py）、夜は群青の空ごと
         doc.RenderSettings = rs
     except Exception as e:
         say(u"  レンダリングの大きさの設定：", e)
@@ -197,13 +313,13 @@ def _render_to(path):
     return os.path.exists(path)
 
 
-def capture(name):
+def capture(name, transparent=True):
     path = os.path.join(OUT, name)
     if os.path.exists(path):
         os.remove(path)
     say(u"書き出し：", name, u"ビュー", cw, u"×", ch, u"→", W, u"×", H)
     # 1）レンダリング（Render）。表示モードの書き出し（ViewCapture）は Mac では線だけになった（10-27）
-    if _render_to(path):
+    if _render_to(path, transparent):
         say(u"  レンダリングで書いた：", path)
         return
     say(u"  レンダリングで書けなかった。表示モードの書き出し（不透明）で")
@@ -217,18 +333,60 @@ def capture(name):
 
 
 # ---------------------------------------------------------------- 一時的な変更（終わったら戻す）
+# 0）周りの建物（PLATEAU）のレイヤーと親を表示する。sodachiya.3dm ではふだん隠してあり（clean_wire.py の HIDE_DEFAULT）、
+#    隠れたレイヤーは Render に写らない（10-29、昼に周りの建物が出なかった）
+ctx_idx = set()
+ctx_old = []                                             # (index, IsVisible, Color, 永続の表示)：子が先、親が後
+for lay in list(doc.Layers):
+    if not lay.Name.startswith(CONTEXT_LAYER):
+        continue
+    chain = [lay]
+    pid = lay.ParentLayerId
+    while pid != System.Guid.Empty:
+        pl = doc.Layers.FindId(pid)
+        if pl is None:
+            break
+        chain.append(pl)
+        pid = pl.ParentLayerId
+    ctx_idx.add(lay.Index)
+    for l_ in chain:
+        if any(i_ == l_.Index for i_, _, _, _ in ctx_old):
+            continue
+        try:
+            pv = l_.GetPersistentVisibility()
+        except Exception:
+            pv = None
+        ctx_old.append((l_.Index, l_.IsVisible, l_.Color, pv))
+    for l_ in reversed(chain):                           # 親から順に点ける
+        l_ = doc.Layers[l_.Index]
+        try:
+            l_.SetPersistentVisibility(True)
+        except Exception:
+            pass
+        l_.IsVisible = True
+        if l_.Index == lay.Index:
+            l_.Color = CONTEXT_COLOR
+        doc.Layers.Modify(l_, l_.Index, True)
+if ctx_idx:
+    say(u"周りの建物のレイヤーを表示した：", u"・".join(doc.Layers[i_].Name for i_, _, _, _ in ctx_old))
+else:
+    say(u"周りの建物のレイヤー（", CONTEXT_LAYER, u"…）が見つからない")
+
 # 1）材料の無いレイヤーに、レイヤーの色の材料を当てる（3dm には材料がほとんど無く、レンダリングが白一色になった）
+#    周りの建物は材料があっても淡い暖かい灰（CONTEXT_COLOR）に替える
 added_mats = []
 layer_old = []
 used = set(o.Attributes.LayerIndex for o in doc.Objects)
 for lay in list(doc.Layers):
-    if lay.Index not in used or lay.RenderMaterialIndex >= 0:
+    if lay.Index not in ctx_idx and (lay.Index not in used or lay.RenderMaterialIndex >= 0):
         continue
     col = lay.Color
     m_ = Rhino.DocObjects.Material()
     m_.Name = u"作業_景観_" + lay.Name
-    if lay.Name.startswith("04_"):                       # 周りの建物（PLATEAU）：淡い灰
-        col = System.Drawing.Color.FromArgb(215, 215, 212)
+    if lay.Index in ctx_idx:                             # 周りの建物（PLATEAU）：淡い暖かい灰、つやなし
+        col = CONTEXT_COLOR
+        m_.Shine = 0.0
+        m_.Reflectivity = 0.0
     elif lay.Name.startswith("02_"):                     # 護岸
         col = System.Drawing.Color.FromArgb(190, 188, 182)
     m_.DiffuseColor = col
@@ -275,28 +433,91 @@ except Exception:
     pass
 mi = doc.Materials.Add(mat)
 old_attr = [(o.Id, o.Attributes.Duplicate()) for o in led_objs]
-sky_on = None
+bg_old = bg_save()
+sky_old = _sky_get()
+led_lights = []                                          # 足した線の光源の Id（終わったら消す）
+
+
+def add_led_lights():
+    """LED の帯ごとに、長い向きに沿った線の光源（WorldLinear）を帯の少し下に置く。
+    光る材料だけでは光源に数えられず、光源が無いと Rhino が既定の照明を足して昼のように明るくなった（10-29）"""
+    n_ = 0
+    for o in led_objs:
+        try:
+            bb = o.Geometry.GetBoundingBox(True)
+        except Exception:
+            continue
+        if not bb.IsValid:
+            continue
+        dx, dy = bb.Max.X - bb.Min.X, bb.Max.Y - bb.Min.Y
+        cx, cy = (bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2
+        z = bb.Min.Z - LED_LIGHT_DROP
+        if dx >= dy:
+            a_ = Rhino.Geometry.Point3d(bb.Min.X, cy, z)
+            b_ = Rhino.Geometry.Point3d(bb.Max.X, cy, z)
+        else:
+            a_ = Rhino.Geometry.Point3d(cx, bb.Min.Y, z)
+            b_ = Rhino.Geometry.Point3d(cx, bb.Max.Y, z)
+        if a_.DistanceTo(b_) < 1.0:
+            continue
+        try:
+            lt = Rhino.Geometry.Light()
+            lt.LightStyle = Rhino.Geometry.LightStyle.WorldLinear
+            lt.Location = a_
+            lt.Length = b_ - a_                          # 線の光源の長さと向き
+            lt.Direction = Rhino.Geometry.Vector3d(0, 0, -1)
+            lt.Diffuse = LED_COLOR
+            lt.Intensity = LED_LIGHT_POWER
+            try:
+                lt.IsEnabled = True
+            except Exception:
+                pass
+            try:
+                lt.Name = u"作業_景観_LED光源"
+            except Exception:
+                pass
+            k_ = doc.Lights.Add(lt)
+            if k_ >= 0:
+                led_lights.append(doc.Lights[k_].Id)
+                n_ += 1
+        except Exception as e:
+            say(u"  LED の線の光源：効かなかった", e)
+            break
+    say(u"LED の線の光源を置いた：", n_, u"／", len(led_objs), u"（強さ", LED_LIGHT_POWER, u"）")
+
+
+def remove_led_lights():
+    for lid in led_lights:
+        try:
+            lt = doc.Lights.FindId(lid)
+            if lt is not None:
+                doc.Lights.Delete(lt.Index, True)
+        except Exception as e:
+            say(u"  LED の光源を消せなかった：", e)
+    del led_lights[:]
+
 
 try:
+    # 昼：太陽、スカイライトと背景はファイルのまま、背景は透明（空は mock.py）
     set_sun(True, DAY)
     view.Redraw()
-    capture("keikan_hiru.png")
+    capture("keikan_hiru.png", transparent=True)
 
+    # 夜：ナイトモード。太陽なし・スカイライトなし・空は群青（不透明）、LED は光る材料と線の光源
     for o in led_objs:
         a = o.Attributes.Duplicate()
         a.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
         a.MaterialIndex = mi
         doc.Objects.ModifyAttributes(o.Id, a, True)
-    try:
-        sky_on = rs.Skylight.Enabled
-        rs.Skylight.Enabled = False
-        doc.RenderSettings = rs
-    except Exception:
-        pass
     set_sun(False, NIGHT)
+    set_skylight(False)
+    night_sky()
+    add_led_lights()
+    say(u"夜を描く前：スカイライト", _sky_get(), u"／光源", doc.Lights.Count)
     view.Redraw()
-    capture("keikan_yoru.png")
+    capture("keikan_yoru.png", transparent=False)
 finally:
+    remove_led_lights()
     for oid, a in old_attr:
         doc.Objects.ModifyAttributes(oid, a, True)
     for oid in hidden:
@@ -305,6 +526,19 @@ finally:
         lay = doc.Layers[li_]
         lay.RenderMaterialIndex = old_
         doc.Layers.Modify(lay, li_, True)
+    for li_, vis_, col_, pv_ in ctx_old:                 # 子から順に、表示と色を戻す
+        try:
+            lay = doc.Layers[li_]
+            if pv_ is not None:
+                try:
+                    lay.SetPersistentVisibility(pv_)
+                except Exception:
+                    pass
+            lay.IsVisible = vis_
+            lay.Color = col_
+            doc.Layers.Modify(lay, li_, True)
+        except Exception as e:
+            say(u"  レイヤーを戻せなかった：", e)
     for k_ in [mi] + added_mats:
         try:
             doc.Materials.Delete(k_, True)
@@ -324,12 +558,10 @@ finally:
             doc.RenderSettings = rs
         except Exception:
             pass
-    try:
-        if sky_on is not None:
-            rs.Skylight.Enabled = sky_on
-            doc.RenderSettings = rs
-    except Exception:
-        pass
+    if bg_old:
+        bg_set(bg_old)
+    if sky_old is not None and _sky_get() != sky_old:
+        set_skylight(sky_old)
     try:
         vp.SetViewProjection(saved_vi, True)
         vp.DisplayMode = saved_mode
