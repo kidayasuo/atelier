@@ -48,14 +48,16 @@ def mesh_prism(bot,top):
         if s>0: M.Faces.AddFace(i,j,n+j,n+i)
         else: M.Faces.AddFace(j,i,n+i,n+j)
     M.Normals.ComputeNormals(); M.Compact(); return M
-def solid_uv(pts_uv, z0, z1, li, col=None):
+def solid_uv(pts_uv, z0, z1, li, col=None, name=None):
     pts = [W(u, v) for u, v in pts_uv]
     if len(pts) < 3: return
     z0f = z0 if callable(z0) else (lambda u, v, z=z0: z)
     z1f = z1 if callable(z1) else (lambda u, v, z=z1: z)
     bot = [(*p, z0f(u, v)) for p, (u, v) in zip(pts, pts_uv)]
     top = [(*p, z1f(u, v)) for p, (u, v) in zip(pts, pts_uv)]
-    m.Objects.AddMesh(mesh_prism(bot, top), attr(li, col))
+    a_ = attr(li, col)
+    if name: a_.Name = name
+    m.Objects.AddMesh(mesh_prism(bot, top), a_)
 def clean(pts):
     g = SP(pts).buffer(0)
     if g.is_empty: return []
@@ -385,10 +387,11 @@ maru_pods(39, False); maru_pods(48, True)
 
 # ---------------- 西の外壁（u 0–57、開口つき） ----------------
 OPEN = [  # (u0, u1, z0, z1)
-    # 10-26（ユーザー、監修の項 20261026-0044）：0〜2歳の西吹き抜けの窓は、南から北へ高く大きくなってゆく。
-    # スパン 1〜7 に一つずつ、スパンの真ん中（架構の線の柱を避ける）。10-26夜（ユーザー、比べる絵の案D）：大きさは同じ
-    # 幅 0.60×高さ 0.90 の縦長、窓台が 250 → 1150（150 ずつ）と北へ上がる。下端ははう子の目 → 立った2歳 → 大人へ、歳の目の高さを追う。
-    *[(3.0 * k - 1.8, 3.0 * k - 1.2, 250 + 150 * (k - 1), 1150 + 150 * (k - 1)) for k in range(1, 8)],
+    # 0〜2歳の西吹き抜けの窓（決定事項（本館）の「西吹き抜けの窓」）：スパン 1〜6 に一つずつ、スパンの真ん中（架構の線の柱を避ける）、
+    # 幅 0.60×高さ 0.90 の縦長。10-28夜（ユーザー）：窓台はその部屋の子の目の高さから、南から 150・250・350・450（0・1歳）、500・550（2歳）。
+    # 低い窓のガラスは合わせガラス（物の名前に）。スパン 7（窓口の帯の西）は柱のあいだいっぱい u18.15〜20.85、窓台 850・上端 2050（10-28夜）。
+    *[(3.0 * k - 1.8, 3.0 * k - 1.2, z_, z_ + 900, 'win') for k, z_ in zip(range(1, 7), (150, 250, 350, 450, 500, 550))],
+    (18.15, 20.85, 850, 2050, 'win'),
     (21.0, 30.0, -300, 99999),                                             # ホールの範囲（スパン 8–10）は西の壁を開く（10-21 夕、あまのがわの口を含む）
     (45.6, 47.6, 0, 2400),                                                 # 遊戯室の北の口（口②、10-24 柱u45・48のあいだへ、西館とそろえた）。口①は南の口にまとめて閉じた（10-21）
     (52.6, 53.85, -300, 600), (54.15, 56.4, -300, 600),                    # 本の奥の低い窓（GL まで）。架構の線 u54 の柱で二つに（10-26）
@@ -416,8 +419,9 @@ for a, b in zip(cuts, cuts[1:]):
                 if o[2] > z0: new.append((z0, min(o[2], z1)))
                 if o[3] < z1: new.append((max(o[3], z0), z1))
             zs = new
-            if o[2] >= 300 or o[3] <= 700:      # 窓はガラス
-                solid_uv([(a, -0.015), (b, -0.015), (b, 0.015), (a, 0.015)], o[2], o[3], L_GL, glass)
+            if (len(o) > 4 and o[4] == 'win') or o[3] <= 700:      # 窓はガラス（低い窓は合わせガラス、10-28夜）
+                solid_uv([(a, -0.015), (b, -0.015), (b, 0.015), (a, 0.015)], o[2], o[3], L_GL, glass,
+                         name='合わせガラス（低い窓）' if o[2] < 800 else '窓のガラス')
     us = np.linspace(a, b, max(2, int((b - a) / 1.0) + 1))
     for z0, z1 in zs:
         if z1 - z0 < 5: continue

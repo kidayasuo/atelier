@@ -127,7 +127,7 @@ line([(6.0, 0.08), (6.0, 1.0)], lw=0.8)          # wooden gate
 box(6.0, 9.0, 0.98, 1.06, lw=0.3, fc="white", z=5)   # lattice rail h600
 box(5.95, 6.05, 1.0, 1.6, lw=0.4, fc="#999999", z=5)  # seat end wall
 # peek windows in west wall
-for uw, ww in [(3 * k - 1.5, 0.60) for k in range(1, 5)]:   # 西の窓（同じ大きさ 0.6×0.9、北へ高く、10-26夜）
+for uw, ww in [(3 * k - 1.5, 0.60) for k in range(1, 5)]:   # 西の窓（同じ大きさ 0.6×0.9、窓台は子の目の高さ 150・250・350・450、低い窓は合わせガラス、10-28夜）
     box(uw - ww / 2, uw + ww / 2, -0.075, 0.075, lw=0.3, fc="white", z=6)
 # core walls
 wall(9.0, 13.6, 1.6, 1.72)

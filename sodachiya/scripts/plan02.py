@@ -85,8 +85,8 @@ fill(U0, U1, 12, 15, C_ROOF)                   # engawa
 
 # ---- walls & columns
 wall(U0, U1, -0.35, -0.20)                    # 西の外壁（柱の外、10-22）
-for uw, ww in [(3 * k - 1.5, 0.60) for k in range(4, 8)]:   # 西の窓（同じ大きさ 0.6×0.9、北へ高く、10-26夜）
-    if U0 <= uw <= U1: box(uw - ww / 2, uw + ww / 2, -0.35, -0.20, lw=0.3, fc="white", z=6)
+for uw, ww in [(3 * k - 1.5, 0.60) for k in range(4, 7)] + [(19.5, 2.70)]:   # 西の窓（0.6×0.9、窓台は子の目の高さ 450・500・550、10-28夜）。スパン7は柱のあいだいっぱい（窓台850）
+    if U0 <= uw <= U1: box(max(U0, uw - ww / 2), min(U1, uw + ww / 2), -0.35, -0.20, lw=0.3, fc="white", z=6)
 for uf in [12, 15, 18]:
     for vc in [0, 12]:
         box(uf - 0.09, uf + 0.09, vc - 0.2, vc + 0.2, lw=0.3, fc="black", z=6)
