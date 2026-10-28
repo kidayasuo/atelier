@@ -1,7 +1,7 @@
 """本館の床（2026-10-19 夜）。縁側 3 m の中ほど（r=191.5 m）に断熱ガラス戸、外縁側（土足 FL −150）と内縁側（はだし FL ±0）に分ける。
 高さの約束：地面 GL −300／土足の床 −150（外縁側・あまのがわ・南の縁側）／はだしの床 ±0／受け取り土間 −300（GL と同じ）。
 python3 -I add_floor.py IN OUT   （add_south.py → add_monitor_west.py の後）"""
-import sys, numpy as np, rhino3dm as r
+import sys, os as _os, numpy as np, rhino3dm as r
 src=open('/tmp/claude-0/t/south/add_south.py').read()
 exec(src.split("m=r.File3dm.Read(IN)")[0].replace("IN=sys.argv[1]; OUT=sys.argv[2]",""))
 IN,OUT=sys.argv[1],sys.argv[2]
@@ -14,9 +14,9 @@ def span(s):         # 南から s 番目のスパン（1..19）の角度範囲�
 L_fl=layer('80_本館_床（はだし ±0）',(222,205,170)); L_in=layer('81_本館_内縁側（はだし ±0）',hexc('F4EBDD'))
 L_out=layer('82_本館_外縁側（土足 −150）',(176,140,100)); L_kai=layer('83_本館_あまのがわ（土足 −150）',(200,190,170))
 L_gl=layer('85_本館_断熱ガラス戸（縁側の中ほど）',(150,200,230))
-# あまのがわ：ホール（8–10）の南端 1.5 m（8 スパン目の南側）、ガラス戸の線から西の外壁まで
-a8n,a8s=span(8); akai=a8s-1500/RK
-kai=quad(RG,RO,akai,a8s,20)
+# あまのがわ：ホール（8–10）の南端、ガラス戸の線から西の外壁まで。10-28（ユーザー、案4、決定事項（本館）の「靴：」）：南の縁（架構の線 u21）は
+# まっすぐ、北の縁（ホールとの段 150、框）はゆらゆらの曲線（data/amanogawa.json の (v, 幅)、PCHIP）。前は幅 1.5 の直線。kai は下で（u, v）の形から作る
+a8n,a8s=span(8)
 doma=quad(RK,RO,TH[17],th19)                                   # 受け取り土間（add_south で −300 の板あり）
 # 10-28（監修の項 20261027-2346 の 12・20261027-2020 の 4、ユーザー 10-27夜：曲線は架構だけ）：床・内縁側・あまのがわの板はスパンごとに真っすぐ
 # （架構の線 u=3k と 3k+3 の弦、外壁・縁側の杉の壁の squaring と同じ）。前は r の弧を 60 に分けた多角形で、弦の壁と 5 mm 食い違い、
@@ -40,15 +40,46 @@ def _uvslab(g,z0,z1,li):
     for gg in getattr(g,'geoms',[g]):
         if gg.geom_type!='Polygon' or gg.area<0.05: continue
         slab(Polygon([tuple(_chord(u,v)) for u,v in _dense(gg.exterior)]),z0,z1,li)
-U_KAI=(21.0,21.0+1.5*205.0/203.4); V_RG,V_RO,V_RC,V_RK,V_WALL=13.5,-0.2,12.0,1.6,13.465
-_kai=_box(U_KAI[0],V_RO,U_KAI[1],V_RG)
+V_RG,V_RO,V_RC,V_RK,V_WALL=13.5,-0.2,12.0,1.6,13.465
+import json as _json
+from scipy.interpolate import PchipInterpolator as _Pchip
+_AMA=_json.load(open(_os.path.join(_os.environ.get('SODACHIYA_ROOT','/home/claude/atelier/sodachiya'),'data','amanogawa.json'),encoding='utf-8'))
+_C=np.array(_AMA['CONTROL']); _wf=_Pchip(_C[:,0],_C[:,1]); U_S=float(_AMA['U_SOUTH'])
+KAMACHI=0.06                                                     # 框（杉、見付 60）：北の縁の内側（川の側）に、川の床の上 −150〜0（延床は川の床で数える）
+_vs=np.r_[V_RO,np.arange(-0.15,V_RG-0.025,0.05),V_RG]            # 曲線は 50 mm おきの点（弦の高さ 0.1 mm 未満、Rhino 版でスプラインに）
+_un=U_S+_wf(_vs)
+_kai=Polygon([(U_S,V_RO)]+list(zip(_un,_vs))+[(U_S,V_RG)]).buffer(0)                        # あまのがわ（−150）
+_kam=Polygon(list(zip(_un-KAMACHI,_vs))+list(zip(_un[::-1],_vs[::-1]))).buffer(0)          # 框
+_kaiK=_kai                                                                                    # 床から抜く形（川、框を含む）
+kai=Polygon([tuple(_chord(u,v)) for u,v in _dense(_kai.exterior)])                         # 世界の座標（室の板・ガラリで使う）
+kaiK=Polygon([tuple(_chord(u,v)) for u,v in _dense(_kaiK.exterior)])
 _walls=unary_union([_box(3.0*s_-1.5,V_WALL,3.0*s_,V_RG) for s_ in range(1,20)])
 # 西の端は外壁の内面（v −0.1997、弦）の 1 mm 内、西の外壁の足もとの小さな壁（u30.0〜30.1、南の妻 v1.40〜1.75）の所は欠く（削る段で高さの途中まで欠かれて押し出しでなくなっていた）
 _stubs=unary_union([_box(29.99,-0.2,30.11,0.085),_box(-0.08,1.395,0.08,1.755)])
-inner=_box(0.0,-0.199,57.0,V_RG).difference(_kai).difference(_box(0.0,-0.199,6.0,V_RK)).difference(_walls).difference(_stubs)
+inner=_box(0.0,-0.199,57.0,V_RG).difference(_kaiK).difference(_box(0.0,-0.199,6.0,V_RK)).difference(_walls).difference(_stubs)
 _uvslab(inner,-450,-10,L_fl)                                    # 床組（上面 −10、色付きの室の板 0〜10 の下）
-_uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kai).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
+_uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kaiK).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
 _uvslab(_kai,-450,-150,L_kai)
+# 框：曲線の杉（見付 60、−150〜0）。はだしの床と色・素材を変える（間仕切り・框のレイヤー 91 → 38、杉板）。輪郭の押し出し
+L_kmc=layer('91_しつらえ_間仕切り・框・腰壁',(200,185,160))
+_uvslab(_kam,-150,0,L_kmc)
+# 内縁側（v12〜13.5）で先生が川へ下りて渡る（給食、10-28 ユーザー）：段 150 はそのまま、両岸の段に手すり（丸棒 φ35・h800、柱 φ40）。
+# 手すりは渡る帯の西の側（v12.1）に、段をはさんで ±0.3。東の側は東の口の戸（u21.06〜22.45）への川の道なのであける
+L_hr=layer('96b_しつらえ_格子・手すり（木）',(185,150,105))
+def _rod(p0,p1,rad,li):
+    p0=np.asarray(p0,float); p1=np.asarray(p1,float); d_=p1-p0; L_=float(np.linalg.norm(d_))
+    pl_=r.Plane(r.Point3d(*map(float,p0)),r.Vector3d(*map(float,d_/L_)))
+    c_=r.Circle(float(rad)).ToNurbsCurve(); c_.Transform(r.Transform.PlaneToPlane(r.Plane.WorldXY(),pl_))
+    ex_=r.Extrusion.Create(c_,L_,True)
+    if ex_ is None: return
+    bb=ex_.GetBoundingBox(); mid=np.array([(bb.Min.X+bb.Max.X)/2,(bb.Min.Y+bb.Max.Y)/2,(bb.Min.Z+bb.Max.Z)/2])
+    if np.linalg.norm(mid-(p0+p1)/2)>1.0: ex_=r.Extrusion.Create(c_,-L_,True)
+    a_=attr(li); a_.Name='あまのがわを渡る段の手すり φ35 h800'; m.Objects.AddExtrusion(ex_,a_)
+_VH=12.1
+for _ub in (U_S,U_S+float(_wf(_VH))):
+    _p=lambda u_,z_: [*_chord(u_,_VH),z_]
+    _rod(_p(_ub-0.3,800.0),_p(_ub+0.3,800.0),17.5,L_hr)
+    for _uu in (_ub-0.3,_ub+0.3): _rod(_p(_uu,-150.0 if U_S<_uu<U_S+float(_wf(_VH)) else 0.0),_p(_uu,800.0),20.0,L_hr)   # 柱の足もと：川の中は −150
 outer=quad(RE,RG,TH[0],TH[18],60)                              # 外縁側（最後のスパンはスロープ）
 slab(outer,-300,-150,L_out)
 # 断熱ガラス戸：r=191.5 の線、FL ±0 から 2.6 m（あまのがわの口は開閉する引戸として同じ線上）
@@ -146,7 +177,7 @@ for s0,s1,name,col in ROOMS:
     li=layer(f'59_1F_{name}',hexc(col))
     an,_=span(s1); _,as_=span(s0)
     g=quad(RC,RK,an,as_,20)
-    if name=='ホール': g=g.difference(kai)
+    if name=='ホール': g=g.difference(kaiK)
     for gg in getattr(g,'geoms',[g]): slab(gg,0,10,li)
     areas[name]=areas.get(name,0)+g.area/1e6
 strip=quad(RK,RO,TH[0],span(5)[1],60).difference(kai)
@@ -154,4 +185,4 @@ for g in getattr(strip,'geoms',[strip]):
     if g.area>1e5: slab(g,0,10,L_cor)
 m.Write(OUT,8)
 sp=lambda s: quad(RG,RC,*span(s)).area/1e6
-print({k:round(v,1) for k,v in areas.items()},'内縁側 1 スパン',round(sp(10),2),'m2','あまのがわ',round(kai.area/1e6,1))
+print({k:round(v,1) for k,v in areas.items()},'内縁側 1 スパン',round(sp(10),2),'m2','あまのがわ',round(kai.area/1e6,1),'框',round(_kam.area,2))

@@ -139,8 +139,12 @@ def blocked(theta):
     return (hit & inside).sum() / max(1, inside.sum())
 
 kx = fig.add_axes([14 / 420, 6 / 297, 118 / 420, 50 / 297]); kx.set_aspect("equal"); kx.axis("off")
-kx.add_patch(Polygon([(0, 22.5), (12, 22.5), (12, 30), (0, 30)], fc="#E3C08D", ec="none"))
-kx.add_patch(Polygon([(-3.4, 21), (15, 21), (15, 22.5), (-3.4, 22.5)], fc="#D9CBB4", ec="none"))
+kx.add_patch(Polygon([(0, 21), (12, 21), (12, 30), (0, 30)], fc="#E3C08D", ec="none"))
+# あまのがわ（10-28 案4）：北の縁はゆらゆら（data/amanogawa.json）
+from scipy.interpolate import PchipInterpolator as _Pchip
+_AMA = json.load(open(os.path.join(ROOT, "data", "amanogawa.json"), encoding="utf-8")); _C = np.array(_AMA["CONTROL"]); _wf = _Pchip(_C[:, 0], _C[:, 1])
+_vs = np.linspace(-0.2, 13.5, 200)
+kx.add_patch(Polygon([(-3.4, 21), (15, 21), (15, 22.5), (13.5, 21.0 + float(_wf(13.5)))] + [(v, 21.0 + float(_wf(v))) for v in _vs[::-1]] + [(-0.2, 22.5), (-3.4, 22.5)], fc="#D9CBB4", ec="none"))
 kx.add_patch(Polygon([(-3.4, 22.5), (0, 22.5), (0, 30.5), (-3.4, 30.5)], fc="#F4EBDD", ec="none"))
 kx.add_patch(Polygon([(12, 22.5), (15, 22.5), (15, 30.5), (12, 30.5)], fc="#F4EBDD", ec="none"))
 from shapely.geometry import LineString as _LS

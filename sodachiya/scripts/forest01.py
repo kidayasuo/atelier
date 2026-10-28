@@ -63,7 +63,12 @@ def num(u, v, k, c="black"):
 
 # ---------------------------------------------------------------- floors
 fill(21, 30, 1.6, 12, C["hall"]); fill(21, U1, 0, 1.6, C["roof"]); fill(22.5, U1, -3.4, 0, C["roof"])
-fill(U0, U1, 12, 15, C["roof"]); fill(21, 22.5, -3.4, 13.5, C["strait"], 1.2); fill(21, 22.5, 13.5, 15, C["strait"], 1.2)
+fill(U0, U1, 12, 15, C["roof"]); fill(21, 22.5, -3.4, -0.2, C["strait"], 1.2); fill(21, 22.5, 13.5, 15, C["strait"], 1.2)
+# あまのがわ（10-28 案4）：北の縁はゆらゆらの曲線（data/amanogawa.json の (v, 幅)、PCHIP）、南の縁は架構の線 u21
+from scipy.interpolate import PchipInterpolator as _Pchip
+_AMA = json.load(open(os.path.join(ROOT, "data", "amanogawa.json"), encoding="utf-8")); _C = np.array(_AMA["CONTROL"]); _wf = _Pchip(_C[:, 0], _C[:, 1])
+_vs = np.linspace(-0.2, 13.5, 280); AMA_N = [(21.0 + float(_wf(v)), v) for v in _vs]
+poly([W(u, v) for u, v in [(21.0, -0.2)] + AMA_N + [(21.0, 13.5)]], C["strait"], "none", 0, 1.2)
 fill(U0, 21, 0, 4.45, C["off"]); fill(U0, 21, 4.45, 12, C["med"])
 fill(30, U1, 1.6, 12, C["off"])
 fill(U0, 21, -3.4, -0.2, "#EEDFC6"); fill(22.5, 27.25, -4.2, -3.4, C["kit"]); fill(27.25, U1, -4.2, -3.4, C["hare"])
@@ -76,8 +81,8 @@ line([(21, 0), (21, 2.3)], lw=0.5, c=C["wood"], ls=(0, (2, 1.5)), z=6); box(20.6
 line([(21, 2.4), (21, 4.4)], lw=0.5, c=C["wood"], ls=(0, (2, 1.5)), z=6)
 line([(21, 4.45), (21, 12)], lw=1.4, c="#333333", z=6)
 line([(30, 1.6), (30, 12)], lw=1.4, c="#333333", z=6)
-line([(22.5, 0), (22.5, 12)], lw=0.9, c=C["wood"], z=6); line([(22.5, -3.4), (22.5, -0.2)], lw=0.9, c=C["wood"], z=6)
-line([(U0, 13.5), (21, 13.5)], lw=1.2, c=C["glass"]); line([(22.5, 13.5), (U1, 13.5)], lw=1.2, c=C["glass"])
+line(AMA_N, lw=0.9, c=C["wood"], z=6); line([(22.5, -3.4), (22.5, -0.2)], lw=0.9, c=C["wood"], z=6)   # 框：あまのがわの北の縁（曲線）
+line([(U0, 13.5), (21, 13.5)], lw=1.2, c=C["glass"]); line([(21.0 + float(_wf(13.5)), 13.5), (U1, 13.5)], lw=1.2, c=C["glass"])
 line([(U0, 15), (U1, 15)], lw=0.4, c="#777777", ls=(0, (6, 3)))
 for uf in (21, 24, 27, 30):
     for vc in (0, 12): box(uf - 0.09, uf + 0.09, vc - 0.2, vc + 0.2, fc="black", ec="black", z=7)
@@ -86,12 +91,12 @@ for uf in (21, 24, 27, 30):
         line([(uf + 0.14, 0), (uf + 0.14, 12)], lw=0.35, c="#555555", ls=(0, (5, 3)), z=5)
 for v in (0, 1.6): line([(U0, v), (U1, v)], lw=0.35, c="#999999", ls=(0, (2, 2)), z=5)
 _t = np.linspace(0, 2 * math.pi, 40)
-poly([W(21.75 + 0.2 * math.sin(a), 3.4 + 0.5 * math.cos(a)) for a in _t], "#BFAF95", "#6b5a3a", 0.4, 6)
+# 飛び石は無し（10-28 案4）
 
 # ---------------------------------------------------------------- food route, channel (found after planting), pockets (not designed)
 fu, fv = P["FOOD"]
 poly(rect(22.5, fu, 0.0, fv), "none", C["food"], 0.4, 3, ls=(0, (1, 1.5)))
-pr = [W(23.5, -3.4), W(23.6, -1.8), W(23.75, 0.6), W(23.3, 2.6), W(22.4, 3.3), W(21.75, 3.4), W(21.0, 3.4)]
+pr = [W(23.5, -3.4), W(23.6, -1.8), W(23.75, 0.6), W(23.7, 6.0), W(23.6, 11.0), W(23.3, 12.6), W(21.0 + float(_wf(12.6)) + 0.1, 12.6), W(20.6, 12.6)]   # 配膳口 → ホールの南 → 内縁側で川へ下りて渡る（10-28 案4）
 ax.plot([p[0] for p in pr], [p[1] for p in pr], lw=1.0, color=C["food"], zorder=8, alpha=0.8)
 ax.add_patch(FancyArrowPatch(pr[-2], pr[-1], arrowstyle="-|>", mutation_scale=6, lw=1.0, color=C["food"], zorder=8))
 CH = F["CHANNEL"]; chl = CH["line_uv"]
