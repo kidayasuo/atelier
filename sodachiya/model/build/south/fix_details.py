@@ -1112,7 +1112,7 @@ FENCE_RET = (R(-8.57, -8.45, 0.96, 1.40, 0.05), -300.0, 900.0)
 # 屋根の仕上げは屋根材型の太陽光（金属の屋根と一体）：越屋根の蓋の東の縁（v 1.95）から東の軒先の水切りの手前（v 14.85、ユーザー 10-24：庇の先まで）まで、
 # 筋の周りを除く。3dm では屋根の面の 20 上に黒い面を置く（色だけ、目地は描かない）。
 import mapbox_earcut as _ec
-SL_U = [3.0 * k for k in range(1, 19)]; SL_V = (1.76, 15.0); SL_GL = 13.5; SL_HALF = 0.09
+SL_U = [3.0 * k for k in range(1, 19)]; SL_V = (1.76, 13.6); SL_GL = 13.5; SL_HALF = 0.09   # 10-29（ユーザー、監修の項 20261029-0018）：筋の東の端は外皮の線 v13.6 の立ち上がり（前は軒先 v15.0）、軒は屋根を切らずに一枚
 ROOF_Z = lambda v: 4150.0 - v * 1000.0 / 12.0
 # 10-26夜（ユーザー、決定事項（共通）の「屋根の構成」、監修の項 20261026-1936）：屋根に厚み。下面＝梁の上端（＝垂木の下、元の面の 150 下）、
 # 上面＝その 420 上（元の面の 270 上）。構成：太陽光 約40／野地板／通気層 45／透湿防水／木質繊維 t150（外張り）／気密／構造用合板 t24（現し）／垂木 60×150。
@@ -1379,13 +1379,8 @@ if src is not None:
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_V[0] - 0.1, SL_V[0], 0.05), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))      # 立ち上がり（西の端）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, VE - 0.05, VE, 0.05), RT_TOP, RT_TOP + 60.0): new_objs.append((mm, a10))              # 立ち上がり（東の端、外皮の線）
         for mm in slab(R(u - 0.15, u + 0.15, SL_V[0] - 0.1, VE, 0.2), RT_TOP + 60.0, RT_TOP + 72.0): new_objs.append((mm, at_g))     # 乳白ガラス（複層、外皮の線まで）
-        for mm in slab(R(u - SL_HALF, u + SL_HALF, VE, V_TIP, 0.2), RT_TOP - 12.0, RT_TOP): new_objs.append((mm, at_g))     # 東の軒の筋：屋根の面にそろえた合わせガラス t12（外なので単板）
         for mm in slab(R(u - SL_HALF, u + SL_HALF, SL_GL - 0.006, SL_GL + 0.006, 0.05), -250.0, RT_TOP + 60.0, vert=True): new_objs.append((mm, at_g))  # 外皮の線の固定ガラス（複層）
-        # 筋の内側の板（上の層の小口をふさぐ）。10-28（監修の項 20261027-2346 の 10）：前は筋の外（u ± 0.09 の外 12）に置いていて、
-        # 上の層（野地＋屋根材 64）の中にまるごと入っていた。室内（v 13.5 まで）は鏡面（10m、ガラスの下から梁の下端まで）が小口をふさぐので作らない。
-        # 外皮の線より東（軒）は筋の中（u ± 0.09 の内 12）に、野地＋屋根材の板の下端から軒の合わせガラス（t12）の下まで。
-        for uu in (u - SL_HALF, u + SL_HALF - 0.012):
-            for mm in slab(R(uu, uu + 0.012, SL_GL + 0.006, V_TIP, 0.2), RT_TOP - EAVE_TIP, RT_TOP - 12.0): new_objs.append((mm, a10))
+        # 10-29：軒の上（v13.6〜15）の単板のガラスと筋の内側の小口の板はやめた（筋は外皮の線で止め、軒の屋根材・通気垂木・太陽光は切らずに通す）
     def _purlin_box(k_, vc, ztop, q_, W=60.0, D=150.0):
         """10-27夜（ユーザー：母屋が長方形の押し出しでないのは変）：母屋は 60×150 の長方形の断面の真っすぐな材。
         軸はスパンの弦（架構の線 u=3k と 3k+3 の v=vc を結ぶ水平線）、断面は屋根の勾配（1/12）に直角に傾けた長方形
@@ -1428,7 +1423,7 @@ if src is not None:
     ALL = unary_union([RP, EAVE.buffer(1.0)]).buffer(-1.0) if EAVE is not None else RP
     pv_box = unary_union([R(-10.0, 57.49, 1.95, 14.85, 0.25), R(-10.0, -0.35, -1.0, 14.85, 0.25)])
     pv = ALL.buffer(-150.0, join_style=2).intersection(pv_box).intersection(unary_union([RP, EAVE]) if EAVE is not None else RP)
-    pv = pv.difference(R(-0.36, 57.49, -1.0, 1.95, 0.1)).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
+    pv = pv.difference(R(-0.36, 57.49, -1.0, 1.95, 0.1)).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.05, 0.2) for u in SL_U]))   # 筋の周り ±0.25 は外皮の線の立ち上がりまで（軒の上は太陽光を通す、10-29）
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
     # 10-28（監修の項 20261028-2256-kanshu-2）：前は外皮の線（v13.6、_TAPER）で室内と東の軒の上の二つに分けていたので、スパンごとに 2 物に見えた。
     # 屋根の面はスパンごとの一枚の平面なので、分けずにスパンごとに一つ（sheet が架構の線で切る）。高さ・範囲は同じ
@@ -1446,7 +1441,7 @@ if src is not None:
     if _et > EAVE_MAX:
         raise SystemExit(f'✗ 東の軒先の見付けが {_et:.0f} mm（{EAVE_MAX:.0f} 以下に、ユーザー 10-27：軒は細く。決定事項（共通）の「屋根の構成」）')
     log.append(f'本館：東の軒先の見付け {_et:.0f} mm（{EAVE_MAX:.0f} 以下、軒の見張り）')
-    log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から軒先まで、乳白ガラス）、'
+    log.append(f'本館：光の筋 {len(SL_U)} 本（架構 2〜19、2 枚の梁のあいだ 180、v {SL_V[0]}〜{SL_V[1]}＝越屋根から外皮の線まで、乳白ガラス）、'
                f'屋根材型の太陽光 {pv.area / 1e6:.0f} m²（10p）')
     PV_AREA = pv.area / 1e6
     # 換気扇の出口（ユーザー 10-24：屋根の面に出すと目立つので越屋根に）。天井の換気扇からダクト φ100 を梁間の中で西へ、
@@ -1504,7 +1499,7 @@ if src is not None:
         for q_ in ms_: o_.Append(q_)
         o_.Normals.ComputeNormals(); o_.Compact(); return o_
     _VK = [round(2.2 + 0.9 * i, 2) for i in range(14)]
-    _VK = [v_ for v_ in _VK if not (_COLS[0][0] - 0.1 <= v_ <= _COLS[0][1] + 0.1)]
+    _VK = [v_ for v_ in _VK if not (_COLS[0][0] - 0.1 <= v_ <= _COLS[0][1] + 0.1) and v_ < VE - 0.25]   # 10-29：外皮の線（立ち上がり）より東の平板は無し（筋の東の端の縁の材が溝をつなぐ、軒の上に溝は無い）
     _nk = 0
     for u in SL_U:
         _pl = []
