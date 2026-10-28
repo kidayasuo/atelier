@@ -350,11 +350,11 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
     xs, ys = pt(4.6, 2.55)
     ax.text(xs, ys, "ロフト h1200\n下はデンと\nコット収納", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- teacher's seat: back to the desk-side partition, faces the room; screens h1100 in front and on the active (east) side
-    tv0, tv1 = 1.6 + 2.6 + max(Lp, 0) + 0.3, 1.6 + 2.6 + max(Lp, 0) + 1.3
+    tv0, tv1 = max(5.6, 1.6 + Rc + max(Lp, 0) + 0.2), max(5.6, 1.6 + Rc + max(Lp, 0) + 0.2) + 1.0   # 先生の席（10-29：巣Aの南の壁、しずかな角の東・天蓋の東）
     # ---- 10-24（ユーザー）：西の半分を架構の線で二つの巣に、東の半分は二つのクラスで共有
     bx(2.94, 3.06, 1.6, 6.2, fc="#555555", lw=0.3, z=5)                        # 腰の壁 h1100＋上は梁の下まで格子
-    bx(2.75, 3.25, 6.25, 6.95, fc=WOOD, lw=0.45, z=4)                          # 先生の机 h700（腰の壁の東の端、三つの場所の要）
-    bx(2.78, 3.22, 7.0, 7.42, fc="white", lw=0.35, z=4)                        # 先生の椅子（西を向く）
+    bx(0.06, 0.56, tv0, tv1, fc=WOOD, lw=0.45, z=4)                            # 先生の机 h700（10-29：巣Aの南の壁に沿って、巣Aと共有の境）
+    bx(0.62, 1.0, tv0 + 0.3, tv1 - 0.3, fc="white", lw=0.35, z=4)              # 先生の椅子（壁を背に、巣Aと共有を見る）
     xs, ys = pt(3.0, 6.6)
     ax.text(xs, ys, "先生", fontsize=3.6, ha="center", va="center", zorder=8, color="#333333")
     for s0 in (1.2, 4.8):
