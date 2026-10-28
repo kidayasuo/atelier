@@ -202,7 +202,23 @@ def hut_roof(rec):                  # 2歳の小屋の屋根（10-28、監修の
         if vol < 0: F = [f[::-1] for f in F]
         for f in F: M.Faces.AddFace(*f)
         M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M, attr(L_PL, fc(rec) or (0.92, 0.86, 0.72, 1)))
-def kubomi(rec):                     # 2歳の落ち着くくぼみ：囲い h1000、南に開口
+L_DOOR = layer('19d_建具_室内の戸（木）', (165, 120, 75))
+def booth_front(rec):
+    """こどもの便所の個室（スパン 14・17、10-28 ユーザー、決定事項の「便所・倉庫のスパン」）：L字の仕切りの前の短い辺（plan04 の 149 行、
+    w1.05、vc−0.40〜vc+0.05）は前のとおり h1300 の板。開いた一方（vc+0.05〜となりの仕切り vc+0.45）に扉：h1300（床から 100 浮かす、
+    上端は仕切りと同じ）、厚さ 30、鍵なし、内開き（吊元は仕切りの側、開くと便器から約 0.1 離れる）。閉じた位置の平らな板、名前に吊元と開く向き（draw100 が弧を描く）"""
+    panel_uv([tuple(p) for p in rec['pts']], 0, 1300, 0.03, L_WC)
+    (uf, va), (_, vb) = rec['pts'][0], rec['pts'][-1]
+    uf = float(uf); vc = min(float(va), float(vb)) + 0.40
+    d0, d1 = vc + 0.06, vc + 0.425                                  # 前の板（vc+0.05）・となりの仕切り（vc+0.45 ± 0.015）と 10 あける
+    sgn = -1.0 if uf < 45.0 else 1.0                                 # 内の向き：便器の側（スパン14 は u の小さい側、スパン17 は大きい側）
+    c_ = W(uf, 0.5 * (d0 + d1)); tv = W(uf, d1) - W(uf, d0); Wd = float(np.linalg.norm(tv)); tv /= Wd
+    nv = W(uf + 0.001, 0.5 * (d0 + d1)) - c_; nv /= np.linalg.norm(nv); nv = nv - tv * (nv @ tv); nv /= np.linalg.norm(nv)
+    q = [c_ - tv * Wd / 2 - nv * 15, c_ + tv * Wd / 2 - nv * 15, c_ + tv * Wd / 2 + nv * 15, c_ - tv * Wd / 2 + nv * 15]
+    hp = c_ + tv * Wd / 2; od = nv * sgn
+    a_ = attr(L_DOOR); a_.Name = f'開き戸 W{round(Wd)} 吊元 {hp[0]:.0f},{hp[1]:.0f} 開く {od[0]:.4f},{od[1]:.4f}（こどもの便所の個室、h1300、鍵なし）'
+    m.Objects.AddMesh(mesh_prism([(*p, 100.0) for p in q], [(*p, 1300.0) for p in q]), a_)
+def kubomi(rec):                    # 2歳の落ち着くくぼみ：囲い h1000、南に開口
     ring_uv([tuple(p) for p in rec['pts']], 0, 1000, 0.04, L_PL, fc(rec), gap=(16.85, 16.95, 3.55, 4.35))
 def mamagoto_posts(rec): solid_uv([tuple(p) for p in rec['pts']], 0, 1400, L_F, (0.3, 0.25, 0.2, 1))
 def basket(rec):  solid_uv([tuple(p) for p in rec['pts']], 400, 700, L_T, (1, 1, 1, 1))
@@ -251,7 +267,7 @@ T04 = {   # plan04（3〜5歳、u ≥ 30）
     113: ('solid', 0, 2400, L_P), 116: ('solid', 0, 2400, L_P), 122: ('solid', 0, 2400, L_P),
     118: ('panel', 0, 2400, 0.12, L_P), 123: ('panel', 0, 2400, 0.12, L_P),
     134: ('solid', 0, 500, L_WC), 143: ('panel', 0, 1300, 0.03, L_WC), 144: ('panel', 0, 1300, 0.03, L_WC),
-    147: ('solid', 0, 550, L_WC), 148: ('solid', 0, 260, L_WC), 149: ('panel', 0, 1300, 0.03, L_WC),
+    147: ('solid', 0, 550, L_WC), 148: ('solid', 0, 260, L_WC), 149: lambda rec: booth_front(rec),
     151: ('solid', 0, 800, L_WC),
     153: ('panel', 1200, 2270, 0.01, L_T),                # 路地の出口の暖簾（裾 h1200）
     154: ('panel', 100, 700, 0.02, L_GL),                 # 便所の東の低い窓

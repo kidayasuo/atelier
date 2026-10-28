@@ -146,6 +146,9 @@ def crank_block(b0, flip, labels_out):
         a, b = sorted([U(0.06), U(0.3)]); box(a, b, vc - 0.17, vc + 0.17, lw=0.3)
         ax.add_patch(Ellipse(P(U(0.52), vc), 0.42, 0.32, fc="white", ec="black", lw=0.3, zorder=4))
         line([(U(1.05), vc - 0.4), (U(1.05), vc + 0.05)], lw=0.5)
+        # 個室の扉 h1300（10-28 ユーザー：内開き、鍵なし、吊元は仕切りの側）：開いた扉と弧
+        line([(U(1.05), vc + 0.425), (U(0.685), vc + 0.425)], lw=0.6)
+        line([(U(1.05 - 0.365 * math.sin(k_ * math.pi / 22)), vc + 0.425 - 0.365 * math.cos(k_ * math.pi / 22)) for k_ in range(12)], lw=0.25)
     # mop sink
     a, b = sorted([U(0.06), U(0.62)]); box(a, b, 7.05, 7.55, lw=0.35, fc="#F2F7F8")
     # shikidai / noren / low window
