@@ -8,14 +8,18 @@
      （下から真上へ 250 の格子で測る。屋根は梁の上端から約420の立体＝下面が垂木の下、10-26。厚みが 300 以下の所
      ＝まだ面の屋根やガラスの蓋だけの所は、前のとおり垂木と断熱の層 150 を下げる）、
      戸・間仕切り・家具（D・P・I）はそれより上を削る（屋根を突き抜ける壁・木・遊具が無くなる）。
+     10-28：切る面はスパンごとの平面（本館は架構の線 u=3k のあいだ、西館は roofw の SPANS の平面のスパン）。格子が平面に載らない所
+     （越屋根・軒・北西の双一次の面など）だけ格子で切る（上端が格子に沿って折れ、Rhino 版で三角形に割れていた）。
+  1c. 間仕切り（24・38）の上端が少し（12 mm まで）ねじれている片は、上端を一枚の平面に切りそろえる（屋根の下面に届く片は除く）。
      戸・間仕切りは、部屋と床の板の外（外壁の中・外壁の外面・屋根の外）へはみ出した分も削る（外壁に間仕切りの端の筋が出ない）。
   2. 戸・間仕切り・家具・床（F・D・P・I）は、優先の高い部材（構造・外皮・床・戸）と重なる所を削る
      （壁の端が外壁の外面まで出て外から筋に見える所、梁を横切る壁の欠き込み、床に食い込む壁の足など）。
   3. 外の付属（X：下屋・外構・樋・越屋根のルーバーなど）は、外皮・構造と、建物の中（本館の床の外形・西館の外皮 WS
      を屋根の下面まで立ち上げた立体）を削る（下屋が建物に刺さらない）。
   3b. 部屋の床の板（面積の板）は外壁の帯で切る（2階の板の縁が外壁に筋で見えていた。面積は壁芯なので変わらない）。
-  3c. 外壁（17・21）は屋根の上面の 30 下で止める（屋根の板の厚みの中。上へ出た分と、屋根の面に重なる上端を削る）。
-  3d. 屋根材型の太陽光の面（10p・20p）が屋根の面より下に潜っている所は、屋根の面＋20 に載せ直す。
+  3c. 外壁（17・21）は屋根の上面の 30 下で止める（屋根の板の厚みの中。上へ出た分と、屋根の面に重なる上端を削る。上面もスパンごとの平面）。
+  3d. 屋根材型の太陽光の面（10p）が屋根の面より下に潜っている所は、屋根の面＋20 に載せ直す。閉じた立体（西館の 20p、屋根の層の
+     いちばん上）は動かさない（10-28、項 20261028-1050-solid）。
   4. 外壁（17・21）の片は、レイヤーごとに一つの立体に足し合わせる（片の継ぎ目の筋が外に出ない）。
   5. 構造と外皮どうし（S・E）は削らない（梁が屋根から出ている等は設計の誤りなので、干渉の一覧 clash.py で報告する）。
   屋根（10・20）で厚みの無い面は下へ 60（本館の屋根の板 60 とそろえる）、西館の 2 階の床（23、h3.17 の面）は上へ 80 の厚みを付けて閉じた立体にする。
@@ -81,9 +85,127 @@ RAF = np.where(np.isfinite(RR.Zbot) & (RR.Ztop - RR.Zbot > 300), 0.0, RAFTER)
 Z = RR.Zbot - RAF
 print('屋根の下面：厚みのある屋根の格子', int((np.isfinite(RR.Zbot) & (RAF == 0)).sum()), '／ 150 下げる格子', int((np.isfinite(RR.Zbot) & (RAF > 0)).sum()))
 print('屋根の下面の格子', GX.shape, '覆われた', int(np.isfinite(Z).sum()))
+# 1b. スパンごとの平面で切る（監修 10-28、ユーザー：架構のほかはすべて平らな板。項 20261028-0043-honkan・1244-honkan）
+# 格子の面で上端を切ると、上端が格子に沿って折れ、Rhino 版で三角形の面に割れていた（38 の u12・18・33…、17・55）。
+# 屋根の面はスパンごとの平面（本館：fix_details の _plane／zpl、架構の線 u=3k のあいだの弦の上。西館：roofw の SPANS の 'plane'）なので、
+# 下面・上面もスパンごとに「その平面＋一定の差」になる（差は格子からスパンごとにいちばん多い値で求める）。
+# 格子の点がその平面に載る所（と、架構の線の近く ±0.45 で平面より上＝梁の上・光の筋の所）は、スパンの多角形（架構の線で区切る）×
+# 平面より上の柱で切る（上端は平らな面、となりのスパンとは架構の線で交わる）。平面に載らない所（越屋根・軒・北西の双一次の面・
+# 光の筋のガラスなど）だけ、前のとおり格子で切る（平面の所との境は 2 ます重ねる）。
+import math as _m
+from uv import xy as _xy, CX as _CX, CY as _CY, RW as _RW, TH_S as _THS
+import roofw as _roofw
+def _uv_arr(X, Y):
+    th = np.mod(np.arctan2(Y - _CY, X - _CX), 2 * np.pi)
+    return (_THS - th) * _RW / 1000.0, (_RW - np.hypot(X - _CX, Y - _CY)) / 1000.0
+GU, GV = _uv_arr(GX, GY)
+V_SPLIT = -0.62                                   # これより西（v が小さい）は西館
+def _hon_coef(k):
+    """本館のスパン k（u 3k〜3k+3）の屋根の面：z = a·x + b·y + c（fix_details の _plane・zpl と同じ）"""
+    A_ = _xy(3.0 * k, 0.0); B_ = _xy(3.0 * (k + 1), 0.0); c_ = (B_ - A_) / np.linalg.norm(B_ - A_)
+    h_ = np.array([c_[1], -c_[0]])
+    if np.dot(h_, _xy(3.0 * k, 1.0) - A_) < 0: h_ = -h_
+    return (-h_[0] / 12.0, -h_[1] / 12.0, 4150.0 + (A_[0] * h_[0] + A_[1] * h_[1]) / 12.0)
+_RWS = _roofw.make(pickle.load(open(WNEW, 'rb'))['WN'])
+_WPL = [(ua, ub, cf) for ua, ub, kind, cf in _RWS['SPANS'] if kind == 'plane']
+def _wes_coef(j):
+    ua, ub, (px, py, c0, c1, c2) = _WPL[j]
+    return (c1, c2, c0 - c1 * px - c2 * py)
+# スパンの番号：('h', k) 本館 k=0〜18、('w', j) 西館の平面のスパン j=0〜6（u21〜42、南のけらば u<21 は j=0 を延ばす）
+SPAN_U = {}
+for k in range(19): SPAN_U[('h', k)] = (3.0 * k, 3.0 * (k + 1), _hon_coef(k))
+for j, (ua, ub, cf) in enumerate(_WPL): SPAN_U[('w', j)] = (ua if j else -30.0, ub, _wes_coef(j))
+W_U1 = _WPL[-1][1]                                # 42：これより北の西館は双一次（平面が無い）
+def _span_of(u, v):
+    if v < V_SPLIT:
+        if u > W_U1: return None
+        return ('w', int(min(len(_WPL) - 1, max(0, (u - 21.0) // 3.0))))
+    return ('h', int(min(18, max(0, _m.floor(u / 3.0)))))
+KEYS = list(SPAN_U); KID = {k: n for n, k in enumerate(KEYS)}
+SPAN_ID = np.full(GX.shape, -1, dtype=int)
+for i_ in range(GX.shape[0]):
+    for j_ in range(GX.shape[1]):
+        k_ = _span_of(GU[i_, j_], GV[i_, j_])
+        if k_ is not None: SPAN_ID[i_, j_] = KID[k_]
+def _pz(key, X, Y):
+    a, b, c = SPAN_U[key][2]; return a * X + b * Y + c
+PLANE_Z = np.full(GX.shape, np.nan)
+for key in SPAN_U:
+    msk = SPAN_ID == KID[key]
+    PLANE_Z[msk] = _pz(key, GX[msk], GY[msk])
+# 架構の線（2 枚の梁と光の筋）の近く。建物の中（本館の床・西館の外皮）だけ（軒の下は軒の下面が平面より高いので格子で）
+_BLD = unary_union([pickle.load(open(WNEW, 'rb'))['WS']] + [Polygon(tr[:, :2]).buffer(0) for p_ in parts if p_['layer'].split('_')[0] in ('12', '13')
+                                                         for tr in p_['tm'].triangles if Polygon(tr[:, :2]).area > 1]).buffer(-200, join_style=2)
+FRAME_NEAR = (np.abs(GU - 3.0 * np.round(GU / 3.0)) < 0.45) & contains_xy(_BLD, GX, GY)
+def _span_poly(key):
+    u0, u1, _ = SPAN_U[key]
+    v0, v1 = (-40.0, V_SPLIT) if key[0] == 'w' else (V_SPLIT, 20.0)
+    if key[0] == 'w': u0 = max(u0, -3.0)
+    us = np.linspace(u0, u1, 13)
+    ring = [_xy(u, v0) for u in us] + [_xy(u, v1) for u in us[::-1]]
+    return Polygon(ring).buffer(0)
+SPAN_POLY = {k: _span_poly(k) for k in SPAN_U}
+class PlaneCut:
+    """格子の面 Zg（屋根の下面・上面）を、スパンごとの平面＋差で表す。above(bb) は bb の上の「面より上」の立体"""
+    def __init__(self, Zg, name, frame=True):
+        self.Zg = Zg; self.D = {}
+        ok = np.isfinite(Zg) & np.isfinite(PLANE_Z) & ~FRAME_NEAR
+        for key in SPAN_U:
+            msk = ok & (SPAN_ID == KID[key])
+            if msk.sum() < 8: continue
+            d = np.round(Zg[msk] - PLANE_Z[msk], 0)
+            vals, cnt = np.unique(d, return_counts=True)
+            if cnt.max() < 8: continue
+            d0 = vals[cnt.argmax()]; sel = np.abs(Zg[msk] - PLANE_Z[msk] - d0) < 2
+            self.D[key] = float(np.median((Zg[msk] - PLANE_Z[msk])[sel]))
+        self.DZ = np.full(Zg.shape, np.nan)
+        for key, d in self.D.items():
+            msk = SPAN_ID == KID[key]; self.DZ[msk] = PLANE_Z[msk] + d
+        fin = np.isfinite(Zg) & np.isfinite(self.DZ)
+        self.ON = fin & ((np.abs(Zg - self.DZ) < 3) | (frame & FRAME_NEAR & (Zg > self.DZ - 3)))
+        self.RASTER = np.isfinite(Zg) & ~self.ON
+        from scipy.ndimage import binary_dilation
+        near = binary_dilation(self.RASTER, structure=np.ones((3, 3), bool), iterations=2)
+        self.Zr = np.where(self.RASTER | (near & self.ON), Zg, np.nan)       # 格子で切る所（平面の所と 2 ます重ねる。斜めのとなりも）
+        print(f'{name}：スパンの平面 {len(self.D)}（差 本館 {[round(v) for k, v in sorted(self.D.items()) if k[0] == "h"][:3]}…、'
+              f'西館 {[round(v) for k, v in sorted(self.D.items()) if k[0] == "w"][:3]}…）、平面で切る格子 {int(self.ON.sum())}／格子で切る {int(self.RASTER.sum())}')
+    def above(self, bb, pad=2):
+        xs_, ys_, c = xs, ys, CELL
+        i0 = max(0, int((bb[0][0] - xs_[0]) // c) - pad); i1 = min(len(xs_) - 1, int((bb[1][0] - xs_[0]) // c) + pad + 1)
+        j0 = max(0, int((bb[0][1] - ys_[0]) // c) - pad); j1 = min(len(ys_) - 1, int((bb[1][1] - ys_[0]) // c) + pad + 1)
+        if i1 - i0 < 1 or j1 - j0 < 1: return None
+        ON = self.ON[i0:i1 + 1, j0:j1 + 1]; out = None; ztop = bb[1][2] + 1000
+        if ON.any():
+            win = box(bb[0][0] - 400, bb[0][1] - 400, bb[1][0] + 400, bb[1][1] + 400)
+            h = c / 2 + 0.5
+            for kid in set(SPAN_ID[i0:i1 + 1, j0:j1 + 1][ON].tolist()):
+                key = KEYS[kid]; m_ = ON & (SPAN_ID[i0:i1 + 1, j0:j1 + 1] == kid)
+                if key not in self.D or not m_.any(): continue
+                cells = unary_union([box(GX[i0 + a, j0 + b] - h, GY[i0 + a, j0 + b] - h, GX[i0 + a, j0 + b] + h, GY[i0 + a, j0 + b] + h)
+                                     for a, b in zip(*np.where(m_))])
+                reg = cells.intersection(SPAN_POLY[key]).intersection(win)
+                a, b_, cc = SPAN_U[key][2]; d = self.D[key]
+                for pg in getattr(reg, 'geoms', [reg]):
+                    if pg.geom_type != 'Polygon' or pg.area < 1e3: continue
+                    pg = pg.simplify(0.1)
+                    zc = [a * x + b_ * y + cc + d for x, y in pg.exterior.coords]
+                    if min(zc) >= bb[1][2]: continue
+                    top = max(ztop, max(zc) + 1000)
+                    t = trimesh.creation.extrude_polygon(pg, 1.0)
+                    V_ = np.array(t.vertices); lo = V_[:, 2] < 0.5
+                    V_[lo, 2] = a * V_[lo, 0] + b_ * V_[lo, 1] + cc + d; V_[~lo, 2] = top
+                    M = to_manifold(trimesh.Trimesh(V_, t.faces, process=False))
+                    if M is not None: out = M if out is None else out + M
+        Zl = self.Zr[i0:i1 + 1, j0:j1 + 1]
+        if np.isfinite(Zl).any():
+            Mr = RR.above(self.Zr, bb)
+            if Mr is not None: out = Mr if out is None else out + Mr
+        return out
+PC_BOT = PlaneCut(Z, '屋根の下面')
+PC_TOP = PlaneCut(RR.Ztop - 30, '屋根の上面−30', frame=False)     # 上面は平面に載る所だけ（光の筋の立ち上がりで壁を下げない）
 def under_roof_solid(bb, ztop):
-    """部材の bb の上にかかる「屋根の下面より上」の立体（格子から、bb より 2 ます広く）。無ければ None"""
-    return RR.above(Z, bb)
+    """部材の bb の上にかかる「屋根の下面より上」の立体（スパンごとの平面、平面の無い所は格子）。無ければ None"""
+    return PC_BOT.above(bb)
 
 # ---------------------------------------------------------------- 建物の中（外の付属を削る）
 W = pickle.load(open(WNEW, 'rb'))
@@ -180,6 +302,46 @@ def inside_solid(bb):
         if M is not None: out = M if out is None else out + M
     return out
 
+# ---------------------------------------------------------------- 1c. 間仕切りの上端を平らに（監修 10-28、項 20261028-0043-honkan・1244-honkan）
+# 架構の線に立つ壁（38 の u12・18・33・39・42・48・51 など）は、上端の四隅が一つの平面に載っていない（端の面が斜めで、
+# 上端の高さが片側だけ違う。ねじれは数 mm〜十数 mm）。Rhino 版で上端が三角形 2 枚に割れていた。
+# 間仕切り（24・38）の上端（真上に自分の無い上向きの面）の点の高さの差（平面からのずれの幅）が 0.3〜12 mm の片は、上端の点に最小二乗で当てた平面を
+# いちばん低い点まで下げた平面で切る（上端は一枚の平らな面。屋根の下面に届く片は除く。壁は最大で 12 mm 低くなるだけで、屋根・梁より上へは出ない。
+# それより大きくねじれた片（西館の 2 階の床の下の壁など）はそのまま：上にある床・屋根の平面で切られる）
+def _flat_top(p):
+    t = p['tm']; n = t.face_normals; cz = t.triangles_center
+    up = np.where(n[:, 2] > 0.3)[0]
+    if len(up) < 2: return None
+    hit = trimesh.ray.ray_triangle.RayMeshIntersector(t).intersects_any(cz[up] + [0, 0, 0.5], np.tile([0, 0, 1.0], (len(up), 1)))
+    top = up[~hit]
+    if len(top) < 2: return None
+    P = t.vertices[np.unique(t.faces[top])]
+    if np.ptp(P[:, 2]) < 0.3: return None                                  # 水平の上端
+    A_ = np.c_[P[:, 0] - P[:, 0].mean(), P[:, 1] - P[:, 1].mean(), np.ones(len(P))]
+    cf, *_ = np.linalg.lstsq(A_, P[:, 2], rcond=None)
+    res = P[:, 2] - A_ @ cf
+    if np.ptp(res) < 0.3 or np.ptp(res) > 12: return None
+    # 屋根の下面に届く（20 mm より近い）片は平らにしない：屋根の下面の平面で切られて上端が平らになる（下げると母屋の下にすき間）
+    ii = np.clip(((P[:, 0] - xs[0]) / CELL).round().astype(int), 0, len(xs) - 1); jj = np.clip(((P[:, 1] - ys[0]) / CELL).round().astype(int), 0, len(ys) - 1)
+    zr = np.where(np.isfinite(PC_BOT.DZ[ii, jj]), PC_BOT.DZ[ii, jj], Z[ii, jj])
+    if np.isfinite(zr).any() and np.nanmin(zr - P[:, 2]) < 20: return None
+    cf[2] += res.min() - 0.05                                             # 上端の点がみな平面の上（平面まで下げる）
+    bb = p['bb']; mx, my = P[:, 0].mean(), P[:, 1].mean()
+    pg = box(bb[0][0] - 50, bb[0][1] - 50, bb[1][0] + 50, bb[1][1] + 50)
+    tt = trimesh.creation.extrude_polygon(pg, 1.0); V_ = np.array(tt.vertices); lo = V_[:, 2] < 0.5
+    V_[lo, 2] = cf[0] * (V_[lo, 0] - mx) + cf[1] * (V_[lo, 1] - my) + cf[2]; V_[~lo, 2] = bb[1][2] + 1000
+    return to_manifold(trimesh.Trimesh(V_, tt.faces, process=False)), float(res.max() - res.min())
+for p in parts:
+    if p['klass'] != 'P' or p['M'] is None or p['layer'].split('_')[0] not in ('24', '38'): continue
+    try:
+        ft = _flat_top(p)
+    except Exception:
+        ft = None
+    if ft is None or ft[0] is None: continue
+    R = p['M'] - ft[0]
+    if R.is_empty() or R.volume() < 0.9 * p['M'].volume(): stats['flat_top_skip'] += 1; continue
+    p['M'] = R; p['new'] = True; stats['flat_top'] += 1; stats['flat_top_max_mm'] = max(stats['flat_top_max_mm'], round(ft[1], 1))
+
 # ---------------------------------------------------------------- 2・3. 削る
 from rtree import index
 idx = index.Index(properties=index.Property(dimension=3))
@@ -224,7 +386,7 @@ for p in parts:
 # 壁の上端と屋根の面が同じ高さに重なり、表示がちらついてぎざぎざに見える）
 for p in parts:
     if p['layer'].split('_')[0] not in ('17', '21') or p['M'] is None: continue
-    U = RR.above(RR.Ztop - 30, p['bb'])
+    U = PC_TOP.above(p['bb'])
     if U is None: continue
     v0 = p['M'].volume(); R = p['M'] - U; v1 = R.volume()
     if v0 - v1 < 2e5 or R.is_empty(): continue
@@ -242,7 +404,11 @@ for i_, o_ in enumerate(m.Objects):
     ln_ = LN[o_.Attributes.LayerIndex]
     if not (ln_.startswith(('10p_', '20p_')) and isinstance(o_.Geometry, r.Mesh)): continue
     V_, F_ = mesh_vf(o_.Geometry)
-    if trimesh.Trimesh(V_, F_, process=True).is_watertight: continue            # 閉じた屋根材（西館の 20p は屋根の層のいちばん上、10-27夜）は動かさない
+    # 閉じた屋根材（西館の 20p は屋根の層のいちばん上の閉じた立体、10-27夜）は動かさない。片どうしが触れ合って一つの網目では
+    # is_watertight にならない（4 面が集まる辺）ので、「開いた辺（1 面だけの辺）が無い」で閉じたとみる（項 20261028-1050-solid）
+    if ln_.startswith('20p_'): continue
+    _t = trimesh.Trimesh(V_, F_, process=True)
+    if len(trimesh.grouping.group_rows(_t.edges_sorted, require_count=1)) == 0: continue
     V_, F_ = trimesh.remesh.subdivide_to_size(V_, F_, max_edge=150.0)[:2]     # 大きな三角形のあいだで曲がった屋根が抜けないよう細かく
     top = V_[:, 2].max() + 5000
     loc, rid, _ = _rri.intersects_location(np.c_[V_[:, :2], np.full(len(V_), top)], np.tile([0, 0, -1.0], (len(V_), 1)), multiple_hits=False)
