@@ -601,16 +601,15 @@ mesh_prism(R(19.0, 20.4, 4.45, 4.55), 2100.0, const(2400.0), L_KAMA)
 
 # ---------------------------------------------------------------- 西の軒の出と軒樋・鎖樋（10-24昼、ユーザー：西は庇が無い、0.9出す）
 # 屋根は東 8.15 → 外周 4.65 へ流れ、低い縁（西の面・南西と北西の丸み・北西の斜めの面）から落ちる。
-# 低い縁に軒の出 0.9（軒樋を含む：屋根の面 0.78＋軒樋 0.12）、南北の妻の縁（けらば）に 0.3。あいだは屋根の高さで滑らかにつなぐ。
+# 低い縁に軒の出 0.9（軒樋を含む：屋根の面 0.78＋軒樋 0.12）、南北の妻の縁（けらば）に 0.3。あいだ（南西・北の角）は角の丸みと同じ中心の円弧でなめらかにつなぐ（10-29、下の EAVE_LINE）。
 # 軒先は敷地の境の 0.1 手前で止める（外壁は壁面後退の線＝道路から1.0 の上）。本館の側（東の面）には出さない（すき間 0.55）。
 # 屋根の面は外皮の縁から外へ、近くの屋根の点で当てはめた面をそのまま延ばす（roof_z）。
-# 軒樋（120×150、軒先の内側に収める）は低い縁の全長。鎖樋は 2 本：北＝西の面のまっすぐな所の北の端（北の雨庭）、南＝勝手口の北の端から約0.5北の軒先（回り込んだ下屋の上に落とし、下屋の集水から雨水樽へ、10-24）。
+# 軒樋（120×150、屋根の先の外）は水平な軒の所だけ（角の円弧の途中、軒の先が 30 上がる所で止め、小口はふさぐ、10-29）。鎖樋は 2 本：北＝西の面のまっすぐな所の北の端（北の雨庭）、南＝勝手口の北の端から約0.5北の点にいちばん近い軒樋の所（10-29 から軒樋の南の端、u22.9）（回り込んだ下屋の上に落とし、下屋の集水から雨水樽へ、10-24）。
 from shapely.ops import substring
 _site = sorted([Polygon([[g.Point(i).X, g.Point(i).Y] for i in range(g.PointCount)]) for o in m.Objects
                 for g in [o.Geometry] if m.Layers[o.Attributes.LayerIndex].Name.startswith('00') and isinstance(g, r.PolylineCurve)],
                key=lambda q: -q.area)[0]
 EAVE_LOW, EAVE_RAKE, GUT_W = 900.0, 300.0, 120.0
-Z_LOW, Z_RAKE = 4760.0, 5100.0                 # 縁の屋根の高さ：これより低い所は軒、高い所はけらば、あいだは比例
 ringS = WS.exterior
 ring_ccw = ringS if Polygon(ringS).exterior.is_ccw else LineString(list(ringS.coords)[::-1])
 Ls = ring_ccw.length; NS = int(Ls / 100.0)
@@ -631,9 +630,47 @@ _hk0 = [_hk0] if _hk0.geom_type == 'Point' else list(getattr(_hk0, 'geoms', []))
 if _hk0: _CH = [min((np.array([q.x, q.y]) for q in _hk0), key=lambda q: np.linalg.norm(q - _CH[1]))] + _CH[1:]
 CHORD = LineString(_CH)
 print('NW eave: level straight chord through roof lines', _BAYS, 'tip z %.0f' % roof_f(*_CH[0]))
-eave_pts = []                                  # (s, p, n, d_eave, z_edge)
-for k in range(NS):
-    s_ = Ls * k / NS
+# 屋根の外形（軒先＋けらば）を一本のなめらかな線に（10-29、ユーザー：南西の角と北の妻の角にトゲ・切り欠き・段、軒樋の端が飛び出す）。
+# 前は、軒の出を縁の屋根の高さで比例させ（Z_LOW〜Z_RAKE）、西・北西は CHORD まで、けらばは別に決めていたので、角の丸みのまわりで線が合わなかった。
+# 今：けらば（u21・u51 の妻）は妻の外面から 0.3 のまっすぐな線、西・北西の軒は CHORD（屋根の面の先、軒樋はその外 0.12）。角（南西・北）は
+# 外皮の角の丸みと同じ中心の円弧で、半径を「けらばの線までの距離」から「軒の線（CHORD の角の側の区間）までの距離」へ、角度につれて
+# なめらかに（3t²−2t³、両端で変わり方 0 なので、まっすぐな線と接線がつながる）変える。CHORD の角の側の区間（u21〜24、u48〜51）は
+# 円弧に置き換える（円弧の端＝角の中心からその区間の線へ下ろした垂線の足）。
+def _fitc(P):
+    P = np.asarray(P); A_ = np.c_[2 * P, np.ones(len(P))]; c_, *_ = np.linalg.lstsq(A_, (P ** 2).sum(1), rcond=None)
+    return c_[:2], float(np.sqrt(c_[2] + c_[:2] @ c_[:2]))
+_cw = np.asarray(WS.exterior.coords); _cwu = np.array([uv(*c_) for c_ in _cw])
+def _gable_line(u0, v_end, inside):            # 妻の外面から EAVE_RAKE 外のまっすぐな線（2 点）
+    a_, b_ = np.array(xy(u0, -0.5), float).ravel(), np.array(xy(u0, v_end), float).ravel(); d_ = (b_ - a_) / np.linalg.norm(b_ - a_); n_ = np.array([-d_[1], d_[0]])
+    if (np.array(xy(*inside), float).ravel() - a_) @ n_ > 0: n_ = -n_
+    return a_ + n_ * EAVE_RAKE, b_ + n_ * EAVE_RAKE
+def _foot(C_, a_, b_):
+    d_ = (b_ - a_) / np.linalg.norm(b_ - a_); q_ = a_ + d_ * ((C_ - a_) @ d_); return q_, float(np.linalg.norm(q_ - C_))
+def _blend(C_, f1, p1, f2, p2, step=0.25):
+    """角の中心 C_ のまわりの円弧：けらばの足 f1（半径 p1）から軒の足 f2（半径 p2）へ、半径を 3t²−2t³ で変える（step は角度、度）"""
+    t1 = math.atan2(*(f1 - C_)[::-1]); dt = (math.atan2(*(f2 - C_)[::-1]) - t1 + math.pi) % (2 * math.pi) - math.pi
+    n_ = max(2, int(abs(math.degrees(dt)) / step) + 1)
+    return [C_ + (p1 + (p2 - p1) * (3 * t * t - 2 * t ** 3)) * np.array([math.cos(t1 + dt * t), math.sin(t1 + dt * t)]) for t in np.linspace(0, 1, n_)]
+_CHu = dict(zip(_BAYS, [_BL[u_][0] + _HT * (_BL[u_][1] - _BL[u_][0]) for u_ in _BAYS]))     # 延ばす前の CHORD の点
+_Csw, _Rsw = _fitc(_cw[(_cwu[:, 0] >= 20.99) & (_cwu[:, 0] <= 23.66) & (_cwu[:, 1] <= -9.9) & (_cwu[:, 1] > -13.0)])   # 南西の角の丸み（u21 の妻→西の面）
+_Cn, _Rn = _fitc(_cw[(_cwu[:, 0] >= 50.08) & (_cwu[:, 0] <= 51.01) & (_cwu[:, 1] <= -5.43) & (_cwu[:, 1] > -7.7)])     # 北の角の丸み（北西の面→u51 の妻）
+_gS = _gable_line(21.0, -9.906, (25.0, -5.0)); _gN = _gable_line(51.0, -5.44, (48.0, -3.0))
+_fS1, _pS1 = _foot(_Csw, *_gS); _fS2, _pS2 = _foot(_Csw, _CHu[21.0], _CHu[24.0])
+_fN1, _pN1 = _foot(_Cn, *_gN); _fN2, _pN2 = _foot(_Cn, _CHu[48.0], _CHu[51.0])
+EAVE_LINE = LineString([_gS[0]] + _blend(_Csw, _fS1, _pS1, _fS2, _pS2) + [_CHu[u_] for u_ in _BAYS if 21.5 < u_ < 48.5] + _blend(_Cn, _fN2, _pN2, _fN1, _pN1) + [_gN[0]])
+Z_TIP = float(roof_f(*_CHu[24.0]))             # 水平な軒の先の高さ（梁の上端の面）
+GUT_RISE = 30.0                                # 軒樋は軒の先がこれより上がらない所だけ（角の円弧の途中で止める）
+print('roof outline (10-29): SW corner R %.0f, eave out %.0f -> %.0f (%d pts), N corner R %.0f, %.0f -> %.0f; level tip z %.0f' %
+      (_Rsw, _pS1 - _Rsw, _pS2 - _Rsw, len(EAVE_LINE.coords), _Rn, _pN1 - _Rn, _pN2 - _Rn, Z_TIP))
+def _in_corner(uu_, vv_): return (uu_ < 23.9 and vv_ < -9.6) or (uu_ > 49.8 and vv_ < -5.2)
+_S = [0.0]
+while True:                                    # 角の丸みでは細かく（25）、ほかは 100 ごと（軒先の線の折れを小さく）
+    q_ = ring_ccw.interpolate(_S[-1]); st_ = 25.0 if _in_corner(*uv(q_.x, q_.y)) else 100.0
+    if _S[-1] + st_ >= Ls - 1.0: break
+    _S.append(_S[-1] + st_)
+eave_pts = []                                  # (s, p, n, d_eave, z_edge, f)：f＝0 は軒（軒樋あり）、1 はけらば（d_eave は屋根の先まで）
+n_site = 0
+for s_ in _S:
     q0 = ring_ccw.interpolate(s_); q1 = ring_ccw.interpolate((s_ + 30.0) % Ls); qm = ring_ccw.interpolate((s_ - 30.0) % Ls)
     t_ = np.array([q1.x - qm.x, q1.y - qm.y]); t_ /= np.linalg.norm(t_)
     n_ = np.array([t_[1], -t_[0]])             # 反時計回りの輪の右＝外
@@ -641,17 +678,23 @@ for k in range(NS):
     p_ = np.array([q0.x, q0.y]); uu_, vv_ = uv(*p_)
     if vv_ > -0.95: eave_pts.append(None); continue          # 東の面（本館の側）には出さない
     ze = roof_z(*p_)
-    f_ = float(np.clip((ze - Z_LOW) / (Z_RAKE - Z_LOW), 0.0, 1.0))
-    d_ = EAVE_LOW * (1 - f_) + EAVE_RAKE * f_
+    if abs(uu_ - 21.0) < 0.01 and vv_ > -9.9 or abs(uu_ - 51.0) < 0.01 and vv_ > -5.44:      # 妻のまっすぐな所：法線は妻に直角（外皮の点の端で丸めない）
+        n_ = (np.array(_gS[0]) - np.array(xy(21.0, -0.5), float).ravel()) if uu_ < 30 else (np.array(_gN[0]) - np.array(xy(51.0, -0.5), float).ravel()); n_ = n_ / np.linalg.norm(n_)
+    elif _in_corner(uu_, vv_) and np.linalg.norm(p_ - (_Csw if uu_ < 30 else _Cn)) < (_Rsw if uu_ < 30 else _Rn) + 2.0:   # 角の丸み：法線は丸みの中心から
+        n_ = p_ - (_Csw if uu_ < 30 else _Cn); n_ = n_ / np.linalg.norm(n_)
+    hc = LineString([p_, p_ + n_ * 3000]).intersection(EAVE_LINE)
+    hc = [hc] if hc.geom_type == 'Point' else list(getattr(hc, 'geoms', []))
+    if not hc: eave_pts.append(None); continue
+    q_ = min((np.array([h.x, h.y]) for h in hc), key=lambda h: np.linalg.norm(h - p_)); dt_ = float(np.linalg.norm(q_ - p_))
+    f_ = 0.0 if roof_f(*q_) <= Z_TIP + GUT_RISE else 1.0
+    d_ = dt_ + GUT_W * (1 - f_)
     hit = LineString([p_, p_ + n_ * 3000]).intersection(_site.exterior)
     hp = [hit] if hit.geom_type == 'Point' else list(getattr(hit, 'geoms', []))
-    if 21.0 <= uu_ < 50.995 and vv_ < -1.2:                                    # 西の面と北西の角（10-28 夕）：軒先はまっすぐな水平の線（CHORD）まで
-        hc = LineString([p_, p_ + n_ * 3000]).intersection(CHORD)
-        hc = [hc] if hc.geom_type == 'Point' else list(getattr(hc, 'geoms', []))
-        if hc:
-            d_ = min(np.hypot(h.x - p_[0], h.y - p_[1]) for h in hc) + GUT_W; f_ = 0.0
-    if hp: d_ = min(d_, min(np.hypot(h.x - p_[0], h.y - p_[1]) for h in hp) - 100.0)
+    if hp:
+        dm_ = min(np.hypot(h.x - p_[0], h.y - p_[1]) for h in hp) - 100.0
+        if d_ > dm_: d_ = dm_; n_site += 1
     eave_pts.append((s_, p_, n_, d_, ze, f_))
+print('roof outline: %d points, cut by the site line %d' % (len(_S), n_site))
 # 東の面で切れる所から、つながった区間ごとに帯の面（内＝外皮の縁、外＝軒先）
 _k0 = eave_pts.index(None); eave_pts = eave_pts[_k0:] + eave_pts[:_k0]     # 東の面から始める（区間が輪の継ぎ目で割れない）
 runs, cur = [], []
@@ -707,7 +750,7 @@ if len(gut_line) > 3:
     # 軒樋は軒先に沿う（上端＝屋根の先の 20 下、深さ 150、幅 120）。10-28（監修の項 2346）：軒先の線をまっすぐな区間に分け（ずれ 2 mm）、
     # 区間ごとに断面 120×150 の押し出し（前は 100 ごとの箱を一つの網目にまとめ、Rhino 版で 404 面）。北西の角は軒先がまっすぐな水平の線なのでそのまま
     from shapely.geometry import LineString as _LS
-    _C3 = np.array([np.r_[e_[1] + e_[2] * (e_[3] - GUT_W / 2), zt_top(e_, e_[3] - GUT_W) - 20.0] for e_ in seg])
+    _C3 = np.array([np.r_[e_[1] + e_[2] * (e_[3] - GUT_W / 2), min(zt_top(e_, e_[3] - GUT_W), Z_TIP + RT_W) - 20.0] for e_ in seg])   # 10-29：水平（角の円弧の途中で止まる所も上げない）
     _keep = np.asarray(_LS(_C3[:, :2]).simplify(2.0).coords)
     _ix = [int(np.argmin(np.linalg.norm(_C3[:, :2] - q_, axis=1))) for q_ in _keep]
     _ngut = 0
@@ -726,11 +769,11 @@ if len(gut_line) > 3:
         if best is None: continue
         at = r.ObjectAttributes(); at.LayerIndex = L_RAIN; at.Name = '軒樋 120×150'
         new.Objects.AddExtrusion(best[1], at); _ngut += 1
-    g_bot = min(zt_top(e_, e_[3] - GUT_W) for e_ in seg) - 170.0; g_top = g_bot + 150.0
+    g_bot = min(min(zt_top(e_, e_[3] - GUT_W), Z_TIP + RT_W) for e_ in seg) - 170.0; g_top = g_bot + 150.0
     gpath = LineString([e_[1] + e_[2] * (e_[3] - GUT_W / 2) for e_ in seg])
     def chain_at(c_):
         c_ = np.asarray(c_, float); e_ = min(seg, key=lambda e: np.hypot(*(e[1] - c_)))
-        z0_, z1_ = -300.0, zt_top(e_, e_[3] - GUT_W) - 170.0                      # 10-28：円の押し出し（前は 8 角の網目）
+        z0_, z1_ = -300.0, min(zt_top(e_, e_[3] - GUT_W), Z_TIP + RT_W) - 170.0                      # 10-28：円の押し出し（前は 8 角の網目）
         cir = r.Circle(r.Point3d(float(c_[0]), float(c_[1]), float(z0_)), 18.0)
         ex_ = r.Extrusion.Create(cir.ToNurbsCurve(), float(z1_ - z0_), True)
         bb_ = ex_.GetBoundingBox()
@@ -741,7 +784,7 @@ if len(gut_line) > 3:
     _qS = gpath.interpolate(gpath.project(Point(*xy(21.6, -12.6))))            # 南：勝手口の北の端から約0.5北の軒先（回り込んだ下屋の上、外構の集水で受ける。10-24 アプローチ係）
     pS = np.array([_qS.x, _qS.y]); chain_at(pS)
     print('eave: %d strips, gutter %d pieces, low %.1f m / gutter %.1f m, lowest %.0f, chains N(u %.1f) S(u %.1f v %.1f)' %
-          (n_eave, _ngut, len(seg) * Ls / NS / 1000, gpath.length / 1000, g_top, uv(qN.x, qN.y)[0], *uv(*pS)))
+          (n_eave, _ngut, LineString([e_[1] for e_ in seg]).length / 1000, gpath.length / 1000, g_top, uv(qN.x, qN.y)[0], *uv(*pS)))
 
 # ---------------------------------------------------------------- 調理の更衣・便所の戸（10-25、監修の指摘）
 # u28.25 の壁の2つの口（v−11.1〜−11.95 と v−12.14〜−13.18）は、自動の戸だとあいだの細い壁（0.19）の両側を吊元にして
