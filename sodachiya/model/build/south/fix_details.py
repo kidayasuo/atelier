@@ -2206,7 +2206,9 @@ for k, geom_fn in (('23_', lambda g: g.difference(_cutE)),
         # 10-28（監修の項 2346）：2 階の床は一つの平面形（片を足し、吹き抜けを除き、外壁の内面で切る）を 2FL−80 から 2FL まで押し出した一つの立体
         # （前は片ごとの面を後で厚み付けし、縁の点を外壁の内面へ寄せていたので、Rhino 版で 117 面・曲面の片になった）
         _f23 = unary_union([f_ for f_, a_, za, zb in _F2[k]]).buffer(1).buffer(-1).difference(_cutE).intersection(WNi)
-        K.prism(_f23.buffer(0), ZF2 - 80.0, ZF2, _F2[k][0][1].LayerIndex)
+        # 10-28（監修の項 20261028-0843）：平面形の点を減らす（片の継ぎ目・弧の細かい点で 123 面になっていた）。直線は直線に、弧は 2 mm のずれまで少ない点に
+        _f23 = _f23.buffer(0).simplify(2.0, preserve_topology=True)
+        K.prism(_f23, ZF2 - 80.0, ZF2, _F2[k][0][1].LayerIndex)
         continue
     K.flat(gn, z0, a0.LayerIndex)
 for _i, _l in enumerate(out.Layers):
