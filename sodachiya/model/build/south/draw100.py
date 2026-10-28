@@ -1761,7 +1761,7 @@ def west_wall_note(A, westx, z=2000, x_t=None):
 def make_sections():
     W_, H_ = 841, 594
     S = Sheet(W_, H_, '断面図 A（縦断・展開）・B・C　1/100（A1）')
-    extA = (-14500, 65500, -5600, 10500)
+    extA = (-11500, 68500, -5600, 10500)       # 右の高さの記号の字が枠の内に入るように 3 m 左へ（10-28、左は敷地の境で止めたので空いている）
     A = S.axes(30, H_ - 40 - 161, extA)
     A.insul_x = (0, 57000)
     S.view(A, '断面' + SECTIONS[0][0], 'section_arc', rhino_supported=False, center_xy_mm=C, radius_mm=SECTIONS[0][2],
