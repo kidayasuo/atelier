@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-28 13:15",
+"generated": "2026-10-28 13:21",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -1958,48 +1958,14 @@
 },
 {
 "no": 2,
-"frame": false,
-"parts": [
-{
-"id": "p2.link.sodachiya_plan_1-100",
-"name": "図 sodachiya_plan_1-100.pdf",
-"kind": "link",
-"layer": "図",
-"file": "drawings/sodachiya_plan_1-100.pdf",
-"x": 0,
-"y": -0.0,
-"w": 841.0,
-"h": 594.0,
-"clip": null,
-"scale": 1.0,
-"page": 1
-},
-{
-"id": "p2.top.こどもたちの育ち舎25平面図",
-"name": "こどもたちの育ち舎　2/5　平面図　1階・2階",
-"kind": "text",
-"layer": "説明",
-"x": 14,
-"y": 12.0,
-"s": "こどもたちの育ち舎　2/5　平面図　1階・2階",
-"size_pt": 14.17,
-"font": "W6",
-"color": "#1A1A1A",
-"align": "left",
-"mock_hash": "4e244d4a"
-}
-]
-},
-{
-"no": 3,
 "frame": true,
 "parts": [
 {
-"id": "p3.other",
-"name": "3枚目　その他の絵（縮尺・方位・矢印など）",
+"id": "p2.other",
+"name": "2枚目　その他の絵（縮尺・方位・矢印など）",
 "kind": "link",
 "layer": "図",
-"file": "present/ai/parts/p3_その他.pdf",
+"file": "present/ai/parts/p2_その他.pdf",
 "x": 0,
 "y": 0,
 "w": 841.0,
@@ -2008,414 +1974,7 @@
 "scale": 1
 },
 {
-"id": "p3.sozai.06",
-"name": "素材 06_一日の帯_登園_800",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/06_一日の帯_登園_800.pdf",
-"x": 21.0,
-"y": 39.0,
-"w": 129.0,
-"h": 150,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p3.sozai.07",
-"name": "素材 07_一日の帯_外で遊ぶ_930",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/07_一日の帯_外で遊ぶ_930.pdf",
-"x": 155.0,
-"y": 39.0,
-"w": 129.0,
-"h": 150,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p3.sozai.08",
-"name": "素材 08_一日の帯_食べる_1130",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/08_一日の帯_食べる_1130.pdf",
-"x": 289.0,
-"y": 39.0,
-"w": 129.0,
-"h": 150,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p3.sozai.09",
-"name": "素材 09_一日の帯_寝る_1245",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/09_一日の帯_寝る_1245.pdf",
-"x": 423.0,
-"y": 39.0,
-"w": 129.0,
-"h": 150,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p3.sozai.10",
-"name": "素材 10_一日の帯_当番_1500",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/10_一日の帯_当番_1500.pdf",
-"x": 557.0,
-"y": 39.0,
-"w": 129.0,
-"h": 150,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p3.sozai.11",
-"name": "素材 11_一日の帯_降園_1630",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/11_一日の帯_降園_1630.pdf",
-"x": 691.0,
-"y": 39.0,
-"w": 129.0,
-"h": 150,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p3.link.sodachiya_garden_01",
-"name": "図 sodachiya_garden_01.pdf",
-"kind": "link",
-"layer": "図",
-"file": "out/sodachiya_garden_01.pdf",
-"x": 21.0,
-"y": 221.0,
-"w": 136.67,
-"h": 162.56,
-"clip": [
-14,
-40,
-234.43,
-302.2
-],
-"scale": 0.62,
-"page": 1
-},
-{
-"id": "p3.link.sodachiya_play_present",
-"name": "図 sodachiya_play_present.pdf",
-"kind": "link",
-"layer": "図",
-"file": "out/sodachiya_play_present.pdf",
-"x": 165.67,
-"y": 221.0,
-"w": 242.89,
-"h": 192.64,
-"clip": null,
-"scale": 0.8376,
-"page": 1
-},
-{
-"id": "p3.link.sodachiya_forest_02",
-"name": "図 sodachiya_forest_02.pdf",
-"kind": "link",
-"layer": "図",
-"file": "out/sodachiya_forest_02.pdf",
-"x": 416.56,
-"y": 307.98,
-"w": 403.44,
-"h": 105.66,
-"clip": [
-0,
-8,
-420,
-118
-],
-"scale": 0.9606,
-"page": 1
-},
-{
-"id": "p3.link.sodachiya_room3_1-50",
-"name": "図 sodachiya_room3_1-50.pdf",
-"kind": "link",
-"layer": "図",
-"file": "out/sodachiya_room3_1-50.pdf",
-"x": 165.67,
-"y": 427.64,
-"w": 202.75,
-"h": 143.36,
-"clip": null,
-"scale": 0.3413,
-"page": 1
-},
-{
-"id": "p3.pagetitle",
-"name": "ページとサブタイトル",
-"kind": "text",
-"layer": "説明",
-"x": 107.0,
-"y": 26.0,
-"s": "3/5　動線とこどもたちの環境",
-"size_pt": 19.68,
-"font": "W6",
-"color": "#222222",
-"align": "left",
-"mock_hash": "18006a52"
-},
-{
-"id": "p3.note.footer",
-"name": "割付の注記",
-"kind": "text",
-"layer": "注記",
-"x": 19.0,
-"y": 585.0,
-"s": "［割付の注記］フォーカス：上は一日の動線（2枚目の平面図の続き）。分離線の下は、こどもたちが地に足をつけて育つ場所：園庭・遊戯室・北山杉の林・教室・廊下の本棚・表の畑と火のオーブン　／　目に入る順：一日の帯と動線 → 分離線 → 園庭 → 遊戯室・林 → 教室・本棚・畑",
-"size_pt": 12.6,
-"font": "W3",
-"color": "#6B4FE0",
-"align": "left",
-"mock_hash": "4905115d"
-},
-{
-"id": "p3.t.一日の帯：上は1600の小さ",
-"name": "一日の帯：上は1/600の小さな配置（建物＋園庭",
-"kind": "text",
-"layer": "注記",
-"x": 251.0,
-"y": 37.5,
-"s": "一日の帯：上は1/600の小さな配置（建物＋園庭）と三者の動線（こども緑・保育士茶・調理青）、下にそれぞれの一日",
-"size_pt": 10.24,
-"font": "W3",
-"color": "#6B4FE0",
-"align": "left",
-"mock_hash": "6a7ece52"
-},
-{
-"id": "p3.t.こどもたちの環境",
-"name": "こどもたちの環境",
-"kind": "text",
-"layer": "説明",
-"x": 21.0,
-"y": 206.0,
-"s": "こどもたちの環境",
-"size_pt": 19.68,
-"font": "W6",
-"color": "#222222",
-"align": "left",
-"mock_hash": "988d7ba4"
-},
-{
-"id": "p3.t.園庭",
-"name": "園庭",
-"kind": "text",
-"layer": "説明",
-"x": 21.0,
-"y": 217.0,
-"s": "園庭",
-"size_pt": 16.53,
-"font": "W6",
-"color": "#222222",
-"align": "left",
-"mock_hash": "650244"
-},
-{
-"id": "p3.t.だいさんかく・しずかのもり約",
-"name": "だいさんかく・しずかのもり　約1/320（配置1",
-"kind": "text",
-"layer": "説明",
-"x": 35.8,
-"y": 217.0,
-"s": "だいさんかく・しずかのもり　約1/320（配置1/200を縮小）",
-"size_pt": 11.81,
-"font": "W3",
-"color": "#222222",
-"align": "left",
-"mock_hash": "5691c462"
-},
-{
-"id": "p3.t.遊戯室",
-"name": "遊戯室",
-"kind": "text",
-"layer": "説明",
-"x": 165.67,
-"y": 217.0,
-"s": "遊戯室",
-"size_pt": 16.53,
-"font": "W6",
-"color": "#222222",
-"align": "left",
-"mock_hash": "df98162"
-},
-{
-"id": "p3.t.ホールの北山杉の林",
-"name": "ホールの北山杉の林",
-"kind": "text",
-"layer": "説明",
-"x": 416.56,
-"y": 217.0,
-"s": "ホールの北山杉の林",
-"size_pt": 16.53,
-"font": "W6",
-"color": "#222222",
-"align": "left",
-"mock_hash": "77c99b0b"
-},
-{
-"id": "p3.t.教室",
-"name": "教室",
-"kind": "text",
-"layer": "説明",
-"x": 165.67,
-"y": 421.64,
-"s": "教室",
-"size_pt": 16.53,
-"font": "W6",
-"color": "#222222",
-"align": "left",
-"mock_hash": "66d662"
-},
-{
-"id": "p3.t.3歳の保育室",
-"name": "3歳の保育室",
-"kind": "text",
-"layer": "説明",
-"x": 180.47,
-"y": 421.64,
-"s": "3歳の保育室",
-"size_pt": 11.81,
-"font": "W3",
-"color": "#222222",
-"align": "left",
-"mock_hash": "3328392c"
-},
-{
-"id": "p3.box.廊下の本棚と読む場所",
-"name": "枠：廊下の本棚と読む場所",
-"kind": "box",
-"layer": "注記",
-"x": 376.42,
-"y": 427.64,
-"w": 217.79,
-"h": 143.36,
-"fill": "#F4F1FF",
-"stroke": "#6B4FE0",
-"lw": 0.6,
-"dash": [
-3,
-2
-]
-},
-{
-"id": "p3.t.廊下の本棚と読む場所",
-"name": "廊下の本棚と読む場所",
-"kind": "text",
-"layer": "注記",
-"x": 485.32,
-"y": 498.57,
-"s": "廊下の本棚と読む場所",
-"size_pt": 14.17,
-"font": "W6",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "469ac9b7"
-},
-{
-"id": "p3.t.（図は本館係に依頼）",
-"name": "（図は本館係に依頼）",
-"kind": "text",
-"layer": "注記",
-"x": 485.32,
-"y": 503.58,
-"s": "（図は本館係に依頼）",
-"size_pt": 10.24,
-"font": "W3",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "f0629012"
-},
-{
-"id": "p3.box.表の畑と火のオーブン",
-"name": "枠：表の畑と火のオーブン",
-"kind": "box",
-"layer": "注記",
-"x": 602.21,
-"y": 427.64,
-"w": 217.79,
-"h": 143.36,
-"fill": "#F4F1FF",
-"stroke": "#6B4FE0",
-"lw": 0.6,
-"dash": [
-3,
-2
-]
-},
-{
-"id": "p3.t.表の畑と火のオーブン",
-"name": "表の畑と火のオーブン",
-"kind": "text",
-"layer": "注記",
-"x": 711.11,
-"y": 498.57,
-"s": "表の畑と火のオーブン",
-"size_pt": 14.17,
-"font": "W6",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "a52a915c"
-},
-{
-"id": "p3.t.入口の前の菜園とひろばのかま",
-"name": "入口の前の菜園とひろばのかまど",
-"kind": "text",
-"layer": "注記",
-"x": 711.11,
-"y": 503.58,
-"s": "入口の前の菜園とひろばのかまど",
-"size_pt": 10.24,
-"font": "W3",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "eea3051b"
-},
-{
-"id": "p3.t.（図はアプローチ係に依頼）",
-"name": "（図はアプローチ係に依頼）",
-"kind": "text",
-"layer": "注記",
-"x": 711.11,
-"y": 508.08,
-"s": "（図はアプローチ係に依頼）",
-"size_pt": 10.24,
-"font": "W3",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "ef33d9c1"
-}
-]
-},
-{
-"no": 4,
-"frame": true,
-"parts": [
-{
-"id": "p4.other",
-"name": "4枚目　その他の絵（縮尺・方位・矢印など）",
-"kind": "link",
-"layer": "図",
-"file": "present/ai/parts/p4_その他.pdf",
-"x": 0,
-"y": 0,
-"w": 841.0,
-"h": 594.0,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p4.sozai.03",
+"id": "p2.sozai.03",
 "name": "素材 03_沿川の景観立面_昼_1-300",
 "kind": "link",
 "layer": "図",
@@ -2428,7 +1987,7 @@
 "scale": 1
 },
 {
-"id": "p4.sozai.04",
+"id": "p2.sozai.04",
 "name": "素材 04_沿川の景観立面_夜_1-300",
 "kind": "link",
 "layer": "図",
@@ -2441,7 +2000,7 @@
 "scale": 1
 },
 {
-"id": "p4.sozai.05",
+"id": "p2.sozai.05",
 "name": "素材 05_素材と色",
 "kind": "link",
 "layer": "図",
@@ -2454,7 +2013,7 @@
 "scale": 1
 },
 {
-"id": "p4.link.sodachiya_elevations_1-100",
+"id": "p2.link.sodachiya_elevations_1-100",
 "name": "図 sodachiya_elevations_1-100.pdf",
 "kind": "link",
 "layer": "図",
@@ -2473,7 +2032,7 @@
 "page": 1
 },
 {
-"id": "p4.link.sodachiya_elevations_1-100~2",
+"id": "p2.link.sodachiya_elevations_1-100~2",
 "name": "図 sodachiya_elevations_1-100.pdf",
 "kind": "link",
 "layer": "図",
@@ -2492,21 +2051,21 @@
 "page": 1
 },
 {
-"id": "p4.pagetitle",
+"id": "p2.pagetitle",
 "name": "ページとサブタイトル",
 "kind": "text",
 "layer": "説明",
 "x": 107.0,
 "y": 26.0,
-"s": "4/5　景観",
+"s": "2/5　景観",
 "size_pt": 19.68,
 "font": "W6",
 "color": "#222222",
 "align": "left",
-"mock_hash": "8574c33f"
+"mock_hash": "80ca71fd"
 },
 {
-"id": "p4.note.footer",
+"id": "p2.note.footer",
 "name": "割付の注記",
 "kind": "text",
 "layer": "注記",
@@ -2520,7 +2079,7 @@
 "mock_hash": "b616c6d"
 },
 {
-"id": "p4.t.園庭の側の立面図",
+"id": "p2.t.園庭の側の立面図",
 "name": "園庭の側の立面図",
 "kind": "text",
 "layer": "説明",
@@ -2534,7 +2093,7 @@
 "mock_hash": "23d46ab4"
 },
 {
-"id": "p4.t.1100円弧の中心の方向から",
+"id": "p2.t.1100円弧の中心の方向から",
 "name": "1/100　円弧の中心の方向から弧の真ん中に正対",
 "kind": "text",
 "layer": "説明",
@@ -2548,7 +2107,7 @@
 "mock_hash": "e756712d"
 },
 {
-"id": "p4.t.園庭にひらく",
+"id": "p2.t.園庭にひらく",
 "name": "園庭にひらく",
 "kind": "text",
 "layer": "説明",
@@ -2562,7 +2121,7 @@
 "mock_hash": "ef45e7b9"
 },
 {
-"id": "p4.t.縁側と深い軒が57m続き、3",
+"id": "p2.t.縁側と深い軒が57m続き、3",
 "name": "縁側と深い軒が57 m続き、3 mごとの柱とガラ",
 "kind": "text",
 "layer": "説明",
@@ -2576,7 +2135,7 @@
 "mock_hash": "bd6c189d"
 },
 {
-"id": "p4.t.道路の側の立面図",
+"id": "p2.t.道路の側の立面図",
 "name": "道路の側の立面図",
 "kind": "text",
 "layer": "説明",
@@ -2590,7 +2149,7 @@
 "mock_hash": "929ca997"
 },
 {
-"id": "p4.t.1100西の道路から",
+"id": "p2.t.1100西の道路から",
 "name": "1/100　西の道路から",
 "kind": "text",
 "layer": "説明",
@@ -2604,7 +2163,7 @@
 "mock_hash": "81364859"
 },
 {
-"id": "p4.t.まちに溶け込み、やさしく守る",
+"id": "p2.t.まちに溶け込み、やさしく守る",
 "name": "まちに溶け込み、やさしく守る",
 "kind": "text",
 "layer": "説明",
@@ -2618,7 +2177,7 @@
 "mock_hash": "aa1f0a24"
 },
 {
-"id": "p4.t.杉の大和張りの静かな板の壁。",
+"id": "p2.t.杉の大和張りの静かな板の壁。",
 "name": "杉の大和張りの静かな板の壁。西館は向かいの住宅に",
 "kind": "text",
 "layer": "説明",
@@ -2632,7 +2191,7 @@
 "mock_hash": "bb540ddf"
 },
 {
-"id": "p4.box.透視図（A4）　模型写真の鳥瞰",
+"id": "p2.box.透視図（A4）　模型写真の鳥瞰",
 "name": "枠：透視図（A4）　模型写真の鳥瞰",
 "kind": "box",
 "layer": "注記",
@@ -2649,7 +2208,7 @@
 ]
 },
 {
-"id": "p4.t.透視図（A4）模型写真の鳥瞰",
+"id": "p2.t.透視図（A4）模型写真の鳥瞰",
 "name": "透視図（A4）　模型写真の鳥瞰",
 "kind": "text",
 "layer": "注記",
@@ -2663,7 +2222,7 @@
 "mock_hash": "7d55730a"
 },
 {
-"id": "p4.t.南西の上空（公園と高野川の橋",
+"id": "p2.t.南西の上空（公園と高野川の橋",
 "name": "南西の上空（公園と高野川の橋の上）から北東を見る",
 "kind": "text",
 "layer": "注記",
@@ -2677,7 +2236,7 @@
 "mock_hash": "abdd5c5c"
 },
 {
-"id": "p4.t.手前に道の側の静かな壁と公園",
+"id": "p2.t.手前に道の側の静かな壁と公園",
 "name": "手前に道の側の静かな壁と公園、奥に弧の縁側と園庭",
 "kind": "text",
 "layer": "注記",
@@ -2691,7 +2250,7 @@
 "mock_hash": "df863ce2"
 },
 {
-"id": "p4.t.（模型ができるまではRhin",
+"id": "p2.t.（模型ができるまではRhin",
 "name": "（模型ができるまでは Rhino の鳥瞰を仮に）",
 "kind": "text",
 "layer": "注記",
@@ -2705,7 +2264,7 @@
 "mock_hash": "af82244f"
 },
 {
-"id": "p4.t.沿川の景観立面昼",
+"id": "p2.t.沿川の景観立面昼",
 "name": "沿川の景観立面　昼",
 "kind": "text",
 "layer": "説明",
@@ -2719,7 +2278,7 @@
 "mock_hash": "2b771c9a"
 },
 {
-"id": "p4.t.1300高野川の向こうから（",
+"id": "p2.t.1300高野川の向こうから（",
 "name": "1/300　高野川の向こうから（川の辺に直角）、",
 "kind": "text",
 "layer": "説明",
@@ -2733,7 +2292,7 @@
 "mock_hash": "d48902f"
 },
 {
-"id": "p4.t.沿川の景観立面夜",
+"id": "p2.t.沿川の景観立面夜",
 "name": "沿川の景観立面　夜",
 "kind": "text",
 "layer": "説明",
@@ -2747,7 +2306,7 @@
 "mock_hash": "2b770f7a"
 },
 {
-"id": "p4.t.本館と西館の越屋根の東の縁の",
+"id": "p2.t.本館と西館の越屋根の東の縁の",
 "name": "本館と西館の越屋根の東の縁の光が水平に二本",
 "kind": "text",
 "layer": "説明",
@@ -2761,7 +2320,7 @@
 "mock_hash": "ce2a163f"
 },
 {
-"id": "p4.ibox.景観の約束",
+"id": "p2.ibox.景観の約束",
 "name": "箱：景観の約束",
 "kind": "box",
 "layer": "説明",
@@ -2775,7 +2334,7 @@
 "dash": null
 },
 {
-"id": "p4.ibox.景観の約束.head",
+"id": "p2.ibox.景観の約束.head",
 "name": "見出し：景観の約束",
 "kind": "text",
 "layer": "説明",
@@ -2789,7 +2348,7 @@
 "mock_hash": "91fb9fb8"
 },
 {
-"id": "p4.ibox.景観の約束.body",
+"id": "p2.ibox.景観の約束.body",
 "name": "本文：景観の約束",
 "kind": "area",
 "layer": "説明",
@@ -2810,11 +2369,11 @@
 ]
 },
 {
-"no": 5,
+"no": 3,
 "frame": true,
 "parts": [
 {
-"id": "p5.sozai.12",
+"id": "p3.sozai.12",
 "name": "素材 12_運転表と環境への配慮",
 "kind": "link",
 "layer": "図",
@@ -2827,7 +2386,7 @@
 "scale": 1
 },
 {
-"id": "p5.sozai.15",
+"id": "p3.sozai.15",
 "name": "素材 15_面積表",
 "kind": "link",
 "layer": "図",
@@ -2840,7 +2399,7 @@
 "scale": 1
 },
 {
-"id": "p5.link.sodachiya_sections_1-100",
+"id": "p3.link.sodachiya_sections_1-100",
 "name": "図 sodachiya_sections_1-100.pdf",
 "kind": "link",
 "layer": "図",
@@ -2859,7 +2418,7 @@
 "page": 1
 },
 {
-"id": "p5.link.sodachiya_sections_1-100~2",
+"id": "p3.link.sodachiya_sections_1-100~2",
 "name": "図 sodachiya_sections_1-100.pdf",
 "kind": "link",
 "layer": "図",
@@ -2878,7 +2437,7 @@
 "page": 1
 },
 {
-"id": "p5.link.joint_detail",
+"id": "p3.link.joint_detail",
 "name": "図 joint_detail.pdf",
 "kind": "link",
 "layer": "図",
@@ -2892,21 +2451,21 @@
 "page": 1
 },
 {
-"id": "p5.pagetitle",
+"id": "p3.pagetitle",
 "name": "ページとサブタイトル",
 "kind": "text",
 "layer": "説明",
 "x": 107.0,
 "y": 26.0,
-"s": "5/5　断面と環境",
+"s": "3/5　断面と環境",
 "size_pt": 19.68,
 "font": "W6",
 "color": "#222222",
 "align": "left",
-"mock_hash": "db287f08"
+"mock_hash": "f22f9d06"
 },
 {
-"id": "p5.note.footer",
+"id": "p3.note.footer",
 "name": "割付の注記",
 "kind": "text",
 "layer": "注記",
@@ -2920,7 +2479,7 @@
 "mock_hash": "790fd5a2"
 },
 {
-"id": "p5.t.断面図C東西に切る（4歳・遊",
+"id": "p3.t.断面図C東西に切る（4歳・遊",
 "name": "断面図C　東西に切る（4歳・遊戯室）",
 "kind": "text",
 "layer": "説明",
@@ -2934,7 +2493,7 @@
 "mock_hash": "f484d1e7"
 },
 {
-"id": "p5.t.1100本館と西館の架構、昼",
+"id": "p3.t.1100本館と西館の架構、昼",
 "name": "1/100　本館と西館の架構、昼と夏の夜の風の道",
 "kind": "text",
 "layer": "説明",
@@ -2948,7 +2507,7 @@
 "mock_hash": "63843dfd"
 },
 {
-"id": "p5.t.縦断面図A",
+"id": "p3.t.縦断面図A",
 "name": "縦断面図A",
 "kind": "text",
 "layer": "説明",
@@ -2962,7 +2521,7 @@
 "mock_hash": "2d0e714e"
 },
 {
-"id": "p5.t.1100保育室の中ほどの弧で",
+"id": "p3.t.1100保育室の中ほどの弧で",
 "name": "1/100　保育室の中ほどの弧で切って展開、西を",
 "kind": "text",
 "layer": "説明",
@@ -2976,7 +2535,7 @@
 "mock_hash": "494f9c7"
 },
 {
-"id": "p5.box.光の筋と架構　1/20",
+"id": "p3.box.光の筋と架構　1/20",
 "name": "枠：光の筋と架構　1/20",
 "kind": "box",
 "layer": "注記",
@@ -2993,7 +2552,7 @@
 ]
 },
 {
-"id": "p5.t.光の筋と架構120",
+"id": "p3.t.光の筋と架構120",
 "name": "光の筋と架構　1/20",
 "kind": "text",
 "layer": "注記",
@@ -3007,7 +2566,7 @@
 "mock_hash": "d19acc52"
 },
 {
-"id": "p5.t.2枚の梁のあいだ180の上に",
+"id": "p3.t.2枚の梁のあいだ180の上に",
 "name": "2枚の梁のあいだ180の上にガラス",
 "kind": "text",
 "layer": "注記",
@@ -3021,7 +2580,7 @@
 "mock_hash": "db9aff1e"
 },
 {
-"id": "p5.t.溝の内側は鏡面のアルミ（光ダ",
+"id": "p3.t.溝の内側は鏡面のアルミ（光ダ",
 "name": "溝の内側は鏡面のアルミ（光ダクト）",
 "kind": "text",
 "layer": "注記",
@@ -3035,7 +2594,7 @@
 "mock_hash": "27c77186"
 },
 {
-"id": "p5.t.接合部（2枚の梁で柱を挟む）",
+"id": "p3.t.接合部（2枚の梁で柱を挟む）",
 "name": "接合部（2枚の梁で柱を挟む）",
 "kind": "text",
 "layer": "説明",
@@ -3049,7 +2608,7 @@
 "mock_hash": "1c23a96f"
 },
 {
-"id": "p5.t.inspiredby",
+"id": "p3.t.inspiredby",
 "name": "inspired by",
 "kind": "text",
 "layer": "説明",
@@ -3063,7 +2622,7 @@
 "mock_hash": "af987a7e"
 },
 {
-"id": "p5.t.AsiloNidoIride",
+"id": "p3.t.AsiloNidoIride",
 "name": "Asilo Nido Iride",
 "kind": "text",
 "layer": "説明",
@@ -3077,7 +2636,7 @@
 "mock_hash": "db74a694"
 },
 {
-"id": "p5.t.MarioCucinella",
+"id": "p3.t.MarioCucinella",
 "name": "Mario Cucinella Architec",
 "kind": "text",
 "layer": "説明",
@@ -3091,7 +2650,7 @@
 "mock_hash": "ce5c1273"
 },
 {
-"id": "p5.t.→梁の列が並ぶ長細い本館と、",
+"id": "p3.t.→梁の列が並ぶ長細い本館と、",
 "name": "→ 梁の列が並ぶ長細い本館と、外に付く付属の建物",
 "kind": "text",
 "layer": "説明",
@@ -3105,7 +2664,7 @@
 "mock_hash": "edb51b7c"
 },
 {
-"id": "p5.t.Tamedia",
+"id": "p3.t.Tamedia",
 "name": "Tamedia",
 "kind": "text",
 "layer": "説明",
@@ -3119,7 +2678,7 @@
 "mock_hash": "300d7a3a"
 },
 {
-"id": "p5.t.坂茂・Zürich・2013",
+"id": "p3.t.坂茂・Zürich・2013",
 "name": "坂茂・Zürich・2013",
 "kind": "text",
 "layer": "説明",
@@ -3133,7 +2692,7 @@
 "mock_hash": "d87e0ca1"
 },
 {
-"id": "p5.t.→梁の端の楕円の頭と、それを",
+"id": "p3.t.→梁の端の楕円の頭と、それを",
 "name": "→ 梁の端の楕円の頭と、それを貫く楕円の桁",
 "kind": "text",
 "layer": "説明",
@@ -3147,7 +2706,7 @@
 "mock_hash": "73cdb241"
 },
 {
-"id": "p5.t.レイモンド斑鳩こども園",
+"id": "p3.t.レイモンド斑鳩こども園",
 "name": "レイモンド斑鳩こども園",
 "kind": "text",
 "layer": "説明",
@@ -3161,7 +2720,7 @@
 "mock_hash": "1027fc7d"
 },
 {
-"id": "p5.t.キノアーキテクツ・斑鳩・20",
+"id": "p3.t.キノアーキテクツ・斑鳩・20",
 "name": "キノアーキテクツ・斑鳩・2026",
 "kind": "text",
 "layer": "説明",
@@ -3175,7 +2734,7 @@
 "mock_hash": "8516c31e"
 },
 {
-"id": "p5.t.→室内に木を立てる（ホールの",
+"id": "p3.t.→室内に木を立てる（ホールの",
 "name": "→ 室内に木を立てる（ホールの北山杉）",
 "kind": "text",
 "layer": "説明",
@@ -3189,7 +2748,7 @@
 "mock_hash": "6f4c9453"
 },
 {
-"id": "p5.t.KAIT工房",
+"id": "p3.t.KAIT工房",
 "name": "KAIT工房",
 "kind": "text",
 "layer": "説明",
@@ -3203,7 +2762,7 @@
 "mock_hash": "bba00e72"
 },
 {
-"id": "p5.t.石上純也・厚木・2008",
+"id": "p3.t.石上純也・厚木・2008",
 "name": "石上純也・厚木・2008",
 "kind": "text",
 "layer": "説明",
@@ -3217,7 +2776,7 @@
 "mock_hash": "86fcadf7"
 },
 {
-"id": "p5.t.→柱の配列：見る向きで景色が",
+"id": "p3.t.→柱の配列：見る向きで景色が",
 "name": "→ 柱の配列：見る向きで景色が変わる並び",
 "kind": "text",
 "layer": "説明",
@@ -3231,7 +2790,7 @@
 "mock_hash": "77b8eed8"
 },
 {
-"id": "p5.t.認定こども園らみどり",
+"id": "p3.t.認定こども園らみどり",
 "name": "認定こども園らみどり",
 "kind": "text",
 "layer": "説明",
@@ -3245,7 +2804,7 @@
 "mock_hash": "49f4aa37"
 },
 {
-"id": "p5.t.はりゅうウッドスタジオ・須賀",
+"id": "p3.t.はりゅうウッドスタジオ・須賀",
 "name": "はりゅうウッドスタジオ・須賀川・2026",
 "kind": "text",
 "layer": "説明",
@@ -3259,7 +2818,7 @@
 "mock_hash": "19b2419a"
 },
 {
-"id": "p5.t.→内と外の二重の縁側、遊具を",
+"id": "p3.t.→内と外の二重の縁側、遊具を",
 "name": "→ 内と外の二重の縁側、遊具を置かない地形の園庭",
 "kind": "text",
 "layer": "説明",
@@ -3273,7 +2832,7 @@
 "mock_hash": "cc3ab0de"
 },
 {
-"id": "p5.t.仙田満の園舎",
+"id": "p3.t.仙田満の園舎",
 "name": "仙田満の園舎",
 "kind": "text",
 "layer": "説明",
@@ -3287,7 +2846,7 @@
 "mock_hash": "7a78ae3c"
 },
 {
-"id": "p5.t.環境デザイン研究所",
+"id": "p3.t.環境デザイン研究所",
 "name": "環境デザイン研究所",
 "kind": "text",
 "layer": "説明",
@@ -3301,7 +2860,7 @@
 "mock_hash": "e0e4be36"
 },
 {
-"id": "p5.t.→摺鉢のネット、キャットウォ",
+"id": "p3.t.→摺鉢のネット、キャットウォ",
 "name": "→ 摺鉢のネット、キャットウォーク、ニッチ",
 "kind": "text",
 "layer": "説明",
@@ -3315,7 +2874,7 @@
 "mock_hash": "e768d33f"
 },
 {
-"id": "p5.t.WaldorfSchoolo",
+"id": "p3.t.WaldorfSchoolo",
 "name": "Waldorf School of the Pe",
 "kind": "text",
 "layer": "説明",
@@ -3329,7 +2888,7 @@
 "mock_hash": "5908ae81"
 },
 {
-"id": "p5.t.California",
+"id": "p3.t.California",
 "name": "California",
 "kind": "text",
 "layer": "説明",
@@ -3343,7 +2902,7 @@
 "mock_hash": "9c089b7d"
 },
 {
-"id": "p5.t.→遊戯室の切り株",
+"id": "p3.t.→遊戯室の切り株",
 "name": "→ 遊戯室の切り株",
 "kind": "text",
 "layer": "説明",
@@ -3357,15 +2916,464 @@
 "mock_hash": "93d29abd"
 }
 ]
+},
+{
+"no": 4,
+"frame": false,
+"parts": [
+{
+"id": "p4.link.sodachiya_plan_1-100",
+"name": "図 sodachiya_plan_1-100.pdf",
+"kind": "link",
+"layer": "図",
+"file": "drawings/sodachiya_plan_1-100.pdf",
+"x": 0,
+"y": -0.0,
+"w": 841.0,
+"h": 594.0,
+"clip": null,
+"scale": 1.0,
+"page": 1
+},
+{
+"id": "p4.top.こどもたちの育ち舎45平面図",
+"name": "こどもたちの育ち舎　4/5　平面図　1階・2階",
+"kind": "text",
+"layer": "説明",
+"x": 14,
+"y": 12.0,
+"s": "こどもたちの育ち舎　4/5　平面図　1階・2階",
+"size_pt": 14.17,
+"font": "W6",
+"color": "#1A1A1A",
+"align": "left",
+"mock_hash": "ece2604c"
+}
+]
+},
+{
+"no": 5,
+"frame": true,
+"parts": [
+{
+"id": "p5.other",
+"name": "5枚目　その他の絵（縮尺・方位・矢印など）",
+"kind": "link",
+"layer": "図",
+"file": "present/ai/parts/p5_その他.pdf",
+"x": 0,
+"y": 0,
+"w": 841.0,
+"h": 594.0,
+"clip": null,
+"scale": 1
+},
+{
+"id": "p5.sozai.06",
+"name": "素材 06_一日の帯_登園_800",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/06_一日の帯_登園_800.pdf",
+"x": 21.0,
+"y": 39.0,
+"w": 129.0,
+"h": 150,
+"clip": null,
+"scale": 1
+},
+{
+"id": "p5.sozai.07",
+"name": "素材 07_一日の帯_外で遊ぶ_930",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/07_一日の帯_外で遊ぶ_930.pdf",
+"x": 155.0,
+"y": 39.0,
+"w": 129.0,
+"h": 150,
+"clip": null,
+"scale": 1
+},
+{
+"id": "p5.sozai.08",
+"name": "素材 08_一日の帯_食べる_1130",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/08_一日の帯_食べる_1130.pdf",
+"x": 289.0,
+"y": 39.0,
+"w": 129.0,
+"h": 150,
+"clip": null,
+"scale": 1
+},
+{
+"id": "p5.sozai.09",
+"name": "素材 09_一日の帯_寝る_1245",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/09_一日の帯_寝る_1245.pdf",
+"x": 423.0,
+"y": 39.0,
+"w": 129.0,
+"h": 150,
+"clip": null,
+"scale": 1
+},
+{
+"id": "p5.sozai.10",
+"name": "素材 10_一日の帯_当番_1500",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/10_一日の帯_当番_1500.pdf",
+"x": 557.0,
+"y": 39.0,
+"w": 129.0,
+"h": 150,
+"clip": null,
+"scale": 1
+},
+{
+"id": "p5.sozai.11",
+"name": "素材 11_一日の帯_降園_1630",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/11_一日の帯_降園_1630.pdf",
+"x": 691.0,
+"y": 39.0,
+"w": 129.0,
+"h": 150,
+"clip": null,
+"scale": 1
+},
+{
+"id": "p5.link.sodachiya_garden_01",
+"name": "図 sodachiya_garden_01.pdf",
+"kind": "link",
+"layer": "図",
+"file": "out/sodachiya_garden_01.pdf",
+"x": 21.0,
+"y": 221.0,
+"w": 136.67,
+"h": 162.56,
+"clip": [
+14,
+40,
+234.43,
+302.2
+],
+"scale": 0.62,
+"page": 1
+},
+{
+"id": "p5.link.sodachiya_play_present",
+"name": "図 sodachiya_play_present.pdf",
+"kind": "link",
+"layer": "図",
+"file": "out/sodachiya_play_present.pdf",
+"x": 165.67,
+"y": 221.0,
+"w": 242.89,
+"h": 192.64,
+"clip": null,
+"scale": 0.8376,
+"page": 1
+},
+{
+"id": "p5.link.sodachiya_forest_02",
+"name": "図 sodachiya_forest_02.pdf",
+"kind": "link",
+"layer": "図",
+"file": "out/sodachiya_forest_02.pdf",
+"x": 416.56,
+"y": 307.98,
+"w": 403.44,
+"h": 105.66,
+"clip": [
+0,
+8,
+420,
+118
+],
+"scale": 0.9606,
+"page": 1
+},
+{
+"id": "p5.link.sodachiya_room3_1-50",
+"name": "図 sodachiya_room3_1-50.pdf",
+"kind": "link",
+"layer": "図",
+"file": "out/sodachiya_room3_1-50.pdf",
+"x": 165.67,
+"y": 427.64,
+"w": 202.75,
+"h": 143.36,
+"clip": null,
+"scale": 0.3413,
+"page": 1
+},
+{
+"id": "p5.pagetitle",
+"name": "ページとサブタイトル",
+"kind": "text",
+"layer": "説明",
+"x": 107.0,
+"y": 26.0,
+"s": "5/5　動線とこどもたちの環境",
+"size_pt": 19.68,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "5e8f45d4"
+},
+{
+"id": "p5.note.footer",
+"name": "割付の注記",
+"kind": "text",
+"layer": "注記",
+"x": 19.0,
+"y": 585.0,
+"s": "［割付の注記］フォーカス：上は一日の動線（4枚目の平面図の続き）。分離線の下は、こどもたちが地に足をつけて育つ場所：園庭・遊戯室・北山杉の林・教室・廊下の本棚・表の畑と火のオーブン　／　目に入る順：一日の帯と動線 → 分離線 → 園庭 → 遊戯室・林 → 教室・本棚・畑",
+"size_pt": 12.6,
+"font": "W3",
+"color": "#6B4FE0",
+"align": "left",
+"mock_hash": "96e2ed9f"
+},
+{
+"id": "p5.t.一日の帯：上は1600の小さ",
+"name": "一日の帯：上は1/600の小さな配置（建物＋園庭",
+"kind": "text",
+"layer": "注記",
+"x": 251.0,
+"y": 37.5,
+"s": "一日の帯：上は1/600の小さな配置（建物＋園庭）と三者の動線（こども緑・保育士茶・調理青）、下にそれぞれの一日",
+"size_pt": 10.24,
+"font": "W3",
+"color": "#6B4FE0",
+"align": "left",
+"mock_hash": "6a7ece52"
+},
+{
+"id": "p5.t.こどもたちの環境",
+"name": "こどもたちの環境",
+"kind": "text",
+"layer": "説明",
+"x": 21.0,
+"y": 206.0,
+"s": "こどもたちの環境",
+"size_pt": 19.68,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "988d7ba4"
+},
+{
+"id": "p5.t.園庭",
+"name": "園庭",
+"kind": "text",
+"layer": "説明",
+"x": 21.0,
+"y": 217.0,
+"s": "園庭",
+"size_pt": 16.53,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "650244"
+},
+{
+"id": "p5.t.だいさんかく・しずかのもり約",
+"name": "だいさんかく・しずかのもり　約1/320（配置1",
+"kind": "text",
+"layer": "説明",
+"x": 35.8,
+"y": 217.0,
+"s": "だいさんかく・しずかのもり　約1/320（配置1/200を縮小）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"mock_hash": "5691c462"
+},
+{
+"id": "p5.t.遊戯室",
+"name": "遊戯室",
+"kind": "text",
+"layer": "説明",
+"x": 165.67,
+"y": 217.0,
+"s": "遊戯室",
+"size_pt": 16.53,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "df98162"
+},
+{
+"id": "p5.t.ホールの北山杉の林",
+"name": "ホールの北山杉の林",
+"kind": "text",
+"layer": "説明",
+"x": 416.56,
+"y": 217.0,
+"s": "ホールの北山杉の林",
+"size_pt": 16.53,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "77c99b0b"
+},
+{
+"id": "p5.t.教室",
+"name": "教室",
+"kind": "text",
+"layer": "説明",
+"x": 165.67,
+"y": 421.64,
+"s": "教室",
+"size_pt": 16.53,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "66d662"
+},
+{
+"id": "p5.t.3歳の保育室",
+"name": "3歳の保育室",
+"kind": "text",
+"layer": "説明",
+"x": 180.47,
+"y": 421.64,
+"s": "3歳の保育室",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"mock_hash": "3328392c"
+},
+{
+"id": "p5.box.廊下の本棚と読む場所",
+"name": "枠：廊下の本棚と読む場所",
+"kind": "box",
+"layer": "注記",
+"x": 376.42,
+"y": 427.64,
+"w": 217.79,
+"h": 143.36,
+"fill": "#F4F1FF",
+"stroke": "#6B4FE0",
+"lw": 0.6,
+"dash": [
+3,
+2
+]
+},
+{
+"id": "p5.t.廊下の本棚と読む場所",
+"name": "廊下の本棚と読む場所",
+"kind": "text",
+"layer": "注記",
+"x": 485.32,
+"y": 498.57,
+"s": "廊下の本棚と読む場所",
+"size_pt": 14.17,
+"font": "W6",
+"color": "#6B4FE0",
+"align": "center",
+"mock_hash": "469ac9b7"
+},
+{
+"id": "p5.t.（図は本館係に依頼）",
+"name": "（図は本館係に依頼）",
+"kind": "text",
+"layer": "注記",
+"x": 485.32,
+"y": 503.58,
+"s": "（図は本館係に依頼）",
+"size_pt": 10.24,
+"font": "W3",
+"color": "#6B4FE0",
+"align": "center",
+"mock_hash": "f0629012"
+},
+{
+"id": "p5.box.表の畑と火のオーブン",
+"name": "枠：表の畑と火のオーブン",
+"kind": "box",
+"layer": "注記",
+"x": 602.21,
+"y": 427.64,
+"w": 217.79,
+"h": 143.36,
+"fill": "#F4F1FF",
+"stroke": "#6B4FE0",
+"lw": 0.6,
+"dash": [
+3,
+2
+]
+},
+{
+"id": "p5.t.表の畑と火のオーブン",
+"name": "表の畑と火のオーブン",
+"kind": "text",
+"layer": "注記",
+"x": 711.11,
+"y": 498.57,
+"s": "表の畑と火のオーブン",
+"size_pt": 14.17,
+"font": "W6",
+"color": "#6B4FE0",
+"align": "center",
+"mock_hash": "a52a915c"
+},
+{
+"id": "p5.t.入口の前の菜園とひろばのかま",
+"name": "入口の前の菜園とひろばのかまど",
+"kind": "text",
+"layer": "注記",
+"x": 711.11,
+"y": 503.58,
+"s": "入口の前の菜園とひろばのかまど",
+"size_pt": 10.24,
+"font": "W3",
+"color": "#6B4FE0",
+"align": "center",
+"mock_hash": "eea3051b"
+},
+{
+"id": "p5.t.（図はアプローチ係に依頼）",
+"name": "（図はアプローチ係に依頼）",
+"kind": "text",
+"layer": "注記",
+"x": 711.11,
+"y": 508.08,
+"s": "（図はアプローチ係に依頼）",
+"size_pt": 10.24,
+"font": "W3",
+"color": "#6B4FE0",
+"align": "center",
+"mock_hash": "ef33d9c1"
+}
+]
 }
 ],
 "renumber": {
-"id": "2026-10-28",
-"map": {
+"id": "2026-10-28b",
+"maps": {
+"2026-10-28": {
+"4": 2,
+"5": 3,
 "2": 4,
-"3": 2,
-"4": 3
+"3": 5
 },
-"note": "ユーザー、10-28：5枚の番号を振り直した（前の番号 → 新しい番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"
+"_none": {
+"5": 3,
+"3": 4,
+"4": 5
+}
+},
+"note": "ユーザー、10-28 13:17：5枚の番号を振り直した（前の番号 → 新しい番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"
 }
 }

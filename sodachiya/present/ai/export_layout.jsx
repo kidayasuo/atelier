@@ -9,7 +9,7 @@
     var L = null;
     try { L = SDY.readJSON(File(SDY.here.fsName + "/layout.json")); } catch (e) { L = null; }
     // 5枚の番号の振り直し（10-28）：この .ai が前の番号のままなら、部品の名前（p2.… など）とアートボードを新しい番号に直して書き出す
-    var RN = SDY.oldNumbering(L) ? L.renumber.map : null;
+    var RN = SDY.oldNumbering(L);
     var rab = function (n) { return (RN && RN[String(n)]) ? RN[String(n)] : n; };
     var rid = function (id) { var m = /^p(\d+)\./.exec(id); return (RN && m && RN[m[1]]) ? "p" + RN[m[1]] + id.substring(m[0].length - 1) : id; };
     var rui = function (d) { var k3; if (d && d.artboard > 0) { d.artboard = rab(d.artboard); } if (d && d.children) { for (k3 = 0; k3 < d.children.length; k3++) { rui(d.children[k3]); } } return d; };

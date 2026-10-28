@@ -119,13 +119,16 @@ SDY.styleText = function (tf, p) {
     if (p.para_space) { SDY._each(tf, function (r) { r.paragraphAttributes.spaceAfter = size * Number(p.para_space); }); }
 };
 SDY.missing = [];
-// 5枚の番号の振り直し（ユーザー、10-28）：layout.json の renumber（前の番号 → 新しい番号）。
-// 前に組んだときの layout_built.json に同じ id の renumber が無ければ、今の .ai は前の番号のまま
+// 5枚の番号の振り直し（ユーザー、10-28・10-28 13:17）：layout.json の renumber.maps（前の番号 → 新しい番号）。
+// 前に組んだときの layout_built.json の renumber の id で、今の .ai がどの番号かを見る（renumber が無ければ最初の番号＝"_none"）。
+// 今の番号のままなら null、前の番号なら写し方（{"前": 新, …}）を返す
 SDY.oldNumbering = function (L) {
-    if (!L || !L.renumber) { return false; }
+    if (!L || !L.renumber || !L.renumber.maps) { return null; }
     var OB = null;
     try { var bf = File(SDY.here.fsName + "/layout_built.json"); if (bf.exists) { OB = SDY.readJSON(bf); } } catch (e) {}
-    return !(OB && OB.renumber && OB.renumber.id === L.renumber.id);
+    var was = (OB && OB.renumber) ? OB.renumber.id : "_none";
+    if (was === L.renumber.id) { return null; }
+    return L.renumber.maps[was] || null;
 };
 SDY.abMap = null;                                    // 前の .ai のアートボード番号（0から）→ 新しい .ai のアートボード番号
 SDY.placeLink = function (doc, lay, i, p) {

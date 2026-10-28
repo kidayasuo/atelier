@@ -45,8 +45,8 @@
                 var ddx = an.origin[0] - ao.origin[0], ddy = an.origin[1] - ao.origin[1];
                 if (Math.abs(ddx) > 0.05 || Math.abs(ddy) > 0.05) { SDY.planShift = { ab: ab1, win: ao.window, dx: ddx, dy: ddy, n: 0 }; }
             }
-            if (SDY.oldNumbering(L)) {                 // 前の .ai は前の番号のまま（10-28 の振り直し）：木田さんの物を新しい番号の枚へ
-                var RM = L.renumber.map;
+            var RM = SDY.oldNumbering(L);
+            if (RM) {                                  // 前の .ai は前の番号のまま（10-28 の振り直し）：木田さんの物を新しい番号の枚へ
                 SDY.abMap = function (a) { var nn = RM[String(a + 1)]; return nn ? nn - 1 : a; };
             }
             var oldDoc = app.open(out);
