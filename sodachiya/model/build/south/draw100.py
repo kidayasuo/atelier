@@ -23,10 +23,17 @@ IN, OUTD = sys.argv[1], sys.argv[2]
 PDFD = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].endswith('.3dm') else OUTD   # add_inner.py がこの頭を借りるときは3つ目が3dm
 if PDFD != OUTD: os.makedirs(PDFD, exist_ok=True)
 os.makedirs(OUTD, exist_ok=True)
-for f in font_manager.findSystemFonts():
-    if 'NotoSansCJK-Regular' in f: font_manager.fontManager.addfont(f)
-plt.rcParams['font.family'] = 'Noto Sans CJK JP'
-plt.rcParams['pdf.fonttype'] = 42
+# 字は TrueType に変えた Noto を Type42 で埋め込む（scripts/fonts42.py）。システムの Noto（OTF・CFF）のまま Type42 にすると、
+# Illustrator・プレビューなどで字が欠けて、字の白い地だけが四角く残っていた（10-28、ユーザー）
+_SR = next((p_ for p_ in (os.environ.get('SODACHIYA_ROOT', ''), os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'),
+                          '/home/claude/atelier/sodachiya') if p_ and os.path.isfile(os.path.join(p_, 'scripts', 'fonts42.py'))), None)
+if _SR:
+    sys.path.insert(0, os.path.join(_SR, 'scripts')); import fonts42  # noqa: F401
+else:
+    for f in font_manager.findSystemFonts():
+        if 'NotoSansCJK-Regular' in f: font_manager.fontManager.addfont(f)
+    plt.rcParams['font.family'] = 'Noto Sans CJK JP'
+    plt.rcParams['pdf.fonttype'] = 42
 
 C = np.array([194645.51027008, -41347.80985094])
 MM = 1 / 25.4                     # mm → inch
@@ -1150,22 +1157,27 @@ def plan_section_marks(A):
             th = theta_u(val); a, b = at(184000, th), at(222000, th)
             A.lines([[a, b]], '70_断面の位置', lw=LW_THIN, ls=LS_CHAIN, z=10)
             tdir = at(205000, theta_u(val + 1)) - at(205000, th); tdir /= np.linalg.norm(tdir)
-            ends = (a, b)
+            ends = (a, b); outw = {0: a - b, 1: b - a}
             lu = (b - a) / np.linalg.norm(b - a)
             A.lines([[a, a + lu * 1500], [b, b - lu * 1500]], '70_断面の位置', lw=LW_CUT, z=11)     # 切断線の両端は太く（JIS A 0150）
         else:
-            ths = np.linspace(theta_u(-9000), theta_u(62000), 200)
+            # 北の端は本館の北の妻と機械室（おにぎり）のあいだで止める（10-28 ユーザー：前は u 62 で、矢がおにぎりにぶつかっていた）
+            ths = np.linspace(theta_u(-5500), theta_u(58200), 200)                      # 南の端も紙の縁から離す（前は −9 m で紙の外）
             P = np.array([at(val, t) for t in ths])
             A.lines([P], '70_断面の位置', lw=LW_THIN, ls=LS_CHAIN, z=10)
-            ends = (P[0], P[-1])
-            A.lines([P[:5], P[-5:]], '70_断面の位置', lw=LW_CUT, z=11)                               # 両端を太く（約 1.4 m）
-        for q in ends:
+            ends = (P[0], P[-1]); outw = {0: P[0] - P[1], 1: P[-1] - P[-2]}
+            k_ = max(2, int(200 * 1200 / 63700))
+            A.lines([P[:k_], P[-k_:]], '70_断面の位置', lw=LW_CUT, z=11)                             # 両端を太く（約 1.2 m）
+        for i_, q in enumerate(ends):
             if kind_ == 'arc':
                 d = q - C; tdir = -d / np.linalg.norm(d)      # 西（r の大きい方）を見る
                 tdir = d / np.linalg.norm(d)
-            A.lines([[q, q + tdir * 1600]], '70_断面の位置', lw=LW_CUT, z=11)                      # 見る向きの矢
-            A.lines([[q + tdir * 1600 + np.array([-tdir[1], tdir[0]]) * 300, q + tdir * 2100, q + tdir * 1600 - np.array([-tdir[1], tdir[0]]) * 300]], '70_断面の位置', lw=LW_CUT, z=11)
-            A.text(q[0], q[1], nm, 8, '70_断面の位置', box=True)
+            # 見る向きの矢：黒く塗った三角（10-28 ユーザー：いちばんよく見る形）
+            nrm_ = np.array([-tdir[1], tdir[0]])
+            A.lines([[q, q + tdir * 900]], '70_断面の位置', lw=LW_CUT, z=11)
+            A.fill(Polygon([q + tdir * 800 + nrm_ * 380, q + tdir * 1900, q + tdir * 800 - nrm_ * 380]), '70_断面の位置', fc='k', z=11)
+            o_ = outw[i_] / np.linalg.norm(outw[i_]); qt = q + o_ * 650 + tdir * 450     # 字は線の端の先、矢の脇
+            A.text(qt[0], qt[1], nm, 10, '70_断面の位置', box=True)
 
 def objs_for_plan(level):
     out = []
