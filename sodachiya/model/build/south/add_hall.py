@@ -90,19 +90,52 @@ K = Kit(out)
 
 # ---------------------------------------------------------------- 北山杉の林
 TOP = F['TOP']
-n = 0
+n = n_cut = 0
+_RZ = lambda v: 4150.0 - v * 1000.0 / 12.0            # 元の屋根の面（fix_details.py の ROOF_Z）
+_CUT_DZ = -475.0                                         # 削る段の屋根の下面（合板の下 −324 から垂木の層 150 下げた −474）の 1 mm 下
+def _span_plane(k):
+    """スパン k の屋根の平面（fix_details.py の _plane・zpl と同じ）→ z(x, y)"""
+    A_ = np.asarray(xy(3.0 * k, 0.0), float); B_ = np.asarray(xy(3.0 * (k + 1), 0.0), float); c_ = (B_ - A_) / np.linalg.norm(B_ - A_)
+    h_ = np.array([c_[1], -c_[0]])
+    if np.dot(h_, np.asarray(xy(3.0 * k, 1.0), float) - A_) < 0: h_ = -h_
+    return lambda x_, y_: _RZ(((x_ - A_[0]) * h_[0] + (y_ - A_[1]) * h_[1]) / 1000.0)
+def _trunk_cut(x, y, rr, htop, v):
+    """幹の頭が削る段の屋根の下面に届くなら、その平面 z(x, y)（スパンの中、v 1.9〜11.8 の所だけ）。届かなければ None"""
+    us = [uv(x + rr * math.cos(a), y + rr * math.sin(a)) for a in np.linspace(0, 2 * math.pi, 16, endpoint=False)]
+    k0, k1 = int(min(p[0] for p in us) // 3.0), int(max(p[0] for p in us) // 3.0)
+    vmin, vmax = min(p[1] for p in us), max(p[1] for p in us)
+    if k0 != k1 or vmin < 1.9 or vmax > 11.8: return None
+    zp = _span_plane(k0); zc = lambda x_, y_: zp(x_, y_) + _CUT_DZ
+    if htop <= min(zc(x + rr * math.cos(a), y + rr * math.sin(a)) for a in np.linspace(0, 2 * math.pi, 16)) + 1.0: return None
+    return zc
+def _trunk_mesh(x, y, rr, zc, N=72):
+    """円（N 角、5°おき）の押し出し。下は床 ±0、頭は平面 zc（斜めの平らな端）"""
+    mm = r.Mesh(); mm.Vertices.UseDoublePrecisionVertices = True      # 単精度だと斜めの頭が 0.01 mm 合わず Rhino 版で押し出しにならない
+    P = [(x + rr * math.cos(2 * math.pi * k / N), y + rr * math.sin(2 * math.pi * k / N)) for k in range(N)]
+    for px, py in P: mm.Vertices.Add(px, py, 0.0)
+    for px, py in P: mm.Vertices.Add(px, py, float(zc(px, py)))
+    for k in range(N): mm.Faces.AddFace(k, (k + 1) % N, N + (k + 1) % N, N + k)
+    for k in range(1, N - 1): mm.Faces.AddFace(0, k + 1, k); mm.Faces.AddFace(N, N + k, N + k + 1)
+    mm.Normals.ComputeNormals(); mm.Compact(); return mm
 for t in F['TREES']:
     x, y = t['xy_mm']; v = t['v']; rr = t['d'] * 500; nn = 12 if t['d'] < 0.15 else 20
     if 'h' in t: top = t['h']                                         # 6 版：木ごとの高さ（床から、自立、頂部は半球）
     else: top = TOP['WEST_VOID_TOP'] if v < TOP['WEST_VOID_V'] else (4.0 - v / 12.0)
     # 10-28（監修の項 20261027-2346 の 55）：幹は円の押し出し（φd、床 ±0 から h まで）。前は円柱＋頂部の半球を帯の網目にしていて、
     # Rhino 版で 1 本 5 面の Brep（39 KB）になっていた。太さ・高さ（data/forest.json）は変えない（頂部の丸みは平らな端に）
-    cyl = r.Cylinder(r.Circle(r.Point3d(x, y, 0.0), rr), top * 1000.0)
-    mm = r.Extrusion.CreateCylinderExtrusion(cyl, True, True)
     at_ = r.ObjectAttributes(); at_.LayerIndex = L_TREE; at_.Name = f"{t.get('group', '')} φ{int(t['d'] * 1000)} h{top:.2f}"
-    out.Objects.AddExtrusion(mm, at_)
+    # 10-28（監修の項 20261028-0843 の 55）：屋根の下面より高い幹は、削る段（clip_parts、250 の格子の屋根の下面）で頭を欠かれ、
+    # 格子の段で頭が平らでなくなり Rhino 版で三角形の面になっていた。削る段が切る高さ（スパンの屋根の平面の 474 下）で、
+    # ここで頭を平らな斜めの面に切っておく（削る段の差は 0.2 L 未満で、もう削られない）。形は同じ。幹が架構の線をまたぐ所、
+    # 越屋根の下（v < 1.9）・桁の下（v > 11.8）など、平らに切れない所はそのまま（削る段が切る）
+    cut = _trunk_cut(x, y, rr, top * 1000.0, v)
+    if cut is not None:
+        out.Objects.AddMesh(_trunk_mesh(x, y, rr, cut), at_); n_cut += 1
+    else:
+        cyl = r.Cylinder(r.Circle(r.Point3d(x, y, 0.0), rr), top * 1000.0)
+        out.Objects.AddExtrusion(r.Extrusion.CreateCylinderExtrusion(cyl, True, True), at_)
     n += 1
-print('trees', n)
+print('trees', n, 'cut to roof plane', n_cut)
 
 # ---------------------------------------------------------------- スパン 11
 H = 2400.0

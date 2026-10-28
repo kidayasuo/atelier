@@ -173,20 +173,32 @@ def cot(rec):
     solid_uv([tuple(p) for p in rec['pts']], 0, 120, L_COT)
 def nedoko(rec):                     # ねどこの囲い h900（u=5.6 の辺に開口）
     ring_uv([tuple(p) for p in rec['pts']], 0, 900, 0.03, L_P, (0.95, 0.93, 0.85, 1), gap=(5.5, 5.7, 5.2, 6.2))
-def hut_roof(rec):                   # 2歳の小屋の屋根（10-28、監修の項 20261028-0015 の 8、ユーザー：登れない屋根に）
+def _orient_ccw(pg):
+    from shapely.geometry.polygon import orient as _o
+    return _o(pg if pg.geom_type == 'Polygon' else max(pg.geoms, key=lambda g_: g_.area), 1.0)
+def hut_roof(rec):                  # 2歳の小屋の屋根（10-28、監修の項 20261028-0015 の 8、ユーザー：登れない屋根に）
     # 前は h1000 の平らな板（登れた）。小屋の形（囲い u16.9〜17.95・v3.3〜4.6、h1000）は変えず、屋根を急な切妻（60°）に：
     # 棟は v の向き（小屋の真ん中 u17.425）、軒は囲いの上端 h1000、棟 約 h1900。杉の板 t20 を勾配の面に直角に厚みをつけた平らな板 2 枚。
     import math as _mt
     g = SP(clean(rec['pts'])); _, v0, _, v1 = g.bounds
     ua, ub = 16.9, 17.95; uc = (ua + ub) / 2; zt = 1000.0 + (uc - ua) * 1000.0 * _mt.tan(_mt.radians(60))
+    # 10-28（監修の項 20261028-0843 の 46）：板は真っすぐな座標（小屋の真ん中の接線 t・放射 r）で作る。前は弧の座標 W(u, v) で、
+    # 上下の面が平らでなく（放射の線が寄る分）Rhino 版で三角形の面に割れていた。東の軒の板が腰の壁（38、u17.95〜）に入る分は削る段と同じく u17.95 で切る
+    from shapely.geometry import box as _bx
+    vm = 0.5 * (v0 + v1); Wc = W(uc, vm); tv = W(uc + 0.001, vm) - Wc; tv /= np.linalg.norm(tv); rv = W(uc, vm + 0.001) - Wc; rv /= np.linalg.norm(rv)
+    Ws = lambda u, v: Wc + (u - uc) * 1000.0 * (205.0 - vm) / 205.0 * tv + (v - vm) * 1000.0 * rv
     for (u_e, u_r) in ((ua, uc), (ub, uc)):
         du = (u_r - u_e) * 1000.0; dz = zt - 1000.0; L = _mt.hypot(du, dz); nu, nz = -dz / L * np.sign(du), abs(du) / L   # 面の外向きの法線（u, z）
         prof = [(u_e, 1000.0), (u_r, zt), (u_r + nu * 20 / 1000.0, zt + nz * 20), (u_e + nu * 20 / 1000.0, 1000.0 + nz * 20)]
-        V = [(*W(u, v), z) for v in (v0, v1) for u, z in prof]
+        pg = SP([(u * 1000.0, z) for u, z in prof]).intersection(_bx(-1e9, -1e9, 17950.0, 1e9))
+        prof = [(a / 1000.0, z) for a, z in list(_orient_ccw(pg).exterior.coords)[:-1]]
+        n_ = len(prof)
+        V = [(*Ws(u, v), z) for v in (v0, v1) for u, z in prof]
         M = r.Mesh()
         for p_ in V: M.Vertices.Add(float(p_[0]), float(p_[1]), float(p_[2]))
-        F = [(0, 1, 2, 3), (7, 6, 5, 4), (0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)]
-        P_ = np.array(V); vol = sum(np.dot(P_[f[0]], np.cross(P_[f[i]] - P_[f[0]], P_[f[i + 1]] - P_[f[0]])) for f in F for i in (1, 2))
+        F = [(0, k, k + 1) for k in range(1, n_ - 1)] + [(n_, n_ + k + 1, n_ + k) for k in range(1, n_ - 1)] + \
+            [(k, (k + 1) % n_, n_ + (k + 1) % n_, n_ + k) for k in range(n_)]
+        P_ = np.array(V); vol = sum(np.dot(P_[f[0]], np.cross(P_[f[i]] - P_[f[0]], P_[f[i + 1]] - P_[f[0]])) for f in F for i in range(1, len(f) - 1))
         if vol < 0: F = [f[::-1] for f in F]
         for f in F: M.Faces.AddFace(*f)
         M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M, attr(L_PL, fc(rec) or (0.92, 0.86, 0.72, 1)))

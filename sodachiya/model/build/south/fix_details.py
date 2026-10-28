@@ -230,12 +230,53 @@ def ellipse_tube(vc, zc, ua, ub, li, name):
     mm.Normals.ComputeNormals(); mm.Compact()
     at = r.ObjectAttributes(); at.LayerIndex = li; at.Name = name
     return mm, at
+def ellipse_spans(vc, zc, ua, ub, li, name, N=48):
+    """10-28（監修の項 20261028-0843 の 11c）：桁をスパンごとの真っすぐな楕円（幅 200×高さ 400）の押し出しに。
+    軸は架構の線（u = 3k）の節点 xy(u, vc) を結ぶ弦、断面は軸に直角な楕円、端は架構の線（放射の線）の鉛直な面で留める
+    （となりのスパンの片とちょうど合う）。前は 57 m の弧に沿う管の網目で、Rhino 版で 1 本 150 KB。"""
+    nd = [3.0 * k for k in range(0, 20) if ua + 0.01 < 3.0 * k < ub - 0.01]
+    segs = [(a_, b_, a_, b_) for a_, b_ in zip(nd, nd[1:])]                     # (端 a, 端 b, 弦の節点 a, 弦の節点 b)
+    if segs and ua < nd[0] - 0.01: segs[0] = (ua, segs[0][1], nd[0], nd[1])     # 両端の短い出（南の軒の下 u<0、北 u57〜57.19）は、となりのスパンの弦をそのまま延ばす
+    if segs and ub > nd[-1] + 0.01: segs[-1] = (segs[-1][0], ub, nd[-2], nd[-1])
+    out_ = []
+    for a_, b_, ca_, cb_ in segs:
+        A_, B_ = np.asarray(xy(ca_, vc), float), np.asarray(xy(cb_, vc), float)
+        d_ = (B_ - A_) / np.linalg.norm(B_ - A_); h_ = np.array([d_[1], -d_[0]])
+        ring = [(A_ + 100.0 * math.cos(t) * h_, zc + 200.0 * math.sin(t)) for t in np.linspace(0, 2 * math.pi, N, endpoint=False)]
+        V_ = []
+        for uu in (a_, b_):
+            P0 = np.asarray(xy(uu, vc), float)
+            rn = np.asarray(xy(uu, vc + 0.001), float) - P0; rn /= np.linalg.norm(rn)
+            nrm = np.array([-rn[1], rn[0]])                              # 架構の線（放射）の面の法線（水平）
+            for q, z_ in ring:
+                s_ = float(np.dot(P0 - q, nrm) / np.dot(d_, nrm))           # 軸の向きに動かして端の面へ
+                V_.append((*(q + s_ * d_), z_))
+        mm = r.Mesh()
+        for x_, y_, z_ in V_: mm.Vertices.Add(float(x_), float(y_), float(z_))
+        for k in range(N):
+            mm.Faces.AddFace(k, (k + 1) % N, N + (k + 1) % N, N + k)
+        for k in range(1, N - 1):
+            mm.Faces.AddFace(0, k + 1, k); mm.Faces.AddFace(N, N + k, N + k + 1)
+        Vn = np.array(V_); F_ = [(mm.Faces[i][0], mm.Faces[i][1], mm.Faces[i][2]) for i in range(mm.Faces.Count)]
+        vol = sum(np.dot(Vn[a], np.cross(Vn[b], Vn[c])) for a, b, c in F_)
+        if vol < 0:
+            mm2 = r.Mesh()
+            for x_, y_, z_ in V_: mm2.Vertices.Add(float(x_), float(y_), float(z_))
+            for i in range(mm.Faces.Count):
+                f = mm.Faces[i]
+                if f[2] == f[3]: mm2.Faces.AddFace(f[0], f[2], f[1])
+                else: mm2.Faces.AddFace(f[0], f[3], f[2], f[1])
+            mm = mm2
+        mm.Normals.ComputeNormals(); mm.Compact()
+        at = r.ObjectAttributes(); at.LayerIndex = li; at.Name = name
+        out_.append((mm, at))
+    return out_
 new_objs = []; drop = set()
 for o in m.Objects:
     if o.Attributes.LayerIndex == L11C:
         u0, u1, v0, v1, z0, z1 = bbox_uv(o.Geometry); vc = (v0 + v1) / 2; zc = (z0 + z1) / 2
         ub = 57.19                                       # 北の端の架構（外の梁の外面）で止める（妻壁の内側）
-        new_objs.append(ellipse_tube(vc, zc, u0, ub, L11C, '桁（西）' if vc < 6 else '桁（東）')); drop.add(str(o.Attributes.Id))
+        new_objs += ellipse_spans(vc, zc, u0, ub, L11C, '桁（西）' if vc < 6 else '桁（東）'); drop.add(str(o.Attributes.Id))
 
 # ================================================================ 西館の架構
 rot = lambda du: -du * 1000.0 / RW                     # u を du 動かす回転角（中心 C）
