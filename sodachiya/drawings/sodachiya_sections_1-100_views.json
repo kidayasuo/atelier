@@ -43,7 +43,7 @@
      145.0
     ]
    ],
-   "rhino_supported": false,
+   "rhino_supported": true,
    "center_xy_mm": [
     194645.51027008,
     -41347.80985094
@@ -62,7 +62,8 @@
     0.0,
     0.0
    ],
-   "_": "円筒面 r=radius で切って展開：h = sign·(θ − theta0)·radius（θ は中心からの角度）、外（r の大きい方）を見る。model_to_paper_3d は使えない（0）。Rhino ではまだ描かない"
+   "_": "円筒面 r=radius で切って展開：h = sign·(θ − theta0)·radius（θ は中心からの角度を [0, 2π) に）、外（r の大きい方）を見る。model_to_paper_3d は使えない（0）。xcut_h_mm より南（h の小さい方、敷地の外）は描かない。rhino/zumen.py の draw_section_arc が読む",
+   "xcut_h_mm": -7389.999999999967
   },
   {
    "name": "断面B",
