@@ -202,26 +202,6 @@ def hut_roof(rec):                  # 2歳の小屋の屋根（10-28、監修の
         if vol < 0: F = [f[::-1] for f in F]
         for f in F: M.Faces.AddFace(*f)
         M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M, attr(L_PL, fc(rec) or (0.92, 0.86, 0.72, 1)))
-L_DOOR = layer('19d_建具_室内の戸（木）', (165, 120, 75))
-def booth_front(rec):
-    """こどもの便所の個室（スパン 14・17、10-28 ユーザー、決定事項の「便所・倉庫のスパン」）：L字の仕切りの前の短い辺（plan04 の 149 行、
-    w1.05、vc−0.40〜vc+0.05）は前のとおり h1300 の板。開いた一方（vc+0.05〜となりの仕切り vc+0.45）に扉：h1300（床から 100 浮かす、
-    上端は仕切りと同じ）、厚さ 30、鍵なし、内開き（吊元は仕切りの側、開くと便器から約 0.1 離れる）。閉じた位置の平らな板、名前に吊元と開く向き（draw100 が弧を描く）"""
-    panel_uv([tuple(p) for p in rec['pts']], 0, 1300, 0.03, L_WC)
-    (uf, va), (_, vb) = rec['pts'][0], rec['pts'][-1]
-    uf = float(uf); vc = min(float(va), float(vb)) + 0.40
-    d0, d1 = vc + 0.06, vc + 0.425                                  # 前の板（vc+0.05）・となりの仕切り（vc+0.45 ± 0.015）と 10 あける
-    sgn = -1.0 if uf < 45.0 else 1.0                                 # 内の向き：便器の側（スパン14 は u の小さい側、スパン17 は大きい側）
-    c_ = W(uf, 0.5 * (d0 + d1)); tv = W(uf, d1) - W(uf, d0); Wd = float(np.linalg.norm(tv)); tv /= Wd
-    nv = W(uf + 0.001, 0.5 * (d0 + d1)) - c_; nv /= np.linalg.norm(nv); nv = nv - tv * (nv @ tv); nv /= np.linalg.norm(nv)
-    q = [c_ - tv * Wd / 2 - nv * 15, c_ + tv * Wd / 2 - nv * 15, c_ + tv * Wd / 2 + nv * 15, c_ - tv * Wd / 2 + nv * 15]
-    hp = c_ + tv * Wd / 2; od = nv * sgn
-    a_ = attr(L_DOOR); a_.Name = f'開き戸 W{round(Wd)} 吊元 {hp[0]:.0f},{hp[1]:.0f} 開く {od[0]:.4f},{od[1]:.4f}（こどもの便所の個室、h1300、鍵なし）'
-    # 10-28：平らな板は押し出し（形の点検の決まり：メッシュにしない）。平面の長方形を床から 100 の高さで 1200 上へ
-    pl_ = r.Polyline([r.Point3d(float(p[0]), float(p[1]), 100.0) for p in q + q[:1]]).ToPolylineCurve()
-    ex_ = r.Extrusion.Create(pl_, 1200.0, True)
-    if ex_ is not None and ex_.GetBoundingBox().Max.Z < 200.0: ex_ = r.Extrusion.Create(pl_, -1200.0, True)
-    m.Objects.AddExtrusion(ex_, a_)
 def kubomi(rec):                    # 2歳の落ち着くくぼみ：囲い h1000、南に開口
     ring_uv([tuple(p) for p in rec['pts']], 0, 1000, 0.04, L_PL, fc(rec), gap=(16.85, 16.95, 3.55, 4.35))
 def mamagoto_posts(rec): solid_uv([tuple(p) for p in rec['pts']], 0, 1400, L_F, (0.3, 0.25, 0.2, 1))
@@ -270,9 +250,7 @@ T04 = {   # plan04（3〜5歳、u ≥ 30）
     95: ('solid', 0, 2400, L_P), 96: ('solid', 0, 2400, L_P),
     113: ('solid', 0, 2400, L_P), 116: ('solid', 0, 2400, L_P), 122: ('solid', 0, 2400, L_P),
     118: ('panel', 0, 2400, 0.12, L_P), 123: ('panel', 0, 2400, 0.12, L_P),
-    134: ('solid', 0, 500, L_WC), 143: ('panel', 0, 1300, 0.03, L_WC), 144: ('panel', 0, 1300, 0.03, L_WC),
-    147: ('solid', 0, 550, L_WC), 148: ('solid', 0, 260, L_WC), 149: lambda rec: booth_front(rec),
-    151: ('solid', 0, 800, L_WC),
+    134: ('solid', 0, 500, L_WC),                         # 143・144・147〜151（四角い個室・帯の中の流し）は 10-28 から丸いポッド（下の maru_pods）
     153: ('panel', 1200, 2270, 0.01, L_T),                # 路地の出口の暖簾（裾 h1200）
     154: ('panel', 100, 700, 0.02, L_GL),                 # 便所の東の低い窓
     170: ('solid', -150, 250, L_F),                       # 下足箱・腰掛け（外縁側の側）
@@ -356,6 +334,54 @@ def build(name, table, umin, umax, skipclip=False):
 build('plan01.py', T01, -1, 12.0)
 build('plan02.py', T02, 12.0, 18.1)
 build('plan04.py', T04, 29.9, 57.4)
+
+# ---------------- こどもの便所の丸いポッド（10-28 ユーザー、決定事項（本館）の「便所・倉庫のスパン」、検討 maru_wc2） ----------------
+# スパン 14（plan04 の crank_block(39, False)、U(w) = 39 + w）と 17（crank_block(48, True)、U(w) = 51 − w）の便所の帯。局所座標 w（u の向き、
+# 部屋の壁 w0 から路地 w1.5 へ）・v。個室 4 つ：内径 φ1.0・壁 t30・h1300 の円筒（路地の側 w+ に開口 約0.47）、中心 w0.59・v7.71〜11.34（すき間 150）。
+# 戸：丸い引き戸 t30・h1300（閉じた位置で壁の外を回る円弧の板、開口の両側に 5°かかる）。便器は奥寄り。掃除用の流し 500×450 は帯の外へ。
+# どれも閉じた押し出し（輪郭の線と円弧、メッシュにしない）。
+L_DOOR = layer('19d_建具_室内の戸（木）', (165, 120, 75))
+POD_RIN, POD_T, POD_H = 0.50, 0.03, 1300.0
+POD_W, POD_VS = 0.59, [7.71, 8.92, 10.13, 11.34]
+POD_HALF = math.degrees(math.asin(0.47 / 2 / POD_RIN)); POD_DOV = 5.0
+def _ext(curve, z0, z1, li, name=None, col=None):
+    e = r.Extrusion.Create(curve, float(z1 - z0), True)
+    if e is None: return
+    if e.GetBoundingBox().Min.Z < -1.0: e = r.Extrusion.Create(curve, -float(z1 - z0), True)
+    e.Translate(r.Vector3d(0.0, 0.0, float(z0)))
+    a = attr(li, col)
+    if name: a.Name = name
+    m.Objects.AddExtrusion(e, a)
+def maru_pods(b0, flip):
+    U = (lambda w: b0 + 3 - w) if flip else (lambda w: b0 + w)
+    P3 = lambda q: r.Point3d(float(q[0]), float(q[1]), 0.0)
+    def frame(w, v):
+        c = W(U(w), v); tw = W(U(w + 0.001), v) - c; tw /= np.linalg.norm(tw); tv = W(U(w), v + 0.001) - c; tv /= np.linalg.norm(tv)
+        return c, tw, tv
+    def band(c, tw, tv, r0, r1, a0, a1):
+        pt = lambda R_, a: c + R_ * 1000.0 * (math.cos(math.radians(a)) * tw + math.sin(math.radians(a)) * tv)
+        am = 0.5 * (a0 + a1); pc = r.PolyCurve()
+        pc.Append(r.Arc(P3(pt(r1, a0)), P3(pt(r1, am)), P3(pt(r1, a1))))
+        pc.Append(r.LineCurve(P3(pt(r1, a1)), P3(pt(r0, a1))))
+        pc.Append(r.Arc(P3(pt(r0, a1)), P3(pt(r0, am)), P3(pt(r0, a0))))
+        pc.Append(r.LineCurve(P3(pt(r0, a0)), P3(pt(r1, a0))))
+        return pc
+    def poly_w(pts):                                     # 局所 (w, v) の多角形 → 閉じた折れ線
+        q = [W(U(w), v) for w, v in pts]; q.append(q[0])
+        return r.Polyline([P3(x) for x in q]).ToPolylineCurve()
+    rout = POD_RIN + POD_T
+    for vc in POD_VS:
+        c, tw, tv = frame(POD_W, vc)
+        _ext(band(c, tw, tv, POD_RIN, rout, POD_HALF, 360.0 - POD_HALF), 0.0, POD_H, L_P, 'こどもの便所の丸い個室 φ1000 t30 h1300')
+        _ext(band(c, tw, tv, rout + 0.01, rout + 0.01 + POD_T, -POD_HALF - POD_DOV, POD_HALF + POD_DOV), 10.0, POD_H, L_DOOR,
+             '丸い引き戸（こどもの便所） 開口470 h1300 鍵なし')
+        # 便器（奥寄り）：背の箱 w0.14〜0.37・v±0.17（h550）、便器 0.42×0.32 の楕円（中心 w0.58、h260）
+        _ext(poly_w([(POD_W - 0.45, vc - 0.17), (POD_W - 0.22, vc - 0.17), (POD_W - 0.22, vc + 0.17), (POD_W - 0.45, vc + 0.17)]), 0.0, 550.0, L_WC)
+        _ext(poly_w([(POD_W - 0.01 + 0.21 * math.cos(t), vc + 0.16 * math.sin(t)) for t in np.linspace(0, 2 * math.pi, 48, endpoint=False)]), 0.0, 260.0, L_WC)
+    # 掃除用の流し 500×450（h800）：スパン 14 は職員の個室の南西の隅、スパン 17 は教材庫の口の脇の隅（棚を 450 縮めた所）
+    sk = [(1.56, 1.65), (2.06, 1.65), (2.06, 2.10), (1.56, 2.10)] if not flip else [(2.44, 1.66), (2.94, 1.66), (2.94, 2.11), (2.44, 2.11)]
+    _ext(poly_w(sk), 0.0, 800.0, L_WC, '掃除用の流し 500×450')
+maru_pods(39, False); maru_pods(48, True)
 
 # ---------------- 西の外壁（u 0–57、開口つき） ----------------
 OPEN = [  # (u0, u1, z0, z1)

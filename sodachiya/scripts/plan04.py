@@ -122,7 +122,7 @@ def crank_block(b0, flip, labels_out):
     seg((1.5, 1.65), (1.5, 2.4)); seg((1.5, 3.4), (1.5, J0)); seg((1.5, J0), (3, J1))
     line([(U(1.5), 2.4), (U(1.5), 3.4)], lw=0.5)
     # 教材庫の棚（10-24）：奥行き0.45・h1.8、部屋の側の壁に沿って（斜めの壁の手前まで）。スパン14は職員の個室の分だけ北から
-    poly(Q([(2.5, 3.7 if not flip else 1.66), (2.94, 3.7 if not flip else 1.66), (2.94, 6.35), (2.5, 6.35)]), fc="#F3E7CF", ec="black", lw=0.35, z=3.5)
+    poly(Q([(2.5, 3.7 if not flip else 2.11), (2.94, 3.7 if not flip else 2.11), (2.94, 6.35), (2.5, 6.35)]), fc="#F3E7CF", ec="black", lw=0.35, z=3.5)
     if flip: poly(Q([(1.56, 1.66), (2.45, 1.66), (2.45, 2.1), (1.56, 2.1)]), fc="#F3E7CF", ec="black", lw=0.35, z=3.5)
     # handwash counter along the diagonal (wc side), 5 basins
     dw, dv = 1.5 / 2.5, 2.0 / 2.5
@@ -135,22 +135,18 @@ def crank_block(b0, flip, labels_out):
         t = t0 + (t1 - t0) * (k + 0.5) / 5
         w = dw * t + nw * 0.22; v = J0 + dv * t + nv * 0.22
         ax.add_patch(Ellipse(P(U(w), v), 0.26, 0.26, fc="#EEF5F7", ec="black", lw=0.3, zorder=4))
-    # booths 4 x 0.9 against south-room wall, v 8.4-12.0, depth 1.05
-    for i in range(1, 5):
-        vv = 7.6 + 0.9 * i
-        if i < 4:
-            line([(U(0.06), vv), (U(1.05), vv)], lw=0.4)
-    line([(U(0.06), 7.6), (U(1.05), 7.6)], lw=0.4)
-    for i in range(4):
-        vc = 7.6 + 0.9 * i + 0.45
-        a, b = sorted([U(0.06), U(0.3)]); box(a, b, vc - 0.17, vc + 0.17, lw=0.3)
-        ax.add_patch(Ellipse(P(U(0.52), vc), 0.42, 0.32, fc="white", ec="black", lw=0.3, zorder=4))
-        line([(U(1.05), vc - 0.4), (U(1.05), vc + 0.05)], lw=0.5)
-        # 個室の扉 h1300（10-28 ユーザー：内開き、鍵なし、吊元は仕切りの側）：開いた扉と弧
-        line([(U(1.05), vc + 0.425), (U(0.685), vc + 0.425)], lw=0.6)
-        line([(U(1.05 - 0.365 * math.sin(k_ * math.pi / 22)), vc + 0.425 - 0.365 * math.cos(k_ * math.pi / 22)) for k_ in range(12)], lw=0.25)
-    # mop sink
-    a, b = sorted([U(0.06), U(0.62)]); box(a, b, 7.05, 7.55, lw=0.35, fc="#F2F7F8")
+    # こどもの便所：丸い個室×4（10-28 ユーザー、検討 maru_wc2）：内径 φ1.0・壁 t30・h1300、中心 w0.59・v7.71〜11.34（すき間 150）、
+    # 丸い引き戸 t30（開口 約0.47、路地の側、閉じた位置で壁の外を回る）。便器は奥寄り。掃除用の流しは帯の外（下）
+    _rin, _rout = 0.50, 0.53; _half = math.degrees(math.asin(0.47 / 2 / _rin))
+    def _arc(wc_, vc_, r_, a0, a1, n=40):
+        return [(U(wc_ + r_ * math.cos(math.radians(a))), vc_ + r_ * math.sin(math.radians(a))) for a in [a0 + (a1 - a0) * k_ / (n - 1) for k_ in range(n)]]
+    for vc in (7.71, 8.92, 10.13, 11.34):
+        ax.add_patch(Polygon([P(*q) for q in _arc(0.59, vc, _rout, _half, 360 - _half) + _arc(0.59, vc, _rin, 360 - _half, _half)], closed=True, fc="#555555", ec="black", lw=0.3, zorder=5))
+        ax.add_patch(Polygon([P(*q) for q in _arc(0.59, vc, 0.54, -_half - 5, _half + 5) + _arc(0.59, vc, 0.57, _half + 5, -_half - 5)], closed=True, fc="#C9A26B", ec="black", lw=0.3, zorder=5))
+        a, b = sorted([U(0.14), U(0.37)]); box(a, b, vc - 0.17, vc + 0.17, lw=0.3)
+        ax.add_patch(Ellipse(P(U(0.58), vc), 0.32, 0.42, fc="white", ec="black", lw=0.3, zorder=4))
+    # mop sink（掃除用の流し 500×450）：スパン14は職員の個室の南西の隅、スパン17は教材庫の口の脇の隅（棚を 450 縮めた）
+    a, b = sorted([U(1.56 if not flip else 2.44), U(2.06 if not flip else 2.94)]); box(a, b, 1.65, 2.10, lw=0.35, fc="#F2F7F8")
     # shikidai / noren / low window
     line([(U(1.6), E + 0.05), (U(2.9), E + 0.05)], lw=1.6, c="#7b5ea7", z=6)
     line([(U(0.05), E), (U(0.9), E)], lw=1.4, c="#6aa6c9", z=6)
@@ -254,7 +250,7 @@ legend = [
     "3　路地 幅1.5（横木。途中で斜めに折れ、南北の側が入れ替わる）",
     "4　本の奥：畳とクッション、庭側に足を下ろせる溝（GLまで−300）、GLまでの低い窓、格子の引き戸",
     "5　手洗い×5 h500（折れ目の溜まり。斜めのカウンター）",
-    "6　便所：座る便器×4（仕切りと扉 h1300）",
+    "6　便所：座る便器×4（丸い個室 φ1.0・丸い引き戸 h1300）",
     "7　汚物流し（先生用）",
     "8　教材庫（路地から。天井 h2.4、その上は吹き抜け）。スパン14は西の端を職員用の個室に（10-23夜）",
     "11　路地の出口：暖簾は裾 h1200（子どもは下から先が見える）、出口はまっすぐ（幅1.5）、角に小さな丸い鏡",
