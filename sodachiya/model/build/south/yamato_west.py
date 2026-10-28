@@ -4,8 +4,8 @@
   縦に足もとから外壁の上端まで一本（継がない）。窓・戸・勝手口・搬入の大戸のまわりは板を切る。細い切れ端は張らない。
 - 面：西館の外皮の輪郭（wnew.pkl の WS）の上にある外壁 21 の外の面（西の面・北西の斜めの面・南北の妻・角の丸み）。
   東の面（v −0.9、本館とのすき間の側：すき間の中の室内の壁と、その上の東の高窓の帯）は張らない。
-  窓の抱き・水切りの前の面・南の越屋根の妻（外皮から 30 内）は外皮の輪郭の上に無いので張らない。北の越屋根の妻は北の妻と同じ面にあるので、
-  越屋根の下の列（v −2.7 より東）で屋根に切られた上の片（下の端が h6.5 より上）を張らない。
+  窓の抱き・水切りの前の面は外皮の輪郭の上に無いので張らない。越屋根の妻（10-28 から張る）：北は北の妻と同じ面なので展開の列のまま、
+  南は外皮から約 30 内で展開に入らないので、その面の上に別に張る（最後の節）。
 - 外壁の外の面を外皮の輪郭に沿って展開し（s：輪郭に沿う長さ、z：高さ）、まっすぐな面（妻・西・北西）と角の丸み（R 約3.1 の細かい面の並び）
   ごとに、長さ w に n = max(1, round(w/240)) 枚を等分に置く（本館と同じ：面の中央にそろう）。丸みでは板は平らなまま、板の幅の弦に沿わせ、
   輪郭のいちばん外の点に裏を付ける（丸みは板の並びで近似）。
@@ -254,11 +254,47 @@ for kind, a, b, _ in SEG:
             mr = pg.minimum_rotated_rectangle; xs = np.asarray(mr.exterior.coords)
             short = min(np.linalg.norm(xs[1] - xs[0]), np.linalg.norm(xs[2] - xs[1]))
             if pg.area < BW * 50 or short < 20: ndrop += 1; continue   # 窓の際などの細い切れ端は張らない
-            if in_mon and pg.bounds[1] > Z_MON: nmon += 1; continue   # 越屋根の妻（屋根の上、北の妻と同じ面）には張らない
+            if in_mon and pg.bounds[1] > Z_MON: nmon += 1             # 越屋根の北の妻（屋根の上、北の妻と同じ面）：10-28 から張る（数える）
             m.Objects.AddMesh(board_mesh(pg, f), att)
             nb += 1; area += pg.area; per[nm] = per.get(nm, 0) + 1
 
+# ---- 越屋根の南の妻（10-28、ユーザー：越屋根の妻の板にも大和張り）：外皮の輪郭から約 30 内にあって上の展開に入らないので、その面の上に別に張る
+nsmon = 0
+for o in o21:
+    V, F = mesh_vf(o.Geometry)
+    A = V[F]; N = np.cross(A[:, 1] - A[:, 0], A[:, 2] - A[:, 0]); L = np.linalg.norm(N, axis=1)
+    ok = (L > 1e-3); A, N = A[ok], N[ok] / L[ok, None]
+    ver = np.abs(N[:, 2]) < 1e-4; A, N = A[ver], N[ver]
+    C = A.mean(1)
+    U_ = np.array([uv(*c_[:2]) for c_ in C]).reshape(-1, 2)
+    dist = shapely.distance(shapely.points(A.reshape(-1, 3)[:, :2]), RING).reshape(-1, 3)
+    out = ~shapely.contains_xy(WS, C[:, 0] + N[:, 0] * 300, C[:, 1] + N[:, 1] * 300)
+    sel = (U_[:, 0] < 21.6) & (U_[:, 1] > -2.75) & (U_[:, 1] < -0.7) & (dist.min(1) > 15.0) & (dist.max(1) < 50.0) & out
+    if not sel.any(): continue
+    n2 = N[sel][:, :2].mean(0); n2 /= np.linalg.norm(n2); n3 = np.r_[n2, 0.0]
+    P_ = A[sel].reshape(-1, 3); O3 = np.r_[P_[np.argmax(P_[:, :2] @ n2), :2], 0.0]
+    h3 = np.array([-n2[1], n2[0], 0.0])
+    face = unary_union([Polygon(np.c_[(T - O3) @ h3, T[:, 2]]).buffer(0) for T in A[sel]]).buffer(0.3, join_style=2).buffer(-0.3, join_style=2)
+    if face.is_empty: continue
+    s0_, zb_, s1_, zt_ = face.bounds; w = s1_ - s0_; nn = max(1, round(w / PITCH)); p = w / nn
+    for i in range(nn):
+        c = s0_ + p * (i + 0.5)
+        piece = face.intersection(box(c - BW / 2, zb_ - 10, c + BW / 2, zt_ + 10))
+        if piece.is_empty: continue
+        f = dict(n=n3, O=O3, h=h3, poly=piece)
+        cut = opening_cut(f)
+        loc = piece.difference(cut) if cut is not None else piece
+        for pg in getattr(loc, 'geoms', [loc]):
+            if pg.geom_type != 'Polygon' or pg.is_empty: continue
+            pg = pg.simplify(5.0)
+            if pg.geom_type != 'Polygon' or pg.is_empty: continue
+            mr = pg.minimum_rotated_rectangle; xs = np.asarray(mr.exterior.coords)
+            short = min(np.linalg.norm(xs[1] - xs[0]), np.linalg.norm(xs[2] - xs[1]))
+            if pg.area < BW * 50 or short < 20: ndrop += 1; continue
+            m.Objects.AddMesh(board_mesh(pg, f), att)
+            nb += 1; nsmon += 1; area += pg.area; per['越屋根の南の妻'] = per.get('越屋根の南の妻', 0) + 1
+
 m.Write(OUT, 8)
 print(f'西館の大和張りの上板 {nb} 枚（段 {len(SEG)}、上板の見付け {area / 1e6:.1f} m²、'
-      + '・'.join(f'{k} {v}' for k, v in per.items()) + f'、細い切れ端 {ndrop} 片・越屋根の妻 {nmon} 片は張らない、抜いた物 '
+      + '・'.join(f'{k} {v}' for k, v in per.items()) + f'、細い切れ端 {ndrop} 片は張らない、越屋根の北の妻の片 {nmon}、抜いた物 '
       + ' '.join(f'{k}:{v}' for k, v in sorted(CUT_BY.items())) + f'）→ {OUT}')

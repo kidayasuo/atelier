@@ -1,7 +1,10 @@
-"""西館の屋根の面（西館係、10-24午後）。add_west_south.py と fix_details.py が使う。
-棟（東の縁 v −0.9）8.15、外周の軒 4.65 で水平、架構の向き（u 一定の放射の線）にまっすぐ下る。
-軒の線は、南北の妻に接する角（南西・北）だけ丸めない外形で決める（前は丸めた外形で、妻に接する所で面がねじれた）。
-roof_f(x, y)：新しい面、roof_old(x, y)：前の面（丸めた外形）。"""
+"""西館の屋根の面（梁の上端、西館係）。add_west_south.py・fix_details.py・clean_wire.py（Rhino版）が使う。
+棟（東の縁 v −0.9）8.15、外周の軒 4.65 で水平。軒の線は南北の妻に接する角（南西・北）だけ丸めない外形（v_eave）。
+10-28：スパン8〜14（u21〜42）はスパンごとに一枚の平面（軒にちょうど載る、棟は最小二乗）、架構の線の光の筋（±0.09）の中で一次で移る。
+北西の角（u42〜51）は双一次の面（beam_line の同じ高さの点を水平の線で結ぶ）。
+返す物：roof_f(x, y)：屋根の面の高さ。SPANS：スパンごとの面の種類と平面の係数、STRIPS：一次で移る筋。roof_line(u, side)：放射の線 u の上の
+屋根の面の線（棟・軒の xyz）。beam_line(u)：双一次の面を決める線（平面のスパンでは屋根の面の上に無い）。roof_ruled：双一次の面（比べるため）。
+roof_old(x, y)：前の面（丸めた外形）。plane_dev()：スパンごとの棟・軒のずれと双一次の面との差。"""
 import numpy as np
 from shapely.geometry import Polygon, LineString
 from shapely.ops import unary_union
@@ -37,36 +40,43 @@ def make(WN):
         vb = _ve_cache[k]
         return ZRIDGE - (ZRIDGE - ZEAVE) * max(0.0, VRIDGE - v) / max(1e-6, VRIDGE - vb)
     roof_c = roof_f
-    # スパン8〜14（u21〜42）はスパンごとの平面（10-25、ユーザー・ソリッド係）。棟（東の縁）は弧、軒（西の面）はまっすぐなので、
-    # 両方を水平のまま一枚の平面には載らない。平面は棟の線と軒の線の上の点に最小二乗で合わせ、ずれを両方に分ける（plane_dev で測る）。
-    # 架構の線（u24〜42）では隣の平面とのあいだに小さな段ができるので、光の筋（2 枚の梁のあいだ ±0.09）の中で一次で移る（筋の立ち上がりとガラスで隠れる）。スパン15〜17 は曲面のまま。
-    FR = [21.0 + 3.0 * k for k in range(8)]          # 21, 24, …, 42
-    HS = 0.09
+    # 10-28（ユーザー：屋根はそもそも平面で作る、軒の高さは守る、どうしてもうまくゆかない所だけ曲面。項 20261028-0841-solid）：
+    #   スパン8〜14（u21〜42）はスパンごとに一枚の平面。平面はその所の軒の線（4.65、角を丸めない外形 v_eave）にちょうど載る（軒は水平）。
+    #   棟（東の縁 v −0.9）は最小二乗（ずれ ±3〜5.5 cm）。架構の線（u24〜42）では、隣の平面（u42 では北西の角の面）とのあいだを
+    #   光の筋（2 枚の梁のあいだ ±0.09）の中で一次で移る（筋の立ち上がりとガラスで隠れる）。南のけらば（u < 21）はスパン8の平面を延ばす。
+    #   u39〜42 は軒が角の丸みの始まりで少し曲がるので、軒の点に当てはめたまっすぐな線を軒にする（ずれ 約1 cm）。
+    #   北西の角（u42〜51、スパン15〜17）は平面にできない（軒が棟の向きから回っていくので、軒を水平に保つと棟が ±0.1〜0.7 m 狂う）ので、
+    #   双一次の面のまま（となりの屋根の線の同じ高さの点を水平のまっすぐな線＝母屋で結ぶ、10-27夜）。u43.5 の登り梁もそのまま。
+    FR = [21.0 + 3.0 * k for k in range(8)]          # 21, 24, …, 42（架構の線）
+    HS = 0.09                                         # 光の筋の半分の幅（u、m）
     planes = []
     for ua, ub in zip(FR, FR[1:]):
         Pa = np.array(xy(ua, VRIDGE), float).ravel()
-        # 平面 z = c0 + c1·x + c2·y を、棟の線と軒の線の上の点で最小二乗（両方の線の高さのずれを半分ずつにする）
-        A_, B_ = [], []
-        for uu in np.linspace(ua + HS, ub - HS, 25):
-            for vv, w_ in ((VRIDGE, 1.0), (v_eave(uu), 30.0)):          # 10-27夜：軒を水平に（ユーザー：軒の高さは一定に）。ずれは棟の側へ
-                p = np.array(xy(uu, vv), float).ravel(); A_.append([w_, w_ * (p[0] - Pa[0]), w_ * (p[1] - Pa[1])]); B_.append(w_ * roof_c(*p))
-        cf = np.linalg.lstsq(np.array(A_), np.array(B_), rcond=None)[0]
+        us_ = np.linspace(ua + (HS if ua > FR[0] else 0.0), ub - HS, 31)
+        E_ = np.array([np.array(xy(uu, v_eave(uu)), float).ravel() for uu in us_])
+        R_ = np.array([np.array(xy(uu, VRIDGE), float).ravel() for uu in us_])
+        # 平面は軒の線（平面の座標で最小二乗のまっすぐな線、高さ 4.65 で水平）を含み、勾配 g だけを棟の点（8.15）で最小二乗で決める。
+        # 軒がまっすぐなスパンは軒にちょうど載る。u39〜42（角の丸みの始まり）は軒の点と線の差×勾配だけずれる（最大約 1 cm）
+        c_ = E_.mean(0); d_ = np.linalg.svd(E_ - c_)[2][0]; n_ = np.array([-d_[1], d_[0]])
+        if (R_.mean(0) - c_) @ n_ < 0: n_ = -n_
+        t_ = (R_ - c_) @ n_; g_ = float((ZRIDGE - ZEAVE) * t_.sum() / (t_ @ t_))
+        cf = np.array([ZEAVE + g_ * float(n_ @ (Pa - c_)), g_ * n_[0], g_ * n_[1]])   # z = c0 + c1·(x − Pa.x) + c2·(y − Pa.y)
         planes.append((ua, ub, Pa, cf))
     def _pz(k, x, y):
         ua, ub, Pa, cf = planes[k]; return float(cf[0] + cf[1] * (x - Pa[0]) + cf[2] * (y - Pa[1]))
-    # スパン15〜17（u42〜51、北西の角）は母屋がまっすぐ載る面（10-27夜、ユーザー：実際に作る時もまっすぐの材と板で近似する）。
-    # 架構の線（と u43.5 の登り梁）の屋根の線は棟（v −0.9、8.15）から軒（角を丸めない外形、4.65）へのまっすぐな線。となりの二本の線の
-    # 同じ高さの点を水平のまっすぐな線（母屋）で結んだ面にする。スパン16・17 は前の面と 1 mm 以内で同じ、スパン15 は軒がスパンの中で
-    # 曲がるので u43.5 に登り梁を一本足して二つに分けた（前の面との差は最大約 3 cm）。軒先も同じ線の上で水平になる。
-    BAYS = [21.0 + 3.0 * k for k in range(8)] + [43.5, 45.0, 48.0, 51.0]   # 10-27夜：西の面（スパン8〜14）も同じ作り方（平面のときは棟が±5 cm 狂い、架構の線で段）
+    # 北西の角の双一次の面の屋根の線（架構の線 u42・45・48・51 と u43.5 の登り梁）
+    BAYS = [21.0 + 3.0 * k for k in range(8)] + [43.5, 45.0, 48.0, 51.0]   # 屋根の線の u（21〜42 は架構の線＝平面のスパンの境、42〜51 は双一次のベイの境）
+    I42 = BAYS.index(42.0)
     def beam_line(u):
-        """屋根の線 u：棟の点と軒の点（平面、mm）"""
+        """双一次の面（北西の角、u42〜51）を決める屋根の線 u：棟の点（v −0.9、8.15）と軒の点（角を丸めない外形、4.65）の平面の座標（mm）。
+        その面は、この線の上を棟から軒へまっすぐ下る。平面のスパン（u21〜42）では屋根の面はこの線の上に無い（棟が ±3〜5.5 cm ずれる）ので、
+        屋根の面の線は roof_line(u, side) を使う"""
         return np.array(xy(u, VRIDGE), float).ravel(), np.array(xy(u, v_eave(u)), float).ravel()
     _BL = {u_: beam_line(u_) for u_ in BAYS}
-    def ruled_hs(x, y):
-        """点 (x, y) の (h, s, ベイの番号)：h＝棟 0 → 軒 1、s＝ベイの南の線 0 → 北の線 1（ベイの外へは延ばす）"""
+    def ruled_hs(x, y, kmin=I42):
+        """点 (x, y) の (h, s, ベイの番号)：h＝棟 0 → 軒 1、s＝ベイの南の線 0 → 北の線 1（ベイの外へは延ばす）。ベイは BAYS の番号（kmin 以上＝北西の角）"""
         u, v = uv(x, y)
-        k = int(np.clip(np.searchsorted(BAYS, u) - 1, 0, len(BAYS) - 2))
+        k = int(np.clip(np.searchsorted(BAYS, u) - 1, kmin, len(BAYS) - 2))
         (Ra, Ea), (Rb, Eb) = _BL[BAYS[k]], _BL[BAYS[k + 1]]
         p = np.array([x, y], float); h = 0.5; s_ = float(np.clip((u - BAYS[k]) / (BAYS[k + 1] - BAYS[k]), 0, 1))
         for _ in range(40):
@@ -75,36 +85,53 @@ def make(WN):
             d = np.linalg.solve(J, p - P_); h += d[0]; s_ += d[1]
             if abs(d[0]) < 1e-12 and abs(d[1]) < 1e-12: break
         return h, s_, k
-    def roof_ruled(x, y):
-        return ZRIDGE - (ZRIDGE - ZEAVE) * ruled_hs(x, y)[0]
+    def roof_ruled(x, y, kmin=I42):
+        return ZRIDGE - (ZRIDGE - ZEAVE) * ruled_hs(x, y, kmin)[0]
     def ruled_point(k, h, s_):
-        """ベイ k の (h, s) の点（x, y, z）"""
+        """ベイ k（BAYS の番号）の (h, s) の点（x, y, z）"""
         (Ra, Ea), (Rb, Eb) = _BL[BAYS[k]], _BL[BAYS[k + 1]]
         A_ = Ra + h * (Ea - Ra); B_ = Rb + h * (Eb - Rb); P_ = A_ + s_ * (B_ - A_)
         return np.array([P_[0], P_[1], ZRIDGE - (ZRIDGE - ZEAVE) * h])
-    def _side(k, x, y):                       # k：スパンの番号（0〜6 が平面、7 は北西の角）
+    def _side(k, x, y):                       # k：平面のスパンの番号（0〜6＝スパン8〜14）、7 は北西の角の双一次の面
         return _pz(k, x, y) if 0 <= k < len(planes) else roof_ruled(x, y)
-    def roof_f(x, y):                          # 10-27夜：西館の屋根の面はすべて、屋根の線（梁）の同じ高さの点を水平のまっすぐな線（母屋）で結んだ面
-        return roof_ruled(x, y)
-    def roof_planes(x, y):                     # 前のスパンごとの平面（比べるため）
+    def roof_f(x, y):
+        """西館の屋根の面（梁の上端）の高さ（mm）。u21〜42 はスパンごとの平面（架構の線の光の筋の中は一次で移る）、u42〜51 は双一次の面"""
         u, v = uv(x, y)
         if u >= FR[-1] + HS: return roof_ruled(x, y)
-        if u < FR[0]: return _pz(0, x, y)                                 # 南のけらば（u < 21）もスパン 8 の平面を延ばす（10-27夜、ソリッド係の項 20261027-2159：曲面に戻すと u21 で最大 2.8 cm の段）
+        if u < FR[0]: return _pz(0, x, y)                                 # 南のけらばはスパン8の平面を延ばす
         for j, f in enumerate(FR[1:], start=1):                          # 架構の線 u24〜42 の筋の中は一次で移る
             if abs(u - f) < HS:
                 zl, zr = _side(j - 1, x, y), _side(j, x, y); w = (u - (f - HS)) / (2 * HS)
                 return zl + (zr - zl) * w
-        k = min(int((u - FR[0]) // 3.0), len(planes) - 1)
-        return _pz(k, x, y)
+        return _pz(min(int((u - FR[0]) // 3.0), len(planes) - 1), x, y)
+    roof_planes = roof_f
+    def roof_line(u, side=None):
+        """放射の線 u の上の屋根の面の線：(棟の点 xyz, 軒の点 xyz)（mm）。屋根の面は放射の線の上でまっすぐ（平面・筋の中の一次の移り・
+        双一次の面の屋根の線の上）なので、二点で決まる。side='S'／'N'：架構の線 u24〜42 では、南／北のスパンの面を架構の線まで延ばした線
+        （2 枚の梁の上端・出し梁はそれぞれの側の面に載る。筋の縁 u ∓ 0.09 では roof_line(u ∓ 0.09) と同じ面）。side なし：roof_f の線"""
+        R2, E2 = np.array(xy(u, VRIDGE), float).ravel(), np.array(xy(u, v_eave(u)), float).ravel()
+        if side is None or not (FR[0] < u <= FR[-1] + 1e-9):
+            f_ = roof_f
+        else:
+            j = int(round((u - FR[0]) / 3.0)); k = j - 1 if side == 'S' else j
+            f_ = lambda x, y, k=k: _side(k, x, y)
+        return np.r_[R2, f_(*R2)], np.r_[E2, f_(*E2)]
+    # スパンごとの面の種類（ソリッド係の Rhino版が読む）：(u0, u1, 'plane', (Pa.x, Pa.y, c0, c1, c2))＝z = c0 + c1·(x − Pa.x) + c2·(y − Pa.y)、
+    # (u0, u1, 'ruled', None)＝beam_line(u0)・beam_line(u1) の同じ高さの点を水平の線で結ぶ双一次の面。境（u24〜42）の筋 STRIPS は一次の移り
+    SPANS = [(ua, ub, 'plane', (float(Pa[0]), float(Pa[1]), *map(float, cf))) for ua, ub, Pa, cf in planes] + \
+            [(a_, b_, 'ruled', None) for a_, b_ in zip(BAYS[I42:], BAYS[I42 + 1:])]
+    STRIPS = [(f - HS, f + HS) for f in FR[1:]]
     def _plane_dev():
-        """スパンごとの平面と曲面の、軒の線でのいちばん大きい差（mm）"""
+        """スパンごとの（番号, 棟のずれ 最大, 軒のずれ 最大, 双一次の面との差 最大）（mm）"""
         out = []
         for k, (ua, ub, *_r) in enumerate(planes):
-            de = dr = 0.0
-            for uu in np.linspace(ua + HS, ub - HS, 9):
-                p = np.array(xy(uu, v_eave(uu)), float).ravel(); de = max(de, abs(_pz(k, *p) - roof_c(*p)))
-                p = np.array(xy(uu, VRIDGE), float).ravel(); dr = max(dr, abs(_pz(k, *p) - roof_c(*p)))
-            out.append((8 + k, round(dr), round(de)))
+            de = dr = dd = 0.0
+            for uu in np.linspace(ua + (HS if k else 0.0), ub - HS, 31):
+                pe = np.array(xy(uu, v_eave(uu)), float).ravel(); de = max(de, abs(_pz(k, *pe) - ZEAVE))
+                pr = np.array(xy(uu, VRIDGE), float).ravel(); dr = max(dr, abs(_pz(k, *pr) - ZRIDGE))
+                for t in np.linspace(0, 1, 9):
+                    q = pr + t * (pe - pr); dd = max(dd, abs(_pz(k, *q) - roof_ruled(*q, kmin=0)))
+            out.append((8 + k, round(dr), round(de, 1), round(dd)))
         return out
     def _v_out(u):
         ln = LineString([xy(u, VRIDGE + 0.5), xy(u, -40.0)]); x_ = ln.intersection(WN.exterior)
@@ -116,4 +143,4 @@ def make(WN):
         u, v = uv(x, y); k = round(min(max(u, 21.0005), 50.9995), 3)
         if k not in _vo: _vo[k] = _v_out(k)[1]
         return ZRIDGE - (ZRIDGE - ZEAVE) * max(0.0, VRIDGE - v) / max(1e-6, VRIDGE - _vo[k])
-    return dict(roof_f=roof_f, roof_c=roof_c, BAYS=BAYS, beam_line=beam_line, ruled_hs=ruled_hs, ruled_point=ruled_point, KINKS=[b_ for b_ in BAYS[1:-1]], roof_planes=roof_planes, plane_dev=_plane_dev, FRAMES=FR, roof_old=roof_old, v_out=_v_out, corners=_corners, PSHARP=PSHARP, VRIDGE=VRIDGE)
+    return dict(roof_f=roof_f, roof_c=roof_c, BAYS=BAYS, beam_line=beam_line, roof_line=roof_line, SPANS=SPANS, STRIPS=STRIPS, HS=HS, I42=I42, roof_ruled=roof_ruled, ruled_hs=ruled_hs, ruled_point=ruled_point, KINKS=[b_ for b_ in BAYS[I42 + 1:-1]], roof_planes=roof_planes, plane_dev=_plane_dev, FRAMES=FR, roof_old=roof_old, v_out=_v_out, corners=_corners, PSHARP=PSHARP, VRIDGE=VRIDGE)

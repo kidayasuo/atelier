@@ -1768,8 +1768,32 @@ if slits:
     # 母屋は一本ずつの長方形の押し出し（10-27夜、ユーザー：母屋が長方形の押し出し以外になっているのは変）。屋根の面（roofw）は、屋根の線（梁）の
     # 同じ高さの点を水平のまっすぐな線で結んだ面なので、母屋はその線の上にちょうど載る。ベイごとに、長い方の梁で 455 おき、越屋根の西の縁の外から軒先まで。
     # 室内は上の面＝合板の下面（梁の上端の 174 下）、軒の下は梁の上端にそろえて落とし込む。梁・登り梁の帯（BANDS）と外壁の内面で切る。
-    _B = _RWf['BAYS']; _npur = 0
-    for k in range(len(_B) - 1):
+    # 10-28（ユーザー：屋根はそもそも平面で作る）：スパン8〜14（u21〜42）は屋根がスパンごとの平面（roofw の SPANS）。母屋は平面の等高線
+    # （水平・軒に平行なまっすぐな線）の上に、勾配の向きに 455 おき（軒の線から数える）、越屋根の西の縁の外から軒先の 1 m 外まで。
+    # 北西の角（u42〜51）は双一次の面のまま、となりの梁の同じ高さの点を結ぶ（下）。
+    _B = _RWf['BAYS']; _npur = 0; _npur_pl = 0; _dpur = 0.0
+    for ua_, ub_, kind_, cf_ in _RWf['SPANS']:
+        if kind_ != 'plane': continue
+        px_, py_, c0_, c1_, c2_ = cf_; g_ = float(np.hypot(c1_, c2_)); gd_ = np.array([c1_, c2_]) / g_; dd_ = np.array([-gd_[1], gd_[0]])
+        _sp = Polygon([xy(ua_, 3.0), xy(ua_, -30.0), xy(ub_, -30.0), xy(ub_, 3.0)])
+        _zf = lambda q: c0_ + c1_ * (q[0] - px_) + c2_ * (q[1] - py_)
+        ztop_ = min(_zf(np.array(xy(ua_ + 0.25, EASTV - 0.06), float).ravel()), _zf(np.array(xy(ub_ - 0.25, EASTV - 0.06), float).ravel()))
+        zlo_ = 4650.0 - g_ * 1000.0; dz_ = g_ * 455.0
+        z_ = 4650.0 + np.floor((ztop_ - 4650.0) / dz_) * dz_
+        while z_ > zlo_:
+            p0_ = np.array([px_, py_]) + gd_ * (z_ - c0_) / g_                     # 等高線 z_ の上の点
+            ln2 = LineString([p0_ - dd_ * 40000.0, p0_ + dd_ * 40000.0]).intersection(_sp)
+            if not ln2.is_empty and ln2.geom_type == 'LineString':
+                for reg_, off_, nm_ in ((INT, -INS_T - PLY_T, '梁から梁へ'), (EAVEZ, 0.0, '軒の下、梁の上端にそろえる')):
+                    x_ = ln2.intersection(reg_)
+                    for sg_ in getattr(x_, 'geoms', [x_]):
+                        if sg_.geom_type != 'LineString' or sg_.length < 300.0: continue
+                        A2_, B2_ = np.array(sg_.coords[0]), np.array(sg_.coords[-1])
+                        for q_ in (A2_, B2_, (A2_ + B2_) / 2): _dpur = max(_dpur, abs(_RWf['roof_f'](*q_) - z_))
+                        n_ = _purl_x(A2_, B2_, float(z_) + off_, f'母屋 杉 60×150（水平、スパン{int(round((ua_ - 21) / 3)) + 8}の平面の等高線、高さ {z_ / 1000:.2f}、{nm_}）')
+                        _npur += n_; _npur_pl += n_
+            z_ -= dz_
+    for k in range(_RWf['I42'], len(_B) - 1):
         (Ra, Ea), (Rb, Eb) = _RWf['beam_line'](_B[k]), _RWf['beam_line'](_B[k + 1])
         Lm = max(np.linalg.norm(Ea - Ra), np.linalg.norm(Eb - Rb))
         h0 = max(_RWf['ruled_hs'](*np.array(xy(_B[k] + 0.25, EASTV - 0.06), float).ravel())[0],
@@ -1783,7 +1807,7 @@ if slits:
                     if sg_.geom_type != 'LineString' or sg_.length < 300.0: continue
                     _npur += _purl_x(np.array(sg_.coords[0]), np.array(sg_.coords[-1]), float(Pa[2]) + off_,
                                      f'母屋 杉 60×150（水平、u{_B[k]:g}〜{_B[k + 1]:g}、高さ {Pa[2] / 1000:.2f}、{nm_}）')
-    log.append(f'西館：母屋 {_npur} 本（一本ずつの 60×150 の押し出し、となりの梁の同じ高さの点を結ぶ水平のまっすぐな材）')
+    log.append(f'西館：母屋 {_npur} 本（一本ずつの 60×150 の押し出し。スパン8〜14 は平面の等高線の上 {_npur_pl} 本（屋根の面との差 最大 {_dpur:.1f} mm）、北西の角はとなりの梁の同じ高さの点を結ぶ水平のまっすぐな材）')
     log.append(f'西館：屋根の構成（10-27夜）：梁の上 {RT_W:.0f}（屋根材 40・通気垂木と野地、軒先の見付け {RT_W - EAVE_RISE:.0f}）、梁のあいだに断熱 150（20）・合板 t24（20r）・母屋 60×150 @455（20v）、軒の下は母屋を梁の上端に落とし込む')
     # 筋の両側の梁の下端（鏡面の板の下の端）：2 枚の梁（22b）に下から鉛直の線を当てる
     _bmt = [closed_mesh(bm.get(str(o.Attributes.Id), cur_g(o))) for o in m.Objects if o.Attributes.LayerIndex == L22B]

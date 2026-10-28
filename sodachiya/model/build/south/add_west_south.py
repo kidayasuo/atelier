@@ -285,7 +285,8 @@ if PJ and os.path.exists(PJ):
             leaf = LineString([a_, b_]).buffer(tl / 2, cap_style=2)
             leaf = affinity.translate(leaf, *(nrm * (t_out + gap + tl / 2)))
             mesh_prism(leaf, 0.0, const(hh + 50.0), L_DOOR)
-        rail = affinity.translate(LineString([mid - d * (hw + 3700 - 1800), mid + d * (hw + 3700 - 1800)]).buffer(60, cap_style=2), *(nrm * (t_out + 70)))
+        # 10-28：レールの内の面は大和張りの上板（外壁の外面から 15）の外 10（前は t_out + 10 で板の層に 5 入り、そこで板が切れていた）。戸（30〜70）はレールの下のまま
+        rail = affinity.translate(LineString([mid - d * (hw + 3700 - 1800), mid + d * (hw + 3700 - 1800)]).buffer(60, cap_style=2), *(nrm * (t_out + 15.0 + 10.0 + 60.0)))
         mesh_prism(rail, hh + 50.0, const(hh + 200.0), L_DOOR, (90, 90, 90))      # 上の吊りレール（引きしろ 1.8 ずつ）
         print('big door between columns', [tuple(np.round(uv(*p), 2)) for p in pick], 'wall out %.2f' % (t_out / 1000))
 # ---------------------------------------------------------------- 外への窓（10-26、ユーザー・監修：外壁と窓）
