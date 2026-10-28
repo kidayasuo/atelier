@@ -93,7 +93,7 @@ def proj(t):
     return unary_union(ps)
 HON = unary_union([proj(p['tm']) for p in FL]).buffer(50, join_style=2).buffer(-50, join_style=2)
 INSIDE = unary_union([HON, W['WS']])
-# 戸・間仕切りの居てよい所：部屋と床の板（本館・西館の床、外縁側・海峡、部屋の床 31〜59）と、西館の外皮 WS を外壁の厚さ 140 だけ内へ。
+# 戸・間仕切りの居てよい所：部屋と床の板（本館・西館の床、外縁側・あまのがわ、部屋の床 31〜59）と、西館の外皮 WS を外壁の厚さ 140 だけ内へ。
 # ここから出た分（外壁の外面まで来た壁の端、外壁の開口や屋根の外へ出た間仕切り）は削る。
 import re as _re
 from solids import mesh_vf
@@ -112,7 +112,7 @@ def _outer17(p):
     """本館の 17 のうち外皮の片だけ（西の外壁 v<0.5、南北の妻 u<0.5・u>56.5）。保育室などの西の壁の線（v1.6）も 17 にあるが室内の壁"""
     c = p['tm'].centroid; u_, v_ = _uv(c[0], c[1])
     return v_ < 0.5 or u_ < 0.5 or u_ > 56.5
-# 西館の帯は外へ 1.0 まで（2階の床・部屋の板が外皮の外面より数 mm 外へ出ている所があるので、外面の外も含める）。本館の床・海峡（すき間）は除かない
+# 西館の帯は外へ 1.0 まで（2階の床・部屋の板が外皮の外面より数 mm 外へ出ている所があるので、外面の外も含める）。本館の床・あまのがわ（すき間）は除かない
 _KAI = unary_union([proj(p['tm']) for p in parts if p['layer'].startswith('15_')] + [HON])
 WALLBAND = unary_union([W['WS'].buffer(1000, join_style=2).difference(W['WS'].buffer(-140, join_style=2)).difference(_KAI)] +
                        [proj(p['tm']) for p in parts if p['layer'].startswith('17_') and _outer17(p)])

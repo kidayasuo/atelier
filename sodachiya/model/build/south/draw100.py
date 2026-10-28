@@ -1,4 +1,4 @@
-"""3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）、断面 3 つ（A 縦断・B 海峡・C 4 歳と遊戯室）、立面 4 つ
+"""3dm（メッシュの版）から 1/100 の図をつくる：1 階平面（＋西館 2 階）、断面 3 つ（A 縦断・B あまのがわ・C 4 歳と遊戯室）、立面 4 つ
 使い方: python3 draw100.py MODEL_MESH.3dm OUTDIR
 - 平面：FL+1500 で切る（2 階は 2FL+1000、西館の南西の軒が低い）。切れたものは塗り（構造・壁は黒、家具は灰、ガラスは細線）。
   見えがかりは近いもの（高いもの）から順に、手前の形で後ろの線を切って描く（隠れ線を消した線だけ）。
@@ -568,7 +568,7 @@ def draw_cut(A, items, insul=False):
                 pass
             elif n in (17, 21) and not ob['layer'].startswith(('17y_', '21y_')):   # 外壁：壁の中（両面 25 を残して）。上板（17y・21y）は除く
                 band = pc.buffer(-25)
-            elif n == 15:                          # 海峡（土間）：スラブの下 50（仮）
+            elif n == 15:                          # あまのがわ（土間）：スラブの下 50（仮）
                 band = shp_affinity.translate(pc, 0, -50).difference(pc.buffer(1))
             if band is not None and not band.is_empty and band.area > 1e4:
                 insul_fill(A, band)
@@ -656,7 +656,7 @@ def floor_build(A, pcs):
         boards = [bb for bb in B if bb[0] >= x0 - 1 and bb[1] <= x1 + 1]
         for a, b in boards:
             g = box(a, -FL_BOARD, b, 0); A.fill(g, lay, fc='k', z=6); occ.append(g)
-        pits = [(boards[i][1], boards[i + 1][0]) for i in range(len(boards) - 1) if boards[i + 1][0] - boards[i][1] > 2500]   # 穴の底（φ3.2）だけ。海峡（1.5、土間）は下げない
+        pits = [(boards[i][1], boards[i + 1][0]) for i in range(len(boards) - 1) if boards[i + 1][0] - boards[i][1] > 2500]   # 穴の底（φ3.2）だけ。あまのがわ（1.5、土間）は下げない
         slab = [box(x0, SLAB_TOP - SLAB_T, x1, SLAB_TOP)]
         for a, b in pits:                          # 穴の底の下は底板を 0.15 下げる（皿）
             slab.append(box(a - 200, SLAB_TOP - SLAB_T - 150, b + 200, SLAB_TOP - 150))
@@ -705,7 +705,7 @@ def room_color(ln):
         if k in ln: return c
     if n in ('36', '35', '42', '43', '43b', '44', '45') or re.search(r'事務|医務|静養室|園長室|応接|便所（職員）|倉庫', ln): return C_ADULT
     return None
-# 床の板（部屋の層でない）の色：本館の床・内縁側は通りの色（部屋の色がその上に重なる）、外縁側・海峡は土足
+# 床の板（部屋の層でない）の色：本館の床・内縁側は通りの色（部屋の色がその上に重なる）、外縁側・あまのがわは土足
 SLAB_COLOR = {'12': C_STREET, '13': C_STREET, '14': C_DOSOKU, '15': C_DOSOKU}
 STREET_NOLINE = ('12', '13')     # ホール・西吹き抜け・内縁側のあいだの線は描かない（こどもには一つの場所、ユーザー）
 
@@ -1092,7 +1092,7 @@ def at(r_, th): return C + r_ * np.array([math.cos(th), math.sin(th)])
 print('frames', len(TH))
 
 SECTIONS = [('A', 'arc', 197000.0, '縦断（展開）　保育室の中ほど r=197 m の弧で切って平らに伸ばす、西を見る'),
-            ('B', 'u', 21750.0, '海峡（スパン 8+0.75）　南の入口・キッチン・2 階・すき間・本館・縁側、北を見る'),
+            ('B', 'u', 21750.0, 'あまのがわ（スパン 8+0.75）　南の入口・キッチン・2 階・すき間・本館・縁側、北を見る'),
             ('C', 'u', 42600.0, '4 歳・遊戯室の摺鉢ネット（スパン 15+0.6）　北を見る')]
 
 def plan_grid(A):
@@ -1740,7 +1740,7 @@ def airflow(A, playroom=False):
         arrow([(-300, 4430), (-650, 4430), (-750, 4250), (-1250, 4100)], ls=dash)
         A.text(-1900, 9050, '夏の夜：床下の冷気と覗き窓から、遊戯室の吹き抜けを上って西館の越屋根へ', PT_NOTE, '45_換気', ha='right', va='bottom', color=col, box=True)
         A.text(400, 5300, '昼（中間期）は本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col, box=True)
-    else:                                          # 断面 B は海峡（土間、床下は無い）
+    else:                                          # 断面 B はあまのがわ（土間、床下は無い）
         A.text(400, 5300, '本館の越屋根のすき間から外へ', PT_NOTE, '45_換気', ha='left', va='bottom', color=col, box=True)
     A.text(4200, 2700, '梁間（梁と梁と屋根のあいだ）を西へ上る', PT_NOTE, '45_換気', ha='center', va='top', color=col, box=True)
     A.text(14600, 800, '昼：縁側のガラス戸を開けて', PT_NOTE, '45_換気', ha='right', va='top', color=col, box=True)
