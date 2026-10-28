@@ -743,7 +743,7 @@ def west_sheets():
     return [len(l) for l in sheets]
 
 # ================= 8. 本館の外壁 =================
-YAMATO = 1.05      # 大和張りの板の線（彫り）の間隔 mm（実寸 105）
+YAMATO = (1.35, 1.05)   # 大和張りの板の縁の線（彫り）：表の板 1.35・裏の板の見え 1.05 の交互（3dm の上板 135、割り 240。ユーザー 10-28）
 def _wall_faces(name):
     g = objs(name)[0]
     V, F = g.Vertices, g.Faces
@@ -802,7 +802,10 @@ def yamato_lines(poly):
     """大和張りの縦の線（彫り）。窓の穴は避ける"""
     from shapely.geometry import LineString
     b = poly.bounds; out = []
-    for x in np.arange(b[0] + YAMATO, b[2], YAMATO):
+    xs, x, k = [], b[0] + YAMATO[0], 1
+    while x < b[2]:
+        xs.append(x); x += YAMATO[k % 2]; k += 1
+    for x in xs:
         g = LineString([(x, b[1] - 1), (x, b[3] + 1)]).intersection(poly.buffer(-0.3))
         if not g.is_empty: out.append(g)
     return out
