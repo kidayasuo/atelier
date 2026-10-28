@@ -9,7 +9,7 @@
   外壁の網に穴の無い戸（機械室の戸 35d など）は、戸の物を壁の面に写した形も穴として抜く。
 - 上板は平らな閉じた角柱（壁の面の中の形 × 面に直角に 15）。法線は外向き。
 - 面（本館だけ）：17 の西の壁（v ≈ −0.35、−v の向き）の u 0〜21 と u 51〜57.4（u 21〜51 は西館とのすき間の側なので無し）、
-  北の妻（u ≈ 57.34、+u）、南の妻の上の壁と脇の壁（u ≈ 0、−u）、縁側の杉の壁（v ≈ 13.6、+v、各スパンの北の半分）。
+  北の妻（u ≈ 57.34、+u）、南の妻の上の壁と脇の壁（u ≈ 0、−u）。縁側の杉の壁（v ≈ 13.6）は 10-28 から大和張りでなく縦格子＋墨色の背板（下）。
   35 機械室：外向きの鉛直の面すべて（平面の重心から外向き）。幅 0.25 m 未満の面（壁の端の厚さの面・曲面の細かい面）と鉛直でない面は無し。
 - 新しいレイヤー 17y_本館_外壁の大和張り（杉 135×15、上板）、色 (196,160,118)。ほかの物はそのまま写す。
 """
@@ -230,6 +230,65 @@ if li is None:
     if mi >= 0: L.RenderMaterialIndex = mi                        # 外壁（17）と同じ材質
     li = m.Layers.Add(L)
 att = r.ObjectAttributes(); att.LayerIndex = li; att.Name = ONAME
+
+# ---- 縁側の杉の壁（各スパンの北の半分、v13.6 の面）は大和張りをやめて縦格子（10-28 ユーザー、決定事項（本館）の「杉の壁（たたき台）」）：
+# 背は墨色に塗った平らな杉板 t15（壁の外の面に付ける）、その外に南の妻と同じ杉の縦格子（見付30・見込45・120おき、レイヤー 17g）。
+# 床（±0）の高さから壁の上端（梁の上端）まで。ガラス戸の側には付けない（壁の面だけ）。3〜5歳の下足箱・腰掛け（37、壁の前 h250）の所は、その上から。
+ENG = [f for f in FACES if f['wall'] == '縁側']
+FACES = [f for f in FACES if f['wall'] != '縁側']
+LAT_W, LAT_D, LAT_P, BACK_T = 30.0, 45.0, 120.0, 15.0
+def _layer(name, rgb, like=None):
+    for i, l in enumerate(m.Layers):
+        if l.FullPath == name: return i
+    L = r.Layer(); L.Name = name; L.Color = (*rgb, 255)
+    if like:
+        mi = next((l.RenderMaterialIndex for l in m.Layers if l.FullPath.startswith(like)), -1)
+        if mi >= 0: L.RenderMaterialIndex = mi
+    return m.Layers.Add(L)
+L_LAT = _layer('17g_本館_南の妻の縦格子（杉 30×45、120おき）', (169, 134, 92), '17g_')
+L_BACK = _layer('17k_本館_縁側の杉の壁の背板（墨色の杉板 t15）', (48, 44, 40))
+def _plate_ext(pg, f, d0, d1, li, name):
+    """面の座標 (s, z) の多角形 pg を、面から外へ d0〜d1 の閉じた押し出しに"""
+    n, O, h = f['n'], f['O'], f['h']
+    q = np.asarray(orient(pg.simplify(0.2), 1.0).exterior.coords)
+    P = [O + n * d0 + s_ * h + np.array([0, 0, z_]) for s_, z_ in q]
+    crv = r.Polyline([r.Point3d(*map(float, p_)) for p_ in P]).ToPolylineCurve()
+    e = r.Extrusion.Create(crv, float(d1 - d0), True)
+    if e is None: return 0
+    bb = e.GetBoundingBox(); c = np.array([(bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2])
+    if (c - (O[:2] + n[:2] * d0)) @ n[:2] < 0: e = r.Extrusion.Create(crv, -float(d1 - d0), True)
+    if e is None: return 0
+    a = r.ObjectAttributes(); a.LayerIndex = li; a.Name = name; m.Objects.AddExtrusion(e, a); return 1
+# 下足箱・腰掛け（壁の前に置いた家具 37 の、上から見て壁から 0.4 以内の物）を面に写した形
+CAB = []
+for o in m.Objects:
+    if not LN[o.Attributes.LayerIndex].startswith('37_'): continue
+    bb = o.Geometry.GetBoundingBox()
+    if bb.Min.Z > -100 or bb.Max.Z > 600: continue
+    CAB.append(bb)
+n_lat = n_back = n_cab = 0
+for f in ENG:
+    poly = f['poly'].intersection(box(-1e9, 0.0, 1e9, 1e9))            # 床（±0）から上
+    n, O = f['n'], f['O']
+    for bb in CAB:
+        pts = np.array([[bb.Min.X, bb.Min.Y], [bb.Max.X, bb.Max.Y], [bb.Min.X, bb.Max.Y], [bb.Max.X, bb.Min.Y]])
+        dist = (pts - O[:2]) @ n[:2]
+        if dist.max() < -1.0 or dist.min() > 400.0: continue
+        sv = (pts - O[:2]) @ f['h'][:2]
+        if sv.max() < poly.bounds[0] or sv.min() > poly.bounds[2]: continue
+        poly = poly.difference(box(sv.min() - 5, -1e4, sv.max() + 5, bb.Max.Z + 10)); n_cab += 1
+    for pg in getattr(poly, 'geoms', [poly]):
+        if pg.geom_type != 'Polygon' or pg.area < 1e4: continue
+        n_back += _plate_ext(pg, f, 0.0, BACK_T, L_BACK, '縁側の杉の壁の背板（墨色の杉板 t15）')
+        s0, z0, s1, z1 = pg.bounds
+        k_ = max(1, int(round((s1 - s0) / LAT_P))); p_ = (s1 - s0) / k_
+        for i in range(k_):
+            c = s0 + p_ * (i + 0.5)
+            bar = pg.intersection(box(c - LAT_W / 2, z0 - 1, c + LAT_W / 2, z1 + 1))
+            for bg in getattr(bar, 'geoms', [bar]):
+                if bg.geom_type != 'Polygon' or bg.area < LAT_W * 100: continue
+                n_lat += _plate_ext(bg, f, BACK_T, BACK_T + LAT_D, L_LAT, '縁側の杉の壁の縦格子（杉 30×45、120おき）')
+print(f'縁側の杉の壁：縦格子 {n_lat} 本・背板 {n_back} 枚（{len(ENG)} 面、下足箱の所は上から {n_cab}）')
 
 nb, area, per, nface, ndrop = 0, 0.0, {}, 0, 0
 for f in FACES:
