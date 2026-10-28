@@ -25,7 +25,7 @@ if PDFD != OUTD: os.makedirs(PDFD, exist_ok=True)
 os.makedirs(OUTD, exist_ok=True)
 # 字は TrueType に変えた Noto を Type42 で埋め込む（scripts/fonts42.py）。システムの Noto（OTF・CFF）のまま Type42 にすると、
 # Illustrator・プレビューなどで字が欠けて、字の白い地だけが四角く残っていた（10-28、ユーザー）
-_SR = next((p_ for p_ in (os.environ.get('SODACHIYA_ROOT', ''), os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'),
+_SR = next((p_ for p_ in (os.environ.get('SODACHIYA_ROOT', ''), os.path.join(os.path.dirname(os.path.abspath(globals().get('__file__', 'x'))), '..', '..', '..'),   # add_inner.py・walls_spec.py が頭を exec するときは __file__ が無い
                           '/home/claude/atelier/sodachiya') if p_ and os.path.isfile(os.path.join(p_, 'scripts', 'fonts42.py'))), None)
 if _SR:
     sys.path.insert(0, os.path.join(_SR, 'scripts')); import fonts42  # noqa: F401
