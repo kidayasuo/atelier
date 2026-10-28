@@ -1430,9 +1430,9 @@ if src is not None:
     pv = ALL.buffer(-150.0, join_style=2).intersection(pv_box).intersection(unary_union([RP, EAVE]) if EAVE is not None else RP)
     pv = pv.difference(R(-0.36, 57.49, -1.0, 1.95, 0.1)).difference(unary_union([R(u - 0.25, u + 0.25, SL_V[0] - 0.2, SL_V[1] + 0.2, 0.2) for u in SL_U]))
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
-    _TAPER = unary_union([_BIG(0.0, 60.0, VE, 16.0), _BIG(-10.0, 0.0, -3.0, 16.0)]); pv_e = pv.intersection(_TAPER); pv_i = pv.difference(_TAPER)
-    for mm in sheet(pv_i, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))
-    for mm in sheet(pv_e, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))           # 東の軒の上も屋根の面に沿って切れ目なく
+    # 10-28（監修の項 20261028-2256-kanshu-2）：前は外皮の線（v13.6、_TAPER）で室内と東の軒の上の二つに分けていたので、スパンごとに 2 物に見えた。
+    # 屋根の面はスパンごとの一枚の平面なので、分けずにスパンごとに一つ（sheet が架構の線で切る）。高さ・範囲は同じ
+    for mm in sheet(pv, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))             # 東の軒の上も屋根の面に沿って切れ目なく
     # 軒の見張り（ユーザー 10-27：軒は細くスマートに。約200でも分厚い。非常に重要なので後で壊さないように）：東の軒先（v 14.9〜15.0、架構 2〜19 のあいだ）に
     # 載る屋根の物のいちばん下からいちばん上までが EAVE_MAX を超えたら作り直しを止める。軒を厚くする直しは、ユーザーに聞いてから。
     EAVE_MAX = 80.0
