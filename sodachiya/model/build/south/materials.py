@@ -222,6 +222,9 @@ def apply(path):
     idx = {}
 
     def mat_index(name, layer_color):
+        if name not in MATS:                                         # 表に無い素材の名前（10-28：17k で作り直しが止まった）は止めずに知らせ、レイヤーの色の素材で
+            print(f'! materials: 素材の表に無い名前「{name}」（data/materials.json の materials に足す）')
+            MATS[name] = {'base': 'layer', 'roughness': 0.7}
         label = name if MATS[name]['base'] != 'layer' else f'{name}：{layer_color[0]},{layer_color[1]},{layer_color[2]}'
         if label not in idx:
             idx[label] = have[label] if label in have else m.Materials.Add(make(label, MATS[name], layer_color))
