@@ -40,8 +40,8 @@
 | 3枚目 | `out/sodachiya_play_present.pdf` | 全体 | 0.84 倍 |
 | 3枚目 | `out/sodachiya_forest_02.pdf` | 切り抜き (0, 8)–(420, 118) mm | 0.96 倍 |
 | 3枚目 | `out/sodachiya_room3_1-50.pdf` | 全体 | 0.34 倍 |
-| 4枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 36)–(772, 153) mm | 1.00 倍 |
-| 4枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 199)–(772, 316) mm | 1.00 倍 |
+| 4枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 36)–(788, 143) mm | 1.00 倍 |
+| 4枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 200)–(788, 309) mm | 1.00 倍 |
 | 5枚目 | `drawings/sodachiya_sections_1-100.pdf` | 切り抜き (432, 252)–(830, 382) mm | 1.00 倍 |
-| 5枚目 | `drawings/sodachiya_sections_1-100.pdf` | 切り抜き (31, 50)–(830, 206) mm | 1.00 倍 |
+| 5枚目 | `drawings/sodachiya_sections_1-100.pdf` | 切り抜き (84, 47)–(830, 171) mm | 1.00 倍 |
 | 5枚目 | `out/joint_detail.pdf` | 全体 | 0.62 倍 |
