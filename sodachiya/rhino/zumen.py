@@ -8,10 +8,11 @@
   3. sodachiya/drawings_rhino/ に、図ごと（紙ごと）に <図の名前>.svg・.pdf（と .ai）ができる。
      Illustrator で開き、同じ名前の drawings/<図の名前>_文字.pdf（文字と寸法だけの層）を上に重ねる。紙の大きさ（A1 841×594 mm）と
      位置は同じなので、左上をそろえて置けばぴったり重なる。彩色は Illustrator で手で。
+  4. できたら drawings_rhino/ を git add して commit・push する（git add drawings_rhino && git commit && git push）。
 
 描くもの（どの図も 1/100、線だけ。塗り・文字は無し）：
   - 1階平面（FL+1500 で切る）・2階平面（西館、2FL+1000、西の道路の外へずらす）・断面 B・C・立面（園庭の側・道路の側・南の妻・北の妻・高野川の側）。
-    断面 A（r=197 m の弧で切って展開）はまだ描かない（メッセージだけ）。
+    断面 A（縦断、r=197 m の円筒で切って平らに伸ばす、西を見る）も（下の draw_section_arc）。
   - 切断（太 0.35）：切断面で物を切った線（Brep は Intersection.BrepPlane、メッシュは MeshPlane）。
   - 見えがかり（細 0.13）：切断面の奥（平面は下）の見える線。RhinoCommon の HiddenLineDrawing（Make2D と同じ計算）にクリッピング平面を付けて。
   - 想像線（細 0.09 の破線）：平面だけ。切断より上の、あえて示す物（屋根・軒の外形、光の筋、越屋根、2階の床の縁、遊戯室の上の遊具、
@@ -31,10 +32,13 @@
 """
 import os, re, json, math, zlib, glob
 
-import Rhino
-import Rhino.Geometry as G
-import scriptcontext as sc
-import rhinoscriptsyntax as rs
+try:                     # Rhino の外（クラウドの試し）でも、展開の式（arc_unroll_fn）だけ読めるように
+    import Rhino
+    import Rhino.Geometry as G
+    import scriptcontext as sc
+    import rhinoscriptsyntax as rs
+except ImportError:
+    Rhino = G = sc = rs = None
 
 # ---------------------------------------------------------------- 変えてよい所
 VIS_MM = 0.13            # 見えがかりの線の太さ（紙の mm）。切断・想像線の太さは json（draw100 の LW_CUT・LW_THIN）から
@@ -50,10 +54,12 @@ PLAN_SKIP = (3, 4, 90, 98)
 PLAN1_SKIP = (41, 42, 43, 44, 45)                 # 1 階では 2 階の部屋の板を描かない
 SEC_SKIP = (2, 3, 4, 76, 77) + tuple(range(91, 99))
 SEC_NOVIS = (2, 12, 13, 90)                       # 断面で切り口だけ（見えがかりは描かない）物
+ARC_MAX_EDGE = 1000.0    # 断面 A：展開する前のメッシュの辺の長さの上限（モデルの mm）
+ARC_MESH_TOL = 5.0       # 断面 A：Brep をメッシュにするときの許し（モデルの mm）
 # ---------------------------------------------------------------- ここまで
 
-doc = sc.doc
-TOL = doc.ModelAbsoluteTolerance or 0.01
+doc = sc.doc if sc else None
+TOL = (doc.ModelAbsoluteTolerance or 0.01) if doc else 0.01
 
 
 def say(*a):
@@ -489,8 +495,9 @@ def hidden_lines(objs, xf, clip=None):
     return out
 
 
-def outlines(objs, pl_world=G.Plane.WorldXY):
+def outlines(objs, pl_world=None):
     """物をまとめた真上からの外形（メッシュの GetOutlines）→ 折れ線（モデルの座標）のリスト"""
+    pl_world = pl_world or G.Plane.WorldXY
     m = G.Mesh()
     for o in objs:
         if isinstance(o.geo, G.Mesh):
@@ -622,6 +629,113 @@ def draw_section(sheet, v, OBJS):
         sheet.add(nm, u'見えがかり', o.leaf, [[P(*q) for q in pts]], clip)
 
 
+# ---------------------------------------------------------------- 断面 A（円筒 r=Rc で切って平らに伸ばす）
+# やり方（10-28、項 20261028-1801-present）：物をメッシュにして、頂点を一つずつ展開の座標 (h, z, Rc − r) に移す（arc_unroll_fn）。
+#   展開した空間では、円筒 r=Rc は平面 Z=0 になり、西（r の大きい方）を見ることは −Z を見ることになる。なので断面 B・C と
+#   同じ道具（MeshPlane で切り口、クリッピング平面つきの HiddenLineDrawing で見えがかり）がそのまま使える。
+#   draw100.py の section_arc も三角形の頂点を同じ式で (h, z) に移して切り口・見えがかりを描いているので、紙の上の置き場所は
+#   draw100 と同じになる（クラウドで 3dm のメッシュを同じ式で切り、今の断面 A の切り口と重なるのを確かめた）。
+# 採らなかった案：スパンごとに半径の向きに平行投影して継ぐ。奥の物ほど横にずれ（30 m 奥で 1.15 倍）、スパンの継ぎ目で
+#   線が食い違う（draw100 は角度で写すので、奥の物は弧の中心へ向けて縮む）。円筒の Brep との BrepBrep も、切り口は正しいが
+#   見えがかりが出せないので、切り口と見えがかりを同じ展開のメッシュから出す方にそろえた。
+# Brep は面ごとのメッシュを溶接せずに一つにまとめる：面の境が裸の辺になり、HiddenLineDrawing が稜線として描く。
+#   辺は ARC_MAX_EDGE まで（真っすぐな辺は展開で少し曲がるので。1 m で紙の上 0.01 mm 未満）。
+def arc_unroll_fn(v):
+    """断面 A の展開の式（Rhino 無しでも使える）。v は _views.json の断面 A。
+    返り値 F(x, y, z) → (h, z, Rc − r)：h = sign·(θ − theta0)·Rc（θ は中心 C からの角度を [0, 2π) に。draw100 の unwrap と同じ）。
+    紙へは draw_to_paper（x = a·h + c、y = e·z + f）"""
+    cx, cy = float(v['center_xy_mm'][0]), float(v['center_xy_mm'][1])
+    Rc, th0, sg = float(v['radius_mm']), float(v['theta0_rad']), float(v['sign'])
+    two = 2.0 * math.pi
+
+    def F(x, y, z):
+        dx, dy = x - cx, y - cy
+        th = math.atan2(dy, dx) % two
+        return (sg * (th - th0) * Rc, z, Rc - math.hypot(dx, dy))
+    return F
+
+
+class _Unrolled(object):
+    """展開したメッシュ（Obj の代わりに cut_curves・hidden_lines に渡す）"""
+    def __init__(s, geo, src):
+        s.geo, s.leaf, s.n, s.full, s.id = geo, src.leaf, src.n, src.full, src.id
+
+
+def unroll_mesh(o, F, mp, flip):
+    if isinstance(o.geo, G.Mesh):
+        parts = [o.geo]
+    else:
+        parts = G.Mesh.CreateFromBrep(o.geo, mp) or []
+    m = G.Mesh()
+    for q in parts:
+        m.Append(q)                                        # 溶接しない（面の境＝稜線を残す）
+    V = m.Vertices
+    if V.Count == 0 or m.Faces.Count == 0:
+        return None
+    for i in range(V.Count):
+        p = V[i]
+        h, z, d = F(p.X, p.Y, p.Z)
+        V.SetVertex(i, h, z, d)
+    if flip:
+        m.Flip(True, True, True)
+    m.Normals.ComputeNormals()
+    m.FaceNormals.ComputeFaceNormals()
+    return m
+
+
+def draw_section_arc(sheet, v, OBJS):
+    F = arc_unroll_fn(v)
+    cx, cy = float(v['center_xy_mm'][0]), float(v['center_xy_mm'][1])
+    Rc, depth = float(v['radius_mm']), float(v['depth_mm'])
+    P = paper_fn(v)
+    M = v['draw_to_paper']
+    clip = list(v['clip_paper_mm'])
+    if v.get('xcut_h_mm') is not None:                     # 南は敷地の境で止める（draw100 と同じ。破断線・「敷地の境」は _文字.pdf に）
+        xc = M['a'] * float(v['xcut_h_mm']) + M['c']
+        if M['a'] > 0:
+            clip[0] = max(clip[0], xc)
+        else:
+            clip[2] = min(clip[2], xc)
+    h_a, h_b = sorted(((clip[0] - M['c']) / M['a'], (clip[2] - M['c']) / M['a']))
+    flip = float(v['sign']) > 0                            # 展開で向きが裏返るとき（sign = +1）は面の向きを戻す
+    mp = G.MeshingParameters()
+    mp.MaximumEdgeLength = ARC_MAX_EDGE
+    mp.Tolerance = ARC_MESH_TOL
+    mp.SimplePlanes = False
+    mp.RefineGrid = True
+    mp.JaggedSeams = False
+    nm = v['name']
+    cutting, vis = [], []
+    for o in OBJS:                                         # draw100 の section_arc と同じ「描かない物」（SEC_SKIP に護岸 2 も入っている）
+        if o.leaf.startswith('47') or o.n in SEC_SKIP:
+            continue
+        (x0, y0, _), (x1, y1, _) = o.bmin, o.bmax
+        if x1 > cx - 1000.0:
+            continue                                       # 中心 C の東（角度の継ぎ目の側。建物は C の西）
+        rmin = math.hypot(min(max(cx, x0), x1) - cx, min(max(cy, y0), y1) - cy)
+        rmax = max(math.hypot(x_ - cx, y_ - cy) for x_ in (x0, x1) for y_ in (y0, y1))
+        if rmax < Rc or rmin > Rc + depth:
+            continue
+        m = unroll_mesh(o, F, mp, flip)
+        if m is None:
+            continue
+        b = m.GetBoundingBox(True)
+        if b.Max.X < h_a or b.Min.X > h_b or b.Min.Z > 0 or b.Max.Z < -depth:
+            continue                                       # 図の外、円筒より内（Z > 0）、奥の限りより奥
+        u = _Unrolled(m, o)
+        if b.Min.Z < 0 < b.Max.Z:
+            cutting.append(u)
+        if o.n not in SEC_NOVIS:
+            vis.append(u)
+    say(u'%s：切る %d・奥に見える %d（展開した空間で）' % (nm, len(cutting), len(vis)))
+    I = G.Transform.Identity
+    for u in cutting:
+        for c in cut_curves(u, G.Plane.WorldXY):
+            sheet.add(nm, u'切断', u.leaf, [[P(q[0], q[1]) for q in to_local_pts(c, I)]], clip)
+    for u, pts in hidden_lines(vis, I, clip=(0.0, None)):  # 奥の限りは物の選び方だけ（draw100 も奥の面では切らない）
+        sheet.add(nm, u'見えがかり', u.leaf, [[P(*q) for q in pts]], clip)
+
+
 # ---------------------------------------------------------------- 立面
 def draw_elevation(sheet, v, OBJS, room_re):
     pl = view_plane(v)
@@ -697,8 +811,10 @@ def main():
                     draw_section(sh, v, OBJS)
                 elif v['kind'] == 'elevation':
                     draw_elevation(sh, v, OBJS, room_re)
+                elif v['kind'] == 'section_arc':
+                    draw_section_arc(sh, v, OBJS)
                 else:
-                    say(u'  %s（%s）は Rhino ではまだ描かない（弧で切って展開する断面）' % (v['name'], v['kind']))
+                    say(u'  %s（%s）は Rhino では描かない' % (v['name'], v['kind']))
             except Exception as ex:
                 import traceback
                 say(u'  ！止まった：', ex)

@@ -1785,6 +1785,7 @@ def section_arc(A, Rc, depth=SEC_A_DEPTH):
         ins = [sp_.contains(Point(*(C + Rc * np.array([math.cos(t), math.sin(t)])))) for t in ths]
         k_ = next((i for i, v in enumerate(ins) if not v), None)
         if k_: XCUT = float(X(ths[k_ - 1]))
+    A.xcut = XCUT if XCUT > -1e8 else None                # …_views.json に（Rhino の zumen.py も同じ所で止める）
     CLIP = box(XCUT, -1e5, 1e6, 1e5)
     def _clipsegs(segs):
         out = []
@@ -1895,11 +1896,12 @@ def make_sections():
     extA = (-11500, 68500, -5600, 10500)       # 右の高さの記号の字が枠の内に入るように 3 m 左へ（10-28、左は敷地の境で止めたので空いている）
     A = S.axes(30, H_ - 40 - 161, extA)
     A.insul_x = (0, 57000)
-    S.view(A, '断面' + SECTIONS[0][0], 'section_arc', rhino_supported=False, center_xy_mm=C, radius_mm=SECTIONS[0][2],
+    S.view(A, '断面' + SECTIONS[0][0], 'section_arc', rhino_supported=True, center_xy_mm=C, radius_mm=SECTIONS[0][2],
            theta0_rad=float(TH_S[0]), sign=SGN, depth_mm=SEC_A_DEPTH, origin=(0.0, 0.0, 0.0), right=(0.0, 0.0, 0.0),
-           _='円筒面 r=radius で切って展開：h = sign·(θ − theta0)·radius（θ は中心からの角度）、外（r の大きい方）を見る。'
-             'model_to_paper_3d は使えない（0）。Rhino ではまだ描かない')
+           _='円筒面 r=radius で切って展開：h = sign·(θ − theta0)·radius（θ は中心からの角度を [0, 2π) に）、外（r の大きい方）を見る。'
+             'model_to_paper_3d は使えない（0）。xcut_h_mm より南（h の小さい方、敷地の外）は描かない。rhino/zumen.py の draw_section_arc が読む')
     cutb = section_arc(A, SECTIONS[0][2])
+    S.views[-1]['xcut_h_mm'] = A.xcut                  # 敷地の境で止める所（h、mm。無ければ None）
     levels(A, cutb, 64300, True)
     sec_dims_a(A)
     A.text(extA[0] + 300, extA[3] - 200, f'断面図 A　1/100　{SECTIONS[0][3]}', PT_TITLE, '80_図名・縮尺・方位', ha='left', va='top')
