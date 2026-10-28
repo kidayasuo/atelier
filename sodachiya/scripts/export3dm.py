@@ -233,8 +233,7 @@ for (xy, k) in MN.screen_plants():
     m.Objects.AddLine(P3(W(xy[1], xy[0]), 0), P3(W(xy[1], xy[0]), MN.RS["h"]), attr(L79))
 tp = W(*MN.D["TREE"]["c"])                                       # みなみのさんかくの木は外構の樹木のレイヤーへ（10-28 ユーザー：樹木は樹木レイヤに）
 m.Objects.AddLine(P3(tp, 0), P3(tp, 4.5), attr("77_外構_樹木"))
-for zc, rr in ((MN.D["TREE"]["under"], MN.D["TREE"]["r"] * 0.8), (3.4, MN.D["TREE"]["r"]), (4.5, MN.D["TREE"]["r"] * 0.6)):
-    m.Objects.AddCurve(r.Circle(P3(tp, zc), rr * MM).ToNurbsCurve(), attr("77c_外構_樹冠・植え込み・苔（葉）"))
+# 樹冠の高さごとの円（3本）はやめた（10-29 ユーザー：球の上に水平な筋が光って見えた）。樹冠は球だけ
 sph = r.Sphere(P3(tp, 3.4), MN.D["TREE"]["r"] * MM).ToBrep()
 m.Objects.AddBrep(sph, attr("77c_外構_樹冠・植え込み・苔（葉）"))
 # 70・72・76・77 西館の周りと北（north_common.py、data/approachA.json の NORTH）
