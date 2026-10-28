@@ -78,7 +78,14 @@ class Obj(object):
         s.bmin, s.bmax = (b.Min.X, b.Min.Y, b.Min.Z), (b.Max.X, b.Max.Y, b.Max.Z)
 
 
+# sodachiya.3dm で開いたときに消してあるレイヤー（clean_wire.py の HIDE_DEFAULT：街の建物・樹木、ユーザー 10-28）は、消えていても読む
+HIDE_DEFAULT = ('04', '67', '67c', '77', '77c', '79', '79c', '94', '94c')
+def _code(name):
+    m_ = re.match(r'^(\d+[a-z]?)_', name)
+    return m_.group(1) if m_ else None
 def layer_visible(ly):
+    if _code(ly.Name) in HIDE_DEFAULT:
+        return True
     if not ly.IsVisible:
         return False
     p = ly.ParentLayerId
@@ -644,12 +651,28 @@ def main():
     if not doc.Path:
         say(u'3dm を保存してから（sodachiya/sodachiya.3dm を開いて）走らせてください')
         return
-    root = os.path.dirname(doc.Path)                     # sodachiya/
+    # drawings/ を探す：3dm の隣 → このスクリプトの隣（rhino/ の上）→ 選んでもらう
+    # （10-28：3dm をダウンロードのフォルダから開くと、隣に drawings/ が無くて止まっていた）
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        here = ''
+    cands = [os.path.dirname(doc.Path)]
+    if here: cands.append(os.path.dirname(here))
+    root = next((c for c in cands if glob.glob(os.path.join(c, 'drawings', '*_views.json'))), None)
+    if root is None:
+        say(u'drawings/*_views.json が見つからない（3dm の隣・スクリプトの上のフォルダ）。リポジトリの sodachiya フォルダを選んでください')
+        pick = rs.BrowseForFolder(message=u'atelier/sodachiya フォルダ（drawings/ がある所）を選ぶ')
+        if pick and glob.glob(os.path.join(pick, 'drawings', '*_views.json')):
+            root = pick
+        elif pick and glob.glob(os.path.join(pick, '*_views.json')):
+            root = os.path.dirname(pick)                 # drawings/ そのものを選んだとき
+        else:
+            say(u'drawings/*_views.json が無い（git pull してから。作り直しに入る前なら、入ってから）')
+            return
+    say(u'読む：', os.path.join(root, 'drawings'))
     dd = os.path.join(root, 'drawings')
     js = sorted(glob.glob(os.path.join(dd, '*_views.json')))
-    if not js:
-        say(u'drawings/*_views.json が無い（git pull、または draw100.py の作り直しの後に）：', dd)
-        return
     outd = os.path.join(root, 'drawings_rhino')
     if not os.path.isdir(outd):
         os.makedirs(outd)

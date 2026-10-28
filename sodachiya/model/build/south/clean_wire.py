@@ -188,6 +188,9 @@ PARENTS = [
     ('J 遊戯室の遊具・しつらえ（data/play.json）', ('80', '81', '82', '83', '84', '85', '86', '87', '88', '89')),
     ('K 園庭（data/garden.json、園庭のチャット）', ('90', '91', '92', '93', '94', '94c', '95', '95w', '95m', '96', '97', '97h', '98', '99')),
 ]
+# 開いたときに消しておくレイヤー（ユーザー 10-28：街の建物と樹木はデフォルトで消す）。物は入っている（表示を戻せば見える）。
+# rhino/zumen.py はこのレイヤーも読む（樹冠は平面の想像線、周辺は切断の範囲）
+HIDE_DEFAULT = ('04', '67', '67c', '77', '77c', '79', '79c', '94', '94c')
 def code(name):
     mm_ = re.match(r'^(\d+[a-z]?)_', name); return mm_.group(1) if mm_ else None
 pid = {}
@@ -204,6 +207,7 @@ for i in order:
     l = m.Layers[i]; c = code(l.Name)
     for pname, codes in PARENTS:
         if c in codes: l.ParentLayerId = pid[pname]; break
+    if c in HIDE_DEFAULT: l.Visible = False                 # 開いたときは消しておく（ユーザー 10-28）
     LMAP[i] = len(out.Layers); out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
 for gr in m.Groups: out.Groups.Add(gr)
