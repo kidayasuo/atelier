@@ -261,6 +261,10 @@ DL = {
     '90_図枠': (7, 25, 'Continuous'),
 }
 PT2MM = 0.3528   # 1 pt = 0.3528 mm（紙の上）
+# 文字の層（…_文字.pdf）に残すレイヤー（注記）。ほかのレイヤーの線と塗り（建物の線）は消す。字・通り芯の丸の白・縮尺の帯・凡例の色の四角
+# （ax.add_patch で直に足す物）はいつも残す。階段の矢印・破断線、GL の線は annot=True で残す
+ANNOT_LAYERS = {'40_通り芯', '41_通り芯の符号', '45_換気', '45_吹抜', '50_寸法', '51_高さ', '60_部屋名・面積', '70_断面の位置',
+                '80_図名・縮尺・方位', '81_注', '90_図枠'}
 
 # JIS の製図（JIS A 0150 建築製図通則、学生の課題の範囲、ユーザー 10-28）：
 # 線の太さは 3 つ（A1・1/100）：太 0.35（切断面の外形・GL）、中 0.18（建具の切り口・寸法の端の斜線）、細 0.09〜0.13（見えがかり・寸法線・中心線・かくれ線・想像線）
@@ -285,6 +289,7 @@ class Sheet:
     def __init__(s, w, h, title, scale=100, margin=10, notitle=False):
         s.w, s.h, s.k = w, h, scale
         s.fig = plt.figure(figsize=(w * MM, h * MM))
+        s.views = []                       # この紙に描いた図（…_views.json に書く。Rhino の zumen.py が読む、10-28）
         s.doc = ezdxf.new('R2018', setup=True); s.msp = s.doc.modelspace()
         s.doc.header['$INSUNITS'] = 4      # mm
         for name, (c, lw, lt) in DL.items():
@@ -308,8 +313,55 @@ class Sheet:
     def axes(s, x_mm, y_mm, ext):
         return Ax(s, x_mm, y_mm, ext)
     def save(s, base):
-        s.fig.savefig(os.path.join(PDFD, os.path.basename(base) + '.pdf')); s.fig.savefig(base + '.png', dpi=110); plt.close(s.fig)
+        s.fig.savefig(os.path.join(PDFD, os.path.basename(base) + '.pdf')); s.fig.savefig(base + '.png', dpi=110)
+        if s.views:                        # 図を描いた紙（配置図は別の _xform.json）：文字の層と、図の置き場所の json
+            s.save_moji(base); s.save_views(base)
+        plt.close(s.fig)
         s.doc.saveas(base + '.dxf')
+    def save_moji(s, base):
+        """…_文字.pdf：同じ紙・同じ位置に、文字と注記（部屋名・面積・寸法・通り芯・断面の位置・高さ・図名・方位・縮尺・凡例・注・換気・作図の印）だけ。
+        建物の線と塗り（切断・見えがかり・部屋の色・断熱・地盤）は消す。Rhino 経由の線（rhino/zumen.py）の上に重ねる用（項 20261028-0911-kanshu）。
+        描いたものを一度だけ描き、ここでは見せる・隠すを変えてもう一度書き出す（立面の z バッファを二度走らせない）。
+        地は透明。字の白い地（box）は残す（Rhino の線の上で字が読めるように）。SODACHIYA_MOJI_BOX=0 で白い地も消す"""
+        nobox = os.environ.get('SODACHIYA_MOJI_BOX', '1') == '0'
+        hid = []
+        for ax in s.fig.axes:
+            for a in list(ax.collections) + list(ax.patches) + list(ax.texts) + list(ax.lines):
+                if not getattr(a, '_moji', True) and a.get_visible(): a.set_visible(False); hid.append(a)
+                if nobox and hasattr(a, 'get_bbox_patch') and a.get_bbox_patch() is not None and a.get_bbox_patch().get_visible():
+                    a.get_bbox_patch().set_visible(False); hid.append(a.get_bbox_patch())
+        s.fig.savefig(os.path.join(PDFD, os.path.basename(base) + '_文字.pdf'), transparent=True)
+        for a in hid: a.set_visible(True)
+    def view(s, A, name, kind_, **d):
+        """図 A（Ax）の置き場所を記録する。A の描く座標 (X, Y) → 紙の mm（左上が原点、右へ x、下へ y）：
+        x = (X + ox) / k、y = H − (Y + oy) / k。平面は (X, Y) = 回転 φ・(xy + ずらし)、断面・立面は (X, Y) = (h, z)"""
+        k, H = s.k, s.h
+        hz = dict(a=1 / k, b=0.0, c=A.ox / k, d=0.0, e=-1 / k, f=H - A.oy / k)    # 描く座標 (X, Y) → 紙
+        x0, x1 = A.ax.get_xlim(); y0, y1 = A.ax.get_ylim()
+        v = dict(name=name, kind=kind_, scale=k, draw_to_paper=hz,
+                 clip_paper_mm=[(x0 + A.ox) / k, H - (y1 + A.oy) / k, (x1 + A.ox) / k, H - (y0 + A.oy) / k])   # 図の範囲（紙、左・上・右・下）
+        if kind_ == 'plan':
+            c_, n_ = math.cos(A.phi), math.sin(A.phi); sx, sy = d.get('shift_mm', (0.0, 0.0))
+            v['rotate_deg'] = math.degrees(A.phi)
+            v['model_to_paper'] = dict(a=c_ / k, b=-n_ / k, c=(c_ * sx - n_ * sy + A.ox) / k,
+                                       d=-n_ / k, e=-c_ / k, f=H - (n_ * sx + c_ * sy + A.oy) / k)
+        else:
+            O = np.asarray(d['origin'], float); R_ = np.asarray(d['right'], float)
+            m2 = [[*(R_ / k), (A.ox - O @ R_) / k], [0.0, 0.0, -1 / k, H - A.oy / k]]   # 3dm の (x, y, z, 1) → 紙 (x, y)
+            v['model_to_paper_3d'] = m2
+        v.update({k_: (np.asarray(x_).tolist() if isinstance(x_, (np.ndarray, tuple)) else x_) for k_, x_ in d.items()})
+        s.views.append(v)
+    def save_views(s, base):
+        import json as _jj
+        out = {'_': '3dm（sodachiya.3dm・sodachiya_exact_mesh.3dm と同じ座標、mm）→ この紙の mm（左上が原点、右へ x、下へ y）。'
+                    '平面：x = a·X + b·Y + c、y = d·X + e·Y + f（X, Y は 3dm の x, y、mm。2階はずらし shift_mm を含む）。'
+                    '断面・立面：h = (P − origin)·right（右へ）、上は +z、view_dir の向きを見る。紙 x = a·h + c、y = e·z + f（draw_to_paper）。'
+                    'model_to_paper_3d は (x, y, z, 1) → 紙 の 2×4。clip_paper_mm は図の範囲（左・上・右・下）。'
+                    'draw100.py が書く（更新係、10-28、項 20261028-0911-kanshu）。rhino/zumen.py が読む。',
+               'paper_mm': [s.w, s.h], 'scale': s.k,
+               'line_weights_mm': {'cut': LW_CUT, 'mid': LW_MID, 'thin': LW_THIN},
+               'views': s.views}
+        _jj.dump(out, open(os.path.join(PDFD, os.path.basename(base) + '_views.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 
 def dxf_text(msp, x, y, t, h, layer, ha='left', va='bottom', rot=0):
     att = {('left', 'top'): 1, ('center', 'top'): 2, ('right', 'top'): 3, ('left', 'center'): 4, ('center', 'center'): 5,
@@ -326,19 +378,23 @@ class Ax:
         s.ax.set_xlim(x0, x1); s.ax.set_ylim(y0, y1); s.ax.set_aspect('equal'); s.ax.axis('off')
         s.ox, s.oy = x_mm * k - x0, y_mm * k - y0
         s.phi = 0.0                       # モデルの座標をこの角度だけ回して描く（平面を建物の軸に合わせる）
+        s.annot_all = False               # True：この図の線と塗りはすべて注記（凡例）。文字の層（…_文字.pdf）に残す
     def rot(s, q):
         q = np.asarray(q, float)
         if s.phi == 0.0: return q
         c, n = math.cos(s.phi), math.sin(s.phi)
         return np.c_[q[..., 0] * c - q[..., 1] * n, q[..., 0] * n + q[..., 1] * c] if q.ndim == 2 else np.array([q[0] * c - q[1] * n, q[0] * n + q[1] * c])
     def P(s, x, y): return (x + s.ox, y + s.oy)
-    def lines(s, segs, layer, lw=0.13, color='k', ls='-', z=3, raw=False):
+    def lines(s, segs, layer, lw=0.13, color='k', ls='-', z=3, raw=False, annot=None):
+        """annot：文字の層（…_文字.pdf）に残すか。None ならレイヤーで決める（is_annot）"""
         segs = [np.asarray(q, float) for q in segs if len(q) >= 2]
         if not raw: segs = [s.rot(q) for q in segs]
         if not segs: return
-        s.ax.add_collection(LineCollection(segs, colors=color, linewidths=LW(lw), linestyles=ls, zorder=z, capstyle='butt'))
+        lc_ = s.ax.add_collection(LineCollection(segs, colors=color, linewidths=LW(lw), linestyles=ls, zorder=z, capstyle='butt'))
+        lc_._moji = s.is_annot(layer) if annot is None else annot
         for q in segs:
             s.sh.msp.add_lwpolyline([s.P(*p) for p in q], dxfattribs={'layer': layer})
+    def is_annot(s, layer): return s.annot_all or layer in ANNOT_LAYERS
     def geom_lines(s, g, layer, **kw):
         if g is None or g.is_empty: return
         segs = []
@@ -358,7 +414,8 @@ class Ax:
             verts, codes = [], []
             for ring in [gg.exterior] + list(gg.interiors):
                 c = np.asarray(ring.coords); verts += c.tolist(); codes += [Path.MOVETO] + [Path.LINETO] * (len(c) - 2) + [Path.CLOSEPOLY]
-            s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='#777777' if hatch else (fc if seam else 'none'), lw=LW(0.05), hatch=hatch, zorder=z))
+            pp_ = s.ax.add_patch(PathPatch(Path(verts, codes), fc=fc, ec='#777777' if hatch else (fc if seam else 'none'), lw=LW(0.05), hatch=hatch, zorder=z))
+            pp_._moji = s.is_annot(layer)
             if fc == 'w' and not hatch: continue                 # 白抜き（間仕切り）は DXF では塗らない（線だけ）
             h = s.sh.msp.add_hatch(color=7 if fc == 'k' else 8, dxfattribs={'layer': layer})
             if isinstance(fc, str) and fc.startswith('#') and len(fc) == 7: h.rgb = tuple(int(fc[i:i + 2], 16) for i in (1, 3, 5))
@@ -627,8 +684,12 @@ def draw_visible(A, items, occ):
     return occ
 
 # ---------------------------------------------------------------- 平面
-UP_DASH = r'^(23|28|30|50a|50c|51w|82|83)_'   # 切断より上でも想像線（二点鎖線、10-28 JIS）で示す物（越屋根・2階の床の縁・遊戯室の上の遊具・天袋、10-27 監修）
-ROOM_LAYERS = lambda ln: bool(re.match(r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_', ln))
+UP_DASH = r'^(23|28|30|50a|50c|51w|82|83)_'
+UP_LIGHT = r'^(10t|20t)_'                     # 光の筋：切断より上なら想像線
+ROOM_RE = r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_'     # 部屋の色の板（床の面積の板）
+CUT1, FL2 = 1500, 3250                        # 1 階は FL+1500 で切る（10-27 監修）、2 階の床の高さ
+CUT2 = FL2 + 1000                             # 2 階は 2FL+1000 で切る（10-26 監修）   # 切断より上でも想像線（二点鎖線、10-28 JIS）で示す物（越屋根・2階の床の縁・遊戯室の上の遊具・天袋、10-27 監修）
+ROOM_LAYERS = lambda ln: bool(re.match(ROOM_RE, ln))
 # 部屋の色（決定事項（共通）の「色」、プレゼンの準備 renkei/open/20261024-1927-present、ユーザー10-24夜）：
 # こどもの部屋は緑のグラデーション、こどものみんなの場所、通り・つなぐ場所（はだし）とその土足、大人は一つの色相（キッチンは濃く）、水まわり
 KIDS = [('0・1歳', '#E6EFC2'), ('2歳', '#C5DE9A'), ('3歳', '#9FCB84'), ('4歳', '#86BC78'), ('5歳', '#6FA96E')]
@@ -835,7 +896,7 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
         # 破断線（二重）
         if brk is not None:
             for o_ in (0, 70):
-                A.lines([[s1 - dk * o_, s2 - dk * o_]], '45_階段', lw=0.13, z=7)
+                A.lines([[s1 - dk * o_, s2 - dk * o_]], '45_階段', lw=0.13, z=7, annot=True)
         # 矢印
         if on2:
             path = np.array([np.array(g.centroid.coords[0]) for zz, g in steps if g.area < 1.0e6])[::-1]; lab = '下'
@@ -844,9 +905,9 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
             path = np.array([np.array(g.centroid.coords[0]) for zz, g in brk[4]] + [brk[0] - brk[1] * 80])
             lab = '上'
         if len(path) < 2: continue
-        A.lines([path], '45_階段', lw=0.13, z=7)
+        A.lines([path], '45_階段', lw=0.13, z=7, annot=True)
         d_ = path[-1] - path[-2]; d_ = d_ / max(np.linalg.norm(d_), 1e-6); nn = np.array([-d_[1], d_[0]])
-        A.lines([[path[-1] - d_ * 250 + nn * 120, path[-1], path[-1] - d_ * 250 - nn * 120]], '45_階段', lw=0.13, z=7)
+        A.lines([[path[-1] - d_ * 250 + nn * 120, path[-1], path[-1] - d_ * 250 - nn * 120]], '45_階段', lw=0.13, z=7, annot=True)
         A.text(path[0][0], path[0][1], lab, PT_NOTE, '45_階段', box=True)
     # 吹抜（2 階）：西館の 1 階の部屋の上で、2 階の床の無い所。対角の細い線と「吹抜」
     if level_z > 1000:
@@ -1270,7 +1331,13 @@ def make_plans():
         if num(ln) >= 70 or num(ln) < 2: A.lines([P[:, :2]], '30_敷地・外構', lw=0.09, color='0.55', z=1)
     objs1 = objs_for_plan(1)
     roofs = [ob for ob in OBJ if num(ob['layer']) in (10, 20)]
-    plan(A, 1500, objs1, list(roofs), 0)        # 1 階は FL+1500 で切る（10-27 監修）
+    plan(A, CUT1, objs1, list(roofs), 0)        # 1 階は FL+1500 で切る（10-27 監修）
+    rules = dict(up_dash_re=UP_DASH, up_light_re=UP_LIGHT, room_re=ROOM_RE, roof_re=r'^(10|20)_', tree_re=r'^94',
+                 beam_prefix=list(KIND_BEAM), fitting_prefix=list(FIT_PREFIX), glass_words=['ガラス', '室内窓'],
+                 high_window_below_mm=3000,
+                 _='平面の決まり（plan()）：切断より上の物は描かない。ただし up_dash・光の筋・屋根の外形（roof）・樹冠（tree）・'
+                   '高窓（建具・ガラスで、下端が切断より上かつ床+high_window_below_mm より下）は想像線。部屋の色の板（room）と梁（beam）は描かない')
+    S.view(A, '1階平面', 'plan', cut_z_mm=CUT1, level_z_mm=0, shift_mm=(0.0, 0.0), rules=rules)
     plan_grid(A); plan_section_marks(A); plan_dims(A)
     # 2階：西の道路の外へ、同じ向きで（ずらした物で描く）
     WB = [ob for ob in OBJ if num(ob['layer']) in (21, 23)]
@@ -1296,7 +1363,11 @@ def make_plans():
     o2s = [dict(ob, T=ob['T'] + sh3) for ob in o2]
     r2 = [dict(ob, T=ob['T'] + sh3) for ob in OBJ if num(ob['layer']) == 20]
     # 2 階は 2FL+1000 で切る（10-26 監修：+1200 では西館の南西の低い軒（壁の上端 約4.3 m）より上になり、休憩室の南の壁と窓が切れずに消えていた）
-    plan(A, 3250 + 1000, o2s, r2, 3250, rooms_also=('31_',), void_shift=tuple(SHIFT2))
+    plan(A, CUT2, o2s, r2, FL2, rooms_also=('31_',), void_shift=tuple(SHIFT2))
+    S.view(A, '2階平面（西館）', 'plan', cut_z_mm=CUT2, level_z_mm=FL2, shift_mm=tuple(float(x_) for x_ in SHIFT2), rules=rules,
+           select_xy_mm=[float(wx0), float(wy0), float(wx1), float(wy1)],
+           select_='2階に描く物：西館の外壁（21）と、xy がすべて select_xy_mm（x0, y0, x1, y1）の中の物。'
+                   'z の上端が 3000 以下の物（1 階の物）は遊戯室（31_）の床の中の物だけ（吹き抜けから見下ろす）。本館の屋根（10）は描かない、西館の屋根（20）は外形')
     plan2_dims(A, SHIFT2)
     # 表題・方位・縮尺（紙の座標）
     def paper(x_mm, y_mm):
@@ -1529,11 +1600,15 @@ def ground_hatch(A, x0, x1, occ, d=300, pitch=200, gl=-300):
     segs = [LineString([(x - d, gl - d), (x, gl)]) for x in np.arange(x0, x1 + d, pitch)]
     A.geom_lines(unary_union(segs).intersection(strip), '15_地盤', lw=LW_THIN, color='0.35', z=7.9)
 
-def section_u(A, theta, depth=3200):
+SEC_DEPTH, SEC_A_DEPTH = 3200, 30000          # 断面の奥（B・C は 3.2 m、A は 30 m）
+def section_frame(theta):
+    """架構に平行な鉛直の断面（θ）：u_r（中心から外へ）、u_t（見る向き＝北を奥に）、p0（円弧の中心、z 0）"""
     u_r = np.array([math.cos(theta), math.sin(theta), 0.])
     u_t = np.array([-math.sin(theta), math.cos(theta), 0.])
     if at(205000, theta + 0.01)[1] < at(205000, theta)[1]: u_t = -u_t      # 北を奥に
-    p0 = np.array([C[0], C[1], 0.])
+    return u_r, u_t, np.array([C[0], C[1], 0.])
+def section_u(A, theta, depth=SEC_DEPTH):
+    u_r, u_t, p0 = section_frame(theta)
     X = lambda P: 205000 - (P - p0) @ u_r                # v（西の外壁の線 r=205 m から東へ、mm）、右が東
     D = lambda P: (P - p0) @ u_t
     far, cuts = [], []
@@ -1555,7 +1630,7 @@ def section_u(A, theta, depth=3200):
     far = merge_fine_far(far)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
-    A.lines([[(-17500, -300), (17800, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8)   # GL
+    A.lines([[(-17500, -300), (17800, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8, annot=True)   # GL（3dm に無い線：文字の層にも）
     ground_hatch(A, -17500, 17800, occ)
     cutb = {}
     for ob, pc, S2 in cuts:
@@ -1564,7 +1639,7 @@ def section_u(A, theta, depth=3200):
         o = cutb.get(ob['layer']); cutb[ob['layer']] = b if o is None else (min(o[0], b[0]), min(o[1], b[1]), max(o[2], b[2]), max(o[3], b[3]))
     return cutb
 
-def section_arc(A, Rc, depth=30000):
+def section_arc(A, Rc, depth=SEC_A_DEPTH):
     """円筒面 r=Rc で切って展開。横＝u（南の妻から北へ、r=Rc の弧長）、西を見る（奥＝r の大きい方）"""
     def RTH(P):
         d = P[..., :2] - C; return np.hypot(d[..., 0], d[..., 1]), unwrap(np.arctan2(d[..., 1], d[..., 0]))
@@ -1622,11 +1697,11 @@ def section_arc(A, Rc, depth=30000):
     far = merge_fine_far(far)
     far.sort(key=lambda t: t[0])
     draw_visible(A, [(ob, sil) for _, ob, sil in far], occ)
-    A.lines([[(max(-5000, XCUT), -300), (64000, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8)
+    A.lines([[(max(-5000, XCUT), -300), (64000, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8, annot=True)
     ground_hatch(A, max(-5000, XCUT), 64000, occ)
     if XCUT > -1e8:                                       # 破断線（敷地の境）
         zz_ = [-1300, -300, 600, 900, 1200, 1500, 6500]; xx_ = [XCUT, XCUT, XCUT, XCUT - 250, XCUT + 250, XCUT, XCUT]
-        A.lines([np.c_[xx_, zz_]], '10_見えがかり', lw=0.13, z=8)
+        A.lines([np.c_[xx_, zz_]], '10_見えがかり', lw=0.13, z=8, annot=True)
         A.text(XCUT - 300, -1100, '敷地の境', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='center', color='0.35')
     cutb = {}
     for ob, pc, S2 in cuts:
@@ -1689,6 +1764,10 @@ def make_sections():
     extA = (-14500, 65500, -5600, 10500)
     A = S.axes(30, H_ - 40 - 161, extA)
     A.insul_x = (0, 57000)
+    S.view(A, '断面' + SECTIONS[0][0], 'section_arc', rhino_supported=False, center_xy_mm=C, radius_mm=SECTIONS[0][2],
+           theta0_rad=float(TH_S[0]), sign=SGN, depth_mm=SEC_A_DEPTH, origin=(0.0, 0.0, 0.0), right=(0.0, 0.0, 0.0),
+           _='円筒面 r=radius で切って展開：h = sign·(θ − theta0)·radius（θ は中心からの角度）、外（r の大きい方）を見る。'
+             'model_to_paper_3d は使えない（0）。Rhino ではまだ描かない')
     cutb = section_arc(A, SECTIONS[0][2])
     levels(A, cutb, 64300, True)
     sec_dims_a(A)
@@ -1700,7 +1779,11 @@ def make_sections():
         A = S.axes(30 + i * (390 + 15), H_ - 40 - 161 - 45 - 131, extX)
         A.insul_x = (-1e5, 13500)                   # 外皮の線は v13.5（縁側の中ほどの杉の壁とガラス戸）
         A.rafter_cut = True                         # 東西に切る：垂木（南北）を横に切る
-        cutb = section_u(A, theta_u(val))
+        th_ = theta_u(val); u_r, u_t, p0 = section_frame(th_)
+        S.view(A, '断面' + nm, 'section', origin=p0 + 205000 * u_r, right=-u_r, up=(0.0, 0.0, 1.0), view_dir=u_t,
+               cut_plane_point=p0 + 205000 * u_r, cut_plane_normal=u_t, depth_mm=SEC_DEPTH, u_mm=val,
+               _='鉛直の面（origin を通り、法線 view_dir）で切り、view_dir の向きに depth_mm まで見る。h＝v（西の柱の列 W から東へ）')
+        cutb = section_u(A, th_)
         westx = min([b[0] for k, b in cutb.items() if k.startswith('21_')] or [-900])
         chain_dims(A, [westx, -900, 0, 1600, 12000, 13500, 15000], -900)
         for nm2, x in (('W', 0), ('E', 12000)):
@@ -1722,7 +1805,7 @@ def make_sections():
 
 def legend_materials(S, x_mm, y_mm):
     """断面の凡例（材料構造表示記号、JIS A 0150 の 1/100 の簡略表示）。紙の (x_mm, y_mm) から右へ"""
-    L = S.axes(x_mm, y_mm, (0, 40000, 0, 2000))
+    L = S.axes(x_mm, y_mm, (0, 40000, 0, 2000)); L.annot_all = True     # 凡例は文字の層にも全部
     L.text(0, 1700, '凡例（材料構造の表示、1/100 の簡略表示）', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='center')
     lay = '01_切断（構造・壁）'; x = 0; y0, y1 = 300, 900
     def item(label, draw):
@@ -1768,9 +1851,9 @@ ELEV_VIEWS = [('garden', '園庭の側の立面図', '円弧の中心の方向�
 def _compass(v):
     a = (math.degrees(math.atan2(v[0], v[1])) + 360) % 360           # 北から時計回り
     return ['北', '北東', '東', '南東', '南', '南西', '西', '北西'][int((a + 22.5) // 45) % 8]
-ELEV = {}
+ELEV = {}; ELEV_RT = {}
 for key_, ttl, cap_, vd, _ in ELEV_VIEWS:
-    rt = np.array([vd[1], -vd[0]])
+    rt = np.array([vd[1], -vd[0]]); ELEV_RT[key_] = (np.asarray(vd, float), rt)
     ELEV[key_] = (ttl, (lambda P, rt=rt: P[:, :2] @ rt), (lambda P, vd=vd: P[:, :2] @ vd),
                   f'{cap_}。{_compass(vd)}を見る、右が{_compass(rt)}')
 def elev_objs():
@@ -2052,7 +2135,7 @@ def elevation(A, mode, objs):
 def elev_marks(A, mode, objs, h0, h1, with_levels=True):
     """GL の線、高さの記号、通り芯（東・西は架構 1〜20、南・北は W・E）"""
     _, H, D, right = ELEV[mode]
-    A.lines([[(h0 - 2500, -300), (h1 + 2500, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8)
+    A.lines([[(h0 - 2500, -300), (h1 + 2500, -300)]], '01_切断（構造・壁）', lw=LW_CUT, z=8, annot=True)   # GL
     zs = {}
     for ob in objs:
         n = num(ob['layer']); zt = ob['T'][:, :, 2].max()
@@ -2170,6 +2253,9 @@ def make_elevations(views, title, note_row):
         x_mm = (W_ - (ext[1] - ext[0]) / 100) / 2 if xpos == 'center' else xpos
         y_mm = top - row * (hgt + gap)
         A = S.axes(x_mm, y_mm, ext)
+        vd_, rt_ = ELEV_RT[mode]
+        S.view(A, ttl, 'elevation', key=mode, origin=(0.0, 0.0, 0.0), right=(rt_[0], rt_[1], 0.0), up=(0.0, 0.0, 1.0),
+               view_dir=(vd_[0], vd_[1], 0.0), _='水平な視線の正投影（奥の限りなし）。描く物は elev_objs()（建物：レイヤー 05〜69 と 89）')
         elevation(A, mode, objs); elev_exterior(A, mode, objs, h.min(), h.max()); elev_marks(A, mode, objs, h.min(), h.max(), lv)
         elev_dims(A, mode, objs, h.min(), h.max())
         print('elevation', mode, '幅（紙 mm）', round((ext[1] - ext[0]) / 100), 'x', round(x_mm))
