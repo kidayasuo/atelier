@@ -63,5 +63,6 @@
   - 提出用 `scripts/play_present.py` → `out/sodachiya_play_present`（290×230 mm＝5 枚目の遊戯室の枠に 1/100 の実寸）：平面（FL+1.2）・縦の断面 A（東から 4.3 で切って西を見る、断熱の帯 屋根 150・壁 100・床 50 は仮、会議室の室内窓）・凡例 8 項目・安全・支え方・音。
   - 洞のクスノキの断面パース `scripts/play_cave.py` → `out/sodachiya_play_cave`（160×112 mm、u 32.9 で切って南を見る、上は会議室）。
   - 3dm の取り込み用 `scripts/play3d.py` → `model/sodachiya_play_layers.3dm`（レイヤー 80〜89、最新の play.json から。本体の add_play.py は今の play.json では止まる）。クスノキを約2万面にするのに `fast_simplification` が要る。摺鉢ネットの鉢は厚さ20の回転体、吊り材・突っ張りは円の押し出し（f24101b・ae7e4fe）。
+  - やわらかい床（80）の穴の輪郭は押し出しの局所の座標で足す（ec2e52c、前は建物の外と本館の中へ飛んでいた）。
   - 模型の部品の下書き `scripts/play_mokei.py` → `out/sodachiya_play_mokei.md`・`_parts.svg/.dxf`（吊り材はピアノ線 0.5 を架構の梁のすき間に掛ける、クスノキは3Dプリントの STL）。
 - 残り：模型の部品を模型作成が確かめる、提出用の図を割付に貼る（プレゼンの準備）。提出用の図の断面の床（断熱の帯 床50）を床下空間の描き方にそろえる（監修が本体の断面を直したあと）。提出用の図（play_present）は屋根の厚い立体（10-27）を読むと断面の屋根の線がギザギザになる（屋根の上面・下面の拾い方を直してから描き直す。今の out/sodachiya_play_present は10-25の版、支え方の文だけ script は M20・90×800 に直した）。
