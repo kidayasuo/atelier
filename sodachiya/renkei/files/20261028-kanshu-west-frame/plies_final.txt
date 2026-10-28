@@ -1,0 +1,159 @@
+== ply outlines (pairs on same frame, same name, t<0 vs t>0)
+  u21.33 22b                    t=-131/139 xor=0.039m2 haus=4mm dbounds(vmin,zmin,vmax,zmax)=[0, 4, 0, 0]  <<
+  unpaired 21.33 22b 出し梁（2 枚組の梁の先、外壁を貫いて軒先まで、せ [-131]
+  u21.33 22c                    t=-131/139 xor=0.040m2 haus=-1mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u24 22b                    t=-135/135 xor=0.072m2 haus=6mm dbounds(vmin,zmin,vmax,zmax)=[0, 6, 0, 0]  <<
+  u24 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.009m2 haus=21mm dbounds(vmin,zmin,vmax,zmax)=[-21, 0, 0, 6]  <<
+  u24 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u27 22b                    t=-135/135 xor=0.086m2 haus=7mm dbounds(vmin,zmin,vmax,zmax)=[0, 7, 0, 0]  <<
+  u27 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.011m2 haus=25mm dbounds(vmin,zmin,vmax,zmax)=[-25, 0, 0, 7]  <<
+  u27 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u30 22b                    t=-135/135 xor=0.100m2 haus=8mm dbounds(vmin,zmin,vmax,zmax)=[0, 8, 0, 0]  <<
+  u30 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.013m2 haus=29mm dbounds(vmin,zmin,vmax,zmax)=[-29, 0, 0, 8]  <<
+  u30 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u33 22b                    t=-135/135 xor=0.114m2 haus=8mm dbounds(vmin,zmin,vmax,zmax)=[0, 8, 0, 0]  <<
+  u33 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.015m2 haus=34mm dbounds(vmin,zmin,vmax,zmax)=[-34, 0, 0, 9]  <<
+  u33 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u33 22c 2 階の床梁（階段の上で切った西の片 t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u36 22b                    t=-135/135 xor=0.129m2 haus=9mm dbounds(vmin,zmin,vmax,zmax)=[0, 9, 0, 0]  <<
+  u36 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.016m2 haus=38mm dbounds(vmin,zmin,vmax,zmax)=[-38, 0, 0, 9]  <<
+  u39 22b                    t=-135/135 xor=0.128m2 haus=9mm dbounds(vmin,zmin,vmax,zmax)=[0, 9, 0, 0]  <<
+  u39 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.016m2 haus=39mm dbounds(vmin,zmin,vmax,zmax)=[-39, 0, 0, 9]  <<
+  u42 22b                    t=-135/135 xor=0.107m2 haus=7mm dbounds(vmin,zmin,vmax,zmax)=[0, -7, 0, 0]  <<
+  u42 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.012m2 haus=10mm dbounds(vmin,zmin,vmax,zmax)=[9, -6, 0, -7]  <<
+  unpaired 42 22b 登り梁 120×800（北西の角、u43.5、棟か [1556]
+  u45 22b                    t=-135/135 xor=0.964m2 haus=76mm dbounds(vmin,zmin,vmax,zmax)=[0, -76, 0, -3]  <<
+  u45 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.120m2 haus=281mm dbounds(vmin,zmin,vmax,zmax)=[281, 0, 0, -77]  <<
+  unpaired 45 22b 出し梁（北西の角の登り梁 u43.5 の先、せい  [-1608]
+  u48 22b                    t=-135/135 xor=0.923m2 haus=101mm dbounds(vmin,zmin,vmax,zmax)=[0, -101, 0, -5]  <<
+  unpaired 48 22b 出し梁（2 枚組の梁の先、外壁を貫いて軒先まで、せ [135]
+== holes vs girders
+  22a u48 t0  hole v-1.33 z7527 (91k): girder off dv=46 dz=-559
+  22a u48 t0 girder  cuts wood 29.9k mm2 at v-1.29 z6968
+  22a u48 t-93  hole v-9.31 z4370 (100k): girder off dv=-187 dz=-94
+  22a u48 t-93 girder  cuts wood 58.5k mm2 at v-9.50 z4276
+  22a u45 t-0  hole v-1.34 z7525 (76k): girder off dv=55 dz=-538
+  22a u45 t-0 girder  cuts wood 29.1k mm2 at v-1.29 z6836
+  22a u45 t-0 girder  cuts wood 36.1k mm2 at v-1.28 z6986
+  22a u45 t-95  hole v-12.50 z4326 (100k): girder off dv=-157 dz=-91
+  22a u45 t-95 girder  cuts wood 56.4k mm2 at v-12.66 z4235
+  22a u42 t0  hole v-1.34 z7586 (92k): girder off dv=91 dz=-667
+  22a u42 t0 girder  cuts wood 36.0k mm2 at v-1.28 z6880
+  22a u42 t0 girder  cuts wood 22.9k mm2 at v-1.25 z6919
+  22a u42 t-4  hole v-14.69 z4298 (98k): girder off dv=10 dz=-84
+  22a u42 t-4 girder  cuts wood 1.6k mm2 at v-14.71 z4215
+  22a u39 t-0  hole v-1.34 z7583 (92k): girder off dv=90 dz=-617
+  22a u39 t-0 girder  cuts wood 23.9k mm2 at v-1.25 z6966
+  22a u39 t-0 girder  cuts wood 38.5k mm2 at v-1.27 z6921
+  22a u39 t7  hole v-14.28 z4309 (99k): girder off dv=21 dz=-86
+  22a u39 t7 girder  cuts wood 16.4k mm2 at v-14.34 z4220
+  22a u36 t0  hole v-1.33 z7536 (76k): girder off dv=68 dz=-579
+  22a u36 t0 girder  cuts wood 38.2k mm2 at v-1.27 z6957
+  22a u36 t0 girder  cuts wood 24.4k mm2 at v-1.25 z6906
+  22a u36 t6  hole v-13.83 z4312 (98k): girder off dv=21 dz=-86
+  22a u36 t6 girder  cuts wood 15.9k mm2 at v-13.90 z4224
+  22a u33 t-1  hole v-1.43 z7529 (76k): girder off dv=218 dz=-545
+  22a u33 t-1  hole v-1.43 z2720 (73k): girder off dv=136 dz=-0
+  22a u33 t-1 girder  cuts wood 53.4k mm2 at v-1.29 z6931
+  22a u33 t-1 girder  cuts wood 45.8k mm2 at v-1.30 z2720
+  22a u33 t16  hole v-13.34 z4328 (103k): girder off dv=-138 dz=-100
+  22a u33 t16  hole v-13.34 z2720 (73k): girder off none
+  22a u33 t16 girder  cuts wood 48.6k mm2 at v-13.47 z4228
+  22a u30 t-0  hole v-1.43 z2720 (73k): girder off dv=171 dz=-0
+  22a u30 t-0  hole v-1.43 z7526 (76k): girder off dv=180 dz=-569
+  22a u30 t-0 girder  cuts wood 21.7k mm2 at v-1.25 z6956
+  22a u30 t-0 girder  cuts wood 27.7k mm2 at v-1.26 z6916
+  22a u30 t-0 girder  cuts wood 28.2k mm2 at v-1.25 z2720
+  22a u30 t-0 girder  cuts wood 34.4k mm2 at v-1.26 z2720
+  22a u30 t14  hole v-12.98 z4333 (103k): girder off dv=-136 dz=-102
+  22a u30 t14  hole v-12.98 z2720 (73k): girder off dv=-136 dz=-0
+  22a u30 t14 girder  cuts wood 47.9k mm2 at v-13.12 z4231
+  22a u30 t14 girder  cuts wood 46.9k mm2 at v-13.12 z2720
+  22a u27 t-0  hole v-1.43 z7523 (76k): girder off dv=211 dz=-561
+  22a u27 t-0  hole v-1.43 z2720 (73k): girder off dv=145 dz=-0
+  22a u27 t-0 girder  cuts wood 2.3k mm2 at v-1.22 z6962
+  22a u27 t-0 girder  cuts wood 46.9k mm2 at v-1.28 z6921
+  22a u27 t-0 girder  cuts wood 7.9k mm2 at v-1.22 z2720
+  22a u27 t-0 girder  cuts wood 45.7k mm2 at v-1.29 z2720
+  22a u27 t12  hole v-12.67 z4335 (103k): girder off dv=-134 dz=-102
+  22a u27 t12  hole v-12.67 z2720 (73k): girder off dv=-134 dz=0
+  22a u27 t12 girder  cuts wood 47.2k mm2 at v-12.81 z4234
+  22a u27 t12 girder  cuts wood 46.2k mm2 at v-12.81 z2720
+  22a u24 t1  hole v-1.43 z7520 (75k): girder off dv=141 dz=-592
+  22a u24 t1  hole v-1.43 z2720 (73k): girder off dv=138 dz=0
+  22a u24 t1 girder  cuts wood 52.1k mm2 at v-1.29 z6928
+  22a u24 t1 girder  cuts wood 45.7k mm2 at v-1.29 z2720
+  22a u24 t1 girder  cuts wood 1.0k mm2 at v-1.20 z2720
+  22a u24 t10  hole v-12.42 z2720 (73k): girder off dv=-45 dz=0
+  22a u24 t10  hole v-12.41 z4339 (103k): girder off dv=-46 dz=-91
+  22a u24 t10 girder  cuts wood 46.7k mm2 at v-12.55 z4236
+  22a u24 t10 girder  cuts wood 20.6k mm2 at v-12.46 z4248
+  22a u24 t10 girder  cuts wood 45.6k mm2 at v-12.55 z2720
+  22a u24 t10 girder  cuts wood 19.9k mm2 at v-12.46 z2720
+  22a u21.33 t-42  hole v-1.43 z2720 (73k): girder off dv=133 dz=-0
+  22a u21.33 t-42  hole v-1.43 z7577 (92k): girder off dv=132 dz=-653
+  22a u21.33 t-42 girder  cuts wood 56.1k mm2 at v-1.30 z6924
+  22a u21.33 t-42 girder  cuts wood 45.8k mm2 at v-1.30 z2720
+  22a u21.33 t98  hole v-10.59 z4742 (132k): girder off dv=-95 dz=-122
+  22a u21.33 t98  hole v-10.60 z2720 (73k): girder off dv=-89 dz=-0
+  22a u21.33 t98 girder  cuts wood 39.6k mm2 at v-10.69 z4620
+  22a u21.33 t98 girder  cuts wood 36.4k mm2 at v-10.69 z2720
+  22b u48 t135  hole v-9.37 z4376 (73k): girder off none
+  22b u48 t-135  hole v-9.37 z4477 (73k): girder off dv=-177 dz=-201
+  22b u48 t-135 girder  cuts wood 24.6k mm2 at v-9.54 z4275
+  22b u45 t135  hole v-12.60 z4347 (73k): girder off dv=138 dz=-109
+  22b u45 t135 girder  cuts wood 67.3k mm2 at v-12.46 z4238
+  22b u45 t-135  hole v-12.60 z4422 (73k): girder off dv=-89 dz=-187
+  22b u45 t-135 girder  cuts wood 54.0k mm2 at v-12.69 z4235
+  22b u42 t135  hole v-14.73 z4357 (73k): girder off dv=92 dz=-143
+  22b u42 t135 girder  cuts wood 49.2k mm2 at v-14.64 z4214
+  22b u42 t-135  hole v-14.73 z4364 (73k): girder off dv=18 dz=-151
+  22b u42 t-135 girder  cuts wood 27.5k mm2 at v-14.72 z4213
+  22b u39 t135  hole v-14.33 z4375 (73k): girder off dv=-16 dz=-154
+  22b u39 t135 girder  cuts wood 27.9k mm2 at v-14.35 z4221
+  22b u39 t-135  hole v-14.33 z4366 (73k): girder off dv=20 dz=-145
+  22b u39 t-135 girder  cuts wood 26.6k mm2 at v-14.31 z4221
+  22b u36 t135  hole v-13.88 z4379 (73k): girder off dv=-18 dz=-155
+  22b u36 t135 girder  cuts wood 28.2k mm2 at v-13.89 z4225
+  22b u36 t-135  hole v-13.88 z4370 (73k): girder off dv=18 dz=-145
+  22b u36 t-135 girder  cuts wood 26.4k mm2 at v-13.86 z4225
+  22b u33 t135  hole v-13.47 z4382 (73k): girder off dv=-16 dz=-154
+  22b u33 t135 girder  cuts wood 27.9k mm2 at v-13.49 z4228
+  22b u33 t-135  hole v-13.47 z4374 (73k): girder off dv=16 dz=-146
+  22b u33 t-135 girder  cuts wood 26.2k mm2 at v-13.46 z4228
+  22b u30 t135  hole v-13.12 z4385 (73k): girder off dv=-14 dz=-154
+  22b u30 t135 girder  cuts wood 27.6k mm2 at v-13.13 z4231
+  22b u30 t-135  hole v-13.12 z4377 (73k): girder off dv=14 dz=-146
+  22b u30 t-135 girder  cuts wood 26.1k mm2 at v-13.10 z4231
+  22b u27 t135  hole v-12.81 z4387 (73k): girder off dv=-12 dz=-153
+  22b u27 t135 girder  cuts wood 27.3k mm2 at v-12.82 z4234
+  22b u27 t-135  hole v-12.81 z4380 (73k): girder off dv=12 dz=-147
+  22b u27 t-135 girder  cuts wood 26.0k mm2 at v-12.80 z4234
+  22b u24 t135  hole v-12.55 z4389 (73k): girder off dv=93 dz=-100
+  22b u24 t135 girder  cuts wood 27.1k mm2 at v-12.56 z4236
+  22b u24 t135 girder  cuts wood 4.6k mm2 at v-12.45 z4289
+  22b u24 t-135  hole v-12.55 z4383 (73k): girder off dv=181 dz=-115
+  22b u24 t-135 girder  cuts wood 70.2k mm2 at v-12.37 z4268
+  22b u21.33 t139  hole v-10.64 z4898 (73k): girder off dv=-78 dz=-283
+  22b u21.33 t139 girder  cuts wood 63.1k mm2 at v-10.71 z4615
+  22b u21.33 t-131  hole v-10.64 z4894 (73k): girder off none
+  22c u33 t135  hole v-1.30 z2720 (73k): girder off none
+  22c u30 t135  hole v-13.12 z2720 (73k): girder off dv=-14 dz=0
+  22c u30 t135 girder  cuts wood 1.5k mm2 at v-13.13 z2720
+  22c u30 t-135  hole v-13.12 z2720 (73k): girder off dv=14 dz=0
+  22c u30 t-135 girder  cuts wood 1.5k mm2 at v-13.10 z2720
+  22c u27 t135  hole v-12.81 z2720 (73k): girder off dv=-12 dz=-0
+  22c u27 t135 girder  cuts wood 0.7k mm2 at v-12.82 z2720
+  22c u27 t-135  hole v-12.81 z2720 (73k): girder off dv=12 dz=0
+  22c u27 t-135 girder  cuts wood 0.7k mm2 at v-12.80 z2720
+  22c u24 t135  hole v-12.55 z2720 (73k): girder off dv=-10 dz=0
+  22c u24 t135 girder  cuts wood 3.2k mm2 at v-12.45 z2720
+  22c u24 t-135  hole v-12.55 z2720 (73k): girder off dv=181 dz=0
+  22c u24 t-135 girder  cuts wood 66.9k mm2 at v-12.37 z2720
+  22c u21.33 t-131  hole v-1.30 z2720 (73k): girder off none
+  22a u30 t246 girder 階段の箱の倉庫の戸のまぐ cuts wood 21.6k mm2 at v-5.00 z2190
+  22a u33 t-1475 girder 階段の箱の倉庫の戸のまぐ cuts wood 21.6k mm2 at v-4.99 z2190
+  22c u33 t135 2 階の床梁（階段の上で切った西 hole v-13.47 z2720 (73k): girder off none
+  22c u33 t-135 2 階の床梁（階段の上で切った西 hole v-13.47 z2720 (73k): girder off dv=16 dz=0
+  22c u33 t-135 girder  cuts wood 2.3k mm2 at v-13.46 z2720
+  22b u42 t1556 girder  cuts wood 69.8k mm2 at v-13.68 z4224

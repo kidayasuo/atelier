@@ -1,0 +1,113 @@
+== ply outlines (pairs on same frame, same name, t<0 vs t>0)
+  u21.33 22b                    t=-258/12 xor=0.002m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u21.33 22c                    t=-258/12 xor=0.001m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u24 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u24 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u27 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u27 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u30 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u30 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u33 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u33 22c                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u36 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u39 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u42 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u45 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  u48 22b                    t=-135/135 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+== holes vs girders
+  22a u48 t0  hole v-1.30 z7463 (73k): girder off dv=10 dz=82
+  22a u48 t0  hole v-9.41 z4277 (73k): girder off dv=-60 dz=-2
+  22a u48 t0 girder  cuts wood 8.7k mm2 at v-9.47 z4275
+  22b u48 t135  hole v-1.30 z7463 (73k): girder off none
+  22b u48 t135  hole v-9.41 z4277 (73k): girder off none
+  22b u48 t-135  hole v-9.41 z4277 (73k): girder off dv=-134 dz=-2
+  22b u48 t-135 girder  cuts wood 60.1k mm2 at v-9.54 z4275
+  22a u45 t0  hole v-1.30 z7504 (73k): girder off dv=23 dz=71
+  22a u45 t0  hole v-12.60 z4236 (73k): girder off dv=-51 dz=-1
+  22a u45 t0 girder  cuts wood 9.3k mm2 at v-12.54 z4238
+  22a u45 t0 girder  cuts wood 2.3k mm2 at v-12.65 z4234
+  22b u45 t135  hole v-12.60 z4236 (73k): girder off dv=138 dz=2
+  22b u45 t135 girder  cuts wood 62.2k mm2 at v-12.46 z4238
+  22b u45 t-135  hole v-12.60 z4236 (73k): girder off dv=-89 dz=-1
+  22b u45 t-135 girder  cuts wood 36.8k mm2 at v-12.69 z4235
+  22a u42 t0  hole v-1.30 z7522 (73k): girder off dv=41 dz=-21
+  22a u42 t0  hole v-14.73 z4218 (73k): girder off dv=43 dz=1
+  22a u42 t0 girder  cuts wood 2.6k mm2 at v-14.68 z4220
+  22b u42 t135  hole v-14.73 z4218 (73k): girder off dv=92 dz=1
+  22b u42 t135 girder  cuts wood 38.2k mm2 at v-14.64 z4219
+  22b u42 t-135  hole v-14.73 z4218 (73k): girder off dv=18 dz=0
+  22b u42 t-135 girder  cuts wood 3.1k mm2 at v-14.72 z4218
+  22a u39 t0  hole v-1.30 z7519 (73k): girder off dv=41 dz=22
+  22a u39 t0  hole v-14.33 z4221 (73k): girder off dv=-43 dz=-1
+  22b u39 t135  hole v-14.33 z4221 (73k): girder off dv=-16 dz=-0
+  22b u39 t135 girder  cuts wood 2.3k mm2 at v-14.35 z4221
+  22b u39 t-135  hole v-14.33 z4221 (73k): girder off dv=20 dz=0
+  22b u39 t-135 girder  cuts wood 4.0k mm2 at v-14.31 z4221
+  22a u36 t0  hole v-1.30 z7515 (73k): girder off dv=41 dz=-25
+  22a u36 t0  hole v-13.88 z4225 (73k): girder off dv=43 dz=1
+  22b u36 t135  hole v-13.88 z4225 (73k): girder off dv=-18 dz=-0
+  22b u36 t135 girder  cuts wood 3.1k mm2 at v-13.89 z4225
+  22b u36 t-135  hole v-13.88 z4225 (73k): girder off dv=18 dz=0
+  22b u36 t-135 girder  cuts wood 3.1k mm2 at v-13.86 z4225
+  22c u33 t135  hole v-13.47 z2720 (73k): girder off none
+  22c u33 t135  hole v-1.30 z2720 (73k): girder off none
+  22c u33 t-135  hole v-13.47 z2720 (73k): girder off dv=16 dz=0
+  22c u33 t-135 girder  cuts wood 2.3k mm2 at v-13.46 z2720
+  22a u33 t0  hole v-1.30 z2720 (73k): girder off dv=42 dz=0
+  22a u33 t0  hole v-1.30 z7512 (73k): girder off dv=41 dz=-23
+  22a u33 t0  hole v-13.47 z2720 (73k): girder off dv=43 dz=0
+  22a u33 t0  hole v-13.47 z4228 (73k): girder off dv=43 dz=1
+  22b u33 t135  hole v-13.47 z4228 (73k): girder off dv=-16 dz=-0
+  22b u33 t135 girder  cuts wood 2.3k mm2 at v-13.49 z4228
+  22b u33 t-135  hole v-13.47 z4228 (73k): girder off dv=16 dz=0
+  22b u33 t-135 girder  cuts wood 2.3k mm2 at v-13.46 z4228
+  22c u30 t135  hole v-13.12 z2720 (73k): girder off dv=-14 dz=0
+  22c u30 t135 girder  cuts wood 1.5k mm2 at v-13.13 z2720
+  22c u30 t-135  hole v-13.12 z2720 (73k): girder off dv=14 dz=0
+  22c u30 t-135 girder  cuts wood 1.5k mm2 at v-13.10 z2720
+  22a u30 t0  hole v-1.30 z2720 (73k): girder off dv=42 dz=-0
+  22a u30 t0  hole v-1.30 z7509 (73k): girder off dv=41 dz=-19
+  22a u30 t0  hole v-13.12 z2720 (73k): girder off dv=43 dz=0
+  22a u30 t0  hole v-13.12 z4231 (73k): girder off dv=43 dz=1
+  22b u30 t135  hole v-13.12 z4231 (73k): girder off dv=-14 dz=-0
+  22b u30 t135 girder  cuts wood 1.5k mm2 at v-13.13 z4231
+  22b u30 t-135  hole v-13.12 z4231 (73k): girder off dv=14 dz=0
+  22b u30 t-135 girder  cuts wood 1.5k mm2 at v-13.10 z4231
+  22c u27 t135  hole v-12.81 z2720 (73k): girder off dv=-12 dz=-0
+  22c u27 t135 girder  cuts wood 0.7k mm2 at v-12.82 z2720
+  22c u27 t-135  hole v-12.81 z2720 (73k): girder off dv=12 dz=0
+  22c u27 t-135 girder  cuts wood 0.7k mm2 at v-12.80 z2720
+  22a u27 t0  hole v-1.30 z7506 (73k): girder off dv=41 dz=-19
+  22a u27 t0  hole v-1.30 z2720 (73k): girder off dv=42 dz=-0
+  22a u27 t0  hole v-12.81 z4234 (73k): girder off dv=43 dz=1
+  22a u27 t0  hole v-12.81 z2720 (73k): girder off dv=43 dz=-0
+  22b u27 t135  hole v-12.81 z4234 (73k): girder off dv=-12 dz=-0
+  22b u27 t135 girder  cuts wood 0.7k mm2 at v-12.82 z4234
+  22b u27 t-135  hole v-12.81 z4234 (73k): girder off dv=12 dz=0
+  22b u27 t-135 girder  cuts wood 0.7k mm2 at v-12.80 z4234
+  22c u24 t135  hole v-12.55 z2720 (73k): girder off dv=-10 dz=0
+  22c u24 t-135  hole v-12.55 z2720 (73k): girder off dv=89 dz=0
+  22c u24 t-135 girder  cuts wood 36.8k mm2 at v-12.46 z2720
+  22a u24 t0  hole v-1.30 z2720 (73k): girder off dv=42 dz=0
+  22a u24 t0  hole v-1.30 z7504 (73k): girder off dv=41 dz=18
+  22a u24 t0  hole v-12.55 z2720 (73k): girder off dv=-43 dz=-0
+  22a u24 t0  hole v-12.55 z4236 (73k): girder off dv=-43 dz=-2
+  22a u24 t0 girder  cuts wood 2.3k mm2 at v-12.50 z4235
+  22a u24 t0 girder  cuts wood 2.3k mm2 at v-12.50 z2720
+  22b u24 t135  hole v-12.55 z4236 (73k): girder off dv=-10 dz=-0
+  22b u24 t-135  hole v-12.55 z4236 (73k): girder off dv=89 dz=-1
+  22b u24 t-135 girder  cuts wood 36.8k mm2 at v-12.46 z4236
+  22c u21.33 t12  hole v-10.64 z2720 (73k): girder off dv=-88 dz=-0
+  22c u21.33 t12 girder  cuts wood 36.2k mm2 at v-10.72 z2720
+  22c u21.33 t-258  hole v-10.64 z2720 (73k): girder off none
+  22c u21.33 t-258  hole v-1.30 z2720 (73k): girder off none
+  22a u21.33 t-121  hole v-1.30 z7480 (73k): girder off dv=15 dz=79
+  22a u21.33 t-121  hole v-1.30 z2720 (73k): girder off dv=42 dz=-0
+  22a u21.33 t-126  hole v-10.64 z2720 (73k): girder off dv=-50 dz=-0
+  22a u21.33 t-126  hole v-10.64 z4222 (73k): girder off dv=-50 dz=1
+  22a u21.33 t-126 girder  cuts wood 2.0k mm2 at v-10.69 z4223
+  22a u21.33 t-126 girder  cuts wood 2.0k mm2 at v-10.69 z2720
+  22b u21.33 t12  hole v-10.64 z4222 (73k): girder off dv=-88 dz=1
+  22b u21.33 t12 girder  cuts wood 36.2k mm2 at v-10.72 z4223
+  22b u21.33 t-258  hole v-10.64 z4222 (73k): girder off none
+  22b u21.33 t-258  hole v-1.30 z7480 (73k): girder off none

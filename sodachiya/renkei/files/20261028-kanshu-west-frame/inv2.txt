@@ -1,0 +1,31 @@
+s6.3dm {('22a', 'Extrusion'): 20, ('22b', 'Extrusion'): 20, ('22c', 'Extrusion'): 10, ('22d', 'Extrusion'): 26}
+s7e.3dm {('22a', 'Extrusion'): 31, ('22b', 'Extrusion'): 40, ('22c', 'Extrusion'): 12, ('22d', 'Extrusion'): 47}
+    ('22a', 30, 90, 2, np.float64(627.21), True, '')
+    ('22a', 27, -90, 2, np.float64(626.09), True, '')
+    ('22a', 24, 91, 2, np.float64(626.3), True, '')
+    ('22c', 21.33, 139, 2, np.float64(397.25), False, '')
+    ('22c', 21.33, -131, 2, np.float64(397.25), False, '')
+s7f.3dm {('22a', 'Extrusion'): 31, ('22b', 'Extrusion'): 40, ('22c', 'Extrusion'): 12, ('22d', 'Extrusion'): 47}
+    ('22a', 30, 90, 2, np.float64(627.21), True, '')
+    ('22a', 27, -90, 2, np.float64(626.09), True, '')
+    ('22a', 24, 91, 2, np.float64(626.3), True, '')
+    ('22c', 21.33, 139, 2, np.float64(397.25), False, '')
+    ('22c', 21.33, -131, 2, np.float64(397.25), False, '')
+s7h.3dm {('22a', 'Extrusion'): 31, ('22b', 'Extrusion'): 40, ('22c', 'Extrusion'): 12, ('22d', 'Extrusion'): 47}
+    ('22a', 30, 90, 2, np.float64(627.21), True, '')
+    ('22a', 27, -90, 2, np.float64(626.09), True, '')
+    ('22a', 24, 91, 2, np.float64(626.3), True, '')
+    ('22c', 21.33, 139, 2, np.float64(397.25), False, '')
+    ('22c', 21.33, -131, 2, np.float64(397.25), False, '')
+s9.3dm {('22a', 'Extrusion'): 31, ('22b', 'Extrusion'): 40, ('22c', 'Extrusion'): 12, ('22d', 'Extrusion'): 47}
+    ('22a', 30, 90, 2, np.float64(627.21), True, '')
+    ('22a', 27, -90, 2, np.float64(626.09), True, '')
+    ('22a', 24, 91, 2, np.float64(626.3), True, '')
+    ('22c', 21.33, 139, 2, np.float64(397.25), False, '')
+    ('22c', 21.33, -131, 2, np.float64(397.25), False, '')
+final.3dm {('22a', 'Extrusion'): 31, ('22b', 'Extrusion'): 40, ('22c', 'Extrusion'): 12, ('22d', 'Extrusion'): 47}
+    ('22a', 30, 90, 2, np.float64(627.21), True, '')
+    ('22a', 27, -90, 2, np.float64(626.09), True, '')
+    ('22a', 24, 91, 2, np.float64(626.3), True, '')
+    ('22c', 21.33, 139, 2, np.float64(397.25), False, '')
+    ('22c', 21.33, -131, 2, np.float64(397.25), False, '')

@@ -1,0 +1,56 @@
+  END 22a u48 t0                        end@ u48.00 v-1.30 z0: gap 200 mm  len 7842  2b77a2a8
+  END 22a u48 t0                        end@ u48.00 v-9.41 z0: gap 79 mm  len 4764  bd2a9f43
+  END 22a u45 t0                        end@ u45.00 v-1.30 z-0: gap 200 mm  len 7883  b82e9606
+  END 22a u45 t0                        end@ u45.00 v-12.60 z-0: gap 76 mm  len 4692  9bdfb937
+  END 22a u42 t0                        end@ u42.00 v-1.30 z-0: gap 200 mm  len 7900  2b227bee
+  END 22a u42 t0                        end@ u42.00 v-14.73 z0: gap 191 mm  len 4662  dc4bdfd7
+  END 22a u39 t0                        end@ u39.00 v-1.30 z-0: gap 200 mm  len 7897  fe5d4166
+  END 22a u39 t0                        end@ u39.00 v-14.33 z0: gap 185 mm  len 4667  7f205f53
+  END 22a u36 t0                        end@ u36.00 v-1.30 z0: gap 200 mm  len 7894  0fe76a4c
+  END 22a u36 t0                        end@ u36.00 v-13.88 z0: gap 186 mm  len 4673  e4dc3c21
+  END 22a u33 t0                        end@ u33.00 v-1.30 z-0: gap 200 mm  len 7890  0f550db8
+  END 22a u33 t0                        end@ u33.00 v-13.47 z0: gap 188 mm  len 4704  bb980040
+  END 22a u30 t0                        end@ u30.00 v-1.30 z-0: gap 200 mm  len 7887  9b6d786f
+  END 22a u30 t0                        end@ u30.00 v-13.12 z0: gap 190 mm  len 4710  5865ea00
+  END 22a u27 t0                        end@ u27.00 v-1.30 z-0: gap 200 mm  len 7885  7af40a59
+  END 22a u27 t0                        end@ u27.00 v-12.81 z0: gap 191 mm  len 4716  84e30217
+  END 22a u24 t0                        end@ u24.00 v-1.30 z0: gap 200 mm  len 7882  1205196b
+  END 22a u24 t0                        end@ u24.00 v-12.55 z-0: gap 193 mm  len 4721  d880612d
+  END 22a u21.33 t-121                        end@ u21.21 v-1.30 z-0: gap 121 mm  len 7859  1c4e871e
+  END 22a u21.33 t-126                        end@ u21.21 v-10.64 z0: gap 17 mm  len 4729  710efab8
+  END 22d u48 t-1509                        end@ u48.00 v-1.30 z7463: gap 9 mm  len 3019  40b24a35
+  END 22d u21.33 t1283                        end@ u21.21 v-1.30 z7480: gap 9 mm  len 2808  290257b1
+  END 22d u48 t-1592                        end@ u48.00 v-9.41 z4277: gap 10 mm  len 4489  e8a048c3
+  END 22d u21.33 t1354                        end@ u21.21 v-10.64 z4222: gap 10 mm  len 3513  70b27f06
+  END 22d u33 t-1509                        end@ u33.00 v-1.30 z2720: gap 9 mm  len 3019  b328584f
+  END 22d u21.33 t1283                        end@ u21.21 v-1.30 z2720: gap 9 mm  len 2808  58d6c54b
+  END 22d u30 t1599                        end@ u33.00 v-13.47 z2720: gap 10 mm  len 3214  362d2315
+  END 22d u21.33 t1354                        end@ u21.21 v-10.64 z2720: gap 10 mm  len 3513  c858e0c3
+  OVL 2.48 L  22a x 22d at u47.96 v-9.51 z4269
+  OVL 5.21 L  22b x 22d at u47.87 v-9.57 z4263
+  OVL 2.60 L  22a x 22d at u45.04 v-12.50 z4240
+  OVL 1.24 L  22a x 22d at u44.95 v-12.68 z4229
+  OVL 5.56 L  22b x 22d at u45.13 v-12.42 z4217
+  OVL 3.30 L  22b x 22d at u44.87 v-12.71 z4230
+  OVL 1.31 L  22a x 22d at u42.05 v-14.65 z4224
+  OVL 3.43 L  22b x 22d at u42.13 v-14.60 z4197
+  OVL 0.28 L  22b x 22d at u41.87 v-14.65 z4212
+  OVL 0.21 L  22b x 22d at u39.13 v-14.41 z4208
+  OVL 0.36 L  22b x 22d at u38.87 v-14.25 z4210
+  OVL 0.28 L  22b x 22d at u36.13 v-13.96 z4217
+  OVL 0.28 L  22b x 22d at u35.87 v-13.79 z4218
+  OVL 0.21 L  22c x 22d at u32.86 v-13.39 z2718
+  OVL 0.21 L  22b x 22d at u33.13 v-13.55 z4218
+  OVL 0.21 L  22b x 22d at u32.86 v-13.39 z4227
+  OVL 3.30 L  22c x 22d at u23.87 v-12.41 z2716
+  OVL 1.24 L  22a x 22d at u23.95 v-12.46 z4238
+  OVL 1.24 L  22a x 22d at u23.95 v-12.46 z2738
+  OVL 3.30 L  22b x 22d at u23.87 v-12.42 z4213
+  OVL 3.19 L  22c x 22d at u21.34 v-10.75 z2736
+  OVL 1.18 L  22a x 22d at u21.26 v-10.72 z4215
+  OVL 1.18 L  22a x 22d at u21.26 v-10.72 z2717
+  OVL 3.19 L  22b x 22d at u21.34 v-10.76 z4215
+  OVL 0.29 L  22d x 22d at u44.98 v-12.57 z4243
+  OVL 1.02 L  22d x 22d at u41.99 v-14.70 z4216
+  OVL 0.69 L  22d x 22d at u24.01 v-12.51 z4232
+  OVL 0.69 L  22d x 22d at u24.01 v-12.51 z2719
