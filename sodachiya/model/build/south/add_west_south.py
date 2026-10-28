@@ -528,16 +528,36 @@ def _emit_part(add_, sub_, li=None, name=None):
 _NPART = []
 def _hole_vf(fp, zb, zt):
     return prism_vf(fp, -200.0 if zb <= 0 else float(zb), const(H + 200.0 if zt >= H else float(zt)))
+# 10-29（監修の項 20261028-2345：間仕切りは真っすぐな箱）：壁は「芯の線分×120」の長方形の押し出し。芯の線分は外壁の内面（WNi）で止め、
+# 小口は芯に直角（前は帯を WNi で切ったので、斜めの外壁に当たる小口が約5°傾いた）。弧に沿う壁（v 一定）は架構の線（u＝3 の倍数）で分けた弦ごとの
+# 一枚（前は弧に沿う約1 m の折れ線の一枚）。段 7i（west_walls.py）が同じ表から最後に作り直す。
+def _seg_box(P0, P1):
+    """芯の線分 P0→P1（平面、mm）を外壁の内面で止めた、幅 120 の長方形（小口は芯に直角）。外なら None"""
+    P0 = np.asarray(P0, float).ravel(); P1 = np.asarray(P1, float).ravel()
+    d = P1 - P0; Lc = np.linalg.norm(d); d /= Lc; n = np.array([-d[1], d[0]]) * T_P / 2
+    sg = LineString([P0, P1]).intersection(WNi)
+    if sg.is_empty: return None
+    if sg.geom_type != 'LineString': sg = max(getattr(sg, 'geoms', [sg]), key=lambda g: g.length)
+    q = np.array(sg.coords); sa, sb = sorted(((q - P0) @ d).tolist())
+    A, B = P0 + d * sa, P0 + d * sb
+    return Polygon([A - n, B - n, B + n, A + n])
 def wall_u(u, v0, v1, holes=()):
     """u 一定（放射方向の直線）の壁。holes=[(v0, v1, zb, zt)]"""
-    fp = R(u - T_P / 2000, u + T_P / 2000, min(v0, v1), max(v0, v1), 0.02).intersection(WNi)
+    fp = _seg_box(xy(u, v0), xy(u, v1))
+    if fp is None: return
     sub_ = [x for h in holes for x in _hole_vf(R(u - 0.16, u + 0.16, min(h[0], h[1]), max(h[0], h[1]), 0.02), h[2], h[3])]
     _emit_part(prism_vf(fp, 0.0, const(H)), sub_)
 def wall_v(v, u0, u1, holes=()):
-    """v 一定（弧に沿う）の壁。holes=[(u0, u1, zb, zt)]"""
-    fp = _Rb(u0, u1, v - T_P / 2000, v + T_P / 2000).intersection(WNi)       # 点を開口の端に置かない（開口の脇の面が輪郭の折れの線と重なると、立体の頂点が二重になる）
-    sub_ = [x for h in holes for x in _hole_vf(_Rb(h[0], h[1], v - 0.16, v + 0.16), h[2], h[3])]
-    _emit_part(prism_vf(fp, 0.0, const(H)), sub_)
+    """v 一定（弧に沿う）の壁。holes=[(u0, u1, zb, zt)]。架構の線で分けた弦ごとに一枚（開口の中では分けない）"""
+    a0, a1 = sorted((u0, u1))
+    cuts = [3.0 * k for k in range(int(math.ceil(a0 / 3.0 + 1e-6)), int(math.floor(a1 / 3.0 - 1e-6)) + 1)
+            if a0 + 0.3 < 3.0 * k < a1 - 0.3 and not any(min(h[0], h[1]) - 0.05 < 3.0 * k < max(h[0], h[1]) + 0.05 for h in holes)]
+    bs = [a0] + cuts + [a1]
+    for i, (ua, ub) in enumerate(zip(bs, bs[1:])):
+        fp = _seg_box(xy(ua - (0.002 if i > 0 else 0.0), v), xy(ub + (0.002 if i < len(bs) - 2 else 0.0), v))   # となりの弦と 2 mm 重ねる
+        if fp is None: continue
+        sub_ = [x for h in holes if min(h[0], h[1]) < ub and max(h[0], h[1]) > ua for x in _hole_vf(_Rb(h[0], h[1], v - 0.16, v + 0.16), h[2], h[3])]
+        _emit_part(prism_vf(fp, 0.0, const(H)), sub_)
 # 10-27（構造の直し、監修の略算）：架構 u24・u27 のキッチンの東の壁の線に 2 階の床梁を受ける骨格の柱（180×400、fix_details.py）。
 # 配膳口・返却口・受け取り台を柱を避けて割り直した（配膳口 1.6 → 1.15、返却口 0.8 → 0.8、受け取り台 0.65 のまま、ガラス 1.1 → 1.05）。
 # 10-28（ユーザー 23:41：キッチンのホール側は、腰壁を除いて全ガラスに。はれのま側も）：東の面 v−3.4 は腰壁 h450 と柱（u24・u27）の所の壁

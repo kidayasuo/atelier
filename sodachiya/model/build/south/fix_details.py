@@ -2173,11 +2173,22 @@ if slits:
                 if Polygon([A_ + n2_ - w_, B_ + n2_ - w_, B_ + n2_ + w_, A_ + n2_ + w_]).intersection(reg_).intersection(_RBND).area < 1e3:
                     A_, B_ = A_ + n2_, B_ + n2_; break
             if A_ is None: continue
-            q_ = Polygon([A_ - w_, B_ - w_, B_ + w_, A_ + w_]).intersection(reg_)
-            for g_ in getattr(q_, 'geoms', [q_]):
-                if g_.geom_type != 'Polygon' or g_.area < 0.02e6: continue
-                M_ = _bplate(g_.simplify(0.5), k, 0.0, BAT_T)
-                if M_ is not None: new_objs.append((_m2r(M_), a_b20)); _nb20 += 1
+            # 10-29（監修の項 20261028-2345）：一本ずつ真っすぐな 60×45 の箱（前は双一次の面に沿う網目で約1°ずつ折れていた）。芯の線を区域で切り、
+            # 下の面＝芯の線の両端の屋根の面の高さを結ぶ平らな面（双一次の面の s 一定の線はまっすぐなので、芯は面の上に載る）、上は鉛直に 45、小口は芯に直角
+            cl_ = LineString([A_, B_]).intersection(reg_)
+            for g_ in getattr(cl_, 'geoms', [cl_]):
+                if g_.geom_type != 'LineString' or g_.length < 333.0: continue
+                E0_, E1_ = np.asarray(g_.coords)[0], np.asarray(g_.coords)[-1]
+                z0_, z1_ = _bz(k, np.array([E0_, E1_]))
+                Vb_ = np.array([[*(E0_ - w_), z0_], [*(E1_ - w_), z1_], [*(E1_ + w_), z1_], [*(E0_ + w_), z0_]])
+                Vt_ = np.r_[Vb_, Vb_ + [0.0, 0.0, BAT_T]]
+                Fb_ = np.array([[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]])
+                if trimesh.Trimesh(Vt_ - Vt_.mean(0), Fb_, process=False).volume < 0: Fb_ = Fb_[:, ::-1]
+                mm_ = r.Mesh()
+                for x_, y_, z_ in Vt_: mm_.Vertices.Add(float(x_), float(y_), float(z_))
+                for f_ in Fb_: mm_.Faces.AddFace(int(f_[0]), int(f_[1]), int(f_[2]))
+                mm_.Normals.ComputeNormals(); mm_.Compact()
+                new_objs.append((mm_, a_b20)); _nb20 += 1
     # 断熱 t150（20）と合板 t24（20r）：梁のあいだ（室内）、ベイごとの板
     a_in20 = r.ObjectAttributes(); a_in20.LayerIndex = L20; a_in20.Name = '断熱 木質繊維ボード t150（梁のあいだ、上面＝梁の上端）'
     a20r.Name = '構造用合板 t24（母屋の上、天井に現す、気密はこの上）'
