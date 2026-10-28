@@ -54,6 +54,12 @@ out = r.File3dm(); out.Settings.ModelUnitSystem = src.Settings.ModelUnitSystem
 def layer(name, rgb):
     L = r.Layer(); L.Name = name; L.Color = (*rgb, 255); return out.Layers.Add(L)
 K = Kit(out)
+def _add_hole(ex, c):
+    """穴の輪郭を押し出しに足す。AddInnerProfile は輪郭の面（押し出しの局所の座標）で受け取るので、世界の座標から写す
+    （10-28 夜：世界の座標のまま渡していて、穴のあるやわらかい床が建物の外・本館の中へ飛んでいた、ユーザーの指摘）"""
+    pl = ex.GetProfilePlane(0.0)
+    c.Transform(r.Transform.PlaneToPlane(pl, r.Plane.WorldXY()))
+    return ex.AddInnerProfile(c)
 def ext_prism(poly, z0, z1, li, col=None):
     """平面形（穴あり可）を z0〜z1 の押し出し（Extrusion、外の輪郭と穴の輪郭）に。10-28（監修の項 20261028-0843）：前は網目の角柱で、
     Rhino版で 64 面の Brep になっていた。弧の点は 1 mm のずれまで減らす"""
@@ -69,13 +75,13 @@ def ext_prism(poly, z0, z1, li, col=None):
             bb = ex.GetBoundingBox()
             if abs(bb.Min.Z - z0) < 0.5: best = ex; break
         if best is None: continue
-        for hh in p.interiors: best.AddInnerProfile(crv(hh.coords))
+        for hh in p.interiors: _add_hole(best, crv(hh.coords))
         out.Objects.AddExtrusion(best, K.attr(li, col))
 def ext_circle(c, rad, z0, z1, li, col=None, hole=None):
     """円（穴の円 hole）の押し出し"""
     ex = r.Extrusion.Create(r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(rad)).ToNurbsCurve(), float(z1 - z0), True)
     if ex.GetBoundingBox().Max.Z < z1 - 0.5: ex = r.Extrusion.Create(r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(rad)).ToNurbsCurve(), float(z0 - z1), True)
-    if hole: ex.AddInnerProfile(r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(hole)).ToNurbsCurve())
+    if hole: _add_hole(ex, r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(hole)).ToNurbsCurve())
     out.Objects.AddExtrusion(ex, K.attr(li, col))
 MAT, STEEL, WOOD = (233, 201, 166), (90, 90, 90), (176, 138, 90)
 L_FL = layer('80_遊戯室_穴の底・やわらかい床', (233, 201, 166))
