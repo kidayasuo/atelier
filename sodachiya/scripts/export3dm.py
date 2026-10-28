@@ -16,10 +16,10 @@ def layer(name, rgb):
 for n, c in [("70_外構_生垣・塀・格子", (90, 122, 58)), ("71_外構_屋根（木戸・手水・下屋）", (80, 80, 80)), ("72_外構_柱", (20, 20, 20)),
              ("73_外構_アーチの棚", (122, 90, 54)), ("74_外構_駐車・駐輪・バンプ", (130, 130, 130)), ("75_外構_ひろばの家具", (185, 142, 94)),
              ("76_外構_舗装の区分", (200, 190, 170)), ("77_外構_樹木", (90, 140, 60)),
-             ("78_外構_みなみのさんかく（丘・小径・砂場・水）", (176, 138, 90)), ("79_外構_みなみのさんかく（木・ハーブ）", (110, 154, 78)),
+             ("78_外構_みなみのさんかく（丘・小径・砂場・水）", (176, 138, 90)), ("79_外構_みなみのさんかく（緑の目隠しの株）", (110, 154, 78)),
              # 一つのレイヤーには一つの素材（設計監修 10-27）：葉（樹冠・生垣・植え込み）は英字付きの別のレイヤーへ
              ("70h_外構_生垣（葉）", (90, 140, 60)), ("77c_外構_樹冠・植え込み・苔（葉）", (110, 160, 80)),
-             ("79c_外構_みなみのさんかく_樹冠・ハーブ・緑の目隠し（葉）", (120, 170, 90)),
+             ("79c_外構_みなみのさんかく_ハーブ・緑の目隠し（葉）", (120, 170, 90)),
              ("75t_外構_地中の雨水槽", (120, 120, 120)), ("75s_外構_石の受け桝", (150, 146, 138))]:
     layer(n, c)
 def attr(name):
@@ -189,7 +189,7 @@ m.Objects.AddLine(P3(P(*R["N_DOWN"]), 0.1), P3(P(*R["N_DOWN"]), 4.0), attr("76_�
 # 78・79 みなみのさんかく（data/minami.json、minami_common.py）。平面の (x, y)＝(v, u) を本館の W(u, v) で 3dm の xy へ
 import minami_common as MN
 def mw(g): return [W(y, x) for x, y in list(g.exterior.coords)[:-1]]
-L78, L79 = "78_外構_みなみのさんかく（丘・小径・砂場・水）", "79_外構_みなみのさんかく（木・ハーブ）"
+L78, L79 = "78_外構_みなみのさんかく（丘・小径・砂場・水）", "79_外構_みなみのさんかく（緑の目隠しの株）"
 # 丘：楕円の中を三角形のメッシュに（z は mound_z）
 rings = MN.mound_rings()
 mesh = r.Mesh(); vid = []
@@ -225,18 +225,18 @@ for name, h, e, hh, deg in MN.gates():
     wall([W(h[1], h[0]), W(e[1], e[0])], hh, L78, 0.05)
     hp = W(h[1], h[0]); post(hp, hh + 0.1, 0.12, L78)
 # 79 ハーブの帯（h0.3 の塊）、木（幹と樹冠の円）
-L79c = "79c_外構_みなみのさんかく_樹冠・ハーブ・緑の目隠し（葉）"
+L79c = "79c_外構_みなみのさんかく_ハーブ・緑の目隠し（葉）"
 slab(mw(MN.HERB), 0, 0.3, L79c)
 _sc = [W(y, x) for x, y in MN.SCREEN.coords]                     # 川の柵の緑の目隠し：ワイヤー h1.5 にムベ（緑の帯）
 wall(_sc, MN.RS["h"], L79c)
 for (xy, k) in MN.screen_plants():
     m.Objects.AddLine(P3(W(xy[1], xy[0]), 0), P3(W(xy[1], xy[0]), MN.RS["h"]), attr(L79))
-tp = W(*MN.D["TREE"]["c"])
-m.Objects.AddLine(P3(tp, 0), P3(tp, 4.5), attr(L79))
+tp = W(*MN.D["TREE"]["c"])                                       # みなみのさんかくの木は外構の樹木のレイヤーへ（10-28 ユーザー：樹木は樹木レイヤに）
+m.Objects.AddLine(P3(tp, 0), P3(tp, 4.5), attr("77_外構_樹木"))
 for zc, rr in ((MN.D["TREE"]["under"], MN.D["TREE"]["r"] * 0.8), (3.4, MN.D["TREE"]["r"]), (4.5, MN.D["TREE"]["r"] * 0.6)):
-    m.Objects.AddCurve(r.Circle(P3(tp, zc), rr * MM).ToNurbsCurve(), attr(L79c))
+    m.Objects.AddCurve(r.Circle(P3(tp, zc), rr * MM).ToNurbsCurve(), attr("77c_外構_樹冠・植え込み・苔（葉）"))
 sph = r.Sphere(P3(tp, 3.4), MN.D["TREE"]["r"] * MM).ToBrep()
-m.Objects.AddBrep(sph, attr(L79c))
+m.Objects.AddBrep(sph, attr("77c_外構_樹冠・植え込み・苔（葉）"))
 # 70・72・76・77 西館の周りと北（north_common.py、data/approachA.json の NORTH）
 import north_common as NC
 def polys(g): return [q for q in getattr(g, "geoms", [g]) if q.geom_type == "Polygon" and not q.is_empty]
