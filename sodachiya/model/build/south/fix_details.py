@@ -2010,6 +2010,15 @@ for gi in _GIR:
         q_ = _pE + _ax2 * t_
         if LineString([q_ - _w2 * 60.0, q_ + _w2 * 60.0]).intersects(fg_): _tW_ = t_ - 5.0; break
 _pW_R = _pE + _ax2 * _tW_
+_tC_ = np.linalg.norm(_pW - _pE)                                                       # 出し梁の根元：西の桁の西の横の面（桁をはさんで登り梁と向かい合う）
+for gi in _GIR:
+    Sg_ = extedit.samples(gi[1], 60); Ug_ = to_uv_arr(Sg_)
+    if not (Ug_[:, 1].mean() < -9.0 and Ug_[:, 0].min() < U_RAF < Ug_[:, 0].max()): continue
+    fg_ = Polygon(Sg_[:, :2]).convex_hull
+    for t_ in np.arange(_tW_ + 5.0, np.linalg.norm(_pW - _pE) + 5.0, 5.0):
+        q_ = _pE + _ax2 * t_
+        if not LineString([q_ - _w2 * 60.0, q_ + _w2 * 60.0]).intersects(fg_): _tC_ = min(_tC_, t_); break
+_pC_ = _pE + _ax2 * _tC_
 _d0R = 800.0; _tg_ = None
 for gi in _GIR:
     Sg_ = extedit.samples(gi[1], 60); Ug_ = to_uv_arr(Sg_)
@@ -2024,7 +2033,8 @@ _slab_x(_pE, _pW_R, _zr(_pE), _zr(_pW_R), _d0R, 800.0, 120.0, L22B, '登り梁 1
 log.append(f'西館：登り梁 u43.5 は西の桁の横の面で止め（外壁の内面より {np.linalg.norm(_pW - _pW_R):.0f} 手前）、東の端の下端を東の桁の上端まで（東の端のせい {_d0R:.0f}）')
 _L42 = np.linalg.norm(_RWf['beam_line'](42.0)[1] - _RWf['beam_line'](42.0)[0])
 _tipR = _Rr + (1.0 + (900.0 - 120.0) / _L42) * (_Er - _Rr) - _ax2 * 100.0          # 軒先（まっすぐな水平の線）の 0.1 手前
-_cR = _slab_x(_pW, _tipR, _zr(_pW), _zr(_tipR), 240.0, 120.0, 120.0, L22B, '出し梁（北西の角の登り梁 u43.5 の先、せい 240 → 120）')
+_cR = _slab_x(_pC_, _tipR, _zr(_pC_), _zr(_tipR), 240.0, 120.0, 120.0, L22B, '出し梁（北西の角の登り梁 u43.5 の先、西の桁の横の面から、せい 240 → 120、金物）')   # 10-29：根元を西の桁の横の面まで（前は外壁の内面から、根元が無かった）
+log.append(f'西館：u43.5 の出し梁の根元を西の桁の西の横の面まで（外壁の内面より {np.linalg.norm(_pW - _pC_):.0f} 内）')
 _CANT.append(_cR)
 _Tc = tri.tri_extrusion(_cR)
 if len(_Tc):
