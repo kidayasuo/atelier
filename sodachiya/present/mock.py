@@ -842,7 +842,7 @@ VX0, VX1, VY0, VY1 = -26.0, QX1 + 2.0, -21.0, QY1 + 8.0  # 南へ延ばして高
 sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx, sy = M + 6, H - M - 16 - 3 - sh                            # 配置図は上の帯のすぐ下まで上げる（ユーザー、10-26：配置図の注を消し、下の景観立面との窮屈さを解く）
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
-P1_BOT = M + 10                                              # 下の帯（沿川の景観立面）は2枚目へ移した（ユーザー、10-27夜：景観の枚の方が親和性が高い）。下の端の目安
+P1_BOT = M + 10                                              # 下の帯（沿川の景観立面）は4枚目（景観）へ移した（ユーザー、10-27夜：景観の枚の方が親和性が高い）。下の端の目安
 T(ax, sx + 120, sy - 18, "配置図", 6.0, bold=True)                 # 題は図の下に、大きく（ユーザー、10-26）
 T(ax, sx + 120 + 3 * 8.4 + 4, sy - 18, "1/200　高野川を下に（川向こうから見る向き、北は右上）", 3.4)
 xf = xform(sx, sy, 200, VX0, VY0)
@@ -1230,7 +1230,7 @@ SL(_cut(SOL), "#2F3338", 0.1, z=13, hide=False); SL(_cut(STR_), "#9A958A", 0.1, 
 SL(_cut(R10), "#555555", 0.15, z=13.5, hide=False); SL(_cut(R20), "#555555", 0.15, z=13.5, hide=False)
 SL(unary_union([ROOFALL, LIDS]) if LIDS is not None else ROOFALL, INK, 0.55, z=14, hide=False)   # 建物の外形（太く、蓋の出も含む）
 SL(SMALLR, "#444444", 0.3, z=14, hide=False)
-_GR = affinity.rotate(GARDEN_X, GJ["VIEW_ROT"]["deg"], origin=(0, 0)).bounds          # 4枚目で園庭の図（garden01）を切り抜く大きさ
+_GR = affinity.rotate(GARDEN_X, GJ["VIEW_ROT"]["deg"], origin=(0, 0)).bounds          # 3枚目で園庭の図（garden01）を切り抜く大きさ
 GVX0, GVY0, GVX1, GVY1 = _GR[0] - 6.0, _GR[1] - 6.0, _GR[2] + 3.0, _GR[3] + 3.0
 _gw, _gh = (GVX1 - GVX0) * 5, (GVY1 - GVY0) * 5
 # 雨落ち（本館の軒の下の石の帯。3dmに無いので data/garden.json の線）
@@ -1607,7 +1607,7 @@ for o in L("10_") + L("20_") + L("35_"):
 _ru = unary_union(_rt)
 _AW, _AH = 120.0, 96.0
 _AL = area_map.make(_AMF, os.path.join(HERE, "plateau_area.json.gz"), list(SITE_C.values()), [np.array(g_.exterior.coords) for g_ in getattr(_ru, "geoms", [_ru])], W=_AW, H=_AH)
-_amx, _amy = M + 6, P1_BOT                                  # 左下（帯が2枚目へ移ったので紙の下の端まで）
+_amx, _amy = M + 6, P1_BOT                                  # 左下（帯が4枚目へ移ったので紙の下の端まで）
 embed(1, _AMF, None, _amx, _amy, 1.0)
 _FR = fitz.Font(fontfile=FONT)
 for _s, (_x, _y) in _AL.items():
@@ -1631,7 +1631,7 @@ def scalebar_parts(x, y, scale, meters, grp):
 
 
 scalebar_parts(sx + 6, sy - 22, 200, 20, "縮尺")
-# 沿川の景観立面　昼・夜 1/300 は2枚目（景観）の下の段へ（ユーザー、10-27夜）
+# 沿川の景観立面　昼・夜 1/300 は4枚目（景観）の下の段へ（ユーザー、10-27夜）
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
 SOZAI_FILES = [("01a", "配置図　1/200　線（屋根伏せ・外構・園庭・道・敷地の境）", "線", "色の上、文字の下に置く"),
                ("01b", "配置図　1/200　色（屋根・太陽光・光の筋・園庭・水・木）", "色", "いちばん下に置く"),
@@ -1770,7 +1770,7 @@ PLAN = os.path.join(DRW, "sodachiya_plan_1-100.pdf")
 ELE1 = os.path.join(DRW, "sodachiya_elevations_1-100.pdf")
 ELE2 = os.path.join(DRW, "sodachiya_elevations2_1-100.pdf")
 
-# 面積表とinspired by（3枚目・5枚目で使う）
+# 面積表とinspired by（2枚目・5枚目で使う）
 AJ = json.load(open(os.path.join(ROOT, "model", "drawings", "sodachiya_areas.json"), encoding="utf-8"))
 
 
@@ -1812,83 +1812,16 @@ def inspired(ax, tx, ty, colw, rows=4):
         T(ax, x_ + 1.5, y2 - 6.4, "→ " + what, 1.9)
 
 
-# ================================================================ 2　景観（ユーザー、10-24夜：立面図2面 → 鳥瞰・約束・素材と色。10-27夜：沿川の景観立面（昼・夜）を1枚目から下の段へ）
-fig, ax = page()
-frame(ax, 2, "景観", "建物に正対する二つの立面（園庭の側・道路の側）で、伸びやかな梁と縁側、西館の立ち上がり。下の段に外から見た姿：鳥瞰と、川の向こうから見た沿川の景観立面（昼・夜）",
-      "園庭の側・道路の側の立面図 → 鳥瞰・沿川の景観立面（昼・夜）→ 景観の約束・素材と色")
-CLIP_E1 = (25, 36, 772, 153)               # 自動の立面図1：園庭の側
-CLIP_E2 = (25, 199, 772, 316)              # 自動の立面図1：道路の側
-CLIP_SA = (31, 50, 830, 206)               # 自動の断面図：縦断A
-
-ex = M + 6
-y_ = H - M - 16 - 3
-BH2 = 210                                    # 4行目（鳥瞰＝透視図 A4・約束・素材と色）の高さ。鳥瞰は A4（297×210）で課題の透視図を兼ねる（ユーザー、10-27夜）
-G2 = (y_ - (M + 8) - BH2 - 2 * 7 - (CLIP_E1[3] - CLIP_E1[1]) - (CLIP_E2[3] - CLIP_E2[1])) / 3
-# 二つの立面を対比で見せる（ユーザー、10-27夜：園庭にひらく／まちに溶け込みつつやさしく守る）。箱は立面の右上の空に
-CONTRAST = {
-    "garden": ("園庭にひらく", ["縁側と深い軒が57 m続き、3 mごとの柱とガラス戸の半分が開く。屋根の光の筋が架構を照らし、こどもは縁側から庭へ下りる。"]),
-    "road": ("まちに溶け込み、やさしく守る", ["杉の大和張りの静かな板の壁。西館は向かいの住宅に向けて1階の高さまで下げ、窓は小さく面ごとのリズムで。道からは中が見えすぎず、園を包む。"]),
-}
-y_ -= G2 / 2
-title(ax, ex, y_ - 4, "園庭の側の立面図", "1/100　円弧の中心の方向から弧の真ん中に正対")
-T(ax, ex + 300, y_ - 4, CONTRAST["garden"][0], 4.2, "#4E8A3A", bold=True)
-T(ax, ex + 340, y_ - 4, CONTRAST["garden"][1][0], 2.8)
-y_ -= 7
-_, h_ = embed(2, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0)
-y_ -= h_ + G2
-title(ax, ex, y_ - 4, "道路の側の立面図", "1/100　西の道路から")
-T(ax, ex + 300, y_ - 4, CONTRAST["road"][0], 4.2, "#8A5A2B", bold=True)
-T(ax, ex + 372, y_ - 4, CONTRAST["road"][1][0], 2.8)
-y_ -= 7
-_, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0)
-y_ -= h_ + G2
-bh = BH2
-_pw = 297
-box(ax, ex, M + 8, _pw, bh, "透視図（A4）　模型写真の鳥瞰", "南西の上空（公園と高野川の橋の上）から北東を見る\n手前に道の側の静かな壁と公園、奥に弧の縁側と園庭\n（模型ができるまでは Rhino の鳥瞰を仮に）")
-# 鳥瞰の右に、沿川の景観立面 昼（上）・夜（下）1/300（ユーザー、10-27夜：1枚目の下から移した。外から見た姿を鳥瞰と並べる）
-_lx = ex + _pw + 8
-_ly_d = M + 8 + bh - _lh1                    # 昼の上端を鳥瞰の上端にそろえる
-_ly_n = M + 8 + 9                            # 夜は下（題は図の下）
-title(ax, _lx, _ly_d - 5.5, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
-title(ax, _lx, _ly_n - 5.5, "沿川の景観立面　夜", "本館と西館の越屋根の東の縁の光が水平に二本")
-land_elev(ax, _lx, _ly_d, False)
-land_elev(ax, _lx, _ly_n, True)
-sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 2, _lx, _ly_d, _lw1, _lh1)
-sozai("04", f"沿川の景観立面　夜　1/{LE_SC}", 2, _lx, _ly_n, _lw1, _lh1)
-# 右の列：景観の約束（上）・素材と色（下）
-_kx = _lx + _lw1 + 8
-_kw = W - M - 6 - _kx
-_KL = [
-    "第一種低層住居専用地域。西館の棟は約8.5 m（GLから）。",
-    "高野川特別修景地域（右岸）：河岸の樹木と清流が一体の水と緑の空間。川に面する側に植栽帯（園庭の林と生垣）、川に面する側に勾配のある下屋（南の深い軒）。深い軒と縁側、杉の大和張りの板壁（無塗装、銀鼠に枯れる）、ゆるい勾配の屋根――これをいまの和風の外観とする。",
-    "遠景デザイン保全区域（高野川・修学院離宮・船岡山公園からの眺め）：外壁と屋根に禁止色を使わず、山並みと調和する色（黒い金属の屋根、木の色のまま）。",
-    "小竹薮公園と既存の木を残す。"]
-_kh = 16 + sum(len(jwrap(t_, (_kw - 6) / (2.8 / 0.72))) for t_ in _KL) * (2.8 / 0.72 + 1.2) + 1.5 * len(_KL) + 12
-ibox(ax, _kx, M + 8 + bh - _kh, _kw, _kh, "景観の約束", _KL, "#4E6FB0", "#F6F8FC", size=2.8)
-_mx = _kx
-_mw = _kw
-_mtop = M + 8 + bh - _kh - 8                 # 素材と色の上端
-T(ax, _mx, _mtop - 4, "素材と色", 3.8, bold=True)
-_sw = [("#B88A5A", "木の柱・梁（木の色のまま）"), ("#C9A77C", "杉の大和張りの外壁（銀鼠に枯れる）"), ("#2E2E30", "屋根：黒い金属（屋根材型の太陽光）"),
-       ("#EDE7DA", "越屋根のガラスの蓋・縁側の白"), ("#8E9B86", "生垣と園庭の緑")]
-_sst = min(13.0, (_mtop - 10 - (M + 8)) / len(_sw))
-for i_, (c_, t_) in enumerate(_sw):
-    yy = _mtop - 10 - (i_ + 1) * _sst + 2
-    ax.add_patch(Rectangle((_mx, yy), 16, _sst - 4, fc=c_, ec="#777777", lw=0.2))
-    T(ax, _mx + 20, yy + (_sst - 4) / 2 - 1, t_, 2.6)
-sozai("05", "素材と色", 2, _mx - 1, M + 8, _mw + 1, _mtop - (M + 8))
-figs.append(fig)
-
-# ================================================================ 3　平面図（ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
+# ================================================================ 2　平面図（10-28：3枚目から2枚目へ。ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
 fig, ax = page()
 PLAN3 = os.environ.get("SODACHIYA_PLAN3", PLAN)        # 確かめるときだけ手元の書き出しを指す
-embed(3, PLAN3, None, 0, 0, 1.0)
-TOPT[3].append((14, H - 12, "こどもたちの育ち舎　3/5　平面図　1階・2階", 3.6, True))
+embed(2, PLAN3, None, 0, 0, 1.0)
+TOPT[2].append((14, H - 12, "こどもたちの育ち舎　2/5　平面図　1階・2階", 3.6, True))
 figs.append(fig)
 
-# ================================================================ 4　こどもたち（と働く人たち）の環境（ユーザー、10-24夜：一日の帯を先頭に、透視図もここ）
+# ================================================================ 3　こどもたち（と働く人たち）の環境（ユーザー、10-24夜：一日の帯を先頭に、透視図もここ）
 fig, ax = page()
-frame(ax, 4, "動線とこどもたちの環境", "上は一日の動線（3枚目の平面図の続き）。分離線の下は、こどもたちが地に足をつけて育つ場所：園庭・遊戯室・北山杉の林・教室・廊下の本棚・表の畑と火のオーブン",
+frame(ax, 3, "動線とこどもたちの環境", "上は一日の動線（2枚目の平面図の続き）。分離線の下は、こどもたちが地に足をつけて育つ場所：園庭・遊戯室・北山杉の林・教室・廊下の本棚・表の畑と火のオーブン",
       "一日の帯と動線 → 分離線 → 園庭 → 遊戯室・林 → 教室・本棚・畑")
 STRIP_H = 150
 px, py = M + 6, H - M - 16 - 2
@@ -1952,7 +1885,7 @@ ksc = next(s_ for s_ in (500, 600, 700, 800, 1000)
 for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
     fx = px + i * (fw + 5)
     ax.add_patch(Rectangle((fx, fy), fw, fh, fc="none", ec="#BBBBBB", lw=0.3))
-    sozai(f"{6 + i:02d}", f"一日の帯　{h1}（小さな配置1/{ksc}と三者の動線）", 4, fx, fy, fw, fh)
+    sozai(f"{6 + i:02d}", f"一日の帯　{h1}（小さな配置1/{ksc}と三者の動線）", 3, fx, fy, fw, fh)
     T(ax, fx + 3, fy + fh - 6, h1, 3.4, bold=True)
     kw_, kh_ = (kx1 - kx0) * 1000 / ksc, (ky1 - ky0) * 1000 / ksc
     kox, koy = fx + (fw - kw_) / 2, fy + txt_h + 2
@@ -1977,7 +1910,7 @@ GD.clear(); GD.update(_SAVE[1])
 roofs_plan = _SAVE[2]
 dimnote(ax, px + 230, py - 4.5, f"一日の帯：上は1/{ksc}の小さな配置（建物＋園庭）と三者の動線（こども緑・保育士茶・調理青）、下にそれぞれの一日")
 
-# 一日の帯は3枚目の平面図の続き（ユーザー、10-27夜）。その下に分離線、下は「こどもたちの環境」
+# 一日の帯は2枚目の平面図の続き（ユーザー、10-27夜）。その下に分離線、下は「こどもたちの環境」
 _sep = fy - 8
 ax.plot([M + 6, W - M - 6], [_sep, _sep], color="#888888", lw=0.5, zorder=5)
 T(ax, M + 6, _sep - 9, "こどもたちの環境", 5.0, bold=True)
@@ -1987,28 +1920,95 @@ _avh = rt - by                                  # 使える高さ
 # 左：園庭（だいさんかく・しずかのもり。配置1/200を縮小）
 GSC = min(0.62, (_avh - 8) / _gh)
 title(ax, M + 6, rt - 4, "園庭", f"だいさんかく・しずかのもり　約1/{int(round(200 / GSC, -1))}（配置1/200を縮小）")
-wGa, hGa = embed(4, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), (14, 40, 14 + _gw, 40 + _gh), M + 6, rt - 8 - _gh * GSC, GSC)
+wGa, hGa = embed(3, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), (14, 40, 14 + _gw, 40 + _gh), M + 6, rt - 8 - _gh * GSC, GSC)
 x2 = M + 6 + wGa + 8
 _rw = W - M - 6 - x2
 # 右の上の行：遊戯室・北山杉の林
 PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
 _rowh = (_avh - 14) * 0.56
 title(ax, x2, rt - 4, "遊戯室", "")
-wPl, hPl = embed(4, PLAYP, None, x2, rt - 8 - _rowh, fit=(_rw * 0.58, _rowh))
+wPl, hPl = embed(3, PLAYP, None, x2, rt - 8 - _rowh, fit=(_rw * 0.58, _rowh))
 x3 = x2 + wPl + 8
 FOREST = os.path.join(ROOT, "out", "sodachiya_forest_02.pdf")
 title(ax, x3, rt - 4, "ホールの北山杉の林", "")
-embed(4, FOREST, (0, 8, 420, 118), x3, rt - 8 - _rowh, fit=(W - M - 6 - x3, _rowh))
+embed(3, FOREST, (0, 8, 420, 118), x3, rt - 8 - _rowh, fit=(W - M - 6 - x3, _rowh))
 # 右の下の行：教室・廊下の本棚と読む場所・表の畑と火のオーブン
 _r2t = rt - 8 - _rowh - 8
 _r2h = _r2t - 6 - by
 ROOM3 = os.path.join(ROOT, "out", "sodachiya_room3_1-50.pdf")
 title(ax, x2, _r2t, "教室", "3歳の保育室")
-wR3, hR3 = embed(4, ROOM3, None, x2, by, fit=(_rw * 0.42, _r2h))
+wR3, hR3 = embed(3, ROOM3, None, x2, by, fit=(_rw * 0.42, _r2h))
 _bx4 = x2 + wR3 + 8
 _bw4 = (W - M - 6 - _bx4 - 8) / 2
 box(ax, _bx4, by, _bw4, _r2h, "廊下の本棚と読む場所", "（図は本館係に依頼）")
 box(ax, _bx4 + _bw4 + 8, by, _bw4, _r2h, "表の畑と火のオーブン", "入口の前の菜園とひろばのかまど\n（図はアプローチ係に依頼）")
+figs.append(fig)
+
+# ================================================================ 4　景観（10-28：2枚目から4枚目へ。ユーザー、10-24夜：立面図2面 → 鳥瞰・約束・素材と色。10-27夜：沿川の景観立面（昼・夜）を1枚目から下の段へ）
+fig, ax = page()
+frame(ax, 4, "景観", "建物に正対する二つの立面（園庭の側・道路の側）で、伸びやかな梁と縁側、西館の立ち上がり。下の段に外から見た姿：鳥瞰と、川の向こうから見た沿川の景観立面（昼・夜）",
+      "園庭の側・道路の側の立面図 → 鳥瞰・沿川の景観立面（昼・夜）→ 景観の約束・素材と色")
+CLIP_E1 = (25, 36, 772, 153)               # 自動の立面図1：園庭の側
+CLIP_E2 = (25, 199, 772, 316)              # 自動の立面図1：道路の側
+CLIP_SA = (31, 50, 830, 206)               # 自動の断面図：縦断A
+
+ex = M + 6
+y_ = H - M - 16 - 3
+BH2 = 210                                    # 4行目（鳥瞰＝透視図 A4・約束・素材と色）の高さ。鳥瞰は A4（297×210）で課題の透視図を兼ねる（ユーザー、10-27夜）
+G2 = (y_ - (M + 8) - BH2 - 2 * 7 - (CLIP_E1[3] - CLIP_E1[1]) - (CLIP_E2[3] - CLIP_E2[1])) / 3
+# 二つの立面を対比で見せる（ユーザー、10-27夜：園庭にひらく／まちに溶け込みつつやさしく守る）。箱は立面の右上の空に
+CONTRAST = {
+    "garden": ("園庭にひらく", ["縁側と深い軒が57 m続き、3 mごとの柱とガラス戸の半分が開く。屋根の光の筋が架構を照らし、こどもは縁側から庭へ下りる。"]),
+    "road": ("まちに溶け込み、やさしく守る", ["杉の大和張りの静かな板の壁。西館は向かいの住宅に向けて1階の高さまで下げ、窓は小さく面ごとのリズムで。道からは中が見えすぎず、園を包む。"]),
+}
+y_ -= G2 / 2
+title(ax, ex, y_ - 4, "園庭の側の立面図", "1/100　円弧の中心の方向から弧の真ん中に正対")
+T(ax, ex + 300, y_ - 4, CONTRAST["garden"][0], 4.2, "#4E8A3A", bold=True)
+T(ax, ex + 340, y_ - 4, CONTRAST["garden"][1][0], 2.8)
+y_ -= 7
+_, h_ = embed(4, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0)
+y_ -= h_ + G2
+title(ax, ex, y_ - 4, "道路の側の立面図", "1/100　西の道路から")
+T(ax, ex + 300, y_ - 4, CONTRAST["road"][0], 4.2, "#8A5A2B", bold=True)
+T(ax, ex + 372, y_ - 4, CONTRAST["road"][1][0], 2.8)
+y_ -= 7
+_, h_ = embed(4, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0)
+y_ -= h_ + G2
+bh = BH2
+_pw = 297
+box(ax, ex, M + 8, _pw, bh, "透視図（A4）　模型写真の鳥瞰", "南西の上空（公園と高野川の橋の上）から北東を見る\n手前に道の側の静かな壁と公園、奥に弧の縁側と園庭\n（模型ができるまでは Rhino の鳥瞰を仮に）")
+# 鳥瞰の右に、沿川の景観立面 昼（上）・夜（下）1/300（ユーザー、10-27夜：1枚目の下から移した。外から見た姿を鳥瞰と並べる）
+_lx = ex + _pw + 8
+_ly_d = M + 8 + bh - _lh1                    # 昼の上端を鳥瞰の上端にそろえる
+_ly_n = M + 8 + 9                            # 夜は下（題は図の下）
+title(ax, _lx, _ly_d - 5.5, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
+title(ax, _lx, _ly_n - 5.5, "沿川の景観立面　夜", "本館と西館の越屋根の東の縁の光が水平に二本")
+land_elev(ax, _lx, _ly_d, False)
+land_elev(ax, _lx, _ly_n, True)
+sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 4, _lx, _ly_d, _lw1, _lh1)
+sozai("04", f"沿川の景観立面　夜　1/{LE_SC}", 4, _lx, _ly_n, _lw1, _lh1)
+# 右の列：景観の約束（上）・素材と色（下）
+_kx = _lx + _lw1 + 8
+_kw = W - M - 6 - _kx
+_KL = [
+    "第一種低層住居専用地域。西館の棟は約8.5 m（GLから）。",
+    "高野川特別修景地域（右岸）：河岸の樹木と清流が一体の水と緑の空間。川に面する側に植栽帯（園庭の林と生垣）、川に面する側に勾配のある下屋（南の深い軒）。深い軒と縁側、杉の大和張りの板壁（無塗装、銀鼠に枯れる）、ゆるい勾配の屋根――これをいまの和風の外観とする。",
+    "遠景デザイン保全区域（高野川・修学院離宮・船岡山公園からの眺め）：外壁と屋根に禁止色を使わず、山並みと調和する色（黒い金属の屋根、木の色のまま）。",
+    "小竹薮公園と既存の木を残す。"]
+_kh = 16 + sum(len(jwrap(t_, (_kw - 6) / (2.8 / 0.72))) for t_ in _KL) * (2.8 / 0.72 + 1.2) + 1.5 * len(_KL) + 12
+ibox(ax, _kx, M + 8 + bh - _kh, _kw, _kh, "景観の約束", _KL, "#4E6FB0", "#F6F8FC", size=2.8)
+_mx = _kx
+_mw = _kw
+_mtop = M + 8 + bh - _kh - 8                 # 素材と色の上端
+T(ax, _mx, _mtop - 4, "素材と色", 3.8, bold=True)
+_sw = [("#B88A5A", "木の柱・梁（木の色のまま）"), ("#C9A77C", "杉の大和張りの外壁（銀鼠に枯れる）"), ("#2E2E30", "屋根：黒い金属（屋根材型の太陽光）"),
+       ("#EDE7DA", "越屋根のガラスの蓋・縁側の白"), ("#8E9B86", "生垣と園庭の緑")]
+_sst = min(13.0, (_mtop - 10 - (M + 8)) / len(_sw))
+for i_, (c_, t_) in enumerate(_sw):
+    yy = _mtop - 10 - (i_ + 1) * _sst + 2
+    ax.add_patch(Rectangle((_mx, yy), 16, _sst - 4, fc=c_, ec="#777777", lw=0.2))
+    T(ax, _mx + 20, yy + (_sst - 4) / 2 - 1, t_, 2.6)
+sozai("05", "素材と色", 4, _mx - 1, M + 8, _mw + 1, _mtop - (M + 8))
 figs.append(fig)
 
 # ================================================================ 5　環境（ユーザー、10-24夜：断面2面と環境への配慮、縦断Aもここ）
@@ -2195,9 +2195,10 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
 ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], anchors={"p1.siteplan": PLAN_ANCHOR}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT,
+                     renumber=dict(id="2026-10-28", map={"2": 4, "3": 2, "4": 3}, note="ユーザー、10-28：5枚の番号を振り直した（前の番号 → 新しい番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"),
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
 
-# 壁に貼ったときの全体（3枚＋2枚）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る
+# 壁に貼ったときの全体（3列：1 ｜ 2・3 ｜ 4・5）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る
 fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4))
 ax = fig.add_axes([0, 0, 1, 1])
 SC = 594 / 2500                       # 壁のmm → 紙のmm
@@ -2205,24 +2206,27 @@ ax.set_xlim(0, 841 / SC)
 ax.set_ylim(0, 2500)
 ax.axis("off")
 x0w, base_ = 250, 350
-pos = {1: (x0w, base_ + 594 + 60), 2: (x0w, base_), 3: (x0w + 841 + 120, base_ + 594 + 60), 4: (x0w + 841 + 120, base_),
-       5: (x0w + 2 * (841 + 120), base_ + 594 + 60)}            # 壁の並び（ユーザー、10-26）：1の下に2、1の右に3、3の下に4、3の右に5
+_cx = lambda c_: x0w + c_ * (841 + 120)
+_top = base_ + 594 + 60
+pos = {1: (_cx(0), base_ + (594 + 60) / 2), 2: (_cx(1), _top), 3: (_cx(1), base_), 4: (_cx(2), _top), 5: (_cx(2), base_)}
+# 壁の並び（ユーザー、10-28）：3列「1 ｜ 2・3 ｜ 4・5」。1は二段の真ん中の高さ。平面（2）の下に一日の帯（3）、
+# 1/100の立面（4）の下に同じ横の長さの1/100の断面（5）。読む順：敷地 → 中に入る（平面・暮らし）→ 外の姿 → 切って仕組み
 for i in range(5):
     x, y = pos[i + 1]
     ax.add_patch(Rectangle((x, y), 841, 594, fill=False, ec="#555555", lw=0.5, zorder=2))
-ax.plot([100, 2100], [0 + 5, 5], color=INK, lw=1)
-ax.plot([100, 2100], [1500, 1500], color=NOTE, lw=0.8, ls=(0, (6, 4)))
+ax.plot([100, 3300], [0 + 5, 5], color=INK, lw=1)
+ax.plot([100, 3300], [1500, 1500], color=NOTE, lw=0.8, ls=(0, (6, 4)))
 def TW(x, y, s, size, **kw):  # sizeは紙のmm
     T(ax, x, y, s, size, **kw)
 TW(110, 1515, "目の高さ1.5 m", 3.2, color=NOTE)
 TW(110, 20, "床", 3.2)
-TW(x0w, 2400, "壁に貼ったとき　上の段：1・3・5、下の段：2・4（1の下に2、3の下に4）", 6.0, bold=True)
-notes = ["1 敷地と自然環境・地域 → 下に 2 景観（立面図）。",
-         "1の配置図の右に 3 平面図、その下に 4 こどもたちと働く人たちの環境（一日の帯は平面図の真下）。",
-         "3の右に 5 環境（断面図）。",
-         "2・3・5枚目の平面・立面・断面は3dmから自動の図を実寸で貼る。"]
+TW(x0w, 2400, "壁に貼ったとき　3列：1 ｜ 2・3 ｜ 4・5（1は二段の真ん中）", 6.0, bold=True)
+notes = ["1 敷地と自然環境・地域（二段の真ん中）。",
+         "その右に 2 平面図、その下に 3 動線とこどもたちの環境（一日の帯は平面図の続き）。",
+         "その右に 4 景観（立面図 1/100）、その下に 5 断面と環境（断面図 1/100、立面と同じ横の長さ）。",
+         "2・4・5枚目の平面・立面・断面は3dmから自動の図を実寸で貼る。"]
 for i, s_ in enumerate(notes):
-    TW(x0w + 2 * (841 + 120), base_ + 520 - i * 70, s_, 3.2, color=NOTE)
+    TW(x0w, pos[1][1] - 80 - i * 70, s_, 3.2, color=NOTE)
 ov = os.path.join(OUT, "_overview.pdf")
 fig.savefig(ov)
 plt.close(fig)

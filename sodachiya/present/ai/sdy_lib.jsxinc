@@ -119,6 +119,15 @@ SDY.styleText = function (tf, p) {
     if (p.para_space) { SDY._each(tf, function (r) { r.paragraphAttributes.spaceAfter = size * Number(p.para_space); }); }
 };
 SDY.missing = [];
+// 5枚の番号の振り直し（ユーザー、10-28）：layout.json の renumber（前の番号 → 新しい番号）。
+// 前に組んだときの layout_built.json に同じ id の renumber が無ければ、今の .ai は前の番号のまま
+SDY.oldNumbering = function (L) {
+    if (!L || !L.renumber) { return false; }
+    var OB = null;
+    try { var bf = File(SDY.here.fsName + "/layout_built.json"); if (bf.exists) { OB = SDY.readJSON(bf); } } catch (e) {}
+    return !(OB && OB.renumber && OB.renumber.id === L.renumber.id);
+};
+SDY.abMap = null;                                    // 前の .ai のアートボード番号（0から）→ 新しい .ai のアートボード番号
 SDY.placeLink = function (doc, lay, i, p) {
     var f = File(SDY.root.fsName + "/" + p.file);
     if (!f.exists) { SDY.missing.push(p.file); return null; }
@@ -403,10 +412,11 @@ SDY.copyUserItems = function (src, dst) {             // 前の .ai の木田さ
             lay = SDY.layer(dst, it.layer.name);
             dup = it.duplicate(lay, ElementPlacement.PLACEATBEGINNING);
             if (ai >= 0 && ai < dst.artboards.length) {
-                ra = src.artboards[ai].artboardRect; rb = dst.artboards[ai].artboardRect;
+                var bi = SDY.abMap ? SDY.abMap(ai) : ai;      // 番号を振り直したときは新しい番号のアートボードへ
+                ra = src.artboards[ai].artboardRect; rb = dst.artboards[bi].artboardRect;
                 dup.translate(rb[0] - ra[0], rb[1] - ra[1]);
                 var sp = SDY.planShift, gb = it.geometricBounds;
-                if (sp && ai === sp.ab) {                  // 配置図の上に描いた物は、配置図が紙の上で動いた分だけ一緒に動かす
+                if (sp && bi === sp.ab) {                  // 配置図の上に描いた物は、配置図が紙の上で動いた分だけ一緒に動かす
                     var cx = ((gb[0] + gb[2]) / 2 - ra[0]) / SDY.K, cy = (ra[1] - (gb[1] + gb[3]) / 2) / SDY.K, w = sp.win;
                     if (cx >= w[0] && cx <= w[0] + w[2] && cy >= w[1] && cy <= w[1] + w[3]) { dup.translate(sp.dx * SDY.K, -sp.dy * SDY.K); sp.n++; }
                 }

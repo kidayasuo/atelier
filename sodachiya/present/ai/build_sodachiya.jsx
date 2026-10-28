@@ -8,9 +8,9 @@
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var doc = app.documents.add(DocumentColorSpace.RGB, L.artboard[0] * K, L.artboard[1] * K, n,
                                 DocumentArtboardLayout.GridByRow, 30 * K, 3);
-    // アートボードは壁に貼るときと同じ並び（ユーザー、10-26）：1の下に2、1の右に3、3の下に4、3の右に5
+    // アートボードは壁に貼るときと同じ並び（ユーザー、10-28）：3列「1 ｜ 2・3 ｜ 4・5」、1は二段の真ん中
     var GAP = 30 * K, AW = L.artboard[0] * K, AH = L.artboard[1] * K;
-    var PLACE = { 1: [0, 0], 2: [0, 1], 3: [1, 0], 4: [1, 1], 5: [2, 0] };
+    var PLACE = { 1: [0, 0.5], 2: [1, 0], 3: [1, 1], 4: [2, 0], 5: [2, 1] };
     for (i = 0; i < n; i++) {
         var cr = PLACE[L.pages[i].no] || [i, 0];
         var x0 = cr[0] * (AW + GAP), y0 = -cr[1] * (AH + GAP);
@@ -44,6 +44,10 @@
             if (an && ao && ab1 >= 0) {
                 var ddx = an.origin[0] - ao.origin[0], ddy = an.origin[1] - ao.origin[1];
                 if (Math.abs(ddx) > 0.05 || Math.abs(ddy) > 0.05) { SDY.planShift = { ab: ab1, win: ao.window, dx: ddx, dy: ddy, n: 0 }; }
+            }
+            if (SDY.oldNumbering(L)) {                 // 前の .ai は前の番号のまま（10-28 の振り直し）：木田さんの物を新しい番号の枚へ
+                var RM = L.renumber.map;
+                SDY.abMap = function (a) { var nn = RM[String(a + 1)]; return nn ? nn - 1 : a; };
             }
             var oldDoc = app.open(out);
             carried = SDY.copyUserItems(oldDoc, doc);

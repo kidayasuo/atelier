@@ -9,6 +9,7 @@
     var doc = app.activeDocument;
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var L = SDY.readJSON(File(SDY.here.fsName + "/layout.json"));
+    if (SDY.oldNumbering(L)) { alert("5枚の番号を振り直しました（10-28）。この .ai は前の番号のままなので、update_texts ではなく build_sodachiya.jsx で組み直してください（木田さんの物は新しい番号の枚へ写ります）。"); return; }
     var map = SDY.findByTag(doc), i, j, p, it, nt = 0, nl = 0, na = 0;
     for (i = 0; i < L.pages.length; i++) {
         for (j = 0; j < L.pages[i].parts.length; j++) {

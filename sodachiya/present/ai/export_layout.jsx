@@ -8,6 +8,11 @@
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var L = null;
     try { L = SDY.readJSON(File(SDY.here.fsName + "/layout.json")); } catch (e) { L = null; }
+    // 5枚の番号の振り直し（10-28）：この .ai が前の番号のままなら、部品の名前（p2.… など）とアートボードを新しい番号に直して書き出す
+    var RN = SDY.oldNumbering(L) ? L.renumber.map : null;
+    var rab = function (n) { return (RN && RN[String(n)]) ? RN[String(n)] : n; };
+    var rid = function (id) { var m = /^p(\d+)\./.exec(id); return (RN && m && RN[m[1]]) ? "p" + RN[m[1]] + id.substring(m[0].length - 1) : id; };
+    var rui = function (d) { var k3; if (d && d.artboard > 0) { d.artboard = rab(d.artboard); } if (d && d.children) { for (k3 = 0; k3 < d.children.length; k3++) { rui(d.children[k3]); } } return d; };
     var LB = null;                                     // 組んだときの位置（layout_built.json、無ければ layout.json）
     try { LB = SDY.readJSON(File(SDY.here.fsName + "/layout_built.json")); } catch (e) { LB = L; }
     var BUILT = {}, bi, bj;
@@ -29,7 +34,9 @@
       try {
         it = doc.pageItems[i];
         t = SDY.parseTag(it);
-        if (!t || found[t.id]) { continue; }
+        if (!t) { continue; }
+        var oid = t.id; t.id = rid(t.id);                 // oid：組んだときの名前（layout_built.json）
+        if (found[t.id]) { continue; }
         found[t.id] = true;
         rec = {};
         if (t.kind === "text" && it.typename === "TextFrame" && it.kind === TextType.POINTTEXT) {
@@ -63,11 +70,11 @@
             r = SDY.ab(doc, ai);
             rec.x = (b[0] - r[0]) / K; rec.y = (r[1] - b[1]) / K; rec.w = (b[2] - b[0]) / K; rec.h = (b[1] - b[3]) / K;
         }
-        rec.artboard = ai + 1;
+        rec.artboard = rab(ai + 1);
         if ((t.kind === "text" || t.kind === "area") && it.typename === "TextFrame") {
             if (SDY.hash(it.contents) !== t.mock_hash) { rec.s = SDY.norm(it.contents); edited++; }   // 書き換えた文字だけ
         }
-        if (!same(rec, BUILT[t.id])) { out.parts[t.id] = rec; }   // 動かした・書き換えた部品だけ残す（動かしていない物はプレゼンの準備の既定のまま）
+        if (!same(rec, BUILT[oid])) { out.parts[t.id] = rec; }   // 動かした・書き換えた部品だけ残す（動かしていない物はプレゼンの準備の既定のまま）
         n++;
       } catch (e) { bad.push((t ? t.id : ("物 " + i)) + "（" + e.message + "）"); }
     }
@@ -88,7 +95,7 @@
                 if (!cg.pathItems[k].clipping) { continue; }
                 b = cg.pathItems[k].geometricBounds; ai = SDY.abOf(doc, b); if (ai < 0) { break; }
                 r = SDY.ab(doc, ai);
-                out.siteclip = { artboard: ai + 1, x: (b[0] - r[0]) / K, y: (r[1] - b[1]) / K, w: (b[2] - b[0]) / K, h: (b[1] - b[3]) / K };
+                out.siteclip = { artboard: rab(ai + 1), x: (b[0] - r[0]) / K, y: (r[1] - b[1]) / K, w: (b[2] - b[0]) / K, h: (b[1] - b[3]) / K };
                 break;
             }
         } catch (e3) { bad.push("配置図の切り抜き（" + e3.message + "）"); }
@@ -96,7 +103,7 @@
     if (LB && LB.anchors) { out.anchors = LB.anchors; }   // 組んだときの配置図の目印（木田さんの物がどの配置図の上に描かれたか）
     var ui = SDY.userItems(doc), q;                    // 木田さんが足した物も台帳に（プレゼンの準備が読む）
     out.user_items = [];
-    for (q = 0; q < ui.length; q++) { try { out.user_items.push(SDY.describe(doc, ui[q])); } catch (e2) {} }
+    for (q = 0; q < ui.length; q++) { try { out.user_items.push(rui(SDY.describe(doc, ui[q]))); } catch (e2) {} }
     SDY.writeText(File(SDY.here.fsName + "/layout_user.json"), SDY.stringify(out));
     alert("書き出しました：部品 " + n + " 個、木田さんが足した物 " + out.user_items.length + " 個（書き換えた文字 " + edited + "、消した部品 " + gone + "）\n" + SDY.here.fsName + "/layout_user.json\n\natelier で git add・commit・push してください。" + (bad.length ? "\n\n書き出せなかった部品（位置は前のまま）：\n" + bad.slice(0, 15).join("\n") : ""));
 })();

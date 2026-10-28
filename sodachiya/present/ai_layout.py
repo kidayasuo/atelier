@@ -195,5 +195,7 @@ def write(c):
                           lw_rect=0.6, lw_header=0.4, color="#222222"),
                anchors=c.get("anchors", {}), anchors_prev=c.get("anchors_prev", {}),
                pages=pages)
+    if c.get("renumber"):                       # 5枚の番号の振り直し（前の番号 → 新しい番号）。build・export が前の番号の .ai を読むときに使う
+        out["renumber"] = c["renumber"]
     json.dump(out, open(os.path.join(AI, "layout.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=0)
     print("Illustratorの割付：", ", ".join(f"{p['no']}枚目 {len(p['parts'])}部品" for p in pages))
