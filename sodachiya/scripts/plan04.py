@@ -117,6 +117,7 @@ def crank_block(b0, flip, labels_out):
     seg((0.95, E), (1.5, E))                                        # 便所の東の端の壁（路地の出口はまっすぐ、10-27）
     ax.add_patch(Circle(P(U(3.05), E - 0.75), 0.12, fc="#DDE8F0", ec="black", lw=0.4, zorder=7))   # small round mirror
     line([(U(2.9), 9.2), (U(2.9), 10.4)], lw=0.5)
+    a_, b_ = sorted([U(3.07), U(3.10)]); box(a_, b_, 9.17, 10.43, lw=0.35, fc="#C9A26B", z=6)   # 引き戸（保育室｜路地、閉、10-29）：戸袋は部屋の側の壁（東）へ
     # store walls
     wl(1.5, 3.0, 1.55, 1.65)
     seg((1.5, 1.65), (1.5, 2.4)); seg((1.5, 3.4), (1.5, J0)); seg((1.5, J0), (3, J1))
