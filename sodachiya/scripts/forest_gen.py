@@ -31,7 +31,7 @@ NOGO = unary_union([R(U0 - 1, P["FOOD"][0], V0 - 1, P["FOOD"][1]), R(*P["SLALOM"
 COLS = [(uf, vc) for uf in (21, 24, 27, 30) for vc in (0, 12)]
 
 def field(u, v, ph):
-    """残す割合（0〜1）：北西が密、南東（縁側・海峡の側）が疎ら、そこにゆるいむら（空き地と茂み）。"""
+    """残す割合（0〜1）：北西が密、南東（縁側・あまのがわの側）が疎ら、そこにゆるいむら（空き地と茂み）。"""
     g = P["FIELD"]
     t = ((u - g["dense"][0]) * (g["sparse"][0] - g["dense"][0]) + (v - g["dense"][1]) * (g["sparse"][1] - g["dense"][1])) / \
         ((g["sparse"][0] - g["dense"][0]) ** 2 + (g["sparse"][1] - g["dense"][1]) ** 2)
@@ -136,7 +136,7 @@ def find_channel(trees):
     # 架構の柱の近く・配膳の道は通らない
     for (a, b) in COLS:
         cost[(UU - a) ** 2 + (VV - b) ** 2 < (0.2 + P["CHANNEL"]["clear"] / 2) ** 2] = 1e6
-    cost[UU < P["CHANNEL"]["u_min"]] = 1e6                          # 海峡がすでに南の筋なので、林の中を通す
+    cost[UU < P["CHANNEL"]["u_min"]] = 1e6                          # あまのがわがすでに南の筋なので、林の中を通す
     dist = np.full(cost.shape, np.inf); prev = {}
     pq = []
     for i in range(len(us)):
