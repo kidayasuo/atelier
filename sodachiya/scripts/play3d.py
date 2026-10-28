@@ -26,14 +26,57 @@ for o in src.Objects:
     if SLN[o.Attributes.LayerIndex].startswith('20_') and isinstance(o.Geometry, r.Mesh):
         g = o.Geometry; roofp += [[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))]
 roofp = np.array(roofp)
-def under_roof(x, y):          # 屋根の下面（梁の上端のあたり）
+def _under_roof_old(x, y):     # 屋根の下面（梁の上端のあたり）の見当（屋根の点の平均 − 300）
     d = np.hypot(roofp[:, 0] - x, roofp[:, 1] - y); i = np.argsort(d)[:4]
     return float(np.average(roofp[i, 2], weights=1 / (d[i] + 1))) - 300
-
+# 10-28（監修の項 20261028-0843）：吊り材・扇の竿の上端は、材の向きに伸ばして最初に当たる屋根の層・梁・桁（20〜・22b・22d・22t）の 5 手前。
+# 前は屋根の点の平均から 300 下げた見当で、梁や東の桁を突き抜け、削る段で切られた先が 1,056 面のメッシュになっていた（83）
+import trimesh as _tm
+_UT = []
+from solids import geom_vf as _gvf
+for o in src.Objects:
+    if not SLN[o.Attributes.LayerIndex].startswith(('20', '22b', '22d', '22t')): continue
+    vf_ = _gvf(o.Geometry)
+    if vf_ is None or not len(vf_[1]): continue
+    _UT.append(np.asarray(vf_[0], float)[np.asarray(vf_[1])])
+_UT = np.vstack(_UT) if _UT else []
+_URI = _tm.ray.ray_triangle.RayMeshIntersector(_tm.Trimesh(**_tm.triangles.to_kwargs(_UT))) if len(_UT) else None
+def up_to(p0, p1, rad=12.0):
+    """p0 から p1（屋根の見当）の向きへ伸ばした材の先：途中で最初に当たる屋根の層・梁・桁の 5 手前（材の太さ rad の縁の線でも測る）"""
+    p0 = np.asarray(p0, float); p1 = np.asarray(p1, float); d = p1 - p0; L_ = np.linalg.norm(d); d /= L_
+    if _URI is None: return p1
+    a = np.cross(d, [1.0, 0, 0] if abs(d[0]) < 0.9 else [0, 1.0, 0]); a /= np.linalg.norm(a); b = np.cross(d, a)
+    O_ = np.array([p0 + k * rad for k in (np.zeros(3), a, -a, b, -b)])
+    loc, ir, _ = _URI.intersects_location(O_, np.tile(d, (len(O_), 1)), multiple_hits=True)
+    t = [(q_ - O_[k]) @ d for q_, k in zip(loc, ir)]; t = [x for x in t if x > 1.0]
+    return p0 + d * min(L_ + 2000.0, min(t) - 5.0) if t else p1
 out = r.File3dm(); out.Settings.ModelUnitSystem = src.Settings.ModelUnitSystem
 def layer(name, rgb):
     L = r.Layer(); L.Name = name; L.Color = (*rgb, 255); return out.Layers.Add(L)
 K = Kit(out)
+def ext_prism(poly, z0, z1, li, col=None):
+    """平面形（穴あり可）を z0〜z1 の押し出し（Extrusion、外の輪郭と穴の輪郭）に。10-28（監修の項 20261028-0843）：前は網目の角柱で、
+    Rhino版で 64 面の Brep になっていた。弧の点は 1 mm のずれまで減らす"""
+    for p in ([poly] if poly.geom_type == 'Polygon' else [g for g in getattr(poly, 'geoms', []) if g.geom_type == 'Polygon']):
+        if p.area < 100: continue
+        p = p.simplify(1.0)
+        def crv(c):
+            return r.Polyline([r.Point3d(float(x), float(y), float(z0)) for x, y in list(c)]).ToNurbsCurve()
+        best = None
+        for h in (z1 - z0, z0 - z1):
+            ex = r.Extrusion.Create(crv(p.exterior.coords), float(h), True)
+            if ex is None: continue
+            bb = ex.GetBoundingBox()
+            if abs(bb.Min.Z - z0) < 0.5: best = ex; break
+        if best is None: continue
+        for hh in p.interiors: best.AddInnerProfile(crv(hh.coords))
+        out.Objects.AddExtrusion(best, K.attr(li, col))
+def ext_circle(c, rad, z0, z1, li, col=None, hole=None):
+    """円（穴の円 hole）の押し出し"""
+    ex = r.Extrusion.Create(r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(rad)).ToNurbsCurve(), float(z1 - z0), True)
+    if ex.GetBoundingBox().Max.Z < z1 - 0.5: ex = r.Extrusion.Create(r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(rad)).ToNurbsCurve(), float(z0 - z1), True)
+    if hole: ex.AddInnerProfile(r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(hole)).ToNurbsCurve())
+    out.Objects.AddExtrusion(ex, K.attr(li, col))
 MAT, STEEL, WOOD = (233, 201, 166), (90, 90, 90), (176, 138, 90)
 L_FL = layer('80_遊戯室_穴の底・やわらかい床', (233, 201, 166))
 L_DK = layer('81_遊戯室_デッキ・家具階段・ついたて', (216, 185, 138))
@@ -50,9 +93,9 @@ def RWw(u0, u1, w0, w1): return RW(u0, u1, w0, w1)        # meshkit.RW は「東
 # ---------------------------------------------------------------- 穴の底（縁・底・マット）
 nt, pt = P['net'], P['pit']; c_net = X(nt['u'], nt['w'])
 pit = Point(c_net).buffer(pt['r'] * 1000, resolution=24); dep = pt['depth'] * 1000
-K.prism(pit.difference(pit.buffer(-50)), -dep, 0.0, L_FL, (200, 180, 150))
-K.prism(pit, -dep - 50, -dep, L_FL, (200, 180, 150))
-K.prism(pit.buffer(-50), -dep, -dep + pt['mat'] * 1000, L_FL, MAT)
+ext_circle(c_net, pt['r'] * 1000, -dep, 0.0, L_FL, (200, 180, 150), hole=pt['r'] * 1000 - 50)     # 縁・底・マットは円の押し出し（10-28）
+ext_circle(c_net, pt['r'] * 1000, -dep - 50, -dep, L_FL, (200, 180, 150))
+ext_circle(c_net, pt['r'] * 1000 - 50, -dep, -dep + pt['mat'] * 1000, L_FL, MAT)
 # ---------------------------------------------------------------- 切り株（クスノキ）とやわらかい床
 st = P['stump']; c_st = X(st['u'], st['w'])
 # 10-28（監修の項 0015 の 5）：φ4.8 → 約 φ6.6。はれのまとの壁（u30）の北、階段の箱（西の面の外 v−5.06）の西で止め、幹・根張りのまわり（床の断面 +20）はあける
@@ -64,7 +107,7 @@ TRUNK = uw2xy(floor_shape(0.0)).buffer(20)
 STAIR_BOX = RWw(29.9, 34.02, -1.0, 4.16)
 SOFT_ST = (Point(c_st).buffer(st['soft_r'] * 1000, resolution=48).intersection(WNi).intersection(RWw(30.07, 60.0, -1.0, 20.0))
            .difference(STAIR_BOX).difference(TRUNK))
-K.prism(SOFT_ST, 0.0, 30.0, L_FL, (239, 226, 200))
+ext_prism(SOFT_ST, 0.0, 30.0, L_FL, (239, 226, 200))
 # 木は骨格（stump.tree）から play_tree.py で滑らかな閉じた網目に（10-24、本物のライブオークを参考に）
 from play_tree import tree_mesh
 TV, TF = tree_mesh(0.025, 20000)          # 約2万面（Rhino版・3dmを軽く、10-24 本館係の知らせ）
@@ -87,7 +130,7 @@ DK_ALL = unary_union([RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [RWw(ds['u0
 DK_HI = unary_union([RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [RWw(ds['u0'] + (ds['u1'] - ds['u0']) * k / n_, ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_, ds['w0'], ds['w1']) for k, h in enumerate(ds['hs']) if h > sf['from_h']])
 SOFT_DK = (DK_HI.buffer(sf['margin'] * 1000, resolution=16).intersection(WNi).difference(DK_ALL.buffer(5)).difference(pit)
            .difference(SOFT_ST).difference(STAIR_BOX))
-K.prism(SOFT_DK, 0.0, sf['t'] * 1000, L_FL, (239, 226, 200))
+ext_prism(SOFT_DK, 0.0, sf['t'] * 1000, L_FL, (239, 226, 200))
 print('やわらかい床：切り株のまわり %.1f m²、デッキの下 %.1f m²' % (SOFT_ST.area / 1e6, SOFT_DK.area / 1e6))
 # ---------------------------------------------------------------- 北の口のついたて（L 字、h2.4、吸音）
 sc = P['screen']
@@ -128,7 +171,7 @@ for k in range(sp['n']):
     STP = CAT.intersection(RWw(cw['north_u'], 60, wa, wb))
     risers = unary_union([RWw(cw['north_u'], 60, w_ - 0.01, w_ + 0.01) for w_ in (wa, wb)])   # 段の境（蹴上げの線、v 一定の弧）には柵を立てない
     rail(STP, H - sp['rise'] * 1000 * (k + 1), risers)
-K.prism(ring_in.buffer(40).difference(ring_in), H - 150, H, L_NET, STEEL)       # ネットを留める鋼の輪
+ext_circle(c_net, rg['inner_r'] * 1000 + 40, H - 150, H, L_NET, STEEL, hole=rg['inner_r'] * 1000)       # ネットを留める鋼の輪（円の押し出し、10-28）
 # ---------------------------------------------------------------- 網の吊り橋（輪 h3.0 → 踊り場 h2.0、真ん中が垂れる）
 bw = P['bridge']['width'] * 1000; sag = P['bridge']['sag'] * 1000
 pa = c_net + dbr * rg['outer_r'] * 1000; pb = c_ld - dbr * ld['r'] * 1000 * 0.9
@@ -177,7 +220,7 @@ beams_u = [36.0, 39.0, 42.0, 45.0, 48.0]
 for u in beams_u:                                               # キャットウォークの外側の縁
     if u >= cw['u_start'] - 0.5:
         u = max(u, cw['u_start'] + 0.1)
-        p = X(u, cw['inset'] + cw['width'] - 0.05); rod([*p, H], [*p, under_roof(*p)], 10, L_NET, STEEL)
+        p = X(u, cw['inset'] + cw['width'] - 0.05); rod([*p, H], up_to([*p, H], [*p, _under_roof_old(*p)], 10), 10, L_NET, STEEL)
 vs = P['support']['v_spread'] * 1000
 for k in range(rg['rods']):                                     # 輪：ハの字 3 組、上は梁 u 39・42・45
     a = 2 * math.pi * (k + 0.5) / rg['rods']; rr_ = (rg['inner_r'] + rg['outer_r']) / 2 * 1000
@@ -186,7 +229,7 @@ for k in range(rg['rods']):                                     # 輪：ハの�
     q = np.array(xy(ub, vv)); along = X(ub, 0.0) - X(ub, 1.0); along /= np.linalg.norm(along)
     q = q + along * vs * (1 if k % 2 else -1)
     if -0.9 - uv(*q)[1] < 0.25: q = np.array(xy(ub, -0.9 - 0.25))   # 上端は壁の内面（東から0.15）より0.1内側まで（設計監修10-23：東の壁に入っていた）
-    rod([*p, H], [*q, under_roof(*q)], 10, L_NET, STEEL)
+    rod([*p, H], up_to([*p, H], [*q, _under_roof_old(*q)], 10), 10, L_NET, STEEL)
 # 輪を東の柱へ突っ張る水平材（輪の東の端 → 東の壁）
 pe = c_net + np.array(X(nt['u'], 0.0) - c_net) / np.linalg.norm(X(nt['u'], 0.0) - c_net) * rg['outer_r'] * 1000
 rod([*pe, H - 60], [*X(nt['u'], 0.15), H - 60], 40, L_NET, STEEL)   # 柱の内面（＝壁の内面、東から0.15）で止める（設計監修10-23）
@@ -235,7 +278,7 @@ fn = P['fans']
 for u in fn['u']:
     c = X(u, fn['w'])
     K.prism(Point(c).buffer(fn['d'] * 500, resolution=16), fn['h'] * 1000 - 40, fn['h'] * 1000, L_FAN)
-    rod([*c, fn['h'] * 1000], [*c, under_roof(*c)], 15, L_FAN, (90, 90, 90))
+    rod([*c, fn['h'] * 1000], up_to([*c, fn['h'] * 1000], [*c, _under_roof_old(*c)], 15), 15, L_FAN, (90, 90, 90))
 
 OUT = os.path.join(ROOT, 'model', 'sodachiya_play_layers.3dm')
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))
