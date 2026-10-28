@@ -147,8 +147,10 @@ def write(c):
             add(dict(id=f"leader.{lk}", name=f"引き出し線 {lk}", kind="line", layer="線", pts=[[round(p[0], 2), round(H - p[1], 2)] for p in pts],
                      color=col, lw=0.6, dot=0.9))
         for i, (tx, ty, ts, th, tb, *ex) in enumerate(c["topt"].get(no, [])):
-            add(dict(id=f"top.{_slug(ts)}", name=ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
-                     size_pt=pt(th), font=(ex[0] if ex and ex[0] else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"), align="left", mock_hash=djb2(ts)))
+            o_ = ex[2] if len(ex) > 2 else {}            # id（固定の鍵）・name・align・follow（一緒に動く部品、ユーザー 10-28）
+            add(dict(id=o_.get("id") or f"top.{_slug(ts)}", name=o_.get("name") or ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
+                     size_pt=pt(th), font=(ex[0] if ex and ex[0] else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"),
+                     align=o_.get("align", "left"), mock_hash=djb2(ts), **({"follow": f"p{no}." + o_["follow"]} if o_.get("follow") else {})))
         # 6) 配置図の中の文字・注の線・突き出た木（1枚目、ユーザー 10-25夕：一つずつ動かして書き換える。注の文字と線は一つのグループ）
         if no == 1:
             for sp in c.get("siteparts", []):
@@ -171,7 +173,13 @@ def write(c):
             g_ = p.get("group")
             if g_:
                 p["group_name"] = "突き出た木" if g_ == "site.g.tree" else ("縮尺" if g_ == "site.g.縮尺" else "配置図の注　" + g_.split(".")[-1])
-        # ユーザーの割付を優先
+        # ユーザーの割付を優先。follow の付いた部品は、自分の割付が無ければ、ついて行く部品（素材など）がユーザーに動かされた分だけ一緒に動く
+        _base = {p["id"]: (p.get("x"), p.get("y")) for p in parts}
+        for p in parts:
+            f_ = p.pop("follow", None)
+            if f_ and p["id"] not in user and f_ in user and "x" in user[f_] and _base.get(f_, (None,))[0] is not None:
+                p["x"] = round(p["x"] + user[f_]["x"] - _base[f_][0], 2)
+                p["y"] = round(p["y"] + user[f_].get("y", _base[f_][1]) - _base[f_][1], 2)
         for p in parts:
             u = user.get(p["id"])
             if not u:

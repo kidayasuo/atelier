@@ -362,9 +362,20 @@ SDY.userItems = function (doc) {                     // レイヤーのいちば
             it = L.pageItems[k];
             try { if (it.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
             if (!SDY.isOurs(it)) { out.push(it); }
+            else if (it.typename === "GroupItem" && !SDY.parseTag(it)) { SDY.userInGroup(it, out); }   // 部品のグループ（配置図の切り抜きなど）に入れた木田さんの物も（10-28：風の線が消えた）
         }
     }
     return out;
+};
+SDY.userInGroup = function (g, out) {               // 印の無いグループの中の、印の無い物（切り抜きの四角は除く）
+    var k, c, clip;
+    for (k = 0; k < g.pageItems.length; k++) {
+        c = g.pageItems[k];
+        if (SDY.parseTag(c)) { continue; }
+        clip = false; try { clip = c.clipping; } catch (e) {}
+        if (clip) { continue; }
+        if (c.typename === "GroupItem" && SDY.hasTag(c)) { SDY.userInGroup(c, out); } else { out.push(c); }
+    }
 };
 SDY.hexOf = function (c) {
     try {

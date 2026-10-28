@@ -859,9 +859,17 @@ PLAN_ANCHOR_PREV = dict(origin=[round(_org_prev[0], 2), round(H - _org_prev[1], 
                         window=[round(sx, 2), round(H - _top, 2), round(sw, 2), round((QY1 + 14.0 + 6.0) * 5, 2)])
 # 見本に描く木田さんの物も、描いたときの配置図の目印から今の目印へ動かす（layout_user.json の anchors、無ければ前の窓）
 try:
-    _ua = json.load(open(os.path.join(HERE, "ai", "layout_user.json"), encoding="utf-8")).get("anchors", {}).get("p1.siteplan") or PLAN_ANCHOR_PREV
+    _lu = json.load(open(os.path.join(HERE, "ai", "layout_user.json"), encoding="utf-8"))
 except Exception:
-    _ua = PLAN_ANCHOR_PREV
+    _lu = {}
+_ua = _lu.get("anchors", {}).get("p1.siteplan") or PLAN_ANCHOR_PREV
+# .ai で木田さんが配置図の素材（01a〜d）を動かしていれば、その分も戻す（ユーザー、10-28：配置図ごと動かした）。
+# .ai の配置図の原点 ＝ 目印の原点 ＋（.ai の素材の位置 − 組んだときの素材の既定の位置＝目印の窓 − 窓と大きい窓の差）
+_wo = (sx - bsx, (H - sy - sh) - (H - bsy - bsh))
+_u01 = _lu.get("parts", {}).get("p1.sozai.01a") or {}
+_mvx = _u01.get("x", _ua["window"][0] - _wo[0]) - (_ua["window"][0] - _wo[0])
+_mvy = _u01.get("y", _ua["window"][1] - _wo[1]) - (_ua["window"][1] - _wo[1])
+_ua = dict(origin=[_ua["origin"][0] + _mvx, _ua["origin"][1] + _mvy], window=[_ua["window"][0] + _mvx, _ua["window"][1] + _mvy] + list(_ua["window"][2:]))
 _udx, _udy = PLAN_ANCHOR["origin"][0] - _ua["origin"][0], PLAN_ANCHOR["origin"][1] - _ua["origin"][1]
 
 
@@ -1739,7 +1747,9 @@ _dY = (H - 48.02) - _ny1; _ny0 += _dY; _ny1 += _dY       # 図の上端をアー
 _fx0, _fy0 = _nbx + 4, _ny0 + _CR
 _box_patch = Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5)
 ax.add_patch(_box_patch)
-T(ax, _nbx + _nw - 3, _ny1 - 6, "松ヶ崎の用水ネットワーク", 3.4, C_NAT, bold=True, ha="right")   # 右寄せ：左上は地域のなかの敷地（素材14）を重ねる（ユーザー、10-27）
+# 表題と出典は素材02の絵に入れず、Illustratorの別の文字の部品に（ユーザー、10-28：図をクリップしても置き直せるように）。素材02と一緒に動く
+TOPT[1].append((_nbx + _nw - 3, _ny1 - 6, "松ヶ崎の用水ネットワーク", 3.4, True, None, C_NAT,
+                dict(id="water.title", name="用水ネットワークの表題", align="right", follow="sozai.02")))   # 右寄せ：左上は地域のなかの敷地（素材14）を重ねる（ユーザー、10-27）
 T(ax, _nbx + 6, _ny1 - 13, "N↑", 3.0, bold=True)
 _ym = lambda P: np.c_[_fx0 + (_yr(P)[:, 0] - _lo[0]) * _k, _fy0 + (_yr(P)[:, 1] - _lo[1]) * _k]
 for _rn, _rl in YS.get("roads", {}).items():             # 道は北山通だけ（ユーザー）
@@ -1759,8 +1769,10 @@ _wq = _ym([(272, 76)])[0]; ax.plot([_wq[0]], [_wq[1]], marker="v", ms=4, color=C
 _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", mec=INK, zorder=7)
 _sq = _ym([(247, 148)])[0] + np.array([4.5, -1.2])   # 図の「樋ノ上川」の「樋」の字のあたり（ユーザー、10-24夜）
 # 敷地の印は描かない（ユーザー、10-25朝：不要）
-T(ax, _fx0, _ny0 + 5.5, "大正から昭和初期の図（https://kyoto-machisen.jp/chiiki_hp/matsugasaki_hp/history/history.htm）", 1.8, NOTE)
-T(ax, _fx0, _ny0 + 2.0, "図：http://ksdobokuisan.stars.ne.jp/80_takaragaike/takaragaike.html の図をなぞって描き直し", 1.8, NOTE)
+TOPT[1].append((_fx0, _ny0 + 5.5, "大正から昭和初期の図（https://kyoto-machisen.jp/chiiki_hp/matsugasaki_hp/history/history.htm）", 1.8, False, None, NOTE,
+                dict(id="water.source", name="用水ネットワークの出典（1行目）", follow="sozai.02")))
+TOPT[1].append((_fx0, _ny0 + 2.0, "図：http://ksdobokuisan.stars.ne.jp/80_takaragaike/takaragaike.html の図をなぞって描き直し", 1.8, False, None, NOTE,
+                dict(id="water.source2", name="用水ネットワークの出典（2行目）", follow="sozai.02")))
 sozai("02", "松ヶ崎の用水の網（北が上）", 1, _nbx, _ny0, _box_patch.get_width(), _ny1 - _ny0)
 figs.append(fig)
 
@@ -2081,6 +2093,8 @@ for si in range(1, 6):
     for ui_ in USER_ITEMS.get(si, []):                # 木田さんがIllustratorで足した物（export_layout.jsx の user_items）を見本にも（矢じりなどは出ない）
         _draw_user_item(pg, ui_)
     for (tx, ty, ts, th, tb, *ex) in TOPT[si]:
+        if len(ex) > 2 and ex[2].get("align") == "right":       # 右寄せ：x は右の端
+            tx -= fitz.Font(fontfile=FONTB if tb else FONT).text_length(ts, th / 0.72)
         _fa = FONT_ALT.get(ex[0]) if ex and ex[0] else None
         _cc = tuple(int(ex[1][k:k + 2], 16) / 255 for k in (1, 3, 5)) if len(ex) > 1 else (0.1, 0.1, 0.1)
         pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname=("F_A" if _fa else ("F_B" if tb else "F_R")),
