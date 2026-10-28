@@ -467,6 +467,201 @@ def fit_graph(Wv, Tsel, up, spec=None, h=(0.5, 0.25)):
     return gr, dev
 
 
+class Ruled:
+    """西館の屋根の層の上下の面（10-28、ソリッド係。ユーザー：今の形のまま滑らかな NURBS で、平面にできる所は平面）。
+    スパン（となりの二本の梁の線のあいだ）の面は、梁の線（棟 C00・C10 → 軒 C01・C11、roofw の ruled_point）の同じ高さの点を
+    水平の線で結んだ面＝四隅の双一次の面（次数 1×1 の NURBS、制御点 4）。層は z をずらした同じ面（off：s・h の一次＋s·h、
+    軒の下面が上がる所もこの形で近づける）。四隅が 0.5 mm 以内で一つの平面にのれば平面（PlaneSurface）。
+    s：南の梁 0 → 北の梁 1、h：棟 0 → 軒 1（スパンの外へもそのまま延ばす）。uv は (s·W, ±h·L)（mm に近い尺度）"""
+    kind = 'graph'; tag = 'ruled'
+
+    def __init__(self, C, off=(0.0, 0.0, 0.0, 0.0), up=True):
+        C = np.asarray(C, float)                       # C[0]=C00(s0,h0) C[1]=C10(s1,h0) C[2]=C01(s0,h1) C[3]=C11(s1,h1)
+        self.C = C.copy(); c0, c1, c2, c3 = off
+        for i, (s_, h_) in enumerate(((0, 0), (1, 0), (0, 1), (1, 1))):
+            self.C[i, 2] += c0 + c1 * s_ + c2 * h_ + c3 * s_ * h_
+        self.Wd = max(1.0, float(np.linalg.norm(C[1, :2] - C[0, :2]))); self.Ld = max(1.0, float(np.linalg.norm(C[2, :2] - C[0, :2])))
+        n_ = np.cross(*self._d(0.5, 0.5)); self.flip = (n_[2] > 0) != up
+        # 平面か：四隅を通る最小二乗の平面からのずれ
+        o = self.C.mean(0); _, _, vt = np.linalg.svd(self.C - o); pn = vt[2]
+        if (pn[2] > 0) != up: pn = -pn
+        self.planar = bool(np.abs((self.C - o) @ pn).max() <= PLANAR_TOL / 2)
+        self.pl = Plane(pn, o) if self.planar else None
+        self.uc = 0.0; self.sgn = 1
+
+    def _P(self, s, h):
+        C = self.C; return (1 - s) * (1 - h) * C[0] + s * (1 - h) * C[1] + (1 - s) * h * C[2] + s * h * C[3]
+
+    def _d(self, s, h):
+        C = self.C
+        return ((1 - h) * (C[1] - C[0]) + h * (C[3] - C[2]), (1 - s) * (C[2] - C[0]) + s * (C[3] - C[1]))
+
+    def sh(self, p):
+        """平面の点 p の (s, h)（双一次の逆、ニュートン法）"""
+        C = self.C[:, :2]; q = np.asarray(p, float)[:2]; s, h = 0.5, 0.5
+        for _ in range(30):
+            P_ = (1 - s) * (1 - h) * C[0] + s * (1 - h) * C[1] + (1 - s) * h * C[2] + s * h * C[3]
+            J = np.c_[(1 - h) * (C[1] - C[0]) + h * (C[3] - C[2]), (1 - s) * (C[2] - C[0]) + s * (C[3] - C[1])]
+            d = np.linalg.solve(J, q - P_); s += d[0]; h += d[1]
+            if abs(d[0]) < 1e-13 and abs(d[1]) < 1e-13: break
+        return s, h
+
+    def z(self, p):
+        if self.planar:
+            n, o = self.pl.n, self.pl.o; return float(o[2] - (n[0] * (p[0] - o[0]) + n[1] * (p[1] - o[1])) / n[2])
+        return float(self._P(*self.sh(p))[2])
+
+    def uv(self, p, ref=None):
+        if self.planar: return self.pl.uv(np.array([p[0], p[1], self.z(p)]))
+        s, h = self.sh(p); return (s * self.Wd, (-h if self.flip else h) * self.Ld)
+
+    def ang(self, p): return self.uv(p)[0]
+    def proj(self, p): return np.array([float(p[0]), float(p[1]), self.z(p)])
+    def dist(self, p): return abs(float(p[2]) - self.z(p))
+
+    def surface(self, dom):
+        if self.planar: return self.pl.surface(dom)
+        ns = r.NurbsSurface.Create(3, False, 2, 2, 2, 2)
+        for i, S_ in enumerate(dom[0]):
+            for j, V_ in enumerate(dom[1]):
+                h = V_ / self.Ld * (-1 if self.flip else 1); q = self._P(S_ / self.Wd, h)
+                ns.Points[(i, j)] = r.Point4d(float(q[0]), float(q[1]), float(q[2]), 1.0)
+        for i in range(2): ns.KnotsU[i] = float(dom[0][i]); ns.KnotsV[i] = float(dom[1][i])
+        return ns
+
+
+def _thin_spline(Q, tq, tol=0.01):
+    """点の並びを通る 3 次のスプラインの点を、ずれ tol 以内で減らす（辺の制御点を少なく、ファイルを小さく）"""
+    from scipy.interpolate import make_interp_spline
+    n = len(Q)
+    if n < 8: return Q, tq
+    for m in (4, 6, 8, 12, 16, 24, 32, 48, 64):
+        if m >= n: break
+        idx = np.unique(np.r_[np.linspace(0, n - 1, m).round().astype(int)])
+        sp = make_interp_spline(tq[idx], Q[idx], k=3)
+        if np.linalg.norm(sp(tq) - Q, axis=1).max() < tol: return Q[idx], tq[idx]
+    return Q, tq
+
+
+PLANAR_TOL = 0.5          # 四隅がこれ以内で一つの平面にのれば平面の面に (mm)
+RULED_TOL = 1.0           # 層の面の高さ（屋根の面＋ずれ）にメッシュのもとの頂点がこれ以内でのる組だけを Ruled に (mm、10-28 ユーザー：ずれ 1 mm 以下)
+
+
+def _mode(x, q=0.5):
+    """いちばん多い高さ（q mm に丸めて）"""
+    k = np.round(np.asarray(x, float) / q).astype(int); vals, cnt = np.unique(k, return_counts=True)
+    m = vals[np.argmax(cnt)]; sel = np.abs(k - m) <= 1
+    return float(np.median(np.asarray(x, float)[sel]))
+
+
+def split_by_lines(W, T, lines, eps=1e-3):
+    """鉛直の平面（平面の線 (点, 向き)）で三角形を切る（両側を残し、辺の上の新しい点は共有＝閉じたまま）。
+    スパンの境（梁の線）で面が折れるので、上下の面をスパンごとの面に分けるため（10-28）"""
+    W = [np.asarray(w, float) for w in W]; T = [tuple(t) for t in np.asarray(T, int)]
+    for p0, d0 in lines:
+        p0 = np.asarray(p0, float)[:2]; d0 = np.asarray(d0, float)[:2]; nrm = np.array([-d0[1], d0[0]]) / np.linalg.norm(d0)
+        sd = lambda v: float((W[v][:2] - p0) @ nrm)
+        cache = {}; out = []
+        for tri in T:
+            s = [sd(v) for v in tri]; sg = [0 if abs(x) < eps else (1 if x > 0 else -1) for x in s]
+            if not (1 in sg and -1 in sg): out.append(tri); continue
+            poly = []
+            for i in range(3):
+                a, b = tri[i], tri[(i + 1) % 3]; poly.append((a, sg[i]))
+                if sg[i] * sg[(i + 1) % 3] < 0:
+                    k = (min(a, b), max(a, b))
+                    if k not in cache:
+                        t_ = s[i] / (s[i] - s[(i + 1) % 3]); W.append(W[a] + (W[b] - W[a]) * t_); cache[k] = len(W) - 1
+                    poly.append((cache[k], 0))
+            for side in (1, -1):
+                pp = [v for v, g in poly if g == side or g == 0]
+                for j in range(1, len(pp) - 1): out.append((pp[0], pp[j], pp[j + 1]))
+        T = out
+    return np.array(W), np.array(T, int).reshape(-1, 3)
+
+
+def _ruled_regions(W, T, area, he, reg, regs, N, spec):
+    """上下の面（法線の z が 0.5 より大）の三角形を、スパンごと・向きごとのつながる組にし、Ruled がのる組を一つの面の領域に。
+    のらない組（メッシュが面からずれる所）は平らな面の領域のまま。→ (reg, regs, {領域: Ruled})"""
+    tol = spec.get('tol', RULED_TOL); n0 = spec.get('n0', len(W))
+    cls = np.zeros(len(T), int)
+    for g, mem in enumerate(regs):
+        mem = np.asarray(mem); s_ = (N[mem] * area[mem, None]).sum(0); nz = s_[2] / max(np.linalg.norm(s_), 1e-30)
+        cls[mem] = 1 if nz > 0.5 else (-1 if nz < -0.5 else 0)
+    cen = W[T].mean(1)
+    bay = np.array([spec['bay'](x, y) if c else -9 for (x, y, _), c in zip(cen, cls)])
+    key = cls * 1000 + bay
+    nb = [[] for _ in range(len(T))]
+    for (a, b), t in he.items(): nb[t].append(he[(b, a)])
+    seen = np.zeros(len(T), bool); comps = []
+    for t0 in range(len(T)):
+        if seen[t0] or cls[t0] == 0: continue
+        seen[t0] = True; mem = [t0]; st = [t0]
+        while st:
+            t = st.pop()
+            for u in nb[t]:
+                if not seen[u] and key[u] == key[t0]: seen[u] = True; mem.append(u); st.append(u)
+        comps.append((int(cls[t0]), int(bay[t0]), mem))
+    found = []; spec.setdefault('report', [])
+    strict = spec.get('strict', True)
+    for c_, k, mem in comps:
+        base = Ruled(spec['corners'](k), up=c_ > 0)
+        vs = np.unique(T[mem].ravel())
+        R_ = {int(v): float(W[v, 2] - base.z(W[v])) for v in vs}
+        # 三角形の高さ（もとの頂点のずれの中央）でつながる組に分ける：一定の所（層）と、軒の下面が上がる所（なだらかに続く）、
+        # 段の違う片（太陽光の上げた所など）は別の組
+        Lt = {}
+        for t in mem:
+            q = [int(v) for v in T[t] if v < n0] or [int(v) for v in T[t]]
+            Lt[t] = float(np.median([R_[v] for v in q]))
+        rest = set(mem)
+        while rest:
+            t0 = rest.pop(); sub = [t0]; st = [t0]
+            while st:
+                t = st.pop()
+                for u in nb[t]:
+                    if u in rest and abs(Lt[u] - Lt[t]) <= (tol if strict else 10.0): rest.discard(u); sub.append(u); st.append(u)
+            sv = np.unique(T[sub].ravel()); so = [int(v) for v in sv if v < n0] or [int(v) for v in sv]
+            rz = np.array([R_[v] for v in so])
+            c0 = _mode(rz); c1 = round(c0 * 2) / 2 if abs(round(c0 * 2) / 2 - c0) < 0.2 else c0
+            dev = float(np.abs(rz - c1).max()); off = (c1, 0.0, 0.0, 0.0)
+            if dev > tol:
+                SH = np.array([base.sh(W[v]) for v in so])
+                A_ = np.c_[np.ones(len(SH)), SH[:, 0], SH[:, 1], SH[:, 0] * SH[:, 1]]
+                cf = np.linalg.lstsq(A_, rz, rcond=None)[0]; dv2 = float(np.abs(A_ @ cf - rz).max())
+                if dv2 <= tol and len(so) >= 12: off = tuple(map(float, cf)); dev = dv2
+            if dev > tol:
+                ce = W[sv].mean(0); far = float(np.mean(np.abs(rz - c1) > tol))
+                spec['report'].append(dict(bay=k, up=c_ > 0, level=round(c1, 1), dev=round(dev, 1), share=round(far, 3), n=len(sub), at=tuple(np.round(ce[:2]))))
+                # 厳しい時は作らない。ゆるい時（strict=False）は、一定の高さに 8 割以上がのれば、その高さの面に（はずれた頂点は面に寄せる）
+                if strict or far > 0.2 or len(so) < 3: raise Fail('ruled dev %.1f mm (bay %d)' % (dev, k))
+            found.append([c_, k, sub, Ruled(spec['corners'](k), off, up=c_ > 0)])
+    # 同じ平面の、となり合う組は一つの面に
+    owner = -np.ones(len(T), int)
+    for i, f in enumerate(found): owner[f[2]] = i
+    par = list(range(len(found)))
+    def fnd(x):
+        while par[x] != x: par[x] = par[par[x]]; x = par[x]
+        return x
+    for (a, b), t in he.items():
+        i, j = owner[t], owner[he[(b, a)]]
+        if i < 0 or j < 0 or fnd(i) == fnd(j): continue
+        A_, B_ = found[i][3], found[j][3]
+        if A_.planar and B_.planar and found[i][0] == found[j][0] and A_.pl.n @ B_.pl.n > 1 - 1e-9 and \
+                max(abs(B_.z(q) - A_.z(q)) for q in (W[a], W[b], A_.C[0], A_.C[3], B_.C[0], B_.C[3])) < 0.05:
+            par[fnd(j)] = fnd(i)
+    groups = {}
+    for i in range(len(found)): groups.setdefault(fnd(i), []).append(i)
+    newreg = -np.ones(len(T), int); out_regs = []; rsrf = {}
+    for g, ids in groups.items():
+        mem = [t for i in ids for t in found[i][2]]; rid = len(out_regs); out_regs.append(mem); newreg[mem] = rid
+        rsrf[rid] = found[ids[0]][3]
+    for g, mem in enumerate(regs):
+        rest = [t for t in mem if newreg[t] < 0]
+        if rest: rid = len(out_regs); out_regs.append(rest); newreg[rest] = rid
+    return newreg, out_regs, rsrf
+
+
 def arc_nurbs(P, cen, t0, t1, dim, to2=None, ends=None):
     """円（楕円）の弧 P(t)（t は角度、cen は中心）を有理 2 次の NURBS に。to2 があれば平面の 2 次元へ写す"""
     if t1 < t0:                                   # 逆向き：s = −t で増える向きに
@@ -719,17 +914,17 @@ def merge_small(W, T, N, area, reg, regs, nb, amin=2.0):
     return [regs[i] for i in keep]
 
 
-def solid_from_mesh(W, T, curved=True, graph=None):
+def solid_from_mesh(W, T, curved=True, graph=None, ruled=None):
     """→ (rhino3dm.Brep か None, 情報の文字)。graph：上下の面を z = S(x, y) の面にする（西館の屋根の層、値は屋根の面の関数か True）"""
     W = np.asarray(W, float); T = np.asarray(T, int)
     why = []
     for cv, sn in (((True, True), (False, True), (False, False)) if curved else ((False, True), (False, False))):
         try:
-            b = _build(W, T, cv, sn, graph=graph if cv else None)
+            b = _build(W, T, cv, sn, graph=graph if cv else None, ruled=ruled if cv else None)
             return b, ('curved' if cv else 'planar') + ('' if not why else '(' + why[0] + ')')
         except Fail as e:
             why.append(str(e))
-            if str(e) in ('open', 'not manifold'): break
+            if str(e) in ('open', 'not manifold') or str(e).startswith('ruled'): break
         except Exception as e:
             why.append('error:' + type(e).__name__ + ':' + str(e)[:60])
     return None, ' / '.join(why)
@@ -1838,7 +2033,7 @@ def split_pinched(W, T):
     return (W, T) if Wl is None else (np.array(Wl), T2)
 
 
-def _build(W, T, curved, snap=True, graph=None):
+def _build(W, T, curved, snap=True, graph=None, ruled=None):
     T = orient(T)
     W, T = split_pinched(np.asarray(W, float), T)
     he = topology(W, T)
@@ -1852,6 +2047,9 @@ def _build(W, T, curved, snap=True, graph=None):
     N = Nr / np.maximum(ar2, 1e-30)[:, None]
     reg, regs, nb = planar_regions(W, T, N, area, he)
     regs = merge_small(W, T, N, area, reg, regs, nb)
+    rsrf = {}
+    if ruled is not None:          # 西館の屋根の層：上下の面をスパンごとの Ruled に（10-28）
+        reg, regs, rsrf = _ruled_regions(W, T, area, he, reg, regs, N, ruled)
     nr = len(regs)
     # 面ごとの平面
     rn, rp, ra = [], [], []
@@ -1872,6 +2070,7 @@ def _build(W, T, curved, snap=True, graph=None):
     srf_of = [None] * nr          # 面（Plane・Cyl・Sph）
     group = list(range(nr))       # 面の番号（曲面はまとめた番号）
     gsel = []
+    for g_, s_ in rsrf.items(): srf_of[g_] = s_; gsel.append(g_)
     if graph is not None:         # 上下の面（法線の z が 0.5 より大）を z = S(u, v) の面に、つながる組ごとに（組ごとに高さのずれが違ってよい）
         for sgn_ in (1, -1):
             sset = {g for g in range(nr) if sgn_ * rn[g][2] > 0.5}       # 屋根の勾配（約 0.28）の面。端の斜めの切り口は入れない
@@ -2046,7 +2245,7 @@ def _build(W, T, curved, snap=True, graph=None):
         else:
             for _ in range(30):
                 for s in ss: x = s.proj(x)
-        if not snap or np.linalg.norm(x - W[v]) > 2.0: x = W[v].copy()
+        if not snap or np.linalg.norm(x - W[v]) > (ruled.get('snap', 2.0) if ruled is not None else 2.0): x = W[v].copy()
         P[v] = x
     # ---- 辺（鎖）
     chains = {}     # 鍵 → 辺の情報
@@ -2072,6 +2271,13 @@ def _build(W, T, curved, snap=True, graph=None):
                 Q.append(p1)
             Q = np.array(Q); tq = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(Q, axis=0), axis=1))]
             keep = np.r_[True, np.diff(tq) > 1e-6]; Q = Q[keep]; tq = tq[keep]
+            if 'ruled' in (getattr(sA, 'tag', ''), getattr(sB, 'tag', '')) and len(Q) >= 2:   # まっすぐなら線（梁の線・水平の線）、そうでなければ点を減らしたスプライン
+                d_ = Q[-1] - Q[0]; L2 = np.linalg.norm(d_)
+                if L2 > 1e-9:
+                    o_ = Q - Q[0]; dv_ = np.linalg.norm(o_ - np.outer(o_ @ (d_ / L2), d_ / L2), axis=1).max()
+                    if dv_ < EPS_LINE:
+                        e['type'] = 'line'; e['pts'] = np.array([pts[0], pts[-1]]); return e
+                Q, tq = _thin_spline(Q, tq)
             if len(Q) >= 4:
                 from scipy.interpolate import make_interp_spline
                 e['type'] = 'fit3'; e['fit'] = dict(sp=make_interp_spline(tq, Q, k=3), t=tq, Q=Q)

@@ -6,6 +6,10 @@
   2. それ以外 → 閉じた Brep（同じ平面の三角形は一枚の面、細かく分けた曲面は円柱・球・円環（管）の面に戻す）。
   3. 自由な形（クスノキ・地形・網の鉢など、三角形ごとに面になってしまうもの）→ 閉じたメッシュのまま。
 - 閉じていない面（部屋の色の板・道路・太陽光の板・網・地形）は厚みをつけて閉じる（SHEET）。
+- 西館の屋根の層（20・20r・20p）の片は、屋根の定義（roofw の BAYS・beam_line・ruled_point）からスパンごとの面で直接作る
+  （10-28、ユーザー：今の形のまま滑らかな NURBS で、平面にできる所は平面。solidify.Ruled：四隅の双一次＝次数 1×1、
+  四隅が 0.5 mm 以内で平らなら平面。上下の面はスパンの境（梁の線）で分け、層は z をずらした同じ面。メッシュのもとの頂点が
+  面から 1 mm を超えて離れる片は作らず、前の道（ずれは log に「西館の屋根：作らなかった片」）。
 - 西館の屋根（20・20p・20t）のねじれた面の片は、線織面（ruled_roof.py）の六枚の組を辺でつないで閉じる
   （平らな面でできた片は上のふつうの道で）。一枚だけの片（薄い板・太陽光）は厚みをつける。
 - 開いた輪郭の押し出し（外構の塀・柵の面）は輪郭に厚み FENCE_T をつけ、ふたの無い押し出しにはふたをする。
@@ -160,14 +164,49 @@ def close_extrusion(e):
     return None
 
 
-# 西館の屋根の面の関数と折れの位置（roofw.py、西館係）。Graph の面に使う
+# 西館の屋根の面の関数と折れの位置（roofw.py、西館係）
+# RULED_STRICT：True＝メッシュのもとの頂点がどれも面（屋根の定義＋層のずれ）から 1 mm 以内の片だけをスパンごとの面に（10-28 の決まり：
+# 形は変えない、ずれは報告）。False＝8 割以上がのる片は定義どおりの面に（メッシュの網目の弦のずれ・へこみは消える、辺のずれ 15 mm まで）
+RULED_STRICT = os.environ.get('RULED_LOOSE') != '1'     # 確かめ用：RULED_LOOSE=1 でゆるい方
 try:
     import pickle, roofw
+    from uv import uv as _uv
     _ROOT = os.environ.get('SODACHIYA_ROOT') or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
     _RW = roofw.make(pickle.load(open(os.path.join(_ROOT, 'data', 'wnew.pkl'), 'rb'))['WN'])
     ROOF_SPEC = dict(func=_RW['roof_f'], ubreaks=[21.0, 51.0] + [f + d for f in _RW['FRAMES'][1:] for d in (-0.09, 0.09)] + list(_RW.get('KINKS', [])), vbreaks=[_RW['VRIDGE']])   # KINKS：屋根の線（梁）で面が折れる（10-27夜、西館係）
+    # スパンごとの面（10-28）：読むのは BAYS（梁の線の u）・beam_line(u)（棟と軒の点）・ruled_point(k, h, s)（スパン k の点、四隅の高さ）だけ。
+    # 西館係が BAYS を変える・ストリップの線を足すと、そのまま追いつく
+    _B = list(_RW['BAYS'])
+    def _bay(x, y):
+        u = float(np.ravel(_uv(x, y)[0])[0]); return int(np.clip(np.searchsorted(_B, u) - 1, 0, len(_B) - 2))
+    _CORN = {k: [_RW['ruled_point'](k, 0.0, 0.0), _RW['ruled_point'](k, 0.0, 1.0), _RW['ruled_point'](k, 1.0, 0.0), _RW['ruled_point'](k, 1.0, 1.0)] for k in range(len(_B) - 1)}
+    RULED = dict(corners=lambda k: _CORN[k], bay=_bay, strict=RULED_STRICT, snap=2.0 if RULED_STRICT else 60.0,
+                 lines=[(R_, E_ - R_) for R_, E_ in (_RW['beam_line'](u_) for u_ in _B[1:-1])])
 except Exception as _e:
-    print('roofw を読めない（西館の屋根は前の作り方）:', _e); ROOF_SPEC = None
+    print('roofw を読めない（西館の屋根は前の作り方）:', _e); ROOF_SPEC = None; RULED = None
+RULED_DEV = 1.0 if RULED_STRICT else 15.0      # スパンごとの面で作った片の辺が、メッシュの版から離れてよい距離 (mm)
+RULED_LOG = []                   # 作らなかった片（場所・ずれ）
+
+
+def ruled_piece(W, T, lname):
+    """西館の屋根の層の片を、スパンごとの面（solidify.Ruled）の閉じた Brep に。できなければ None（前の道）"""
+    ed = np.sort(np.vstack([T[:, [0, 1]], T[:, [1, 2]], T[:, [2, 0]]]), axis=1)
+    cnt = np.unique(ed, axis=0, return_counts=True)[1]
+    alts = [(W, T)] if (cnt == 2).all() else SD.via_manifold(W, T)        # 触れ合う片は manifold3d で一つの多様体に
+    why = 'not manifold'
+    for Wm, Tm in alts:
+        n0 = len(Wm); W2, T2 = SD.split_by_lines(Wm, Tm, RULED['lines'])
+        spec = dict(RULED, n0=n0, report=[])
+        b, info = SD.solid_from_mesh(W2, T2, ruled=spec)
+        if b is None or not info.startswith('curved'):
+            why = info.split('/')[0][:60] if not spec['report'] else spec['report'][0]; continue
+        dv = deviation([(b, 'curved')], W, T)
+        if dv <= RULED_DEV: return [(b, 'curved')]
+        why = 'ずれ %.1f mm' % dv
+    bb = W[np.unique(T)]; c = bb.mean(0)
+    RULED_LOG.append((lname.split('_')[0], len(T), tuple(np.round(_uv(c[0], c[1]), 2)) if RULED else None, why))
+    return None
+
 
 m = r.File3dm.Read(IN)
 out = r.File3dm()
@@ -238,6 +277,9 @@ for oi, o in enumerate(m.Objects):
         for T in components(T0):
             # 屋根の層（20・20r・20p）の大きな片：上下の面を屋根の面の関数の面（Graph、建物の座標の双 3 次、折れは節点で）に、
             # 縁は鉛直の平面・曲線の面（10-27 夜、ソリッド係：前は 300 の格子の平らな三角形の集まりで、Rhino 版で縁がぎざぎざ・約6,500面）
+            if lc in ('20', '20r', '20p') and len(T) > 24 and RULED is not None:
+                got = ruled_piece(W, T, lname)
+                if got: geo += got; continue
             if lc in ('20', '20r', '20p') and len(T) > 500 and ROOF_SPEC is not None:
                 bg, info = SD.solid_from_mesh(W, T, graph=ROOF_SPEC)
                 if bg is not None and info.startswith('curved') and deviation([(bg, 'curved')], W, T) <= 15.0:
@@ -293,5 +335,8 @@ for oi, o in enumerate(m.Objects):
         else: out.Objects.AddMesh(x, at)
         count(kind, lname)
 print(stat)
+if RULED_LOG:
+    print('西館の屋根：スパンごとの面で作らなかった片（レイヤー・三角形の数・(u, v)・わけ）:')
+    for x in RULED_LOG: print('  ', x)
 print('閉じたソリッドでない物（メッシュは閉じている）:', {k: v for k, v in sorted(odd.items())})
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))
