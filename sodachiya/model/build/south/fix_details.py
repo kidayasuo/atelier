@@ -523,6 +523,33 @@ def _stair_tris():
         T_ += [[P[0], P[1], P[2]], [P[0], P[2], P[3]]]
     return np.array(T_)
 
+import mapbox_earcut as _ec0
+from shapely.geometry.polygon import orient as _orient0
+def _elev_vf(el, p0, d, n, t):
+    """立面の形 el（(s, z)、穴あり可）を、壁の線 p0 + s·d の両側へ t/2 ずつ（法線 n）押し出した閉じた立体の (V, F)。面はみな平ら"""
+    Vs, Fs, off = [], [], 0
+    for pg in getattr(el, 'geoms', [el]):
+        if pg.geom_type != 'Polygon' or pg.area < 100: continue
+        pg = _orient0(pg, 1.0)
+        rings = [np.asarray(pg.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in pg.interiors]
+        V2 = np.vstack(rings); k = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+        c2 = V2.mean(0); tri = _ec0.triangulate_float64(V2 - c2, ends).reshape(-1, 3)
+        P3 = lambda sg: np.c_[p0[0] + V2[:, 0] * d[0] + sg * n[0] * t / 2, p0[1] + V2[:, 0] * d[1] + sg * n[1] * t / 2, V2[:, 1]]
+        V = np.vstack([P3(-1), P3(1)]); F = [tri[:, [0, 2, 1]], tri + k]; st = 0
+        for e in ends:
+            i = np.arange(st, e); j = np.r_[i[1:], st]; F += [np.c_[i, j, j + k], np.c_[i, j + k, i + k]]; st = e
+        F = np.vstack(F)
+        if trimesh.Trimesh(V - V.mean(0), F, process=False).volume < 0: F = F[:, ::-1]
+        Vs.append(V); Fs.append(F + off); off += len(V)
+    return (np.vstack(Vs), np.vstack(Fs)) if Vs else (None, None)
+def _wall_from_elev(el, p0, d, n, t, attr):
+    V, F = _elev_vf(el, p0, d, n, t)
+    if V is None: return
+    mm = r.Mesh()
+    for x_, y_, z_ in V: mm.Vertices.Add(float(x_), float(y_), float(z_))
+    for a_, b_, c_ in F: mm.Faces.AddFace(int(a_), int(b_), int(c_))
+    mm.Normals.ComputeNormals(); beam_new.append((mm, attr))
+_BOX_ATTR = None
 _n_thk = 0
 for o in m.Objects:
     li_ = o.Attributes.LayerIndex
@@ -536,6 +563,18 @@ for o in m.Objects:
         T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None, su=(li_ == lidx('24_'))); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
     tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
     if tm_.is_watertight: continue
+    if trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)).is_watertight: continue   # 10-28：もう閉じた立体（add_west_south.py の壁ごとの立体）は触らない（0.1 mm に丸めて溶かすと閉じなくなる）
+    if li_ == lidx('24_') and (U[:, 1] < -4.9).any() and (U[:, 1] > -3.1).any() and T[:, :, 2].max() > 7000:
+        # 10-28（監修の項 20261028-0843）：階段の箱は面ごとの板でなく、壁ごとの「輪郭の押し出し − 開口」の一つの立体に。上端は屋根の下面の
+        # 下の平らな面（屋根ができた後、書き出しの前の「階段の箱の壁」で作る）
+        _BOX_ATTR = o.Attributes; beam_drop.add(str(o.Attributes.Id)); _n_thk += 1; continue
+    if li_ == lidx('24_') and abs(U[:, 0].mean() - 33.0) < 0.2 and np.ptp(U[:, 0]) < 0.3 and T[:, :, 2].min() > 3100:
+        # 10-28（同）：2 階の北の壁（u33、会議室｜遊戯室）。面の三角形を壁の面（放射の線）に写した立面の形（開口を除く）を厚さ 120 で押し出す
+        _p0 = np.ravel(xy(33.0, -5.0)); _d = np.ravel(xy(33.0, -6.0)) - _p0; _d /= np.linalg.norm(_d); _nn = np.array([-_d[1], _d[0]])
+        _P = T.reshape(-1, 3); _S = (_P[:, :2] - _p0) @ _d
+        _el = unary_union([Polygon(np.c_[_S[3 * k:3 * k + 3], _P[3 * k:3 * k + 3, 2]]).buffer(0.5, join_style=2) for k in range(len(T))
+                           if Polygon(np.c_[_S[3 * k:3 * k + 3], _P[3 * k:3 * k + 3, 2]]).area > 1]).buffer(-0.5, join_style=2).simplify(1.0)
+        _wall_from_elev(_el, _p0, _d, _nn, 120.0, o.Attributes); beam_drop.add(str(o.Attributes.Id)); _n_thk += 1; continue
     ms_ = _plates(T, _THK[li_], stair=(li_ == lidx('25_')))         # 面ごとの板（押し出し）に（10-25 ソリッド係、ユーザー）
     if not ms_: continue
     if li_ == lidx('24_') and (U[:, 1] < -4.9).any() and (U[:, 1] > -3.1).any() and T[:, :, 2].max() > 7000:   # 階段の箱：西の面に階段の下の倉庫の戸（10-25）
@@ -2275,5 +2314,79 @@ if L19C is None:
 K.prism(R(45.55, 47.65, -0.88, -0.84, 0.05), 10.0, 2400.0, L19C)           # 戸（閉めた位置、幅 2.1・厚さ 40）
 K.prism(R(45.5, 49.75, -0.89, -0.85, 0.05), 2410.0, 2470.0, L19C)          # 上吊りのレール（開口の上の壁に）
 log.append('西館：遊戯室の北の口（口②、u45.6–47.6）に上吊りの片引き戸 2.1×2.4（すき間の側、北へ引く、19c）')
+# ================================================================ 西館：階段の箱の壁（西館係、10-28、監修の項 20261028-0843）
+# 前は元の面を面ごとの板（_plates）にして屋根の中まで立て、削る段で屋根の層（20・20r・20v）・梁に欠かれて、間仕切り（24）が Rhino版で
+# 1.8 万面のメッシュになっていた。今：壁ごとに平面の輪郭（厚さ 120、芯は前と同じ）を床から平らな上端の面まで押し出し、開口（1 階の登り口・
+# 2 階の着き口・階段の下の倉庫の戸）を引いた一つの立体（manifold3d、原点を近くへ移す）。上端は間仕切りの構法（決定事項）のとおり：
+# 架構の線（u30）に立つ南の壁は 2 枚の梁の下端（A）、ほかは屋根の下面（母屋・合板・断熱の下、梁は除く＝梁は削る段で欠く）（B）。
+# どちらも、壁の厚さの中の 5 本の線に沿って 50 ごとに真上の面を測り、その下に収まるいちばん高い平らな面（壁の上端が一つの平らな面になる）。
+if _BOX_ATTR is not None:
+    from solids import geom_vf as _gvf
+    from scipy.optimize import linprog as _lp
+    _TR, _TB = [], []
+    for o_ in out.Objects:
+        ln_ = out.Layers[o_.Attributes.LayerIndex].Name
+        if not (ln_.startswith(('20', '22b', '22d', '22t'))): continue
+        vf_ = _gvf(o_.Geometry)
+        if vf_ is None or not len(vf_[1]): continue
+        bb_ = o_.Geometry.GetBoundingBox(); cu_ = uv((bb_.Min.X + bb_.Max.X) / 2, (bb_.Min.Y + bb_.Max.Y) / 2)
+        if not (27.0 < cu_[0] < 37.0 or (bb_.Max.X - bb_.Min.X) > 6000 or (bb_.Max.Y - bb_.Min.Y) > 6000): continue
+        (_TB if ln_.startswith('22b') else _TR).append(np.asarray(vf_[0], float)[np.asarray(vf_[1])])
+    _RI = trimesh.ray.ray_triangle.RayMeshIntersector(trimesh.Trimesh(**trimesh.triangles.to_kwargs(np.vstack(_TR))))
+    _BI = trimesh.ray.ray_triangle.RayMeshIntersector(trimesh.Trimesh(**trimesh.triangles.to_kwargs(np.vstack(_TB + _TR))))
+    def _up(I, P, z0=5000.0):
+        loc, ir, _ = I.intersects_location(np.c_[P, np.full(len(P), z0)], np.tile([0, 0, 1.0], (len(P), 1)), multiple_hits=True)
+        h = np.full(len(P), np.inf)
+        for q_, k_ in zip(loc, ir): h[k_] = min(h[k_], q_[2])
+        return h
+    _BW = 0.06                                              # 壁の厚さの半分（m）
+    # (名前, 輪郭, 線に沿う点 (u, v) の関数, 線の長さの範囲, A か)
+    _walls = [('南（u30、架構の線）', R(30.0 - _BW, 30.0 + _BW, -5.0 - _BW, -2.99 + _BW, 0.02), lambda s, w: (30.0 + w, s), (-5.0, -2.99), True),
+              ('北（u33.9）', R(33.9 - _BW, 33.9 + _BW, -5.0 - _BW, -2.99 + _BW, 0.02), lambda s, w: (33.9 + w, s), (-5.0, -2.99), False),
+              ('東（v−2.99）', R(30.0 - _BW, 33.9 + _BW, -2.99 - _BW, -2.99 + _BW, 0.78), lambda s, w: (s, -2.99 + w), (30.0, 33.9), False),
+              ('西（v−5.0）', R(30.0 - _BW, 33.9 + _BW, -5.0 - _BW, -5.0 + _BW, 0.78), lambda s, w: (s, -5.0 + w), (30.0, 33.9), False)]
+    _BO = np.ravel(xy(32.0, -4.0))
+    def _prismM(poly, zf):
+        poly = _orient0(poly.simplify(0.2), 1.0)
+        rings = [np.asarray(poly.exterior.coords)[:-1]] + [np.asarray(h.coords)[:-1] for h in poly.interiors]
+        V2 = np.vstack(rings) - _BO; k = len(V2); ends = np.cumsum([len(x) for x in rings]).astype(np.uint32)
+        tri = _ec0.triangulate_float64(V2, ends).reshape(-1, 3)
+        zt = np.array([zf(x + _BO[0], y + _BO[1]) for x, y in V2])
+        z0 = np.full(k, -0.0) if not callable(zf) else None
+        V = np.vstack([np.c_[V2, np.zeros(k)], np.c_[V2, zt]]); F = [tri[:, [0, 2, 1]], tri + k]; st = 0
+        for e in ends:
+            i = np.arange(st, e); j = np.r_[i[1:], st]; F += [np.c_[i, j, j + k], np.c_[i, j + k, i + k]]; st = e
+        M_ = _mf.Manifold(_mf.Mesh(vert_properties=V.astype(np.float32), tri_verts=np.vstack(F).astype(np.uint32)))
+        if M_.status() != _mf.Error.NoError or M_.is_empty() or M_.volume() < 0: raise RuntimeError('階段の箱の壁が閉じない')
+        return M_
+    def _boxM(poly, z0, z1):
+        return _prismM(poly, lambda x, y: z1).translate([0, 0, 0]) if z0 == 0 else \
+            _prismM(poly, lambda x, y: z1 - z0).translate([0, 0, z0])
+    _box_log = []; _Ms = []
+    for nm_, fp_, at_, (s0_, s1_), isA in _walls:
+        S_ = np.linspace(s0_ - _BW, s1_ + _BW, max(3, int((s1_ - s0_ + 2 * _BW) / 0.05) + 1))
+        if isA:   # 2 枚の梁の下端：両脇（±0.14）の梁・屋根のうち高いほう
+            P_ = [np.ravel(xy(*at_(s, w))) for s in S_ for w in (0.0,)]
+            hl = _up(_BI, np.array([np.ravel(xy(*at_(s, -0.14))) for s in S_])); hr = _up(_BI, np.array([np.ravel(xy(*at_(s, 0.14))) for s in S_]))
+            P_ = np.array([np.ravel(xy(*at_(s, w))) for w in (-_BW + 0.005, _BW - 0.005) for s in S_]); H_ = np.r_[np.maximum(hl, hr), np.maximum(hl, hr)]
+        else:
+            P_ = np.array([np.ravel(xy(*at_(s, w))) for w in (-_BW + 0.002, -0.03, 0.0, 0.03, _BW - 0.002) for s in S_]); H_ = _up(_RI, P_)
+        ok_ = np.isfinite(H_); P_, H_ = P_[ok_] - _BO, H_[ok_] - 10.0
+        res = _lp(c=[-len(P_), -P_[:, 0].sum(), -P_[:, 1].sum()], A_ub=np.c_[np.ones(len(P_)), P_], b_ub=H_, bounds=[(None, None), (-2, 2), (-2, 2)])
+        if not res.success: raise RuntimeError('階段の箱の壁の上端が決まらない：' + nm_)
+        c_ = res.x; zf_ = lambda x, y, c_=c_: float(c_[0] + c_[1] * (x - _BO[0]) + c_[2] * (y - _BO[1]))
+        _Ms.append(_prismM(fp_, zf_)); zz = [zf_(*np.ravel(xy(*at_(s, 0.0)))) for s in (s0_, s1_)]
+        _box_log.append('%s %.0f〜%.0f' % (nm_, *zz))
+    _W = _mf.Manifold.batch_boolean(_Ms, _mf.OpType.Add)
+    _cuts = [_boxM(R(STAIR_U0 + 0.06, STAIR_U0 + STAIR_FOOT, -3.2, -2.8, 0.05), -200.0, 3170.0),          # 1 階の登り口（東の面、南の口の通路の側）
+             _boxM(R(29.84, 30.16, -3.1, -4.94, 0.05), 3170.0, 3250.0 + 2100.0),                       # 2 階の着き口（南の面、箱の内面のあいだ）
+             _boxM(R(*STAIR_DOOR, -5.16, -4.84, 0.05), -200.0, STAIR_DOOR_H)]                            # 階段の下の倉庫の戸（西の面）
+    _W = _W - _mf.Manifold.batch_boolean(_cuts, _mf.OpType.Add)
+    _g = _W.to_mesh(); _V = np.asarray(_g.vert_properties)[:, :3].astype(float); _F = np.asarray(_g.tri_verts)
+    _mm = r.Mesh()
+    for x_, y_, z_ in _V: _mm.Vertices.Add(float(x_ + _BO[0]), float(y_ + _BO[1]), float(z_))
+    for a_, b_, c_ in _F: _mm.Faces.AddFace(int(a_), int(b_), int(c_))
+    _mm.Normals.ComputeNormals(); out.Objects.AddMesh(_mm, _BOX_ATTR)
+    log.append('西館：階段の箱の壁を壁ごとの輪郭の押し出し−開口の一つの立体に（%d 三角形、上端：%s）' % (len(_F), '・'.join(_box_log)))
 out.Write(OUT, 8)
 print('\n'.join(log)); print('written', OUT, len(out.Objects))

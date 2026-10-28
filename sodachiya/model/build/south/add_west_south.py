@@ -497,25 +497,43 @@ mesh_prism(R(22.45, 22.55, -3.4, -0.2, 0.05), -150.0, const(0.0), L_KAMA, (150, 
 
 # ---------------------------------------------------------------- 間仕切り（厚さ 100、h3100）
 H = 3170.0                     # 2 階の床の下まで（キッチン・はれのま・更衣、音も切る）
+# 10-28（監修の項 20261028-0843、ユーザー：大きい・メッシュなのは間違っている印）：壁ごとに「平面の輪郭を床から H まで押し出した角柱 − 開口」の
+# 一つの閉じた立体に（外壁 21 と同じ作り方、manifold3d、原点を _O へ移して float32 の桁落ちを避ける）。前は開口の上下・脇ごとの片
+# （厚さ 100）を積んでいて、削る段で一つに足すと片の継ぎ目に 4 枚の面が集まる辺が残り、Rhino版で 1.8 万面のメッシュになっていた。
+# 厚さは間仕切りの構法の 120（walls_spec.py が 100 → 120 にしていた。芯はそのまま、形は前と同じ）。開口の箱は壁の面から 0.1 外まで、
+# 床からの開口は床の 200 下から（壁の面・底とちょうど同じ所に置かない）。弧に沿う壁の点は約 1 m ごと（弧とのずれ 0.6 mm 以下）。
+T_P = 120.0
+def _Rb(u0, u1, v0, v1, breaks=(), step=1.0):
+    """R と同じ（u の方向は弧に沿う）。点は u0・u1・breaks と約 step ごと"""
+    us = sorted(set([u0, u1] + list(np.linspace(u0, u1, max(2, int(math.ceil(abs(u1 - u0) / step)) + 1))) +
+                    [b for b in breaks if min(u0, u1) < b < max(u0, u1)]))
+    return Polygon([xy(u, v0) for u in us] + [xy(u, v1) for u in us[::-1]]).buffer(0)
+def _emit_part(add_, sub_, li=None, name=None):
+    """角柱の (V, F) の組 add_ から sub_ を引いた一つの立体を li に書く"""
+    A_ = _mf.Manifold.batch_boolean([_man(x) for x in add_], _mf.OpType.Add)
+    W_ = A_ - _mf.Manifold.batch_boolean([_man(x) for x in sub_], _mf.OpType.Add) if sub_ else A_
+    if W_.status() != _mf.Error.NoError or W_.is_empty(): raise RuntimeError('間仕切りの立体が作れなかった')
+    g_ = W_.to_mesh(); V_ = np.asarray(g_.vert_properties)[:, :3].astype(float); F_ = np.asarray(g_.tri_verts)
+    mm = r.Mesh()
+    for x_, y_, z_ in V_: mm.Vertices.Add(float(x_ + _O[0]), float(y_ + _O[1]), float(z_))
+    for a_, b_, c_ in F_: mm.Faces.AddFace(int(a_), int(b_), int(c_))
+    mm.Normals.ComputeNormals(); mm.Compact()
+    at = r.ObjectAttributes(); at.LayerIndex = L_PART if li is None else li
+    if name: at.Name = name
+    new.Objects.AddMesh(mm, at); _NPART.append(len(F_))
+_NPART = []
+def _hole_vf(fp, zb, zt):
+    return prism_vf(fp, -200.0 if zb <= 0 else float(zb), const(H + 200.0 if zt >= H else float(zt)))
 def wall_u(u, v0, v1, holes=()):
     """u 一定（放射方向の直線）の壁。holes=[(v0, v1, zb, zt)]"""
-    fp = lambda a, b: R(u - 0.05, u + 0.05, a, b, 0.02).intersection(WNi)
-    cuts = sorted(set([v0, v1] + [h[0] for h in holes] + [h[1] for h in holes]))
-    for a, b in zip(cuts, cuts[1:]):
-        mid = (a + b) / 2; zs = [(0.0, H)]
-        for h in holes:
-            if min(h[0], h[1]) <= mid <= max(h[0], h[1]): zs = [(0.0, h[2]), (h[3], H)]
-        for z0, z1 in zs:
-            if z1 - z0 > 5: mesh_prism(fp(a, b), z0, const(z1), L_PART)
+    fp = R(u - T_P / 2000, u + T_P / 2000, min(v0, v1), max(v0, v1), 0.02).intersection(WNi)
+    sub_ = [x for h in holes for x in _hole_vf(R(u - 0.16, u + 0.16, min(h[0], h[1]), max(h[0], h[1]), 0.02), h[2], h[3])]
+    _emit_part(prism_vf(fp, 0.0, const(H)), sub_)
 def wall_v(v, u0, u1, holes=()):
     """v 一定（弧に沿う）の壁。holes=[(u0, u1, zb, zt)]"""
-    cuts = sorted(set([u0, u1] + [h[0] for h in holes] + [h[1] for h in holes]))
-    for a, b in zip(cuts, cuts[1:]):
-        mid = (a + b) / 2; zs = [(0.0, H)]
-        for h in holes:
-            if h[0] <= mid <= h[1]: zs = [(0.0, h[2]), (h[3], H)]
-        for z0, z1 in zs:
-            if z1 - z0 > 5: mesh_prism(R(a, b, v - 0.05, v + 0.05).intersection(WNi), z0, const(z1), L_PART)
+    fp = _Rb(u0, u1, v - T_P / 2000, v + T_P / 2000).intersection(WNi)       # 点を開口の端に置かない（開口の脇の面が輪郭の折れの線と重なると、立体の頂点が二重になる）
+    sub_ = [x for h in holes for x in _hole_vf(_Rb(h[0], h[1], v - 0.16, v + 0.16), h[2], h[3])]
+    _emit_part(prism_vf(fp, 0.0, const(H)), sub_)
 # 10-27（構造の直し、監修の略算）：架構 u24・u27 のキッチンの東の壁の線に 2 階の床梁を受ける骨格の柱（180×400、fix_details.py）。
 # 配膳口・返却口・受け取り台を柱を避けて割り直した（配膳口 1.6 → 1.15、返却口 0.8 → 0.8、受け取り台 0.65 のまま、ガラス 1.1 → 1.05）。
 GLK = [(21.3, 22.6), (24.15, 25.2), (26.2, 26.85)]                                 # オープンキッチン：低い位置（h450）からのガラス
@@ -530,6 +548,7 @@ wall_u(30.0, -3.4, -20)                                                         
 wall_v(CB, KN, 30.0)                                                                # はれのま｜更衣・前室・便所
 wall_u(28.25, CB, -20, [(-11.3, -11.95, 0, 2100), (-12.4, -12.95, 0, 2100)])       # 前室・便所｜更衣
 wall_v(-12.2, KN, 28.25)                                                            # 前室｜便所
+print('partitions (24): %d walls, one solid each, %d tris' % (len(_NPART), sum(_NPART)))
 mesh_prism(store.intersection(WNi), 0.0, const(2100.0), L_FURN, (210, 190, 160))   # はれのまの収納（延長の箱・季節の棚）
 mesh_prism(R(KN + 0.07, KN + 0.47, -10.4, -3.6, 0.05), 0.0, const(600.0), L_FURN, (196, 160, 110))   # カウンター h600（子どもの流し・おやつの台）
 mesh_prism(R(26.2, 26.85, -3.38, -2.98, 0.05), 0.0, const(500.0), L_FURN, (196, 160, 110))   # 生ごみの受け取り台 h500（返却口の北隣、東の帯の側。3〜5歳のコンポスト当番）
