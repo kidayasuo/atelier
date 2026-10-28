@@ -153,7 +153,7 @@ for a_,b_,c_ in np.array(_ec.triangulate_float64(_xy,np.array([len(_pts)],dtype=
 _M.Normals.ComputeNormals(); _M.Compact(); m.Objects.AddMesh(_M,attr(L_eave))
 # ---------- 外構 ----------
 L_f=layer('60_外構_柵（一本の線の延長）',(192,57,43)); L_se=layer('61_外構_南の縁側',hexc('F4EBDD'))
-L_g=layer('62_外構_みなみのさんかく（乳児の園庭）',hexc('EEF4D2')); L_ev=layer('63_外構_避難の帯',(58,120,194)); L_po=layer('64_外構_ポーチ',hexc('F7D3B0'))
+L_g=layer('62_外構_みなみのさんかく（乳児の園庭）',hexc('EEF4D2')); L_po=layer('64_外構_ポーチ',hexc('F7D3B0'))
 L_rp=layer('65_縁側の端のスロープ',(201,167,122)); L_ent=layer('66_入口（扉・背くらべの柱）',(62,122,46))
 kp=P(RK,th19); ray=LineString([kp,kp+t*20000])
 hits=[ray.intersection(LineString([pn,pe])),ray.intersection(LineString([E_,S_]))]
@@ -184,8 +184,7 @@ evac=LineString([E_,S_]).buffer(1500,cap_style=2).intersection(garden)
 for g,li,z in ((garden.difference(seng),L_g,-300),(porch,L_po,-300)):
     for gg in getattr(g,'geoms',[g]):
         if gg.geom_type=='Polygon': slab(gg.simplify(5),z-10,z,li)
-for gg in getattr(evac,'geoms',[evac]):
-    if gg.geom_type=='Polygon': slab(gg.simplify(5),-300,-295,L_ev)
+# 避難の帯（63）は地の板として重ねない（ユーザー 10-29：車の通る帯の青い筋が Rhino・平面図・配置図に残っていた）。帯は62の芝と一続きで、寸法は data/minami.json の EVAC
 slab(seng,-300,-150,L_se)                     # 南の縁側は外（土足）：FL −150
 # 外縁側の最後のスパンをスロープに（FL −150 → GL −300、南へ下がる）
 ramp=quad(RE,191500,TH[18],th19,8)
