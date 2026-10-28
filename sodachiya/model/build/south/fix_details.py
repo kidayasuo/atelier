@@ -401,6 +401,7 @@ for o in m.Objects:
     if o.Attributes.LayerIndex not in (L22A, L22B, L22D): continue
     k_ = str(o.Attributes.Id)
     g = cur_g(o)
+    if o.Attributes.LayerIndex == L22B and isinstance(g, r.Extrusion) and k_ not in _bn: continue   # 10-28：屋根の梁は 3e で屋根の面から作り直す
     if isinstance(g, r.Extrusion) and k_ not in _bn:
         S_ = extedit.samples(g, 40); U = to_uv_arr(S_)
         if not ((U[:, 0] < 42.2).any() or (U[:, 0] > 49.9).any()): continue
@@ -769,6 +770,11 @@ log.append(f'西館：外壁ぎわの柱 {_n_col} 本の外の面を足もとか
 # 3e) 構造の直し（10-27、ユーザー・監修の略算、プロジェクトの「構造_西館_略算」「構造_西館_見直し_10-27昼」、項 20261027-0932-kanshu）
 # 1. 屋根の梁（22b）：2 枚組のせい 700 → 800（強い集成材 E105-F300 相当）。上端（＝屋根の下面）はそのまま、下へ深くする
 #    （輪郭の点を、梁の上端の線からの深さで 800/700 倍。西の端のハンチもそれに比例）。
+#    10-28（ユーザー、監修の項 20261028-1310 の 1）：梁の上端＝屋根の面 roof_f（その 1 枚の上の面。光の筋をはさむ 2 枚は別のスパンの面なので
+#    棟の端で ±約5 cm 違う）。もとの梁（3dm）は上端が前の面 roof_old の 150 下にあり、3b は面の差（roof_f − roof_old）だけ上げていたので、
+#    梁は屋根の面の 150 下のままだった。また 3b は前の面の 900 下までの点だけを上げたので、角（u21・u48）では西の端の上の方だけが
+#    動いて 2 枚の形が違っていた。今は、もとの梁の輪郭の点の上端の線からの深さ（2 枚で同じ）を 800/700 倍して、その 1 枚の上の roof_f から
+#    下へ取る（3b では屋根の梁を動かさない）。せい・ハンチ・西の端・下端の線（上端からのせい）は 2 枚で同じ。
 # 2. 東の桁（22d、z 約7.3〜7.7）は梁の東の端の穴を通っていた（梁の下端が約半分欠かれていた）→ 梁の下端より下へ下げ、梁の穴をふさぐ。
 #    柱の頭つなぎ・水平構面の弦材として柱に留める（金物）。
 # 3. 2 階の床梁を受ける骨格の柱：架構 u24・u27 の、1 階のキッチンの東の壁の線（v −3.4）に 180×400（22a、床梁の 2 枚のあいだ、FL〜2 階の床の下）。
@@ -804,15 +810,19 @@ def _deepen(g):
     cf = np.polyfit(mid[:, 0], mid[:, 1], 1)                                       # 梁の上端の線 z = a s + b
     ztop = lambda s: cf[0] * s + cf[1]
     a, b = g.PathStart, g.PathEnd
+    hm = np.array([b.X - a.X, b.Y - a.Y]) / 2.0                                     # 厚みの真ん中で屋根の面を取る
     curves2d = []; n_hole = 0
     for k_, nc in enumerate(extedit.profiles3d(g)):
         W = extedit._weights(nc); P = extedit._pts(nc)
+        sp = (P[:, :2] - O[:2]) @ hd; zt = ztop(sp)
+        zr_ = np.array([_RWf['roof_f'](*(q_ + hm)) for q_ in P[:, :2]])               # その 1 枚の上の屋根の面（梁の上端、厚みの真ん中）
         if k_ == 0:
-            sp = (P[:, :2] - O[:2]) @ hd; zt = ztop(sp); dep = zt - P[:, 2]
-            P[:, 2] = np.where(dep > 0, zt - dep * BEAM_K, P[:, 2])
+            dep = zt - P[:, 2]
+            P[:, 2] = zr_ - np.where(dep > 0, dep * BEAM_K, dep)
         else:
             vh = np.mean([uv(x_, y_)[1] for x_, y_ in P[:, :2]])
             if vh > -2.0: n_hole += 1; continue                                    # 東の桁の穴（桁を下げたので要らない）
+            P[:, 2] += float(np.mean(zr_ - zt))                                    # ほかの穴は上端からの深さのまま
         Q = np.c_[(P - O) @ X, (P - O) @ Y, np.zeros(len(P))]
         extedit._set_pts(nc, Q, W); curves2d.append(nc)
     e = r.Extrusion()
@@ -857,6 +867,46 @@ for o in m.Objects:
     if e is None: continue
     EXT[k_] = e; _n_g += 1; _gz.append(min(dza, dzb))
 log.append(f'西館：東の桁 {_n_g} 本を梁の下端の 10 下へ（下げた量 約{-np.mean(_gz) if _gz else 0:.0f} mm）')
+# 10-28（ユーザー、監修の項 20261028-1310 の 3）：東の柱（v −1.05〜−1.8）と西の柱（外壁ぎわ）の頭を、その架構の梁の上端にそろえる
+# （梁の上端＝その 1 枚の上の roof_f。2 枚の上端が違う所は低いほう）。柱は 2 枚の梁のあいだ（u ±0.09）にあり、輪郭は架構の線の縦の面。
+# 頭の形（桁を抱くふくらみ）はそのまま、頭の上の線からの深さ 300 までの制御点を同じだけ上下し、300〜600 でなだらかに 0 へ（押し出しのまま）。
+_n_head = 0
+for o in m.Objects:
+    if o.Attributes.LayerIndex != L22A: continue
+    k_ = str(o.Attributes.Id); g = cur_g(o)
+    if not isinstance(g, r.Extrusion) or k_ in _bn2: continue
+    S_ = extedit.outer_samples(g, 800); U_ = to_uv_arr(S_)
+    vm_ = float(U_[:, 1].mean())
+    if S_[:, 2].max() < 4000 or not (-2.0 < vm_ < -0.9 or U_[:, 1].min() < -9.0): continue
+    if abs(np.ptp(S_[:, 2])) < 3000: continue                                       # 床からの柱だけ
+    a_, b_ = g.PathStart, g.PathEnd
+    uc_ = float(np.mean([uv(a_.X, a_.Y)[0], uv(b_.X, b_.Y)[0]]))
+    pl = g.GetProfilePlane(0.0); O = np.array([pl.Origin.X, pl.Origin.Y, pl.Origin.Z])
+    X = np.array([pl.XAxis.X, pl.XAxis.Y, pl.XAxis.Z]); Y = np.array([pl.YAxis.X, pl.YAxis.Y, pl.YAxis.Z])
+    hd = np.array([X[0], X[1]]) if abs(X[2]) < 0.5 else np.array([Y[0], Y[1]]); hd = hd / np.linalg.norm(hd)
+    s_ = (S_[:, :2] - O[:2]) @ hd; zmx_ = float(S_[:, 2].max())
+    def _tl(sp):                                                                    # その位置の頭の上の線（輪郭のいちばん高い所）
+        out_ = []
+        for q in sp:
+            kk = np.abs(s_ - q) < 15.0
+            out_.append(S_[kk, 2].max() if kk.any() else S_[np.argmin(np.abs(s_ - q)), 2])
+        return np.array(out_)
+    def _zt(x_, y_):
+        v_ = uv(x_, y_)[1]
+        return min(_RWf['roof_f'](*np.ravel(xy(uc_ - 0.132, v_))), _RWf['roof_f'](*np.ravel(xy(uc_ + 0.132, v_))))   # 2 枚の梁の上端（厚みの真ん中）の低いほう
+    def _head(V, k=0):
+        sp = (V[:, :2] - O[:2]) @ hd; tl = _tl(sp)
+        for i, (x_, y_, z_) in enumerate(V):
+            dep = tl[i] - z_
+            if tl[i] < zmx_ - 600.0: continue                                       # 頭の上の線の無い位置（足もとの広がり）
+            w = 1.0 if dep < 300.0 else max(0.0, 1.0 - (dep - 300.0) / 300.0)
+            if w <= 0: continue
+            d_ = _zt(x_, y_) - tl[i]; V[i, 2] = z_ + w * d_
+        return V
+    e = extedit.edit(g, _head)
+    if e is None: log.append(f'  !! 柱の頭を押し出しのまま直せなかった（u{uc_:.2f}）'); continue
+    EXT[k_] = e; _n_head += 1
+log.append(f'西館：東西の柱 {_n_head} 本の頭を梁の上端（roof_f、2 枚のうち低いほう）にそろえた')
 # 3) 2 階の床梁を受ける柱
 for uc in (24.0, 27.0):
     _xbox(uc - 0.09, uc + 0.09, -3.20, -3.60, 0.0, 3170.0, L22A, f'骨格の柱 180×400（架構 u{uc:.0f}、2 階の床梁を受ける、キッチンの東の壁の線）')
@@ -1557,15 +1607,21 @@ for o in m.Objects:
     P = tris(g).reshape(-1, 3)[:, :2]
     if len(P) < 3: continue
     c = P.mean(0); X = P - c; w_, vec = np.linalg.eigh(X.T @ X); ax = vec[:, -1]
-    lines_.append((c, ax if ax[0] >= 0 else -ax))
+    ax = ax if ax[0] >= 0 else -ax; nn_ = np.array([-ax[1], ax[0]])
+    s0_, s1_ = ((P - c) @ ax).min() - 3000.0, ((P - c) @ ax).max() + 3000.0; t0_, t1_ = ((P - c) @ nn_).min(), ((P - c) @ nn_).max()
+    lines_.append((c, ax, Polygon([c + ax * s0_ + nn_ * t0_, c + ax * s1_ + nn_ * t0_, c + ax * s1_ + nn_ * t1_, c + ax * s0_ + nn_ * t1_])))
+# 10-28：梁のあいだの層（断熱・合板・母屋）を切る帯は、2 枚の梁の平面形（梁の軸に沿って両へ 3 m 延ばした長方形、出し梁も同じ面）を
+# 囲む形にする（前は架構の線の芯から ±180 の帯で、放射の線の 2 枚とは平行でないので、梁の上端を屋根の面に上げると梁に 10〜20 食い込んでいた）
+PAIR_BANDS = []
 pairs = []; used = set()
-for i, (c1, a1) in enumerate(lines_):
+for i, (c1, a1, _r1) in enumerate(lines_):
     if i in used: continue
     nrm = np.array([-a1[1], a1[0]])
-    js = [j for j, (c2, a2) in enumerate(lines_) if j != i and j not in used and abs(np.dot(c2 - c1, nrm)) < 400]
+    js = [j for j, (c2, a2, _r2) in enumerate(lines_) if j != i and j not in used and abs(np.dot(c2 - c1, nrm)) < 400]
     if not js: continue
     j = min(js, key=lambda j: abs(np.dot(lines_[j][0] - c1, nrm))); used |= {i, j}
-    c2, a2 = lines_[j]; ax = (a1 + a2); ax /= np.linalg.norm(ax)
+    c2, a2 = lines_[j][:2]; ax = (a1 + a2); ax /= np.linalg.norm(ax)
+    PAIR_BANDS.append(unary_union([lines_[i][2], lines_[j][2]]).convex_hull)
     off = np.dot(c2 - c1, np.array([-ax[1], ax[0]])) / 2.0
     cc = c1 + np.array([-ax[1], ax[0]]) * off
     pairs.append((cc, ax))
@@ -1624,7 +1680,8 @@ for o in m.Objects:
     a_, b_ = g.PathStart, g.PathEnd
     A3 = np.array([a_.X, a_.Y, a_.Z]); B3 = np.array([b_.X, b_.Y, b_.Z])
     def P3(s, z): q = O[:2] + hd * s; return [float(q[0]), float(q[1]), float(z)]
-    zt_w = float(roof_z(np.array([O[:2] + hd * sw]))[0]); zt_t = float(roof_z(np.array([O[:2] + hd * s_tip]))[0])
+    _hm = (B3[:2] - A3[:2]) / 2.0 + (A3[:2] - O[:2])                       # 10-28：上端は梁と同じ屋根の面 roof_f（その 1 枚の厚みの真ん中）
+    zt_w = float(_RWf['roof_f'](*(O[:2] + hd * sw + _hm))); zt_t = float(_RWf['roof_f'](*(O[:2] + hd * s_tip + _hm)))
     pts = [P3(sw, zt_w), P3(s_tip, zt_t), P3(s_tip, zt_t - 120.0), P3(sw, zt_w - 240.0)]
     th = float(np.linalg.norm(B3 - A3)); dvec = (B3 - A3) / th
     off = (A3[:2] - O[:2]); pts = [[p[0] + off[0], p[1] + off[1], p[2]] for p in pts]   # 道の始まりの面の上に
@@ -1781,12 +1838,13 @@ if slits:
                     f_.append(idx[key_])
                 if len(set(f_)) == 3: F_.append(f_)
         return np.array(V_, float).reshape(-1, 2), np.array(F_, int).reshape(-1, 3)
-    def _bplate(p, k, dz0, dz1):
-        """平面形 p（ベイ k の中、穴あり可）を屋根の面から dz0〜dz1（鉛直に測る）の閉じた板に → manifold。平面のベイは面に直角に押し出す"""
+    def _bplate(p, k, dz0, dz1, vert=False):
+        """平面形 p（ベイ k の中、穴あり可）を屋根の面から dz0〜dz1（鉛直に測る）の閉じた板に → manifold。平面のベイは面に直角に押し出す。
+        vert：側面を鉛直に（梁のあいだの断熱・合板。10-28：面に直角だと側面が傾いて、梁の上端を屋根の面に上げたら梁に 10〜15 食い込んだ）"""
         V2, F_ = _btri(p, k)
         if not len(F_): return None
         n = len(V2); zb_ = _bz(k, V2) + dz0
-        if _BPL20[k] is not None:
+        if _BPL20[k] is not None and not vert:
             n_ = _BPL20[k][1]; t_ = (dz1 - dz0) * n_[2]
             Vt = np.r_[np.c_[V2, zb_], np.c_[V2, zb_] + t_ * n_]
         else:
@@ -1822,8 +1880,7 @@ if slits:
             out_ += [(k, x) for x in getattr(g_, 'geoms', [g_]) if x.geom_type == 'Polygon' and x.area > 1e3]
         return out_
     # 梁のあいだ：外壁の内面の内側から、架構の線ごとの 2 枚の梁と光の筋の帯（±180）を除いた所
-    BANDS = unary_union([Polygon([cc_ - ax_ * 30000 - np.array([-ax_[1], ax_[0]]) * 180, cc_ + ax_ * 30000 - np.array([-ax_[1], ax_[0]]) * 180,
-                                  cc_ + ax_ * 30000 + np.array([-ax_[1], ax_[0]]) * 180, cc_ - ax_ * 30000 + np.array([-ax_[1], ax_[0]]) * 180]) for cc_, ax_ in pairs])
+    BANDS = unary_union(PAIR_BANDS)                                   # 10-28：2 枚の梁の平面形を囲む形（上の PAIR_BANDS）
     BANDS = unary_union([BANDS, Polygon([_pE - _ax2 * 3000 - _w2 * 60, _pE + _ax2 * 30000 - _w2 * 60, _pE + _ax2 * 30000 + _w2 * 60, _pE - _ax2 * 3000 + _w2 * 60])])   # 登り梁 u43.5
     L20R = new_layer('20r_西館_屋根の下面の構造用合板（t24、現し）', (214, 190, 150)); a20r = r.ObjectAttributes(); a20r.LayerIndex = L20R
     L20V = new_layer('20v_西館_母屋（杉 60×150 @455、現し）', (196, 160, 118)); a20v = r.ObjectAttributes(); a20v.LayerIndex = L20V
@@ -1860,6 +1917,7 @@ if slits:
     VREG = VREG.difference(unary_union([strip(cc, ax, nrm, t0 - 100, t1 + 100, -150, 150) for cc, ax, nrm, t0, t1 in slits])).buffer(0)
     a_b20 = r.ObjectAttributes(); a_b20.LayerIndex = L20B; a_b20.Name = '通気垂木 杉 60×45（長ビスで母屋へ）'
     _nb20 = 0
+    _RBND = BANDS.buffer(3.0)                                          # 梁（2 枚組・登り梁）の平面形の帯（上の BANDS）
     for k in range(_NB20):
         reg_ = VREG.intersection(_BPOLY[k])
         if reg_.is_empty or reg_.area < 1e5: continue
@@ -1878,6 +1936,14 @@ if slits:
                 s_ = t_ / Wm_; lines_.append((_RWf['ruled_point'](k, -0.3, s_)[:2], _RWf['ruled_point'](k, 1.3, s_)[:2])); t_ += 455.0
         for A_, B_ in lines_:
             d_ = (B_ - A_) / np.linalg.norm(B_ - A_); w_ = np.array([-d_[1], d_[0]]) * BAT_W / 2
+            # 10-28 夕：梁（2 枚組・登り梁）の上に平行に重なる垂木は、梁の帯（_RBND）にかからない所まで横へずらす（梁の上端は厚みの真ん中で
+            # 屋根の面に合わせてあり、北西では面が梁を横切って傾くので、梁の縁の上の垂木が 14〜17 mm 食い込んでいた）
+            for o_ in (0.0, 20.0, -20.0, 40.0, -40.0, 60.0, -60.0, 80.0, -80.0, 100.0, -100.0, 120.0, -120.0, 140.0, -140.0, 160.0, -160.0, None):
+                if o_ is None: A_ = None; break
+                n2_ = w_ / np.linalg.norm(w_) * o_
+                if Polygon([A_ + n2_ - w_, B_ + n2_ - w_, B_ + n2_ + w_, A_ + n2_ + w_]).intersection(reg_).intersection(_RBND).area < 1e3:
+                    A_, B_ = A_ + n2_, B_ + n2_; break
+            if A_ is None: continue
             q_ = Polygon([A_ - w_, B_ - w_, B_ + w_, A_ + w_]).intersection(reg_)
             for g_ in getattr(q_, 'geoms', [q_]):
                 if g_.geom_type != 'Polygon' or g_.area < 0.02e6: continue
@@ -1888,7 +1954,7 @@ if slits:
     a20r.Name = '構造用合板 t24（母屋の上、天井に現す、気密はこの上）'
     for k, p_ in _by_bay(INT):
         for dz0_, dz1_, at_ in ((-INS_T, 0.0, a_in20), (-INS_T - PLY_T, -INS_T, a20r)):
-            M_ = _bplate(p_, k, dz0_, dz1_)
+            M_ = _bplate(p_, k, dz0_, dz1_, vert=True)
             if M_ is not None: new_objs.append((_m2r(M_), at_))
     log.append(f'西館：梁の上の層を本館と同じ作り方に（10-28）：通気垂木 {_nb20} 本（20b、60×45 @455、軒先の 150 手前まで）、野地＋屋根材 64 の板 {_n_up} 片・太陽光 {_npv} 片（ベイごと、'
                f'平面のベイ {sum(1 for x in _BPL20 if x is not None)}／{_NB20}、軒は 150 持ち出し、見付け 64）')
@@ -1912,6 +1978,22 @@ if slits:
         gy = (_RWf['roof_f'](M2[0], M2[1] + e_) - _RWf['roof_f'](M2[0], M2[1] - e_)) / (2 * e_)
         N_ = np.array([-gx, -gy, 1.0]); N_ = N_ - d3 * (N_ @ d3); N_ /= np.linalg.norm(N_)
         s3 = np.cross(d3, N_); s3 /= np.linalg.norm(s3)
+        # 10-28：母屋の両端を、断面の 4 隅の平面形が梁の帯（BANDS）にかからない所まで縮める（母屋は梁に斜めに当たり、断面は屋根の面に
+        # 直角なので、芯の線だけを帯で切ると端の隅が梁に数 mm〜30 食い込んでいた。梁の上端を屋根の面に上げて見えるようになった）
+        for _it in range(12):
+            _off = [s3 * 30.0, -s3 * 30.0, -s3 * 30.0 - N_ * PUR_T, s3 * 30.0 - N_ * PUR_T]
+            _fa = [A3[:2] + o_[:2] for o_ in _off]; _fb = [B3[:2] + o_[:2] for o_ in _off]
+            _x = Polygon(_fa + _fb).convex_hull.intersection(BANDS)
+            if _x.area < 1.0: break
+            _ea = _eb = 0.0
+            for _g in getattr(_x, 'geoms', [_x]):
+                if _g.area < 0.5: continue
+                _c = np.array(_g.centroid.coords[0]); _e = _g.area / 60.0 + 1.0
+                if np.linalg.norm(_c - A3[:2]) < np.linalg.norm(_c - B3[:2]): _ea = max(_ea, _e)
+                else: _eb = max(_eb, _e)
+            A3 = A3 + d3 * _ea; B3 = B3 - d3 * _eb
+            L_ = float(np.linalg.norm(B3 - A3))
+            if L_ < 300.0: return 0
         C_ = [A3 + s3 * 30.0, A3 - s3 * 30.0, A3 - s3 * 30.0 - N_ * PUR_T, A3 + s3 * 30.0 - N_ * PUR_T]
         crv = r.Polyline([r.Point3d(*map(float, c_)) for c_ in C_ + [C_[0]]]).ToNurbsCurve()
         best = None; mid_ = (A3 + B3) / 2
@@ -1930,7 +2012,7 @@ if slits:
     # 北西の角（u42〜51）は双一次の面のまま、となりの梁の同じ高さの点を結ぶ（下）。
     _B = _RWf['BAYS']; _npur = 0; _npur_pl = 0; _dpur = 0.0
     for ua_, ub_, kind_, cf_ in _RWf['SPANS']:
-        if kind_ != 'plane': continue
+        if kind_ != 'plane' or ub_ <= 21.0 + 1e-6: continue                  # 10-28 夕：平面のスパンは無い（南のけらばの接平面は母屋なし）
         px_, py_, c0_, c1_, c2_ = cf_; g_ = float(np.hypot(c1_, c2_)); gd_ = np.array([c1_, c2_]) / g_; dd_ = np.array([-gd_[1], gd_[0]])
         _sp = Polygon([xy(ua_, 3.0), xy(ua_, -30.0), xy(ub_, -30.0), xy(ub_, 3.0)])
         _zf = lambda q: c0_ + c1_ * (q[0] - px_) + c2_ * (q[1] - py_)
@@ -1950,7 +2032,8 @@ if slits:
                         n_ = _purl_x(A2_, B2_, float(z_) + off_, f'母屋 杉 60×150（水平、スパン{int(round((ua_ - 21) / 3)) + 8}の平面の等高線、高さ {z_ / 1000:.2f}、{nm_}）')
                         _npur += n_; _npur_pl += n_
             z_ -= dz_
-    for k in range(_RWf['I42'], len(_B) - 1):
+    for k in range(0, len(_B) - 1):                                          # 10-28 夕：西の面（u21〜42）も双一次。光の筋の細いベイ（±0.09）は除く
+        if _B[k + 1] - _B[k] < 1.0: continue
         (Ra, Ea), (Rb, Eb) = _RWf['beam_line'](_B[k]), _RWf['beam_line'](_B[k + 1])
         Lm = max(np.linalg.norm(Ea - Ra), np.linalg.norm(Eb - Rb))
         h0 = max(_RWf['ruled_hs'](*np.array(xy(_B[k] + 0.25, EASTV - 0.06), float).ravel())[0],
@@ -1962,9 +2045,11 @@ if slits:
                 x_ = ln2.intersection(reg_)
                 for sg_ in getattr(x_, 'geoms', [x_]):
                     if sg_.geom_type != 'LineString' or sg_.length < 300.0: continue
+                    for q_ in (np.array(sg_.coords[0]), np.array(sg_.coords[-1]), np.array(sg_.interpolate(0.5, normalized=True).coords[0])):
+                        _dpur = max(_dpur, abs(_RWf['roof_f'](*q_) - float(Pa[2])))
                     _npur += _purl_x(np.array(sg_.coords[0]), np.array(sg_.coords[-1]), float(Pa[2]) + off_,
                                      f'母屋 杉 60×150（水平、u{_B[k]:g}〜{_B[k + 1]:g}、高さ {Pa[2] / 1000:.2f}、{nm_}）')
-    log.append(f'西館：母屋 {_npur} 本（一本ずつの 60×150 の押し出し。スパン8〜14 は平面の等高線の上 {_npur_pl} 本（屋根の面との差 最大 {_dpur:.1f} mm）、北西の角はとなりの梁の同じ高さの点を結ぶ水平のまっすぐな材）')
+    log.append(f'西館：母屋 {_npur} 本（一本ずつの 60×150 の押し出し。10-28 夕：u21〜51 すべて、となりの梁の同じ高さの点を結ぶ水平のまっすぐな材、屋根の面との差 最大 {_dpur:.1f} mm）')
     log.append(f'西館：屋根の構成（10-27夜・10-28）：梁の上 {RT_W:.0f}（通気垂木 45・野地 24・屋根材 40、軒は野地＋屋根材 64 を 150 持ち出し、軒先の見付け 64）、梁のあいだに断熱 150（20）・合板 t24（20r）・母屋 60×150 @455（20v）、軒の下は母屋を梁の上端に落とし込む')
     # 筋の両側の梁の下端（鏡面の板の下の端）：2 枚の梁（22b）に下から鉛直の線を当てる
     _bmt = [closed_mesh(bm.get(str(o.Attributes.Id), cur_g(o))) for o in m.Objects if o.Attributes.LayerIndex == L22B]
@@ -2546,6 +2631,9 @@ if _BOX_ATTR is not None:
     _cuts = [_boxM(R(STAIR_U0 + 0.06, STAIR_U0 + STAIR_FOOT, -3.2, -2.8, 0.05), -200.0, 3170.0),          # 1 階の登り口（東の面、南の口の通路の側）
              _boxM(R(29.84, 30.16, -3.1, -4.94, 0.05), 3170.0, 3250.0 + 2100.0),                       # 2 階の着き口（南の面、箱の内面のあいだ）
              _boxM(R(*STAIR_DOOR, -5.16, -4.84, 0.05), -200.0, STAIR_DOOR_H)]                            # 階段の下の倉庫の戸（西の面）
+    # 10-28 夕：倉庫の戸の両脇の柱（u30.24・u31.56、120×120、壁の厚みの中）の所は壁を欠く（柱が壁の厚みの中に収まる。前は壁と柱が重なり、
+    # 削る段の後に「種類をまたぐ食い込み」が 2 残っていた）。欠きは壁の両面の外まで（面を重ねない）、高さは柱と同じ（床の 200 下〜3170）
+    _cuts += [_boxM(R(uc - 0.06, uc + 0.06, vc - 0.16, vc + 0.16, 0.02), -200.0, 3170.0) for uc, vc in _BOXC if abs(vc + 5.0) < 1e-6 and STAIR_DOOR[0] - 0.1 < uc < STAIR_DOOR[1] + 0.1]
     _W = _W - _mf.Manifold.batch_boolean(_cuts, _mf.OpType.Add)
     _g = _W.to_mesh(); _V = np.asarray(_g.vert_properties)[:, :3].astype(float); _F = np.asarray(_g.tri_verts)
     _mm = r.Mesh()

@@ -587,7 +587,7 @@ Z_LOW, Z_RAKE = 4760.0, 5100.0                 # 縁の屋根の高さ：これ�
 ringS = WS.exterior
 ring_ccw = ringS if Polygon(ringS).exterior.is_ccw else LineString(list(ringS.coords)[::-1])
 Ls = ring_ccw.length; NS = int(Ls / 100.0)
-# 北西の角（u42〜51）の軒先（10-27夜、ユーザー：実際に作る時もまっすぐの材で近似する、軒の高さは一定に）：屋根の線（架構の線と u43.5 の登り梁）を
+# 北西の角（u42〜51）と西の面（u21〜42、10-28 夕）の軒先（10-27夜、ユーザー：実際に作る時もまっすぐの材で近似する、軒の高さは一定に）：屋根の線（架構の線と u43.5 の登り梁）を
 # 軒の点から外へ同じ割合だけ延ばした点（＝同じ高さ）を、まっすぐな水平の線で結ぶ。軒の出は西の面の 0.78 から北の妻へ細くなり、けらばの 0.3 に続く。
 _BAYS = list(_RW['FRAMES']) + list(_RW['KINKS']) + [51.0]; _BL = {u_: _RW['beam_line'](u_) for u_ in _BAYS}   # 架構の線と北西の屋根の線（10-28 昼：BAYS は光の筋の縁の線も入ったので、軒先の線はこの並びで）
 _L42 = np.linalg.norm(_BL[42.0][1] - _BL[42.0][0]); _HT = 1.0 + (EAVE_LOW - GUT_W) / _L42          # 西の面の軒の出（屋根の面 0.78）と同じ高さ
@@ -597,6 +597,11 @@ _d_ = (_CH[-1] - _CH[-2]) / np.linalg.norm(_CH[-1] - _CH[-2])
 _hk = LineString([_CH[-1], _CH[-1] + _d_ * 3000.0]).intersection(_rake)
 _hk = [_hk] if _hk.geom_type == 'Point' else list(getattr(_hk, 'geoms', []))
 if _hk: _CH = _CH[:-1] + [min((np.array([q.x, q.y]) for q in _hk), key=lambda q: np.linalg.norm(q - _CH[-2]))]
+# 10-28 夕（ユーザー：スパン8〜14 を双一次に）：西の面（u21〜42）の軒先も同じまっすぐな水平の線。南の端は北と同じく、最初の線を南のけらばの線まで延ばす
+_d0 = (_CH[0] - _CH[1]) / np.linalg.norm(_CH[0] - _CH[1])
+_hk0 = LineString([_CH[0], _CH[0] + _d0 * 3000.0]).intersection(_rake)
+_hk0 = [_hk0] if _hk0.geom_type == 'Point' else list(getattr(_hk0, 'geoms', []))
+if _hk0: _CH = [min((np.array([q.x, q.y]) for q in _hk0), key=lambda q: np.linalg.norm(q - _CH[1]))] + _CH[1:]
 CHORD = LineString(_CH)
 print('NW eave: level straight chord through roof lines', _BAYS, 'tip z %.0f' % roof_f(*_CH[0]))
 eave_pts = []                                  # (s, p, n, d_eave, z_edge)
@@ -613,7 +618,7 @@ for k in range(NS):
     d_ = EAVE_LOW * (1 - f_) + EAVE_RAKE * f_
     hit = LineString([p_, p_ + n_ * 3000]).intersection(_site.exterior)
     hp = [hit] if hit.geom_type == 'Point' else list(getattr(hit, 'geoms', []))
-    if 42.0 <= uu_ < 50.995 and vv_ < -1.2:                                    # 北西の角：軒先はまっすぐな水平の線（CHORD）まで
+    if 21.0 <= uu_ < 50.995 and vv_ < -1.2:                                    # 西の面と北西の角（10-28 夕）：軒先はまっすぐな水平の線（CHORD）まで
         hc = LineString([p_, p_ + n_ * 3000]).intersection(CHORD)
         hc = [hc] if hc.geom_type == 'Point' else list(getattr(hc, 'geoms', []))
         if hc:
