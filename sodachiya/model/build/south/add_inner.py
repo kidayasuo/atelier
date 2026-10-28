@@ -82,8 +82,8 @@ WALLS2 = [
     dict(v=-5.0, u=(29.69, 33.0)),                                  # 会議室｜階段
 ]
 
-def top_heights(pts_xy, tris):
-    """各点の真上で、2FL より上のいちばん低い面（屋根の下面・梁の下端）の高さ"""
+def top_heights(pts_xy, tris, fallback=True):
+    """各点の真上で、2FL より上のいちばん低い面（屋根の下面・梁の下端）の高さ（fallback=False なら無い点は None）"""
     out = []
     for (x, y) in pts_xy:
         best = None
@@ -97,8 +97,26 @@ def top_heights(pts_xy, tris):
             if s < -1e-6 or t < -1e-6 or s + t > 1 + 1e-6: continue
             z = T[0, 2] + s * (T[1, 2] - T[0, 2]) + t * (T[2, 2] - T[0, 2])
             if z > FL2 + 1500 and (best is None or z < best): best = z
-        out.append(best if best is not None else FL2 + 2400)
+        out.append(best if best is not None else (FL2 + 2400 if fallback else None))
     return out
+
+def wall_top(line, s0, s1, tris):
+    """壁の上端：壁の芯に沿う一本の直線（両面とも同じ＝上端は一枚の平面）。芯の上を 100 おきに測り、全部の点の下に収まり、
+    両端の高さの和がいちばん大きい直線。上に何も無い点は数えない（全部無ければ FL2+2400 の水平）。→ (z(s0), z(s1))
+    （10-28 監修：前は四隅を別々に測り、上に何も無い隅が FL2+2400 になって、片方の端 7.13・もう片方 5.66 の楔とねじれた上端ができていた）"""
+    S = np.linspace(s0, s1, max(2, int(abs(s1 - s0) / 0.1) + 1))
+    S = np.clip(S, min(s0, s1) + 0.03, max(s0, s1) - 0.03) if abs(s1 - s0) > 0.07 else S
+    H = top_heights([line(x) for x in S], tris, fallback=False)
+    pts = [(x, h) for x, h in zip(S, H) if h is not None]
+    if not pts: return FL2 + 2400.0, FL2 + 2400.0
+    if len(pts) == 1: return pts[0][1], pts[0][1]
+    from scipy.optimize import linprog
+    sm = (s0 + s1) / 2
+    res = linprog(c=[-2, 0], A_ub=[[1, x - sm] for x, h in pts], b_ub=[h for x, h in pts], bounds=[(None, None), (-400, 400)])
+    if not res.success:
+        z = min(h for x, h in pts); return z, z
+    c0, c1 = res.x
+    return c0 + c1 * (s0 - sm), c0 + c1 * (s1 - sm)
 
 if MODE == 'walls':
     # 屋根（20）・梁（22b）・桁（22d）の三角形（押し出しは draw100 と同じ方法で三角形に）
@@ -117,10 +135,12 @@ if MODE == 'walls':
         if 'u' in w and isinstance(w['u'], float):
             u = w['u']; a0, a1 = w['v']
             P = lambda s, e: [xy(u - h, s), xy(u + h, s), xy(u + h, e), xy(u - h, e)]
+            line = lambda s, u=u: xy(u, s)
             along = 'v'
         else:
             v = w['v']; a0, a1 = w['u']
             P = lambda s, e: [xy(s, v - h), xy(e, v - h), xy(e, v + h), xy(s, v + h)]
+            line = lambda s, v=v: xy(s, v)
             along = 'u'
         cuts = sorted(w.get('doors', []))
         segs, s = [], a0
@@ -128,7 +148,8 @@ if MODE == 'walls':
         segs.append((s, a1, None))
         for s0, s1, kind in segs:
             if s1 - s0 < 0.01: continue
-            P4 = P(s0, s1); zt = top_heights(P4, TRIS)
+            P4 = P(s0, s1); za, zb_ = wall_top(line, s0, s1, TRIS)
+            zt = [za, za, zb_, zb_] if along == 'v' else [za, zb_, zb_, za]          # 四隅の s0・s1 の順（u の線は 0・1 が s0、v の線は 0・3 が s0）
             if kind == 'door':
                 extra.append((box_mesh(P4, FL2 + DOOR_H, zt), attrs(L24, '2階の間仕切り（戸の上）')))
             else:

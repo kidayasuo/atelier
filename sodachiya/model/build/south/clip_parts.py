@@ -10,7 +10,9 @@
      戸・間仕切り・家具（D・P・I）はそれより上を削る（屋根を突き抜ける壁・木・遊具が無くなる）。
      10-28：切る面はスパンごとの平面（本館は架構の線 u=3k のあいだ、西館は roofw の SPANS の平面のスパン）。格子が平面に載らない所
      （越屋根・軒・北西の双一次の面など）だけ格子で切る（上端が格子に沿って折れ、Rhino 版で三角形に割れていた）。
-  1c. 間仕切り（24・38）の上端が少し（12 mm まで）ねじれている片は、上端を一枚の平面に切りそろえる（屋根の下面に届く片は除く）。
+  1c. 板の物（間仕切り・壁・格子・家具：24・38・49・37・18）は欠き込まない（10-28）。上端は物ごとに一枚の平面で切る
+     （上にある屋根の層・母屋・梁・2 階の床と屋根の下面の下に収まる、いちばん高い平面）。屋根の部材・梁では削らず、
+     外壁・窓・戸・柱・間仕切り・建物の外に当たる所は、段 2 で直角の鉛直の平面で端を切り落とす（寸法で止める）。
      戸・間仕切りは、部屋と床の板の外（外壁の中・外壁の外面・屋根の外）へはみ出した分も削る（外壁に間仕切りの端の筋が出ない）。
   2. 戸・間仕切り・家具・床（F・D・P・I）は、優先の高い部材（構造・外皮・床・戸）と重なる所を削る
      （壁の端が外壁の外面まで出て外から筋に見える所、梁を横切る壁の欠き込み、床に食い込む壁の足など）。
@@ -20,7 +22,7 @@
   3c. 外壁（17・21）は屋根の上面の 30 下で止める（屋根の板の厚みの中。上へ出た分と、屋根の面に重なる上端を削る。上面もスパンごとの平面）。
   3d. 屋根材型の太陽光の面（10p）が屋根の面より下に潜っている所は、屋根の面＋20 に載せ直す。閉じた立体（西館の 20p、屋根の層の
      いちばん上）は動かさない（10-28、項 20261028-1050-solid）。
-  4. 外壁（17・21）の片は、レイヤーごとに一つの立体に足し合わせる（片の継ぎ目の筋が外に出ない）。
+  4. 外壁（17・21）の片は、レイヤーごとに一つの立体に足し合わせる（片の継ぎ目の筋が外に出ない）。間仕切りは壁ごとの立体のまま。
   5. 構造と外皮どうし（S・E）は削らない（梁が屋根から出ている等は設計の誤りなので、干渉の一覧 clash.py で報告する）。
   屋根（10・20）で厚みの無い面は下へ 60（本館の屋根の板 60 とそろえる）、西館の 2 階の床（23、h3.17 の面）は上へ 80 の厚みを付けて閉じた立体にする。
 """
@@ -302,51 +304,157 @@ def inside_solid(bb):
         if M is not None: out = M if out is None else out + M
     return out
 
-# ---------------------------------------------------------------- 1c. 間仕切りの上端を平らに（監修 10-28、項 20261028-0043-honkan・1244-honkan）
-# 架構の線に立つ壁（38 の u12・18・33・39・42・48・51 など）は、上端の四隅が一つの平面に載っていない（端の面が斜めで、
-# 上端の高さが片側だけ違う。ねじれは数 mm〜十数 mm）。Rhino 版で上端が三角形 2 枚に割れていた。
-# 間仕切り（24・38）の上端（真上に自分の無い上向きの面）の点の高さの差（平面からのずれの幅）が 0.3〜12 mm の片は、上端の点に最小二乗で当てた平面を
-# いちばん低い点まで下げた平面で切る（上端は一枚の平らな面。屋根の下面に届く片は除く。壁は最大で 12 mm 低くなるだけで、屋根・梁より上へは出ない。
-# それより大きくねじれた片（西館の 2 階の床の下の壁など）はそのまま：上にある床・屋根の平面で切られる）
-def _flat_top(p):
-    t = p['tm']; n = t.face_normals; cz = t.triangles_center
-    up = np.where(n[:, 2] > 0.3)[0]
-    if len(up) < 2: return None
-    hit = trimesh.ray.ray_triangle.RayMeshIntersector(t).intersects_any(cz[up] + [0, 0, 0.5], np.tile([0, 0, 1.0], (len(up), 1)))
-    top = up[~hit]
-    if len(top) < 2: return None
-    P = t.vertices[np.unique(t.faces[top])]
-    if np.ptp(P[:, 2]) < 0.3: return None                                  # 水平の上端
-    A_ = np.c_[P[:, 0] - P[:, 0].mean(), P[:, 1] - P[:, 1].mean(), np.ones(len(P))]
-    cf, *_ = np.linalg.lstsq(A_, P[:, 2], rcond=None)
-    res = P[:, 2] - A_ @ cf
-    if np.ptp(res) < 0.3 or np.ptp(res) > 12: return None
-    # 屋根の下面に届く（20 mm より近い）片は平らにしない：屋根の下面の平面で切られて上端が平らになる（下げると母屋の下にすき間）
-    ii = np.clip(((P[:, 0] - xs[0]) / CELL).round().astype(int), 0, len(xs) - 1); jj = np.clip(((P[:, 1] - ys[0]) / CELL).round().astype(int), 0, len(ys) - 1)
-    zr = np.where(np.isfinite(PC_BOT.DZ[ii, jj]), PC_BOT.DZ[ii, jj], Z[ii, jj])
-    if np.isfinite(zr).any() and np.nanmin(zr - P[:, 2]) < 20: return None
-    cf[2] += res.min() - 0.05                                             # 上端の点がみな平面の上（平面まで下げる）
-    bb = p['bb']; mx, my = P[:, 0].mean(), P[:, 1].mean()
-    pg = box(bb[0][0] - 50, bb[0][1] - 50, bb[1][0] + 50, bb[1][1] + 50)
+# ---------------------------------------------------------------- 1c. 板の物は欠き込まず、上端を一枚の平面で切る（監修 10-28）
+# ユーザー：架構のほかはすべて平らな板（箱か、まっすぐな角柱。屋根の下の壁は上端の斜めの面が一枚だけ）。
+# 前は間仕切り・壁・格子・家具を、母屋（@455）・垂木・合板・梁・丸い柱・光の筋で真上から格子で削っていて、上端が櫛の歯や
+# 弧の欠き込みになり、北の双一次の屋根の下では 250 の格子で上端が三角形に割れていた（西館の 24 は 12 → 1514 枚）。
+# 板の物（PLATE）は、屋根の部材・架構・光の筋では削らない。代わりに：
+#   (1) 上端：物の下から真上へ 20 おきに測った「上にある部材（屋根の層・母屋・垂木・梁・桁・2 階の床）のいちばん下の面」と
+#       「屋根の下面（段 1 のスパンの平面・格子）」の下に収まる、いちばん高い一枚の平面で切る（今の上端より上げない）。
+#       梁や母屋に当たる物は、欠き込まずに上端の平面ごと下げる。
+#   (2) 段 2 で、外壁・窓・戸・柱・間仕切り・建物の外に当たる物は、欠き込まずに物の長さか幅の向きに直角な鉛直の平面で端を切り
+#       落とす（寸法で止める、end_cut）。柱が途中に当たるときは柱の幅の 2 枚の平面で二つに分ける。床（F）は前のとおり削る。
+#   (3) 段 4 で間仕切り（24）を一つの立体に足さない（壁ごとに一つの立体）。
+PLATE = ('24', '38', '49', '37', '18')
+TOPOBS = ('10', '20', '10r', '20r', '10t', '20t', '28', '50a', '10v', '20v', '10b', '20b', '10s', '11b', '11c', '22b', '22c', '22d', '23')
+def is_plate(p): return p['layer'].split('_')[0] in PLATE
+_OBS = [p for p in parts if p['layer'].split('_')[0] in TOPOBS]
+OBS_TM = trimesh.util.concatenate([p['tm'] for p in _OBS])
+_ori = trimesh.ray.ray_triangle.RayMeshIntersector(OBS_TM)
+from scipy.optimize import linprog
+def _roof_limit(X, Y):
+    """屋根の下面（段 1 と同じ面：スパンの平面の所は平面＋差、ほかは格子を双一次で）"""
+    fi = (X - xs[0]) / CELL; fj = (Y - ys[0]) / CELL
+    i0 = np.clip(np.floor(fi).astype(int), 0, len(xs) - 2); j0 = np.clip(np.floor(fj).astype(int), 0, len(ys) - 2)
+    a = np.clip(fi - i0, 0, 1); b = np.clip(fj - j0, 0, 1)
+    out = np.full(len(X), np.inf)
+    for G in (np.where(PC_BOT.ON, PC_BOT.DZ, np.nan), PC_BOT.Zr):
+        q = [G[i0, j0], G[i0 + 1, j0], G[i0, j0 + 1], G[i0 + 1, j0 + 1]]
+        Q = np.array(q); fin = np.isfinite(Q)
+        z = (1 - a) * (1 - b) * q[0] + a * (1 - b) * q[1] + (1 - a) * b * q[2] + a * b * q[3]
+        z = np.where(fin.all(0), z, np.where(fin.any(0), np.nanmin(np.where(fin, Q, np.inf), axis=0), np.inf))
+        out = np.minimum(out, z)
+    return out
+def _axes(t):
+    P = t.vertices[:, :2]; c = P.mean(0)
+    w, v = np.linalg.eigh(np.cov((P - c).T)); ax = v[:, 1]; ax = ax / np.linalg.norm(ax)
+    return c, ax, np.array([-ax[1], ax[0]])
+def _halfspace(bb, cf, c, ax, pr, above=True):
+    """平面 z = cf0 + cf1·s + cf2·w（s・w は c からの ax・pr の向き）より上（above）の立体"""
+    pg = box(bb[0][0] - 60, bb[0][1] - 60, bb[1][0] + 60, bb[1][1] + 60)
     tt = trimesh.creation.extrude_polygon(pg, 1.0); V_ = np.array(tt.vertices); lo = V_[:, 2] < 0.5
-    V_[lo, 2] = cf[0] * (V_[lo, 0] - mx) + cf[1] * (V_[lo, 1] - my) + cf[2]; V_[~lo, 2] = bb[1][2] + 1000
-    return to_manifold(trimesh.Trimesh(V_, tt.faces, process=False)), float(res.max() - res.min())
-for p in parts:
-    if p['klass'] != 'P' or p['M'] is None or p['layer'].split('_')[0] not in ('24', '38'): continue
-    try:
-        ft = _flat_top(p)
-    except Exception:
-        ft = None
-    if ft is None or ft[0] is None: continue
-    R = p['M'] - ft[0]
-    if R.is_empty() or R.volume() < 0.9 * p['M'].volume(): stats['flat_top_skip'] += 1; continue
-    p['M'] = R; p['new'] = True; stats['flat_top'] += 1; stats['flat_top_max_mm'] = max(stats['flat_top_max_mm'], round(ft[1], 1))
-
-# ---------------------------------------------------------------- 2・3. 削る
+    d = V_[:, :2] - c; zp = cf[0] + cf[1] * (d @ ax) + cf[2] * (d @ pr)
+    V_[lo, 2] = zp[lo]; V_[~lo, 2] = max(bb[1][2], zp.max()) + 1000
+    return to_manifold(trimesh.Trimesh(V_, tt.faces, process=False))
+def _slab(bb, c, ax, s0, s1):
+    """物の長さの向き ax に直角な 2 枚の平面 s0〜s1 のあいだ（柱の幅）の立体"""
+    pr = np.array([-ax[1], ax[0]]); R = 1e5
+    ring = [c + ax * s0 - pr * R, c + ax * s1 - pr * R, c + ax * s1 + pr * R, c + ax * s0 + pr * R]
+    t = trimesh.creation.extrude_polygon(Polygon(ring), bb[1][2] - bb[0][2] + 2000); t.apply_translation([0, 0, bb[0][2] - 1000])
+    return to_manifold(t)
+def plate_top(Mb):
+    """一つの体 Mb の上端を一枚の平面に。→ (新しい体, 下げた最大 mm) か None（変えない）"""
+    V_, F_ = from_manifold(Mb); t = trimesh.Trimesh(V_, F_, process=False)
+    c, ax, pr = _axes(t); d = t.vertices[:, :2] - c
+    s = d @ ax; w = d @ pr
+    S = np.arange(s.min() + 2, s.max() - 1, 20.0)
+    if len(S) < 2: S = np.array([s.min() + 1, s.max() - 1])
+    wn = max(2, int((w.max() - w.min()) / 50) + 1)
+    Wd = np.linspace(w.min() + 2, w.max() - 2, wn) if w.max() - w.min() > 6 else np.array([(w.min() + w.max()) / 2])
+    SS, WW = np.meshgrid(S, Wd); SS = SS.ravel(); WW = WW.ravel()
+    XY = c + np.outer(SS, ax) + np.outer(WW, pr)
+    z0 = t.bounds[0][2] - 10
+    loc, rid, fid = trimesh.ray.ray_triangle.RayMeshIntersector(t).intersects_location(
+        np.c_[XY, np.full(len(XY), z0)], np.tile([0, 0, 1.0], (len(XY), 1)), multiple_hits=True)
+    if not len(loc): return None
+    zb = np.full(len(XY), np.inf); zt = np.full(len(XY), -np.inf)
+    np.minimum.at(zb, rid, loc[:, 2]); np.maximum.at(zt, rid, loc[:, 2])
+    ok = np.isfinite(zb) & (zt - zb > 5)
+    if ok.sum() < 3: return None
+    XY, SS, WW, zb, zt = XY[ok], SS[ok], WW[ok], zb[ok], zt[ok]
+    # 上にある部材のいちばん下の面（下から入る面だけ。物の足もとの 300 より上）
+    lim = np.full(len(XY), np.inf)
+    lo_, ri_, fi_ = _ori.intersects_location(np.c_[XY, zb + 1.0], np.tile([0, 0, 1.0], (len(XY), 1)), multiple_hits=True)
+    if len(lo_):
+        ent = (OBS_TM.face_normals[fi_][:, 2] < -1e-3) & (lo_[:, 2] > zb[ri_] + 300)
+        np.minimum.at(lim, ri_[ent], lo_[ent, 2])
+    lim = np.minimum(lim, _roof_limit(XY[:, 0], XY[:, 1])) - 2.0
+    cap = np.minimum(zt, np.where(lim > zb + 300, lim, zt))   # 足もとのすぐ上の物（屋根の下面の格子の外れ）では下げない
+    A_ = np.c_[np.ones(len(SS)), SS, WW]; cf, *_ = np.linalg.lstsq(A_, zt, rcond=None)
+    stepped = np.ptp(zt - A_ @ cf) > 15                       # わざと一枚でない上端（窓の脇だけ高い壁・段のある家具など）
+    if np.all(cap >= zt - 0.5):
+        # 当たらない：上端がもう一枚の平面か、段のある形なら変えない
+        if stepped or np.ptp(zt - A_ @ cf) < 0.6: return None
+    if stepped:
+        # 段のある物は、当たる所の上の部材の下に収まる平面で高い所だけを切る（低い所は平面より下なのでそのまま）
+        cap = np.where(lim > zb + 300, np.minimum(lim, zt.max()), zt.max())
+    A_ub = np.c_[np.ones(len(SS)), SS, WW]
+    thin = np.ptp(WW) < 0.34 * np.ptp(SS)                                         # 細長い物（壁・格子）は幅の向きに傾けない（上端は長さに沿う一枚の斜めの面）
+    res = linprog(c=-A_ub.sum(0), A_ub=A_ub, b_ub=cap, bounds=[(None, None), (-1.0, 1.0), (0.0, 0.0) if thin else (-1.0, 1.0)], method='highs')
+    if not res.success: return None
+    cf = res.x.copy()
+    cf[0] -= 0.5 + 4.0 * (abs(cf[1]) + abs(cf[2]))       # 測った点は端から 2 mm 内側：端でも今の上端より下に（上端の細い残りの面を作らない）
+    if np.min(A_ub @ cf - zb) < 100: return None                                 # 板がつぶれる：変えない
+    H = _halfspace(t.bounds, cf, c, ax, pr)
+    if H is None: return None
+    R = Mb - H
+    if R.is_empty(): return None
+    return R, float(np.max(zt - A_ub @ cf))
+def end_cut(M, C, split=False):
+    """板の物 M を、当たる物 C の所で「寸法で止める」：物の長さか幅の向きに直角な鉛直の平面で、当たる側の端を切り落とす
+    （欠き込まない）。当たる所が途中なら、split のときだけ 2 枚の平面のあいだを落として二つに分ける（柱）。
+    → (新しい M, 落とした体積) か None（当たらない・平面で止められない＝前のとおりの削り方に任せる）"""
+    X = M ^ C
+    if X.is_empty() or X.volume() < 2e5: return M, 0.0
+    V_, F_ = from_manifold(M); t = trimesh.Trimesh(V_, F_, process=False); c, ax, pr = _axes(t)
+    Vx, Fx = from_manifold(X); bb = t.bounds; v0 = M.volume(); best = None
+    # 向き：物の長さ・幅の向きと、当たる所の鉛直の面の向き（斜めに当たる外壁は、その外壁の面で止める）
+    tx = trimesh.Trimesh(Vx, Fx, process=False); nx_ = tx.face_normals; ar = tx.area_faces
+    dirs = [ax, pr]
+    for f_ in np.argsort(-ar):
+        if ar[f_] < 1e3 or len(dirs) >= 5: break
+        n2 = nx_[f_][:2]
+        if abs(nx_[f_][2]) > 0.05 or np.linalg.norm(n2) < 0.9: continue
+        n2 = n2 / np.linalg.norm(n2)
+        if all(abs(n2 @ d_) < 0.99999 for d_ in dirs): dirs.append(n2)
+    for k_, d in enumerate(dirs):
+        a_ = (V_[:, :2] - c) @ d; x_ = (Vx[:, :2] - c) @ d
+        a0, a1, x0, x1 = a_.min(), a_.max(), x_.min(), x_.max()
+        cands = []
+        if x1 >= a1 - 2: cands.append((x0 - 0.5, a1 + 1000))
+        if x0 <= a0 + 2: cands.append((a0 - 1000, x1 + 0.5))
+        if not cands and split and k_ == 0: cands.append((x0 - 0.5, x1 + 0.5))
+        for s0, s1 in cands:
+            H = _slab(bb, c, d, s0, s1)
+            if H is None: continue
+            R = M - H
+            if R.is_empty(): continue
+            if (R ^ C).volume() > 2e5: continue                                # まだ当たる（斜めに当たる物など）
+            if k_ >= 2 and v0 - R.volume() > 0.1 * v0: continue               # 斜めの面で止めるのは、端を少し落とすときだけ
+            # 物の長さ・幅の向き（直角の端、箱のまま）を、落とす量が 3% 多いまでは先に選ぶ
+            key = R.volume() + (0.03 * v0 if k_ < 2 else 0.0)
+            if best is None or key > best[2]: best = (R, v0 - R.volume(), key)
+    if best is None or best[1] > 0.6 * v0: return None
+    return best[0], best[1]
 from rtree import index
 idx = index.Index(properties=index.Property(dimension=3))
 for k, p in enumerate(parts):
     b = p['bb']; idx.insert(k, (*b[0], *b[1]))
+for p in parts:
+    if not is_plate(p) or p['M'] is None: continue
+    try:
+        bodies = p['M'].decompose(); new = []; ch = False; mx = 0.0
+        for Mb in bodies:
+            rr = plate_top(Mb)
+            if rr is None: new.append(Mb)
+            else: new.append(rr[0]); ch = True; mx = max(mx, rr[1])
+    except Exception as e:
+        stats['plate_top_fail'] += 1; continue
+    if ch:
+        p['M'] = new[0] if len(new) == 1 else mf.Manifold.compose(new); p['new'] = True
+        stats['plate_top'] += 1; stats['plate_top_max_mm'] = max(stats['plate_top_max_mm'], round(mx))
+
+# ---------------------------------------------------------------- 2・3. 削る
 CUTTABLE = set('FDPIX')
 for p in parts:
     k = p['klass']
@@ -358,9 +466,10 @@ for p in parts:
         if RANK[q['klass']] >= RANK[k]: continue
         if k == 'F' and q['klass'] not in 'SE': continue
         if k == 'X' and q['klass'] not in 'SE': continue              # 外の付属を削るのは構造と外皮だけ
+        if is_plate(p) and q['layer'].split('_')[0] in TOPOBS: continue     # 板の物は屋根の部材・梁で削らない（段 1c の上端の平面で止めた）
         cutters.append(q['M']); why.append(q['layer'][:3])
     if k in 'DPI':
-        U = under_roof_solid(b, b[1][2])
+        U = under_roof_solid(b, b[1][2]) if not is_plate(p) else None
         if U is not None: cutters.append(U); why.append('屋根の下面')
         O = outside_solid(b) if k == 'P' and not p['layer'].startswith(('48', '27')) else None     # 窓のガラスは外壁の面に、外へ出る戸は外壁の開口にあってよい
         if O is not None: cutters.append(O); why.append('建物の外')
@@ -369,16 +478,39 @@ for p in parts:
         if Iin is not None: cutters.append(Iin); why.append('建物の中')
     if not cutters: continue
     v0 = p['M'].volume()
-    cut = cutters[0]
-    for c in cutters[1:]: cut = cut + c
-    R = p['M'] - cut
+    R = p['M']
+    if is_plate(p):
+        # 板の物：床（F）は前のとおり削る（床の上面は水平）。ほかの当たる物（外壁・窓・戸・柱・間仕切り・建物の外）は寸法で止める
+        rest = []; rest_w = []; end_w = []
+        todo = [(C, w_) for C, w_ in zip(cutters, why) if C is not None]
+        for C, w_ in todo:
+            if w_[:2] in ('12', '13', '14', '15', '23'): rest.append(C); rest_w.append(w_)
+        todo = [(C, w_) for C, w_ in todo if w_[:2] not in ('12', '13', '14', '15', '23')]
+        for _pass in range(3):                     # 一つを止めると、次の物が端に当たるようになることがある（外へ出た端を切った後の外壁など）
+            left = []
+            for C, w_ in todo:
+                try: rr = end_cut(R, C, split=w_ in ('11a', '22a'))
+                except Exception: rr = None
+                if rr is None: left.append((C, w_))
+                elif rr[1] > 0: R = rr[0]; end_w.append(w_); stats['plate_end'] += 1
+            if len(left) == len(todo): break
+            todo = left
+        for C, w_ in todo:
+            rest.append(C); rest_w.append(w_); stats['plate_bool'] += 1; stats['plate_bool_' + p['layer'][:2] + '←' + w_[:3]] += 1
+        cutters = rest
+    if cutters:
+        cut = cutters[0]
+        for c in cutters[1:]: cut = cut + c
+        R = R - cut
     v1 = R.volume()
     if v0 - v1 < 2e5: continue                                   # 0.2 L 未満の差は直さない（接するだけ）
     if v1 < 0.02 * v0 or R.is_empty():
         p['delete'] = True; stats['delete_' + k] += 1
     else:
         p['M'] = R; p['new'] = True; stats['cut_' + k] += 1
-    log.append(dict(layer=p['layer'], name=p['name'], L=round((v0 - v1) / 1e6, 2), by=sorted(set(why)), deleted=bool(p.get('delete'))))
+    _c = (b[0] + b[1]) / 2; _u, _v = _uv(_c[0], _c[1])
+    log.append(dict(layer=p['layer'], name=p['name'], L=round((v0 - v1) / 1e6, 2), by=sorted(set(why)), deleted=bool(p.get('delete')),
+                    u=round(_u, 2), v=round(_v, 2), z=round(_c[2] / 1000, 2), end=end_w if is_plate(p) else None, bool=rest_w if is_plate(p) else None))
 
 # ---------------------------------------------------------------- 3c. 外壁の上端を屋根の上面で止める
 # 外壁が屋根の上へ出ている所（西館の北西：外皮を外へ出したとき屋根は同じ面で延びて下がり、壁の上端はそのまま）を、
@@ -424,7 +556,7 @@ for i_, o_ in enumerate(m.Objects):
 MERGE = {}
 for p in parts:
     pre = p['layer'].split('_')[0]
-    if pre in ('17', '21', '24') and p['M'] is not None and not p.get('delete'):     # 24：西館の間仕切りも一つに（壁ごとの立体は Rhino 版でつながりごとに分かれる、10-28 西館係・監修の項 2346）
+    if pre in ('17', '21') and p['M'] is not None and not p.get('delete'):     # 間仕切り（24）は足さない：壁ごとに一つの立体（10-28 監修。足すと 4 枚の面の辺 130・細い片 約70）
         MERGE.setdefault(p['layer'], []).append(p)
 for ln, L in MERGE.items():
     if len(L) < 2: continue

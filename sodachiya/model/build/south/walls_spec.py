@@ -255,7 +255,12 @@ for o in m.Objects:
                     tl = top_line(fp, t, zfloor)
                     if tl:
                         c, ax, c0, c1, kind = tl
-                        top = V[:, 2] > zmax - 1
+                        # 上端の点＝その xy でいちばん上の点（床から 2 m より上）。前はいちばん高い点だけを上端の線へ動かしていて、
+                        # 上端が水平でない片（楔の形）は低い側の点が残り、急なねじれた上端になっていた（10-28 監修、38 の西館2階 u29.69 v−9.97）
+                        top = np.zeros(len(V), bool)
+                        for k in range(len(V)):
+                            col = np.linalg.norm(V[:, :2] - V[k, :2], axis=1) < 1.5
+                            top[k] = V[k, 2] >= V[col, 2].max() - 0.5 and V[k, 2] > zfloor + 2000
                         for k in np.where(top)[0]:
                             s = float(np.dot(V2[k, :2] - c, ax))
                             V2[k, 2] = c0 + c1 * s
@@ -269,8 +274,18 @@ for o in m.Objects:
 for rn, G in CEIL_G.items():
     tris = [t for t in triangulate(G) if G.buffer(1).contains(t.centroid) and t.area > 10]
     M = r.Mesh(); TH_C = 30
-    def zt(x, y):
-        h = beam_bottom((x, y), 1500); return h if h is not None else 2400.0
+    # 天井は一枚の水平な板（10-28 監修：頂点ごとに梁の下端を測ると面がねじれていた）。梁の下端を測った点のいちばん低い所
+    _P = [(x, y) for t in tris for (x, y) in list(t.exterior.coords)[:3]] + list(G.exterior.coords)
+    _H = [beam_bottom(q, 1500) for q in _P]
+    _Q = np.array([(x, y, h) for (x, y), h in zip(_P, _H) if h is not None])
+    if len(_Q) >= 3:
+        _mx, _my = _Q[:, 0].mean(), _Q[:, 1].mean()
+        _A = np.c_[_Q[:, 0] - _mx, _Q[:, 1] - _my, np.ones(len(_Q))]; _cf, *_ = np.linalg.lstsq(_A, _Q[:, 2], rcond=None)
+        _cf = np.array([0.0, 0.0, _Q[:, 2].min()])
+    else:
+        _mx = _my = 0.0; _cf = np.array([0.0, 0.0, 2400.0])
+    def zt(x, y, _cf=_cf, _mx=_mx, _my=_my):
+        return float(_cf[0] * (x - _mx) + _cf[1] * (y - _my) + _cf[2])
     for t in tris:
         pts = list(t.exterior.coords)[:3]
         i0 = len(M.Vertices)

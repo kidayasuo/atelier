@@ -163,10 +163,24 @@ n = 0
 for idx, o in enumerate(m.Objects):
     g = o.Geometry
     if idx in moves:
-        V = verts(g)
+        V = verts(g); V0 = V.copy()
+        # 上端の点（その xy でいちばん上、足もとから 1 m より上）と、その平面（最小二乗）。端を延ばした点は z をこの平面の上に置く
+        # （10-28 監修：前は z をそのままにして xy だけ動かし、斜めの上端が 2〜11 mm ねじれていた。本館の架構の線の 38 の壁 38 枚）
+        top = np.zeros(len(V), bool)
+        for k in range(len(V)):
+            col = np.linalg.norm(V[:, :2] - V[k, :2], axis=1) < 1.5
+            top[k] = V[k, 2] >= V[col, 2].max() - 0.5 and V[k, 2] > V[:, 2].min() + 1000
+        cf = None
+        if top.sum() >= 3:
+            A_ = np.c_[V[top, 0] - V[top, 0].mean(), V[top, 1] - V[top, 1].mean(), np.ones(top.sum())]
+            cf, *_ = np.linalg.lstsq(A_, V[top, 2], rcond=None)
+            if np.ptp(V[top, 2] - A_ @ cf) > 15: cf = None          # 上端が一枚の平面でない（段のある片）：z は動かさない
+            else: mx_, my_ = V[top, 0].mean(), V[top, 1].mean()
         for kind_, sel, vec in moves[idx]:
             if kind_ == 'rel': V[sel] += vec
             else: V[sel, 0] = vec[0]; V[sel, 1] = vec[1]
+        if cf is not None:
+            V[top, 2] = cf[0] * (V[top, 0] - mx_) + cf[1] * (V[top, 1] - my_) + cf[2]
         for i in range(len(V)): g.Vertices.SetPoint3dAt(i, r.Point3d(float(V[i, 0]), float(V[i, 1]), float(V[i, 2])))
         g.Normals.ComputeNormals(); n += 1
     out.Objects.Add(g, o.Attributes)
