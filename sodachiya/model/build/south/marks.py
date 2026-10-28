@@ -64,6 +64,7 @@ def seg(u0, v0, u1, v1):
 def main(path):
     m = r.File3dm.Read(path)
     L = r.Layer(); L.Name = LAYER; L.Color = COLOR
+    L.Visible = False                            # 開いたときは消しておく（ユーザー 10-29：空中の目盛りは既定で消す。要るときにレイヤーを点ける）
     li = m.Layers.Add(L)
     strokes = []
     for k in range(1, 21):                       # 架構
