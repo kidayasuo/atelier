@@ -444,7 +444,7 @@ def col_rect(g, rad_w, tan_w):
 def floors():
     A = annulus()
     hadashi = unary_union([plan('12_本館_床（はだし ±0）'), plan('13_本館_内縁側（はだし ±0）')]).intersection(A)
-    dosoku = unary_union([plan('14_本館_外縁側（土足 −150）'), plan('15_本館_海峡（土足 −150）')]).intersection(A)
+    dosoku = unary_union([plan('14_本館_外縁側（土足 −150）'), plan('15_本館_あまのがわ（土足 −150）')]).intersection(A)
     doma = plan('52_1F_受け取り土間').intersection(A)
     close = lambda g: g.buffer(120, join_style=2).buffer(-120, join_style=2)   # ガラス戸の下などの細いすき間を閉じる
     hadashi = close(hadashi).intersection(A)
@@ -482,7 +482,7 @@ def floor_sheets():
     s.add(box(0, 0, 841, 594), 'ref')
     s.add(affinity.translate(U, 8, 8))
     s.add(affinity.translate(Lw, 8, 8 + h + 8))
-    s.save([(8, 8 + 2 * (h + 8) + 4, '下：上の層（はだし ±0）　上：下の層（はだし＋外縁側・海峡）　受け取り土間は 2 枚とも無し', 4),
+    s.save([(8, 8 + 2 * (h + 8) + 4, '下：上の層（はだし ±0）　上：下の層（はだし＋外縁側・あまのがわ）　受け取り土間は 2 枚とも無し', 4),
             (8, 8 + 2 * (h + 8) + 10, f'3 段目の空きは西館の床などに使う（屋根は 06）', 4)])
     s = Sheet('05_本館のベタ基礎_シナ3', 841, 594, 'シナ 3 A1：本館のベタ基礎（床の外形＋受け取り土間）。ほぞ穴 2.1×1.64（実寸 約 2.3×1.86）')
     s.add(box(0, 0, 841, 594), 'ref')
@@ -903,7 +903,7 @@ def interior_sheets():
     plt.rcParams['font.family'] = 'Noto Sans CJK JP'
     ang = sheet_angle()
     up = plan('10_本館_屋根')
-    flo = unary_union([plan('12_本館_床（はだし ±0）'), plan('14_本館_外縁側（土足 −150）'), plan('15_本館_海峡（土足 −150）')])
+    flo = unary_union([plan('12_本館_床（はだし ±0）'), plan('14_本館_外縁側（土足 −150）'), plan('15_本館_あまのがわ（土足 −150）')])
     wfl = unary_union([plan(n) for n in ('31_1F_遊戯室', '32_1F_キッチン', '33_1F_東の帯（はだし ±0、ホールと一続き）', '34_1F_食べる土間') if n in LAY])
     path = os.path.join(OUT, '10_室内の壁の配置図.pdf')
     with PdfPages(path) as pdf:
