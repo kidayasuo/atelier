@@ -175,7 +175,7 @@ for q in [srect(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D), srect(*A.DEL
     add_curve(q, "76_外構_舗装の区分", close=True)
 # 77 trees (canopy circles at 3.0, trunk line)
 for (p, rr) in [(P(24.4, 9.6), 1.9)]:                                          # 入江の木（外構の図と同じ位置、10-27 に P(25.0,11.3) から合わせた）
-    c = r.Circle(P3(p, 3.0), rr * MM).ToNurbsCurve(); m.Objects.AddCurve(c, attr("77c_外構_樹冠・植え込み・苔（葉）"))
+    m.Objects.AddBrep(r.Sphere(P3(p, 3.0), rr * MM).ToBrep(), attr("77c_外構_樹冠・植え込み・苔（葉）"))   # 樹冠は球（10-29 ユーザー：水平な円だけでは宙に浮いた輪に見えた）
     m.Objects.AddLine(P3(p, 0), P3(p, 3.0), attr("77_外構_樹木"))
 # 75・76 西館の西の軒の雨：南の地中の雨水槽・受け桝・手押しポンプと鎖樋（線）、北の雨庭（輪郭）と鎖樋
 R = A.RAIN
