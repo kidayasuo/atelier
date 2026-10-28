@@ -58,7 +58,7 @@ else:
         dests = ['設計監修=未:作業場の誤り（setup.sh か .github/）']
     else:
         dests = [f'{n}=未:自分の直しで止まっていないか見る' for n in who] + ['設計監修=知らせ:止まった']
-    p = run(*INBOX, 'new', ME, f'自動の作り直しが止まった（{head}）', *dests).stdout.strip()
+    p = run(*INBOX, 'new', ME, f'自動の作り直しが止まった（{head}）', *dests).stdout.strip().splitlines()[0].strip()   # 2行目からはユーザーへの一行（inbox.py new、10-27）
     body = open(os.path.join(S, p), encoding='utf-8').read()
     note = (f'自動の作り直し（{head}まで）が止まったので、できたものは push していない。'
             f'前の作り直しから commit した係に送った。自分の直しが原因なら直して push すれば、自動でもう一度作り直す。\n\n'
