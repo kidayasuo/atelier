@@ -44,9 +44,10 @@ ROT_BLOCK = {'ids': ('bldg_15ae39bf-872c-42a8-889f-3138a573794e', 'bldg_d62c7741
                      'bldg_cb1d1a2b-6ef5-4bb0-890a-fffa0ca64a4f'),
              'pivot': (-32517.4, -46079.2), 'deg': -12.65}   # 10-26 周辺を(-1.369, 1.722) m動かした分も
 nb = nr = skip_b = skip_r = 0
+HB = []                             # 回した三軒の外形（道の西の縁を合わせる、下）
 for b in J['bldg']:
     F = Polygon(np.array(b['foot']) * 1000).buffer(0)
-    if b.get('id') in ROT_BLOCK['ids']: F = _aff.rotate(F, ROT_BLOCK['deg'], origin=ROT_BLOCK['pivot'])
+    if b.get('id') in ROT_BLOCK['ids']: F = _aff.rotate(F, ROT_BLOCK['deg'], origin=ROT_BLOCK['pivot']); HB.append(F)
     if F.is_empty or F.area < 2e6: continue
     if F.intersection(S).area > 0.5e6: skip_b += 1; continue          # 敷地にかかる建物は入れない（今の住宅、北で敷地に入る隣家も、ユーザー10-26）
     if b['z1'] - b['z0'] < 500: continue
@@ -103,6 +104,48 @@ for g in getattr(rest, 'geoms', [rest]):
         gaps.append(g)
 RD = unary_union([RD] + gaps).difference(S)
 RD = RD.buffer(20, join_style=2).buffer(-20, join_style=2).difference(S)
+# 西の道の向かい側（西）の縁を、お向かいの三軒（ROT_BLOCK で回した家）の道側の面の線に合わせる（10-28、ユーザー、項 20261028-1346-present）。
+# 家は動かさず道を家に添わせる：三軒の前では道の西の縁を面の線で切り（道が家に食い込んでいた所）、面とのすき間は道で埋める。
+# 前後は今の縁へ斜めになめらかにつなぐ。敷地の側の縁は今のまま。
+_W = [e for e in EDG if _out(e) @ np.array([-1.0, 0.0]) > 0.9]
+if len(HB) == 3 and _W:
+    _e = max(_W, key=lambda e: e.length)
+    _p = np.array(_e.coords)
+    _A = _p[np.argmin(_p[:, 1])]                                  # 敷地の南西の角
+    _d = _p[np.argmax(_p[:, 1])] - _A; _d /= np.linalg.norm(_d)   # 辺に沿って北へ
+    _n = _out(_e)                                                 # 道の側（西）
+    _st = lambda q: ((np.asarray(q) - _A) @ _d, (np.asarray(q) - _A) @ _n)
+    _xy = lambda s_, t_: tuple(_A + _d * s_ + _n * t_)
+    # 三軒の道側の面（外向きが敷地の方を向く辺）の端点に一本の線 t = a + b·s を当てる
+    FP = []
+    from shapely.geometry.polygon import orient as _orient
+    for F in HB:
+        c = list(_orient(F, 1).exterior.coords)                   # 左回り：辺の右が外
+        for k in range(len(c) - 1):
+            v = np.subtract(c[k + 1], c[k]); L_ = np.hypot(*v)
+            if L_ > 1000 and np.array([v[1], -v[0]]) / L_ @ -_n > 0.9: FP += [_st(c[k]), _st(c[k + 1])]
+    FP = np.array(FP)
+    _b, _a = np.polyfit(FP[:, 0], FP[:, 1], 1)
+    _ln = lambda s_: _a + _b * s_
+    s0, s1 = FP[:, 0].min(), FP[:, 0].max()                       # 面の線の南端・北端（約 28.3〜48.4 m）
+    _dep = min(_st(q)[1] - _ln(_st(q)[0]) for F in HB for q in F.exterior.coords if _st(q)[1] - _ln(_st(q)[0]) > 2000)   # 家の奥の面で一番浅い所（切るのはその 9 割まで）
+    def _edge(s_):          # 今の道の西の縁（敷地の辺から道の中を西へ続く所の端、辺からの距離）
+        x = LineString([_xy(s_, 100), _xy(s_, 30000)]).intersection(RD)
+        for g in sorted(getattr(x, 'geoms', [x]), key=lambda g: min(_st(q)[1] for q in g.coords)):
+            if not g.is_empty and min(_st(q)[1] for q in g.coords) < 300: return max(_st(q)[1] for q in g.coords)
+        return 0.0
+    LB = 8000.0             # 前後のつなぎの長さ
+    tS, tN = _edge(s0 - LB), _edge(s1 + LB)
+    cut = Polygon([_xy(s0, _ln(s0)), _xy(s1, _ln(s1)), _xy(s1, _ln(s1) + 0.9 * _dep), _xy(s0, _ln(s0) + 0.9 * _dep)])
+    fill = [Polygon([_xy(s0, -500), _xy(s1, -500), _xy(s1, _ln(s1)), _xy(s0, _ln(s0))]),
+            Polygon([_xy(s0 - LB, -500), _xy(s0, -500), _xy(s0, _ln(s0)), _xy(s0 - LB, tS)])]
+    if tN < _ln(s1): fill.append(Polygon([_xy(s1, -500), _xy(s1 + LB, -500), _xy(s1 + LB, tN), _xy(s1, _ln(s1))]))
+    a0 = RD.intersection(unary_union(HB)).area
+    RD0 = RD
+    RD = unary_union([RD] + fill).difference(cut).difference(unary_union(HB)).difference(S)
+    print('road: 三軒の面の線 辺から %.2f〜%.2f m（s %.1f〜%.1f m）、家への食い込み %.1f→%.1f m2、埋めた %.1f m2、削った %.1f m2'
+          % (_ln(s0) / 1000, _ln(s1) / 1000, s0 / 1000, s1 / 1000, a0 / 1e6, RD.intersection(unary_union(HB)).area / 1e6,
+             RD.difference(RD0).area / 1e6, RD0.difference(RD).area / 1e6))
 print('road: 北東の辺の中ほどの道', skip_ne, 'removed')
 print('road: edges', len(EDG), 'gaps', len(gaps), round(sum(g.area for g in gaps) / 1e6, 1), 'm2')
 # 道路は外形と穴の閉じた押し出し（厚さ 100、上面は Z_RD）。Rhino版（段10）で輪郭と穴の Extrusion 一つになる
