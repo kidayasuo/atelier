@@ -1593,61 +1593,65 @@ if SITE_FROM_UPD:
     _yb = np.array([_bot(x_) for x_ in _xs])
     _yb = np.where(np.isnan(_yb), np.nanmin(_yb), _yb)
     _yb = np.convolve(np.pad(_yb, 6, mode="edge"), np.ones(13) / 13, mode="valid")      # 片の段をならす
-    _wv = _yb + 0.35 * np.sin(_xs * 0.9) + 0.25 * np.sin(_xs * 2.3 + 1.0) + 0.15
-    _WATER = Polygon(list(zip(_xs, _wv)) + [(BX1, BY0 - 1), (BX0, BY0 - 1)])
+    # 高野川と河原の幅（ユーザー 10-28 23:54：「高野川はそんなに広くないんです」、航空写真）。崖の上の縁（敷地の川の辺の延長）から川に直角に、
+    # 公園の角・敷地の中ほど・北東の端の三か所で測った平ら：河原（草と石）18 m・水 13 m・向こう岸の土手 3 m・並木と歩道 4 m・道 10 m（4車線）・歩道と柵 2 m、その南は区画
+    RIV = dict(bed=18.0, water=13.0, dike=3.0, trees=4.0, road=10.0, walk=2.0)
+    _cE, _cS = R3(SITE_C["E"])[0], R3(SITE_C["S"])[0]
+    _yc = _cS[1] + (_xs - _cS[0]) * (_cE[1] - _cS[1]) / (_cE[0] - _cS[0])            # 崖の上の縁（回した座標、m）
+    _wv = _yc - RIV["bed"] + 0.35 * np.sin(_xs * 0.9) + 0.25 * np.sin(_xs * 2.3 + 1.0) + 0.15      # 水の北の縁（ゆらす）
+    _yf = _yc - RIV["bed"] - RIV["water"] - (0.3 * np.sin(_xs * 0.8 + 2.0) + 0.2 * np.sin(_xs * 2.1)) - 0.1   # 水の南の縁
+    _yD = _yc - RIV["bed"] - RIV["water"] - RIV["dike"]                              # 土手の上＝並木の帯の北の縁
+    _yT = _yD - RIV["trees"]                                                         # 道の北の縁
+    _yR = _yT - RIV["road"]                                                          # 道の南の縁
+    _yK = _yR - RIV["walk"]                                                          # 歩道と柵の南の縁
+    _lo = np.full_like(_xs, BY0 - 6.0)
+    _band_ = lambda ya, yb: Polygon(list(zip(_xs, ya)) + list(zip(_xs[::-1], yb[::-1]))).buffer(0)
+    _WATER = _band_(_wv, _yf)
     _RDR = unary_union([rot(g) for ln, g in CTX if ln.startswith("03_") and g is not None]).buffer(0)
-    _BRIDGE = _RDR.intersection(Polygon([(BX0, BY0 - 1), (BX1, BY0 - 1), (BX1, max(_YW, float(np.max(_wv))) + 1), (BX0, max(_YW, float(np.max(_wv))) + 1)]))   # 水の上の橋（10-28：水際から。上下いっぱいで見えるように）
+    _NBED = _band_(np.maximum(_yb + 0.05, _wv), _wv)                                 # 3dm の河川敷の南の端から水際まで（河原を写真の幅に）
+    _BEDALL = unary_union([_BED, _NBED]).buffer(0.05).buffer(-0.05)
+    _DIKE, _TREEB, _ROAD2, _WALK2, _BLOCK = _band_(_yf, _yD), _band_(_yD, _yT), _band_(_yT, _yR), _band_(_yR, _yK), _band_(_yK, _lo)
+    _SOUTHZ = _band_(_yc - 0.2, _lo)                                                 # 崖の上の縁より南（3dm の周辺の道は描かない）
+    # 馬橋（人と車の二本、決定事項の「敷地の現況」）：写真では公園の西の縁の延長に、東に人の橋（約4 m）、西に車の橋（約9 m）。崖の上から向こうの道まで
+    _xb = float(_cS[0]); _ycb = float(np.interp(_xb, _xs, _yc)); _yTb = float(np.interp(_xb, _xs, _yT))
+    _BR_P = Polygon([(_xb - 4.0, _ycb), (_xb, _ycb), (_xb, _yTb), (_xb - 4.0, _yTb)])
+    _BR_C = Polygon([(_xb - 13.4, _ycb), (_xb - 4.4, _ycb), (_xb - 4.4, _yTb), (_xb - 13.4, _yTb)])
+    _BRIDGE = unary_union([_BR_P, _BR_C])
+    _XST = Polygon([(_xb - 13.4, _yTb + 0.5), (_xb - 5.4, _yTb + 0.5), (_xb - 5.4, BY0 - 6), (_xb - 13.4, BY0 - 6)]).intersection(_band_(_yR + 0.01, _lo))   # 橋から南へ続く道（8 m）
+    _ROADS2 = unary_union([_ROAD2, _XST])
+    _BLDR = unary_union([rot(g) for ln, g in CTX if ln.startswith("04_") and g is not None]).buffer(0).intersection(_BLOCK).difference(_XST.buffer(0.5))   # 道の向こうの家（3dm の周辺の建物）
+    _BLDR = unary_union([g_ for g_ in getattr(_BLDR, "geoms", [_BLDR]) if g_.geom_type == "Polygon" and g_.area > 4.0]) if not _BLDR.is_empty else _BLDR
+    _TREES = [(x_, float(np.interp(x_, _xs, (_yD + _yT) / 2))) for x_ in np.arange(BX0 + 2.0, BX1, 6.5)
+              if not _BRIDGE.buffer(1.5).contains(Point(x_, float(np.interp(x_, _xs, (_yD + _yT) / 2))))]
+    print("高野川：崖の上 y≈", round(float(np.mean(_yc)), 1), "m、水", round(float(np.mean(_wv)), 1), "〜", round(float(np.mean(_yf)), 1), "、道", round(float(np.mean(_yT)), 1), "〜", round(float(np.mean(_yR)), 1),
+          "、3dm の河川敷の南の端", round(float(np.mean(_yb)), 1), "、馬橋 x", round(_xb - 13.4, 1), "〜", round(_xb, 1))
     _STONES = []
     for x_ in np.arange(BX0, BX1, 0.42):
         for k_ in range(2):
             xx = x_ + _rng.uniform(-0.2, 0.2); yy = np.interp(xx, _xs, _wv) + _rng.uniform(0.1, 1.3) * (1 if k_ else 0.55)
             if not _BRIDGE.contains(Point(xx, yy)):
                 _STONES.append((xx, yy, _rng.uniform(0.07, 0.17), _rng.uniform(0, 180)))
-    # 南の向こう岸（ユーザー 10-28 18:01：配置図を紙の上下いっぱいに）：向こうの図の外（南）は、PLATEAU の土地利用（204 水面・205 河川敷、
-    # present/plateau_area.json.gz）で水面の向こうの縁を決め、河川敷・川沿いの道（3dm の周辺の道）・家（3dm の周辺の建物）を、こちらと同じ描き方で
+            xx = x_ + _rng.uniform(-0.2, 0.2); yy = np.interp(xx, _xs, _yf) - _rng.uniform(0.1, 1.0) * (1 if k_ else 0.55)   # 向こう岸の水際
+            if not _BRIDGE.contains(Point(xx, yy)):
+                _STONES.append((xx, yy, _rng.uniform(0.07, 0.15), _rng.uniform(0, 180)))
     import gzip
     _PLA = json.load(gzip.open(os.path.join(HERE, "plateau_area.json.gz"), "rt", encoding="utf-8"))
-    _SOUTH = Polygon([(BX0 - 5, BY0 - 5), (BX1 + 5, BY0 - 5), (BX1 + 5, _YW), (BX0 - 5, _YW)])
     _Rp = lambda xy: Polygon(R3(np.array(xy, float))).buffer(0)
-    _LUr = lambda c_: unary_union([g_ for g_ in (_Rp(u_["xy"]) for u_ in _PLA["luse"] if u_["cls"] == c_ and len(u_["xy"]) > 2) if g_.intersects(_SOUTH.buffer(30))]).buffer(0)
-    _PW = _LUr("204").intersection(_SOUTH.buffer(10))
-    _ymid = _PW.centroid.y if not _PW.is_empty else BY0 - 100
-    _x_ = Polygon([(BX0 - 5, BY0 - 5), (BX1 + 5, BY0 - 5), (BX1 + 5, _ymid), (BX0 - 5, _ymid)]).difference(_PW.buffer(0.01))
-    _FARL = unary_union([g_ for g_ in getattr(_x_, "geoms", [_x_]) if g_.geom_type == "Polygon" and g_.bounds[1] <= BY0 - 4.9])   # 向こう岸の陸
-    if not _FARL.is_empty:
-        _yf = np.array([(lambda q_: q_.bounds[3] if not q_.is_empty else np.nan)(LineString([(x_, BY0 - 5), (x_, _ymid)]).intersection(_FARL)) for x_ in _xs])
-        _yf = np.where(np.isnan(_yf), np.nanmax(_yf), _yf)
-        _yf = np.convolve(np.pad(_yf, 6, mode="edge"), np.ones(13) / 13, mode="valid") - (0.3 * np.sin(_xs * 0.8 + 2.0) + 0.2 * np.sin(_xs * 2.1)) - 0.1
-        _FARL = Polygon(list(zip(_xs, _yf)) + [(BX1 + 5, _yf[-1]), (BX1 + 5, BY0 - 6), (BX0 - 5, BY0 - 6), (BX0 - 5, _yf[0])]).buffer(0)
-        _WATER = _WATER.difference(_FARL)
-        _BRIDGE = _BRIDGE.difference(_FARL)
-    _FARB = _LUr("205").intersection(_FARL).difference(_RDR)                                     # 向こう岸の河川敷（草）
-    _FARB = _FARL.difference(_RDR).intersection(_FARB.buffer(1.2).buffer(-1.2)) if not _FARB.is_empty else _FARB
-    _BLDR = unary_union([rot(g) for ln, g in CTX if ln.startswith("04_") and g is not None]).buffer(0).intersection(_FARL).difference(_RDR)   # 向こう岸の家
-    _FARRD = _RDR.intersection(_FARL)                                                          # 向こう岸の道（線の輪郭）
     # 北の道の向こうの京都工芸繊維大学の構内（PLATEAU の土地利用 214）を淡い色に（地域のなかの敷地と同じ色、10-28）。道・敷地には塗らない
     _BIG = Polygon([(BX0 - 2, BY0 - 2), (BX1 + 2, BY0 - 2), (BX1 + 2, BY1 + 2), (BX0 - 2, BY1 + 2)])
     _UNIV = unary_union([g_ for g_ in (_Rp(u_["xy"]) for u_ in _PLA["luse"] if u_["cls"] == "214" and len(u_["xy"]) > 2) if g_.intersects(_BIG)])
     _UNIV = _UNIV.intersection(_BIG).difference(_RDR).difference(_SITEP.buffer(0.5)) if not _UNIV.is_empty else _UNIV
     _UNIV = unary_union([g_ for g_ in getattr(_UNIV, "geoms", [_UNIV]) if g_.geom_type == "Polygon" and g_.centroid.y > 40.0])   # 北の道の向こうだけ
-    print("向こう岸：水面の南の縁 y≈", round(float(np.mean(_yf)), 1) if not _FARL.is_empty else None, "m、河川敷", round(_FARB.area, 0), "家", round(_BLDR.area, 0), "m2")
     _TUFTS = []
     for x_ in np.arange(BX0 + 0.8, BX1, 2.6):
-        for y_ in np.arange(float(np.min(_yb)) + 2.2, -6.0, 2.4):
+        for y_ in np.arange(float(np.min(_wv)) + 1.0, -2.0, 2.4):
             xx, yy = x_ + _rng.uniform(-0.9, 0.9), y_ + _rng.uniform(-0.6, 0.6)
-            if not _BRIDGE.contains(Point(xx, yy)) and _BED.buffer(-0.4).contains(Point(xx, yy)) and yy > np.interp(xx, _xs, _wv) + 1.6:
+            if not _BRIDGE.contains(Point(xx, yy)) and _BEDALL.buffer(-0.4).contains(Point(xx, yy)) and yy > np.interp(xx, _xs, _wv) + 1.6:
                 _TUFTS.append((xx, yy))
-    if not _FARL.is_empty:                        # 向こう岸の水際の丸石と、河川敷の草の印（こちらの岸と同じ描き方）
-        for x_ in np.arange(BX0, BX1, 0.42):
-            for k_ in range(2):
-                xx = x_ + _rng.uniform(-0.2, 0.2); yy = np.interp(xx, _xs, _yf) - _rng.uniform(0.1, 1.3) * (1 if k_ else 0.55)
-                if not _RDR.contains(Point(xx, yy)):
-                    _STONES.append((xx, yy, _rng.uniform(0.07, 0.17), _rng.uniform(0, 180)))
-        for x_ in np.arange(BX0 + 0.8, BX1, 2.6):
-            for y_ in np.arange(BY0 + 0.5, _ymid, 2.4):
-                xx, yy = x_ + _rng.uniform(-0.9, 0.9), y_ + _rng.uniform(-0.6, 0.6)
-                if _FARB.buffer(-0.4).contains(Point(xx, yy)) and yy < np.interp(xx, _xs, _yf) - 1.6:
-                    _TUFTS.append((xx, yy))
+        for y_ in np.arange(float(np.min(_yD)), float(np.max(_yf)), 1.2):              # 向こう岸の土手の草
+            xx, yy = x_ + _rng.uniform(-0.9, 0.9), y_ + _rng.uniform(-0.3, 0.3)
+            if not _BRIDGE.buffer(0.3).contains(Point(xx, yy)) and _DIKE.buffer(-0.5).contains(Point(xx, yy)):
+                _TUFTS.append((xx, yy))
     # みなみのさんかく・砂場・水・小屋の屋根（ユーザー、10-26夜：更新係の図に無い色と屋根を足す）
     _pg_ = lambda o: (lambda g_: g_ if g_ is not None and g_.geom_type.endswith("Polygon") else None)(_poly_of(o))
     _uu = lambda gs: unary_union([g for g in gs if g is not None]).buffer(0) if any(g is not None for g in gs) else Polygon()
@@ -1678,8 +1682,6 @@ if SITE_FROM_UPD:
             _fillg(_pg, _BRIDGE, _hx("#F7F7F7"))
             _fillg(_pg, _PARK_R, _hx("#D9E8C6"))                                        # 公園を緑に（ユーザー、10-26夜）
             if _g73a: _fillg(_pg, _ARCH, _hx("#C9DFB0"))                                  # ムベのアーチの範囲を緑に
-        else:
-            _fillg(_pg, _BRIDGE, None, _hx("#999999"), 0.2)
         _src = fitz.open(_SPB + suf)
         _cl = fitz.Rect((_ia[0] - _off[0] + 0.35) * MM, (_ia[1] - _off[1] + 0.35) * MM, (_ia[2] - _off[0] - 0.35) * MM, (_ia[3] - _off[1] - 0.35) * MM)
         _pg.show_pdf_page(fitz.Rect((_iP[0] + 0.35) * MM, (_iP[1] + 0.35) * MM, (_iP[2] - 0.35) * MM, (_iP[3] - 0.35) * MM), _src, 0, clip=_cl)   # 枠の線は入れない
@@ -1689,28 +1691,45 @@ if SITE_FROM_UPD:
             _fillg(_pg, _WATERP, _hx("#BFDDEE"))                                           # 水遊び（水のテーブル・噴水・あめのわ・霧のわ）
             _fillg(_pg, _RAINP, _hx("#DCE4E6"))                                            # 雨庭（玉石の浜）
             _fillg(_pg, _HUT, _hx("#5E636C"))                                              # 園庭の小屋の屋根（片流れ、更新係の図に無い）
-            _fillg(_pg, _FARB, _hx("#DDE8D0"))                                            # 向こう岸の河川敷（10-28）
-            _fillg(_pg, _BLDR, _hx("#DBDBDB"))                                             # 向こう岸の家（更新係の図の家と同じ灰）
-            # 周りの道を少し濃く（ユーザー 10-27夜：西の道とその先の白い敷地の差をつける）。敷地の中は塗らない
-            _fillg(_pg, _RDR.difference(_SITEP.buffer(0.05)), _hx("#E2E2E0"))
+            # 川の向こう（10-28 夜、航空写真の幅）：区画（グラウンド・駐車場・家）を淡く、土手は草、並木の帯と歩道は淡い舗装、道
+            _fillg(_pg, _BLOCK, _hx("#EEF1E7"))
+            _fillg(_pg, _BLDR, _hx("#E2E2E0"))
+            _fillg(_pg, _DIKE, _hx("#DDE8D0"))
+            _fillg(_pg, unary_union([_TREEB, _WALK2]), _hx("#EDEBE5"))
+            _fillg(_pg, _ROADS2, _hx("#E2E2E0"))
+            # 周りの道を少し濃く（ユーザー 10-27夜：西の道とその先の白い敷地の差をつける）。敷地の中は塗らない。崖より南は上の道（3dm の周辺の道は使わない）
+            _fillg(_pg, _RDR.difference(_SITEP.buffer(0.05)).difference(_SOUTHZ), _hx("#E2E2E0"))
             # 西の道沿いの歩道（幅 1 m）を洗い出しのベージュに、スピードバンプは今までの灰のまま（ユーザー 10-27夜）
             _swS = _SITEP.intersection(LineString([_A_ - _tW * 10, _B_ + _tW * 10]).buffer(1.0, cap_style=2)).intersection(_slab).difference(_PARK_R.buffer(0.02))
             _bumps = [g_ for g_ in (_shp_(o_) for o_ in _rp_("74_") if o_["kind"] == "solid") if g_ is not None and g_.area > 0.2 and g_.intersection(_swS).area > 0.5 * g_.area]
             _fillg(_pg, _swS.difference(unary_union(_bumps)) if _bumps else _swS, _hx("#EDDDBA"))
+            _fillg(_pg, _BEDALL.difference(_BRIDGE).difference(_WATER), _hx("#DDE8D0"))   # 河原（3dm の河川敷＋写真の幅まで）
             _fillg(_pg, _WATER.difference(_BRIDGE), _hx("#CFE3EF"))
             for xx, yy, rr, an in _STONES:
                 _fillg(_pg, affinity.rotate(affinity.scale(Point(xx, yy).buffer(rr, 8), 1.0, 0.7), an), _hx("#E4DED0"))
+            _fillg(_pg, _BR_C, _hx("#E2E2E0")); _fillg(_pg, _BR_P, _hx("#EDEBE5"))          # 馬橋（車・人）
+            for xx, yy in _TREES:                                                          # 並木
+                _fillg(_pg, Point(xx, yy).buffer(1.4, 12), _hx("#C4D7AC"))
         else:
             if not _BED.is_empty:                 # 河川敷の片の継ぎ目の線を、同じ緑で覆って消す（上の縁の線は残す）
-                _fillg(_pg, _BED.buffer(-0.06).difference(_BRIDGE).difference(_WATER), _hx("#DDE8D0"))
+                _fillg(_pg, _BEDALL.buffer(-0.06).difference(_BRIDGE).difference(_WATER), _hx("#DDE8D0"))
                 _fillg(_pg, _WATER.difference(_BRIDGE), _hx("#CFE3EF"))
+            _fillg(_pg, _BR_C, _hx("#E2E2E0"), _hx("#999999"), 0.25); _fillg(_pg, _BR_P, _hx("#EDEBE5"), _hx("#999999"), 0.25)   # 馬橋（下の古い線を隠す）
             for xx, yy, rr, an in _STONES:
                 _fillg(_pg, affinity.rotate(affinity.scale(Point(xx, yy).buffer(rr, 8), 1.0, 0.7), an), None, _hx("#9C9587"), 0.35)
             _fillg(_pg, _SANDP, None, _hx("#A89A70"), 0.3)
             _fillg(_pg, _WATERP, None, _hx("#6FA3C4"), 0.3)
             _fillg(_pg, _HUT, None, _hx("#222222"), 0.5)
-            _fillg(_pg, _BLDR, None, _hx("#8C8C8C"), 0.17)                                 # 向こう岸の家と道の輪郭（10-28）
-            _fillg(_pg, _FARRD, None, _hx("#999999"), 0.2)
+            _fillg(_pg, _BLDR, None, _hx("#A8A8A8"), 0.15)                                 # 道の向こうの家（淡く）
+            _hl = lambda ys_, col, w_, dash=None: _pg.draw_polyline(_P([(x_, y_) for x_, y_ in zip(_xs, ys_)]), color=_hx(col), width=w_, dashes=dash)
+            _hl(_yT, "#999999", 0.2); _hl(_yR, "#999999", 0.2)                                   # 道の縁
+            _hl((_yT + _yR) / 2, "#CFCFCF", 0.3)                                                  # 車線の線（淡く）：中央は実線、両側は破線
+            _hl(_yT - RIV["road"] / 4, "#D6D6D6", 0.25, "[14 20] 0"); _hl(_yR + RIV["road"] / 4, "#D6D6D6", 0.25, "[14 20] 0")
+            _hl(_yK, "#8C8C8C", 0.2, "[2 2] 0")                                                 # 柵
+            _fillg(_pg, _XST, _hx("#E2E2E0"), _hx("#999999"), 0.2)
+            _fillg(_pg, _BR_C, None, _hx("#999999"), 0.25); _fillg(_pg, _BR_P, None, _hx("#999999"), 0.25)
+            for xx, yy in _TREES:
+                _fillg(_pg, Point(xx, yy).buffer(1.4, 12), None, _hx("#7E9A68"), 0.3)
             for xx, yy in _TUFTS:
                 for da, ln_ in ((-28, 0.26), (-10, 0.34), (8, 0.36), (26, 0.27)):
                     t_ = np.radians(90 + da)
