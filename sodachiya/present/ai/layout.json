@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-28 14:10",
+"generated": "2026-10-28 14:12",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -2930,12 +2930,12 @@
 "file": "drawings/sodachiya_sections_1-100.pdf",
 "x": 21.0,
 "y": 183.0,
-"w": 746.5,
+"w": 767.5,
 "h": 124.4,
 "clip": [
-84,
+54,
 46.6,
-830.5,
+821.5,
 171
 ],
 "scale": 1.0,

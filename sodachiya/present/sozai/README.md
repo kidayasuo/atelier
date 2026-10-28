@@ -38,7 +38,7 @@
 | 2枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 36)–(788, 143) mm | 1.00 倍 |
 | 2枚目 | `drawings/sodachiya_elevations_1-100.pdf` | 切り抜き (25, 200)–(788, 309) mm | 1.00 倍 |
 | 3枚目 | `drawings/sodachiya_sections_1-100.pdf` | 切り抜き (432, 252)–(830, 382) mm | 1.00 倍 |
-| 3枚目 | `drawings/sodachiya_sections_1-100.pdf` | 切り抜き (84, 47)–(830, 171) mm | 1.00 倍 |
+| 3枚目 | `drawings/sodachiya_sections_1-100.pdf` | 切り抜き (54, 47)–(822, 171) mm | 1.00 倍 |
 | 3枚目 | `out/joint_detail.pdf` | 全体 | 0.62 倍 |
 | 4枚目 | `drawings/sodachiya_plan_1-100.pdf` | 全体 | 1.00 倍 |
 | 5枚目 | `out/sodachiya_garden_01.pdf` | 切り抜き (14, 40)–(234, 302) mm | 0.62 倍 |
