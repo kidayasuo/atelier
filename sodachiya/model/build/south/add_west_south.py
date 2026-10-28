@@ -87,6 +87,7 @@ for o in m.Objects:
 # 北西の斜めの面と北の妻のあいだは、線の長さが直線的に変わるなめらかな面（ねじれは一様）。
 import roofw
 _RW = roofw.make(WN); roof_f = _RW['roof_f']; VRIDGE = _RW['VRIDGE']; _corners = _RW['corners']
+print('roof bays (10-28): BAYS %s, corners off %.2g mm, plane bays %d (off plane %.2g mm), lines straight %.3f mm, vs the definition %.2f mm' % ((_RW['BAYS'],) + tuple(_RW['bay_check']())[:1] + tuple(_RW['bay_check']())[2:3] + tuple(_RW['bay_check']())[1:2] + tuple(_RW['bay_check']())[3:]))
 # 前の屋根（比べるため）と置き換え
 _old = [g for g, a in keep if a.LayerIndex == lidx('20_') and isinstance(g, r.Mesh) and len(g.Vertices) > 200]
 _P = np.vstack([np.array([[g.Vertices[i].X, g.Vertices[i].Y, g.Vertices[i].Z] for i in range(len(g.Vertices))]) for g in _old])
@@ -588,7 +589,7 @@ ring_ccw = ringS if Polygon(ringS).exterior.is_ccw else LineString(list(ringS.co
 Ls = ring_ccw.length; NS = int(Ls / 100.0)
 # 北西の角（u42〜51）の軒先（10-27夜、ユーザー：実際に作る時もまっすぐの材で近似する、軒の高さは一定に）：屋根の線（架構の線と u43.5 の登り梁）を
 # 軒の点から外へ同じ割合だけ延ばした点（＝同じ高さ）を、まっすぐな水平の線で結ぶ。軒の出は西の面の 0.78 から北の妻へ細くなり、けらばの 0.3 に続く。
-_BAYS = _RW['BAYS']; _BL = {u_: _RW['beam_line'](u_) for u_ in _BAYS}
+_BAYS = list(_RW['FRAMES']) + list(_RW['KINKS']) + [51.0]; _BL = {u_: _RW['beam_line'](u_) for u_ in _BAYS}   # 架構の線と北西の屋根の線（10-28 昼：BAYS は光の筋の縁の線も入ったので、軒先の線はこの並びで）
 _L42 = np.linalg.norm(_BL[42.0][1] - _BL[42.0][0]); _HT = 1.0 + (EAVE_LOW - GUT_W) / _L42          # 西の面の軒の出（屋根の面 0.78）と同じ高さ
 _CH = [_BL[u_][0] + _HT * (_BL[u_][1] - _BL[u_][0]) for u_ in _BAYS]
 _rake = WS.buffer(EAVE_RAKE, join_style=2).exterior                          # 北の妻のけらばの線（妻の外面の 0.3 外）
