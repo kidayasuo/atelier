@@ -217,7 +217,11 @@ def booth_front(rec):
     q = [c_ - tv * Wd / 2 - nv * 15, c_ + tv * Wd / 2 - nv * 15, c_ + tv * Wd / 2 + nv * 15, c_ - tv * Wd / 2 + nv * 15]
     hp = c_ + tv * Wd / 2; od = nv * sgn
     a_ = attr(L_DOOR); a_.Name = f'開き戸 W{round(Wd)} 吊元 {hp[0]:.0f},{hp[1]:.0f} 開く {od[0]:.4f},{od[1]:.4f}（こどもの便所の個室、h1300、鍵なし）'
-    m.Objects.AddMesh(mesh_prism([(*p, 100.0) for p in q], [(*p, 1300.0) for p in q]), a_)
+    # 10-28：平らな板は押し出し（形の点検の決まり：メッシュにしない）。平面の長方形を床から 100 の高さで 1200 上へ
+    pl_ = r.Polyline([r.Point3d(float(p[0]), float(p[1]), 100.0) for p in q + q[:1]]).ToPolylineCurve()
+    ex_ = r.Extrusion.Create(pl_, 1200.0, True)
+    if ex_ is not None and ex_.GetBoundingBox().Max.Z < 200.0: ex_ = r.Extrusion.Create(pl_, -1200.0, True)
+    m.Objects.AddExtrusion(ex_, a_)
 def kubomi(rec):                    # 2歳の落ち着くくぼみ：囲い h1000、南に開口
     ring_uv([tuple(p) for p in rec['pts']], 0, 1000, 0.04, L_PL, fc(rec), gap=(16.85, 16.95, 3.55, 4.35))
 def mamagoto_posts(rec): solid_uv([tuple(p) for p in rec['pts']], 0, 1400, L_F, (0.3, 0.25, 0.2, 1))
