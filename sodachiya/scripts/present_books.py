@@ -62,8 +62,10 @@ def line(ax, pts, lw=0.4, c='k', z=4, ls='-', alpha=1.0):
     p = np.asarray(pts, float); ax.plot(p[:, 0], p[:, 1], lw=lw, color=c, zorder=z, ls=ls, alpha=alpha, solid_capstyle='butt')
 def T(ax, x, y, s, size=5.2, ha='left', va='center', c=C_TXT, z=20, **kw):
     ax.text(x, y, s, fontsize=size, ha=ha, va=va, color=c, zorder=z, **kw)
-def leader(ax, xy, xyt, s, size=4.8, ha='left', c=C_TXT):
-    ax.annotate(s, xy=xy, xytext=xyt, fontsize=size, ha=ha, va='center', color=c, zorder=21,
+BG = dict(fc='white', ec='none', pad=0.35, alpha=0.88)
+def TB(ax, x, y, s, **kw): T(ax, x, y, s, bbox=BG, **kw)
+def leader(ax, xy, xyt, s, size=4.8, ha='left', c=C_TXT, bg=False):
+    ax.annotate(s, xy=xy, xytext=xyt, fontsize=size, ha=ha, va='center', color=c, zorder=21, bbox=BG if bg else None,
                 arrowprops=dict(arrowstyle='-', lw=0.3, color='#555', shrinkA=0.5, shrinkB=0))
     ax.add_patch(Circle(xy, 0.025, fc='#555', ec='none', zorder=21))
 def dim(ax, a, b, off, s, horiz=True, size=4.3, side=1):
@@ -132,8 +134,8 @@ for k in range(9):
     a = 2 * math.pi * k / 9 + 0.3; rr = 0.95 + 0.35 * ((k * 37) % 5) / 5
     axP.add_patch(Ellipse((54.4 + rr * math.cos(a), 2.3 + rr * math.sin(a)), 0.36, 0.26, angle=math.degrees(a) + 40,
                           fc='none', ec=C_TREE, lw=0.35, zorder=7, alpha=0.8))
-Pt(52.15, -2.12, '読書の庭', size=6.2, weight='bold', c='#45632A')
-Pt(52.15, -1.78, '苔とモミジ（入らない坪庭）', size=4.4, c='#45632A')
+Pt(51.15, -2.15, '読書の庭', size=6.2, weight='bold', c='#45632A')
+Pt(51.15, -1.82, '苔とモミジ\n（入らない坪庭）', size=4.4, c='#45632A')
 
 # 外壁（柱の外、v−0.35〜−0.20）と地窓（GLまで、h−300〜600）
 for a, b in [(UP0, 52.6), (53.85, 54.15), (56.4, 57.34)]:
@@ -207,7 +209,7 @@ Pt(54.45, 0.66, '本の奥', size=6.8, ha='center', weight='bold', c='#5A4A20')
 Pt(54.45, 0.9, '畳（+50）とクッション', size=4.2, ha='center', c='#5A4A20')
 Pt(55.75, 0.17, '足入れ−300（GLまで）', size=4.3, ha='center', c='#34502A')
 leader(axP, (51.12, -1.2), (50.98, -1.35), '格子の引き戸', size=4.3, ha='right')
-leader(axP, (53.2, 0.27), (53.0, 0.75), '地窓h−300〜600（読書の庭へ）', size=4.3, ha='left')
+leader(axP, (52.9, 0.27), (51.15, 0.72), '地窓h−300〜600（読書の庭へ）', size=4.3, ha='left')
 Pt(50.1, -0.55 - 0.0, '', size=1)
 Pt(50.4, 0.72, '絵本の通り\n（西吹き抜け）', size=5.0, ha='center', weight='bold', c='#5A4A20')
 T(axP, 52.45, 0.13, '', size=1)
@@ -239,11 +241,11 @@ for uc in (51.0, 54.0):
 rect(axE, 56.91, 0.0, 57.19, ZE1, fc=C_WOOD, ec='#6b5236', lw=0.35, z=3)
 # 地窓（見えがかり：床より上 0〜0.6、下は破線）、足入れ（破線）
 for a, b in [(52.6, 53.85), (54.15, 56.4)]:
-    rect(axE, a, 0.05, b, 0.6, fc='#DDEAD0', ec=C_GL_E, lw=0.45, z=2)
+    rect(axE, a, 0.05, b, 0.6, fc=C_GLASS, ec=C_GL_E, lw=0.45, z=2, alpha=0.55)
     for k in range(18):   # 窓の向こうの苔
         x = a + (b - a) * (k + 0.5) / 18
         axE.add_patch(Ellipse((x, 0.1 + 0.05 * (k % 3)), 0.16, 0.08, fc=C_MOSS2, ec='none', alpha=0.5, zorder=2))
-    rect(axE, a, -0.30, b, 0.0, fc='none', ec=C_GL_E, lw=0.35, ls=(0, (2, 1.5)), z=9)
+    rect(axE, a, -0.30, b, 0.0, fc='none', ec=C_GL_E, lw=0.4, ls=(0, (2, 1.5)), z=9)
 rect(axE, 52.2, -0.30, 56.6, 0.0, fc='none', ec='#444', lw=0.4, ls=(0, (3, 2)), z=9)
 T(axE, 54.4, -0.18, '足入れ−300（奥、破線）', size=4.2, ha='center', c='#333')
 # 棚（見えがかり：h1.2、4段＠300、絵本を面陳と背で）
@@ -283,8 +285,8 @@ for uf in (49.5, 52.5, 55.5):
     rect(axE, uf - 0.06, 2.77, uf + 0.06, 2.86, fc='#555', ec='none', z=6)
     line(axE, [(uf, 2.86), (uf, ZE1)], lw=0.6, c='#555', z=6)
 # 越屋根からの光（上から）
-for x0 in (50.2, 52.0, 53.6, 55.2, 56.4):
-    axE.annotate('', xy=(x0 - 0.35, 1.55), xytext=(x0, ZE1 - 0.02),
+for x0 in (52.3, 53.9, 55.3, 56.6):
+    axE.annotate('', xy=(x0 - 0.35, 0.72), xytext=(x0, ZE1 - 0.02),
                  arrowprops=dict(arrowstyle='-|>', lw=0.45, color=C_LIGHT, alpha=0.85), zorder=10)
 # 人：本の奥で読む子、棚の前の子と先生
 kid_sit(axE, 52.75, z0=0.05, h=0.58)
@@ -292,18 +294,40 @@ kid_sit(axE, 53.5, z0=0.05, h=0.60)
 kid_sit(axE, 55.6, z0=0.05, h=0.55)
 ax_ = axE; ax_.add_patch(Ellipse((56.25, 0.13), 0.55, 0.16, fc=C_KID, ec='none', zorder=12))   # 寝ころぶ子
 ax_.add_patch(Circle((56.62, 0.17), 0.1, fc=C_KID, ec='none', zorder=12))
-kid_stand(axE, 50.2, 1.05)
-kid_stand(axE, 50.62, 1.58, c=C_ADULT)
+kid_stand(axE, 50.4, 1.05)
+kid_stand(axE, 51.8, 1.58, c=C_ADULT)
 # 寸法・ラベル
-T(axE, 48.62, 1.48, 'くぼみ：腰掛けh300、カーテンで隠れ家に', size=4.4)
-T(axE, 49.85, 1.3, '棚h1.2', size=4.3)
-T(axE, 48.62, 2.1, '西の壁（内側は白、越屋根の光を返す）', size=4.4, c='#555')
-T(axE, 51.25, 2.1, '格子の引き戸h2.0', size=4.4, c='#555')
-T(axE, 52.65, 0.86, '地窓の向こうに苔とモミジの根元', size=4.4, c='#34502A')
+leader(axE, (48.85, 1.0), (48.62, 1.6), 'くぼみ：腰掛けh300、カーテンで隠れ家に', size=4.4)
+leader(axE, (50.72, 0.75), (50.72, 1.87), '絵本の棚h1.2（4段）', size=4.4, ha='right')
+T(axE, 48.62, 2.22, '西の壁（内側は白、越屋根の光を返す）', size=4.4, c='#555')
+leader(axE, (51.14, 1.75), (51.3, 2.25), '格子の引き戸h2.0', size=4.4, c='#555')
+leader(axE, (53.2, 0.5), (52.25, 1.05), '地窓h−300〜600、向こうに苔とモミジ', size=4.4, c='#2E5373', bg=True)
 T(axE, 52.55, 2.6, '天井扇φ1100・h2.8', size=4.4, c='#555')
-T(axE, 54.25, 1.85, '越屋根の光（朝は直射、昼はルーバーの拡散光）', size=4.4, c='#A07800')
+TB(axE, 53.75, 2.15, '越屋根の光（朝は直射、昼はルーバーの拡散光）', size=4.4, c='#A07800')
 T(axE, UP0 + 0.08, 2.62, '展開B　1/60（西を見る）', size=5.4, weight='bold', va='top')
 T(axE, 57.12, 0.38, 'FL', size=4.2, ha='right', c='#555')
+
+
+# ======================================================================
+# 絵本の通りの全体（キープラン 1/400）：棚・くぼみは plan04.py の shelf_runs と同じ
+# ======================================================================
+SK = 1000 / 400
+KU0, KU1, KV0, KV1 = 31.8, 57.6, -0.45, 1.75
+axK = fig.add_axes([PX0 / W, 58.6 / H, (KU1 - KU0) * SK / W, (KV1 - KV0) * SK / H])
+axK.set_xlim(KU0, KU1); axK.set_ylim(-KV1, -KV0); axK.set_aspect('equal'); axK.axis('off')
+SHELF_RUNS = [(32.9, 35.8), (36.2, 38.8), (39.2, 41.8), (42.2, 43.9), (46.3, 47.8), (48.2, 50.8)]
+NICHES = [(37.0, 38.2), (48.6, 49.8)]
+rect(axK, 32.0, 0.20, 57.19, -1.60, fc=C_ST, ec='none', z=0)
+rect(axK, 51.0, -0.2, 57.0, -1.54, fc=C_TATAMI, ec='none', z=1)
+for a, b in [(32.0, 45.6), (47.6, 57.34)]: rect(axK, a, 0.35, b, 0.20, fc=C_CUT, ec='none', z=3)
+rect(axK, 57.19, 0.35, 57.34, -1.66, fc=C_CUT, ec='none', z=3)
+rect(axK, 32.0, -1.54, 57.19, -1.66, fc=C_CUT, ec='none', z=3)
+for a, b in SHELF_RUNS: rect(axK, a, -0.08, b, -0.38, fc=C_WOOD2, ec='none', z=4)
+for a, b in NICHES: rect(axK, a, -0.08, b, -0.70, fc='#E8D7E6', ec=C_CUR, lw=0.3, z=5)
+for uc in range(33, 58, 3): rect(axK, uc - 0.09, 0.2, uc + 0.09, -0.2, fc=C_CUT, ec='none', z=6)
+rect(axK, UP0, 0.42, UP1, -1.72, fc='none', ec='#C0392B', lw=0.6, z=8)
+fig.text((PX0 + (KU1 - KU0) * SK + 3) / W, 62.6 / H, '絵本の通りの全体　1/400（赤い枠が上の平面・展開の範囲）', fontsize=4.6, weight='bold', va='center')
+fig.text((PX0 + (KU1 - KU0) * SK + 3) / W, 59.9 / H, '棚6か所・計約14 m、くぼみ2か所（紫）。柱と遊戯室への口で切れる', fontsize=4.4, va='center', color='#5A4A20')
 
 # ======================================================================
 # 断面A　1/60（u55.0で切って南を見る：x＝−v（西が右）、y＝z）
@@ -333,7 +357,7 @@ for k in range(26):
 # モミジ（見えがかり、幹は約1 m 先）
 for (v, z, w, h) in [(-1.25, 2.55, 1.2, 0.75), (-1.7, 2.95, 1.0, 0.7), (-1.0, 2.95, 0.7, 0.5), (-1.55, 2.35, 0.8, 0.45)]:
     axS.add_patch(Ellipse((X(v), z), w, h, fc='#C9DDB0', ec=C_TREE, lw=0.35, zorder=2, alpha=0.9))
-St(-1.88, 3.42, 'モミジ（幹は奥、約1 m）', size=4.2, ha='right', c='#45632A')
+St(-1.88, 1.95, 'モミジ（幹は奥、約1 m）', size=4.2, ha='right', c='#45632A')
 St(-1.88, -0.42, '読書の庭（苔）', size=4.4, ha='right', c='#45632A')
 # 床：はだしの床 ±0（スラブ 450）、足入れは GL まで
 Sp([(-0.20, -0.30), (0.50, -0.30), (0.50, 0.0), (VS0, 0.0), (VS0, -0.45), (-0.20, -0.45)], fc='#CFC8BC', ec=C_CUT, lw=0.5, z=5)
@@ -376,10 +400,8 @@ Sr(0.25, 1.35, 2.80, 2.84, fc='#666', ec='none', z=6); Sr(0.74, 0.86, 2.77, 2.86
 Sl([(0.8, 2.86), (0.8, 3.45)], lw=0.6, c='#555', z=6)
 # 光：ルーバーの拡散光が西吹き抜けへ、白い西の壁で返る
 for (v0, v1) in [(1.4, 0.95), (0.9, 0.55), (0.4, 0.1), (1.7, 1.25)]:
-    axS.annotate('', xy=(X(v1), 0.55), xytext=(X(v0), zlid(v0) - 0.05),
+    axS.annotate('', xy=(X(v1), 0.72), xytext=(X(v0), zlid(v0) - 0.05),
                  arrowprops=dict(arrowstyle='-|>', lw=0.45, color=C_LIGHT, alpha=0.85), zorder=10)
-axS.annotate('', xy=(X(0.45), 1.6), xytext=(X(-0.18), 3.0),
-             arrowprops=dict(arrowstyle='-|>', lw=0.4, color=C_LIGHT, alpha=0.6, ls=(0, (2, 1.5))), zorder=10)
 # 人：足入れに足を下ろして窓の外を見る子、寝ころぶ子
 kid_sit(axS, X(0.66), z0=0.05, h=0.60)
 Sp([(0.58, 0.05), (0.58, 0.16), (0.40, 0.16), (0.36, -0.27), (0.46, -0.27), (0.50, 0.05)], fc=C_KID, ec='none', z=12)
@@ -390,17 +412,20 @@ axS.add_patch(Ellipse((X(1.15), 0.13), 0.3, 0.12, fc='#F3E1C7', ec=C_CUR, lw=0.3
 # 寸法
 dim(axS, -0.30, 0.0, X(-0.06), '300', horiz=False, side=-1)
 dim(axS, -0.30, 0.60, X(-0.50) + 0.0, '900', horiz=False, side=1)
-dim(axS, 0.0, 2.80, X(1.15), '2800', horiz=False, side=1)
+dim(axS, 0.0, 2.80, X(-0.07), '', horiz=False, side=1)
+TB(axS, X(0.0), 1.45, '2800\n天井扇の\n羽根まで', size=3.9, c='#444', ha='left')
 dim(axS, X(1.6), X(0.0), -0.40, '1600', horiz=True, side=-1)
 St(1.80, 0.18, 'FL±0', size=4.0, c='#555')
 St(-1.88, -0.18, 'GL−300', size=4.0, ha='right', c='#555')
 # ラベル
 St(-0.45, 4.02, '越屋根：ガラスの蓋\n＋木のルーバー', size=4.3, c='#2E5373')
-St(1.35, 2.35, '天井扇', size=4.2, c='#555')
-St(1.0, 1.75, '格子の引き戸（奥）', size=4.2, c='#6b5236')
-St(1.5, 0.5, '畳＋クッション', size=4.2, c='#5A4A20')
+TB(axS, X(1.48), 2.6, '天井扇φ1100', size=4.2, c='#555')
+TB(axS, X(1.48), 2.2, '格子の引き戸h2.0（奥）', size=4.2, c='#6b5236')
+TB(axS, X(1.48), 3.08, '越屋根の光', size=4.2, c='#A07800')
+TB(axS, X(1.48), 0.45, '畳＋クッション', size=4.2, c='#5A4A20')
+leader(axS, (X(0.4), 3.62), (X(-0.75), 3.62), '梁（架構54、見えがかり）\n2枚組の登り梁90×2', size=4.0, c='#6b5236')
 St(0.26, -0.40, '足入れ', size=4.2, c='#34502A', ha='center')
-St(-0.38, 0.95, '地窓', size=4.2, c='#2E5373', ha='left')
+St(-0.38, 0.95, '地窓\nh−300〜600', size=4.2, c='#2E5373', ha='left')
 T(axS, X(VS0) + 0.05, ZS1 - 0.06, '断面A　1/60（南を見る）', size=5.4, weight='bold', va='top')
 
 # ======================================================================
@@ -408,7 +433,7 @@ T(axS, X(VS0) + 0.05, ZS1 - 0.06, '断面A　1/60（南を見る）', size=5.4, 
 # ======================================================================
 nx0 = SX0 / W; y = (H - 1.5 - SH - 3.5)
 notes = [
-    ('絵本の通り', ['西吹き抜けの壁いっぱいに棚h1.2。くぼみは床から', '300上がった腰掛けで、カーテンを引くと隠れ家に。']),
+    ('絵本の通り', ['西吹き抜け（スパン11〜17）の壁に沿って棚h1.2、', '6か所で計約14 m（柱と遊戯室への口で切れる）。', 'くぼみは2か所、床から300上がった腰掛けで、', 'カーテンを引くと隠れ家に。']),
     ('本の奥', ['北の行き止まりに畳とクッション。格子の引き戸は', '閉じても光と気配が通る。足入れに足を下ろすと、', '地窓の向こうに読書の庭の苔とモミジ。']),
     ('上から光', ['越屋根のガラスの蓋と木のルーバーから、朝は直射、', '昼は拡散光が落ちる。天井扇が空気をまわす。']),
 ]
