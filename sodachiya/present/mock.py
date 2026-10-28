@@ -680,9 +680,13 @@ def _rhino_of(src, pageno, clip):
     return rp_, tp_
 
 
-def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None):
+DWG = {}            # (枚, embeds の番号) → 課題の要求の図面（文字と寸法をIllustratorの部品にする、ユーザー 10-29 0:16）
+
+
+def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None, dwg=None):
     """clip（元のPDFのmm、上原点）を、紙の(x,y)（下原点、左下）に倍率scale_factorで置く。
-    fit=(w,h)を渡すと、その枠に縮めて入れる。戻り値は置いた大きさ（mm）"""
+    fit=(w,h)を渡すと、その枠に縮めて入れる。戻り値は置いた大きさ（mm）。
+    dwg=(鍵, 名前)：課題の要求の図面。.ai では線だけのリンクと、文字の層（<図>_文字.pdf）の文字と寸法の部品を、名前のグループに"""
     if clip is None:
         pr = fitz.open(src)[pageno].rect
         clip = (0, 0, pr.width / MM, pr.height / MM)
@@ -691,6 +695,8 @@ def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None):
         scale_factor = min(fit[0] / w0, fit[1] / h0)
     w, h = w0 * scale_factor, h0 * scale_factor
     rh_ = _rhino_of(src, pageno, clip)
+    if dwg and os.path.exists(src[:-4] + "_文字.pdf"):
+        DWG[(sheet, len(embeds[sheet]))] = dict(key=dwg[0], name=dwg[1], auto=src, moji=src[:-4] + "_文字.pdf", rhino=bool(rh_), src=rh_[0] if rh_ else src)
     if rh_:                                        # Rhino の線を下に、文字と寸法を上に（同じ切り抜き・同じ位置）
         RHINO_TXT[(sheet, len(embeds[sheet]))] = rh_[1]
         RHINO_USED.append(f"{sheet}枚目 {os.path.basename(src)}")
@@ -2051,13 +2057,13 @@ title(ax, ex, y_ - 4, "園庭の側の立面図", "1/100　円弧の中心の方
 T(ax, ex + 300, y_ - 4, CONTRAST["garden"][0], 4.2, "#4E8A3A", bold=True)
 T(ax, ex + 340, y_ - 4, CONTRAST["garden"][1][0], 2.8)
 y_ -= 7
-_, h_ = embed(2, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0)
+_, h_ = embed(2, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0, dwg=("E1", "立面図　園庭の側"))
 y_ -= h_ + G2
 title(ax, ex, y_ - 4, "道路の側の立面図", "1/100　西の道路から")
 T(ax, ex + 300, y_ - 4, CONTRAST["road"][0], 4.2, "#8A5A2B", bold=True)
 T(ax, ex + 372, y_ - 4, CONTRAST["road"][1][0], 2.8)
 y_ -= 7
-_, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0)
+_, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0, dwg=("E2", "立面図　道路の側"))
 y_ -= h_ + G2
 bh = BH2
 _pw = 297
@@ -2106,7 +2112,7 @@ hC = (CLIP_C2[3] - CLIP_C2[1]) * CSC
 wC = (CLIP_C2[2] - CLIP_C2[0]) * CSC
 cx, cy = M + 6, H - M - 16 - 10 - hC
 title(ax, cx, cy + hC + 3, "断面図C　東西に切る（4歳・遊戯室）", "1/100　本館と西館の架構、昼と夏の夜の風の道")
-embed(3, SEC, CLIP_C2, cx, cy, CSC)
+embed(3, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"))
 _rx5 = cx + wC + 8
 _rw5 = W - M - 6 - _rx5
 cells4 = [("夏の昼", "庇・天井扇\n床下空調"), ("夏の夜", "床下→梁間\n→越屋根・遊戯室"), ("春・秋", "越屋根を開ける\n縁側を開け放す"), ("冬", "換気口を閉じる\n熱交換・断熱"),
@@ -2121,7 +2127,7 @@ for i_, (h1, s1) in enumerate(cells4):
         fill="#FAF8FF" if c_ == 0 else "#F5FAF0", color=NOTE if c_ == 0 else "#4E8A3A")
 ya = cy - 12 - (CLIP_SA[3] - CLIP_SA[1])
 title(ax, cx, cy - 6, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
-embed(3, SEC, CLIP_SA, cx, ya, 1.0)
+embed(3, SEC, CLIP_SA, cx, ya, 1.0, dwg=("SA", "縦断面図A"))
 # 下の段：光の筋と架構・接合部・inspired by（断面Bと S&I の図は外した、ユーザー 10-27夜：S&I は言葉だけ）
 by = M + 8
 _bx = cx
@@ -2144,7 +2150,7 @@ figs.append(fig)
 # ================================================================ 4　平面図（10-28：もとの3枚目、いちど2枚目にしてから13:17に4枚目へ。ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
 fig, ax = page()
 PLAN3 = os.environ.get("SODACHIYA_PLAN3", PLAN)        # 確かめるときだけ手元の書き出しを指す
-embed(4, PLAN3, None, 0, 0, 1.0)
+embed(4, PLAN3, None, 0, 0, 1.0, dwg=("plan", "平面図"))
 TOPT[4].append((14, H - 12, "こどもたちの育ち舎　4/5　平面図　1階・2階", 3.6, True))
 figs.append(fig)
 
@@ -2432,7 +2438,7 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
 print("Rhino の図：", "、".join(RHINO_USED) if RHINO_USED else "無し（drawings_rhino/ が無いので自動の図のまま）")
-ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
+ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
                      renumber=dict(id="2026-10-28b", maps={"2026-10-28": {"4": 2, "5": 3, "2": 4, "3": 5}, "_none": {"5": 3, "3": 4, "4": 5}},
                                    note="ユーザー、10-28 13:17：5枚の番号を振り直した（前の番号 → 新しい番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"),
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))

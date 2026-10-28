@@ -10,7 +10,8 @@
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var L = SDY.readJSON(File(SDY.here.fsName + "/layout.json"));
     if (SDY.oldNumbering(L)) { alert("5枚の番号を振り直しました（10-28）。この .ai は前の番号のままなので、update_texts ではなく build_sodachiya.jsx で組み直してください（木田さんの物は新しい番号の枚へ写ります）。"); return; }
-    var map = SDY.findByTag(doc), i, j, p, it, nt = 0, nl = 0, na = 0;
+    var map = SDY.findByTag(doc), i, j, p, it, nt = 0, nl = 0, na = 0, nr = 0, nx = 0, nd = 0;
+    try { nx = SDY.removeStaleDrawingParts(doc, L); map = SDY.findByTag(doc); } catch (e6) { SDY.missing.push("図面の古い部品（" + e6.message + "）"); }
     for (i = 0; i < L.pages.length; i++) {
         for (j = 0; j < L.pages[i].parts.length; j++) {
             p = L.pages[i].parts[j];
@@ -20,7 +21,12 @@
                 try { if (SDY.make(doc, i, p)) { na++; } } catch (e) { SDY.missing.push(p.id + "（" + e.message + "）"); }
                 continue;
             }
-            if ((p.kind === "text" || p.kind === "area") && it.typename === "TextFrame") {
+            if (p.kind === "lines") {                    // 図面の線の部品：図が変わって形が変わったら作り直す（.ai で動かしていた分は、書き出してあれば layout.json の位置に入っている）
+                var tg = SDY.parseTag(it);
+                if (tg && tg.mock_hash !== p.mock_hash) {
+                    try { it.remove(); if (SDY.make(doc, i, p)) { nr++; } } catch (e5) { SDY.missing.push(p.id + "（" + e5.message + "）"); }
+                }
+            } else if ((p.kind === "text" || p.kind === "area") && it.typename === "TextFrame") {
                 var want = String(p.s).replace(/\n/g, "\r");
                 if (SDY.norm(it.contents) !== SDY.norm(p.s)) { it.contents = want; nt++; }
                 SDY.tag(it, p);                          // 新しい元の文の印に
@@ -43,7 +49,9 @@
     }
     var ng = 0;                                        // 配置図のまとめ（10-28）：まだ入っていない配置図の部品と、配置図の上の木田さんの物を入れる
     try { for (i = 0; i < L.pages.length; i++) { if (L.pages[i].no === 1) { SDY.planUser = SDY.planUserIn(doc, i); } } ng = SDY.groupPlan(doc, L); } catch (e3) { SDY.missing.push("配置図のまとめ（" + e3.message + "）"); }
-    var msg = "更新しました：文字 " + nt + "、リンク " + nl + "、新しい部品 " + na + (ng ? "、配置図のまとめに入れた物 " + ng : "");
+    try { nd = SDY.groupDrawings(doc, L); } catch (e7) { SDY.missing.push("図面のまとめ（" + e7.message + "）"); }
+    var msg = "更新しました：文字 " + nt + "、リンク " + nl + "、新しい部品 " + na + (ng ? "、配置図のまとめに入れた物 " + ng : "") +
+              (nr ? "、形の変わった図面の線 " + nr : "") + (nx ? "、図から無くなった部品（外した） " + nx : "") + (nd ? "、図面のまとめに入れた物 " + nd : "");
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + SDY.missing.join("\n"); }
     alert(msg);
 })();

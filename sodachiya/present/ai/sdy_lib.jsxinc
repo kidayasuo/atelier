@@ -200,10 +200,23 @@ SDY.addOverlay = function (g, base, p) {
     ov.move(base, ElementPlacement.PLACEBEFORE);    // 線の上
     return ov;
 };
-// 部品をまとめるグループ（p.group）。同じ名前のグループがレイヤーにあればそこへ、無ければ作る（注の文字と線、突き出た木の枝と幹）
+// 部品をまとめるグループ（p.group）。同じ名前のグループがレイヤーにあればそこへ、無ければ作る（注の文字と線、突き出た木の枝と幹）。
+// 図面の部品（p.dwg、10-29）は、グループのメモの印（sdyg:鍵）で探す（寸法は同じ名前が多いので名前では探さない。図面のまとめの中にあっても見つける）
+SDY.dwgCont = null;
 SDY.cont = function (lay, p) {
     if (!p.group) { return null; }
     var nm = p.group_name || p.group, k;
+    if (p.dwg) {
+        if (!SDY.dwgCont) {
+            SDY.dwgCont = {};
+            var gs = app.activeDocument.groupItems, nt;
+            for (k = 0; k < gs.length; k++) { nt = ""; try { nt = gs[k].note; } catch (e0) {} if (nt && nt.indexOf("sdyg:") === 0) { SDY.dwgCont[nt.substring(5)] = gs[k]; } }
+        }
+        if (SDY.dwgCont[p.group]) { return SDY.dwgCont[p.group]; }
+        var dg = lay.groupItems.add(); dg.name = nm; dg.note = "sdyg:" + p.group;
+        SDY.dwgCont[p.group] = dg;
+        return dg;
+    }
     for (k = 0; k < lay.groupItems.length; k++) { if (lay.groupItems[k].name === nm) { return lay.groupItems[k]; } }
     var g = lay.groupItems.add(); g.name = nm;
     return g;
@@ -229,8 +242,35 @@ SDY.makeText = function (doc, lay, i, p) {
     }
     tf.contents = String(p.s).replace(/\n/g, "\r");
     SDY.styleText(tf, p);
+    if (p.rot) {                                     // 向きのある字（縦の寸法・斜めの寸法、10-29）：基準線の点（揃えの点）を中心に回す
+        var a0 = tf.anchor;
+        tf.rotate(Number(p.rot));
+        var a1 = tf.anchor;
+        tf.translate(a0[0] - a1[0], a0[1] - a1[1]);
+    }
     SDY.tag(tf, p);
     return SDY.intoCont(lay, p, tf);
+};
+// 図面の線の部品（寸法線と端の印、高さの記号、通り芯の丸、字の白い地など、10-29）：いくつかのパスを一つのグループに。もとの重なりの順（後のものが上）
+SDY.makeLines = function (doc, lay, i, p) {
+    var g = lay.groupItems.add(), k, j, q, pts, pi;
+    for (k = 0; k < p.paths.length; k++) {
+        q = p.paths[k]; pts = [];
+        for (j = 0; j < q.pts.length; j++) { pts.push(SDY.P(doc, i, q.pts[j][0], q.pts[j][1])); }
+        pi = g.pathItems.add();
+        pi.setEntirePath(pts);
+        pi.closed = !!q.closed;
+        if (q.fill) { pi.filled = true; pi.fillColor = SDY.rgb(q.fill); } else { pi.filled = false; }
+        if (q.stroke && q.lw > 0) {
+            pi.stroked = true; pi.strokeColor = SDY.rgb(q.stroke); pi.strokeWidth = q.lw;
+            try { pi.strokeCap = StrokeCap.BUTTENDCAP; } catch (e1) {}
+            if (q.dash) { pi.strokeDashes = q.dash; }
+        } else { pi.stroked = false; }
+        if (q.eo) { try { pi.evenodd = true; } catch (e2) {} }
+        if (q.op !== undefined && q.op !== null && q.op < 1) { pi.opacity = q.op * 100; }
+    }
+    SDY.tag(g, p);
+    return SDY.intoCont(lay, p, g);
 };
 SDY.makeBox = function (doc, lay, i, p) {
     var tl = SDY.P(doc, i, p.x, p.y);
@@ -270,6 +310,7 @@ SDY.make = function (doc, i, p) {
     if (p.kind === "text" || p.kind === "area") { return SDY.makeText(doc, lay, i, p); }
     if (p.kind === "box") { return SDY.makeBox(doc, lay, i, p); }
     if (p.kind === "line") { return SDY.makeLine(doc, lay, i, p); }
+    if (p.kind === "lines") { return SDY.makeLines(doc, lay, i, p); }
     if (p.kind === "circle") { return SDY.makeCircle(doc, lay, i, p); }
     return null;
 };
@@ -555,6 +596,46 @@ SDY.groupPlan = function (doc, L) {
                 moved.push(t); n++;
             } catch (e) { SDY.missing.push("配置図のまとめに入れられなかった：" + (it.name || it.typename) + "（" + e.message + "）"); }
         }
+    }
+    return n;
+};
+
+// 図面のまとめ（ユーザー 10-29 0:16：数字・文字・寸法線を一つずつ動かせるように、図と一緒にグループに）：
+// layout.json の dwg の付いた部品（線だけのリンクの切り抜きのグループ、寸法・高さ・通り芯・部屋名・図名・注のグループや文字）を、
+// レイヤー「図」の、図ごとのグループ（名前は dwg、メモに sdydwg:枚:名前）に入れる。リンクがいちばん下。すでに入っている物はそのまま
+SDY.groupDrawings = function (doc, L) {
+    var map = SDY.findByTag(doc), gs = {}, i, j, k, p, it, q, g, key, inside, n = 0, nt;
+    var lay = SDY.layer(doc, "図");
+    for (k = 0; k < doc.groupItems.length; k++) { nt = ""; try { nt = doc.groupItems[k].note; } catch (e0) {} if (nt && nt.indexOf("sdydwg:") === 0) { gs[nt.substring(7)] = doc.groupItems[k]; } }
+    for (i = 0; i < L.pages.length; i++) {
+        for (j = 0; j < L.pages[i].parts.length; j++) {
+            p = L.pages[i].parts[j];
+            if (!p.dwg || p.hidden) { continue; }
+            it = map[p.id]; if (!it) { continue; }
+            try {
+                key = L.pages[i].no + ":" + p.dwg;
+                g = gs[key];
+                if (!g) { g = lay.groupItems.add(); g.name = p.dwg; g.note = "sdydwg:" + key; gs[key] = g; }
+                q = it; inside = false;
+                while (q.parent && q.parent.typename === "GroupItem") { if (q.parent === g) { inside = true; break; } q = q.parent; }
+                if (inside) { continue; }
+                q.move(g, ElementPlacement.PLACEATBEGINNING);   // 後から入れた物が上（リンクが先＝いちばん下）
+                n++;
+            } catch (e) { SDY.missing.push("図面のまとめに入れられなかった：" + p.id + "（" + e.message + "）"); }
+        }
+    }
+    return n;
+};
+// layout.json に無くなった図面の部品（図が変わって寸法が無くなった・数が変わった、10-29）を .ai から外す。空になった寸法などのグループも
+SDY.removeStaleDrawingParts = function (doc, L) {
+    var ids = {}, i, j, map = SDY.findByTag(doc), id, it, rm = [], k, n = 0, nt, g;
+    for (i = 0; i < L.pages.length; i++) { for (j = 0; j < L.pages[i].parts.length; j++) { ids[L.pages[i].parts[j].id] = true; } }
+    for (id in map) { if (map.hasOwnProperty(id) && /^p\d+\.dwg\./.test(id) && !ids[id]) { rm.push(map[id]); } }
+    for (k = 0; k < rm.length; k++) { try { rm[k].remove(); n++; } catch (e) {} }
+    for (k = doc.groupItems.length - 1; k >= 0; k--) {
+        g = doc.groupItems[k]; nt = "";
+        try { nt = g.note; } catch (e1) {}
+        if (nt && nt.indexOf("sdyg:") === 0 && g.pageItems.length === 0) { try { g.remove(); } catch (e2) {} }
     }
     return n;
 };

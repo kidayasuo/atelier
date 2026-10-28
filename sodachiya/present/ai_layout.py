@@ -32,6 +32,30 @@ def _grp(r):
     return dict(group=f"ibox.{m.group(1)}.{m.group(2)}", group_name="箱　" + (r.get("name") or "").split("：", 1)[-1]) if m else {}
 
 
+def _dwg_ok(dw, PARTS):
+    """図面の線だけのリンク：Rhino の図はそのまま、自動の図は文字の層の線と文字を抜いた写し（ai/parts/<名前>_線だけ.pdf）"""
+    if dw.get("lines"):
+        return True
+    if dw.get("rhino"):
+        dw["lines"] = dw["src"]
+        return True
+    out = os.path.join(PARTS, os.path.splitext(os.path.basename(dw["auto"]))[0] + "_線だけ.pdf")
+    if dw.get("_tried") is None:
+        try:
+            from zumen_parts import lines_only
+            n, left = lines_only(dw["auto"], dw["moji"], out)
+            if left:
+                print("図面の線だけの写し：", os.path.basename(dw["auto"]), "文字の層の線のうち", left, "本を自動の図に見つけられない")
+            dw["_tried"] = True
+        except Exception as e:
+            print("図面の線だけの写しを作れない（pikepdf？）：", os.path.basename(dw["auto"]), e, "→文字と寸法は部品にせず、今までどおり")
+            dw["_tried"] = False
+    if dw["_tried"]:
+        dw["lines"] = out
+        return True
+    return False
+
+
 def write(c):
     figs, rec, W, H, MM = c["figs"], c["rec"], c["W"], c["H"], c["MM"]
     NOTE, ROOT, HERE = c["NOTE"], c["ROOT"], c["HERE"]
@@ -116,6 +140,19 @@ def write(c):
                 add(dict(id=f"sozai.{fn.split('_')[0]}", name=f"素材 {fn[:-4]}", kind="link", layer="図", file=rel(os.path.join(HERE, "sozai", fn)),
                          x=round(bx, 2), y=round(by, 2), w=round(bw, 2), h=round(bh, 2), clip=None, scale=1, plan=True,
                          clipgroup="配置図（切り抜き）", cliprect=[round(cx_, 2), round(cy_, 2), round(cw_, 2), round(ch_, 2)]))
+            elif (no, k_e) in c.get("dwg", {}) and _dwg_ok(c["dwg"][(no, k_e)], PARTS):
+                # 課題の要求の図面（立面・断面・平面、ユーザー 10-29 0:16）：線だけのリンク（自動の図から文字と寸法を抜いた写し、Rhino の図はそのまま）と、
+                # 文字の層から作った文字と寸法の部品を、図ごとに一つのグループ（dwg）に。部品は一つずつ動かす・消す・書き換えられる
+                dw = c["dwg"][(no, k_e)]
+                full = clip is None or (clip[0] == 0 and clip[1] == 0)
+                add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {dw['name']}（線）", kind="link", layer="図",
+                         file=rel(dw["lines"]), x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2),
+                         clip=None if full else [round(v, 2) for v in clip], scale=round(w / (clip[2] - clip[0]), 4) if clip else 1, page=pno + 1, dwg=dw["name"]))
+                from zumen_parts import parts_for
+                for q in parts_for(dw["moji"], None if full else clip, (x, H - y - h), w / (clip[2] - clip[0]) if clip else 1.0, dw["key"], pno):
+                    q["dwg"] = dw["name"]
+                    q["mock_hash"] = djb2(q["s"]) if q["kind"] == "text" else djb2(q.pop("geo"))
+                    add(q)
             else:
                 full = clip[0] == 0 and clip[1] == 0
                 add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {os.path.basename(src)}", kind="link", layer="図",
@@ -229,6 +266,13 @@ def write(c):
                 continue
             if u.get("hidden"):
                 p["hidden"] = True
+            if p["kind"] == "lines":                    # 図面の線の部品（寸法線など）：動かした分だけ線をずらす（大きさは変えない）
+                if "x" in u and "y" in u:
+                    dx, dy = u["x"] - p["x"], u["y"] - p["y"]
+                    for q in p["paths"]:
+                        q["pts"] = [[round(a + dx, 3), round(b + dy, 3)] for a, b in q["pts"]]
+                    p["x"], p["y"], p["u"] = round(u["x"], 2), round(u["y"], 2), 1
+                continue
             for key in ("x", "y", "w", "h", "pts"):
                 if key in u:
                     p[key] = u[key]

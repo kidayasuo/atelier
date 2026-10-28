@@ -17,6 +17,8 @@
     try { LB = SDY.readJSON(File(SDY.here.fsName + "/layout_built.json")); } catch (e) { LB = L; }
     var BUILT = {}, bi, bj;
     if (LB) { for (bi = 0; bi < LB.pages.length; bi++) { for (bj = 0; bj < LB.pages[bi].parts.length; bj++) { BUILT[LB.pages[bi].parts[bj].id] = LB.pages[bi].parts[bj]; } } }
+    // update_texts で後から足した部品（組んだときに無かった物）は、layout.json の位置と比べる（動かしていなければ書き出さない、10-29）
+    if (L && LB !== L) { for (bi = 0; bi < L.pages.length; bi++) { for (bj = 0; bj < L.pages[bi].parts.length; bj++) { if (!BUILT[L.pages[bi].parts[bj].id]) { BUILT[L.pages[bi].parts[bj].id] = L.pages[bi].parts[bj]; } } } }
     var same = function (rec, o) {                     // 組んだときから動いていないか（0.3 mm）
         if (!o || rec.s !== undefined) { return false; }
         var a = ["x", "y", "w", "h"], k2;
