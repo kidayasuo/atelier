@@ -543,6 +543,8 @@ def _thin_spline(Q, tq, tol=0.01):
     return Q, tq
 
 
+import os as _os
+_DBG = _os.environ.get('SD_DEBUG') == '1'
 PLANAR_TOL = 0.5          # 四隅がこれ以内で一つの平面にのれば平面の面に (mm)
 RULED_TOL = 1.0           # 層の面の高さ（屋根の面＋ずれ）にメッシュのもとの頂点がこれ以内でのる組だけを Ruled に (mm、10-28 ユーザー：ずれ 1 mm 以下)
 
@@ -554,7 +556,7 @@ def _mode(x, q=0.5):
     return float(np.median(np.asarray(x, float)[sel]))
 
 
-def split_by_lines(W, T, lines, eps=1e-3):
+def split_by_lines(W, T, lines, eps=0.5):
     """鉛直の平面（平面の線 (点, 向き)）で三角形を切る（両側を残し、辺の上の新しい点は共有＝閉じたまま）。
     スパンの境（梁の線）で面が折れるので、上下の面をスパンごとの面に分けるため（10-28）"""
     W = [np.asarray(w, float) for w in W]; T = [tuple(t) for t in np.asarray(T, int)]
@@ -605,6 +607,7 @@ def _ruled_regions(W, T, area, he, reg, regs, N, spec):
     found = []; spec.setdefault('report', [])
     strict = spec.get('strict', True)
     for c_, k, mem in comps:
+        small = []
         base = Ruled(spec['corners'](k), up=c_ > 0)
         vs = np.unique(T[mem].ravel())
         R_ = {int(v): float(W[v, 2] - base.z(W[v])) for v in vs}
@@ -633,9 +636,40 @@ def _ruled_regions(W, T, area, he, reg, regs, N, spec):
             if dev > tol:
                 ce = W[sv].mean(0); far = float(np.mean(np.abs(rz - c1) > tol))
                 spec['report'].append(dict(bay=k, up=c_ > 0, level=round(c1, 1), dev=round(dev, 1), share=round(far, 3), n=len(sub), at=tuple(np.round(ce[:2]))))
-                # 厳しい時は作らない。ゆるい時（strict=False）は、一定の高さに 8 割以上がのれば、その高さの面に（はずれた頂点は面に寄せる）
-                if strict or far > 0.2 or len(so) < 3: raise Fail('ruled dev %.1f mm (bay %d)' % (dev, k))
-            found.append([c_, k, sub, Ruled(spec['corners'](k), off, up=c_ > 0)])
+                # 厳しい時は作らない。ゆるい時（strict=False）は、一定の高さにのる頂点が (1 − share) 以上なら、その高さの面に
+                # （はずれた頂点＝メッシュの網目の弦のずれは、面に寄せる。share は clean_wire.py がレイヤーごとに決める）
+                if not strict and len(sub) < 8: small.append(sub); continue     # 弦のずれの小さな組（数枚）は、となりの組の面に入れる（下で）
+                if strict or far > spec.get('share', 0.2) or len(so) < 3: raise Fail('ruled dev %.1f mm (bay %d)' % (dev, k))
+            found.append([c_, k, sub, Ruled(spec['corners'](k), off, up=c_ > 0), dev <= tol or far < 0.5, off])
+        for _ in range(4):
+            if not small: break
+            own = {t: i for i, f in enumerate(found) if f[0] == c_ and f[1] == k for t in f[2]}; left = []
+            for sub in small:
+                nbs = [own[u] for t in sub for u in nb[t] if u in own]
+                if nbs: found[max(set(nbs), key=nbs.count)][2].extend(sub)
+                else: left.append(sub)
+            small = left
+        for sub in small:                                                    # となりの無い小さな組は、それだけで一つの面（いちばん多い高さ）
+            sv = np.unique(T[sub].ravel()); rz = [R_[int(v)] for v in sv]
+            o_ = (round(_mode(rz) * 2) / 2, 0.0, 0.0, 0.0); found.append([c_, k, sub, Ruled(spec['corners'](k), o_, up=c_ > 0), False, o_])
+    # 高さがあてにならない組（頂点の半分より多くが弦でずれる、筋の中など）は、となりの確かな組の高さに
+    for _ in range(6):
+        own = {t: i for i, f in enumerate(found) if f[4] for t in f[2]}; todo = [i for i, f in enumerate(found) if not f[4]]
+        if not todo: break
+        for i in todo:
+            f = found[i]; offs = [found[own[u]][5] for t in f[2] for u in nb[t] if u in own and found[own[u]][0] == f[0]]
+            if offs:
+                o_ = max(set(offs), key=offs.count); f[3] = Ruled(spec['corners'](f[1]), o_, up=f[0] > 0); f[4] = True; f[5] = o_
+    # 細い切れ端（面の境の放射の線と、光の筋・梁の帯の縁の線がほとんど重なってできる、面積 0.02 m² 未満）は、となりの組の面に入れる
+    if not strict:
+        for _ in range(3):
+            own = {t: i for i, f in enumerate(found) for t in f[2]}; moved = False
+            for i, f in enumerate(found):
+                if not f[2] or area[f[2]].sum() >= 2e4: continue
+                nbs = [own[u] for t in f[2] for u in nb[t] if u in own and own[u] != i and found[own[u]][0] == f[0] and area[found[own[u]][2]].sum() >= 2e4]
+                if nbs: found[max(set(nbs), key=nbs.count)][2].extend(f[2]); f[2] = []; moved = True
+            found = [f for f in found if f[2]]
+            if not moved: break
     # 同じ平面の、となり合う組は一つの面に
     owner = -np.ones(len(T), int)
     for i, f in enumerate(found): owner[f[2]] = i
@@ -659,6 +693,23 @@ def _ruled_regions(W, T, area, he, reg, regs, N, spec):
     for g, mem in enumerate(regs):
         rest = [t for t in mem if newreg[t] < 0]
         if rest: rid = len(out_regs); out_regs.append(rest); newreg[rest] = rid
+    # 細い三角形（高さ 0.3 mm 未満）だけの領域（梁の線で切った細長い三角形の切れ端、法線があてにならない）は、辺を多く分けるとなりの領域に
+    lmax = np.max([np.linalg.norm(W[T[:, i]] - W[T[:, (i + 1) % 3]], axis=1) for i in range(3)], axis=0)
+    thin = 2 * area / np.maximum(lmax, 1e-12) < 0.3
+    for _ in range(4):
+        moved = False
+        for rid, mem in enumerate(out_regs):
+            if not mem or rid in rsrf or not (thin[mem].all() or area[mem].sum() < 200.0): continue
+            cnt = {}
+            for t in mem:
+                for u in nb[t]:
+                    q = newreg[u]
+                    if q != rid and out_regs[q] and not thin[out_regs[q]].all() and area[out_regs[q]].sum() >= 200.0: cnt[q] = cnt.get(q, 0) + 1
+            if not cnt: continue
+            q = max(cnt, key=cnt.get); out_regs[q] = out_regs[q] + mem; newreg[mem] = q; out_regs[rid] = []; moved = True
+        if not moved: break
+    keep = [i for i, mem in enumerate(out_regs) if mem]; ren = {o: i for i, o in enumerate(keep)}
+    out_regs = [out_regs[i] for i in keep]; newreg = np.array([ren[x] for x in newreg]); rsrf = {ren[k]: v for k, v in rsrf.items()}
     return newreg, out_regs, rsrf
 
 
@@ -2034,6 +2085,7 @@ def split_pinched(W, T):
 
 
 def _build(W, T, curved, snap=True, graph=None, ruled=None):
+    multi_ok = ruled is not None
     T = orient(T)
     W, T = split_pinched(np.asarray(W, float), T)
     he = topology(W, T)
@@ -2462,10 +2514,26 @@ def _build(W, T, curved, snap=True, graph=None, ruled=None):
             x, y = pp[:, 0], pp[:, 1]; return 0.5 * (x * np.roll(y, -1) - np.roll(x, -1) * y).sum()
         areas = [sarea(l) for l in loops_uv]
         order = sorted(range(len(loops_uv)), key=lambda i: -areas[i])
-        if areas[order[0]] <= 0: raise Fail('outer loop orientation')
+        if areas[order[0]] <= 0:
+            if _DBG: print('DBG olo', s.kind, G, [len(regs[g_]) for g_ in G], [float(area[regs[g_]].sum()) for g_ in G], areas, [len(l) for l in loops_uv], [[P[sq[0]] for (_, _, sq, _) in l] for l in loops_uv])
+            raise Fail('outer loop orientation')
+        # 外側のループごとに一つの面（西館の屋根の層：同じ平面の二つの面が、面積の無い細い三角形でつながっていることがある、10-28）。
+        # 穴はそれを含む外側のループの面に
+        outs = [i for i in order if areas[i] > 0]
+        if len(outs) > 1 and not multi_ok: raise Fail('two outer loops')
+        grp_of = {i: i for i in outs}
+        if len(outs) > 1:
+            from shapely.geometry import Polygon as _SPg, Point as _SPt
+            pol = {i: _SPg([p for (_, _, _, uvs) in loops_uv[i] for p in uvs[:-1]]).buffer(0) for i in outs}
+            for i in order:
+                if i in grp_of: continue
+                q = loops_uv[i][0][3][0]; cand = [o for o in outs if pol[o].buffer(1e-6).contains(_SPt(q))]
+                grp_of[i] = min(cand, key=lambda o: areas[o]) if cand else outs[0]
+        else:
+            for i in order: grp_of[i] = outs[0]
+        fi_of = {o: len(Frec) + n for n, o in enumerate(outs)}; lis_of = {o: [] for o in outs}
         for kk, li0 in enumerate(order):
-            luv = loops_uv[li0]
-            if kk > 0 and areas[li0] > 0: raise Fail('two outer loops')
+            luv = loops_uv[li0]; fcur = fi_of[grp_of[li0]]; outer_ = li0 in fi_of
             li = len(Lrec); tis = []
             # 一つのループの線・折れ線のトリムは一本の 2 次元の折れ線を分けあう（ファイルを小さく。トリムは定義域の一部を使う）
             bp, bt, pend = [], [], []
@@ -2534,8 +2602,9 @@ def _build(W, T, curved, snap=True, graph=None, ruled=None):
                 if ci is None: pend.append(ti)
                 E[ei]['ti'].append(ti); tis.append(ti)
             flush()
-            Lrec.append((tis, 1 if kk == 0 else 2, f)); lis.append(li)
-        Frec.append((lis, si, 0))
+            Lrec.append((tis, 1 if outer_ else 2, fcur)); lis_of[grp_of[li0]].append(li)
+        for o in outs:
+            lo_ = lis_of[o]; lo_.sort(key=lambda x: Lrec[x][1]); Frec.append((lo_, si, 0))
     # 許容差
     Vrec = []
     for v in Vlist:

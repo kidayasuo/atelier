@@ -6,10 +6,10 @@
   2. それ以外 → 閉じた Brep（同じ平面の三角形は一枚の面、細かく分けた曲面は円柱・球・円環（管）の面に戻す）。
   3. 自由な形（クスノキ・地形・網の鉢など、三角形ごとに面になってしまうもの）→ 閉じたメッシュのまま。
 - 閉じていない面（部屋の色の板・道路・太陽光の板・網・地形）は厚みをつけて閉じる（SHEET）。
-- 西館の屋根の層（20・20r・20p）の片は、屋根の定義（roofw の BAYS・beam_line・ruled_point）からスパンごとの面で直接作る
-  （10-28、ユーザー：今の形のまま滑らかな NURBS で、平面にできる所は平面。solidify.Ruled：四隅の双一次＝次数 1×1、
-  四隅が 0.5 mm 以内で平らなら平面。上下の面はスパンの境（梁の線）で分け、層は z をずらした同じ面。メッシュのもとの頂点が
-  面から 1 mm を超えて離れる片は作らず、前の道（ずれは log に「西館の屋根：作らなかった片」）。
+- 西館の屋根の層（20・20r・20p）の片は、屋根の定義（roofw の SPANS・STRIPS・roof_line）からスパンごとの面で直接作る
+  （10-28、ユーザー：屋根は平面が基本、うまくゆかない所だけ曲面。平面のスパンは平面、北西の角と筋は四隅の双一次＝次数 1×1、
+  solidify.Ruled）。上下の面はスパンの境（放射の線）で分け、層は z をずらした同じ面。作れない片（軒の下面が上がる通気、
+  段7fで上げられた 20p など）は前の道（log に「西館の屋根：作らなかった片」）。
 - 西館の屋根（20・20p・20t）のねじれた面の片は、線織面（ruled_roof.py）の六枚の組を辺でつないで閉じる
   （平らな面でできた片は上のふつうの道で）。一枚だけの片（薄い板・太陽光）は厚みをつける。
 - 開いた輪郭の押し出し（外構の塀・柵の面）は輪郭に厚み FENCE_T をつけ、ふたの無い押し出しにはふたをする。
@@ -165,27 +165,56 @@ def close_extrusion(e):
 
 
 # 西館の屋根の面の関数と折れの位置（roofw.py、西館係）
-# RULED_STRICT：True＝メッシュのもとの頂点がどれも面（屋根の定義＋層のずれ）から 1 mm 以内の片だけをスパンごとの面に（10-28 の決まり：
-# 形は変えない、ずれは報告）。False＝8 割以上がのる片は定義どおりの面に（メッシュの網目の弦のずれ・へこみは消える、辺のずれ 15 mm まで）
-RULED_STRICT = os.environ.get('RULED_LOOSE') != '1'     # 確かめ用：RULED_LOOSE=1 でゆるい方
+# RULED_STRICT：True＝メッシュのもとの頂点がどれも面（屋根の定義＋層のずれ）から 1 mm 以内の片だけをスパンごとの面に。
+# 既定 False（10-28 昼、ユーザー・監修：定義が決めた形、メッシュの弦のずれは近似）＝8 割以上がのる片は定義どおりの面に（辺のずれ 15 mm まで）
+RULED_STRICT = os.environ.get('RULED_STRICT') == '1'
 try:
     import pickle, roofw
-    from uv import uv as _uv
+    from uv import uv as _uv, xy as _xy
     _ROOT = os.environ.get('SODACHIYA_ROOT') or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
     _RW = roofw.make(pickle.load(open(os.path.join(_ROOT, 'data', 'wnew.pkl'), 'rb'))['WN'])
     ROOF_SPEC = dict(func=_RW['roof_f'], ubreaks=[21.0, 51.0] + [f + d for f in _RW['FRAMES'][1:] for d in (-0.09, 0.09)] + list(_RW.get('KINKS', [])), vbreaks=[_RW['VRIDGE']])   # KINKS：屋根の線（梁）で面が折れる（10-27夜、西館係）
-    # スパンごとの面（10-28）：読むのは BAYS（梁の線の u）・beam_line(u)（棟と軒の点）・ruled_point(k, h, s)（スパン k の点、四隅の高さ）だけ。
-    # 西館係が BAYS を変える・ストリップの線を足すと、そのまま追いつく
-    _B = list(_RW['BAYS'])
+    # スパンごとの面（10-28 昼）：読むのは roofw の SPANS（(u0, u1, 'plane', (Pa.x, Pa.y, c0, c1, c2)) か (u0, u1, 'ruled', None)）・
+    # STRIPS（一次で移る筋 (u0, u1)）・roof_line(u, side)（放射の線 u の上の屋根の線、棟と軒の xyz）・VRIDGE だけ。
+    # 平面のスパン → 平面（四隅を平面の上に取る）、双一次のスパンと筋 → 両端の屋根の線を四隅にした双一次（solidify.Ruled）。
+    # 面の受け持ちは u で：平面・双一次のスパンから筋の分を除き、筋はそれだけで一つ。西館係が SPANS・STRIPS を変えればそのまま追いつく
+    _VR = _RW['VRIDGE']; _RL = _RW['roof_line']; _ST = list(_RW['STRIPS'])
+    def _pt(u, v): return np.array(_xy(u, v), float).ravel()
+    _SEG = []                                                 # (u0, u1, 四隅 [棟 u0, 棟 u1, 軒 u0, 軒 u1])
+    for ua, ub, kind, cf in _RW['SPANS']:
+        a, b = ua, ub
+        for s0, s1 in _ST:
+            if s0 < ua < s1: a = s1
+            if s0 < ub < s1: b = s0
+        if kind == 'plane':
+            px, py, c0, c1, c2 = cf
+            C = [np.r_[q, c0 + c1 * (q[0] - px) + c2 * (q[1] - py)] for q in (_pt(a, _VR), _pt(b, _VR), _pt(a, _VR - 10.0), _pt(b, _VR - 10.0))]
+        else:
+            (Ra, Ea), (Rb, Eb) = _RL(ua, 'N'), _RL(ub, 'S'); C = [Ra, Rb, Ea, Eb]
+        _SEG.append((a, b, C))
+    for s0, s1 in _ST:                                        # 筋（一次の移り）は、両端の屋根の線の双一次が roof_f から 0.3 mm 以内になるまで細かく
+        for n_ in (1, 2, 3, 4, 6, 8):
+            us_ = np.linspace(s0, s1, n_ + 1); dv_ = 0.0
+            for a_, b_ in zip(us_, us_[1:]):
+                Rs_ = SD.Ruled([*_RL(a_)[:1], *_RL(b_)[:1], *_RL(a_)[1:], *_RL(b_)[1:]])
+                for uu in np.linspace(a_, b_, 5):
+                    Rr_, Er_ = _RL(uu)
+                    for t_ in np.linspace(0.0, 1.1, 12):
+                        q_ = Rr_ + (Er_ - Rr_) * t_; dv_ = max(dv_, abs(Rs_.z(q_) - _RW['roof_f'](q_[0], q_[1])))
+            if dv_ < 0.3: break
+        for a_, b_ in zip(us_, us_[1:]):
+            (Ra, Ea), (Rb, Eb) = _RL(a_), _RL(b_); _SEG.append((a_, b_, [Ra, Rb, Ea, Eb]))
+    _SEG.sort(key=lambda x: x[0])
+    _UB = [x[0] for x in _SEG[1:]]                            # 面の境の u（放射の線、ここでメッシュを切る）
     def _bay(x, y):
-        u = float(np.ravel(_uv(x, y)[0])[0]); return int(np.clip(np.searchsorted(_B, u) - 1, 0, len(_B) - 2))
-    _CORN = {k: [_RW['ruled_point'](k, 0.0, 0.0), _RW['ruled_point'](k, 0.0, 1.0), _RW['ruled_point'](k, 1.0, 0.0), _RW['ruled_point'](k, 1.0, 1.0)] for k in range(len(_B) - 1)}
-    RULED = dict(corners=lambda k: _CORN[k], bay=_bay, strict=RULED_STRICT, snap=2.0 if RULED_STRICT else 60.0,
-                 lines=[(R_, E_ - R_) for R_, E_ in (_RW['beam_line'](u_) for u_ in _B[1:-1])])
+        u = float(np.ravel(_uv(x, y)[0])[0]); return int(np.searchsorted(_UB, u))
+    RULED = dict(corners=lambda k: _SEG[k][2], bay=_bay, strict=RULED_STRICT, snap=2.0 if RULED_STRICT else 60.0,
+                 lines=[(_pt(u_, _VR), _pt(u_, -16.0) - _pt(u_, _VR)) for u_ in _UB])
 except Exception as _e:
     print('roofw を読めない（西館の屋根は前の作り方）:', _e); ROOF_SPEC = None; RULED = None
-RULED_DEV = 1.0 if RULED_STRICT else 15.0      # スパンごとの面で作った片の辺が、メッシュの版から離れてよい距離 (mm)
+RULED_DEV = 1.0 if RULED_STRICT else 60.0      # スパンごとの面で作った片の辺が、メッシュの版から離れてよい距離 (mm、ゆるい時は大きな間違いだけを止める。光の筋（棟で段 約10 cm を 18 cm で移る）の中はメッシュの弦が 約35 mm ずれる。ずれは log に)
 RULED_LOG = []                   # 作らなかった片（場所・ずれ）
+RULED_DEVS = []                  # 作った片の、メッシュの版とのずれ（レイヤー・mm・(u, v)）
 
 
 def ruled_piece(W, T, lname):
@@ -196,12 +225,16 @@ def ruled_piece(W, T, lname):
     why = 'not manifold'
     for Wm, Tm in alts:
         n0 = len(Wm); W2, T2 = SD.split_by_lines(Wm, Tm, RULED['lines'])
-        spec = dict(RULED, n0=n0, report=[])
+        # 一定の高さにのらなくてよい頂点の割合：20p は 0.2（段7fで一部の頂点だけ +20 上げられた片を、前の道に残すため）、ほかは制限なし
+        # （細い片では梁の帯で切った縁の頂点が、筋（一次の移り）の中ではほとんどの頂点が、網目の弦で定義からずれる。高さはいちばん多い値）
+        spec = dict(RULED, n0=n0, report=[], share=0.2 if lname.startswith('20p') else 1.0)
         b, info = SD.solid_from_mesh(W2, T2, ruled=spec)
         if b is None or not info.startswith('curved'):
-            why = info.split('/')[0][:60] if not spec['report'] else spec['report'][0]; continue
+            why = info.split('/')[0][:60]; continue
         dv = deviation([(b, 'curved')], W, T)
-        if dv <= RULED_DEV: return [(b, 'curved')]
+        if dv <= RULED_DEV:
+            c_ = W[np.unique(T)].mean(0); RULED_DEVS.append((lname.split('_')[0], round(dv, 1), tuple(np.round([float(np.ravel(q)[0]) for q in _uv(c_[0], c_[1])], 2))))
+            return [(b, 'curved')]
         why = 'ずれ %.1f mm' % dv
     bb = W[np.unique(T)]; c = bb.mean(0)
     RULED_LOG.append((lname.split('_')[0], len(T), tuple(np.round(_uv(c[0], c[1]), 2)) if RULED else None, why))
@@ -339,5 +372,7 @@ print(stat)
 if RULED_LOG:
     print('西館の屋根：スパンごとの面で作らなかった片（レイヤー・三角形の数・(u, v)・わけ）:')
     for x in RULED_LOG: print('  ', x)
+if RULED_DEVS:
+    print('西館の屋根：スパンごとの面で作った片のずれ（大きい順、レイヤー・mm・(u, v)）:', sorted(RULED_DEVS, key=lambda x: -x[1])[:12])
 print('閉じたソリッドでない物（メッシュは閉じている）:', {k: v for k, v in sorted(odd.items())})
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))
