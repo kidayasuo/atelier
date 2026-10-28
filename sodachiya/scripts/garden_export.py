@@ -285,7 +285,10 @@ for a, d, kind, _, note in G["TREES"]:
     sp = note.split("（")[0]; ht, rc = TH[kind]
     base = P3(a, d); top = r.Point3d(base.X, base.Y, base.Z + (ht - rc) * 1000)
     m.Objects.AddLine(base, top, at(94, sp + "（幹）"))
-    sph = r.Sphere(r.Point3d(base.X, base.Y, base.Z + (ht - rc * 0.9) * 1000), rc * 0.9 * 1000)
+    zc = ht - rc * 0.9                                   # 樹冠の中心の高さ（地面から）
+    for tu in G.get("TREE_UNDER", {}).get("trees", []):  # 枝下を上げる木（下枝を払う、10-29）
+        if abs(tu["at"][0] - a) < 0.01 and abs(tu["at"][1] - d) < 0.01: zc = max(zc, tu["under"] + rc * 0.9)
+    sph = r.Sphere(r.Point3d(base.X, base.Y, base.Z + zc * 1000), rc * 0.9 * 1000)
     m.Objects.AddBrep(sph.ToBrep(), at("94c", note))
 
 # ---- 95 遊び場 ----
