@@ -168,11 +168,37 @@ SDY.placeLink = function (doc, lay, i, p) {
     it.position = [tl[0] - p.clip[0] * K * s, tl[1] + p.clip[1] * K * s];
     var g = lay.groupItems.add();
     it.move(g, ElementPlacement.PLACEATEND);
+    if (p.overlay) {                                 // Rhino の線（下）と文字と寸法（上）：同じ紙・同じ位置の二つのリンク（10-28）
+        it.name = p.base_name || "線（Rhino）";
+        SDY.addOverlay(g, it, p);
+    }
     var r = g.pathItems.rectangle(tl[1], tl[0], p.w * K, p.h * K);     // いちばん上の四角が切り抜きの形
     r.filled = false; r.stroked = false;
     g.clipped = true;
     SDY.tag(g, p);
     return g;
+};
+// 切り抜きのグループの中のリンク：重ねる図（文字と寸法）を、下の図（線）と同じ大きさ・同じ位置に。build と update_texts が使う
+SDY.overlayIn = function (g, p) {
+    var k;
+    for (k = 0; k < g.placedItems.length; k++) { if (g.placedItems[k].name === (p.overlay_name || "文字と寸法")) { return g.placedItems[k]; } }
+    return null;
+};
+SDY.baseIn = function (g, p) {
+    var k, ov = p ? (p.overlay_name || "文字と寸法") : "文字と寸法";
+    for (k = 0; k < g.placedItems.length; k++) { if (g.placedItems[k].name !== ov) { return g.placedItems[k]; } }
+    return null;
+};
+SDY.addOverlay = function (g, base, p) {
+    var f = File(SDY.root.fsName + "/" + p.overlay);
+    if (!f.exists) { SDY.missing.push(p.overlay); return null; }
+    app.preferences.PDFFileOptions.pageToOpen = p.page || 1;
+    var ov = g.placedItems.add();
+    ov.file = f;
+    ov.width = base.width; ov.height = base.height; ov.position = base.position;
+    ov.name = p.overlay_name || "文字と寸法";
+    ov.move(base, ElementPlacement.PLACEBEFORE);    // 線の上
+    return ov;
 };
 // 部品をまとめるグループ（p.group）。同じ名前のグループがレイヤーにあればそこへ、無ければ作る（注の文字と線、突き出た木の枝と幹）
 SDY.cont = function (lay, p) {
@@ -430,13 +456,105 @@ SDY.copyUserItems = function (src, dst) {             // 前の .ai の木田さ
                 ra = src.artboards[ai].artboardRect; rb = dst.artboards[bi].artboardRect;
                 dup.translate(rb[0] - ra[0], rb[1] - ra[1]);
                 var sp = SDY.planShift, gb = it.geometricBounds;
-                if (sp && bi === sp.ab) {                  // 配置図の上に描いた物は、配置図が紙の上で動いた分だけ一緒に動かす
+                if (sp && bi === sp.ab) {                  // 配置図の上に描いた物は、配置図が紙の上で動いた分だけ一緒に動かし、配置図のまとめに入れる（10-28）
                     var cx = ((gb[0] + gb[2]) / 2 - ra[0]) / SDY.K, cy = (ra[1] - (gb[1] + gb[3]) / 2) / SDY.K, w = sp.win;
-                    if (cx >= w[0] && cx <= w[0] + w[2] && cy >= w[1] && cy <= w[1] + w[3]) { dup.translate(sp.dx * SDY.K, -sp.dy * SDY.K); sp.n++; }
+                    if (cx >= w[0] && cx <= w[0] + w[2] && cy >= w[1] && cy <= w[1] + w[3]) {
+                        if (Math.abs(sp.dx) > 0.05 || Math.abs(sp.dy) > 0.05) { dup.translate(sp.dx * SDY.K, -sp.dy * SDY.K); }
+                        sp.n++; SDY.planUser.push(dup);
+                    }
                 }
             }
             n++;
         } catch (e) { SDY.missing.push("木田さんの物（" + (it.name || it.typename) + "）を写せなかった：" + e.message); }
+    }
+    return n;
+};
+
+// 配置図のまとめ（ユーザー、10-28 18:03：配置図の位置に依存する物は全てグループに）
+SDY.planUser = [];                                   // 前の .ai から写した、配置図の上の木田さんの物（copyUserItems が入れる）
+SDY.PLAN_GROUP = "配置図（まとめ）";
+// .ai の配置図の原点（紙の左上から mm）と切り抜きの四角：素材01aの左上 ＋ 素材の中の原点の位置（組んだときの目印 ao の mat、無ければ前の描き方 mat_legacy）
+SDY.planOrigin = function (doc, ao, an) {
+    var map = SDY.findByTag(doc), it = map["p1.sozai.01a"], K = SDY.K, b, ai, r, x, y, h, mo, out = null, k, i, cg, cb;
+    if (!it) { return null; }
+    b = it.geometricBounds; ai = SDY.abOf(doc, b); if (ai < 0) { ai = 0; }
+    r = SDY.ab(doc, ai);
+    x = (b[0] - r[0]) / K; y = (r[1] - b[1]) / K; h = (b[1] - b[3]) / K;
+    mo = (ao && ao.mat) ? ao.mat : ((an && an.mat_legacy) ? [an.mat_legacy[0], h + an.mat_legacy[1]] : null);
+    if (!mo) { return null; }
+    out = { origin: [x + mo[0], y + mo[1]], window: SDY.clipWindow(doc) };
+    return out;
+};
+SDY.clipWindow = function (doc) {                     // 配置図の切り抜きの四角（1枚目の左上から mm）
+    var i, k, cg, cb, ai, r, K = SDY.K;
+    for (i = 0; i < doc.groupItems.length; i++) {
+        cg = doc.groupItems[i];
+        if (cg.name !== "配置図（切り抜き）" || !cg.clipped) { continue; }
+        for (k = 0; k < cg.pathItems.length; k++) {
+            if (!cg.pathItems[k].clipping) { continue; }
+            cb = cg.pathItems[k].geometricBounds; ai = SDY.abOf(doc, cb); r = SDY.ab(doc, ai < 0 ? 0 : ai);
+            return [(cb[0] - r[0]) / K, (r[1] - cb[1]) / K, (cb[2] - cb[0]) / K, (cb[1] - cb[3]) / K];
+        }
+    }
+    return null;
+};
+SDY.planUserIn = function (doc, ab) {               // 開いている .ai の、配置図の切り抜きの上にある木田さんの物（update_texts 用）
+    var w = SDY.clipWindow(doc), items = SDY.userItems(doc), k, gb, r, cx, cy, out = [];
+    if (!w) { return out; }
+    r = SDY.ab(doc, ab);
+    for (k = 0; k < items.length; k++) {
+        gb = items[k].geometricBounds;
+        if (SDY.abOf(doc, gb) !== ab) { continue; }
+        cx = ((gb[0] + gb[2]) / 2 - r[0]) / SDY.K; cy = (r[1] - (gb[1] + gb[3]) / 2) / SDY.K;
+        if (cx >= w[0] && cx <= w[0] + w[2] && cy >= w[1] && cy <= w[1] + w[3]) { out.push(items[k]); }
+    }
+    return out;
+};
+// layout.json の plan の付いた部品（素材01a〜dの切り抜きのグループ・太陽の線・配置図の文字と注・印・縮尺・用水路の矢印・配置図の題）と、
+// 配置図の上の木田さんの物を、レイヤー「配置図」の一つのグループ「配置図（まとめ）」に入れる。中の部品は印を持ったまま（ダブルクリックで中に入って一つずつ動かせる）。
+// 部品を入れてある小さなグループ（「配置図の注　…」「印　…」「縮尺」「配置図（切り抜き）」など）は、そのまま中へ。すでにまとめてあれば、まだ入っていない物だけ足す
+SDY.groupPlan = function (doc, L) {
+    var ids = {}, i, j, p, pg1 = -1;
+    for (i = 0; i < L.pages.length; i++) {
+        if (L.pages[i].no !== 1) { continue; }
+        pg1 = i;
+        for (j = 0; j < L.pages[i].parts.length; j++) { p = L.pages[i].parts[j]; if (p.plan) { ids[p.id] = j; } }
+    }
+    if (pg1 < 0) { return 0; }
+    var lay = SDY.layer(doc, "配置図"), g = null, k, n = 0;
+    try { var fig = doc.layers.getByName("図"); if (lay.zOrderPosition !== fig.zOrderPosition + 1) { lay.move(fig, ElementPlacement.PLACEBEFORE); } } catch (e) {}
+    for (k = 0; k < doc.groupItems.length; k++) { if (doc.groupItems[k].name === SDY.PLAN_GROUP) { g = doc.groupItems[k]; break; } }
+    if (!g) { g = lay.groupItems.add(); g.name = SDY.PLAN_GROUP; }
+    var inG = function (it) { var q = it; while (q && q.typename !== "Layer") { if (q === g) { return true; } q = q.parent; } return false; };
+    var topOf = function (it) {                       // レイヤーのすぐ下の階の入れ物（まとめのグループの中なら null）
+        var q = it;
+        while (q.parent && q.parent.typename === "GroupItem") { if (q.parent === g) { return null; } q = q.parent; }
+        return q;
+    };
+    // 下から上へ：切り抜きのグループ（素材）→ 太陽の線 → 木田さんの物 → 文字・注・縮尺 → 印
+    var rank = function (id) {
+        if (id.indexOf("p1.sozai.01") === 0) { return 0; }
+        if (id.indexOf("p1.link.13") === 0) { return 1; }
+        if (id.indexOf("p1.mark.") === 0) { return 4; }
+        return 3;
+    };
+    var map = SDY.findByTag(doc), lists = [[], [], [], [], []], id, it, t;
+    for (id in ids) { if (ids.hasOwnProperty(id) && map[id]) { lists[rank(id)].push(map[id]); } }
+    for (k = 0; k < SDY.planUser.length; k++) { lists[2].push(SDY.planUser[k]); }
+    var r_, moved = [];
+    for (r_ = 0; r_ < lists.length; r_++) {
+        for (k = 0; k < lists[r_].length; k++) {
+            it = lists[r_][k];
+            try {
+                if (inG(it)) { continue; }
+                t = topOf(it); if (!t) { continue; }
+                var seen = false, m;
+                for (m = 0; m < moved.length; m++) { if (moved[m] === t) { seen = true; break; } }
+                if (seen) { continue; }
+                t.move(g, ElementPlacement.PLACEATBEGINNING);   // 後から入れた物が上
+                moved.push(t); n++;
+            } catch (e) { SDY.missing.push("配置図のまとめに入れられなかった：" + (it.name || it.typename) + "（" + e.message + "）"); }
+        }
     }
     return n;
 };

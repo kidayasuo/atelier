@@ -36,25 +36,28 @@
     var carried = 0;
     if (out.exists) {                                  // 前の .ai にある木田さんの物（印の無い物）を新しい .ai へ写す（ユーザー、10-26）
         try {
-            // 配置図が紙の上で動いたか（前に組んだときの目印 layout_built.json、無ければ layout.json の anchors_prev）
-            var bf = File(SDY.here.fsName + "/layout_built.json"), OB = null, an = L.anchors ? L.anchors["p1.siteplan"] : null, ao = null, ab1 = -1;
-            try { if (bf.exists) { OB = SDY.readJSON(bf); } } catch (e) {}
-            ao = (OB && OB.anchors && OB.anchors["p1.siteplan"]) || (L.anchors_prev ? L.anchors_prev["p1.siteplan"] : null);
-            for (i = 0; i < n; i++) { if (L.pages[i].no === 1) { ab1 = i; } }
-            if (an && ao && ab1 >= 0) {
-                var ddx = an.origin[0] - ao.origin[0], ddy = an.origin[1] - ao.origin[1];
-                if (Math.abs(ddx) > 0.05 || Math.abs(ddy) > 0.05) { SDY.planShift = { ab: ab1, win: ao.window, dx: ddx, dy: ddy, n: 0 }; }
-            }
             var RM = SDY.oldNumbering(L);
             if (RM) {                                  // 前の .ai は前の番号のまま（10-28 の振り直し）：木田さんの物を新しい番号の枚へ
                 SDY.abMap = function (a) { var nn = RM[String(a + 1)]; return nn ? nn - 1 : a; };
             }
             var oldDoc = app.open(out);
+            // 配置図が紙の上で動いたか：前の .ai の配置図の原点（素材01aの左上＋素材の中の原点の位置）と、新しい layout.json の目印の原点（10-28：.ai で測る）。
+            // 測れなければ、前に組んだときの目印（layout_built.json、無ければ layout.json の anchors_prev）
+            var bf = File(SDY.here.fsName + "/layout_built.json"), OB = null, an = L.anchors ? L.anchors["p1.siteplan"] : null, ao = null, ab1 = -1;
+            try { if (bf.exists) { OB = SDY.readJSON(bf); } } catch (e) {}
+            ao = (OB && OB.anchors && OB.anchors["p1.siteplan"]) || (L.anchors_prev ? L.anchors_prev["p1.siteplan"] : null);
+            for (i = 0; i < n; i++) { if (L.pages[i].no === 1) { ab1 = i; } }
+            var po = SDY.planOrigin(oldDoc, ao, an);
+            if (po) { ao = { origin: po.origin, window: po.window || (ao ? ao.window : null) }; }
+            if (an && ao && ao.window && ab1 >= 0) {
+                SDY.planShift = { ab: ab1, win: ao.window, dx: an.origin[0] - ao.origin[0], dy: an.origin[1] - ao.origin[1], n: 0 };
+            }
             carried = SDY.copyUserItems(oldDoc, doc);
             oldDoc.close(SaveOptions.DONOTSAVECHANGES);
             app.activeDocument = doc;
         } catch (e) { SDY.missing.push("前の .ai を開けなかった（" + e.message + "）"); }
     }
+    try { SDY.groupPlan(doc, L); } catch (e) { SDY.missing.push("配置図のまとめ（" + e.message + "）"); }
     if (out.exists) {                                  // 前のファイルは old/ に日時を付けて退け、同じ名前で保存する（ユーザー、10-26：名前が増えていく）
         var d = new Date();
         var st = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2) + "-" + ("0" + d.getHours()).slice(-2) + ("0" + d.getMinutes()).slice(-2);
@@ -70,7 +73,7 @@
     doc.saveAs(out, new IllustratorSaveOptions());
     try { File(SDY.here.fsName + "/layout.json").copy(SDY.here.fsName + "/layout_built.json"); } catch (e) {}   // 組んだときの位置（書き出しで、動かした部品だけを残すため）
     var msg = "組みました：" + made + " 個（隠した " + skipped + " 個）、前の .ai から写した木田さんの物 " + carried + " 個\n" + out.fsName;
-    if (SDY.planShift && SDY.planShift.n) { msg += "\n配置図の上の物 " + SDY.planShift.n + " 個を、配置図と一緒に " + Math.round(SDY.planShift.dx) + "・" + Math.round(SDY.planShift.dy) + " mm 動かしました"; }
+    if (SDY.planShift && SDY.planShift.n && (Math.abs(SDY.planShift.dx) > 0.05 || Math.abs(SDY.planShift.dy) > 0.05)) { msg += "\n配置図の上の物 " + SDY.planShift.n + " 個を、配置図と一緒に " + Math.round(SDY.planShift.dx) + "・" + Math.round(SDY.planShift.dy) + " mm 動かしました"; }
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + SDY.missing.join("\n"); }
     if (!SDY.font("W3")) { msg += "\n\nヒラギノ角ゴシックが見つからないので、書体は既定のままです。"; }
     alert(msg);

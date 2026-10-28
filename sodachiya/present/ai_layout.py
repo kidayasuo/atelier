@@ -97,23 +97,33 @@ def write(c):
                 add(dict(id=f"sozai.{k}", name=f"素材 {fn[:-4]}", kind="link", layer="図", file=rel(os.path.join(HERE, "sozai", fn)),
                          x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2), clip=None, scale=1))
         # 3) 貼った図（ほかの係のPDF、配置図の三つ）
-        for (src, pno, clip, (x, y, w, h)) in emb:
+        for k_e, (src, pno, clip, (x, y, w, h)) in enumerate(emb):
             if inside(x + w / 2, y + h / 2):
                 continue
             if src in c["sitemap"]:
                 fn = c["sitemap"][src]
+                # 切り抜きの四角（.ai の座標、左上から）：既定は見本の窓（左右）を木田さんが動かした分ずらし、上下は内枠いっぱい（ユーザー 10-28 18:01）。
+                # 木田さんの四角（siteclip）があれば左右はそれ。上下も、上下いっぱいの版（anchors の clipv）で組んだ .ai から書き出したものならそれ
+                ssx, ssy = c.get("site_shift", (0.0, 0.0))
+                cx_, cw_ = x + ssx, w
+                cy_, ch_ = (c["siteclip_full"] if c.get("siteclip_full") else (H - y - h + ssy, h))
                 _uc = _USER_ALL.get("siteclip")                 # Illustratorで選んだ切り抜き（export_layout.jsx）
                 if _uc:
-                    x, w, h = _uc["x"], _uc["w"], _uc["h"]; y = H - _uc["y"] - h
+                    cx_, cw_ = _uc["x"], _uc["w"]
+                    if (_USER_ALL.get("anchors", {}).get("p1.siteplan") or {}).get("clipv") == (c["anchors"].get("p1.siteplan") or {}).get("clipv"):
+                        cy_, ch_ = _uc["y"], _uc["h"]
                 bx, by, bw, bh = c["sitebig"]                   # 素材は大きい窓、切り抜きの四角が見せる窓（一つのグループに四つ、ユーザー 10-26夕）
                 add(dict(id=f"sozai.{fn.split('_')[0]}", name=f"素材 {fn[:-4]}", kind="link", layer="図", file=rel(os.path.join(HERE, "sozai", fn)),
-                         x=round(bx, 2), y=round(by, 2), w=round(bw, 2), h=round(bh, 2), clip=None, scale=1,
-                         clipgroup="配置図（切り抜き）", cliprect=[round(x, 2), round(H - y - h, 2), round(w, 2), round(h, 2)]))
+                         x=round(bx, 2), y=round(by, 2), w=round(bw, 2), h=round(bh, 2), clip=None, scale=1, plan=True,
+                         clipgroup="配置図（切り抜き）", cliprect=[round(cx_, 2), round(cy_, 2), round(cw_, 2), round(ch_, 2)]))
             else:
                 full = clip[0] == 0 and clip[1] == 0
                 add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {os.path.basename(src)}", kind="link", layer="図",
                          file=rel(src), x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2),
-                         clip=None if full else [round(v, 2) for v in clip], scale=round(w / (clip[2] - clip[0]), 4), page=pno + 1))
+                         clip=None if full else [round(v, 2) for v in clip], scale=round(w / (clip[2] - clip[0]), 4), page=pno + 1,
+                         **({"plan": True} if src in c.get("plan_links", []) else {}),
+                         # Rhino の線の図には、文字と寸法の図を同じ切り抜き・同じ位置で重ねる（一つの切り抜きのグループに二つのリンク、10-28）
+                         **({"overlay": rel(c["rhino_txt"][(no, k_e)]), "base_name": "線（Rhino）", "overlay_name": "文字と寸法"} if (no, k_e) in c.get("rhino_txt", {}) else {})))
         # 4) 文字・箱
         has_frame = False
         for r in rec:
@@ -157,7 +167,8 @@ def write(c):
             o_ = ex[2] if len(ex) > 2 else {}            # id（固定の鍵）・name・align・follow（一緒に動く部品、ユーザー 10-28）
             add(dict(id=o_.get("id") or f"top.{_slug(ts)}", name=o_.get("name") or ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
                      size_pt=pt(th), font=(ex[0] if ex and ex[0] else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"),
-                     align=o_.get("align", "left"), mock_hash=djb2(ts), **({"follow": f"p{no}." + o_["follow"]} if o_.get("follow") else {})))
+                     align=o_.get("align", "left"), mock_hash=djb2(ts), **({"follow": f"p{no}." + o_["follow"]} if o_.get("follow") else {}),
+                     **({"plan": True} if o_.get("plan") else {})))
         # 5b) 番号の印（案H、1枚目、ユーザー 10-28）：○（自然）か□（地域）と白抜きの数字を一つのグループに。
         #     配置図の上の印は素材01a（配置図）について行く（.ai で配置図ごと動かしたら一緒に）。数字は mock.py が決めた番号（.ai の書き換えは mock.py が拾う）
         if no == 1:
@@ -165,7 +176,7 @@ def write(c):
                 r_, col = mk["r"], (c["cnat"] if mk["cat"] == "nat" else c["ccom"])
                 gk = dict(group=mk["group"], group_name=mk["group_name"]) if not mk["id"].startswith("ibox.") else \
                     dict(group=mk["group"].rsplit(".", 1)[0], group_name=mk["group_name"].replace("印（箱）　", "箱　"))
-                fo = dict(follow=f"p{no}." + mk["follow"]) if mk.get("follow") else {}
+                fo = dict(plan=True) if mk.get("follow") == "sozai.01a" else (dict(follow=f"p{no}." + mk["follow"]) if mk.get("follow") else {})   # 配置図の上の印は配置図のまとめに
                 s_ = r_ if mk["cat"] == "nat" else r_ * 0.9
                 shp = dict(id=f"{mk['id']}.shape", name=("○" if mk["cat"] == "nat" else "□") + f"　{mk['group_name']}", layer="説明",
                            x=round(mk["cx"] - s_, 2), y=round(H - mk["cy"] - s_, 2), w=round(2 * s_, 2), h=round(2 * s_, 2), fill=col,
@@ -188,15 +199,15 @@ def write(c):
                     add(dict(id=f"site.t.{_slug(sp['s'], 16)}", name=f"配置図の文字　{sp['s'][:20]}", kind="text", layer="説明",
                              x=round(sp["x"], 2), y=round(H - y, 2), s=sp["s"], size_pt=pt(sp["size"]), font="W6" if sp["bold"] else "W3",
                              color=sp["color"], align=sp["ha"] if sp["ha"] in ("left", "center", "right") else "left",
-                             group=sp.get("group"), mock_hash=djb2(sp["s"])))
+                             group=sp.get("group"), mock_hash=djb2(sp["s"]), plan=True))
                 elif sp["kind"] == "line":
                     add(dict(id=sp.get("id") or f"site.l.{(sp.get('group') or 'x').split('.')[-1]}", name=sp.get("name", "配置図の注の線"), kind="line", layer="説明",
                              pts=[[round(q[0], 2), round(H - q[1], 2)] for q in sp["pts"]], color=sp["color"], lw=sp["lw"], dot=sp.get("dot"),
-                             arrow=sp.get("arrow"), group=sp.get("group")))
+                             arrow=sp.get("arrow"), group=sp.get("group"), plan=True))
                 elif sp["kind"] == "circle":
                     add(dict(id=f"site.{sp['id']}", name=sp["name"], kind="circle", layer="説明",
                              x=round(sp["cx"] - sp["r"], 2), y=round(H - sp["cy"] - sp["r"], 2), w=round(2 * sp["r"], 2), h=round(2 * sp["r"], 2),
-                             fill=sp["fill"], alpha=sp.get("alpha", 1.0), stroke=sp.get("stroke"), lw=sp.get("lw", 0), group=sp.get("group")))
+                             fill=sp["fill"], alpha=sp.get("alpha", 1.0), stroke=sp.get("stroke"), lw=sp.get("lw", 0), group=sp.get("group"), plan=True))
         for p in parts:
             g_ = p.get("group")
             if g_ and not p.get("group_name"):
@@ -227,6 +238,23 @@ def write(c):
                 p["scale"] = round(u["w"] / (p["clip"][2] - p["clip"][0]), 4)
             if "s" in u and p["kind"] in ("text", "area") and not p.get("no_user_s"):
                 p["s"] = u["s"]
+        # 配置図のまとめ（1枚目、ユーザー 10-28 18:03：配置図の位置に依存する物は全てグループに）：plan の付いた部品。
+        # 木田さんが .ai で配置図ごと動かした分（site_shift）だけ、割付の無い部品も一緒に動かす。素材01a〜dは大きさが変わっても原点が同じ所に来るように
+        ssx, ssy = c.get("site_shift", (0.0, 0.0)) if no == 1 else (0.0, 0.0)
+        for p in parts:
+            if not p.get("plan"):
+                continue
+            if p["id"].startswith("p1.sozai.01"):
+                bx, by, bw, bh = c["sitebig"]
+                p.update(x=round(bx + ssx, 2), y=round(by + ssy, 2), w=round(bw, 2), h=round(bh, 2), u=1)
+                continue
+            u = user.get(p["id"]) or {}
+            if any(k_ in u for k_ in ("x", "y", "pts")) or (abs(ssx) + abs(ssy) < 0.01):
+                continue
+            if p.get("x") is not None:
+                p["x"], p["y"] = round(p["x"] + ssx, 2), round(p["y"] + ssy, 2)
+            if p.get("pts"):
+                p["pts"] = [[round(q[0] + ssx, 2), round(q[1] + ssy, 2)] for q in p["pts"]]
         for p in parts:
             p.pop("no_user_s", None)
         pages.append(dict(no=no, frame=has_frame, parts=parts))

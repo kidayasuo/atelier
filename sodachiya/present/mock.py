@@ -646,6 +646,40 @@ CLIP_B = (25, 244, 410, 377)
 CLIP_C = (430, 244, 812, 377)
 
 
+# 課題の要求の図面は Rhino 経由（決定事項（共通）、ユーザー 10-28 17:54）：平面・断面・立面は、木田さんが Rhino で出した線
+# drawings_rhino/<紙の名前>.pdf（rhino/zumen.py、線だけ・元のレイヤーごと、drawings/ の図と同じ紙・同じ位置）に、
+# drawings/<紙の名前>_文字.pdf（文字と寸法だけ）を重ねる。Rhino の図が無い・切り抜く所に線が無い（断面Aの弧の展開はまだ描かない）ときは今の自動の図のまま
+RHINO_DIR = os.path.join(ROOT, "drawings_rhino")
+RHINO_MAP = {   # drawings/ の自動の図 → drawings_rhino/ の名前（zumen.py は drawings/<名前>_views.json の <名前> で書く）
+    "sodachiya_plan_1-100.pdf": "sodachiya_plan_1-100.pdf",
+    "sodachiya_elevations_1-100.pdf": "sodachiya_elevations_1-100.pdf",
+    "sodachiya_elevations2_1-100.pdf": "sodachiya_elevations2_1-100.pdf",
+    "sodachiya_sections_1-100.pdf": "sodachiya_sections_1-100.pdf",
+}
+RHINO_TXT = {}      # (枚, embeds の番号) → 上に重ねる文字と寸法のPDF
+RHINO_USED = []
+
+
+def _rhino_of(src, pageno, clip):
+    """自動の図 src の Rhino の線の図（と文字の図）。切り抜く所に線が無ければ None"""
+    nm = RHINO_MAP.get(os.path.basename(src))
+    if not nm or os.path.dirname(os.path.abspath(src)) != os.path.join(ROOT, "drawings"):
+        return None
+    rp_, tp_ = os.path.join(RHINO_DIR, nm), src[:-4] + "_文字.pdf"
+    if not (os.path.exists(rp_) and os.path.exists(tp_)):
+        return None
+    try:
+        pg_ = fitz.open(rp_)[pageno]
+        cr_ = fitz.Rect(clip[0] * MM, clip[1] * MM, clip[2] * MM, clip[3] * MM) if clip else pg_.rect
+        if not any(fitz.Rect(d_["rect"]).intersects(cr_) for d_ in pg_.get_drawings()):
+            print("Rhino の図", nm, "の切り抜く所に線が無い：自動の図のまま", clip)
+            return None
+    except Exception as e_:
+        print("Rhino の図", nm, "を読めない：自動の図のまま", e_)
+        return None
+    return rp_, tp_
+
+
 def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None):
     """clip（元のPDFのmm、上原点）を、紙の(x,y)（下原点、左下）に倍率scale_factorで置く。
     fit=(w,h)を渡すと、その枠に縮めて入れる。戻り値は置いた大きさ（mm）"""
@@ -656,6 +690,11 @@ def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None):
     if fit:
         scale_factor = min(fit[0] / w0, fit[1] / h0)
     w, h = w0 * scale_factor, h0 * scale_factor
+    rh_ = _rhino_of(src, pageno, clip)
+    if rh_:                                        # Rhino の線を下に、文字と寸法を上に（同じ切り抜き・同じ位置）
+        RHINO_TXT[(sheet, len(embeds[sheet]))] = rh_[1]
+        RHINO_USED.append(f"{sheet}枚目 {os.path.basename(src)}")
+        src = rh_[0]
     embeds[sheet].append((src, pageno, clip, (x, y, w, h)))
     return w, h
 
@@ -871,34 +910,55 @@ sw, sh = (VX1 - VX0) * 5, (VY1 - VY0) * 5
 sx, sy = M + 6, H - M - 16 - 3 - sh                            # 配置図は上の帯のすぐ下まで上げる（ユーザー、10-26：配置図の注を消し、下の景観立面との窮屈さを解く）
 sx = (W - sw) / 2                                            # 配置図を紙の真ん中に（ユーザー）
 P1_BOT = M + 10                                              # 下の帯（沿川の景観立面）は2枚目（景観）へ移した（ユーザー、10-27夜：景観の枚の方が親和性が高い）。下の端の目安
-T(ax, sx + 120, sy - 18, "配置図", 6.0, bold=True)                 # 題は図の下に、大きく（ユーザー、10-26）
-T(ax, sx + 120 + 3 * 8.4 + 4, sy - 18, "1/200　高野川を下に（川向こうから見る向き、北は右上）", 3.4)
+# 題は図の下に、大きく（ユーザー、10-26）。配置図が紙の上下いっぱいになったので（10-28）、題は図の上に重ねる文字（配置図のまとめのグループに入る）
+TOPT[1].append((sx + 120, sy - 18, "配置図", 6.0, True, None, INK, dict(id="t.配置図", name="配置図の題", plan=True)))
+TOPT[1].append((sx + 120 + 3 * 8.4 + 4, sy - 18, "1/200　高野川を下に（川向こうから見る向き、北は右上）", 3.4, False, None, INK,
+                dict(id="t.1200高野川を下に（川向こ", name="配置図の縮尺と向き", plan=True)))
 xf = xform(sx, sy, 200, VX0, VY0)
 # 素材の配置図は見せる窓より大きく描き、Illustratorの切り抜きの四角で使う大きさを選ぶ（ユーザー、10-26夕）
-BX0, BX1, BY0, BY1 = VX0 - 12.0, VX1 + 10.0, VY0 - 6.0, VY1 + 6.0                # 北は紙の上の縁まで（A1の紙の外は描けない）
-bsx, bsy = sx + (BX0 - VX0) * 5, sy + (BY0 - VY0) * 5
-bsw, bsh = (BX1 - BX0) * 5, (BY1 - BY0) * 5
-# 図の置き場所の目印（3dmを回した座標の(0,0)が紙のどこか、左上からmm）。前の窓（南−6 m、北＋14 m）からのずれで、木田さんの描いた物を一緒に動かす
-_org = xf(np.array([[0.0, 0.0]]))[0]
-_top = sy + sh
-_org_prev = (sx + (0 - VX0) * 5, _top - (QY1 + 14.0) * 5)
-PLAN_ANCHOR = dict(origin=[round(_org[0], 2), round(H - _org[1], 2)], window=[round(sx, 2), round(H - sy - sh, 2), round(sw, 2), round(sh, 2)])
-PLAN_ANCHOR_PREV = dict(origin=[round(_org_prev[0], 2), round(H - _org_prev[1], 2)],
-                        window=[round(sx, 2), round(H - _top, 2), round(sw, 2), round((QY1 + 14.0 + 6.0) * 5, 2)])
-# 見本に描く木田さんの物も、描いたときの配置図の目印から今の目印へ動かす（layout_user.json の anchors、無ければ前の窓）
+# 上下は紙いっぱい（ユーザー、10-28 18:01：「上下いっぱいの幅を作ってください。おそらく枠でクリップします」）。見本の位置と、木田さんが .ai で
+# 配置図を動かした位置の両方で、紙の上の縁（0）から下の縁（H）まで素材があるように、北と南へ延ばす（5 m 刻み、ゆとり 25 mm）。東西は今のまま
 try:
     _lu = json.load(open(os.path.join(HERE, "ai", "layout_user.json"), encoding="utf-8"))
 except Exception:
     _lu = {}
-_ua = _lu.get("anchors", {}).get("p1.siteplan") or PLAN_ANCHOR_PREV
-# .ai で木田さんが配置図の素材（01a〜d）を動かしていれば、その分も戻す（ユーザー、10-28：配置図ごと動かした）。
-# .ai の配置図の原点 ＝ 目印の原点 ＋（.ai の素材の位置 − 組んだときの素材の既定の位置＝目印の窓 − 窓と大きい窓の差）
-_wo = (sx - bsx, (H - sy - sh) - (H - bsy - bsh))
+_org = xf(np.array([[0.0, 0.0]]))[0]
+O_M = (float(_org[0]), float(H - _org[1]))                    # 見本の配置図の原点（3dmを回した座標の(0,0)、紙の左上からmm）
+_ua0 = _lu.get("anchors", {}).get("p1.siteplan") or {}
 _u01 = _lu.get("parts", {}).get("p1.sozai.01a") or {}
-_mvx = _u01.get("x", _ua["window"][0] - _wo[0]) - (_ua["window"][0] - _wo[0])
-_mvy = _u01.get("y", _ua["window"][1] - _wo[1]) - (_ua["window"][1] - _wo[1])
-_ua = dict(origin=[_ua["origin"][0] + _mvx, _ua["origin"][1] + _mvy], window=[_ua["window"][0] + _mvx, _ua["window"][1] + _mvy] + list(_ua["window"][2:]))
-_udx, _udy = PLAN_ANCHOR["origin"][0] - _ua["origin"][0], PLAN_ANCHOR["origin"][1] - _ua["origin"][1]
+MAT_LEGACY = (-(VX0 - 12.0) * 5, (VY0 - 6.0) * 5)            # 10-28 夕までの素材：原点は素材の左から190 mm、下から135 mm（西へ12 m・南へ6 m 広く描いた）
+if "x" in _u01 and "h" in _u01:                               # .ai の配置図の原点 ＝ 素材01aの左上 ＋ 素材の中の原点の位置（組んだときの anchors の mat）
+    _mo = _ua0.get("mat") or [MAT_LEGACY[0], _u01["h"] + MAT_LEGACY[1]]
+    O_U = (_u01["x"] + _mo[0], _u01["y"] + _mo[1])
+else:
+    O_U = O_M
+BX0, BX1 = VX0 - 12.0, VX1 + 10.0
+BY1 = 5.0 * np.ceil((max(O_M[1], O_U[1]) + 25.0) / 25.0)                  # 北：紙の上の縁まで
+BY0 = -5.0 * np.ceil((H - min(O_M[1], O_U[1]) + 25.0) / 25.0)             # 南：紙の下の縁まで（高野川と向こう岸）
+bsx, bsy = sx + (BX0 - VX0) * 5, sy + (BY0 - VY0) * 5
+bsw, bsh = (BX1 - BX0) * 5, (BY1 - BY0) * 5
+SITE_SHIFT = (round(O_U[0] - O_M[0], 2), round(O_U[1] - O_M[1], 2))       # 木田さんが .ai で配置図を動かした分（見本 → .ai）
+_usc = _lu.get("siteclip")
+# 見せる窓（切り抜きの四角）：上下は内枠いっぱい（M〜H−M）。左右は木田さんの四角（.ai の座標から見本の座標へ戻す）、無ければ今の窓
+SCX0, SCX1 = ((_usc["x"] - SITE_SHIFT[0], _usc["x"] + _usc["w"] - SITE_SHIFT[0]) if _usc else (sx, sx + sw))
+print(f"配置図の素材：北へ{BY1:.0f} m・南へ{-BY0:.0f} m（{bsw:.0f}×{bsh:.0f} mm）、.ai で動かした分 {SITE_SHIFT}")
+# 図の置き場所の目印（3dmを回した座標の(0,0)が紙のどこか、左上からmm）。前の窓（南−6 m、北＋14 m）からのずれで、木田さんの描いた物を一緒に動かす
+_top = sy + sh
+_org_prev = (sx + (0 - VX0) * 5, _top - (QY1 + 14.0) * 5)
+PLAN_ANCHOR = dict(origin=[round(O_M[0], 2), round(O_M[1], 2)], window=[round(SCX0, 2), M, round(SCX1 - SCX0, 2), H - 2 * M])
+PLAN_ANCHOR_PREV = dict(origin=[round(_org_prev[0], 2), round(H - _org_prev[1], 2)],
+                        window=[round(sx, 2), round(H - _top, 2), round(sw, 2), round((QY1 + 14.0 + 6.0) * 5, 2)])
+# layout.json の目印は .ai に置く位置（木田さんが動かした配置図の上）。mat ＝ 素材の左上から原点まで（次に .ai から原点を求める）、clipv ＝ 切り抜きを上下いっぱいにした版
+PLAN_ANCHOR_AI = dict(origin=[round(O_U[0], 2), round(O_U[1], 2)], window=[round(SCX0 + SITE_SHIFT[0], 2), M, round(SCX1 - SCX0, 2), H - 2 * M],
+                      mat=[round((0 - BX0) * 5, 2), round(BY1 * 5, 2)], mat_legacy=[round(MAT_LEGACY[0], 2), round(MAT_LEGACY[1], 2)], clipv="full-1028")
+# 見本に描く木田さんの物は、.ai の配置図の位置から見本の配置図の位置へ動かす（.ai で配置図ごと動かしたとき、ユーザー 10-28）
+if "x" in _u01:
+    _udx, _udy = -SITE_SHIFT[0], -SITE_SHIFT[1]
+    _uwin = [_usc["x"], _usc["y"], _usc["w"], _usc["h"]] if _usc else [sx + SITE_SHIFT[0], H - sy - sh + SITE_SHIFT[1], sw, sh]
+else:                                                          # 素材の記録が無い：前に組んだときの目印から
+    _ua = _ua0 or PLAN_ANCHOR_PREV
+    _udx, _udy = O_M[0] - _ua["origin"][0], O_M[1] - _ua["origin"][1]
+    _uwin = _ua["window"]
 
 
 def _shift_ui(d, dx, dy):
@@ -909,7 +969,7 @@ def _shift_ui(d, dx, dy):
 
 
 if abs(_udx) + abs(_udy) > 0.05:
-    _w = _ua["window"]
+    _w = _uwin
     for _ui in USER_ITEMS.get(1, []):
         _cx, _cy = _ui.get("x", 0) + _ui.get("w", 0) / 2, _ui.get("y", 0) + _ui.get("h", 0) / 2
         if _w[0] <= _cx <= _w[0] + _w[2] and _w[1] <= _cy <= _w[1] + _w[3]:
@@ -917,7 +977,12 @@ if abs(_udx) + abs(_udy) > 0.05:
 # 配置図は別の図に描き、線・色・文字の三つに分けて書き出す（ユーザー、10-25朝：配置図として書き、その上に色、文字。
 # 園庭のチャットの図（garden01）は重ねない。屋根・外構・園庭はすべて3dmから）。1枚目にはこの三つを重ねて貼る
 _ax_page, _fig_page = ax, fig
-figS, ax = page()
+# 配置図の素材の紙（ユーザー 10-28：紙の上下いっぱい）。素材は A1 の紙の外まで描くので、図は縦に長い紙に描く：
+# 下の端 YB・上の端 YT（見本の紙の下原点のmm）。この紙の左上からのmm ＝ 見本の紙の左上からのmm ＋ SDY_
+YB, YT = min(0.0, float(bsy) - 1.0), max(H, float(bsy + bsh) + 1.0)
+HS, SDY_ = YT - YB, YT - H
+figS = plt.figure(figsize=(W / 25.4, HS / 25.4))
+ax = figS.add_axes([0, 0, 1, 1]); ax.set_xlim(0, W); ax.set_ylim(YB, YT); ax.axis("off")
 rp = clip_rect(ax, bsx, bsy, bsw, bsh)                          # 大きい方の窓で描く（見本には見せる窓だけ貼る）
 st = len(ax.patches); stl = len(ax.lines)
 SGRP = {"l": [], "c": [], "t": []}
@@ -1509,7 +1574,7 @@ if SITE_FROM_UPD:
     _ytl = lambda yr: H - (sy + (yr - VY0) * 5)                                     # 回した座標のy（m）→ こちらの紙の上からmm
     _yr_of = lambda ytl: VY0 + ((H - ytl) - sy) / 5
     _YW = _yr_of(_ia[3])                                                            # 向こうの図の南の端＝高野川の水際（回した座標）
-    _P = lambda xy: [fitz.Point(u_ * MM, (H - v_) * MM) for u_, v_ in xf(np.asarray(xy, float))]
+    _P = lambda xy: [fitz.Point(u_ * MM, (YT - v_) * MM) for u_, v_ in xf(np.asarray(xy, float))]
     def _fillg(pg_, g_, fc, ec=None, w=0.0, op=1.0):
         for q_ in getattr(g_, "geoms", [g_]):
             if q_.geom_type != "Polygon" or q_.is_empty: continue
@@ -1531,19 +1596,58 @@ if SITE_FROM_UPD:
     _wv = _yb + 0.35 * np.sin(_xs * 0.9) + 0.25 * np.sin(_xs * 2.3 + 1.0) + 0.15
     _WATER = Polygon(list(zip(_xs, _wv)) + [(BX1, BY0 - 1), (BX0, BY0 - 1)])
     _RDR = unary_union([rot(g) for ln, g in CTX if ln.startswith("03_") and g is not None]).buffer(0)
-    _BRIDGE = _RDR.intersection(Polygon([(BX0, BY0 - 1), (BX1, BY0 - 1), (BX1, _YW + 1), (BX0, _YW + 1)]))
+    _BRIDGE = _RDR.intersection(Polygon([(BX0, BY0 - 1), (BX1, BY0 - 1), (BX1, max(_YW, float(np.max(_wv))) + 1), (BX0, max(_YW, float(np.max(_wv))) + 1)]))   # 水の上の橋（10-28：水際から。上下いっぱいで見えるように）
     _STONES = []
     for x_ in np.arange(BX0, BX1, 0.42):
         for k_ in range(2):
             xx = x_ + _rng.uniform(-0.2, 0.2); yy = np.interp(xx, _xs, _wv) + _rng.uniform(0.1, 1.3) * (1 if k_ else 0.55)
             if not _BRIDGE.contains(Point(xx, yy)):
                 _STONES.append((xx, yy, _rng.uniform(0.07, 0.17), _rng.uniform(0, 180)))
+    # 南の向こう岸（ユーザー 10-28 18:01：配置図を紙の上下いっぱいに）：向こうの図の外（南）は、PLATEAU の土地利用（204 水面・205 河川敷、
+    # present/plateau_area.json.gz）で水面の向こうの縁を決め、河川敷・川沿いの道（3dm の周辺の道）・家（3dm の周辺の建物）を、こちらと同じ描き方で
+    import gzip
+    _PLA = json.load(gzip.open(os.path.join(HERE, "plateau_area.json.gz"), "rt", encoding="utf-8"))
+    _SOUTH = Polygon([(BX0 - 5, BY0 - 5), (BX1 + 5, BY0 - 5), (BX1 + 5, _YW), (BX0 - 5, _YW)])
+    _Rp = lambda xy: Polygon(R3(np.array(xy, float))).buffer(0)
+    _LUr = lambda c_: unary_union([g_ for g_ in (_Rp(u_["xy"]) for u_ in _PLA["luse"] if u_["cls"] == c_ and len(u_["xy"]) > 2) if g_.intersects(_SOUTH.buffer(30))]).buffer(0)
+    _PW = _LUr("204").intersection(_SOUTH.buffer(10))
+    _ymid = _PW.centroid.y if not _PW.is_empty else BY0 - 100
+    _x_ = Polygon([(BX0 - 5, BY0 - 5), (BX1 + 5, BY0 - 5), (BX1 + 5, _ymid), (BX0 - 5, _ymid)]).difference(_PW.buffer(0.01))
+    _FARL = unary_union([g_ for g_ in getattr(_x_, "geoms", [_x_]) if g_.geom_type == "Polygon" and g_.bounds[1] <= BY0 - 4.9])   # 向こう岸の陸
+    if not _FARL.is_empty:
+        _yf = np.array([(lambda q_: q_.bounds[3] if not q_.is_empty else np.nan)(LineString([(x_, BY0 - 5), (x_, _ymid)]).intersection(_FARL)) for x_ in _xs])
+        _yf = np.where(np.isnan(_yf), np.nanmax(_yf), _yf)
+        _yf = np.convolve(np.pad(_yf, 6, mode="edge"), np.ones(13) / 13, mode="valid") - (0.3 * np.sin(_xs * 0.8 + 2.0) + 0.2 * np.sin(_xs * 2.1)) - 0.1
+        _FARL = Polygon(list(zip(_xs, _yf)) + [(BX1 + 5, _yf[-1]), (BX1 + 5, BY0 - 6), (BX0 - 5, BY0 - 6), (BX0 - 5, _yf[0])]).buffer(0)
+        _WATER = _WATER.difference(_FARL)
+        _BRIDGE = _BRIDGE.difference(_FARL)
+    _FARB = _LUr("205").intersection(_FARL).difference(_RDR)                                     # 向こう岸の河川敷（草）
+    _FARB = _FARL.difference(_RDR).intersection(_FARB.buffer(1.2).buffer(-1.2)) if not _FARB.is_empty else _FARB
+    _BLDR = unary_union([rot(g) for ln, g in CTX if ln.startswith("04_") and g is not None]).buffer(0).intersection(_FARL).difference(_RDR)   # 向こう岸の家
+    _FARRD = _RDR.intersection(_FARL)                                                          # 向こう岸の道（線の輪郭）
+    # 北の道の向こうの京都工芸繊維大学の構内（PLATEAU の土地利用 214）を淡い色に（地域のなかの敷地と同じ色、10-28）。道・敷地には塗らない
+    _BIG = Polygon([(BX0 - 2, BY0 - 2), (BX1 + 2, BY0 - 2), (BX1 + 2, BY1 + 2), (BX0 - 2, BY1 + 2)])
+    _UNIV = unary_union([g_ for g_ in (_Rp(u_["xy"]) for u_ in _PLA["luse"] if u_["cls"] == "214" and len(u_["xy"]) > 2) if g_.intersects(_BIG)])
+    _UNIV = _UNIV.intersection(_BIG).difference(_RDR).difference(_SITEP.buffer(0.5)) if not _UNIV.is_empty else _UNIV
+    _UNIV = unary_union([g_ for g_ in getattr(_UNIV, "geoms", [_UNIV]) if g_.geom_type == "Polygon" and g_.centroid.y > 40.0])   # 北の道の向こうだけ
+    print("向こう岸：水面の南の縁 y≈", round(float(np.mean(_yf)), 1) if not _FARL.is_empty else None, "m、河川敷", round(_FARB.area, 0), "家", round(_BLDR.area, 0), "m2")
     _TUFTS = []
     for x_ in np.arange(BX0 + 0.8, BX1, 2.6):
         for y_ in np.arange(float(np.min(_yb)) + 2.2, -6.0, 2.4):
             xx, yy = x_ + _rng.uniform(-0.9, 0.9), y_ + _rng.uniform(-0.6, 0.6)
             if not _BRIDGE.contains(Point(xx, yy)) and _BED.buffer(-0.4).contains(Point(xx, yy)) and yy > np.interp(xx, _xs, _wv) + 1.6:
                 _TUFTS.append((xx, yy))
+    if not _FARL.is_empty:                        # 向こう岸の水際の丸石と、河川敷の草の印（こちらの岸と同じ描き方）
+        for x_ in np.arange(BX0, BX1, 0.42):
+            for k_ in range(2):
+                xx = x_ + _rng.uniform(-0.2, 0.2); yy = np.interp(xx, _xs, _yf) - _rng.uniform(0.1, 1.3) * (1 if k_ else 0.55)
+                if not _RDR.contains(Point(xx, yy)):
+                    _STONES.append((xx, yy, _rng.uniform(0.07, 0.17), _rng.uniform(0, 180)))
+        for x_ in np.arange(BX0 + 0.8, BX1, 2.6):
+            for y_ in np.arange(BY0 + 0.5, _ymid, 2.4):
+                xx, yy = x_ + _rng.uniform(-0.9, 0.9), y_ + _rng.uniform(-0.6, 0.6)
+                if _FARB.buffer(-0.4).contains(Point(xx, yy)) and yy < np.interp(xx, _xs, _yf) - 1.6:
+                    _TUFTS.append((xx, yy))
     # みなみのさんかく・砂場・水・小屋の屋根（ユーザー、10-26夜：更新係の図に無い色と屋根を足す）
     _pg_ = lambda o: (lambda g_: g_ if g_ is not None and g_.geom_type.endswith("Polygon") else None)(_poly_of(o))
     _uu = lambda gs: unary_union([g for g in gs if g is not None]).buffer(0) if any(g is not None for g in gs) else Polygon()
@@ -1557,18 +1661,20 @@ if SITE_FROM_UPD:
     print("配置図に足す：みなみのさんかく", round(_MINAMI.area, 1), "砂", round(_SANDP.area, 1), "水", round(_WATERP.area, 1), "雨庭", round(_RAINP.area, 1), "小屋の屋根", round(_HUT.area, 1), "m2")
     _shp_ = _sh                                   # 下の「北東の辺から出る道」で _sh が図形に上書きされるので、形を取る関数を取っておく
     for gr, suf in (("l", "_線.pdf"), ("c", "_色.pdf")):
-        _nd = fitz.open(); _pg = _nd.new_page(width=W * MM, height=H * MM)
+        _nd = fitz.open(); _pg = _nd.new_page(width=W * MM, height=HS * MM)
         # 向こうの紙の外（南の高野川の水面など）は、こちらの描いた線と色で補う（ユーザー 10-26夕：南へ延ばして川を見せる）
-        _bw = (bsx, H - bsy - bsh, bsx + bsw, H - bsy)
-        for _r in ((_bw[0], _bw[1], _bw[2], _ia[1]),
-                   (_bw[0], max(_bw[1], _ia[1]), _ia[0], min(_bw[3], _ia[3])), (_ia[2], max(_bw[1], _ia[1]), _bw[2], min(_bw[3], _ia[3]))):
-            _r = (max(_r[0], 0), max(_r[1], 0), min(_r[2], W), min(_r[3], H))
+        _bw = (bsx, YT - bsy - bsh, bsx + bsw, YT - bsy)                         # 縦に長い紙の左上から
+        _iP = (_ia[0], _ia[1] + SDY_, _ia[2], _ia[3] + SDY_)
+        for _r in ((_bw[0], _bw[1], _bw[2], _iP[1]),
+                   (_bw[0], max(_bw[1], _iP[1]), _iP[0], min(_bw[3], _iP[3])), (_iP[2], max(_bw[1], _iP[1]), _bw[2], min(_bw[3], _iP[3]))):
+            _r = (max(_r[0], 0), max(_r[1], 0), min(_r[2], W), min(_r[3], HS))
             if _r[2] - _r[0] > 0.1 and _r[3] - _r[1] > 0.1:
                 _cr = fitz.Rect(_r[0] * MM, _r[1] * MM, _r[2] * MM, _r[3] * MM)
                 _pg.show_pdf_page(_cr, fitz.open(_SITE_PDF[gr]), 0, clip=_cr)
         # 南（向こうの図の外）：水と橋だけ（こちらの描いた川の線は描かない）
         if gr == "c":
             _fillg(_pg, _WATER, _hx("#CFE3EF"))
+            _fillg(_pg, _UNIV, _hx("#EEEBE3"))                                           # 大学の構内（10-28）
             _fillg(_pg, _BRIDGE, _hx("#F7F7F7"))
             _fillg(_pg, _PARK_R, _hx("#D9E8C6"))                                        # 公園を緑に（ユーザー、10-26夜）
             if _g73a: _fillg(_pg, _ARCH, _hx("#C9DFB0"))                                  # ムベのアーチの範囲を緑に
@@ -1576,13 +1682,15 @@ if SITE_FROM_UPD:
             _fillg(_pg, _BRIDGE, None, _hx("#999999"), 0.2)
         _src = fitz.open(_SPB + suf)
         _cl = fitz.Rect((_ia[0] - _off[0] + 0.35) * MM, (_ia[1] - _off[1] + 0.35) * MM, (_ia[2] - _off[0] - 0.35) * MM, (_ia[3] - _off[1] - 0.35) * MM)
-        _pg.show_pdf_page(fitz.Rect((_ia[0] + 0.35) * MM, (_ia[1] + 0.35) * MM, (_ia[2] - 0.35) * MM, (_ia[3] - 0.35) * MM), _src, 0, clip=_cl)   # 枠の線は入れない
+        _pg.show_pdf_page(fitz.Rect((_iP[0] + 0.35) * MM, (_iP[1] + 0.35) * MM, (_iP[2] - 0.35) * MM, (_iP[3] - 0.35) * MM), _src, 0, clip=_cl)   # 枠の線は入れない
         if gr == "c":
             _fillg(_pg, _MINAMI, _hx("#DDE9CC"))                                           # みなみのさんかくを緑に（芝かどうかは別。向こうの図の白い地の上に）
             _fillg(_pg, _SANDP, _hx("#EFE2B8"))                                            # 砂場・粒の遊び場
             _fillg(_pg, _WATERP, _hx("#BFDDEE"))                                           # 水遊び（水のテーブル・噴水・あめのわ・霧のわ）
             _fillg(_pg, _RAINP, _hx("#DCE4E6"))                                            # 雨庭（玉石の浜）
             _fillg(_pg, _HUT, _hx("#5E636C"))                                              # 園庭の小屋の屋根（片流れ、更新係の図に無い）
+            _fillg(_pg, _FARB, _hx("#DDE8D0"))                                            # 向こう岸の河川敷（10-28）
+            _fillg(_pg, _BLDR, _hx("#DBDBDB"))                                             # 向こう岸の家（更新係の図の家と同じ灰）
             # 周りの道を少し濃く（ユーザー 10-27夜：西の道とその先の白い敷地の差をつける）。敷地の中は塗らない
             _fillg(_pg, _RDR.difference(_SITEP.buffer(0.05)), _hx("#E2E2E0"))
             # 西の道沿いの歩道（幅 1 m）を洗い出しのベージュに、スピードバンプは今までの灰のまま（ユーザー 10-27夜）
@@ -1601,6 +1709,8 @@ if SITE_FROM_UPD:
             _fillg(_pg, _SANDP, None, _hx("#A89A70"), 0.3)
             _fillg(_pg, _WATERP, None, _hx("#6FA3C4"), 0.3)
             _fillg(_pg, _HUT, None, _hx("#222222"), 0.5)
+            _fillg(_pg, _BLDR, None, _hx("#8C8C8C"), 0.17)                                 # 向こう岸の家と道の輪郭（10-28）
+            _fillg(_pg, _FARRD, None, _hx("#999999"), 0.2)
             for xx, yy in _TUFTS:
                 for da, ln_ in ((-28, 0.26), (-10, 0.34), (8, 0.36), (26, 0.27)):
                     t_ = np.radians(90 + da)
@@ -1610,14 +1720,14 @@ if SITE_FROM_UPD:
             for g_ in getattr(_wp, "geoms", [_wp]):
                 if g_.geom_type != "Polygon" or g_.area < 0.01: continue
                 _q = xf(np.array(rot(g_).exterior.coords))
-                _sh = _pg.new_shape(); _sh.draw_polyline([fitz.Point(u_ * MM, (H - v_) * MM) for u_, v_ in _q])
+                _sh = _pg.new_shape(); _sh.draw_polyline([fitz.Point(u_ * MM, (YT - v_) * MM) for u_, v_ in _q])
                 _sh.finish(color=None, fill=(1, 1, 1), closePath=True); _sh.commit()
         _fn = os.path.join(OUT, f"_site_{gr}_upd.pdf"); _nd.save(_fn); _nd.close()
         _SITE_PDF[gr] = _fn
     print("配置図：線と色は更新係の配置図から（ずれ", np.round(_off, 1), "mm）")
-_SCLIP = (sx, H - sy - sh, sx + sw, H - sy)                                  # 元のPDFのmm（左上から）
+_SCLIP = (SCX0, M + SDY_, SCX1, H - M + SDY_)                                          # 元のPDFのmm（左上から）。上下は内枠いっぱい（ユーザー 10-28 18:01）
 for gr in ("c", "l", "t", "o"):                                               # 1枚目：色 → 線 → 文字 → 風と視線の順に重ねる（太陽は外した、ユーザー 10-26）
-    embed(1, _SITE_PDF[gr], _SCLIP, sx, sy, 1.0)
+    embed(1, _SITE_PDF[gr], _SCLIP, SCX0, M, 1.0)
 # 太陽の線（方位を兼ねる、ユーザー 10-26夜）：配置図の左上。線は素材の図、時刻とNは Apple Chancery の文字の部品
 sys.path.insert(0, os.path.join(HERE, "tools"))
 import sun_rays
@@ -1632,7 +1742,7 @@ embed(1, _SUNF, None, _sux, _suy, 1.0)
 for _s, _x, _y, _ha in _SL:                     # 文字は図の上に（見本では貼った図の上に描く TOPT）。中心合わせ：幅の半分と高さの1/3を戻す
     _th = 1.9 if _s != "N" else 2.4
     _tw = fitz.Font(fontfile=FONT_ALT["Apple-Chancery"]).text_length(_s, _th / 0.72) 
-    TOPT[1].append((_sux + _x - _tw / 2, _suy + _y - _th * 0.35, _s, _th, False, "Apple-Chancery", "#F2F3F4"))
+    TOPT[1].append((_sux + _x - _tw / 2, _suy + _y - _th * 0.35, _s, _th, False, "Apple-Chancery", "#F2F3F4", dict(plan=True)))
 # 地域のなかの敷地（ユーザー、10-27：PLATEAU とともに）。北を上に 1/10000。置き場所はユーザーが選ぶ（いまは左下の仮の場所）
 import area_map
 _AMF = os.path.join(HERE, "sozai", "14_地域のなかの敷地_1-10000.pdf")
@@ -2146,11 +2256,13 @@ with PdfPages(base) as pp:
 doc = fitz.open(base)
 for si in range(1, 6):
     pg = doc[si - 1]
-    for src, pno, clip, (x, y, w, h) in embeds[si]:
+    for k_e, (src, pno, clip, (x, y, w, h)) in enumerate(embeds[si]):
         sd = fitz.open(src)
         cr = fitz.Rect(clip[0] * MM, clip[1] * MM, clip[2] * MM, clip[3] * MM)
         dr = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
         pg.show_pdf_page(dr, sd, pno, clip=cr)
+        if (si, k_e) in RHINO_TXT:                     # Rhino の線の上に文字と寸法
+            pg.show_pdf_page(dr, fitz.open(RHINO_TXT[(si, k_e)]), pno, clip=cr)
 doc_clean = fitz.open("pdf", doc.tobytes())          # 素材は引き出し線・重ねた文字を入れる前から切り抜く（ユーザー、10-25）
 for si in range(1, 6):
     pg = doc[si - 1]
@@ -2248,7 +2360,7 @@ for key, name, gr_nm, note in SOZAI_FILES:                    # 配置図の三�
     SITEMAP[_SITE_PDF[gr]] = fn
     nd = fitz.open()
     pg_ = nd.new_page(width=bsw * MM, height=bsh * MM)                    # 大きい方の窓（Illustratorで切り抜く）
-    pg_.show_pdf_page(pg_.rect, fitz.open(_SITE_PDF[gr]), 0, clip=fitz.Rect(bsx * MM, (H - bsy - bsh) * MM, (bsx + bsw) * MM, (H - bsy) * MM))
+    pg_.show_pdf_page(pg_.rect, fitz.open(_SITE_PDF[gr]), 0, clip=fitz.Rect(bsx * MM, (YT - bsy - bsh) * MM, (bsx + bsw) * MM, (YT - bsy) * MM))
     hs = hashlib.md5(pg_.get_pixmap(dpi=40).samples).hexdigest()
     nd.save(os.path.join(SZ, fn), garbage=3, deflate=True)
     nd.close()
@@ -2278,8 +2390,8 @@ _rows.append(f"| 00 | `{_fn0}` | 枠（外枠・上の帯の線・表題・ペ�
 _rows.sort(key=lambda r_: r_.split("|")[1].strip())
 _ext = []
 for sh_ in range(1, 6):
-    for src, pno, clip, (x, y, w, h) in embeds[sh_]:
-        rel = os.path.relpath(src, ROOT)
+    for k_e, (src, pno, clip, (x, y, w, h)) in enumerate(embeds[sh_]):
+        rel = os.path.relpath(src, ROOT) + (f"`＋`{os.path.relpath(RHINO_TXT[(sh_, k_e)], ROOT)}`（上に重ねる）" if (sh_, k_e) in RHINO_TXT else "")
         _ext.append(f"| {sh_}枚目 | `{rel}` | {'全体' if clip[0] == 0 and clip[1] == 0 else '切り抜き (%.0f, %.0f)–(%.0f, %.0f) mm' % tuple(clip)} | {w / (clip[2] - clip[0]):.2f} 倍 |")
 json.dump(_st, open(_stp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
@@ -2293,7 +2405,8 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
-ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], anchors={"p1.siteplan": PLAN_ANCHOR}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
+print("Rhino の図：", "、".join(RHINO_USED) if RHINO_USED else "無し（drawings_rhino/ が無いので自動の図のまま）")
+ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
                      renumber=dict(id="2026-10-28b", maps={"2026-10-28": {"4": 2, "5": 3, "2": 4, "3": 5}, "_none": {"5": 3, "3": 4, "4": 5}},
                                    note="ユーザー、10-28 13:17：5枚の番号を振り直した（前の番号 → 新しい番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"),
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
