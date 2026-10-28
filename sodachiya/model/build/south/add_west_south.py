@@ -5,11 +5,11 @@
 - すき間の南の端にガラス（入口の脇、v −0.15〜−0.85）
 - 床の板：キッチン u 21–27.25／調理の更衣・便所・前室 u 27.25–29.25（v −3.4〜−6.4）／はれのま（仮、34）残り／
   東の帯 u 22.5–30（すき間を含む、はだし ±0）
-- 海峡を東の帯の南端まで延ばす（u 21–22.5、v −0.2〜−3.4、−150）、u 22.5 に框
+- あまのがわを東の帯の南端まで延ばす（u 21–22.5、v −0.2〜−3.4、−150）、u 22.5 に框
 - 西館 1 階の間仕切り（キッチン・更衣・はれのま、h3170＝2 階の床の下まで）：配膳口・返却口・戸・見える台所の窓、
   オープンキッチン（東の面は腰壁 h450 と柱の上を 2 階の床の下までガラス、はれのまの東の面も、10-28）、更衣・前室・便所ははれのまの西の端（西の面に外への戸）、収納とカウンター
-- スパン 7：医務 v 4.5〜12 の床と海峡の側の壁、框 150、医務との引き込み戸。窓口の帯（v 0〜1.6）・静養室（v 1.6〜4.5）・
-  カウンター・飛び石は add_hall.py の「スパン 7」の節（本館係、10-23夜）。
+- スパン 7：医務 v 4.5〜12 の床とあまのがわの側の壁、框 150、医務との引き込み戸。窓口の帯（v 0〜1.6）・静養室（v 1.6〜4.5）・
+  カウンターは add_hall.py の「スパン 7」の節（本館係、10-23夜）。
 """
 import sys, math, pickle, numpy as np, rhino3dm as r
 from shapely.geometry import Polygon, Point, LineString, MultiPolygon
@@ -444,7 +444,7 @@ mid_ring = WS.buffer(-60, join_style=2).difference(WS.buffer(-90, join_style=2))
 for pn in PANES:
     fp, z0, z1, li = pn[:4]
     mesh_prism(mid_ring.intersection(fp), float(z0), const(float(z1)), li, name=pn[4] if len(pn) > 4 else None)
-# すき間の南の端のガラス：海峡の床 −150 から すき間の蓋の下まで
+# すき間の南の端のガラス：あまのがわの床 −150 から すき間の蓋の下まで
 lid = []
 for o in new.Objects:
     if LN.get(o.Attributes.LayerIndex, '').startswith('50a') and isinstance(o.Geometry, r.Mesh):
@@ -493,7 +493,7 @@ store = R(KN + 0.06, 30 - 0.06, CB + 0.06, CB + 0.6)                # はれの�
 flat(cook, 10, L_COOK)
 flat(R(KN, 30, CB, -3.4).intersection(WN).buffer(-5).buffer(5), 10, L_HARE)
 flat(unary_union([R(22.5, 30, -3.4, -0.9).intersection(WN), R(22.5, 30, -0.9, -0.2), R(30.0, 33.0, -0.9, -0.35)]).buffer(1).buffer(-1), 10, L_BAND)   # 10-27：スパン11 のすき間の床（本館の先生の道から南の口へ）
-# 海峡を東の帯の南端まで（土足 −150、床の板は −450〜−150）
+# あまのがわを東の帯の南端まで（土足 −150、床の板は −450〜−150）
 mesh_prism(unary_union([R(21, 22.5, -3.4, -0.9).intersection(WN), R(21, 22.5, -0.9, -0.2)]), -450.0, const(-150.0), L_STR)
 mesh_prism(R(22.45, 22.55, -3.4, -0.2, 0.05), -150.0, const(0.0), L_KAMA, (150, 110, 70))   # 框
 
@@ -569,10 +569,10 @@ def mesh_poly(g):
     return unary_union([p.buffer(1) for p in ps if p.area > 0]).buffer(-1)
 for g in WV:                                   # 西吹き抜けの板からスパン 7 を抜く
     flat(mesh_poly(g).difference(R(18.0, 21.0, -0.3, 1.9)), 10, L_WV)
-# 事務の板・おはようの窓口のカウンター・飛び石は add_hall.py の「スパン 7」の節で作る（窓口の帯 v 0–1.6・静養室 v 1.6–4.5、本館係 10-23夜）
+# 事務の板・おはようの窓口のカウンターは add_hall.py の「スパン 7」の節で作る（窓口の帯 v 0–1.6・静養室 v 1.6–4.5、本館係 10-23夜）
 flat(R(18.0, 21.0, 4.5, 12.0), 10, L_MED)
-mesh_prism(R(20.95, 21.05, 4.5, 12.0, 0.02), 0.0, const(2400.0), L_KAMA)            # 医務｜海峡の壁
-mesh_prism(R(20.95, 21.05, 0.0, 4.5, 0.02), -150.0, const(0.0), L_KAMA, (150, 110, 70))   # 框 150（海峡 −150 → ±0）
+mesh_prism(R(20.95, 21.05, 4.5, 12.0, 0.02), 0.0, const(2400.0), L_KAMA)            # 医務｜あまのがわの壁
+mesh_prism(R(20.95, 21.05, 0.0, 4.5, 0.02), -150.0, const(0.0), L_KAMA, (150, 110, 70))   # 框 150（あまのがわ −150 → ±0）
 for a_, b_ in ((18.0, 19.0), (20.4, 21.0)):                                         # 静養室｜医務（引き込み戸 u 19.0–20.4）
     mesh_prism(R(a_, b_, 4.45, 4.55), 0.0, const(2400.0), L_KAMA)
 mesh_prism(R(19.0, 20.4, 4.45, 4.55), 2100.0, const(2400.0), L_KAMA)
