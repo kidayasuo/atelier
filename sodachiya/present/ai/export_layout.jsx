@@ -74,7 +74,7 @@
         if ((t.kind === "text" || t.kind === "area") && it.typename === "TextFrame") {
             if (SDY.hash(it.contents) !== t.mock_hash) { rec.s = SDY.norm(it.contents); edited++; }   // 書き換えた文字だけ
         }
-        if (!same(rec, BUILT[oid])) { out.parts[t.id] = rec; }   // 動かした・書き換えた部品だけ残す（動かしていない物はプレゼンの準備の既定のまま）
+        if (!same(rec, BUILT[oid]) || (BUILT[oid] && BUILT[oid].u)) { out.parts[t.id] = rec; }   // 動かした・書き換えた部品だけ残す（動かしていない物はプレゼンの準備の既定のまま）
         n++;
       } catch (e) { bad.push((t ? t.id : ("物 " + i)) + "（" + e.message + "）"); }
     }

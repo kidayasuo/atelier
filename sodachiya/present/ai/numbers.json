@@ -1,0 +1,16 @@
+{
+ "note": "1枚目の説明の箱と配置図の印の番号（鍵 → 番号）。手で直してよい（.ai で書き換えて書き出した数字があればそちらが先）。mock.py が今の番号を書き戻す",
+ "numbers": {
+  "nat.yousui": 1,
+  "nat.compost": 2,
+  "nat.mitate": 3,
+  "nat.mizu": 4,
+  "nat.kaze": 5,
+  "nat.rin": 6,
+  "com.park": 1,
+  "com.traffic": 2,
+  "com.mukai": 3,
+  "com.saigai": 4,
+  "com.east": 5
+ }
+}

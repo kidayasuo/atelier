@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-28 13:44",
+"generated": "2026-10-28 14:10",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -72,7 +72,8 @@
 "w": 127.31,
 "h": 130,
 "clip": null,
-"scale": 1
+"scale": 1,
+"u": 1
 },
 {
 "id": "p1.sozai.01b",
@@ -92,7 +93,8 @@
 75.97,
 365.83,
 408.97
-]
+],
+"u": 1
 },
 {
 "id": "p1.sozai.01a",
@@ -112,7 +114,8 @@
 75.97,
 365.83,
 408.97
-]
+],
+"u": 1
 },
 {
 "id": "p1.sozai.01c",
@@ -132,7 +135,8 @@
 75.97,
 365.83,
 408.97
-]
+],
+"u": 1
 },
 {
 "id": "p1.sozai.01d",
@@ -152,7 +156,8 @@
 75.97,
 365.83,
 408.97
-]
+],
+"u": 1
 },
 {
 "id": "p1.link.13b_太陽の線_屋根の色",
@@ -166,7 +171,8 @@
 "h": 50,
 "clip": null,
 "scale": 1.0,
-"page": 1
+"page": 1,
+"u": 1
 },
 {
 "id": "p1.link.14_地域のなかの敷地_1-10000",
@@ -180,7 +186,8 @@
 "h": 96,
 "clip": null,
 "scale": 1.0,
-"page": 1
+"page": 1,
+"u": 1
 },
 {
 "id": "p1.pagetitle",
@@ -241,7 +248,8 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "ef81ad33"
+"mock_hash": "ef81ad33",
+"u": 1
 },
 {
 "id": "p1.t.設計趣旨約326字（課題は3",
@@ -269,7 +277,8 @@
 "font": "W6",
 "color": "#222222",
 "align": "left",
-"mock_hash": "e018f93"
+"mock_hash": "e018f93",
+"u": 1
 },
 {
 "id": "p1.t.1200高野川を下に（川向こ",
@@ -283,45 +292,35 @@
 "font": "W3",
 "color": "#222222",
 "align": "left",
-"mock_hash": "894911e6"
+"mock_hash": "894911e6",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.yousui",
-"name": "箱：自然1　用水を借りる",
-"kind": "box",
-"layer": "説明",
-"x": 609.68,
-"y": 235.53,
-"w": 175,
-"h": 22.87,
-"fill": "#F6FAFD",
-"stroke": "#2F6FA0",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.nat.yousui.head",
-"name": "見出し：自然1　用水を借りる",
+"id": "p1.ibox.nat.yousui.title",
+"name": "見出し：用水を借りる",
 "kind": "text",
 "layer": "説明",
-"x": 612.68,
-"y": 242.52,
-"s": "自然1　用水を借りる",
+"x": 619.58,
+"y": 242.53,
+"s": "用水を借りる",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#2F6FA0",
 "align": "left",
-"mock_hash": "e9783898"
+"mock_hash": "12bfdea7",
+"group": "ibox.nat.yousui",
+"group_name": "箱　用水を借りる",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.yousui.body",
-"name": "本文：自然1　用水を借りる",
+"id": "p1.ibox.nat.yousui.text",
+"name": "本文：用水を借りる",
 "kind": "area",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 245.86,
-"w": 169,
-"h": 12.5,
+"w": 162.1,
+"h": 16.4,
 "s": "井出ヶ鼻井堰に端を発する松ヶ崎の用水ネットワークから、水を借り、園庭の小川にする。",
 "size_pt": 11.81,
 "font": "W3",
@@ -330,44 +329,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "3a0d5201"
+"mock_hash": "3a0d5201",
+"group": "ibox.nat.yousui",
+"group_name": "箱　用水を借りる",
+"u": 1
 },
 {
-"id": "p1.ibox.com.saigai",
-"name": "箱：地域4　災害時の持ちつ持たれつ",
-"kind": "box",
-"layer": "説明",
-"x": 46.48,
-"y": 237.24,
-"w": 175,
-"h": 33.6,
-"fill": "#FBF7F2",
-"stroke": "#8A5A2B",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.com.saigai.head",
-"name": "見出し：地域4　災害時の持ちつ持たれつ",
+"id": "p1.ibox.com.saigai.title",
+"name": "見出し：災害時の持ちつ持たれつ",
 "kind": "text",
 "layer": "説明",
-"x": 49.48,
-"y": 244.23,
-"s": "地域4　災害時の持ちつ持たれつ",
+"x": 56.38,
+"y": 244.24,
+"s": "災害時の持ちつ持たれつ",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#8A5A2B",
 "align": "left",
-"mock_hash": "f92c39de"
+"mock_hash": "36679bbb",
+"group": "ibox.com.saigai",
+"group_name": "箱　災害時の持ちつ持たれつ",
+"u": 1
 },
 {
-"id": "p1.ibox.com.saigai.body",
-"name": "本文：地域4　災害時の持ちつ持たれつ",
+"id": "p1.ibox.com.saigai.text",
+"name": "本文：災害時の持ちつ持たれつ",
 "kind": "area",
 "layer": "説明",
-"x": 49.48,
+"x": 56.38,
 "y": 247.57,
-"w": 169,
+"w": 162.1,
 "h": 21.77,
 "s": "大洪水が予想される場合の緊急避難先として京都工芸繊維大学と協定（京都市ハザードマップによる浸水深1.5 m）。太陽光発電、蓄電池、地下水の利用によって、災害時に水を地域に提供。",
 "size_pt": 11.81,
@@ -377,44 +368,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "7df2b5bc"
+"mock_hash": "7df2b5bc",
+"group": "ibox.com.saigai",
+"group_name": "箱　災害時の持ちつ持たれつ",
+"u": 1
 },
 {
-"id": "p1.ibox.com.mukai",
-"name": "箱：地域3　お向かいさん",
-"kind": "box",
-"layer": "説明",
-"x": 46.48,
-"y": 284.84,
-"w": 175,
-"h": 28.23,
-"fill": "#FBF7F2",
-"stroke": "#8A5A2B",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.com.mukai.head",
-"name": "見出し：地域3　お向かいさん",
+"id": "p1.ibox.com.mukai.title",
+"name": "見出し：お向かいさん",
 "kind": "text",
 "layer": "説明",
-"x": 49.48,
+"x": 56.38,
 "y": 291.84,
-"s": "地域3　お向かいさん",
+"s": "お向かいさん",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#8A5A2B",
 "align": "left",
-"mock_hash": "ff139c79"
+"mock_hash": "b8a7f517",
+"group": "ibox.com.mukai",
+"group_name": "箱　お向かいさん",
+"u": 1
 },
 {
-"id": "p1.ibox.com.mukai.body",
-"name": "本文：地域3　お向かいさん",
+"id": "p1.ibox.com.mukai.text",
+"name": "本文：お向かいさん",
 "kind": "area",
 "layer": "説明",
-"x": 49.48,
+"x": 56.38,
 "y": 295.17,
-"w": 169,
+"w": 162.1,
 "h": 16.4,
 "s": "西の道の北半分は狭い道を挟んで向かいに住宅がある。圧迫感を与えないよう、この面の建物高さを1階程度に抑える。",
 "size_pt": 11.81,
@@ -424,44 +407,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "203d10fc"
+"mock_hash": "203d10fc",
+"group": "ibox.com.mukai",
+"group_name": "箱　お向かいさん",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.rin",
-"name": "箱：自然6　間伐材を使った林",
-"kind": "box",
-"layer": "説明",
-"x": 46.48,
-"y": 327.07,
-"w": 175,
-"h": 22.87,
-"fill": "#F6FAFD",
-"stroke": "#2F6FA0",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.nat.rin.head",
-"name": "見出し：自然6　間伐材を使った林",
+"id": "p1.ibox.nat.rin.title",
+"name": "見出し：間伐材を使った林",
 "kind": "text",
 "layer": "説明",
-"x": 49.48,
+"x": 56.38,
 "y": 334.07,
-"s": "自然6　間伐材を使った林",
+"s": "間伐材を使った林",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#2F6FA0",
 "align": "left",
-"mock_hash": "9281f618"
+"mock_hash": "18168642",
+"group": "ibox.nat.rin",
+"group_name": "箱　間伐材を使った林",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.rin.body",
-"name": "本文：自然6　間伐材を使った林",
+"id": "p1.ibox.nat.rin.text",
+"name": "本文：間伐材を使った林",
 "kind": "area",
 "layer": "説明",
-"x": 49.48,
+"x": 56.38,
 "y": 337.41,
-"w": 169,
+"w": 162.1,
 "h": 12.5,
 "s": "京都北山の北山杉の間伐材141本を、ホールの林として立てる。",
 "size_pt": 11.81,
@@ -471,44 +446,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "b1c03dd5"
+"mock_hash": "b1c03dd5",
+"group": "ibox.nat.rin",
+"group_name": "箱　間伐材を使った林",
+"u": 1
 },
 {
-"id": "p1.ibox.com.traffic",
-"name": "箱：地域2　車と自転車の出入りを南にまとめる",
-"kind": "box",
-"layer": "説明",
-"x": 46.48,
-"y": 363.94,
-"w": 175,
-"h": 28.23,
-"fill": "#FBF7F2",
-"stroke": "#8A5A2B",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.com.traffic.head",
-"name": "見出し：地域2　車と自転車の出入りを南にまとめる",
+"id": "p1.ibox.com.traffic.title",
+"name": "見出し：車と自転車の出入りを南にまとめる",
 "kind": "text",
 "layer": "説明",
-"x": 49.48,
+"x": 56.38,
 "y": 370.94,
-"s": "地域2　車と自転車の出入りを南にまとめる",
+"s": "車と自転車の出入りを南にまとめる",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#8A5A2B",
 "align": "left",
-"mock_hash": "6600d92b"
+"mock_hash": "4431316a",
+"group": "ibox.com.traffic",
+"group_name": "箱　車と自転車の出入りを南にまとめる",
+"u": 1
 },
 {
-"id": "p1.ibox.com.traffic.body",
-"name": "本文：地域2　車と自転車の出入りを南にまとめる",
+"id": "p1.ibox.com.traffic.text",
+"name": "本文：車と自転車の出入りを南にまとめる",
 "kind": "area",
 "layer": "説明",
-"x": 49.48,
+"x": 56.38,
 "y": 374.27,
-"w": 169,
+"w": 162.1,
 "h": 16.4,
 "s": "西の道の中ほどでは、道に突き出た木が見通しをさえぎる。車と送り迎えの自転車の出入りはこの木より南にまとめ、出入口にはスピードバンプを置いて速度を落とす。",
 "size_pt": 11.81,
@@ -518,44 +485,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "8f96eb65"
+"mock_hash": "8f96eb65",
+"group": "ibox.com.traffic",
+"group_name": "箱　車と自転車の出入りを南にまとめる",
+"u": 1
 },
 {
-"id": "p1.ibox.com.park",
-"name": "箱：地域1　小竹薮公園を残す",
-"kind": "box",
-"layer": "説明",
-"x": 46.48,
-"y": 406.16,
-"w": 175,
-"h": 28.23,
-"fill": "#FBF7F2",
-"stroke": "#8A5A2B",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.com.park.head",
-"name": "見出し：地域1　小竹薮公園を残す",
+"id": "p1.ibox.com.park.title",
+"name": "見出し：小竹薮公園を残す",
 "kind": "text",
 "layer": "説明",
-"x": 49.48,
-"y": 413.17,
-"s": "地域1　小竹薮公園を残す",
+"x": 56.38,
+"y": 413.16,
+"s": "小竹薮公園を残す",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#8A5A2B",
 "align": "left",
-"mock_hash": "6a42808f"
+"mock_hash": "e2649aef",
+"group": "ibox.com.park",
+"group_name": "箱　小竹薮公園を残す",
+"u": 1
 },
 {
-"id": "p1.ibox.com.park.body",
-"name": "本文：地域1　小竹薮公園を残す",
+"id": "p1.ibox.com.park.text",
+"name": "本文：小竹薮公園を残す",
 "kind": "area",
 "layer": "説明",
-"x": 49.48,
-"y": 416.51,
-"w": 169,
+"x": 56.38,
+"y": 416.5,
+"w": 162.1,
 "h": 16.4,
 "s": "地域の記憶である小竹薮公園を残し、園への入口の前庭にする。そこから北へ、西の道沿いに幅1 mの歩道を置き、歩く人を車から守る。",
 "size_pt": 11.81,
@@ -565,44 +524,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "50e46e9e"
+"mock_hash": "e96e953a",
+"group": "ibox.com.park",
+"group_name": "箱　小竹薮公園を残す",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.compost",
-"name": "箱：自然2　野菜くずコンポスト",
-"kind": "box",
-"layer": "説明",
-"x": 609.68,
-"y": 269.02,
-"w": 175,
-"h": 28.23,
-"fill": "#F6FAFD",
-"stroke": "#2F6FA0",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.nat.compost.head",
-"name": "見出し：自然2　野菜くずコンポスト",
+"id": "p1.ibox.nat.compost.title",
+"name": "見出し：野菜くずコンポスト",
 "kind": "text",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 276.02,
-"s": "自然2　野菜くずコンポスト",
+"s": "野菜くずコンポスト",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#2F6FA0",
 "align": "left",
-"mock_hash": "9842338e"
+"mock_hash": "e5db9dfc",
+"group": "ibox.nat.compost",
+"group_name": "箱　野菜くずコンポスト",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.compost.body",
-"name": "本文：自然2　野菜くずコンポスト",
+"id": "p1.ibox.nat.compost.text",
+"name": "本文：野菜くずコンポスト",
 "kind": "area",
 "layer": "説明",
-"x": 612.68,
-"y": 279.35,
-"w": 169,
+"x": 619.58,
+"y": 279.36,
+"w": 162.1,
 "h": 16.4,
 "s": "野菜くずや落ち葉をこどもたちの手で土に還す。発酵する暖かい土とミミズに驚く。野菜を育てる。命の循環を知る。",
 "size_pt": 11.81,
@@ -612,45 +563,37 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "6c876333"
+"mock_hash": "6c876333",
+"group": "ibox.nat.compost",
+"group_name": "箱　野菜くずコンポスト",
+"u": 1
 },
 {
-"id": "p1.ibox.com.east",
-"name": "箱：地域5　東の隣家への配慮",
-"kind": "box",
-"layer": "説明",
-"x": 609.68,
-"y": 303.7,
-"w": 175,
-"h": 22.87,
-"fill": "#FBF7F2",
-"stroke": "#8A5A2B",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.com.east.head",
-"name": "見出し：地域5　東の隣家への配慮",
+"id": "p1.ibox.com.east.title",
+"name": "見出し：東の隣家への配慮",
 "kind": "text",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 310.7,
-"s": "地域5　東の隣家への配慮",
+"s": "東の隣家への配慮",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#8A5A2B",
 "align": "left",
-"mock_hash": "d16ad662"
+"mock_hash": "3962ac3e",
+"group": "ibox.com.east",
+"group_name": "箱　東の隣家への配慮",
+"u": 1
 },
 {
-"id": "p1.ibox.com.east.body",
-"name": "本文：地域5　東の隣家への配慮",
+"id": "p1.ibox.com.east.text",
+"name": "本文：東の隣家への配慮",
 "kind": "area",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 314.03,
-"w": 169,
-"h": 12.5,
+"w": 162.1,
+"h": 16.4,
 "s": "東の隣家との境は1 m下げ（セットバック）、園庭の小屋と植樹で視線と音をやわらげる。",
 "size_pt": 11.81,
 "font": "W3",
@@ -659,44 +602,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "f078352e"
+"mock_hash": "f078352e",
+"group": "ibox.com.east",
+"group_name": "箱　東の隣家への配慮",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.kaze",
-"name": "箱：自然5　風の道",
-"kind": "box",
-"layer": "説明",
-"x": 609.68,
-"y": 412.24,
-"w": 175,
-"h": 28.23,
-"fill": "#F6FAFD",
-"stroke": "#2F6FA0",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.nat.kaze.head",
-"name": "見出し：自然5　風の道",
+"id": "p1.ibox.nat.kaze.title",
+"name": "見出し：風の道",
 "kind": "text",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 419.24,
-"s": "自然5　風の道",
+"s": "風の道",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#2F6FA0",
 "align": "left",
-"mock_hash": "ae9f7da3"
+"mock_hash": "e16e40e",
+"group": "ibox.nat.kaze",
+"group_name": "箱　風の道",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.kaze.body",
-"name": "本文：自然5　風の道",
+"id": "p1.ibox.nat.kaze.text",
+"name": "本文：風の道",
 "kind": "area",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 422.57,
-"w": 169,
+"w": 162.1,
 "h": 16.4,
 "s": "夏の夜、高野川の谷を下りてくる涼しい風を、縁側の床下から越屋根へ抜く。床下に冷えをためて、昼の冷房を抑える。",
 "size_pt": 11.81,
@@ -706,44 +641,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "5bd25e6f"
+"mock_hash": "5bd25e6f",
+"group": "ibox.nat.kaze",
+"group_name": "箱　風の道",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.mitate",
-"name": "箱：自然3　高野川と比叡にみたてる",
-"kind": "box",
-"layer": "説明",
-"x": 609.68,
-"y": 333.01,
-"w": 175,
-"h": 28.23,
-"fill": "#F6FAFD",
-"stroke": "#2F6FA0",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.nat.mitate.head",
-"name": "見出し：自然3　高野川と比叡にみたてる",
+"id": "p1.ibox.nat.mitate.title",
+"name": "見出し：高野川と比叡にみたてる",
 "kind": "text",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 340.01,
-"s": "自然3　高野川と比叡にみたてる",
+"s": "高野川と比叡にみたてる",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#2F6FA0",
 "align": "left",
-"mock_hash": "477d8352"
+"mock_hash": "11bc37bf",
+"group": "ibox.nat.mitate",
+"group_name": "箱　高野川と比叡にみたてる",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.mitate.body",
-"name": "本文：自然3　高野川と比叡にみたてる",
+"id": "p1.ibox.nat.mitate.text",
+"name": "本文：高野川と比叡にみたてる",
 "kind": "area",
 "layer": "説明",
-"x": 612.68,
-"y": 343.34,
-"w": 169,
+"x": 619.58,
+"y": 343.35,
+"w": 162.1,
 "h": 16.4,
 "s": "日本文化が育ててきた「みたて」。園内の小川と築山を高野川と比叡にみたてる。それを超えて視線を遠くにすると、高野川を超えて比叡の山。",
 "size_pt": 11.81,
@@ -753,44 +680,36 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "fd21e99e"
+"mock_hash": "fd21e99e",
+"group": "ibox.nat.mitate",
+"group_name": "箱　高野川と比叡にみたてる",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.mizu",
-"name": "箱：自然4　水の行方を見る",
-"kind": "box",
-"layer": "説明",
-"x": 609.68,
-"y": 367.69,
-"w": 175,
-"h": 28.23,
-"fill": "#F6FAFD",
-"stroke": "#2F6FA0",
-"lw": 0.5,
-"dash": null
-},
-{
-"id": "p1.ibox.nat.mizu.head",
-"name": "見出し：自然4　水の行方を見る",
+"id": "p1.ibox.nat.mizu.title",
+"name": "見出し：水のゆくえを知る",
 "kind": "text",
 "layer": "説明",
-"x": 612.68,
+"x": 619.58,
 "y": 374.69,
-"s": "自然4　水のゆくえを知る",
+"s": "水のゆくえを知る",
 "size_pt": 14.96,
 "font": "W6",
 "color": "#2F6FA0",
 "align": "left",
-"mock_hash": "16affec8"
+"mock_hash": "f382e026",
+"group": "ibox.nat.mizu",
+"group_name": "箱　水のゆくえを知る",
+"u": 1
 },
 {
-"id": "p1.ibox.nat.mizu.body",
-"name": "本文：自然4　水の行方を見る",
+"id": "p1.ibox.nat.mizu.text",
+"name": "本文：水のゆくえを知る",
 "kind": "area",
 "layer": "説明",
-"x": 612.68,
-"y": 378.03,
-"w": 169,
+"x": 619.58,
+"y": 378.02,
+"w": 162.1,
 "h": 16.4,
 "s": "小川は暗渠に隠さず高野川に注ぐ。屋根に降った雨は、雨落ちに落ち、雨水浸透側溝と雨庭を経て、溢れは高野川に。",
 "size_pt": 11.81,
@@ -800,247 +719,10 @@
 "justify": "full_last_left",
 "leading": 1.5,
 "para_space": 1.0,
-"mock_hash": "974e55c2"
-},
-{
-"id": "p1.leader.nat.yousui.1",
-"name": "引き出し線 nat.yousui.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-609.68,
-189.77
-],
-[
-579.32,
-161.02
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.com.mukai.1",
-"name": "引き出し線 com.mukai.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-230.68,
-224.6
-],
-[
-398.85,
-151.27
-]
-],
-"color": "#8A5A2B",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.nat.rin.1",
-"name": "引き出し線 nat.rin.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-230.68,
-266.83
-],
-[
-456.78,
-215.7
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.com.traffic.1",
-"name": "引き出し線 com.traffic.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-230.68,
-303.7
-],
-[
-322.74,
-254.07
-]
-],
-"color": "#8A5A2B",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.com.park.1",
-"name": "引き出し線 com.park.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-230.68,
-345.93
-],
-[
-307.35,
-324.02
-]
-],
-"color": "#8A5A2B",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.nat.compost.1",
-"name": "引き出し線 nat.compost.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-610.32,
-220.64
-],
-[
-576.82,
-217.52
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.com.east.1",
-"name": "引き出し線 com.east.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-610.32,
-262.87
-],
-[
-592.31,
-243.03
-]
-],
-"color": "#8A5A2B",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.nat.kaze.1",
-"name": "引き出し線 nat.kaze.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-610.32,
-299.74
-],
-[
-473.96,
-248.22
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.nat.mitate.1",
-"name": "引き出し線 nat.mitate.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-610.32,
-356.09
-],
-[
-557.13,
-268.94
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.nat.mitate.2",
-"name": "引き出し線 nat.mitate.2",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-610.32,
-350.09
-],
-[
-518.31,
-248.02
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.nat.mizu.1",
-"name": "引き出し線 nat.mizu.1",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-610.32,
-398.32
-],
-[
-515.81,
-354.02
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
-},
-{
-"id": "p1.leader.nat.mizu.2",
-"name": "引き出し線 nat.mizu.2",
-"kind": "line",
-"layer": "線",
-"pts": [
-[
-610.32,
-392.32
-],
-[
-417.31,
-354.01
-]
-],
-"color": "#2F6FA0",
-"lw": 0.6,
-"dot": 0.9,
-"hidden": true
+"mock_hash": "974e55c2",
+"group": "ibox.nat.mizu",
+"group_name": "箱　水のゆくえを知る",
+"u": 1
 },
 {
 "id": "p1.top.8",
@@ -1139,7 +821,8 @@
 "font": "W6",
 "color": "#2F6FA0",
 "align": "left",
-"mock_hash": "e2c8d28"
+"mock_hash": "e2c8d28",
+"u": 1
 },
 {
 "id": "p1.top.京都工芸繊維大学",
@@ -1241,7 +924,8 @@
 "font": "W3",
 "color": "#1A1A1A",
 "align": "left",
-"mock_hash": "4dc62240"
+"mock_hash": "4dc62240",
+"u": 1
 },
 {
 "id": "p1.water.title",
@@ -1286,6 +970,764 @@
 "mock_hash": "f0429198"
 },
 {
+"id": "p1.ibox.nat.yousui.mark.shape",
+"name": "○　印（箱）　用水を借りる",
+"layer": "説明",
+"x": 610.68,
+"y": 237.93,
+"w": 6.4,
+"h": 6.4,
+"fill": "#2F6FA0",
+"stroke": null,
+"lw": 0,
+"group": "ibox.nat.yousui",
+"group_name": "箱　用水を借りる",
+"kind": "circle",
+"alpha": 1.0,
+"u": 1
+},
+{
+"id": "p1.ibox.nat.yousui.mark.num",
+"name": "番号　印（箱）　用水を借りる",
+"kind": "text",
+"layer": "説明",
+"x": 613.88,
+"y": 242.39,
+"s": "1",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d6",
+"group": "ibox.nat.yousui",
+"group_name": "箱　用水を借りる",
+"u": 1
+},
+{
+"id": "p1.mark.nat.yousui.1.shape",
+"name": "○　印　用水を借りる",
+"layer": "説明",
+"x": 571.87,
+"y": 199.99,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.yousui.1",
+"group_name": "印　用水を借りる",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.yousui.1.num",
+"name": "番号　印　用水を借りる",
+"kind": "text",
+"layer": "説明",
+"x": 574.87,
+"y": 204.26,
+"s": "1",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d6",
+"group": "mark.nat.yousui.1",
+"group_name": "印　用水を借りる"
+},
+{
+"id": "p1.ibox.com.saigai.mark.shape",
+"name": "□　印（箱）　災害時の持ちつ持たれつ",
+"layer": "説明",
+"x": 47.8,
+"y": 239.96,
+"w": 5.76,
+"h": 5.76,
+"fill": "#8A5A2B",
+"stroke": null,
+"lw": 0,
+"group": "ibox.com.saigai",
+"group_name": "箱　災害時の持ちつ持たれつ",
+"kind": "box",
+"dash": null,
+"u": 1
+},
+{
+"id": "p1.ibox.com.saigai.mark.num",
+"name": "番号　印（箱）　災害時の持ちつ持たれつ",
+"kind": "text",
+"layer": "説明",
+"x": 50.68,
+"y": 244.1,
+"s": "4",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d9",
+"group": "ibox.com.saigai",
+"group_name": "箱　災害時の持ちつ持たれつ",
+"u": 1
+},
+{
+"id": "p1.ibox.com.mukai.mark.shape",
+"name": "□　印（箱）　お向かいさん",
+"layer": "説明",
+"x": 47.8,
+"y": 287.56,
+"w": 5.76,
+"h": 5.76,
+"fill": "#8A5A2B",
+"stroke": null,
+"lw": 0,
+"group": "ibox.com.mukai",
+"group_name": "箱　お向かいさん",
+"kind": "box",
+"dash": null,
+"u": 1
+},
+{
+"id": "p1.ibox.com.mukai.mark.num",
+"name": "番号　印（箱）　お向かいさん",
+"kind": "text",
+"layer": "説明",
+"x": 50.68,
+"y": 291.7,
+"s": "3",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d8",
+"group": "ibox.com.mukai",
+"group_name": "箱　お向かいさん",
+"u": 1
+},
+{
+"id": "p1.mark.com.mukai.1.shape",
+"name": "□　印　お向かいさん",
+"layer": "説明",
+"x": 391.7,
+"y": 190.54,
+"w": 5.4,
+"h": 5.4,
+"fill": "#8A5A2B",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.com.mukai.1",
+"group_name": "印　お向かいさん",
+"kind": "box",
+"dash": null
+},
+{
+"id": "p1.mark.com.mukai.1.num",
+"name": "番号　印　お向かいさん",
+"kind": "text",
+"layer": "説明",
+"x": 394.4,
+"y": 194.51,
+"s": "3",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d8",
+"group": "mark.com.mukai.1",
+"group_name": "印　お向かいさん"
+},
+{
+"id": "p1.ibox.nat.rin.mark.shape",
+"name": "○　印（箱）　間伐材を使った林",
+"layer": "説明",
+"x": 47.48,
+"y": 329.47,
+"w": 6.4,
+"h": 6.4,
+"fill": "#2F6FA0",
+"stroke": null,
+"lw": 0,
+"group": "ibox.nat.rin",
+"group_name": "箱　間伐材を使った林",
+"kind": "circle",
+"alpha": 1.0,
+"u": 1
+},
+{
+"id": "p1.ibox.nat.rin.mark.num",
+"name": "番号　印（箱）　間伐材を使った林",
+"kind": "text",
+"layer": "説明",
+"x": 50.68,
+"y": 333.94,
+"s": "6",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5db",
+"group": "ibox.nat.rin",
+"group_name": "箱　間伐材を使った林",
+"u": 1
+},
+{
+"id": "p1.mark.nat.rin.1.shape",
+"name": "○　印　間伐材を使った林",
+"layer": "説明",
+"x": 449.33,
+"y": 254.67,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.rin.1",
+"group_name": "印　間伐材を使った林",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.rin.1.num",
+"name": "番号　印　間伐材を使った林",
+"kind": "text",
+"layer": "説明",
+"x": 452.33,
+"y": 258.93,
+"s": "6",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5db",
+"group": "mark.nat.rin.1",
+"group_name": "印　間伐材を使った林"
+},
+{
+"id": "p1.ibox.com.traffic.mark.shape",
+"name": "□　印（箱）　車と自転車の出入りを南にまとめる",
+"layer": "説明",
+"x": 47.8,
+"y": 366.66,
+"w": 5.76,
+"h": 5.76,
+"fill": "#8A5A2B",
+"stroke": null,
+"lw": 0,
+"group": "ibox.com.traffic",
+"group_name": "箱　車と自転車の出入りを南にまとめる",
+"kind": "box",
+"dash": null,
+"u": 1
+},
+{
+"id": "p1.ibox.com.traffic.mark.num",
+"name": "番号　印（箱）　車と自転車の出入りを南にまとめる",
+"kind": "text",
+"layer": "説明",
+"x": 50.68,
+"y": 370.8,
+"s": "2",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d7",
+"group": "ibox.com.traffic",
+"group_name": "箱　車と自転車の出入りを南にまとめる",
+"u": 1
+},
+{
+"id": "p1.mark.com.traffic.1.shape",
+"name": "□　印　車と自転車の出入りを南にまとめる",
+"layer": "説明",
+"x": 315.59,
+"y": 293.34,
+"w": 5.4,
+"h": 5.4,
+"fill": "#8A5A2B",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.com.traffic.1",
+"group_name": "印　車と自転車の出入りを南にまとめる",
+"kind": "box",
+"dash": null
+},
+{
+"id": "p1.mark.com.traffic.1.num",
+"name": "番号　印　車と自転車の出入りを南にまとめる",
+"kind": "text",
+"layer": "説明",
+"x": 318.29,
+"y": 297.3,
+"s": "2",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d7",
+"group": "mark.com.traffic.1",
+"group_name": "印　車と自転車の出入りを南にまとめる"
+},
+{
+"id": "p1.ibox.com.park.mark.shape",
+"name": "□　印（箱）　小竹薮公園を残す",
+"layer": "説明",
+"x": 47.8,
+"y": 408.88,
+"w": 5.76,
+"h": 5.76,
+"fill": "#8A5A2B",
+"stroke": null,
+"lw": 0,
+"group": "ibox.com.park",
+"group_name": "箱　小竹薮公園を残す",
+"kind": "box",
+"dash": null,
+"u": 1
+},
+{
+"id": "p1.ibox.com.park.mark.num",
+"name": "番号　印（箱）　小竹薮公園を残す",
+"kind": "text",
+"layer": "説明",
+"x": 50.68,
+"y": 413.03,
+"s": "1",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d6",
+"group": "ibox.com.park",
+"group_name": "箱　小竹薮公園を残す",
+"u": 1
+},
+{
+"id": "p1.mark.com.park.1.shape",
+"name": "□　印　小竹薮公園を残す",
+"layer": "説明",
+"x": 300.2,
+"y": 363.29,
+"w": 5.4,
+"h": 5.4,
+"fill": "#8A5A2B",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.com.park.1",
+"group_name": "印　小竹薮公園を残す",
+"kind": "box",
+"dash": null
+},
+{
+"id": "p1.mark.com.park.1.num",
+"name": "番号　印　小竹薮公園を残す",
+"kind": "text",
+"layer": "説明",
+"x": 302.9,
+"y": 367.25,
+"s": "1",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d6",
+"group": "mark.com.park.1",
+"group_name": "印　小竹薮公園を残す"
+},
+{
+"id": "p1.ibox.nat.compost.mark.shape",
+"name": "○　印（箱）　野菜くずコンポスト",
+"layer": "説明",
+"x": 610.68,
+"y": 271.42,
+"w": 6.4,
+"h": 6.4,
+"fill": "#2F6FA0",
+"stroke": null,
+"lw": 0,
+"group": "ibox.nat.compost",
+"group_name": "箱　野菜くずコンポスト",
+"kind": "circle",
+"alpha": 1.0,
+"u": 1
+},
+{
+"id": "p1.ibox.nat.compost.mark.num",
+"name": "番号　印（箱）　野菜くずコンポスト",
+"kind": "text",
+"layer": "説明",
+"x": 613.88,
+"y": 275.89,
+"s": "2",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d7",
+"group": "ibox.nat.compost",
+"group_name": "箱　野菜くずコンポスト",
+"u": 1
+},
+{
+"id": "p1.mark.nat.compost.1.shape",
+"name": "○　印　野菜くずコンポスト",
+"layer": "説明",
+"x": 569.37,
+"y": 256.49,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.compost.1",
+"group_name": "印　野菜くずコンポスト",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.compost.1.num",
+"name": "番号　印　野菜くずコンポスト",
+"kind": "text",
+"layer": "説明",
+"x": 572.37,
+"y": 260.76,
+"s": "2",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d7",
+"group": "mark.nat.compost.1",
+"group_name": "印　野菜くずコンポスト"
+},
+{
+"id": "p1.ibox.com.east.mark.shape",
+"name": "□　印（箱）　東の隣家への配慮",
+"layer": "説明",
+"x": 611.0,
+"y": 306.42,
+"w": 5.76,
+"h": 5.76,
+"fill": "#8A5A2B",
+"stroke": null,
+"lw": 0,
+"group": "ibox.com.east",
+"group_name": "箱　東の隣家への配慮",
+"kind": "box",
+"dash": null,
+"u": 1
+},
+{
+"id": "p1.ibox.com.east.mark.num",
+"name": "番号　印（箱）　東の隣家への配慮",
+"kind": "text",
+"layer": "説明",
+"x": 613.88,
+"y": 310.56,
+"s": "5",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5da",
+"group": "ibox.com.east",
+"group_name": "箱　東の隣家への配慮",
+"u": 1
+},
+{
+"id": "p1.mark.com.east.1.shape",
+"name": "□　印　東の隣家への配慮",
+"layer": "説明",
+"x": 585.16,
+"y": 282.3,
+"w": 5.4,
+"h": 5.4,
+"fill": "#8A5A2B",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.com.east.1",
+"group_name": "印　東の隣家への配慮",
+"kind": "box",
+"dash": null
+},
+{
+"id": "p1.mark.com.east.1.num",
+"name": "番号　印　東の隣家への配慮",
+"kind": "text",
+"layer": "説明",
+"x": 587.86,
+"y": 286.26,
+"s": "5",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5da",
+"group": "mark.com.east.1",
+"group_name": "印　東の隣家への配慮"
+},
+{
+"id": "p1.ibox.nat.kaze.mark.shape",
+"name": "○　印（箱）　風の道",
+"layer": "説明",
+"x": 610.68,
+"y": 414.64,
+"w": 6.4,
+"h": 6.4,
+"fill": "#2F6FA0",
+"stroke": null,
+"lw": 0,
+"group": "ibox.nat.kaze",
+"group_name": "箱　風の道",
+"kind": "circle",
+"alpha": 1.0,
+"u": 1
+},
+{
+"id": "p1.ibox.nat.kaze.mark.num",
+"name": "番号　印（箱）　風の道",
+"kind": "text",
+"layer": "説明",
+"x": 613.88,
+"y": 419.1,
+"s": "5",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5da",
+"group": "ibox.nat.kaze",
+"group_name": "箱　風の道",
+"u": 1
+},
+{
+"id": "p1.mark.nat.kaze.1.shape",
+"name": "○　印　風の道",
+"layer": "説明",
+"x": 466.51,
+"y": 287.19,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.kaze.1",
+"group_name": "印　風の道",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.kaze.1.num",
+"name": "番号　印　風の道",
+"kind": "text",
+"layer": "説明",
+"x": 469.51,
+"y": 291.46,
+"s": "5",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5da",
+"group": "mark.nat.kaze.1",
+"group_name": "印　風の道"
+},
+{
+"id": "p1.ibox.nat.mitate.mark.shape",
+"name": "○　印（箱）　高野川と比叡にみたてる",
+"layer": "説明",
+"x": 610.68,
+"y": 335.41,
+"w": 6.4,
+"h": 6.4,
+"fill": "#2F6FA0",
+"stroke": null,
+"lw": 0,
+"group": "ibox.nat.mitate",
+"group_name": "箱　高野川と比叡にみたてる",
+"kind": "circle",
+"alpha": 1.0,
+"u": 1
+},
+{
+"id": "p1.ibox.nat.mitate.mark.num",
+"name": "番号　印（箱）　高野川と比叡にみたてる",
+"kind": "text",
+"layer": "説明",
+"x": 613.88,
+"y": 339.88,
+"s": "3",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d8",
+"group": "ibox.nat.mitate",
+"group_name": "箱　高野川と比叡にみたてる",
+"u": 1
+},
+{
+"id": "p1.mark.nat.mitate.1.shape",
+"name": "○　印　高野川と比叡にみたてる（1）",
+"layer": "説明",
+"x": 549.68,
+"y": 307.91,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.mitate.1",
+"group_name": "印　高野川と比叡にみたてる（1）",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.mitate.1.num",
+"name": "番号　印　高野川と比叡にみたてる（1）",
+"kind": "text",
+"layer": "説明",
+"x": 552.68,
+"y": 312.18,
+"s": "3",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d8",
+"group": "mark.nat.mitate.1",
+"group_name": "印　高野川と比叡にみたてる（1）"
+},
+{
+"id": "p1.mark.nat.mitate.2.shape",
+"name": "○　印　高野川と比叡にみたてる（2）",
+"layer": "説明",
+"x": 510.86,
+"y": 286.99,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.mitate.2",
+"group_name": "印　高野川と比叡にみたてる（2）",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.mitate.2.num",
+"name": "番号　印　高野川と比叡にみたてる（2）",
+"kind": "text",
+"layer": "説明",
+"x": 513.86,
+"y": 291.25,
+"s": "3",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d8",
+"group": "mark.nat.mitate.2",
+"group_name": "印　高野川と比叡にみたてる（2）"
+},
+{
+"id": "p1.ibox.nat.mizu.mark.shape",
+"name": "○　印（箱）　水のゆくえを知る",
+"layer": "説明",
+"x": 610.68,
+"y": 370.09,
+"w": 6.4,
+"h": 6.4,
+"fill": "#2F6FA0",
+"stroke": null,
+"lw": 0,
+"group": "ibox.nat.mizu",
+"group_name": "箱　水のゆくえを知る",
+"kind": "circle",
+"alpha": 1.0,
+"u": 1
+},
+{
+"id": "p1.ibox.nat.mizu.mark.num",
+"name": "番号　印（箱）　水のゆくえを知る",
+"kind": "text",
+"layer": "説明",
+"x": 613.88,
+"y": 374.55,
+"s": "4",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d9",
+"group": "ibox.nat.mizu",
+"group_name": "箱　水のゆくえを知る",
+"u": 1
+},
+{
+"id": "p1.mark.nat.mizu.1.shape",
+"name": "○　印　水のゆくえを知る（1）",
+"layer": "説明",
+"x": 508.36,
+"y": 392.99,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.mizu.1",
+"group_name": "印　水のゆくえを知る（1）",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.mizu.1.num",
+"name": "番号　印　水のゆくえを知る（1）",
+"kind": "text",
+"layer": "説明",
+"x": 511.36,
+"y": 397.25,
+"s": "4",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d9",
+"group": "mark.nat.mizu.1",
+"group_name": "印　水のゆくえを知る（1）"
+},
+{
+"id": "p1.mark.nat.mizu.2.shape",
+"name": "○　印　水のゆくえを知る（2）",
+"layer": "説明",
+"x": 409.86,
+"y": 392.98,
+"w": 6.0,
+"h": 6.0,
+"fill": "#2F6FA0",
+"stroke": "#FFFFFF",
+"lw": 0.8,
+"group": "mark.nat.mizu.2",
+"group_name": "印　水のゆくえを知る（2）",
+"kind": "circle",
+"alpha": 1.0
+},
+{
+"id": "p1.mark.nat.mizu.2.num",
+"name": "番号　印　水のゆくえを知る（2）",
+"kind": "text",
+"layer": "説明",
+"x": 412.86,
+"y": 397.25,
+"s": "4",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#FFFFFF",
+"align": "center",
+"mock_hash": "2b5d9",
+"group": "mark.nat.mizu.2",
+"group_name": "印　水のゆくえを知る（2）"
+},
+{
 "id": "p1.site.tree.canopy",
 "name": "突き出た木　枝",
 "kind": "circle",
@@ -1299,7 +1741,8 @@
 "stroke": "#5E7F45",
 "lw": 0.4,
 "group": "site.g.tree",
-"group_name": "突き出た木"
+"group_name": "突き出た木",
+"u": 1
 },
 {
 "id": "p1.site.tree.trunk",
@@ -1315,7 +1758,8 @@
 "stroke": null,
 "lw": 0,
 "group": "site.g.tree",
-"group_name": "突き出た木"
+"group_name": "突き出た木",
+"u": 1
 },
 {
 "id": "p1.site.l.突き出た木住宅とアパートの境",
@@ -1457,7 +1901,8 @@
 "dot": 0.25,
 "arrow": null,
 "group": "site.g.二本の橋車人へ",
-"group_name": "配置図の注　二本の橋車人へ"
+"group_name": "配置図の注　二本の橋車人へ",
+"u": 1
 },
 {
 "id": "p1.site.t.二本の橋（車・人）へ",
@@ -1473,7 +1918,8 @@
 "align": "left",
 "group": "site.g.二本の橋車人へ",
 "mock_hash": "db7fce7e",
-"group_name": "配置図の注　二本の橋車人へ"
+"group_name": "配置図の注　二本の橋車人へ",
+"u": 1
 },
 {
 "id": "p1.site.l.北の道の向こうは京都工芸繊維大学",
@@ -1529,7 +1975,8 @@
 "align": "left",
 "group": "site.g.高野川",
 "mock_hash": "e2c8d28",
-"group_name": "配置図の注　高野川"
+"group_name": "配置図の注　高野川",
+"u": 1
 },
 {
 "id": "p1.site.t.小竹薮公園",
@@ -1545,7 +1992,8 @@
 "align": "center",
 "group": "site.g.小竹薮公園",
 "mock_hash": "cf8f0f39",
-"group_name": "配置図の注　小竹薮公園"
+"group_name": "配置図の注　小竹薮公園",
+"u": 1
 },
 {
 "id": "p1.site.t.遊戯室",
@@ -1575,7 +2023,8 @@
 "color": "#ffffff",
 "align": "center",
 "group": null,
-"mock_hash": "be85887d"
+"mock_hash": "be85887d",
+"u": 1
 },
 {
 "id": "p1.site.t.本館（平屋）",
@@ -1590,7 +2039,8 @@
 "color": "#ffffff",
 "align": "center",
 "group": null,
-"mock_hash": "12cb6288"
+"mock_hash": "12cb6288",
+"u": 1
 },
 {
 "id": "p1.site.t.だいさんかく",
@@ -1605,7 +2055,8 @@
 "color": "#3f5f2f",
 "align": "center",
 "group": null,
-"mock_hash": "6428faeb"
+"mock_hash": "6428faeb",
+"u": 1
 },
 {
 "id": "p1.site.t.しずかのもり",
@@ -1620,7 +2071,8 @@
 "color": "#3f5f2f",
 "align": "center",
 "group": null,
-"mock_hash": "50b2967b"
+"mock_hash": "50b2967b",
+"u": 1
 },
 {
 "id": "p1.site.t.北のもり",
@@ -1650,7 +2102,8 @@
 "color": "#222222",
 "align": "center",
 "group": null,
-"mock_hash": "e27c0f3"
+"mock_hash": "e27c0f3",
+"u": 1
 },
 {
 "id": "p1.site.t.北の道（車を止めて建物と庭の手入",
@@ -1729,7 +2182,8 @@
 "dot": 0.25,
 "arrow": null,
 "group": "site.g.公園からの入口木戸",
-"group_name": "配置図の注　公園からの入口木戸"
+"group_name": "配置図の注　公園からの入口木戸",
+"u": 1
 },
 {
 "id": "p1.site.t.公園からの入口（木戸）",
@@ -1745,7 +2199,8 @@
 "align": "right",
 "group": "site.g.公園からの入口木戸",
 "mock_hash": "f8b3ef9e",
-"group_name": "配置図の注　公園からの入口木戸"
+"group_name": "配置図の注　公園からの入口木戸",
+"u": 1
 },
 {
 "id": "p1.site.l.ムベのアーチ",
@@ -1767,7 +2222,8 @@
 "dot": 0.25,
 "arrow": null,
 "group": "site.g.ムベのアーチ",
-"group_name": "配置図の注　ムベのアーチ"
+"group_name": "配置図の注　ムベのアーチ",
+"u": 1
 },
 {
 "id": "p1.site.t.ムベのアーチ",
@@ -1783,7 +2239,8 @@
 "align": "right",
 "group": "site.g.ムベのアーチ",
 "mock_hash": "99539b0b",
-"group_name": "配置図の注　ムベのアーチ"
+"group_name": "配置図の注　ムベのアーチ",
+"u": 1
 },
 {
 "id": "p1.site.l.雨の川樋なしで軒から落ちた雨を雨",
@@ -1805,7 +2262,8 @@
 "dot": 0.25,
 "arrow": null,
 "group": "site.g.雨の川樋なしで軒から落ちた雨を雨",
-"group_name": "配置図の注　雨の川樋なしで軒から落ちた雨を雨"
+"group_name": "配置図の注　雨の川樋なしで軒から落ちた雨を雨",
+"u": 1
 },
 {
 "id": "p1.site.t.雨の川（樋なしで軒から落ちた雨を",
@@ -1821,7 +2279,8 @@
 "align": "left",
 "group": "site.g.雨の川樋なしで軒から落ちた雨を雨",
 "mock_hash": "8ff28cfa",
-"group_name": "配置図の注　雨の川樋なしで軒から落ちた雨を雨"
+"group_name": "配置図の注　雨の川樋なしで軒から落ちた雨を雨",
+"u": 1
 },
 {
 "id": "p1.site.t.夏の夜の風（高野川の谷を下りる風",
@@ -1836,7 +2295,8 @@
 "color": "#3a7fb5",
 "align": "right",
 "group": null,
-"mock_hash": "26134867"
+"mock_hash": "26134867",
+"u": 1
 },
 {
 "id": "p1.縮尺.bar0",
@@ -1858,7 +2318,8 @@
 "dot": null,
 "arrow": null,
 "group": "site.g.縮尺",
-"group_name": "縮尺"
+"group_name": "縮尺",
+"u": 1
 },
 {
 "id": "p1.縮尺.bar1",
@@ -1880,7 +2341,8 @@
 "dot": null,
 "arrow": null,
 "group": "site.g.縮尺",
-"group_name": "縮尺"
+"group_name": "縮尺",
+"u": 1
 },
 {
 "id": "p1.縮尺.bar2",
@@ -1902,7 +2364,8 @@
 "dot": null,
 "arrow": null,
 "group": "site.g.縮尺",
-"group_name": "縮尺"
+"group_name": "縮尺",
+"u": 1
 },
 {
 "id": "p1.縮尺.bar3",
@@ -1924,7 +2387,8 @@
 "dot": null,
 "arrow": null,
 "group": "site.g.縮尺",
-"group_name": "縮尺"
+"group_name": "縮尺",
+"u": 1
 },
 {
 "id": "p1.縮尺.frame",
@@ -1958,7 +2422,8 @@
 "dot": null,
 "arrow": null,
 "group": "site.g.縮尺",
-"group_name": "縮尺"
+"group_name": "縮尺",
+"u": 1
 },
 {
 "id": "p1.site.t.0",
@@ -1974,7 +2439,8 @@
 "align": "center",
 "group": "site.g.縮尺",
 "mock_hash": "2b5d5",
-"group_name": "縮尺"
+"group_name": "縮尺",
+"u": 1
 },
 {
 "id": "p1.site.t.20m",
@@ -1990,7 +2456,8 @@
 "align": "center",
 "group": "site.g.縮尺",
 "mock_hash": "7c794b34",
-"group_name": "縮尺"
+"group_name": "縮尺",
+"u": 1
 }
 ]
 },

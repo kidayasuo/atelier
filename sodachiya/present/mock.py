@@ -612,6 +612,34 @@ def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2, key=None):
         yy -= size / 0.72                       # 段落のあいだは1行分（ユーザー、10-25夕）
     AIMUTE[0] -= 1
    # (src_pdf, page, clip_mm(x0,y0,x1,y1)|None, dest_mm(x,y,w,h)下原点, keep_ratio)
+
+
+# 1枚目の説明の箱は案H（ユーザー、10-28 14:04）：枠と塗りなし、見出しの頭に番号の印（自然＝青の○、地域＝茶の□、白抜きの数字）、
+# 配置図の上の点にも同じ印（引き出し線なし）。印は一つずつ Illustrator の部品（○か□と数字のグループ）
+MARKS = []          # dict(id, cat, num, cx, cy（紙のmm、下原点）, r, ring, group, group_name, follow)
+MARK_R_BOX, MARK_R_PLAN = 3.2, 3.0
+MARK_NUM = 2.6      # 印の数字の高さ（mm）
+HIND = 1 + 2 * MARK_R_BOX + 2.5                     # 見出しと本文の字下げ（印の幅）
+
+
+def ibox_h(ax, x, y, w, h, title, lines, color, cat, num, key, size=3.0):
+    """案Hの説明の箱。部品は ibox.{key}.mark（印）・.title（見出し）・.text（本文）。番号は MARKS で描く"""
+    hy = y + h - 7
+    tx = x + HIND
+    _airec(ax.figure, kind="text", id=f"ibox.{key}.title", name=f"見出し：{title}", x=tx, y=hy, s=title, size=3.8, color=color, bold=True, ha="left", va="baseline")
+    _airec(ax.figure, kind="area", id=f"ibox.{key}.text", name=f"本文：{title}", x=tx, y=y + h - 14, w=w - HIND - 3, h=h - 16,
+           s="\n".join(lines), size=size, color=INK, bold=False, leading=1.5, para_space=1.0)
+    MARKS.append(dict(id=f"ibox.{key}.mark", cat=cat, num=num, cx=x + 1 + MARK_R_BOX, cy=hy + 1.4, r=MARK_R_BOX, ring=False,
+                      group=f"ibox.{key}.mark", group_name=f"印（箱）　{title}", key=key))
+    AIMUTE[0] += 1
+    T(ax, tx, hy, title, 3.8, color, bold=True)
+    yy = y + h - 14
+    for ln_ in lines:
+        for s_ in jwrap(ln_, (w - HIND - 3) / (size / 0.72)):
+            T(ax, tx, yy, s_, size)
+            yy -= size / 0.72 * 1.5
+        yy -= size / 0.72
+    AIMUTE[0] -= 1
 SEC = os.path.join(ROOT, "drawings", "sodachiya_sections_1-100.pdf")
 CLIP_A = (25, 38, 841, 201)
 CLIP_B = (25, 244, 410, 377)
@@ -1677,26 +1705,69 @@ COM = [("park", "小竹薮公園を残す", ["地域の記憶である小竹薮�
         [], None),                                            # 場所が特に無いので引き出し線なし（ユーザー、10-26）。配置図を上げたので左の列の上へ
        ("east", "東の隣家への配慮", ["東の隣家との境は1 m下げ（セットバック）、園庭の小屋と植樹で視線と音をやわらげる。"],
         [P3p(SITE_C["N"] + 0.55 * (SITE_C["E"] - SITE_C["N"]) - 3.0 * _out)], None)]
-ITEMS = [(f"自然{i_ + 1}　" + h1, ls_, C_NAT, "#F6FAFD", pts, fx_, "nat." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(NAT)]
-ITEMS += [(f"地域{i_ + 1}　" + h1, ls_, C_COM, "#FBF7F2", pts, fx_, "com." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(COM)]
+# 番号（ユーザー、10-28：番号は一か所で決める）。決め方の順：.ai で書き換えた箱の印の数字 → 配置図の印の数字 → 番号の表
+# present/ai/numbers.json（手で直してよい。mock.py が今の番号を書き戻す）→ 前の見出しの「自然4　」の数字 → 並びの順
+_UP = _lu.get("parts", {})
+_NUMF = os.path.join(HERE, "ai", "numbers.json")
+try:
+    _numtab = json.load(open(_NUMF, encoding="utf-8")).get("numbers", {})
+except Exception:
+    _numtab = {}
+_int = lambda s_: (int(re.search(r"\d+", str(s_)).group()) if s_ is not None and re.search(r"\d+", str(s_)) else None)
+_oldhead = lambda k_: re.match(r"^(自然|地域)(\d+)[　 ]*(.*)$", (_UP.get(f"p1.ibox.{k_}.head") or {}).get("s", "") or "")
+
+
+def _num_of(k_, i_, npts):
+    for v_ in [_int((_UP.get(f"p1.ibox.{k_}.mark.num") or {}).get("s"))] + [_int((_UP.get(f"p1.mark.{k_}.{j_ + 1}.num") or {}).get("s")) for j_ in range(npts)] + \
+              [_numtab.get(k_), _int(_oldhead(k_).group(2)) if _oldhead(k_) else None, i_ + 1]:
+        if v_ is not None:
+            return int(v_)
+
+
+def _title_of(k_, h1):
+    s_ = (_UP.get(f"p1.ibox.{k_}.title") or {}).get("s")
+    return s_ if s_ else (_oldhead(k_).group(3) if _oldhead(k_) else h1)
+
+
+def _body_of(k_, ls_):
+    s_ = (_UP.get(f"p1.ibox.{k_}.text") or {}).get("s") or (_UP.get(f"p1.ibox.{k_}.body") or {}).get("s")
+    return s_.split("\n") if s_ else ls_
+
+
+ITEMS = [(_title_of("nat." + k1, h1), _body_of("nat." + k1, ls_), C_NAT, "#F6FAFD", pts, fx_, "nat." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(NAT)]
+ITEMS += [(_title_of("com." + k1, h1), _body_of("com." + k1, ls_), C_COM, "#FBF7F2", pts, fx_, "com." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(COM)]
+NUMS = {it[6]: _num_of(it[6], i_ if it[6].startswith("nat.") else i_ - len(NAT), len(it[4])) for i_, it in enumerate(ITEMS)}
+json.dump(dict(note="1枚目の説明の箱と配置図の印の番号（鍵 → 番号）。手で直してよい（.ai で書き換えて書き出した数字があればそちらが先）。mock.py が今の番号を書き戻す",
+               numbers=NUMS), open(_NUMF, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+AI_SHIFT = {}                                             # 前の箱（ibox.{key}）の .ai の位置へ、新しい部品をまとめて動かす（一度だけの移し替え）
+
+
+def _hbox(x_, y_, w_, h_, head, ls_, col, key_):
+    ibox_h(ax, x_, y_, w_, h_, head, ls_, col, key_.split(".")[0], NUMS[key_], key_, size=3.0)
+    ub_ = _UP.get(f"p1.ibox.{key_}")
+    if ub_ and "x" in ub_:
+        AI_SHIFT[f"ibox.{key_}."] = (ub_["x"] - x_, ub_["y"] - (H - y_ - h_))
+
+
+def _pmarks(key_, pts, head):
+    for k_, q_ in enumerate(pts):                         # 配置図の上の点に同じ印（引き出し線なし）
+        MARKS.append(dict(id=f"mark.{key_}.{k_ + 1}", cat=key_.split(".")[0], num=NUMS[key_], cx=q_[0], cy=q_[1], r=MARK_R_PLAN, ring=True,
+                          group=f"mark.{key_}.{k_ + 1}", group_name=f"印　{head}" + (f"（{k_ + 1}）" if len(pts) > 1 else ""), key=key_, follow="sozai.01a"))
 _mid = sx + sw / 2
 BOXW = 175.0                                              # 説明の箱は少し狭く、配置図の側に寄せる（ユーザー、10-26：引き出し線が短くなる）
 LCW = RCW = BOXW
 LCX = sx - 8 - LCW
 RCX = sx + sw + 8
-_hof = lambda it, colw: 16 + sum(len(jwrap(t_, (colw - 6) / (3.0 / 0.72))) for t_ in it[1]) * (3.0 / 0.72 + 1.2) + 1.5 * len(it[1])
+_hof = lambda it, colw: 16 + sum(len(jwrap(t_, (colw - HIND - 3) / (3.0 / 0.72))) for t_ in it[1]) * (3.0 / 0.72 + 1.2) + 1.5 * len(it[1])
 _fixbot = {}                                              # 置き場所を決めた箱の下端（紙のmm、下から）
 for (head, ls_, col, fill, pts, fx_, key_) in ITEMS:
     if fx_ is None:
         continue
     h_ = _hof((head, ls_), RCW)
     x_, t_ = fx_[0], H - fx_[1]                          # 上端
-    ibox(ax, x_, t_ - h_, RCW, h_, head, ls_, col, fill, size=3.0, key=key_)
+    _hbox(x_, t_ - h_, RCW, h_, head, ls_, col, key_)
     _fixbot[(x_ >= RCX - 5)] = min(_fixbot.get(x_ >= RCX - 5, 1e9), t_ - h_)
-    for k_, q_ in enumerate(pts):                         # 点に近い縁から
-        ex_ = x_ if q_[0] < x_ else (x_ + RCW if q_[0] > x_ + RCW else x_ + RCW / 2)
-        ey_ = (t_ - h_) if ex_ == x_ + RCW / 2 else min(t_ - 3, max(t_ - h_ + 3, q_[1]))
-        topline(1, q_, (ex_, ey_), col, key=f"{key_}.{k_ + 1}")
+    _pmarks(key_, pts, head)
 for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
     COL_BOT = (_amy + _AH + 12) if side == "L" else P1_BOT   # 左の列は地域のなかの敷地の上で、右の列は紙の下の端まで
     COL_TOP = min(sy + sh + 2, CONCEPT_BOT - 14) if side == "L" else min(sy + sh + 2, _fixbot.get(True, 1e9) - 8)
@@ -1720,10 +1791,8 @@ for side, colx, colw in (("L", LCX, LCW), ("R", RCX, RCW)):
             tops[k] = max(tops[k], cur + hs[k])
             cur = tops[k] + gap
     for (head, ls_, col, fill, pts, fx_, key_), t_, h_ in zip(its, tops, hs):
-        ibox(ax, colx, t_ - h_, colw, h_, head, ls_, col, fill, size=3.0, key=key_)
-        ex_ = colx + colw if side == "L" else colx
-        for k_, q_ in enumerate(pts):
-            topline(1, q_, (ex_, min(t_ - 3, max(t_ - h_ + 3, q_[1] if len(pts) == 1 else t_ - h_ / 2 + (k_ - (len(pts) - 1) / 2) * 6))), col, key=f"{key_}.{k_ + 1}")
+        _hbox(colx, t_ - h_, colw, h_, head, ls_, col, key_)
+        _pmarks(key_, pts, head)
 
 # 上の段：配置図の注と、用水のネットワーク全体の図（場所の確保。涌泉寺からの水の道、平安京の外の条里の地割のまま）
 NTX = M + 6 + 250
@@ -2099,8 +2168,24 @@ for si in range(1, 6):
         _cc = tuple(int(ex[1][k:k + 2], 16) / 255 for k in (1, 3, 5)) if len(ex) > 1 else (0.1, 0.1, 0.1)
         pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname=("F_A" if _fa else ("F_B" if tb else "F_R")),
                        fontfile=_fa or (FONTB if tb else FONT), color=_cc)
-    if si == 1:                                     # 配置図の中の文字・注の線・突き出た木（Illustratorでは一つずつの部品）
+    if si == 1:                                     # 番号の印（案H）：配置図の上と箱の見出しの頭。.ai で動かした印は見本にも（配置図からの位置で）
         _hx = lambda c_: tuple(int(c_[k:k + 2], 16) / 255 for k in (1, 3, 5))
+        _FB = fitz.Font(fontfile=FONTB)
+        for mk in MARKS:
+            cx_, cy_, r_ = mk["cx"], mk["cy"], mk["r"]
+            _um = _UP.get(f"p1.{mk['id']}.shape") or {}
+            if mk.get("follow") and "x" in _um:
+                cx_, cy_ = _um["x"] + _um.get("w", 2 * r_) / 2 + _udx, H - (_um["y"] + _um.get("h", 2 * r_) / 2 + _udy)
+            col_ = _hx(C_NAT if mk["cat"] == "nat" else C_COM)
+            ring_ = (1, 1, 1) if mk["ring"] else None
+            if mk["cat"] == "nat":
+                pg.draw_circle(fitz.Point(cx_ * MM, (H - cy_) * MM), r_ * MM, color=ring_, fill=col_, width=0.8 if ring_ else 0)
+            else:
+                s_ = r_ * 0.9
+                pg.draw_rect(fitz.Rect((cx_ - s_) * MM, (H - cy_ - s_) * MM, (cx_ + s_) * MM, (H - cy_ + s_) * MM), color=ring_, fill=col_, width=0.8 if ring_ else 0)
+            e_ = MARK_NUM / 0.72
+            t_ = str(mk["num"])
+            pg.insert_text(fitz.Point((cx_ - _FB.text_length(t_, e_) / 2) * MM, (H - (cy_ - 0.35 * e_)) * MM), t_, fontsize=e_ * MM, fontname="F_B", fontfile=FONTB, color=(1, 1, 1))
         _FNT = {False: fitz.Font(fontfile=FONT), True: fitz.Font(fontfile=FONTB)}
         for sp in SITEPARTS:
             if sp["kind"] == "circle":
@@ -2208,7 +2293,7 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
-ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], anchors={"p1.siteplan": PLAN_ANCHOR}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT,
+ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], anchors={"p1.siteplan": PLAN_ANCHOR}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
                      renumber=dict(id="2026-10-28b", maps={"2026-10-28": {"4": 2, "5": 3, "2": 4, "3": 5}, "_none": {"5": 3, "3": 4, "4": 5}},
                                    note="ユーザー、10-28 13:17：5枚の番号を振り直した（前の番号 → 新しい番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"),
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))

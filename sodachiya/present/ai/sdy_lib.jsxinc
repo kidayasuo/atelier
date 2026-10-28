@@ -213,7 +213,7 @@ SDY.makeBox = function (doc, lay, i, p) {
     r.stroked = !!p.stroke; if (p.stroke) { r.strokeColor = SDY.rgb(p.stroke); r.strokeWidth = p.lw || 0.5; }
     if (p.dash) { r.strokeDashes = [p.dash[0] * (p.lw || 0.5), p.dash[1] * (p.lw || 0.5)]; }
     SDY.tag(r, p);
-    return r;
+    return SDY.intoCont(lay, p, r);                  // 印の□は数字と一つのグループに（10-28）
 };
 SDY.makeLine = function (doc, lay, i, p) {
     var g = lay.groupItems.add(), pts = [], k, K = SDY.K;
@@ -291,7 +291,7 @@ SDY.groupBoxes = function (doc) {
         if (!map.hasOwnProperty(id)) { continue; }
         it = map[id]; t = SDY.parseTag(it);
         if (!t || t.kind !== "box") { continue; }
-        if (it.parent.typename === "GroupItem" && it.parent.name === it.name) { continue; }   // もうまとめてある
+        if (it.parent.typename === "GroupItem") { continue; }   // もうまとめてある・印の□（数字とのグループ、10-28）
         g = it.layer.groupItems.add(); g.name = it.name;
         g.move(it, ElementPlacement.PLACEBEFORE);
         it.move(g, ElementPlacement.PLACEATEND);

@@ -25,6 +25,13 @@ def _slug(s, n=14):
     return s[:n] or "x"
 
 
+def _grp(r):
+    """箱の部品をまとめるグループ（案Hの箱：見出し・本文・印を「箱　…」のグループに、ユーザー 10-28）"""
+    k = r.get("id") or ""
+    m = re.match(r"^ibox\.(nat|com)\.([^.]+)\.(title|text)$", k)
+    return dict(group=f"ibox.{m.group(1)}.{m.group(2)}", group_name="箱　" + (r.get("name") or "").split("：", 1)[-1]) if m else {}
+
+
 def write(c):
     figs, rec, W, H, MM = c["figs"], c["rec"], c["W"], c["H"], c["MM"]
     NOTE, ROOT, HERE = c["NOTE"], c["ROOT"], c["HERE"]
@@ -126,7 +133,7 @@ def write(c):
                     continue
                 add(dict(id=r.get("id") or f"t.{_slug(r['s'])}", name=r.get("name") or r["s"][:24], kind="text", layer=layer,
                          x=round(r["x"], 2), y=round(H - y, 2), s=r["s"], size_pt=pt(r["size"]), font=r.get("font") or ("W6" if r["bold"] else "W3"),
-                         color=r["color"], align=r["ha"] if r["ha"] in ("left", "center", "right") else "left", mock_hash=djb2(r["s"])))
+                         color=r["color"], align=r["ha"] if r["ha"] in ("left", "center", "right") else "left", mock_hash=djb2(r["s"]), **_grp(r)))
             elif k == "area":
                 if inside(r["x"], r["y"]):
                     continue
@@ -135,7 +142,7 @@ def write(c):
                 add(dict(id=r["id"], name=r["name"], kind="area", layer=layer, x=round(r["x"], 2), y=round(H - top, 2),
                          w=round(r["w"], 2), h=round(max(r["h"], 2 * e) + e, 2), s=r["s"], size_pt=pt(r["size"]),
                          font="W6" if r["bold"] else "W3", color=r["color"], align="left", justify="full_last_left",   # 両端揃え（最終行は左）、ユーザー 10-25夕
-                         leading=r.get("leading", 1.5), para_space=r.get("para_space", 1.0), mock_hash=djb2(r["s"])))
+                         leading=r.get("leading", 1.5), para_space=r.get("para_space", 1.0), mock_hash=djb2(r["s"]), **_grp(r)))
             elif k == "box":
                 if inside(r["x"] + r["w"] / 2, r["y"] + r["h"] / 2):
                     continue
@@ -151,6 +158,27 @@ def write(c):
             add(dict(id=o_.get("id") or f"top.{_slug(ts)}", name=o_.get("name") or ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
                      size_pt=pt(th), font=(ex[0] if ex and ex[0] else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"),
                      align=o_.get("align", "left"), mock_hash=djb2(ts), **({"follow": f"p{no}." + o_["follow"]} if o_.get("follow") else {})))
+        # 5b) 番号の印（案H、1枚目、ユーザー 10-28）：○（自然）か□（地域）と白抜きの数字を一つのグループに。
+        #     配置図の上の印は素材01a（配置図）について行く（.ai で配置図ごと動かしたら一緒に）。数字は mock.py が決めた番号（.ai の書き換えは mock.py が拾う）
+        if no == 1:
+            for mk in c.get("marks", []):
+                r_, col = mk["r"], (c["cnat"] if mk["cat"] == "nat" else c["ccom"])
+                gk = dict(group=mk["group"], group_name=mk["group_name"]) if not mk["id"].startswith("ibox.") else \
+                    dict(group=mk["group"].rsplit(".", 1)[0], group_name=mk["group_name"].replace("印（箱）　", "箱　"))
+                fo = dict(follow=f"p{no}." + mk["follow"]) if mk.get("follow") else {}
+                s_ = r_ if mk["cat"] == "nat" else r_ * 0.9
+                shp = dict(id=f"{mk['id']}.shape", name=("○" if mk["cat"] == "nat" else "□") + f"　{mk['group_name']}", layer="説明",
+                           x=round(mk["cx"] - s_, 2), y=round(H - mk["cy"] - s_, 2), w=round(2 * s_, 2), h=round(2 * s_, 2), fill=col,
+                           stroke="#FFFFFF" if mk["ring"] else None, lw=0.8 if mk["ring"] else 0, **gk, **fo)
+                if mk["cat"] == "nat":
+                    shp.update(kind="circle", alpha=1.0)
+                else:
+                    shp.update(kind="box", dash=None)
+                add(shp)
+                e = em(c["mark_num"])
+                add(dict(id=f"{mk['id']}.num", name=f"番号　{mk['group_name']}", kind="text", layer="説明", x=round(mk["cx"], 2), y=round(H - (mk["cy"] - 0.35 * e), 2),
+                         s=str(mk["num"]), size_pt=pt(c["mark_num"]), font="W6", color="#FFFFFF", align="center", mock_hash=djb2(str(mk["num"])),
+                         no_user_s=True, **gk, **fo))
         # 6) 配置図の中の文字・注の線・突き出た木（1枚目、ユーザー 10-25夕：一つずつ動かして書き換える。注の文字と線は一つのグループ）
         if no == 1:
             for sp in c.get("siteparts", []):
@@ -171,9 +199,13 @@ def write(c):
                              fill=sp["fill"], alpha=sp.get("alpha", 1.0), stroke=sp.get("stroke"), lw=sp.get("lw", 0), group=sp.get("group")))
         for p in parts:
             g_ = p.get("group")
-            if g_:
+            if g_ and not p.get("group_name"):
                 p["group_name"] = "突き出た木" if g_ == "site.g.tree" else ("縮尺" if g_ == "site.g.縮尺" else "配置図の注　" + g_.split(".")[-1])
         # ユーザーの割付を優先。follow の付いた部品は、自分の割付が無ければ、ついて行く部品（素材など）がユーザーに動かされた分だけ一緒に動く
+        for p in parts:                             # 前の部品の .ai の位置へ一度だけ移す（mock.py の AI_SHIFT、例：前の箱 → 案Hの見出し・本文・印）
+            for pre, (dx, dy) in c.get("ai_shift", {}).items():
+                if p["id"].startswith(f"p{no}." + pre) and p.get("x") is not None:
+                    p["x"], p["y"], p["u"] = round(p["x"] + dx, 2), round(p["y"] + dy, 2), 1
         _base = {p["id"]: (p.get("x"), p.get("y")) for p in parts}
         for p in parts:
             f_ = p.pop("follow", None)
@@ -189,10 +221,14 @@ def write(c):
             for key in ("x", "y", "w", "h", "pts"):
                 if key in u:
                     p[key] = u[key]
+            if any(k_ in u for k_ in ("x", "y", "w", "h", "pts")):
+                p["u"] = 1                          # ユーザーの割付で置いた（export は動かしていなくても書き出す：次の更新で既定に戻らないように）
             if p["kind"] == "link" and "w" in u and p.get("clip"):
                 p["scale"] = round(u["w"] / (p["clip"][2] - p["clip"][0]), 4)
-            if "s" in u and p["kind"] in ("text", "area"):
+            if "s" in u and p["kind"] in ("text", "area") and not p.get("no_user_s"):
                 p["s"] = u["s"]
+        for p in parts:
+            p.pop("no_user_s", None)
         pages.append(dict(no=no, frame=has_frame, parts=parts))
     M = 15.0
     out = dict(note="mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
