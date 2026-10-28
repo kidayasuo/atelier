@@ -58,7 +58,8 @@ stage 7e 室内の戸               python3 add_inner.py doors $OUT/s7d.3dm $OUT
 stage 7f 優先順位で削る         python3 clip_parts.py $OUT/s7e.3dm $OUT/s7f.3dm $A/data/wnew.pkl $OUT/clip.json > $OUT/log_7f.txt 2>&1
 stage 7g 大和張り               python3 yamato.py $OUT/s7f.3dm $OUT/s7g.3dm > $OUT/log_7g.txt     # 本館の外壁の上板（杉 135×15、17y）、10-28 本館係
 stage 7h 大和張り（西館）       python3 yamato_west.py $OUT/s7g.3dm $OUT/s7h.3dm $A/data/wnew.pkl > $OUT/log_7h.txt     # 西館の外壁の上板（21y）、10-28 西館係
-stage 8 護岸と園庭の取り込み    python3 add_site.py $OUT/s7h.3dm $OUT/s8.3dm $M/sodachiya_garden_layers.3dm > $OUT/log_8.txt
+stage 7i 西館の間仕切り         python3 west_walls.py $OUT/s7h.3dm $OUT/s7i.3dm $A/data/wnew.pkl > $OUT/log_7i.txt     # 西館の 24 を一枚ずつの直方体（立面の形×厚さ 120）に作り直す、10-28 夜 西館係
+stage 8 護岸と園庭の取り込み    python3 add_site.py $OUT/s7i.3dm $OUT/s8.3dm $M/sodachiya_garden_layers.3dm > $OUT/log_8.txt
 stage 9 周辺                    python3 add_context.py $OUT/s8.3dm $DM/sodachiya_exact_mesh.3dm $A/data/context_plateau.json > $OUT/log_9.txt
 stage 10 Rhino版               python3 clean_wire.py $DM/sodachiya_exact_mesh.3dm $DA/sodachiya.3dm > $OUT/log_10.txt
 stage 10m 素材                 python3 materials.py $A/data/materials.json $DM/sodachiya_exact_mesh.3dm $DA/sodachiya.3dm > $OUT/log_10m.txt; cat $OUT/log_10m.txt >&3
