@@ -353,8 +353,9 @@ _walk = _GU([_sr(A.SIDEWALK["s"][0], A.SIDEWALK["s"][1], *A.SIDEWALK["d"]), _sr(
 _park = _GU([_sr(-5, 17.7, A.SIDEWALK["d"][1], A.HEDGE_D), _sr(17.7, 22.7, A.SIDEWALK["d"][1], A.NHEDGE_D)]).difference(_walk)
 _zones = [("74a_外構_駐車の舗装（アスファルト）", _GROUND.intersection(_park))]
 _zones.append(("76b_外構_歩く舗装（ベージュ）", _GROUND.intersection(_walk).difference(_park)))
-_zones.append(("78a_外構_ひろばの真砂土", _GROUND.intersection(A.plz).difference(_walk).difference(_park)))
-_zones.append(("76s_外構_土（植栽・砂利・すき間）", _GROUND.difference(_walk).difference(_park).difference(A.plz)))
+_PLZ = A.plz.intersection(_sr(-5, 40, -5, A.WALL_D))                                      # 本館の壁の足もと（小径の先の0.3）は砂利＝土の色（10-30）
+_zones.append(("78a_外構_ひろばの真砂土", _GROUND.intersection(_PLZ).difference(_walk).difference(_park)))
+_zones.append(("76s_外構_土（植栽・砂利・すき間）", _GROUND.difference(_walk).difference(_park).difference(_PLZ)))
 GROUND_AREA = {}
 for _ln, _g in _zones:
     _g = _g.buffer(0.002, join_style=2).buffer(-0.004, join_style=2)                     # 隣の板と0.002あけ、細い切れ端を落とす
@@ -367,11 +368,19 @@ for _ln, _g in _zones:
         else:                                                            # 穴のある板は、穴を切る線で分けて穴なしにする
             from shapely.ops import split as _split
             from shapely.geometry import LineString as _GL
+            # 切る線は道路に直交する向き（局所の d）で、その穴を持つ一片だけを切る（10-30：世界の x で全部を切ると斜めの細い切れ端ができた）
+            _o = np.array(P(0, 0)); _dd = np.array(P(0, 1)) - _o
             _pcs = [_q]
             for _h in _q.interiors:
-                _c = _h.centroid; _b = _q.bounds
-                _cut = _GL([(_c.x, _b[1] - 1), (_c.x, _b[3] + 1)])
-                _pcs = [pp for pc in _pcs for pp in (_split(pc, _cut).geoms if pc.intersects(_cut) else [pc])]
+                _c = np.array(_GP(_h).representative_point().coords[0])
+                _cut = _GL([tuple(_c - 80 * _dd), tuple(_c + 80 * _dd)])
+                _hp = _GP(_h)
+                _new = []
+                for pc in _pcs:
+                    if any(_GP(i).equals(_hp) or _GP(i).contains(_hp.representative_point()) for i in pc.interiors):
+                        _new += list(_split(pc, _cut).geoms)
+                    else: _new.append(pc)
+                _pcs = _new
             for _pc in _pcs:
                 for _pp in polys(_pc):
                     if _pp.area >= 0.05 and not list(_pp.interiors): slab_smooth(list(_pp.simplify(0.005).exterior.coords)[:-1], 0.0, 0.01, _ln)
