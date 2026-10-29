@@ -1,0 +1,28 @@
+{
+ "_": "17_光の環境_断面.pdf の位置：ページの左上＝基の紙の (x, y) mm、1 mm＝1 mm。present/tools/saikou.py が書く。",
+ "base": "drawings/sodachiya_sections_1-100.pdf",
+ "view": "断面C",
+ "page_paper_mm": [
+  595.0,
+  252.4,
+  826.1,
+  405.0
+ ],
+ "frame_line_depth_mm": 2315,
+ "eave_cut_deg": 60.7,
+ "sun_9h_profile_deg": {
+  "夏至": 49.4,
+  "春秋分": 38.0,
+  "冬至": 23.1
+ },
+ "noon_profile_deg": {
+  "夏至": 88.9,
+  "春秋分": 86.3,
+  "冬至": 81.6
+ },
+ "glass_sunlit_until": {
+  "夏至": "9:54",
+  "春秋分": "10:31",
+  "冬至": "11:08"
+ }
+}
