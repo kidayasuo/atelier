@@ -1,0 +1,33 @@
+{
+ "camera_mm": [
+  -26806.0, 
+  -117758.0, 
+  9034.0
+ ], 
+ "viewport_px": [
+  2042, 
+  1322
+ ], 
+ "named_view": "me", 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "up": [
+  0.0275, 
+  0.1414, 
+  0.98960000000000004
+ ], 
+ "target_mm": [
+  -12837.0, 
+  -45901.0, 
+  -1619.0
+ ], 
+ "px": [
+  3508, 
+  2480
+ ], 
+ "lens_mm": 50.0, 
+ "projection": "perspective", 
+ "name": "me", 
+ "two_point": false, 
+ "made": "2026-10-30 00:50", 
+ "hfov_deg": 39.600000000000001
+}
