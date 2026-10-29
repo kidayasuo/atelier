@@ -2210,23 +2210,38 @@ HAIRYO = [
     ("時間", "3 mの架構は残し、中は変えられる（スケルトン＆インフィル）")]
 
 
-def _part(id_, x, y, w, lines, size, color=INK, bold=False, lead=1.3, name=None):
-    """文字の部品（固定の鍵）。lines は折り返した行。見本は T で描く。返り値は使った高さ（mm）"""
+def _part(id_, x, y, w, lines, size, color=INK, bold=False, lead=1.3, name=None, group=None, ha="left"):
+    """文字の部品（固定の鍵）。lines は折り返した行。見本は T で描く。返り値は使った高さ（mm）。group＝.ai でまとめるグループ（鍵, 名前）"""
     s_ = "".join(lines)
+    g_ = dict(group=group[0], group_name=group[1]) if group else {}
     if w:
         _airec(fig, kind="area", id=id_, name=name or ("文：" + s_[:12]), x=x, y=y, w=w, h=len(lines) * size / 0.72 * lead + 1,
-               s=s_, size=size, color=color, bold=bold, leading=lead, para_space=0)
+               s=s_, size=size, color=color, bold=bold, leading=lead, para_space=0, **g_)
     else:
-        _airec(fig, kind="text", id=id_, name=name or ("文：" + s_[:12]), x=x, y=y, s=s_, size=size, color=color, bold=bold, ha="left", va="baseline")
+        _airec(fig, kind="text", id=id_, name=name or ("文：" + s_[:12]), x=x, y=y, s=s_, size=size, color=color, bold=bold, ha=ha, va="baseline", **g_)
     AIMUTE[0] += 1
     for k_, l_ in enumerate(lines):
-        T(ax, x, y - k_ * size / 0.72 * lead, l_, size, color, bold=bold)
+        T(ax, x, y - k_ * size / 0.72 * lead, l_, size, color, bold=bold, ha=ha)
     AIMUTE[0] -= 1
     return len(lines) * size / 0.72 * lead
 
 
+def _rule(id_, pts, color, lw, group=None, name=None):
+    """罫線の部品（パス、固定の鍵）。pts は紙の mm（下原点）、lw は pt"""
+    P_ = np.asarray(pts, float)
+    ax.plot(P_[:, 0], P_[:, 1], color=color, lw=lw, gid="aipart", solid_capstyle="butt")
+    _airec(fig, kind="line", id=id_, name=name or "罫線", pts=[list(map(float, q)) for q in P_], color=color, lw=lw,
+           **(dict(group=group[0], group_name=group[1]) if group else {}))
+
+
+G_UNTEN = ("unten", "季節ごとの運転")
+G_HAIRYO = ("hairyo", "環境への配慮")
+G_IA = ("insp_area", "inspired by と面積表")
+
+
 _top5 = _tC + 4                                 # 範囲の上端（断面Cの題にそろえる）
 _bot5 = cy - 12                                 # 下端（断面Cの下まで）
+_HAIRYO_TOP_EST = None
 _gap5 = 9                                       # 運転と配慮のあいだ
 _Lw = _rw5                                      # 一つの列に上から：季節ごとの運転・放射冷房のパネル・環境への配慮
 _Rw = _rw5
@@ -2245,37 +2260,37 @@ for _fs in (3.0, 2.8, 2.6):                     # 入る字の大きさを選ぶ
 if _FS is None:
     raise SystemExit("3枚目：季節ごとの運転と環境への配慮が 2.6 mm でも入らない（運転 %.0f・配慮 %.0f／%.0f mm）" % (_hl, _hr, _top5 - _bot5))
 print("3枚目の運転と配慮：字 %.1f mm、運転 %.0f・配慮 %.0f／%.0f mm" % (_FS, _hl, _hr, _top5 - _bot5))
-sozai("12", "季節ごとの運転と環境への配慮（運転と放射冷房）", 3, _rx5 - 1, _top5 - _hl - 2, _rw5 + 2, _hl + 4)
+# 素材12・12bはやめた：文字と罫線は Illustrator の部品（ユーザー 10-29 12:49：イメージではなく文字に）
 # 左：季節ごとの運転
 _x0, _y = _rx5, _top5 - 4
-_part("unten.head", _x0, _y, 0, ["季節ごとの運転"], 3.2, C_UNTEN, True, name="見出し：季節ごとの運転")
+_part("unten.head", _x0, _y, 0, ["季節ごとの運転"], 3.2, C_UNTEN, True, name="見出し：季節ごとの運転", group=G_UNTEN)
 _y -= 6
-_y -= _part("unten.sum", _x0, _y, _Lw, jwrap(UNTEN_SUM, _cpl(_Lw)), _FS, name="まとめ：季節ごとの運転") + 1
+_y -= _part("unten.sum", _x0, _y, _Lw, jwrap(UNTEN_SUM, _cpl(_Lw)), _FS, name="まとめ：季節ごとの運転", group=G_UNTEN) + 1
 _xs = [_x0]
 for w_ in _cw[:-1]:
     _xs.append(_xs[-1] + w_)
-ax.plot([_x0, _x0 + _Lw], [_y, _y], color=C_UNTEN, lw=0.5)
+_rule("unten.rule.top", [(_x0, _y), (_x0 + _Lw, _y)], C_UNTEN, 0.5, G_UNTEN)
 _ytb = _y
 _y -= _lh
 for j_, (h_, _) in enumerate(UNTEN_COLS):
-    _part(f"unten.h.c{j_}", _xs[j_] + 1, _y, 0, [h_], _FS, C_UNTEN, True, name="表の見出し：" + h_)
+    _part(f"unten.h.c{j_}", _xs[j_] + 1, _y, 0, [h_], _FS, C_UNTEN, True, name="表の見出し：" + h_, group=G_UNTEN)
 _y -= 2.4
-ax.plot([_x0, _x0 + _Lw], [_y + 1, _y + 1], color=C_UNTEN, lw=0.3)
+_rule("unten.rule.head", [(_x0, _y + 1), (_x0 + _Lw, _y + 1)], C_UNTEN, 0.3, G_UNTEN)
 for i_, r_ in enumerate(UNTEN):
     _yt = _y - _lh + 0.6
     for j_, t_ in enumerate(r_):
-        _part(f"unten.r{i_}.c{j_}", _xs[j_] + 1, _yt, _cw[j_] - 2, jwrap(t_, _cpl(_cw[j_] - 2)), _FS, bold=(j_ == 0), name=f"表：{r_[0]}・{UNTEN_COLS[j_][0]}")
+        _part(f"unten.r{i_}.c{j_}", _xs[j_] + 1, _yt, _cw[j_] - 2, jwrap(t_, _cpl(_cw[j_] - 2)), _FS, bold=(j_ == 0), name=f"表：{r_[0]}・{UNTEN_COLS[j_][0]}", group=G_UNTEN)
     _y -= _rows_h[i_]
-    ax.plot([_x0, _x0 + _Lw], [_y + 1, _y + 1], color="#9A9A9A", lw=0.2)
-for x_ in _xs[1:]:
-    ax.plot([x_ - 0.5, x_ - 0.5], [_y + 1, _ytb], color="#BBBBBB", lw=0.2)
+    _rule(f"unten.rule.r{i_}", [(_x0, _y + 1), (_x0 + _Lw, _y + 1)], "#9A9A9A", 0.2, G_UNTEN)
+for j_, x_ in enumerate(_xs[1:]):
+    _rule(f"unten.rule.c{j_ + 1}", [(x_ - 0.5, _y + 1), (x_ - 0.5, _ytb)], "#BBBBBB", 0.2, G_UNTEN)
 # 左の下：放射冷房のパネル（小さな段、左に色の帯）
 _y -= 5
 _rl = jwrap(REIBOU, _cpl(_Lw - 4))
 _rh = 6 + len(_rl) * _lh + 1
-ax.add_patch(Rectangle((_x0, _y - _rh + 2), 1.2, _rh, fc=C_UNTEN, ec="none"))
-_part("reibou.head", _x0 + 4, _y - 2, 0, ["放射冷房のパネル"], 3.0, C_UNTEN, True, name="見出し：放射冷房のパネル")
-_part("reibou.text", _x0 + 4, _y - 2 - 5.5, _Lw - 4, _rl, _FS, name="本文：放射冷房のパネル")
+_rule("reibou.bar", [(_x0 + 0.6, _y + 2), (_x0 + 0.6, _y - _rh + 2)], C_UNTEN, 1.2 / 0.3528, G_UNTEN)
+_part("reibou.head", _x0 + 4, _y - 2, 0, ["放射冷房のパネル"], 3.0, C_UNTEN, True, name="見出し：放射冷房のパネル", group=G_UNTEN)
+_part("reibou.text", _x0 + 4, _y - 2 - 5.5, _Lw - 4, _rl, _FS, name="本文：放射冷房のパネル", group=G_UNTEN)
 # 断面D（本館の横断、光の筋で切る、1/100、北を見る）：光の環境。図は更新係に依頼（20261029-0946-present）。
 # drawings/sodachiya_sections*_views.json に「断面D」があれば、その範囲を断面Cと同じ仕組み（Rhinoの図があればRhino、文字と寸法は部品）で
 _SD = None
@@ -2287,20 +2302,74 @@ for _vf in sorted(glob.glob(os.path.join(ROOT, "drawings", "sodachiya_sections*_
     except Exception:
         pass
 DW, DH = (_SD[1][2] - _SD[1][0], _SD[1][3] - _SD[1][1]) if _SD else (250.0, 90.0)   # 無いあいだは約25 m×約9 m（西の吹き抜けの縁から東の外縁側の先まで）
-# 右下の縦長の囲み：上に inspired by（一列）、細い罫線、下に面積表（一列）（ユーザー 10-29 10:26：「Inspired by と面積表は右下に縦長のボックスに」）
-_bx0 = _rx5
-_bw = W - M - 6 - _bx0
+# 右下の縦長の囲み：上に inspired by、細い罫線、下に面積表（ユーザー 10-29 10:26・12:49・12:50：縦長に、イメージではなく文字に、列ごとに一つの文字）
+# 部品はグループ「inspired by と面積表」：囲み p3.ia.box、罫線 p3.area.rule.*、inspired by は一つの文字 p3.insp.text（8件を段落で、名前は太・出どころは小さく灰）、
+# 面積表は列ごとに一つの文字 p3.area.col.room／req／plan（1行目が見出し、最後が延床、どちらも太。計画は右揃え）。数は sodachiya_areas.json から自動
+IA_W = 112                                      # 囲みの幅（mm）
+IA_PAD = 6
+IA_FS = 2.4                                     # 面積表の字
+IA_ROW = IA_FS + 2.2                            # 面積表の行送り（mm）
+_ia_rows = [r_ for r_ in AJ["rooms"] if not (r_["planned"] is None and not r_["judge"])]
+
+
+def _mpart(id_, x, y, paras, group, name, ha="left"):
+    """段落ごとに書式のある一つの文字の部品。paras = [(文, 字mm, 色, 太字, 前の行からの送りmm)]。返り値は最後の行の基準線"""
+    st_ = [dict(size_pt=sz_ / 0.72 / 0.3528, font="W6" if bd_ else "W3", color=matplotlib.colors.to_hex(c_), leading_pt=ld_ / 0.3528)
+           for (_, sz_, c_, bd_, ld_) in paras]
+    _airec(fig, kind="text", id=id_, name=name, x=x, y=y, s="\n".join(t_ for t_, *_ in paras), size=paras[0][1], color=paras[0][2], bold=paras[0][3],
+           ha=ha, va="baseline", para_styles=st_, group=group[0], group_name=group[1])
+    AIMUTE[0] += 1
+    yy = y
+    for k_, (t_, sz_, c_, bd_, ld_) in enumerate(paras):
+        if k_:
+            yy -= ld_
+        T(ax, x, yy, t_, sz_, c_, bold=bd_, ha=ha)
+    AIMUTE[0] -= 1
+    return yy
+
+
+_INS_P = []
+for i_, (n_, src_, what_) in enumerate(INSP):
+    _INS_P += [(n_, 2.6, INK, True, 0 if i_ == 0 else 5.7), (src_, 2.2, "#666666", False, 3.9), ("→" + what_, 2.4, INK, False, 3.9)]
+_ins_h = sum(p_[4] for p_ in _INS_P)
+_bw = IA_W
+_bh = IA_PAD + 4 + 9 + _ins_h + 4 + 8 + 9 + (len(_ia_rows) + 1) * IA_ROW + IA_PAD
+_bx0 = W - M - 6 - _bw
 _by = M + 8
-_ins_h = len(INSP) * INSP_PITCH
-_bh = 8 + 10 + _ins_h + 4 + 10 + _area_rows_h(2.4) + 4
-ax.add_patch(Rectangle((_bx0, _by), _bw, _bh, fc="none", ec="#8A8A8A", lw=0.3))
-_hy = _by + _bh - 8
-title(ax, _bx0 + 6, _hy, "inspired by", "参照した建築")
-inspired(ax, _bx0 + 6, _hy - 10, _bw - 12, rows=len(INSP), head=False)
-_ry = _hy - 10 - _ins_h + 2
-ax.plot([_bx0 + 6, _bx0 + _bw - 6], [_ry, _ry], color="#BBBBBB", lw=0.25)
-_atb = area_table(ax, _bx0 + 6, _ry - 8, _bw - 12, size=2.4)
-sozai("15", "inspired by と面積表", 3, _bx0 - 1, _by - 1, _bw + 2, _bh + 2)
+ax.add_patch(Rectangle((_bx0, _by), _bw, _bh, fc="none", ec="#8A8A8A", lw=0.3, gid="aipart"))
+_airec(fig, kind="box", id="ia.box", name="囲み：inspired by と面積表", x=_bx0, y=_by, w=_bw, h=_bh, fill="none", stroke="#8A8A8A", lw=0.3, dash=None,
+       group=G_IA[0], group_name=G_IA[1])
+_ix = _bx0 + IA_PAD
+_iw = _bw - 2 * IA_PAD
+_y = _by + _bh - IA_PAD - 4
+_part("insp.head", _ix, _y, 0, ["inspired by"], 4.2, INK, True, name="見出し：inspired by", group=G_IA)
+_part("insp.sub", _ix + 34, _y, 0, ["参照した建築"], 3.0, INK, name="見出しの添え：参照した建築", group=G_IA)
+_y -= 9
+_y = _mpart("insp.text", _ix, _y, _INS_P, G_IA, "inspired by（8件）")
+_y -= 4
+_rule("area.rule.sep", [(_ix, _y), (_ix + _iw, _y)], "#BBBBBB", 0.25, G_IA, "罫線：inspired by と面積表のあいだ")
+_y -= 8
+_part("area.head", _ix, _y, 0, ["面積表"], 4.2, INK, True, name="見出し：面積表", group=G_IA)
+_part("area.sub", _ix + 21, _y, 0, ["m²（壁芯、3dmから自動）"], 3.0, INK, name="見出しの添え：面積表", group=G_IA)
+_y -= 9
+_rule("area.rule.top", [(_ix, _y + IA_FS + 1.2), (_ix + _iw, _y + IA_FS + 1.2)], "#666666", 0.35, G_IA, "罫線：面積表の上")
+_rule("area.rule.head", [(_ix, _y - 1.6), (_ix + _iw, _y - 1.6)], "#999999", 0.25, G_IA, "罫線：面積表の見出しの下")
+_cols = {"room": ["室"], "req": ["要求"], "plan": ["計画"]}
+for r_ in _ia_rows:
+    _cols["room"].append(r_["room"].replace(" ", ""))
+    _cols["req"].append(r_["required"].replace(" ", ""))
+    _cols["plan"].append(f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"])
+_cols["room"].append("延床（2,000以内）"); _cols["req"].append(""); _cols["plan"].append(f"{AJ['floor']['total']:,.1f}")
+_cx = {"room": _ix, "req": _ix + 44, "plan": _ix + _iw}       # 要求は左揃え、計画は右揃え（小数点がそろう）
+_nm = {"room": "室", "req": "要求", "plan": "計画"}
+for k_, col_ in _cols.items():
+    n_ = len(col_)
+    _yl = _mpart(f"area.col.{k_}", _cx[k_], _y, [(t_, IA_FS, INK, j_ in (0, n_ - 1), IA_ROW) for j_, t_ in enumerate(col_)], G_IA,
+                 f"面積表の列：{_nm[k_]}", ha="right" if k_ == "plan" else "left")
+_rule("area.rule.bottom", [(_ix, _yl - 1.6), (_ix + _iw, _yl - 1.6)], "#666666", 0.35, G_IA, "罫線：面積表の下")
+_HAIRYO_TOP_EST = _top5 - _hl - _gap5
+if _HAIRYO_TOP_EST - _hr < _by + _bh + 6:
+    raise SystemExit("3枚目：環境への配慮が右下の囲みに重なる")
 # 断面D は断面Cの下と囲みの上のあいだの真ん中に（上に光の矢印を描く余白 AIR）
 _r2t, _r2b = cy - 14, M + 8
 AIR_D = 60                                      # 断面Dの上の余白（光の矢印、下の段が空いた分を回した 10-29）
@@ -2316,19 +2385,17 @@ else:
     print("断面D：まだ図が無いので枠")
 # 右：環境への配慮（一年を通して効くもの）
 _HAIRYO_TOP = _top5 - _hl - _gap5              # 季節ごとの運転の下に続ける（右下は inspired by と面積表の囲み、10-29 10:26）
-if _HAIRYO_TOP - _hr < _by + _bh + 6:
-    raise SystemExit("3枚目：環境への配慮が右下の囲みに重なる")
+
 _x1, _y = _rx5, _HAIRYO_TOP - 4
-_part("hairyo.head", _x1, _y, 0, ["環境への配慮（LEED v5 Gold相当）"], 3.2, C_HAIRYO, True, name="見出し：環境への配慮")
+_part("hairyo.head", _x1, _y, 0, ["環境への配慮（LEED v5 Gold相当）"], 3.2, C_HAIRYO, True, name="見出し：環境への配慮", group=G_HAIRYO)
 _y -= 3
-ax.plot([_x1, _x1 + _Rw], [_y, _y], color=C_HAIRYO, lw=0.5)
+_rule("hairyo.rule", [(_x1, _y), (_x1 + _Rw, _y)], C_HAIRYO, 0.5, G_HAIRYO)
 _y -= _lh
 for i_, (n_, t_) in enumerate(HAIRYO):
-    _part(f"hairyo.{i_}.name", _x1, _y, 0, [n_], _FS, C_HAIRYO, True, name="配慮の項目：" + n_)
+    _part(f"hairyo.{i_}.name", _x1, _y, 0, [n_], _FS, C_HAIRYO, True, name="配慮の項目：" + n_, group=G_HAIRYO)
     _tl = jwrap(t_, _cpl(_Rw - _nw))
-    _part(f"hairyo.{i_}.text", _x1 + _nw, _y, _Rw - _nw, _tl, _FS, name="配慮の文：" + n_)
+    _part(f"hairyo.{i_}.text", _x1 + _nw, _y, _Rw - _nw, _tl, _FS, name="配慮の文：" + n_, group=G_HAIRYO)
     _y -= len(_tl) * _lh + 1.6
-sozai("12b", "環境への配慮", 3, _rx5 - 1, _HAIRYO_TOP - _hr - 2, _rw5 + 2, _hr + 4)
 figs.append(fig)
 
 # ================================================================ 4　平面図（10-28：もとの3枚目、いちど2枚目にしてから13:17に4枚目へ。ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）

@@ -105,3 +105,7 @@ Illustrator のスクリプトで、それを部品ごとに動かせる .ai に
 
 ## 鳥瞰の想像図（10-29）
 - 2枚目の鳥瞰は素材16（`sozai/16_鳥瞰.pdf`）。絵は写真`present/photo/choukan.jpg`→Rhinoのレンダリング`rhino/out/choukan.png`（`rhino/choukan_render.py`）→仮の想像図`out/choukan_kari.png`（3dmから自動）の順に使う。写真に替える日は、写真を`present/photo/choukan.jpg`に置いてpush→mock.py。素材の名前は同じまま中身だけ替わるので、.aiのリンクがそのまま写真になる（update_texts、大きさは同じ297×210 mm）。
+
+## 3枚目の表と囲み（10-29）
+- 季節ごとの運転・環境への配慮・inspired by と面積表は、画像でなく文字と罫線の部品（グループ「季節ごとの運転」「環境への配慮」「inspired by と面積表」）。面積表は列ごとに一つの文字（p3.area.col.room／req／plan、1行目が見出し、最後が延床）。数は mock.py → update_texts で更新。
+- 表の直し方：セルは列の文字の中の一行を書き換える。行を足すときは三つの列の文字に一行ずつ同じ位置に足す（行送りを変えない、折り返さない幅のまま）。罫線は見出しの下と表の上下だけなので、行を足したら下の罫線と囲みを下げる。

@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-29 12:35",
+"generated": "2026-10-29 12:56",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -5518,46 +5518,6 @@
 "frame": true,
 "parts": [
 {
-"id": "p3.sozai.12",
-"name": "素材 12_季節ごとの運転と環境への配慮",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/12_季節ごとの運転と環境への配慮.pdf",
-"x": 484.0,
-"y": 33.0,
-"w": 337.0,
-"h": 98.58,
-"clip": null,
-"scale": 1
-},
-{
-"id": "p3.sozai.15",
-"name": "素材 15_inspired_by_と面積表",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/15_inspired_by_と面積表.pdf",
-"x": 92.15,
-"y": 304.22,
-"w": 656.69,
-"h": 464.17,
-"clip": null,
-"scale": 1,
-"u": 1
-},
-{
-"id": "p3.sozai.12b",
-"name": "素材 12b_環境への配慮",
-"kind": "link",
-"layer": "図",
-"file": "present/sozai/12b_環境への配慮.pdf",
-"x": 484.0,
-"y": 136.58,
-"w": 337.0,
-"h": 80.17,
-"clip": null,
-"scale": 1
-},
-{
 "id": "p3.link.sodachiya_sections_1-100",
 "name": "図 断面図C（線）",
 "kind": "link",
@@ -10398,6 +10358,1380 @@
 "mock_hash": "4cf5e229"
 },
 {
+"id": "p3.unten.head",
+"name": "見出し：季節ごとの運転",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 39.0,
+"s": "季節ごとの運転",
+"size_pt": 12.6,
+"font": "W6",
+"color": "#5B4A9E",
+"align": "left",
+"mock_hash": "ec7628ff",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.sum",
+"name": "まとめ：季節ごとの運転",
+"kind": "area",
+"layer": "説明",
+"x": 485.0,
+"y": 41.33,
+"w": 335.0,
+"h": 12.5,
+"s": "夏は夜の外気で床下の重さを冷やし、昼はその冷えと、触れて冷たい壁と天井扇で過ごす。冬は閉じて床から暖め、熱と湿気を逃がさない。春と秋は床下から越屋根へ風を通す。",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "680e10df",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.top",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.0,
+51.42
+],
+[
+820.0,
+51.42
+]
+],
+"color": "#5B4A9E",
+"lw": 0.5,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.h.c0",
+"name": "表の見出し：季節",
+"kind": "text",
+"layer": "説明",
+"x": 486.0,
+"y": 56.83,
+"s": "季節",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#5B4A9E",
+"align": "left",
+"mock_hash": "65adc8",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.h.c1",
+"name": "表の見出し：開け閉め",
+"kind": "text",
+"layer": "説明",
+"x": 502.0,
+"y": 56.83,
+"s": "開け閉め",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#5B4A9E",
+"align": "left",
+"mock_hash": "cf3ebceb",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.h.c2",
+"name": "表の見出し：動かすもの",
+"kind": "text",
+"layer": "説明",
+"x": 569.0,
+"y": 56.83,
+"s": "動かすもの",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#5B4A9E",
+"align": "left",
+"mock_hash": "fe3621ae",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.h.c3",
+"name": "表の見出し：効くもの",
+"kind": "text",
+"layer": "説明",
+"x": 639.0,
+"y": 56.83,
+"s": "効くもの",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#5B4A9E",
+"align": "left",
+"mock_hash": "aa8d84dd",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.head",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.0,
+58.23
+],
+[
+820.0,
+58.23
+]
+],
+"color": "#5B4A9E",
+"lw": 0.3,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r0.c0",
+"name": "表：夏の昼・季節",
+"kind": "area",
+"layer": "説明",
+"x": 486.0,
+"y": 60.38,
+"w": 14,
+"h": 12.5,
+"s": "夏の昼",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "d08301e",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r0.c1",
+"name": "表：夏の昼・開け閉め",
+"kind": "area",
+"layer": "説明",
+"x": 502.0,
+"y": 60.38,
+"w": 65,
+"h": 12.5,
+"s": "窓・越屋根・床下の入口を閉じる",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "5d2e19e5",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r0.c2",
+"name": "表：夏の昼・動かすもの",
+"kind": "area",
+"layer": "説明",
+"x": 569.0,
+"y": 60.38,
+"w": 68,
+"h": 16.0,
+"s": "放射冷房のパネル・天井扇（下向き）・床下の送風",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "10057e35",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r0.c3",
+"name": "表：夏の昼・効くもの",
+"kind": "area",
+"layer": "説明",
+"x": 639.0,
+"y": 60.38,
+"w": 180.0,
+"h": 12.5,
+"s": "深い軒、夜に冷やした底板",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "ca2971d9",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.r0",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.0,
+71.47
+],
+[
+820.0,
+71.47
+]
+],
+"color": "#9A9A9A",
+"lw": 0.2,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r1.c0",
+"name": "表：夏の夜・季節",
+"kind": "area",
+"layer": "説明",
+"x": 486.0,
+"y": 73.62,
+"w": 14,
+"h": 12.5,
+"s": "夏の夜",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "d0822fe",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r1.c1",
+"name": "表：夏の夜・開け閉め",
+"kind": "area",
+"layer": "説明",
+"x": 502.0,
+"y": 73.62,
+"w": 65,
+"h": 16.0,
+"s": "縁側のガラリと西館の越屋根を開く（本館の越屋根は閉じる）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "d5982ffa",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r1.c2",
+"name": "表：夏の夜・動かすもの",
+"kind": "area",
+"layer": "説明",
+"x": 569.0,
+"y": 73.62,
+"w": 68,
+"h": 16.0,
+"s": "開け閉めは自動（外気が涼しいとき・雨で閉じる）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "c2229e05",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r1.c3",
+"name": "表：夏の夜・効くもの",
+"kind": "area",
+"layer": "説明",
+"x": 639.0,
+"y": 73.62,
+"w": 180.0,
+"h": 12.5,
+"s": "外気が床下の底板を冷やす。遊戯室の吹き抜けの高低差約8 mで引く",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "a9aba1b1",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.r1",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.0,
+84.7
+],
+[
+820.0,
+84.7
+]
+],
+"color": "#9A9A9A",
+"lw": 0.2,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r2.c0",
+"name": "表：春・秋・季節",
+"kind": "area",
+"layer": "説明",
+"x": 486.0,
+"y": 86.85,
+"w": 14,
+"h": 12.5,
+"s": "春・秋",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "d400070",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r2.c1",
+"name": "表：春・秋・開け閉め",
+"kind": "area",
+"layer": "説明",
+"x": 502.0,
+"y": 86.85,
+"w": 65,
+"h": 12.5,
+"s": "窓・越屋根を開く",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "d31e5ded",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r2.c2",
+"name": "表：春・秋・動かすもの",
+"kind": "area",
+"layer": "説明",
+"x": 569.0,
+"y": 86.85,
+"w": 68,
+"h": 12.5,
+"s": "機械は止める",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "ab0f4e51",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r2.c3",
+"name": "表：春・秋・効くもの",
+"kind": "area",
+"layer": "説明",
+"x": 639.0,
+"y": 86.85,
+"w": 180.0,
+"h": 12.5,
+"s": "通風（梁間から越屋根へ）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "8e101166",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.r2",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.0,
+92.52
+],
+[
+820.0,
+92.52
+]
+],
+"color": "#9A9A9A",
+"lw": 0.2,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r3.c0",
+"name": "表：冬・季節",
+"kind": "area",
+"layer": "説明",
+"x": 486.0,
+"y": 94.67,
+"w": 14,
+"h": 12.5,
+"s": "冬",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "30751",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r3.c1",
+"name": "表：冬・開け閉め",
+"kind": "area",
+"layer": "説明",
+"x": 502.0,
+"y": 94.67,
+"w": 65,
+"h": 12.5,
+"s": "すべて閉じる",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "594ac009",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r3.c2",
+"name": "表：冬・動かすもの",
+"kind": "area",
+"layer": "説明",
+"x": 569.0,
+"y": 94.67,
+"w": 68,
+"h": 16.0,
+"s": "床下の暖房・全熱交換の換気・加湿・天井扇（上向きに弱く）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "e28012ae",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.r3.c3",
+"name": "表：冬・効くもの",
+"kind": "area",
+"layer": "説明",
+"x": 639.0,
+"y": 94.67,
+"w": 180.0,
+"h": 12.5,
+"s": "断熱と気密。ガラス戸の際の床からの暖気がガラスの冷えを止める",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "d043e507",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.r3",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.0,
+105.75
+],
+[
+820.0,
+105.75
+]
+],
+"color": "#9A9A9A",
+"lw": 0.2,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.c1",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+500.5,
+105.75
+],
+[
+500.5,
+51.42
+]
+],
+"color": "#BBBBBB",
+"lw": 0.2,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.c2",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+567.5,
+105.75
+],
+[
+567.5,
+51.42
+]
+],
+"color": "#BBBBBB",
+"lw": 0.2,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.unten.rule.c3",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+637.5,
+105.75
+],
+[
+637.5,
+51.42
+]
+],
+"color": "#BBBBBB",
+"lw": 0.2,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.reibou.bar",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.6,
+109.75
+],
+[
+485.6,
+127.58
+]
+],
+"color": "#5B4A9E",
+"lw": 3.401360544217687,
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.reibou.head",
+"name": "見出し：放射冷房のパネル",
+"kind": "text",
+"layer": "説明",
+"x": 489.0,
+"y": 113.75,
+"s": "放射冷房のパネル",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#5B4A9E",
+"align": "left",
+"mock_hash": "7854f874",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.reibou.text",
+"name": "本文：放射冷房のパネル",
+"kind": "area",
+"layer": "説明",
+"x": 489.0,
+"y": 115.58,
+"w": 331.0,
+"h": 16.0,
+"s": "保育室と遊戯室の壁、こどもの手の届く高さに置く。表面は約15℃で、触れて「つめた！」とわかる。結露した水を外へ流して除湿も兼ねる。風が無いので静かで、午睡を妨げない。",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "18bc5d79",
+"group": "unten",
+"group_name": "季節ごとの運転"
+},
+{
+"id": "p3.ia.box",
+"name": "囲み：inspired by と面積表",
+"kind": "box",
+"layer": "説明",
+"x": 708.0,
+"y": 344.5,
+"w": 112,
+"h": 226.5,
+"fill": "none",
+"stroke": "#8A8A8A",
+"lw": 0.3,
+"dash": null,
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.insp.head",
+"name": "見出し：inspired by",
+"kind": "text",
+"layer": "説明",
+"x": 714.0,
+"y": 354.5,
+"s": "inspired by",
+"size_pt": 16.53,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "af987a7e",
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.insp.sub",
+"name": "見出しの添え：参照した建築",
+"kind": "text",
+"layer": "説明",
+"x": 748.0,
+"y": 354.5,
+"s": "参照した建築",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"mock_hash": "880931c7",
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.insp.text",
+"name": "inspired by（8件）",
+"kind": "text",
+"layer": "説明",
+"x": 714.0,
+"y": 363.5,
+"s": "Asilo Nido Iride\nMario Cucinella Architects・Guastalla・2015\n→梁の列が並ぶ長細い本館と、外に付く付属の建物\nTamedia\n坂茂・Zürich・2013\n→梁の端の楕円の頭と、それを貫く楕円の桁\nレイモンド斑鳩こども園\nキノアーキテクツ・斑鳩・2026\n→室内に木を立てる（ホールの北山杉）\nKAIT工房\n石上純也・厚木・2008\n→柱の配列：見る向きで景色が変わる並び\n認定こども園らみどり\nはりゅうウッドスタジオ・須賀川・2026\n→内と外の二重の縁側、遊具を置かない地形の園庭\n仙田満の園舎\n環境デザイン研究所\n→摺鉢のネット、キャットウォーク、ニッチ\nWaldorf School of the Peninsula\nCalifornia\n→遊戯室の切り株\nスターバックス京都二寧坂ヤサカ茶屋店\n町家の改修・京都・2017\n→放射冷房",
+"size_pt": 10.24,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "ae69286c",
+"para_styles": [
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 0.0
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 16.156462585034014
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 16.156462585034014
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 16.156462585034014
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 16.156462585034014
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 16.156462585034014
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 16.156462585034014
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 10.235575711766188,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 16.156462585034014
+},
+{
+"size_pt": 8.660871756109852,
+"font": "W3",
+"color": "#666666",
+"leading_pt": 11.054421768707483
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 11.054421768707483
+}
+],
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.rule.sep",
+"name": "罫線：inspired by と面積表のあいだ",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+714.0,
+469.8
+],
+[
+814.0,
+469.8
+]
+],
+"color": "#BBBBBB",
+"lw": 0.25,
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.head",
+"name": "見出し：面積表",
+"kind": "text",
+"layer": "説明",
+"x": 714.0,
+"y": 477.8,
+"s": "面積表",
+"size_pt": 16.53,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "e1af71c",
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.sub",
+"name": "見出しの添え：面積表",
+"kind": "text",
+"layer": "説明",
+"x": 735.0,
+"y": 477.8,
+"s": "m²（壁芯、3dmから自動）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"mock_hash": "6413aefd",
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.rule.top",
+"name": "罫線：面積表の上",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+714.0,
+483.2
+],
+[
+814.0,
+483.2
+]
+],
+"color": "#666666",
+"lw": 0.35,
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.rule.head",
+"name": "罫線：面積表の見出しの下",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+714.0,
+488.4
+],
+[
+814.0,
+488.4
+]
+],
+"color": "#999999",
+"lw": 0.25,
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.col.room",
+"name": "面積表の列：室",
+"kind": "text",
+"layer": "説明",
+"x": 714.0,
+"y": 486.8,
+"s": "室\n乳児室（0〜1歳）\n保育室（2歳）\n保育室（3〜5歳）\n遊戯室\n便所\n食堂\n園庭\n事務室\n休憩室\n医務室\n調理室\n便所（大人用）\n機械室\n倉庫\n駐車場\n駐輪スペース\n延床（2,000以内）",
+"size_pt": 9.45,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "da55a0fb",
+"para_styles": [
+{
+"size_pt": 9.44822373393802,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+}
+],
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.col.req",
+"name": "面積表の列：要求",
+"kind": "text",
+"layer": "説明",
+"x": 758.0,
+"y": 486.8,
+"s": "要求\n約60×2\n約60\n約60×3\n240以上\n適宜\n必要に応じて\n350以上\n約60\n約60\n約30\n約60\n適宜\n約30\n約30\n5台以上\n適宜\n",
+"size_pt": 9.45,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "da60146",
+"para_styles": [
+{
+"size_pt": 9.44822373393802,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+}
+],
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.col.plan",
+"name": "面積表の列：計画",
+"kind": "text",
+"layer": "説明",
+"x": 814.0,
+"y": 486.8,
+"s": "計画\n120.5\n60.0\n181.4\n244.2\n17.2\n22.0\n982.2\n69.8\n60.4\n30.1\n65.7\n13.9\n30.0\n36.2\n○\n○\n1,310.9",
+"size_pt": 9.45,
+"font": "W6",
+"color": "#222222",
+"align": "right",
+"mock_hash": "ef03dc61",
+"para_styles": [
+{
+"size_pt": 9.44822373393802,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W3",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+},
+{
+"size_pt": 9.44822373393802,
+"font": "W6",
+"color": "#222222",
+"leading_pt": 13.038548752834465
+}
+],
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
+"id": "p3.area.rule.bottom",
+"name": "罫線：面積表の下",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+714.0,
+566.6
+],
+[
+814.0,
+566.6
+]
+],
+"color": "#666666",
+"lw": 0.35,
+"group": "insp_area",
+"group_name": "inspired by と面積表"
+},
+{
 "id": "p3.t.断面図D本館の横断（光の筋で",
 "name": "断面図D　本館の横断（光の筋で切る）",
 "kind": "text",
@@ -10483,6 +11817,412 @@
 "color": "#6B4FE0",
 "align": "center",
 "mock_hash": "94280dd6"
+},
+{
+"id": "p3.hairyo.head",
+"name": "見出し：環境への配慮",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 142.58,
+"s": "環境への配慮（LEED v5 Gold相当）",
+"size_pt": 12.6,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "af3b9280",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.rule",
+"name": "罫線",
+"kind": "line",
+"layer": "説明",
+"pts": [
+[
+485.0,
+145.58
+],
+[
+820.0,
+145.58
+]
+],
+"color": "#4E8A3A",
+"lw": 0.5,
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.0.name",
+"name": "配慮の項目：断熱・気密",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 151.0,
+"s": "断熱・気密",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "771afadb",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.0.text",
+"name": "配慮の文：断熱・気密",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 147.33,
+"w": 311.17,
+"h": 12.5,
+"s": "屋根、基礎の内側、光の筋の複層ガラス",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "789b4243",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.1.name",
+"name": "配慮の項目：日射を切る",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 158.02,
+"s": "日射を切る",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "6f283e92",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.1.text",
+"name": "配慮の文：日射を切る",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 154.35,
+"w": 311.17,
+"h": 12.5,
+"s": "深い軒、光の筋の遮熱Low-E、東のガラス戸の半分を壁に",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "bd71a0e2",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.2.name",
+"name": "配慮の項目：熱をためる",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 165.03,
+"s": "熱をためる",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "2cc956f3",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.2.text",
+"name": "配慮の文：熱をためる",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 161.37,
+"w": 311.17,
+"h": 12.5,
+"s": "ベタ基礎の底板",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "5fa4b507",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.3.name",
+"name": "配慮の項目：空気の道",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 172.05,
+"s": "空気の道",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "c158cc17",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.3.text",
+"name": "配慮の文：空気の道",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 168.38,
+"w": 311.17,
+"h": 12.5,
+"s": "縁側のガラリ→床下→床のスリット→梁間→越屋根",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "c21da26c",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.4.name",
+"name": "配慮の項目：換気",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 179.07,
+"s": "換気",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "66b597",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.4.text",
+"name": "配慮の文：換気",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 175.4,
+"w": 311.17,
+"h": 12.5,
+"s": "全熱交換。静養室と大人の便所は別の換気扇",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "3a2d1d77",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.5.name",
+"name": "配慮の項目：光",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 186.08,
+"s": "光",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "306ee",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.5.text",
+"name": "配慮の文：光",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 182.42,
+"w": 311.17,
+"h": 12.5,
+"s": "光の筋の内側を鏡面にして奥まで明るく、昼の照明を減らす",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "58abe0c",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.6.name",
+"name": "配慮の項目：地下水",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 193.1,
+"s": "地下水",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "d0411b4",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.6.text",
+"name": "配慮の文：地下水",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 189.43,
+"w": 311.17,
+"h": 12.5,
+"s": "井戸の水を熱源にしたヒートポンプで、放射冷房と床下の空調を動かす。災害時は近隣に水を届ける",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "9832ca02",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.7.name",
+"name": "配慮の項目：エネルギー",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 200.12,
+"s": "エネルギー",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "94106d8f",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.7.text",
+"name": "配慮の文：エネルギー",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 196.45,
+"w": 311.17,
+"h": 12.5,
+"s": "屋根材型の太陽光と蓄電池（停電のときも）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "1f8a3d56",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.8.name",
+"name": "配慮の項目：資源",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 207.13,
+"s": "資源",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "6bfe7c",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.8.text",
+"name": "配慮の文：資源",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 203.47,
+"w": 311.17,
+"h": 12.5,
+"s": "北山杉の間伐材、野菜くずのコンポスト、雨を庭へ",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "fc494b1d",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.9.name",
+"name": "配慮の項目：時間",
+"kind": "text",
+"layer": "説明",
+"x": 485.0,
+"y": 214.15,
+"s": "時間",
+"size_pt": 11.81,
+"font": "W6",
+"color": "#4E8A3A",
+"align": "left",
+"mock_hash": "672e5a",
+"group": "hairyo",
+"group_name": "環境への配慮"
+},
+{
+"id": "p3.hairyo.9.text",
+"name": "配慮の文：時間",
+"kind": "area",
+"layer": "説明",
+"x": 508.83,
+"y": 210.48,
+"w": 311.17,
+"h": 12.5,
+"s": "3 mの架構は残し、中は変えられる（スケルトン＆インフィル）",
+"size_pt": 11.81,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"justify": "full_last_left",
+"leading": 1.3,
+"para_space": 0,
+"mock_hash": "47fa1854",
+"group": "hairyo",
+"group_name": "環境への配慮"
 }
 ]
 },

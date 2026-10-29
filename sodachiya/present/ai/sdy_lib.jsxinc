@@ -117,6 +117,20 @@ SDY.styleText = function (tf, p) {
     SDY._each(tf, function (r) { r.paragraphAttributes.justification = jus; });
     SDY._each(tf, function (r) { r.paragraphAttributes.firstLineIndent = 0; });
     if (p.para_space) { SDY._each(tf, function (r) { r.paragraphAttributes.spaceAfter = size * Number(p.para_space); }); }
+    // 段落ごとの書式（3枚目の inspired by と面積表の列、10-29）：para_styles[k] = {size_pt, font, color, leading_pt}
+    if (p.para_styles) {
+        var k, pr, st;
+        for (k = 0; k < p.para_styles.length; k++) {
+            st = p.para_styles[k];
+            try { pr = tf.paragraphs[k]; } catch (e5) { break; }
+            if (!pr || !st) { continue; }
+            try { if (pr.length === 0) { continue; } } catch (e6) {}
+            try { if (st.size_pt) { pr.characterAttributes.size = Number(st.size_pt); } } catch (e7) {}
+            try { var ff = SDY.font(st.font); if (ff) { pr.characterAttributes.textFont = ff; } } catch (e8) {}
+            try { if (st.color) { pr.characterAttributes.fillColor = SDY.rgb(st.color); } } catch (e9) {}
+            try { if (st.leading_pt) { pr.characterAttributes.autoLeading = false; pr.characterAttributes.leading = Number(st.leading_pt); } } catch (e10) {}
+        }
+    }
 };
 SDY.missing = [];
 // 5枚の番号の振り直し（ユーザー、10-28・10-28 13:17）：layout.json の renumber.maps（前の番号 → 新しい番号）。

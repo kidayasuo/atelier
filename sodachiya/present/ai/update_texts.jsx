@@ -28,7 +28,10 @@
                 }
             } else if ((p.kind === "text" || p.kind === "area") && it.typename === "TextFrame") {
                 var want = String(p.s).replace(/\n/g, "\r");
-                if (SDY.norm(it.contents) !== SDY.norm(p.s)) { it.contents = want; nt++; }
+                if (SDY.norm(it.contents) !== SDY.norm(p.s)) {
+                    it.contents = want; nt++;
+                    if (p.para_styles) { try { SDY.styleText(it, p); } catch (e6) {} }   // 段落ごとの書式（表の列など）を掛け直す
+                }
                 SDY.tag(it, p);                          // 新しい元の文の印に
             } else if (p.kind === "link") {
                 var f = File(SDY.root.fsName + "/" + p.file), pl = it;

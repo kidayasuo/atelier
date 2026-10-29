@@ -27,6 +27,8 @@ def _slug(s, n=14):
 
 def _grp(r):
     """箱の部品をまとめるグループ（案Hの箱：見出し・本文・印を「箱　…」のグループに、ユーザー 10-28）"""
+    if r.get("group"):                            # 記録に書いたグループ（3枚目の表と囲み、10-29）
+        return dict(group=r["group"], group_name=r.get("group_name") or r["group"])
     k = r.get("id") or ""
     m = re.match(r"^ibox\.(nat|com)\.([^.]+)\.(title|text)$", k)
     return dict(group=f"ibox.{m.group(1)}.{m.group(2)}", group_name="箱　" + (r.get("name") or "").split("：", 1)[-1]) if m else {}
@@ -180,7 +182,8 @@ def write(c):
                     continue
                 add(dict(id=r.get("id") or f"t.{_slug(r['s'])}", name=r.get("name") or r["s"][:24], kind="text", layer=layer,
                          x=round(r["x"], 2), y=round(H - y, 2), s=r["s"], size_pt=pt(r["size"]), font=r.get("font") or ("W6" if r["bold"] else "W3"),
-                         color=r["color"], align=r["ha"] if r["ha"] in ("left", "center", "right") else "left", mock_hash=djb2(r["s"]), **_grp(r)))
+                         color=r["color"], align=r["ha"] if r["ha"] in ("left", "center", "right") else "left", mock_hash=djb2(r["s"]),
+                         **({"para_styles": r["para_styles"]} if r.get("para_styles") else {}), **_grp(r)))
             elif k == "area":
                 if inside(r["x"], r["y"]):
                     continue
@@ -194,7 +197,10 @@ def write(c):
                 if inside(r["x"] + r["w"] / 2, r["y"] + r["h"] / 2):
                     continue
                 add(dict(id=r["id"], name=r["name"], kind="box", layer=layer, x=round(r["x"], 2), y=round(H - r["y"] - r["h"], 2),
-                         w=round(r["w"], 2), h=round(r["h"], 2), fill=r["fill"], stroke=r["stroke"], lw=r["lw"], dash=r["dash"]))
+                         w=round(r["w"], 2), h=round(r["h"], 2), fill=r["fill"], stroke=r["stroke"], lw=r["lw"], dash=r["dash"], **_grp(r)))
+            elif k == "line":                           # 罫線の部品（3枚目の表、10-29）
+                add(dict(id=r["id"], name=r.get("name") or "罫線", kind="line", layer=layer, pts=[[round(q[0], 2), round(H - q[1], 2)] for q in r["pts"]],
+                         color=r["color"], lw=r["lw"], **_grp(r)))
         # 5) 引き出し線と重ねた文字
         for i, (pts, col, *kk) in enumerate(c["topl"].get(no, [])):
             lk = kk[0] if kk and kk[0] else str(i + 1)
