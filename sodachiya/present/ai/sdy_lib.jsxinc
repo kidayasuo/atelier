@@ -612,6 +612,13 @@ SDY.describe = function (doc, it) {                   // 台帳に残す中身�
         }
     } else if (it.typename === "TextFrame") {
         d.s = SDY.norm(it.contents);
+        try {                                         // 段落の枠（エリア内文字）は枠の大きさも（ユーザー 10-30：幅を狭くしても build で戻った）
+            if (it.kind === TextType.AREATEXT) {
+                var tb = it.textPath.geometricBounds, tp = mm([tb[0], tb[1]]);
+                d.area = true; d.x = tp[0]; d.y = tp[1];
+                d.w = Math.round((tb[2] - tb[0]) / K * 100) / 100; d.h = Math.round((tb[1] - tb[3]) / K * 100) / 100;
+            }
+        } catch (e9) {}
         try { d.size_pt = it.textRange.characterAttributes.size; } catch (e) {}
         try { d.color = SDY.hexOf(it.textRange.characterAttributes.fillColor); } catch (e) {}
         try { d.font = SDY.fontName(it.textRange.characterAttributes.textFont); } catch (e) {}
@@ -701,7 +708,12 @@ SDY.drawUser = function (doc, ai, d, dx, dy, cont) {  // describe の形から�
         var j;
         for (j = (d.children || []).length - 1; j >= 0; j--) { try { SDY.drawUser(doc, ai, d.children[j], dx, dy, it); } catch (e1) { SDY.missing.push("足した物の中（" + (d.children[j].name || d.children[j].type) + "）：" + e1.message); } }
     } else if (d.type === "TextFrame" && d.s !== undefined) {
-        it = cont.textFrames.pointText(P([d.x, d.y + (d.h || 4) * 0.8]));
+        if (d.area && d.w && d.h) {                   // エリア内文字：同じ枠で（10-30）
+            var q0 = P([d.x, d.y]);
+            it = cont.textFrames.areaText(cont.pathItems.rectangle(q0[1], q0[0], d.w * K, d.h * K));
+        } else {
+            it = cont.textFrames.pointText(P([d.x, d.y + (d.h || 4) * 0.8]));
+        }
         it.contents = String(d.s).replace(/\n/g, "\r");
         try { if (d.size_pt) { it.textRange.characterAttributes.size = Number(d.size_pt); } } catch (e2) {}
         try { c = SDY.colorOf(d.color); if (c) { it.textRange.characterAttributes.fillColor = c; } } catch (e3) {}
