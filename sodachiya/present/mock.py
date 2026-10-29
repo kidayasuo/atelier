@@ -639,7 +639,7 @@ def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2, key=None):
 # 1枚目の説明の箱は案H（ユーザー、10-28 14:04）：枠と塗りなし、見出しの頭に番号の印（自然＝青の○、地域＝茶の□、白抜きの数字）、
 # 配置図の上の点にも同じ印（引き出し線なし）。印は一つずつ Illustrator の部品（○か□と数字のグループ）
 MARKS = []          # dict(id, cat, num, cx, cy（紙のmm、下原点）, r, ring, group, group_name, follow)
-MARK_R_BOX, MARK_R_PLAN = 3.2, 3.2                  # 箱の印は○の径 6.4 mm（ユーザーが .ai で小さくした、10-29）。配置図の上の印も同じ大きさ（10-30）
+MARK_R_BOX, MARK_R_PLAN = 4.3, 4.3                  # 箱の印は見出し 20 pt に合わせて大きく（10-29 16:02）。配置図の上の印も同じ大きさ（10-30）
 MARK_NUM_BOX = 15.5 * PT2MM  # 箱の印の数字（15.5 pt、10-29 17:49）
 MARK_NUM = MARK_NUM_BOX      # 配置図の上の印の数字も箱と同じ（ユーザー 10-30）
 HIND = 1 + 2 * MARK_R_BOX + 2.5                     # 見出しと本文の字下げ（印の幅）
