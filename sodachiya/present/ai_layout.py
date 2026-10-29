@@ -190,7 +190,7 @@ def write(c):
                 continue
             k = r["kind"]
             if k == "frame":
-                has_frame = True
+                has_frame = "top" if r.get("top") else True
                 continue
             note = r.get("color") == NOTE or r.get("stroke") == NOTE
             layer = "注記" if note else "説明"

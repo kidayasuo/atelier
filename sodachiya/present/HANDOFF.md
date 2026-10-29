@@ -93,3 +93,4 @@
 - 10-29 17:24（ユーザー）：地域のなかの敷地（素材14）を「説明」のレイヤーのグループ「地域のなかの敷地」にし、用水のネットワークの上に（layout.jsonのorder、sdy_libのapplyOrder）。書き出しでレイヤーごとの重ね順（stacking）と部品のレイヤーの移動（parts.<鍵>.layer）を拾い、build・update_textsで再現（applyStacking）。地域のなかの敷地の出典はユーザーが下へ離して置いているのでグループに入れていない。
 - 10-29 17:49（ユーザー）：1枚目の箱の見出しの印を大きく（○8.6・□7.8 mm、数字15.5 pt、見出しの左に字の半分あけ、縦は見出しの行の中心）。ai_layoutが見出しの位置（ユーザーの記録）から印だけ置き直す。お向かいさんを□3に（numbers.json）。17:56：枠の数字とテーマの間の空白を消した（「1敷地と…」）。
 - 10-29 18:04（ユーザー）：今のビューのまま描く昼・夜のレンダリング`rhino/render_hiru.py`・`render_yoru.py`（中身は`render_common.py`）。名前（keikan・me・choukan・その他）と大きさを聞き、`rhino/out/`に昼は`keikan_hiru.png`・`me.png`・`choukan.png`・`<名前>_hiru.png`、夜は`<名前>_yoru.png`と`<名前>_view.json`（projection: "perspective"）。名前付きビュー`<名前>`を残す。手前は隠さない（ユーザーがHide）。
+- 10-29 18:01（ユーザー）：4枚目にも共通の枠（frame(ax, 4, …)）。平面図は白い地の紙いっぱいの図なので、枠は図の上に重ねる（mock.pyのFRAME_TOP、layout.jsonのpages[].frame="top"→buildが枠のシンボルを「線」のレイヤーへ）。前の小さな題の文字（TOPT）は外した。平面図は動かしていない。

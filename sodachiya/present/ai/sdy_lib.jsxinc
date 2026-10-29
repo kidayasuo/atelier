@@ -476,6 +476,7 @@ SDY.makeFrame = function (doc, L) {
         var si = lay.symbolItems.add(sym), sb = si.geometricBounds, ai = SDY.ab(doc, i);
         si.translate(ai[0] + dx - sb[0], ai[1] + dy - sb[1]);
         si.name = "枠";
+        if (L.pages[i].frame === "top") { si.move(SDY.layer(doc, "線"), ElementPlacement.PLACEATBEGINNING); }   // 紙いっぱいの図（4枚目の平面図）の上に（10-29）
     }
     g.remove();
 };

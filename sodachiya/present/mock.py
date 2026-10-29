@@ -253,7 +253,14 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
         _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va, font=fnt)
 
 
+FRAME_TOP = {4}      # 枠を図の上に重ねる紙（4枚目は平面図が紙いっぱいで白い地、ユーザー 10-29 18:01）
+
+
+PAGE_TITLES = {}
+
+
 def frame(ax, no, theme, focus, order):
+    PAGE_TITLES[no] = f"{no}{theme}"
     AIMUTE[0] += 1
     ax.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK, gid="aipart"))
     ax.plot([M, W - M], [H - M - HDR, H - M - HDR], color=INK, lw=0.4, gid="aipart")
@@ -263,7 +270,7 @@ def frame(ax, no, theme, focus, order):
     # 注記
     T(ax, M + 4, M - 6, f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", 3.2, NOTE)
     AIMUTE[0] -= 1
-    _airec(ax.figure, kind="frame")
+    _airec(ax.figure, kind="frame", top=no in FRAME_TOP)
     _airec(ax.figure, kind="text", id="pagetitle", name="ページとサブタイトル", x=M + THEME_X, y=H - M - HDR_BL, s=f"{no}{theme}", size=THEME_SZ, color=INK, bold=True, ha="left", va="baseline")
     _airec(ax.figure, kind="text", id="note.footer", name="割付の注記", x=M + 4, y=M - 6, s=f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", size=3.2, color=NOTE, bold=False, ha="left", va="baseline")
 
@@ -2457,9 +2464,11 @@ figs.append(fig)
 
 # ================================================================ 4　平面図（10-28：もとの3枚目、いちど2枚目にしてから13:17に4枚目へ。ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
 fig, ax = page()
+# 共通の枠をそのまま当てる（ユーザー 10-29 18:01）：平面図は動かさず縮めず切らない（枠の帯と重なってよい、ユーザーが見てから考える）。
+# 平面図は白い地の紙いっぱいの図なので、枠はその上に重ねる（FRAME_TOP）。前の小さな題の文字（TOPT）は枠の表題と二重なので外した
+frame(ax, 4, "平面図　1階・2階", "敷地全体の平面図1/100（1階と西館の2階）、配置図と同じ向き", "平面図 → 色の凡例・面積")
 PLAN3 = os.environ.get("SODACHIYA_PLAN3", PLAN)        # 確かめるときだけ手元の書き出しを指す
 embed(4, PLAN3, None, 0, 0, 1.0, dwg=("plan", "平面図"))
-TOPT[4].append((14, H - 12, SCHOOL + "　4平面図　1階・2階", 3.6, True))
 figs.append(fig)
 
 # ================================================================ 5　こどもたち（と働く人たち）の環境（ユーザー、10-24夜：一日の帯を先頭に、透視図もここ）
@@ -2606,6 +2615,11 @@ for si in range(1, 6):
         pg.show_pdf_page(dr, sd, pno, clip=cr)
         if (si, k_e) in RHINO_TXT:                     # Rhino の線の上に文字と寸法
             pg.show_pdf_page(dr, fitz.open(RHINO_TXT[(si, k_e)]), pno, clip=cr)
+    if si in FRAME_TOP:                                # 紙いっぱいの図（4枚目の平面図、白い地）の上に枠を重ねる（.ai も枠をその図の上のレイヤーに、10-29）
+        pg.draw_rect(fitz.Rect(M * MM, M * MM, (W - M) * MM, (H - M) * MM), color=(0.133, 0.133, 0.133), width=0.6)
+        pg.draw_line(fitz.Point(M * MM, (M + HDR) * MM), fitz.Point((W - M) * MM, (M + HDR) * MM), color=(0.133, 0.133, 0.133), width=0.4)
+        pg.insert_text(fitz.Point((M + 4) * MM, (M + HDR_BL) * MM), SCHOOL, fontsize=NAME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
+        pg.insert_text(fitz.Point((M + THEME_X) * MM, (M + HDR_BL) * MM), PAGE_TITLES.get(si, ""), fontsize=THEME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
 doc_clean = fitz.open("pdf", doc.tobytes())          # 素材は引き出し線・重ねた文字を入れる前から切り抜く（ユーザー、10-25）
 for si in range(1, 6):
     pg = doc[si - 1]
