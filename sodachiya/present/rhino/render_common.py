@@ -20,6 +20,12 @@ LED_LAYERS = ("50b_越屋根_LED", "29_西館_越屋根_LED")   # 本館・西�
 LED_COLOR = System.Drawing.Color.FromArgb(255, 217, 138)
 LED_LIGHT_POWER = 1.0                           # LED の線の光源の強さ。軒が暗ければ 2〜5、白く飛べば 0.3〜0.5
 LED_LIGHT_DROP = 60.0                           # 線の光源を LED の帯の下端からどれだけ下に置くか（mm）
+LED_LEN_MIN, LED_LEN_MAX = 500.0, 200000.0      # 線の光源の長さがこの外なら置かない（mm）
+# 夜の切り替え（Rhino が落ちるときは一つずつ False にして、どれが原因かを見る。10-29 夜）
+USE_LED_LIGHTS = True                           # LED のレイヤーごとに線の光源を1本（本館・西館の2本）
+USE_LED_MATERIAL = True                         # LED の帯に光る材料（RenderMaterial）
+USE_SKYLIGHT_OFF = True                         # スカイライトを消す
+USE_SKY_BG = True                               # 背景を群青の一色に
 NIGHT_SKY = System.Drawing.Color.FromArgb(0x4C, 0x6C, 0xB3)     # 夜の空：群青色
 SKY_TOP = System.Drawing.Color.FromArgb(0xC9, 0xDC, 0xEC)       # 昼の空：淡い青（上）
 SKY_BOTTOM = System.Drawing.Color.FromArgb(0xEE, 0xF2, 0xF4)    # 地平の近く：ほぼ白
@@ -40,6 +46,15 @@ OUT = os.path.join(HERE, "out")
 
 def say(*a):
     print(u" ".join([x if isinstance(x, type(u"")) else (x.decode("utf-8") if isinstance(x, bytes) else u"%s" % (x,)) for x in a]))
+
+
+def stage(*a):
+    """段の名をコマンド行に出し、画面に出してから進む（落ちたとき、どこまで来たかが残る）"""
+    say(u"段：", *a)
+    try:
+        Rhino.RhinoApp.Wait()
+    except Exception:
+        pass
 
 
 def ask():
@@ -122,12 +137,18 @@ def run(mode):
     except Exception as e:
         say(u"名前付きビュー：効かなかった", e)
     json.dump(info, open(os.path.join(OUT, u"%s_view.json" % name), "w"), indent=1, ensure_ascii=False)
-    for m in Rhino.Display.DisplayModeDescription.GetDisplayModes():
-        if m.EnglishName.lower().startswith("raytrac"):
+    # 昼はレイトレースの表示で（前のとおり）。夜は、光源・材料・スカイライト・背景を変えるあいだと描くあいだ、
+    # シェーディング（無ければワイヤーフレーム）にしておく（レイトレースの表示のまま変えると落ちることがあった、10-29 夜）
+    want = ("raytrac",) if mode == "hiru" else ("shaded", "wireframe")
+    stage(u"表示を切り替える：", want[0])
+    for w_ in want:
+        m_hit = [m for m in Rhino.Display.DisplayModeDescription.GetDisplayModes() if m.EnglishName.lower().startswith(w_)]
+        if m_hit:
             try:
-                vp.DisplayMode = m
-            except Exception:
-                pass
+                vp.DisplayMode = m_hit[0]
+                view.Redraw()
+            except Exception as e:
+                say(u"  表示の切り替え：効かなかった", e)
             break
 
     # ---------------------------------------------------------------- 光と背景
@@ -367,35 +388,59 @@ def run(mode):
         doc.Layers.Modify(lay, lay.Index, True)
     say(u"材料を当てたレイヤー：", len(layer_old))
 
-    # 2）夜の LED（光る材料と線の光源）
-    led_objs, old_attr, led_lights, mi = [], [], [], -1
+    # 2）夜の LED：光る材料（RenderMaterial）と、レイヤーごとに1本の線の光源
+    led_objs, old_attr, led_lights, led_rm, led_layers = [], [], [], None, []
     sky_old = sky_get()
     if mode == "yoru":
-        for lay in doc.Layers:
-            if lay.Name in LED_LAYERS:
-                led_objs += list(doc.Objects.FindByLayer(lay) or [])
-        say(u"LED：", len(led_objs))
-        mat = Rhino.DocObjects.Material()
-        mat.Name = u"作業_レンダ_LED"
-        mat.DiffuseColor = LED_COLOR
-        mat.EmissionColor = LED_COLOR
+        led_layers = [lay for lay in doc.Layers if lay.Name in LED_LAYERS]
+        for lay in led_layers:
+            led_objs += list(doc.Objects.FindByLayer(lay) or [])
+        say(u"LED のレイヤー：", len(led_layers), u"／物：", len(led_objs))
+
+    def make_led_material():
+        """発光の色を持つ RenderMaterial を作って文書に足す。作れなければ None"""
+        m_ = Rhino.DocObjects.Material()
+        m_.Name = u"作業_レンダ_LED"
+        m_.DiffuseColor = LED_COLOR
+        m_.EmissionColor = LED_COLOR
+        rm = None
+        for f in (lambda: Rhino.Render.RenderMaterial.CreateBasicMaterial(m_, doc),
+                  lambda: Rhino.Render.RenderMaterial.CreateBasicMaterial(m_)):
+            try:
+                rm = f()
+                if rm is not None:
+                    break
+            except Exception as e:
+                say(u"  CreateBasicMaterial：", e)
+        if rm is None:
+            return None
         try:
-            mat.ToPhysicallyBased()
-            mat.PhysicallyBased.Emission = Rhino.Display.Color4f(LED_COLOR)
-            mat.PhysicallyBased.BaseColor = Rhino.Display.Color4f(LED_COLOR)
+            rm.Name = u"作業_レンダ_LED"
         except Exception:
             pass
-        mi = doc.Materials.Add(mat)
-        old_attr = [(o.Id, o.Attributes.Duplicate()) for o in led_objs]
+        try:
+            if not doc.RenderMaterials.Add(rm):
+                say(u"  RenderMaterials.Add：足せなかった")
+                return None
+        except Exception as e:
+            say(u"  RenderMaterials.Add：", e)
+            return None
+        return rm
 
     def add_led_lights():
+        """LED のレイヤーごとに、全部の物を合わせた範囲の長い向きに沿って線の光源を1本、帯の少し下に置く"""
         n_ = 0
-        for o in led_objs:
-            try:
-                bb = o.Geometry.GetBoundingBox(True)
-            except Exception:
-                continue
+        for lay in led_layers:
+            bb = Rhino.Geometry.BoundingBox.Empty
+            for o in (doc.Objects.FindByLayer(lay) or []):
+                try:
+                    b_ = o.Geometry.GetBoundingBox(True)
+                    if b_.IsValid:
+                        bb.Union(b_)
+                except Exception:
+                    pass
             if not bb.IsValid:
+                say(u"  ", lay.Name, u"：範囲が無い")
                 continue
             dx, dy = bb.Max.X - bb.Min.X, bb.Max.Y - bb.Min.Y
             cx, cy = (bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2
@@ -404,7 +449,9 @@ def run(mode):
                 a_, b_ = Rhino.Geometry.Point3d(bb.Min.X, cy, z), Rhino.Geometry.Point3d(bb.Max.X, cy, z)
             else:
                 a_, b_ = Rhino.Geometry.Point3d(cx, bb.Min.Y, z), Rhino.Geometry.Point3d(cx, bb.Max.Y, z)
-            if a_.DistanceTo(b_) < 1.0:
+            L_ = a_.DistanceTo(b_)
+            if L_ < LED_LEN_MIN or L_ > LED_LEN_MAX:
+                say(u"  ", lay.Name, u"：長さ", round(L_), u"mm は外れるので置かない")
                 continue
             try:
                 lt = Rhino.Geometry.Light()
@@ -426,10 +473,10 @@ def run(mode):
                 if k_ >= 0:
                     led_lights.append(doc.Lights[k_].Id)
                     n_ += 1
+                    say(u"  ", lay.Name, u"：長さ", round(L_), u"mm")
             except Exception as e:
                 say(u"  LED の線の光源：効かなかった", e)
-                break
-        say(u"LED の線の光源を置いた：", n_, u"／", len(led_objs), u"（強さ", LED_LIGHT_POWER, u"）")
+        say(u"LED の線の光源を置いた：", n_, u"本（強さ", LED_LIGHT_POWER, u"）")
 
     fname = out_name(name, mode)
     try:
@@ -441,18 +488,39 @@ def run(mode):
             view.Redraw()
             capture(fname, transparent)
         else:
-            for o in led_objs:
-                at_ = o.Attributes.Duplicate()
-                at_.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
-                at_.MaterialIndex = mi
-                doc.Objects.ModifyAttributes(o.Id, at_, True)
+            if USE_LED_MATERIAL and led_objs:
+                stage(u"LED の光る材料")
+                led_rm = make_led_material()
+                if led_rm is None:
+                    say(u"光る材料を作れなかった。材料は当てずに、線の光源だけで描く")
+                else:
+                    for o in led_objs:
+                        try:
+                            at_ = o.Attributes.Duplicate()
+                            old_attr.append((o.Id, o.Attributes.Duplicate()))
+                            at_.RenderMaterial = led_rm
+                            at_.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
+                            doc.Objects.ModifyAttributes(o.Id, at_, True)
+                        except Exception as e:
+                            say(u"  光る材料を当てられなかった：", e)
+                            break
+                    say(u"光る材料を当てた：", len(old_attr))
+            stage(u"太陽を消す")
             set_sun(False, NIGHT)
-            set_skylight(False)
-            sky(NIGHT_SKY, NIGHT_SKY, "SolidColor")
-            add_led_lights()
+            if USE_SKYLIGHT_OFF:
+                stage(u"スカイライトを消す")
+                set_skylight(False)
+            if USE_SKY_BG:
+                stage(u"背景を群青に")
+                sky(NIGHT_SKY, NIGHT_SKY, "SolidColor")
+            if USE_LED_LIGHTS:
+                stage(u"LED の線の光源")
+                add_led_lights()
             say(u"夜を描く前：スカイライト", sky_get(), u"／光源", doc.Lights.Count)
             view.Redraw()
+            stage(u"描く（Render）")
             capture(fname, False)
+            stage(u"描き終わった。戻す")
     finally:
         for lid in led_lights:
             try:
@@ -480,7 +548,12 @@ def run(mode):
                 doc.Layers.Modify(lay, li_, True)
             except Exception as e:
                 say(u"  レイヤーを戻せなかった：", e)
-        for k_ in ([mi] if mi >= 0 else []) + added_mats:
+        if led_rm is not None:
+            try:
+                doc.RenderMaterials.Remove(led_rm)
+            except Exception as e:
+                say(u"  光る材料を消せなかった：", e)
+        for k_ in added_mats:
             try:
                 doc.Materials.Delete(k_, True)
             except Exception:

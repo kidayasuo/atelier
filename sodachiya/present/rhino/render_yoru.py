@@ -8,6 +8,8 @@
      夜：太陽とスカイライトを消し、空は群青の一色（不透明）、越屋根の LED（50b・29）に光る材料と線の光源。
      周りの建物（04）は淡い暖かい灰で一時表示。終わったら全部戻す。1枚に約5〜15分。
      LED が暗い・白く飛ぶときは render_common.py の LED_LIGHT_POWER を直す。
+     Rhino が落ちるとき：コマンド行の最後の「段：…」が落ちた所。render_common.py の頭の切り替え
+     USE_LED_LIGHTS・USE_LED_MATERIAL・USE_SKYLIGHT_OFF・USE_SKY_BG を一つずつ False にして走らせ、どれが原因かを見る。
   3. できたら push：git add sodachiya/present/rhino/out && git commit -m "[プレゼン] レンダリング（夜）" && git push
 中身は render_common.py。
 """
