@@ -1,0 +1,33 @@
+{
+ "camera_mm": [
+  49208.0, 
+  -148919.0, 
+  10758.0
+ ], 
+ "viewport_px": [
+  2042, 
+  1322
+ ], 
+ "named_view": "keikan", 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "up": [
+  -0.0092999999999999992, 
+  0.017600000000000001, 
+  0.99980000000000002
+ ], 
+ "target_mm": [
+  -5908.0, 
+  -44157.0, 
+  8402.0
+ ], 
+ "px": [
+  4252, 
+  1701
+ ], 
+ "lens_mm": 50.0, 
+ "projection": "perspective", 
+ "name": "keikan", 
+ "two_point": false, 
+ "made": "2026-10-30 00:44", 
+ "hfov_deg": 39.600000000000001
+}
