@@ -849,7 +849,7 @@ def _deepen(g, off2=None):
     for c2 in curves2d[1:]:
         if not e.AddInnerProfile(c2): return None, 0
     return e, n_hole
-_n_deep = 0; _n_hole = 0; _BEAM_BOT_E = {}               # 架構の u → 東の桁の線（v −1.30）での梁の下端（2 枚のうち低いほう）
+_n_deep = 0; _n_hole = 0; _BEAM_BOT_E = {}; _BEAM_MID_E = {}               # 架構の u → 東の桁の線（v −1.30）での梁の下端（2 枚のうち低いほう）
 _deep = []; _g0 = {}
 for o in m.Objects:
     if o.Attributes.LayerIndex != L22B: continue
@@ -895,7 +895,20 @@ for k_ in _deep:
     if near_.any():
         uk = round(float(np.median(U_[:, 0])) / 3.0) * 3.0 if U_[:, 0].mean() > 22 else 21.3
         _BEAM_BOT_E[uk] = min(_BEAM_BOT_E.get(uk, 1e9), float(S_[near_, 2].min()))
+        nc_ = e.Profile3d(0, 0.0).ToNurbsCurve(); dm_ = nc_.Domain                    # 東の桁の線（v −1.30）での梁のせいの真ん中（頭の芯）：節ごとに細かく取った輪郭で
+        kn_ = sorted(set([dm_.T0, dm_.T1] + [float(nc_.Knots[i]) for i in range(len(nc_.Knots)) if dm_.T0 < nc_.Knots[i] < dm_.T1]))
+        Pk_ = np.array([[q.X, q.Y, q.Z] for q in (nc_.PointAt(t) for t in np.unique(np.concatenate([np.linspace(a_, b_, 25) for a_, b_ in zip(kn_, kn_[1:])])))])
+        hm_ = np.array([e.PathEnd.X - e.PathStart.X, e.PathEnd.Y - e.PathStart.Y]) / 2.0
+        Vk_ = np.array([uv(*(q_[:2] + hm_))[1] for q_ in Pk_])
+        xk_ = Polygon(np.c_[Vk_ * 1000.0, Pk_[:, 2]]).buffer(0).intersection(LineString([(-1300.0, 0.0), (-1300.0, 20000.0)]))
+        if not xk_.is_empty: _BEAM_MID_E.setdefault(uk, []).append((xk_.bounds[1] + xk_.bounds[3]) / 2.0)
 log.append(f'西館：屋根の梁 {_n_deep} 枚のせいを 700 → 800 に（上端はそのまま、下へ）。東の端の桁の穴 {_n_hole} をふさいだ')
+# 10-29 午後（ユーザー：Tamedia に倣った梁の頭の穴に桁を通す）：東の桁（楕円 200×400）は、梁（2 枚組の板）の東の端の丸い頭の芯を通す。
+# 芯＝東の桁の線（v −1.30）での梁のせいの真ん中（2 枚の平均）。穴は 3f の 3 で通る桁の断面＋10（全周で同じすき間）、桁は柱の面で止まる
+# （柱には穴を作らない、西の桁と同じ）。前（10-27）は桁を梁の下端の 10 下へ下げて穴をふさいでいた。棟は水平なので芯の高さは架構ごとにほぼ同じ。
+_MID_E = {k_: float(np.mean(v_)) for k_, v_ in _BEAM_MID_E.items()}
+_mid_sp = (max(_MID_E.values()) - min(_MID_E.values())) if _MID_E else 0.0
+log.append(f'西館：東の桁を梁の頭の芯へ：芯の高さ {min(_MID_E.values()):.0f}〜{max(_MID_E.values()):.0f}（架構ごとの差 {_mid_sp:.0f} mm）' if _MID_E else '  !! 梁の頭の芯が測れない')
 _n_g = 0; _gz = []
 for o in m.Objects:
     if o.Attributes.LayerIndex != L22D: continue
@@ -903,21 +916,21 @@ for o in m.Objects:
     if not isinstance(g, r.Extrusion): continue
     S_ = extedit.samples(g, 40); U_ = to_uv_arr(S_)
     if not (U_[:, 1].mean() > -1.6 and S_[:, 2].min() > 6500): continue              # 東の桁（屋根の高さ）だけ
-    def _bot_at(uu):
-        ks = sorted(_BEAM_BOT_E, key=lambda q: abs(q - uu))
-        return _BEAM_BOT_E[ks[0]] if ks and abs(ks[0] - uu) < 0.6 else None
+    def _mid_at(uu):
+        ks = sorted(_MID_E, key=lambda q: abs(q - uu))
+        return _MID_E[ks[0]] if ks and abs(ks[0] - uu) < 0.6 else None
     a_, b_ = g.PathStart, g.PathEnd
     ua, ub = uv(a_.X, a_.Y)[0], uv(b_.X, b_.Y)[0]
-    za_, zb_ = _bot_at(ua), _bot_at(ub)
+    za_, zb_ = _mid_at(ua), _mid_at(ub)
     if za_ is None or zb_ is None: continue
     S0 = extedit.samples(g, 60, ends=(0.0,)); S1 = extedit.samples(g, 60, ends=(1.0,))
-    dza, dzb = (za_ - 10.0) - S0[:, 2].max(), (zb_ - 10.0) - S1[:, 2].max()
+    dza, dzb = za_ - (S0[:, 2].max() + S0[:, 2].min()) / 2.0, zb_ - (S1[:, 2].max() + S1[:, 2].min()) / 2.0
     def _path(A, B, dza=dza, dzb=dzb):
         A[2] += dza; B[2] += dzb; return A, B
     e = extedit.edit(g, None, _path)
     if e is None: continue
     EXT[k_] = e; _n_g += 1; _gz.append(min(dza, dzb))
-log.append(f'西館：東の桁 {_n_g} 本を梁の下端の 10 下へ（下げた量 約{-np.mean(_gz) if _gz else 0:.0f} mm）')
+log.append(f'西館：東の桁 {_n_g} 本を梁の頭の芯へ（動かした量 約{np.mean(_gz) if _gz else 0:+.0f} mm）')
 # 10-28（ユーザー、監修の項 20261028-1310 の 3）：東の柱（v −1.05〜−1.8）と西の柱（外壁ぎわ）の頭を、その架構の梁の上端にそろえる
 # （梁の上端＝その 1 枚の上の roof_f。2 枚の上端が違う所は低いほう）。柱は 2 枚の梁のあいだ（u ±0.09）にあり、輪郭は架構の線の縦の面。
 # 頭の形（桁を抱くふくらみ）はそのまま、頭の上の線からの深さ 300 までの制御点を同じだけ上下し、300〜600 でなだらかに 0 へ（押し出しのまま）。
