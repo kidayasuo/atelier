@@ -258,13 +258,13 @@ def frame(ax, no, theme, focus, order):
     ax.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK, gid="aipart"))
     ax.plot([M, W - M], [H - M - HDR, H - M - HDR], color=INK, lw=0.4, gid="aipart")
     T(ax, M + 4, H - M - HDR_BL, SCHOOL, NAME_SZ, bold=True)
-    T(ax, M + THEME_X, H - M - HDR_BL, f"{no}　{theme}", THEME_SZ, bold=True)
+    T(ax, M + THEME_X, H - M - HDR_BL, f"{no}{theme}", THEME_SZ, bold=True)
     T(ax, W - M - 4, M + 4, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")   # 名前などは右下（ユーザー、10-25）
     # 注記
     T(ax, M + 4, M - 6, f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", 3.2, NOTE)
     AIMUTE[0] -= 1
     _airec(ax.figure, kind="frame")
-    _airec(ax.figure, kind="text", id="pagetitle", name="ページとサブタイトル", x=M + THEME_X, y=H - M - HDR_BL, s=f"{no}　{theme}", size=THEME_SZ, color=INK, bold=True, ha="left", va="baseline")
+    _airec(ax.figure, kind="text", id="pagetitle", name="ページとサブタイトル", x=M + THEME_X, y=H - M - HDR_BL, s=f"{no}{theme}", size=THEME_SZ, color=INK, bold=True, ha="left", va="baseline")
     _airec(ax.figure, kind="text", id="note.footer", name="割付の注記", x=M + 4, y=M - 6, s=f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", size=3.2, color=NOTE, bold=False, ha="left", va="baseline")
 
 
@@ -632,9 +632,9 @@ def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2, key=None):
 # 1枚目の説明の箱は案H（ユーザー、10-28 14:04）：枠と塗りなし、見出しの頭に番号の印（自然＝青の○、地域＝茶の□、白抜きの数字）、
 # 配置図の上の点にも同じ印（引き出し線なし）。印は一つずつ Illustrator の部品（○か□と数字のグループ）
 MARKS = []          # dict(id, cat, num, cx, cy（紙のmm、下原点）, r, ring, group, group_name, follow)
-MARK_R_BOX, MARK_R_PLAN = 4.4, 3.0                  # 箱の印は見出し 20 pt に合わせて大きく（10-29 16:02）
+MARK_R_BOX, MARK_R_PLAN = 4.3, 3.0                  # 箱の印は見出し 20 pt に合わせて大きく（10-29 16:02）
 MARK_NUM = 2.6      # 印の数字の高さ（mm、配置図の上）
-MARK_NUM_BOX = 3.6  # 箱の印の数字
+MARK_NUM_BOX = 15.5 * PT2MM  # 箱の印の数字（15.5 pt、10-29 17:49）
 HIND = 1 + 2 * MARK_R_BOX + 2.5                     # 見出しと本文の字下げ（印の幅）
 
 
@@ -2459,7 +2459,7 @@ figs.append(fig)
 fig, ax = page()
 PLAN3 = os.environ.get("SODACHIYA_PLAN3", PLAN)        # 確かめるときだけ手元の書き出しを指す
 embed(4, PLAN3, None, 0, 0, 1.0, dwg=("plan", "平面図"))
-TOPT[4].append((14, H - 12, SCHOOL + "　4　平面図　1階・2階", 3.6, True))
+TOPT[4].append((14, H - 12, SCHOOL + "　4平面図　1階・2階", 3.6, True))
 figs.append(fig)
 
 # ================================================================ 5　こどもたち（と働く人たち）の環境（ユーザー、10-24夜：一日の帯を先頭に、透視図もここ）
@@ -2720,7 +2720,7 @@ axF = figF.add_axes([0, 0, 1, 1]); axF.set_xlim(0, W); axF.set_ylim(0, H); axF.a
 axF.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK))
 axF.plot([M, W - M], [H - M - HDR, H - M - HDR], color=INK, lw=0.4)
 T(axF, M + 4, H - M - HDR_BL, SCHOOL, NAME_SZ, bold=True)
-T(axF, M + THEME_X, H - M - HDR_BL, "1　サブタイトル", THEME_SZ, bold=True)
+T(axF, M + THEME_X, H - M - HDR_BL, "1サブタイトル", THEME_SZ, bold=True)
 T(axF, W - M - 4, M + 4, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")
 _fn0 = "00_枠.pdf"
 figF.savefig(os.path.join(SZ, _fn0), transparent=True)

@@ -318,12 +318,33 @@ def write(c):
                 p["scale"] = round(u["w"] / (p["clip"][2] - p["clip"][0]), 4)
             if "s" in u and p["kind"] in ("text", "area") and not p.get("no_user_s") and not p["id"].endswith(".concept"):
                 # 書き換えたときの mock の文（s_base）が今の mock の文と違えば、記録の文は使わない（古くなった、10-29）
-                if u.get("s_base") and u["s_base"] != p.get("mock_hash"):
+                if u.get("s_base") and u["s_base"] != p.get("mock_hash") and u["s"] != p.get("s"):
                     p["stale_user_s"] = True
                 else:
                     p["s"] = u["s"]
             if u.get("style") and p["kind"] in ("text", "area"):
                 p["ustyle"] = u["style"]               # .ai で変えた書式の区間（書体・大きさ・色・行送り、10-29）
+        # 説明の箱の見出しの頭の印（1枚目、ユーザー 10-29 17:49：見出し 20 pt に対して小さすぎる）：見出しの文字の位置は動かさず、
+        # 印だけを見出しの左に置き直す（外形 約8.6 mm、□は一回り小さく、数字 15.5 pt、間は字の半分、縦の中心は見出しの行の中心）
+        if no == 1:
+            byid = {p["id"]: p for p in parts}
+            for p in parts:
+                m_ = re.match(r"^p1\.ibox\.((?:nat|com)\.[^.]+)\.title$", p["id"])
+                if not m_ or p.get("hidden"):
+                    continue
+                k_ = m_.group(1)
+                sh_, nu_ = byid.get(f"p1.ibox.{k_}.mark.shape"), byid.get(f"p1.ibox.{k_}.mark.num")
+                if not sh_ or not nu_:
+                    continue
+                tsz = p["size_pt"] * 0.3528                  # 見出しの字の大きさ（em、mm）
+                cy_ = p["y"] - 0.38 * tsz                    # 行の中心（紙の上から mm、y は基準線）
+                d_ = 8.6 if k_.startswith("nat.") else 7.8
+                cx_ = p["x"] - 0.5 * tsz * 0.72 - d_ / 2
+                sh_.update(x=round(cx_ - d_ / 2, 2), y=round(cy_ - d_ / 2, 2), w=d_, h=d_, u=1)
+                nsz = 15.5 * 0.3528
+                nu_.update(x=round(cx_, 2), y=round(cy_ + 0.35 * nsz, 2), size_pt=15.5, u=1)
+                if cx_ - d_ / 2 < 15.0:                       # 紙の余白（M）
+                    print("1枚目の箱の印：左に余白が無い", k_)
         # 配置図のまとめ（1枚目、ユーザー 10-28 18:03：配置図の位置に依存する物は全てグループに）：plan の付いた部品。
         # 木田さんが .ai で配置図ごと動かした分（site_shift）だけ、割付の無い部品も一緒に動かす。素材01a〜dは大きさが変わっても原点が同じ所に来るように
         ssx, ssy = c.get("site_shift", (0.0, 0.0)) if no == 1 else (0.0, 0.0)
