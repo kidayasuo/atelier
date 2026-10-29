@@ -20,7 +20,7 @@
     // update_texts で後から足した部品（組んだときに無かった物）は、layout.json の位置と比べる（動かしていなければ書き出さない、10-29）
     if (L && LB !== L) { for (bi = 0; bi < L.pages.length; bi++) { for (bj = 0; bj < L.pages[bi].parts.length; bj++) { if (!BUILT[L.pages[bi].parts[bj].id]) { BUILT[L.pages[bi].parts[bj].id] = L.pages[bi].parts[bj]; } } } }
     var same = function (rec, o) {                     // 組んだときから動いていないか（0.3 mm）
-        if (!o || rec.s !== undefined) { return false; }
+        if (!o || rec.s !== undefined || rec.style !== undefined) { return false; }
         var a = ["x", "y", "w", "h"], k2;
         for (k2 = 0; k2 < a.length; k2++) { if (rec[a[k2]] !== undefined && o[a[k2]] !== undefined && o[a[k2]] !== null && Math.abs(rec[a[k2]] - o[a[k2]]) > 0.3) { return false; } }
         if (rec.pts && o.pts) {
@@ -74,7 +74,12 @@
         }
         rec.artboard = rab(ai + 1);
         if ((t.kind === "text" || t.kind === "area") && it.typename === "TextFrame") {
-            if (SDY.hash(it.contents) !== t.mock_hash) { rec.s = SDY.norm(it.contents); edited++; }   // 書き換えた文字だけ
+            // 書き換えた文字だけ。そのときの mock の文の印（s_base）も：mock の文が後で変わったら、記録の文は使わない（10-29）。
+            // 設計趣旨（p1.concept）は concept.txt が正本なので文は記録しない（位置・大きさだけ、10-29）
+            if (SDY.hash(it.contents) !== t.mock_hash && !/\.concept$/.test(t.id)) { rec.s = SDY.norm(it.contents); rec.s_base = t.mock_hash; edited++; }
+            var LP = null, pj, pk;                          // 書式（書体・大きさ・色・行送り）：layout.json の部品と違う区間だけ（10-29）
+            if (L) { for (pj = 0; pj < L.pages.length && !LP; pj++) { for (pk = 0; pk < L.pages[pj].parts.length; pk++) { if (L.pages[pj].parts[pk].id === t.id) { LP = L.pages[pj].parts[pk]; break; } } } }
+            if (LP) { try { var sd = SDY.styleDiff(it, LP); if (sd.length) { rec.style = sd; } } catch (e6) {} }
         }
         if (!same(rec, BUILT[oid]) || (BUILT[oid] && BUILT[oid].u)) { out.parts[t.id] = rec; }   // 動かした・書き換えた部品だけ残す（動かしていない物はプレゼンの準備の既定のまま）
         n++;

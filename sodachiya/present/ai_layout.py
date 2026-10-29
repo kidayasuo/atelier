@@ -309,8 +309,14 @@ def write(c):
                 p["u"] = 1                          # ユーザーの割付で置いた（export は動かしていなくても書き出す：次の更新で既定に戻らないように）
             if p["kind"] == "link" and "w" in u and p.get("clip"):
                 p["scale"] = round(u["w"] / (p["clip"][2] - p["clip"][0]), 4)
-            if "s" in u and p["kind"] in ("text", "area") and not p.get("no_user_s"):
-                p["s"] = u["s"]
+            if "s" in u and p["kind"] in ("text", "area") and not p.get("no_user_s") and not p["id"].endswith(".concept"):
+                # 書き換えたときの mock の文（s_base）が今の mock の文と違えば、記録の文は使わない（古くなった、10-29）
+                if u.get("s_base") and u["s_base"] != p.get("mock_hash"):
+                    p["stale_user_s"] = True
+                else:
+                    p["s"] = u["s"]
+            if u.get("style") and p["kind"] in ("text", "area"):
+                p["ustyle"] = u["style"]               # .ai で変えた書式の区間（書体・大きさ・色・行送り、10-29）
         # 配置図のまとめ（1枚目、ユーザー 10-28 18:03：配置図の位置に依存する物は全てグループに）：plan の付いた部品。
         # 木田さんが .ai で配置図ごと動かした分（site_shift）だけ、割付の無い部品も一緒に動かす。素材01a〜dは大きさが変わっても原点が同じ所に来るように
         ssx, ssy = c.get("site_shift", (0.0, 0.0)) if no == 1 else (0.0, 0.0)

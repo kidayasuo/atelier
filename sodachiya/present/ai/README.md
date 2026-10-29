@@ -112,3 +112,5 @@ Illustrator のスクリプトで、それを部品ごとに動かせる .ai に
 
 ## 足した物（10-29 14:24：buildで消えない）
 - 木田さんが.aiに足した物（印の無い物、どのグループの中でも）は、export_layout.jsxで`layout_user.json`の`user_items`に入り（一つずつ印`sdyu:<鍵>`）、これが正本。build_sodachiya.jsxはuser_itemsから描き直し（配置図の上の物は配置図と一緒に動いて「配置図（まとめ）」へ）、前の.aiからは書き出していない物だけを写す。update_texts.jsxも.aiに無いuser_itemsを足す。消したいときは.aiで消してから書き出す（消えた物は`deleted_user`に移り、描かれない）。足したらbuildの前に書き出す。
+- .aiで文字の書体・大きさ・色・行送りを変えても、書き出せば（layout.jsonと違う区間だけ`style`に段落の番号と位置で記録）buildとupdate_textsで当て直す。mockの文が変わって段落が合わないときは当てずに一覧に出す。書き換えた文は書き換えたときのmockの文の印（`s_base`）も記録し、mockの文がその後変わったら新しい文にして一覧に「書き換えた文の元が変わった」と出す。
+- 設計趣旨（p1.concept）はconcept.txtが正本。.aiで書き換えても書き出しは文を記録しない（位置・大きさだけ）。文を直すときはconcept.txtを直す。

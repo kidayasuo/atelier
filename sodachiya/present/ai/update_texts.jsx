@@ -31,6 +31,8 @@
                 if (SDY.norm(it.contents) !== SDY.norm(p.s)) {
                     it.contents = want; nt++;
                     if (p.para_styles) { try { SDY.styleText(it, p); } catch (e6) {} }   // 段落ごとの書式（表の列など）を掛け直す
+                    if (p.ustyle) { SDY.applyRuns(it, p.ustyle, p.id); }               // .ai で変えた書式（書き出した物）を当て直す
+                    if (p.stale_user_s) { SDY.missing.push("書き換えた文の元が変わった：" + p.id + "（新しい文にした。.ai で見直す）"); }
                 }
                 SDY.tag(it, p);                          // 新しい元の文の印に
             } else if (p.kind === "link") {

@@ -132,6 +132,59 @@ SDY.styleText = function (tf, p) {
         }
     }
 };
+// 文字の書式（書体・大きさ・色・行送り）：.ai で変えた書式を書き出し、build・update_texts で当て直す（ユーザー 10-29 15:33）
+SDY.fontName = function (f) { try { return f.name; } catch (e) { return null; } };
+SDY.runsOf = function (tf) {                         // 段落ごとの、書式のそろった区間 [{para, off, len, font, size_pt, color, leading_pt}]
+    var out = [], k, pr, n, j, c, a, cur = null, key, ca;
+    for (k = 0; k < tf.paragraphs.length; k++) {
+        try { pr = tf.paragraphs[k]; n = pr.characters.length; } catch (e) { continue; }
+        cur = null;
+        for (j = 0; j < n; j++) {
+            try { c = pr.characters[j]; ca = c.characterAttributes; } catch (e1) { continue; }
+            a = { font: SDY.fontName(ca.textFont), size_pt: Math.round(ca.size * 100) / 100, color: SDY.hexOf(ca.fillColor),
+                  leading_pt: ca.autoLeading ? null : Math.round(ca.leading * 100) / 100 };
+            key = a.font + "|" + a.size_pt + "|" + a.color + "|" + a.leading_pt;
+            if (cur && cur.key === key) { cur.len++; continue; }
+            cur = { key: key, para: k, off: j, len: 1, font: a.font, size_pt: a.size_pt, color: a.color, leading_pt: a.leading_pt };
+            out.push(cur);
+        }
+    }
+    for (k = 0; k < out.length; k++) { delete out[k].key; }
+    return out;
+};
+SDY.expectStyle = function (p, k) {                  // layout.json の部品が決めた、段落 k の書式
+    var st = (p.para_styles && p.para_styles[k]) || {}, f = SDY.font(st.font || p.font);
+    var size = Number(st.size_pt || p.size_pt), lead = st.leading_pt ? Number(st.leading_pt) : size * Number(p.leading || 1.5);
+    return { font: SDY.fontName(f), size_pt: Math.round(size * 100) / 100, color: String(st.color || p.color || "#222222").toLowerCase(), leading_pt: Math.round(lead * 100) / 100 };
+};
+SDY.styleDiff = function (tf, p) {                   // 書き出し：layout.json と違う区間だけ
+    var runs = SDY.runsOf(tf), out = [], k, r, e;
+    for (k = 0; k < runs.length; k++) {
+        r = runs[k]; e = SDY.expectStyle(p, r.para);
+        if (r.font !== e.font || Math.abs(r.size_pt - e.size_pt) > 0.05 || String(r.color).toLowerCase() !== e.color ||
+            (r.leading_pt !== null && Math.abs(r.leading_pt - e.leading_pt) > 0.1)) { out.push(r); }
+    }
+    return out;
+};
+SDY.applyRuns = function (tf, runs, id) {            // 区間ごとに当てる。段落の番号で当て、段落が足りない・短いときは当てずに一覧へ
+    var k, r, pr, j, ca, f, bad = 0;
+    for (k = 0; k < (runs || []).length; k++) {
+        r = runs[k];
+        try { pr = tf.paragraphs[r.para]; } catch (e) { pr = null; }
+        if (!pr || pr.characters.length < r.off + r.len) { bad++; continue; }
+        f = null; if (r.font) { try { f = app.textFonts.getByName(r.font); } catch (e1) { f = null; } }
+        for (j = r.off; j < r.off + r.len; j++) {
+            try {
+                ca = pr.characters[j].characterAttributes;
+                if (f) { ca.textFont = f; }
+                if (r.size_pt) { ca.size = Number(r.size_pt); }
+                if (r.color) { var c = SDY.colorOf(r.color); if (c) { ca.fillColor = c; } }
+                if (r.leading_pt) { ca.autoLeading = false; ca.leading = Number(r.leading_pt); }
+            } catch (e2) {}
+        }
+    }
+    if (bad) { SDY.missing.push("書式を当てられなかった（文が変わって段落が合わない）：" + id + "（" + bad + " か所）"); }
+};
 SDY.missing = [];
 // 5枚の番号の振り直し（ユーザー、10-28・10-28 13:17）：layout.json の renumber.maps（前の番号 → 新しい番号）。
 // 前に組んだときの layout_built.json の renumber の id で、今の .ai がどの番号かを見る（renumber が無ければ最初の番号＝"_none"）。
@@ -256,6 +309,8 @@ SDY.makeText = function (doc, lay, i, p) {
     }
     tf.contents = String(p.s).replace(/\n/g, "\r");
     SDY.styleText(tf, p);
+    if (p.ustyle) { SDY.applyRuns(tf, p.ustyle, p.id); }
+    if (p.stale_user_s) { SDY.missing.push("書き換えた文の元が変わった：" + p.id + "（新しい文にした。.ai で見直す）"); }
     if (p.rot) {                                     // 向きのある字（縦の寸法・斜めの寸法、10-29）：基準線の点（揃えの点）を中心に回す
         var a0 = tf.anchor;
         tf.rotate(Number(p.rot));
@@ -489,6 +544,8 @@ SDY.describe = function (doc, it) {                   // 台帳に残す中身�
         d.s = SDY.norm(it.contents);
         try { d.size_pt = it.textRange.characterAttributes.size; } catch (e) {}
         try { d.color = SDY.hexOf(it.textRange.characterAttributes.fillColor); } catch (e) {}
+        try { d.font = SDY.fontName(it.textRange.characterAttributes.textFont); } catch (e) {}
+        try { var rs_ = SDY.runsOf(it); if (rs_.length > 1) { d.runs = rs_; } } catch (e) {}
     } else if (it.typename === "GroupItem" || it.typename === "CompoundPathItem") {
         d.children = [];
         var ch = it.typename === "GroupItem" ? it.pageItems : it.pathItems;
@@ -578,6 +635,8 @@ SDY.drawUser = function (doc, ai, d, dx, dy, cont) {  // describe の形から�
         it.contents = String(d.s).replace(/\n/g, "\r");
         try { if (d.size_pt) { it.textRange.characterAttributes.size = Number(d.size_pt); } } catch (e2) {}
         try { c = SDY.colorOf(d.color); if (c) { it.textRange.characterAttributes.fillColor = c; } } catch (e3) {}
+        try { if (d.font) { it.textRange.characterAttributes.textFont = app.textFonts.getByName(d.font); } } catch (e5) {}
+        if (d.runs) { SDY.applyRuns(it, d.runs, "足した文字 " + (d.name || d.s.substring(0, 12))); }
     } else if ((d.type === "PlacedItem" || d.type === "RasterItem") && d.file && File(d.file).exists) {
         it = cont.placedItems.add(); it.file = File(d.file);
         it.width = d.w * K; it.height = d.h * K; it.position = P([d.x, d.y]);
