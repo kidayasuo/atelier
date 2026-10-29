@@ -94,3 +94,11 @@
 - 10-29 17:49（ユーザー）：1枚目の箱の見出しの印を大きく（○8.6・□7.8 mm、数字15.5 pt、見出しの左に字の半分あけ、縦は見出しの行の中心）。ai_layoutが見出しの位置（ユーザーの記録）から印だけ置き直す。お向かいさんを□3に（numbers.json）。17:56：枠の数字とテーマの間の空白を消した（「1敷地と…」）。
 - 10-29 18:04（ユーザー）：今のビューのまま描く昼・夜のレンダリング`rhino/render_hiru.py`・`render_yoru.py`（中身は`render_common.py`）。名前（keikan・me・choukan・その他）と大きさを聞き、`rhino/out/`に昼は`keikan_hiru.png`・`me.png`・`choukan.png`・`<名前>_hiru.png`、夜は`<名前>_yoru.png`と`<名前>_view.json`（projection: "perspective"）。名前付きビュー`<名前>`を残す。手前は隠さない（ユーザーがHide）。
 - 10-29 18:01（ユーザー）：4枚目にも共通の枠（frame(ax, 4, …)）。平面図は白い地の紙いっぱいの図なので、枠は図の上に重ねる（mock.pyのFRAME_TOP、layout.jsonのpages[].frame="top"→buildが枠のシンボルを「線」のレイヤーへ）。前の小さな題の文字（TOPT）は外した。平面図は動かしていない。
+
+## 三代目（10-29〜30）の要点（次のチャットへ）
+- 壁の並び「1 ｜ 2・3 ｜ 4・5」：1敷地 ｜ 2景観・3断面と環境 ｜ 4平面図・5動線とこどもたちの環境。表題は「松ヶ崎こども園」、数字とテーマとも40 pt。絵の題は上（配置図だけ下）。
+- .ai の仕組み：ユーザーの割付・足した物・書体・レイヤーと重ね順は export_layout.jsx で layout_user.json に入り、build で再現。設計趣旨は concept.txt が正本。1枚目の説明の箱は案H（番号の印、numbers.json）。
+- 3枚目：縦断A（上）・断面C（空気）・断面D（光、採光の図＝tools/saikou.py の部品）。断面Dを西館まで延ばす依頼は更新係に出したまま（返事待ち）。
+- 2枚目：A4 の透視図は公園の角からの目の高さ（me.png）、沿川の景観は透視（keikan_hiru/yoru.png）。
+- Rhino：render_hiru.py／render_yoru.py は今のビューのまま描く（render_common.py）。夜は線の光源を使わない（Mac の Cycles で落ちた）、月明かり＋弱いスカイライト＋暗い群青で既定の照明を止める。LED の発光は materials.json の emission_strength 2.0。視点は out/<名前>_view.json、戻すのは view_from_json.py。IronPython ではファイルを閉じないと書かれない。
+- 注意：ユーザーが絵を commit するときにスクリプトも一緒に入って直しが消えたことがある（10-30、4f80ef4）。git add sodachiya/present/rhino/out だけを勧めた。
