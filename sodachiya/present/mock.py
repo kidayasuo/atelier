@@ -285,6 +285,15 @@ def title(ax, x, y, s, scale=""):
         T(ax, x + sum(5.9 if ord(ch) > 0x2000 else 3.2 for ch in s) + 3, y, scale, 3.0)
 
 
+TITLE_GAP = 2.5                                  # 図・絵・表の題は絵の上、左揃え。絵の上端から題の基準線まで（ユーザー 10-29 15:27：上にそろえる）
+
+
+def _topalign(sheet, top):
+    """直前に置いた図（embeds の最後）を、上端が top にそろうように下から上へ寄せる（fit で縮んだ分）"""
+    src_, pno_, clip_, (x_, y_, w_, h_) = embeds[sheet][-1]
+    embeds[sheet][-1] = (src_, pno_, clip_, (x_, top - h_, w_, h_))
+
+
 def draw_shape(ax, g, xf, fc="none", ec=INK, lw=0.2, z=1, ls="-"):
     if g is None or g.is_empty:
         return
@@ -1803,7 +1812,7 @@ for _s, (_x, _y) in _AL.items():
     _dx, _dy = {"敷地": (4, -1), "0": (0, 1.2), "200 m": (0, 1.2)}.get(_s, (0, 0))
     _cx = _amx + _x + _dx - (0 if _s == "敷地" else _tw / 2)
     TOPT[1].append((_cx, _amy + _y + _dy - _th * 0.35, _s, _th, _s in ("敷地", "N", "高野川"), None, "#2E333A" if _s == "敷地" else ("#2F6FA0" if _s == "高野川" else "#333333")))
-TOPT[1].append((_amx, _amy + _AH + 3, "地域のなかの敷地　1/10000", 4.2, True))
+TOPT[1].append((_amx, _amy + _AH + TITLE_GAP, "地域のなかの敷地　1/10000", 4.2, True))
 TOPT[1].append((_amx, _amy - 4.5, "出典：国土交通省 Project PLATEAU（京都市 2025）の建物・道路・土地利用から作図", 2.6, False))
 # 縮尺のスケールは部品に（ユーザー、10-27：「その他の絵」ごと隠したので、一つのグループで出す）
 def scalebar_parts(x, y, scale, meters, grp):
@@ -1968,7 +1977,7 @@ _fx0, _fy0 = _nbx + 4, _ny0 + _CR
 _box_patch = Rectangle((_nbx, _ny0), _nw, _ny1 - _ny0, fc="#F6FAFD", ec="#7FA6C8", lw=0.5)
 ax.add_patch(_box_patch)
 # 表題と出典は素材02の絵に入れず、Illustratorの別の文字の部品に（ユーザー、10-28：図をクリップしても置き直せるように）。素材02と一緒に動く
-TOPT[1].append((_nbx + _nw - 3, _ny1 - 6, "松ヶ崎の用水ネットワーク", 4.2, True, None, C_NAT,
+TOPT[1].append((_nbx + _nw, _ny1 + TITLE_GAP, "松ヶ崎の用水ネットワーク", 4.2, True, None, C_NAT,   # 題は絵の上（10-29）。右寄せ：左上に地域のなかの敷地が重なる（ユーザーの割付）
                 dict(id="water.title", name="用水ネットワークの表題", align="right", follow="sozai.02")))   # 右寄せ：左上は地域のなかの敷地（素材14）を重ねる（ユーザー、10-27）
 T(ax, _nbx + 6, _ny1 - 13, "N↑", 3.2, bold=True)
 _ym = lambda P: np.c_[_fx0 + (_yr(P)[:, 0] - _lo[0]) * _k, _fy0 + (_yr(P)[:, 1] - _lo[1]) * _k]
@@ -2081,15 +2090,15 @@ CONTRAST = {
     "road": ("まちに溶け込み、やさしく守る", ["杉の大和張りの静かな板の壁。西館は向かいの住宅に向けて1階の高さまで下げ、窓は小さく面ごとのリズムで。道からは中が見えすぎず、園を包む。"]),
 }
 y_ -= G2 / 2
-title(ax, ex, y_ - 4, "園庭の側の立面図", "1/100　円弧の中心の方向から弧の真ん中に正対")
-T(ax, ex + 300, y_ - 4, CONTRAST["garden"][0], 4.2, "#4E8A3A", bold=True)
-T(ax, ex + 340, y_ - 4, CONTRAST["garden"][1][0], 2.8)
+title(ax, ex, y_ - 7 + TITLE_GAP, "園庭の側の立面図", "1/100　円弧の中心の方向から弧の真ん中に正対")
+T(ax, ex + 300, y_ - 7 + TITLE_GAP, CONTRAST["garden"][0], 4.2, "#4E8A3A", bold=True)
+T(ax, ex + 340, y_ - 7 + TITLE_GAP, CONTRAST["garden"][1][0], 2.8)
 y_ -= 7
 _, h_ = embed(2, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0, dwg=("E1", "立面図　園庭の側"))
 y_ -= h_ + G2
-title(ax, ex, y_ - 4, "道路の側の立面図", "1/100　西の道路から")
-T(ax, ex + 300, y_ - 4, CONTRAST["road"][0], 4.2, "#8A5A2B", bold=True)
-T(ax, ex + 372, y_ - 4, CONTRAST["road"][1][0], 2.8)
+title(ax, ex, y_ - 7 + TITLE_GAP, "道路の側の立面図", "1/100　西の道路から")
+T(ax, ex + 300, y_ - 7 + TITLE_GAP, CONTRAST["road"][0], 4.2, "#8A5A2B", bold=True)
+T(ax, ex + 372, y_ - 7 + TITLE_GAP, CONTRAST["road"][1][0], 2.8)
 y_ -= 7
 _, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0, dwg=("E2", "立面図　道路の側"))
 y_ -= h_ + G2
@@ -2118,7 +2127,7 @@ _ME_RH = os.path.join(HERE, "rhino", "out", "me.png")
 _ME_KARI = os.path.join(HERE, "out", "me_kari.png")
 _me = next((p_ for p_ in _ME_PHOTO if os.path.exists(p_)), None) or (_ME_RH if os.path.exists(_ME_RH) else (_ME_KARI if os.path.exists(_ME_KARI) else None))
 _me_kind = "写真" if _me and _me in _ME_PHOTO else ("Rhino のレンダリング" if _me == _ME_RH else "仮の図")
-title(ax, ex, M + 8 + bh + 3, "透視図（A4）　公園の角から西の道を見る", "目の高さ1.5 m、左に向かいの住宅、右に西館の低い軒")
+title(ax, ex, M + 8 + bh + TITLE_GAP, "透視図（A4）　公園の角から西の道を見る", "目の高さ1.5 m、左に向かいの住宅、右に西館の低い軒")
 if _me:
     _img_box(_me, ex, M + 8, _pw, bh, fit="cover")
     sozai("16", "透視図（A4）", 2, ex, M + 8, _pw, bh, _me_kind + "（" + os.path.relpath(_me, HERE) + "）")
@@ -2130,9 +2139,9 @@ else:
 # Rhino の絵（rhino/keikan_render.py）は keikan_view.json に projection: "perspective" があるときだけ使う（前の平行投影の絵は使わない）。無ければ仮の図 out/keikan_kari_*.png
 _lx = ex + _pw + 8
 _lw1 = W - M - 6 - 126 - 8 - _lx              # 右の景観の法規の箱（126 mm、前と同じ）の左まで
-_lh1 = (bh - 9 - 9 - 6) / 2                   # 二枚と題
+_lh1 = (bh - 10) / 2                          # 二枚と、夜の題（昼の題は透視図の題と同じ高さ、絵の上）
 _ly_d = M + 8 + bh - _lh1
-_ly_n = M + 8 + 9
+_ly_n = M + 8
 try:
     _kv = json.load(open(os.path.join(HERE, "rhino", "out", "keikan_view.json"), encoding="utf-8"))
 except Exception:
@@ -2145,7 +2154,7 @@ for _night, _yy in ((False, _ly_d), (True, _ly_n)):
     _src, _kind = (_rh, "Rhino") if _kpersp and os.path.exists(_rh) else ((_ka, "仮の図") if os.path.exists(_ka) else (None, None))
     if _src is None and _night and os.path.exists(os.path.join(HERE, "out", "keikan_kari_hiru.png")):
         _src, _kind = os.path.join(HERE, "out", "keikan_kari_hiru.png"), "仮の図（昼）"
-    title(ax, _lx, _yy - 5.5, "沿川の景観　" + ("夜" if _night else "昼"), "高野川の向こう岸の歩道から、目の高さ1.5 m" + ("　本館と西館の越屋根の光" if _night else ""))
+    title(ax, _lx, _yy + _lh1 + TITLE_GAP, "沿川の景観　" + ("夜" if _night else "昼"), "高野川の向こう岸の歩道から、目の高さ1.5 m" + ("　本館と西館の越屋根の光" if _night else ""))
     if _src:
         _r = _img_box(_src, _lx, _yy, _lw1, _lh1, fit="contain", align="left")
         sozai("04" if _night else "03", "沿川の景観　" + ("夜" if _night else "昼"), 2, _r[0], _r[1], _r[2], _r[3], _kind + "（" + os.path.relpath(_src, HERE) + "）")
@@ -2202,7 +2211,7 @@ frame(ax, 3, "断面と環境", "上に縦断A（弧の長さ）を一続きに�
 CLIP_SA3 = (54, 57.5, 821.5, 165.5)   # 10-29 15:16：上の帯が太くなったので上下をもう少し詰めた
 _tA = H - M - HDR - 7
 title(ax, M + 6, _tA, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
-_ya = _tA - 4 - (CLIP_SA3[3] - CLIP_SA3[1])
+_ya = _tA - TITLE_GAP - (CLIP_SA3[3] - CLIP_SA3[1])
 embed(3, SEC, CLIP_SA3, M + 6 + (W - 2 * M - 12 - (CLIP_SA3[2] - CLIP_SA3[0])) / 2, _ya, 1.0, dwg=("SA", "縦断面図A"))
 CLIP_C2 = (432, 252, 830, 382)
 CSC = 1.0                                       # 課題は断面 1/100・2面以上（ユーザー、10-27夜：1/75 をやめる）
@@ -2549,25 +2558,28 @@ by = M + 8
 _avh = rt - by                                  # 使える高さ
 # 左：園庭（だいさんかく・しずかのもり。配置1/200を縮小）
 GSC = min(0.62, (_avh - 8) / _gh)
-title(ax, M + 6, rt - 4, "園庭", f"だいさんかく・しずかのもり　約1/{int(round(200 / GSC, -1))}（配置1/200を縮小）")
+title(ax, M + 6, rt - 8 + TITLE_GAP, "園庭", f"だいさんかく・しずかのもり　約1/{int(round(200 / GSC, -1))}（配置1/200を縮小）")
 wGa, hGa = embed(5, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), (14, 40, 14 + _gw, 40 + _gh), M + 6, rt - 8 - _gh * GSC, GSC)
 x2 = M + 6 + wGa + 8
 _rw = W - M - 6 - x2
 # 右の上の行：遊戯室・北山杉の林
 PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
 _rowh = (_avh - 14) * 0.56
-title(ax, x2, rt - 4, "遊戯室", "")
+title(ax, x2, rt - 8 + TITLE_GAP, "遊戯室", "")
 wPl, hPl = embed(5, PLAYP, None, x2, rt - 8 - _rowh, fit=(_rw * 0.58, _rowh))
+_topalign(5, rt - 8)
 x3 = x2 + wPl + 8
 FOREST = os.path.join(ROOT, "out", "sodachiya_forest_02.pdf")
-title(ax, x3, rt - 4, "ホールの北山杉の林", "")
-embed(5, FOREST, (0, 8, 420, 118), x3, rt - 8 - _rowh, fit=(W - M - 6 - x3, _rowh))
+title(ax, x3, rt - 8 + TITLE_GAP, "ホールの北山杉の林", "")
+embed(5, FOREST, (0, 27, 420, 118), x3, rt - 8 - _rowh, fit=(W - M - 6 - x3, _rowh))
+_topalign(5, rt - 8)
 # 右の下の行：教室・廊下の本棚と読む場所・表の畑と火のオーブン
 _r2t = rt - 8 - _rowh - 8
 _r2h = _r2t - 6 - by
 ROOM3 = os.path.join(ROOT, "out", "sodachiya_room3_1-50.pdf")
 title(ax, x2, _r2t, "教室", "3歳の保育室")
 wR3, hR3 = embed(5, ROOM3, None, x2, by, fit=(_rw * 0.42, _r2h))
+_topalign(5, _r2t - TITLE_GAP)
 _bx4 = x2 + wR3 + 8
 _bw4 = (W - M - 6 - _bx4 - 8) / 2
 box(ax, _bx4, by, _bw4, _r2h, "廊下の本棚と読む場所", "（図は本館係に依頼）")
