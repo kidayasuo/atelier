@@ -321,6 +321,11 @@ def build(name, table, umin, umax, skipclip=False):
         P_ = clean(pts) if rec['kind'] == 'poly' else [tuple(p) for p in pts]
         if not P_: continue
         colr = None if spec[-1] in (L_P, L_WW) or (kind=='solid' and spec[3] in (L_P, L_WW)) else fc(rec)
+        if kind == 'solid' and spec[3] == L_P and rec['kind'] == 'poly':
+            # 10-29（監修の項 20261029-0928-kanshu-2 の 4）：間仕切り（91 → 38）の輪郭から一直線の上の点を除く（形は同じ）。plan04 の架構の線の
+            # 壁（u39・42・48・51、厚さ 120）は輪郭の短い辺に 20 おきの点が 6 つずつ並び、板 6 枚が一つの網目のように届いていた → 一枚ずつの箱（4 角の押し出し）
+            _g = SP(P_).simplify(0.0002, preserve_topology=True)
+            if _g.geom_type == 'Polygon' and abs(_g.area - SP(P_).area) < 1e-6: P_ = list(_g.exterior.coords)[:-1]
         if kind == 'solid': solid_uv(P_, spec[1], spec[2], spec[3], colr)
         elif kind == 'table': table_uv(P_, spec[1], spec[2], fc(rec))
         elif kind == 'panel': ring_uv(P_, spec[1], spec[2], spec[3], spec[4], fc(rec))

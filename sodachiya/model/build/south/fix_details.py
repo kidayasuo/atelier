@@ -2013,6 +2013,8 @@ if src is not None:
     a_pv = r.ObjectAttributes(); a_pv.LayerIndex = L10P
     # 10-28（監修の項 20261028-2256-kanshu-2）：前は外皮の線（v13.6、_TAPER）で室内と東の軒の上の二つに分けていたので、スパンごとに 2 物に見えた。
     # 屋根の面はスパンごとの一枚の平面なので、分けずにスパンごとに一つ（sheet が架構の線で切る）。高さ・範囲は同じ
+    # 10-29（監修の項 20261029-0928-kanshu-2 の 3）：閉じた板（thick(pv, RT_TOP, RT_TOP + 20.0)）にすると、削る段（clip_parts.py）が外の付属（X）として
+    # 「建物の中」で削り、太陽光がほとんど消えた（西館の閉じた 20p は削る段で除いてある）。削る段で 10p も除かれるまで、面（sheet）のまま（監修に依頼）
     for mm in sheet(pv, RT_TOP + 20.0, L10P): new_objs.append((mm, a_pv))             # 東の軒の上も屋根の面に沿って切れ目なく
     # 軒の見張り（ユーザー 10-27：軒は細くスマートに。約200でも分厚い。非常に重要なので後で壊さないように）：東の軒先（v 14.9〜15.0、架構 2〜19 のあいだ）に
     # 載る屋根の物のいちばん下からいちばん上までが EAVE_MAX を超えたら作り直しを止める。軒を厚くする直しは、ユーザーに聞いてから。
@@ -2098,6 +2100,71 @@ if src is not None:
             a_e.ColorSource = r.ObjectColorSource.ColorFromObject; a_e.ObjectColor = (196, 160, 118, 255)
             for mm in slab(R(u - SL_HALF + 0.003, u + SL_HALF - 0.003, v0_, v1_, 0.05), RT_BOT - 150.0, RT_BOT): new_objs.append((mm, a_e))   # 2 枚の梁のあいだ、上端＝梁の上端
     log.append(f'本館：光の筋をまたぐつなぎ（10k）：鋼の平板 {_nk} 枚（{len(SL_U)} 本の筋、約 0.9 mおき、東の柱の所は除く）と筋の両端の縁の材 {2 * len(SL_U)}')
+    # 10-29（監修の項 20261029-0928-kanshu-2 の 1）：架構の梁（11b、2 枚組 ×20）の東の先（v15）は、上端が梁の上端（RT_BOT）のままで、
+    # 通気垂木の止まる所（軒先の 150 手前、v14.85）より先は野地＋屋根材 64 の下面から 45 浮いていた。梁の先の 150 だけ上端を野地の下面
+    # （その梁の上のスパンの平面から RT_TOP − EAVE_TIP）まで上げる（通気垂木の高さの段、軒先の見付け 64 と母屋の高さはそのまま）。
+    # 押し出しのまま：輪郭の上端の直線（区間の一つ、梁の東の端の縦の面に続く）を、v14.85 で切って 3 つの区間（上端・段・上端）にする。
+    def _beam_tip(g, vb=V_TIP - 0.15):
+        if not isinstance(g, r.Extrusion) or g.ProfileCount < 1: return None
+        pl = g.GetProfilePlane(0.0)
+        O = np.array([pl.Origin.X, pl.Origin.Y, pl.Origin.Z]); X = np.array([pl.XAxis.X, pl.XAxis.Y, pl.XAxis.Z]); Y = np.array([pl.YAxis.X, pl.YAxis.Y, pl.YAxis.Z])
+        nc = g.Profile3d(0, 0.0).ToNurbsCurve(); dg = nc.Degree
+        P = np.array([[nc.Points[i].X, nc.Points[i].Y, nc.Points[i].Z] for i in range(len(nc.Points))])
+        W_ = [nc.Points[i].W for i in range(len(nc.Points))]
+        K = [nc.Knots[i] for i in range(len(nc.Knots))]
+        if any(abs(w_ - 1.0) > 1e-9 for w_ in W_): return None
+        UV_ = np.array([uv(x, y) for x, y in P[:, :2]])
+        dz = P[:, 2] - np.array([ROOF_Z(v_) for v_ in UV_[:, 1]])
+        i0 = None
+        for s_ in range(0, len(P) - 2 * dg, dg):                      # 区間の頭（区間の継ぎ目は次数ぶん重なった節）
+            top_ = np.all(np.abs(dz[s_:s_ + dg + 1] - RT_BOT) < 2.0)
+            if top_ and abs(UV_[s_ + dg, 1] - V_TIP) < 0.01 and UV_[s_, 1] < vb - 0.5 and np.all(np.abs(UV_[s_ + dg:s_ + 2 * dg + 1, 1] - V_TIP) < 0.01):
+                i0 = s_; break
+        if i0 is None: return None
+        if len(set(round(k_, 6) for k_ in K[i0:i0 + dg])) != 1 or len(set(round(k_, 6) for k_ in K[i0 + dg:i0 + 2 * dg])) != 1: return None
+        A0, A1, E1 = P[i0], P[i0 + dg], P[i0 + 2 * dg]                    # 上端の始め・東の角・東の縦の面の下
+        key_ = ('s', _k_of(float(np.median(UV_[:, 0]))))
+        t_ = (vb - UV_[i0, 1]) / (UV_[i0 + dg, 1] - UV_[i0, 1])
+        Q1 = A0 + t_ * (A1 - A0)
+        zt = lambda p_: zpl(key_, p_[0], p_[1]) + RT_TOP - EAVE_TIP     # 野地＋屋根材 64 の下面
+        Q2 = np.array([Q1[0], Q1[1], zt(Q1)]); Q3 = np.array([A1[0], A1[1], zt(A1)])
+        lerp = lambda a_, b_: [a_ + (b_ - a_) * j_ / dg for j_ in range(dg + 1)]
+        newP = list(P[:i0]) + lerp(A0, Q1)[:-1] + lerp(Q1, Q2)[:-1] + lerp(Q2, Q3)[:-1] + lerp(Q3, E1)[:-1] + list(P[i0 + 2 * dg:])
+        kA, kB = K[i0], K[i0 + dg]; L_ = [np.linalg.norm(Q1 - A0), np.linalg.norm(Q2 - Q1), np.linalg.norm(Q3 - Q2)]
+        k1 = kA + (kB - kA) * L_[0] / sum(L_); k2 = kA + (kB - kA) * (L_[0] + L_[1]) / sum(L_)
+        newK = K[:i0 + dg] + [k1] * dg + [k2] * dg + K[i0 + dg:]
+        # 輪郭の面（2D）へ：押し出しの始まりの面の上の点を、面の座標（X・Y）に
+        c2 = r.NurbsCurve(3, False, dg + 1, len(newP))
+        for j_, p_ in enumerate(newP):
+            q_ = np.asarray(p_) - O; c2.Points[j_] = r.Point4d(float(q_ @ X), float(q_ @ Y), 0.0, 1.0)
+        for j_, k_ in enumerate(newK): c2.Knots[j_] = float(k_)
+        if not c2.IsValid or not c2.IsClosed: return None
+        a_, b_ = g.PathStart, g.PathEnd
+        e_ = r.Extrusion();
+        up_ = r.Vector3d(*map(float, Y))
+        if not e_.SetPathAndUp(a_, b_, up_): return None
+        # 輪郭は 2D（面の座標）：外の輪郭を差し替え、穴はもとのまま
+        prof = [c2] + [None] * (g.ProfileCount - 1)
+        for k_ in range(1, g.ProfileCount):
+            h_ = g.Profile3d(k_, 0.0).ToNurbsCurve()
+            hc = r.NurbsCurve(3, h_.IsRational, h_.Order, len(h_.Points))
+            for j_ in range(len(h_.Points)):
+                pp = h_.Points[j_]; w_ = pp.W if pp.W else 1.0; q_ = np.array([pp.X / w_, pp.Y / w_, pp.Z / w_]) - O
+                hc.Points[j_] = r.Point4d(float(q_ @ X) * w_, float(q_ @ Y) * w_, 0.0, w_)
+            for j_ in range(len(h_.Knots)): hc.Knots[j_] = h_.Knots[j_]
+            prof[k_] = hc
+        if not e_.SetOuterProfile(prof[0], True): return None
+        for hc in prof[1:]:
+            if not e_.AddInnerProfile(hc): return None
+        return e_ if e_.IsValid else None
+    _n_tip = 0; _tip_bad = 0
+    for o in m.Objects:
+        if not LN[o.Attributes.LayerIndex].startswith('11b') or not isinstance(o.Geometry, r.Extrusion): continue
+        e_ = _beam_tip(o.Geometry)
+        if e_ is None: _tip_bad += 1; continue
+        EXT[str(o.Attributes.Id)] = e_; _n_tip += 1
+    log.append(f'本館：架構の梁 {_n_tip} 枚の東の先（v{V_TIP - 0.15:.2f}〜{V_TIP}）の上端を野地＋屋根材の下面（梁の上端＋{RT_TOP - EAVE_TIP - RT_BOT:.0f}）に'
+               f'（直せなかった {_tip_bad}）')
 # 機械室（おむすび）に蓄電池の場所（ユーザー、10-23：夜と停電のときに使う、園は災害時の拠点にもなる）。
 # 機械室は 3dm では塊なので、中に箱を置いて場所だけ示す（約 1.2×2.0 = 2.4 m²、h1.6、家具程度）。
 L35 = lidx('35_')
