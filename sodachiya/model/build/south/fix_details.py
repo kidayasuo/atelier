@@ -1772,6 +1772,45 @@ for gi in _GIR:
             at_ = r.ObjectAttributes(); at_.LayerIndex = L22A; at_.Name = '柱の受け材（斜めの桁の端が柱の端の角に来る所、桁の下、柱と同じ厚み、せい 120）'
             _XNEW.append((ep_, at_)); _n_pad2 += 1
 log.append(f'西館：柱の端の角に来る斜めの桁の端の下に受け材 {_n_pad2} 個')
+# f4. 柱の面に斜めに当たる桁の木口は、柱の面（＝梁の板の内の面）に沿って斜めに切る（10-29 夜、ユーザー 22 時過ぎ：母屋と同じやり方、角と穴の縁だけで
+#     受けない）。桁の断面は楕円なので斜めの切り口は押し出しにできない：書き出しの所で、その桁だけ延ばした押し出しを網目にして面で切る（_GCUT）
+_GCUT = {}
+for gi in _GIR:
+    for end in (0, 1):
+        if (id(gi), end) not in _GCOL: continue
+        g = gi[1]; A, B = _path(g); E, F_ = (A, B) if end == 0 else (B, A); ed = (F_ - E) / np.linalg.norm(F_ - E); uE = uv(E[0], E[1])[0]
+        best_ = None
+        for w in _WOOD:
+            if w[2] != L22A or abs(w[5] - uE) > 0.6 or w[3]: continue
+            Ac_, Bc_ = _path(w[4]); pc_ = (Bc_ - Ac_) / np.linalg.norm(Bc_ - Ac_)
+            op_ = _poly_sz(w[4]); F3_ = _frame_of(w[4]); sE_ = float(_w2s(F3_, E[None, :2] - F3_['hm'])[0])
+            if not (op_.bounds[0] - 300.0 < sE_ < op_.bounds[2] + 300.0 and op_.bounds[1] - 300.0 < E[2] < op_.bounds[3] + 300.0): continue
+            for P0_ in (Ac_, Bc_):
+                dd_ = abs(float((E - P0_) @ pc_))
+                if dd_ < 150.0 and (best_ is None or dd_ < best_[0]): best_ = (dd_, P0_, pc_)
+        if best_ is None: continue
+        _, P0_, pc_ = best_; c_ = abs(float(ed @ pc_))
+        if c_ > 0.985 or c_ < 0.2: continue                                     # 直角に当たる桁はそのまま
+        n_ = pc_ if float(ed @ pc_) > 0 else -pc_                                 # 桁の側を向く
+        ext_ = 100.0 * np.sqrt(1.0 - c_ * c_) / c_ + 10.0
+        _GCUT.setdefault(gi[0], []).append((end, ext_, P0_, n_))
+log.append(f'西館：柱の面に斜めに当たる桁の木口を柱の面に沿って切る {sum(len(v) for v in _GCUT.values())} 端（{len(_GCUT)} 本、網目で書き出す）')
+def _gcut_mesh(g, cuts):
+    e_ = g
+    for end, ext_, P0_, n_ in cuts:
+        e2_ = extedit.edit(e_, None, (lambda A_, B_, ext_=ext_: (A_ - (B_ - A_) / np.linalg.norm(B_ - A_) * ext_, B_)) if end == 0 else
+                           (lambda A_, B_, ext_=ext_: (A_, B_ + (B_ - A_) / np.linalg.norm(B_ - A_) * ext_)))
+        if e2_ is None: return None
+        e_ = e2_
+    tm_ = _ext_tm(e_)
+    for end, ext_, P0_, n_ in cuts:
+        tm_ = trimesh.intersections.slice_mesh_plane(tm_, plane_normal=n_, plane_origin=P0_, cap=True)
+        if tm_ is None or len(tm_.faces) == 0: return None
+    tm_.merge_vertices(); tm_.fix_normals()
+    mm_ = r.Mesh()
+    for x_, y_, z_ in np.asarray(tm_.vertices): mm_.Vertices.Add(float(x_), float(y_), float(z_))
+    for a__, b__, c__ in np.asarray(tm_.faces): mm_.Faces.AddFace(int(a__), int(b__), int(c__))
+    mm_.Normals.ComputeNormals(); mm_.Compact(); return mm_
 if _fixp:
     _GTM = []
     for gi in _GIR:
@@ -2844,8 +2883,8 @@ if slits:
     log.append(f'西館：梁の上の層を本館と同じ作り方に（10-28）：通気垂木 {_nb20} 本（20b、60×45 @455、軒先の 150 手前まで）、野地＋屋根材 64 の板 {_n_up} 片・太陽光 {_npv} 片（ベイごと、'
                f'平面のベイ {sum(1 for x in _BPL20 if x is not None)}／{_NB20}、軒は 150 持ち出し、見付け 64）')
     _purl = []; _eave = []
-    # 10-29 昼（監修の項 20261029-0928 の 4）：軒の下の母屋は軒先の 100 手前まで（母屋の断面は屋根の面に直角で、北西の軒先の折れの所で軒樋に 0.8〜1.5 L 入っていた）
-    EAVEZ = RP20.buffer(-250.0, join_style=2).difference(WS_W).difference(BANDS).intersection(Polygon([xy(u_, -1.0) for u_ in np.arange(21.2, 48.31, 0.25)] + [xy(u_, -30.0) for u_ in np.arange(48.3, 21.19, -0.25)]))
+    # 10-29 夜：軒の下の母屋は軒先の 190 手前まで（木口は上の _BCX で鼻母屋の横の面まで延ばす）。10-29 昼（監修の項 20261029-0928 の 4）：軒の下の母屋は軒先の 100 手前まで（母屋の断面は屋根の面に直角で、北西の軒先の折れの所で軒樋に 0.8〜1.5 L 入っていた）
+    EAVEZ = RP20.buffer(-190.0, join_style=2).difference(WS_W).difference(BANDS).intersection(Polygon([xy(u_, -1.0) for u_ in np.arange(21.2, 48.31, 0.25)] + [xy(u_, -30.0) for u_ in np.arange(48.3, 21.19, -0.25)]))
     _vr = -2.56 - 0.03
     while _vr > -16.5:
         _us = np.arange(18.0, 54.01, 0.25)
@@ -2858,6 +2897,7 @@ if slits:
     # 上の面を合板の下面（室内、梁の上端の 174 下）か梁の上端（軒の下）にそろえ、幅 60 × せい 150（屋根の面に直角）の断面で押し出す。
     from shapely.geometry import MultiPoint as _MPt
     _BCX = unary_union([BANDS] + [_MPt(tri.tri_extrusion(c_).reshape(-1, 3)[:, :2]).convex_hull for c_ in _CANT])     # 梁の帯と出し梁（端の架構の内の 1 枚にも出し梁、10-29 夜）
+    _BCX = _BCX.union(WSL.buffer(-100.0, join_style=2).difference(WSL.buffer(-160.0, join_style=2)))    # 鼻母屋（軒先から 100〜160）：軒の下の母屋の木口は鼻母屋の横の面に当てる（10-29 夜、u45〜48 の離れ 26）
     def _purl_x(A2, B2, ztop, name_):
         """平面の A2→B2（水平）、上の面の中心の高さ ztop の 60×150 の押し出し（断面は屋根の面に直角）"""
         A3 = np.r_[A2, ztop]; B3 = np.r_[B2, ztop]; L_ = float(np.linalg.norm(B3 - A3)); d3 = (B3 - A3) / L_
@@ -3534,6 +3574,9 @@ for l in m.Layers: out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
 for o in m.Objects:
     if str(o.Attributes.Id) in drop or str(o.Attributes.Id) in col_drop or str(o.Attributes.Id) in beam_drop: continue
+    if str(o.Attributes.Id) in _GCUT:                                              # 10-29 夜：木口を柱の面に沿って斜めに切った桁（網目）
+        mm_ = _gcut_mesh(EXT.get(str(o.Attributes.Id), o.Geometry), _GCUT[str(o.Attributes.Id)])
+        if mm_ is not None: out.Objects.AddMesh(mm_, o.Attributes); continue
     out.Objects.Add(EXT.get(str(o.Attributes.Id), o.Geometry), o.Attributes)      # 22a〜d は動かした押し出し（EXT）
 for mm, at in new_objs + col_new + beam_new: out.Objects.AddMesh(mm, at)
 for g_, at_ in _XNEW: out.Objects.Add(g_, at_)                                 # 構造の直し（10-27）の柱・横材（押し出し）
