@@ -1823,6 +1823,11 @@ for _s, (_x, _y) in _AL.items():
     _dx, _dy = {"敷地": (4, -1), "0": (0, 1.2), "200 m": (0, 1.2)}.get(_s, (0, 0))
     _cx = _amx + _x + _dx - (0 if _s == "敷地" else _tw / 2)
     TOPT[1].append((_cx, _amy + _y + _dy - _th * 0.35, _s, _th, _s in ("敷地", "N", "高野川"), None, "#2E333A" if _s == "敷地" else ("#2F6FA0" if _s == "高野川" else "#333333")))
+    if _s == "京都工芸繊維大学":                 # 災害の箱の印（□4）を大学の名前の左に（ユーザー 10-30：配置図に□4が無かった）。名前と一緒に動く
+        _rq = MARK_R_PLAN * 0.9
+        MARKS.append(dict(id="mark.com.saigai.1", cat="com", num=None, cx=_cx - 1.5 - _rq, cy=_amy + _y + _dy - _th * 0.35 + 0.53 * _th,
+                          r=MARK_R_PLAN, ring=True, group="mark.com.saigai.1", group_name="印　災害時の持ちつ持たれつ（大学）", key="com.saigai",
+                          follow="top.京都工芸繊維大学"))
 TOPT[1].append((_amx, _amy + _AH + TITLE_GAP, "地域のなかの敷地　1/10000", 4.2, True))
 TOPT[1].append((_amx, _amy - 4.5, "出典：国土交通省 Project PLATEAU（京都市 2025）の建物・道路・土地利用から作図", 2.6, False))
 # 縮尺のスケールは部品に（ユーザー、10-27：「その他の絵」ごと隠したので、一つのグループで出す）
@@ -1908,6 +1913,9 @@ def _body_of(k_, ls_):
 ITEMS = [(_title_of("nat." + k1, h1), _body_of("nat." + k1, ls_), C_NAT, "#F6FAFD", pts, fx_, "nat." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(NAT)]
 ITEMS += [(_title_of("com." + k1, h1), _body_of("com." + k1, ls_), C_COM, "#FBF7F2", pts, fx_, "com." + k1) for i_, (k1, h1, ls_, pts, fx_) in enumerate(COM)]
 NUMS = {it[6]: _num_of(it[6], i_ if it[6].startswith("nat.") else i_ - len(NAT), len(it[4])) for i_, it in enumerate(ITEMS)}
+for _mk_ in MARKS:                                         # 番号の前に置いた印（大学の□）に番号
+    if _mk_["num"] is None:
+        _mk_["num"] = NUMS[_mk_["key"]]
 json.dump(dict(note="1枚目の説明の箱と配置図の印の番号（鍵 → 番号）。手で直してよい（.ai で書き換えて書き出した数字があればそちらが先）。mock.py が今の番号を書き戻す",
                numbers=NUMS), open(_NUMF, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 AI_SHIFT = {}                                             # 前の箱（ibox.{key}）の .ai の位置へ、新しい部品をまとめて動かす（一度だけの移し替え）
@@ -2649,7 +2657,7 @@ for si in range(1, 6):
         for mk in MARKS:
             cx_, cy_, r_ = mk["cx"], mk["cy"], mk["r"]
             _um = _UP.get(f"p1.{mk['id']}.shape") or {}
-            if mk.get("follow") and "x" in _um:
+            if mk.get("follow") == "sozai.01a" and "x" in _um:
                 cx_, cy_ = _um["x"] + _um.get("w", 2 * r_) / 2 + _udx, H - (_um["y"] + _um.get("h", 2 * r_) / 2 + _udy)
             col_ = _hx(C_NAT if mk["cat"] == "nat" else C_COM)
             ring_ = (1, 1, 1) if mk["ring"] else None
