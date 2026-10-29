@@ -5,11 +5,12 @@
   1. ツール→スクリプト→実行…（またはコマンド RunPythonScript）で、このファイルを選ぶ。
      ①名前（keikan／me／choukan／その他）と②大きさを聞かれる。昼と同じものを選ぶ。
   2. 書き出し：out/<名前>_yoru.png（mock.py は keikan_yoru.png を読む）と <名前>_view.json。
-     夜：太陽とスカイライトを消し、空は群青の一色（不透明）、越屋根の LED（50b・29）に光る材料と線の光源。
+     夜：太陽を消し、スカイライトはごく弱く（SKYLIGHT_NIGHT）、弱い青白い月明かり（平行光、MOON_POWER）を1本、
+     空は暗い群青の一色（NIGHT_SKY、不透明）。LED は 3dm の発光の材料で光る（線の光源は Mac の Cycles で落ちたので使わない）。
      周りの建物（04）は淡い暖かい灰で一時表示。終わったら全部戻す。1枚に約5〜15分。
-     LED が暗い・白く飛ぶときは render_common.py の LED_LIGHT_POWER を直す。
+     明るさの調整は render_common.py の頭の MOON_POWER・SKYLIGHT_NIGHT・NIGHT_SKY。
      Rhino が落ちるとき：コマンド行の最後の「段：…」が落ちた所。render_common.py の頭の切り替え
-     USE_LED_LIGHTS・USE_LED_MATERIAL・USE_SKYLIGHT_OFF・USE_SKY_BG を一つずつ False にして走らせ、どれが原因かを見る。
+     USE_MOON・USE_SKYLIGHT_DIM・USE_SKY_BG を一つずつ False にして走らせ、どれが原因かを見る。
   3. できたら push：git add sodachiya/present/rhino/out && git commit -m "[プレゼン] レンダリング（夜）" && git push
 中身は render_common.py。
 """
