@@ -10,33 +10,28 @@
    "s": "用途地域：第一種低層住居専用地域（都市計画法）。最高の高さは西館の棟で約9.0 m（GLから）。\n風致地区（京都市風致地区条例）：高野川特別修景地域（同条例第6条第1項による指定、許可基準は基準告示第7条）。右岸の基準：既存の樹木を保全する／河川に面する部分に植栽帯を設ける／建築物は原則として河川の側に勾配のある下屋を設けた和風の外観とする。\n対応：川の側に園庭の林と生垣、南に深い軒（下屋）、深い軒と縁側・杉の大和張りの板壁・ゆるい勾配の屋根。\n同基準第7条第1項(80)：屋根に太陽光発電装置を原則として設けない。\n対応：屋根材と一体の太陽電池で、黒い金属の屋根と見分けがつかず周辺の風致に不調和でない（同(80)の例外）。こども園で、同第7条第2項の例外（建築物全体のデザイン・公益上やむを得ない学校等の施設）にもあたるとする。\n遠景デザイン保全区域（京都市眺望景観創生条例）：外壁・屋根に禁止色を用いない、山並みと調和する。\n対応：黒い金属の屋根、木の色のまま。",
    "s_base": "648f83fa"
   },
-  "p1.top.高野川": {
-   "x": 690.06,
-   "y": 476.28,
-   "artboard": 1
-  },
   "p1.ibox.nat.mizu.mark.num": {
-   "x": 608.02,
-   "y": 416.01,
+   "x": 626.2,
+   "y": 437.08,
    "artboard": 1
   },
   "p1.ibox.nat.mizu.mark.shape": {
-   "x": 604.82,
-   "y": 411.55,
+   "x": 623,
+   "y": 432.62,
    "w": 6.4,
    "h": 6.4,
    "artboard": 1
   },
   "p1.ibox.nat.mizu.text": {
-   "x": 613.72,
-   "y": 419.48,
+   "x": 631.9,
+   "y": 440.55,
    "w": 162.1,
    "h": 39.81,
    "artboard": 1
   },
   "p1.ibox.nat.mizu.title": {
-   "x": 613.72,
-   "y": 416.15,
+   "x": 631.9,
+   "y": 437.22,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -49,27 +44,27 @@
     }]
   },
   "p1.ibox.nat.mitate.mark.num": {
-   "x": 608.02,
-   "y": 367.32,
+   "x": 626.2,
+   "y": 388.39,
    "artboard": 1
   },
   "p1.ibox.nat.mitate.mark.shape": {
-   "x": 604.82,
-   "y": 362.85,
+   "x": 623,
+   "y": 383.92,
    "w": 6.4,
    "h": 6.4,
    "artboard": 1
   },
   "p1.ibox.nat.mitate.text": {
-   "x": 613.72,
-   "y": 370.79,
+   "x": 631.9,
+   "y": 391.86,
    "w": 162.1,
    "h": 39.81,
    "artboard": 1
   },
   "p1.ibox.nat.mitate.title": {
-   "x": 613.72,
-   "y": 367.45,
+   "x": 631.9,
+   "y": 388.52,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -82,27 +77,27 @@
     }]
   },
   "p1.ibox.nat.kaze.mark.num": {
-   "x": 608.02,
-   "y": 464.71,
+   "x": 626.2,
+   "y": 485.78,
    "artboard": 1
   },
   "p1.ibox.nat.kaze.mark.shape": {
-   "x": 604.82,
-   "y": 460.25,
+   "x": 623,
+   "y": 481.32,
    "w": 6.4,
    "h": 6.4,
    "artboard": 1
   },
   "p1.ibox.nat.kaze.text": {
-   "x": 613.72,
-   "y": 468.18,
+   "x": 631.9,
+   "y": 489.25,
    "w": 162.1,
    "h": 39.81,
    "artboard": 1
   },
   "p1.ibox.nat.kaze.title": {
-   "x": 613.72,
-   "y": 464.85,
+   "x": 631.9,
+   "y": 485.92,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -115,27 +110,27 @@
     }]
   },
   "p1.ibox.com.east.mark.num": {
-   "x": 607.7,
-   "y": 329.2,
+   "x": 625.88,
+   "y": 350.27,
    "artboard": 1
   },
   "p1.ibox.com.east.mark.shape": {
-   "x": 604.82,
-   "y": 325.06,
+   "x": 623,
+   "y": 346.13,
    "w": 5.76,
    "h": 5.76,
    "artboard": 1
   },
   "p1.ibox.com.east.text": {
-   "x": 613.4,
-   "y": 332.67,
+   "x": 631.58,
+   "y": 353.74,
    "w": 162.1,
    "h": 29.22,
    "artboard": 1
   },
   "p1.ibox.com.east.title": {
-   "x": 613.4,
-   "y": 329.34,
+   "x": 631.58,
+   "y": 350.41,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -148,27 +143,27 @@
     }]
   },
   "p1.ibox.nat.compost.mark.num": {
-   "x": 608.02,
-   "y": 280.51,
+   "x": 626.2,
+   "y": 301.58,
    "artboard": 1
   },
   "p1.ibox.nat.compost.mark.shape": {
-   "x": 604.82,
-   "y": 276.04,
+   "x": 623,
+   "y": 297.11,
    "w": 6.4,
    "h": 6.4,
    "artboard": 1
   },
   "p1.ibox.nat.compost.text": {
-   "x": 613.72,
-   "y": 283.98,
+   "x": 631.9,
+   "y": 305.05,
    "w": 162.1,
    "h": 39.81,
    "artboard": 1
   },
   "p1.ibox.nat.compost.title": {
-   "x": 613.72,
-   "y": 280.64,
+   "x": 631.9,
+   "y": 301.71,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -181,27 +176,27 @@
     }]
   },
   "p1.ibox.com.park.mark.num": {
-   "x": 59.22,
-   "y": 464.4,
+   "x": 42.06,
+   "y": 489.59,
    "artboard": 1
   },
   "p1.ibox.com.park.mark.shape": {
-   "x": 56.34,
-   "y": 460.25,
+   "x": 39.18,
+   "y": 485.44,
    "w": 5.76,
    "h": 5.76,
    "artboard": 1
   },
   "p1.ibox.com.park.text": {
-   "x": 64.92,
-   "y": 467.87,
+   "x": 47.76,
+   "y": 493.06,
    "w": 162.1,
    "h": 39.81,
    "artboard": 1
   },
   "p1.ibox.com.park.title": {
-   "x": 64.92,
-   "y": 464.53,
+   "x": 47.76,
+   "y": 489.72,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -214,27 +209,27 @@
     }]
   },
   "p1.ibox.com.traffic.mark.num": {
-   "x": 59.22,
-   "y": 402.91,
+   "x": 42.06,
+   "y": 428.1,
    "artboard": 1
   },
   "p1.ibox.com.traffic.mark.shape": {
-   "x": 56.34,
-   "y": 398.77,
+   "x": 39.18,
+   "y": 423.96,
    "w": 5.76,
    "h": 5.76,
    "artboard": 1
   },
   "p1.ibox.com.traffic.text": {
-   "x": 64.92,
-   "y": 406.38,
+   "x": 47.76,
+   "y": 431.57,
    "w": 162.1,
    "h": 50.39,
    "artboard": 1
   },
   "p1.ibox.com.traffic.title": {
-   "x": 64.92,
-   "y": 403.05,
+   "x": 47.76,
+   "y": 428.24,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -247,27 +242,27 @@
     }]
   },
   "p1.ibox.nat.rin.mark.num": {
-   "x": 59.54,
-   "y": 362.61,
+   "x": 42.38,
+   "y": 387.8,
    "artboard": 1
   },
   "p1.ibox.nat.rin.mark.shape": {
-   "x": 56.34,
-   "y": 358.14,
+   "x": 39.18,
+   "y": 383.33,
    "w": 6.4,
    "h": 6.4,
    "artboard": 1
   },
   "p1.ibox.nat.rin.text": {
-   "x": 65.24,
-   "y": 366.08,
+   "x": 48.08,
+   "y": 391.27,
    "w": 162.1,
    "h": 29.22,
    "artboard": 1
   },
   "p1.ibox.nat.rin.title": {
-   "x": 65.24,
-   "y": 362.74,
+   "x": 48.08,
+   "y": 387.93,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -280,27 +275,27 @@
     }]
   },
   "p1.ibox.com.mukai.mark.num": {
-   "x": 59.22,
-   "y": 311.7,
+   "x": 42.06,
+   "y": 336.89,
    "artboard": 1
   },
   "p1.ibox.com.mukai.mark.shape": {
-   "x": 56.34,
-   "y": 307.56,
+   "x": 39.18,
+   "y": 332.75,
    "w": 5.76,
    "h": 5.76,
    "artboard": 1
   },
   "p1.ibox.com.mukai.text": {
-   "x": 64.92,
-   "y": 315.17,
+   "x": 47.76,
+   "y": 340.36,
    "w": 162.1,
    "h": 39.81,
    "artboard": 1
   },
   "p1.ibox.com.mukai.title": {
-   "x": 64.92,
-   "y": 311.84,
+   "x": 47.76,
+   "y": 337.03,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -313,27 +308,27 @@
     }]
   },
   "p1.ibox.com.saigai.mark.num": {
-   "x": 59.22,
-   "y": 250.22,
+   "x": 42.06,
+   "y": 275.41,
    "artboard": 1
   },
   "p1.ibox.com.saigai.mark.shape": {
-   "x": 56.34,
-   "y": 246.08,
+   "x": 39.18,
+   "y": 271.27,
    "w": 5.76,
    "h": 5.76,
    "artboard": 1
   },
   "p1.ibox.com.saigai.text": {
-   "x": 64.92,
-   "y": 253.69,
+   "x": 47.76,
+   "y": 278.88,
    "w": 162.1,
    "h": 50.39,
    "artboard": 1
   },
   "p1.ibox.com.saigai.title": {
-   "x": 64.92,
-   "y": 250.36,
+   "x": 47.76,
+   "y": 275.55,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -346,27 +341,27 @@
     }]
   },
   "p1.ibox.nat.yousui.mark.num": {
-   "x": 608.02,
-   "y": 242.39,
+   "x": 626.2,
+   "y": 263.46,
    "artboard": 1
   },
   "p1.ibox.nat.yousui.mark.shape": {
-   "x": 604.82,
-   "y": 237.93,
+   "x": 623,
+   "y": 259,
    "w": 6.4,
    "h": 6.4,
    "artboard": 1
   },
   "p1.ibox.nat.yousui.text": {
-   "x": 613.72,
-   "y": 245.86,
+   "x": 631.9,
+   "y": 266.93,
    "w": 162.1,
    "h": 29.22,
    "artboard": 1
   },
   "p1.ibox.nat.yousui.title": {
-   "x": 613.72,
-   "y": 242.53,
+   "x": 631.9,
+   "y": 263.6,
    "artboard": 1,
    "style": [{
      "para": 0,
@@ -440,362 +435,426 @@
    "s_base": "94f35982"
   },
   "p1.top.出典：国土交通省Projec": {
-   "x": 245.09,
+   "x": 457.96,
    "y": 575.63,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.top.京都工芸繊維大学": {
    "x": 390.49,
    "y": 77.84,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mizu.2.num": {
    "x": 417.07,
    "y": 439.56,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mizu.2.shape": {
    "x": 414.07,
    "y": 435.29,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mizu.1.num": {
    "x": 515.58,
    "y": 439.56,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mizu.1.shape": {
    "x": 512.57,
    "y": 435.3,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mitate.2.num": {
    "x": 518.08,
    "y": 333.56,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mitate.2.shape": {
    "x": 515.09,
    "y": 329.3,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mitate.1.num": {
    "x": 556.91,
    "y": 354.49,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.mitate.1.shape": {
    "x": 553.91,
    "y": 350.22,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.kaze.1.num": {
    "x": 479.93,
    "y": 361.6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.kaze.1.shape": {
    "x": 476.93,
    "y": 357.33,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.east.1.num": {
    "x": 592.08,
    "y": 328.57,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.east.1.shape": {
    "x": 589.39,
    "y": 324.61,
    "w": 5.4,
    "h": 5.4,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.compost.1.num": {
    "x": 576.58,
    "y": 303.07,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.compost.1.shape": {
    "x": 573.58,
    "y": 298.8,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.park.1.num": {
    "x": 307.11,
    "y": 409.56,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.park.1.shape": {
    "x": 304.42,
    "y": 405.6,
    "w": 5.4,
    "h": 5.4,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.traffic.1.num": {
    "x": 322.51,
    "y": 339.61,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.traffic.1.shape": {
    "x": 319.81,
    "y": 335.65,
    "w": 5.4,
    "h": 5.4,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.rin.1.num": {
    "x": 434.27,
    "y": 288.09,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.rin.1.shape": {
    "x": 431.27,
    "y": 283.82,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.mukai.1.num": {
    "x": 381.94,
    "y": 77.41,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.com.mukai.1.shape": {
    "x": 379.24,
    "y": 73.44,
    "w": 5.4,
    "h": 5.4,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.yousui.1.num": {
    "x": 579.09,
    "y": 246.57,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.mark.nat.yousui.1.shape": {
    "x": 576.08,
    "y": 242.3,
    "w": 6,
    "h": 6,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.20m": {
-   "x": 489.48,
-   "y": 520.6,
-   "artboard": 1
+   "x": 429.25,
+   "y": 575.05,
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.0": {
-   "x": 389.47,
-   "y": 520.6,
-   "artboard": 1
+   "x": 329.24,
+   "y": 575.05,
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.縮尺.frame": {
-   "pts": [[389.48, 516.6], [489.48, 516.6], [489.48, 515.4], [389.48, 515.4], [389.48, 516.6]],
-   "artboard": 1
+   "pts": [[329.25, 571.05], [429.25, 571.05], [429.25, 569.85], [329.25, 569.85], [329.25, 571.05]],
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.縮尺.bar3": {
-   "pts": [[464.48, 516], [489.48, 516]],
-   "artboard": 1
+   "pts": [[404.25, 570.45], [429.25, 570.45]],
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.縮尺.bar2": {
-   "pts": [[439.47, 516], [464.48, 516]],
-   "artboard": 1
+   "pts": [[379.25, 570.45], [404.25, 570.45]],
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.縮尺.bar1": {
-   "pts": [[414.48, 516], [439.47, 516]],
-   "artboard": 1
+   "pts": [[354.25, 570.45], [379.25, 570.45]],
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.縮尺.bar0": {
-   "pts": [[389.48, 516], [414.48, 516]],
-   "artboard": 1
+   "pts": [[329.25, 570.45], [354.25, 570.45]],
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.夏の夜の風（高野川の谷を下りる風": {
    "x": 574.11,
    "y": 472.62,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.雨の川（樋なしで軒から落ちた雨を": {
    "x": 445.69,
    "y": 428.22,
    "artboard": 1,
+   "layer": "配置図",
    "s": "雨庭",
    "s_base": "8ff28cfa"
   },
   "p1.site.t.ムベのアーチ": {
    "x": 285.79,
    "y": 364.54,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.l.ムベのアーチ": {
    "pts": [[286.79, 365.54], [346.8, 359.54]],
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.公園からの入口（木戸）": {
    "x": 308.08,
    "y": 379.17,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.l.公園からの入口木戸": {
    "pts": [[309.08, 380.17], [334.08, 382.17]],
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.駐車場": {
    "x": 331.36,
    "y": 331.14,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.北のもり": {
    "x": 575.08,
    "y": 256.86,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.しずかのもり": {
    "x": 465.35,
    "y": 407.54,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.だいさんかく": {
    "x": 535.3,
    "y": 338.78,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.本館（平屋）": {
    "x": 479.47,
    "y": 289.24,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.西館（2階建て）": {
    "x": 429.74,
    "y": 217.2,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.遊戯室": {
    "x": 429.48,
    "y": 213.89,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.小竹薮公園": {
    "x": 306.1,
    "y": 410.24,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.高野川": {
    "x": 551.67,
    "y": 548.29,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.t.二本の橋（車・人）へ": {
    "x": 246.1,
    "y": 435.05,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.l.二本の橋車人へ": {
    "pts": [[245.1, 436.05], [241.1, 431.05]],
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.tree.trunk": {
    "x": 308.63,
    "y": 243.79,
    "w": 2.8,
    "h": 2.8,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.site.tree.canopy": {
    "x": 300.3,
    "y": 232.82,
    "w": 36,
    "h": 36,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.top.18": {
    "x": 249.5,
    "y": 128.39,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.top.6": {
    "x": 282.35,
    "y": 154.05,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.top.16": {
    "x": 238.9,
    "y": 146.19,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.top.12": {
    "x": 248.96,
    "y": 162.17,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.top.8": {
    "x": 267.38,
    "y": 168.38,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.t.1200高野川を下に（川向こ": {
-   "x": 360.13,
-   "y": 519.8,
+   "x": 309.82,
+   "y": 572.02,
    "artboard": 1,
+   "layer": "配置図",
    "s": "1/200",
    "s_base": "894911e6"
   },
   "p1.t.配置図": {
-   "x": 330.64,
-   "y": 519.8,
-   "artboard": 1
+   "x": 281.1,
+   "y": 574.74,
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.link.13b_太陽の線_屋根の色": {
-   "x": 256.1,
-   "y": 140.44,
+   "x": 280.4,
+   "y": 492.5,
    "w": 50,
    "h": 50,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.sozai.01d": {
    "x": 174.24,
    "y": -3.43,
    "w": 477.86,
    "h": 725,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.sozai.01c": {
    "x": 174.24,
    "y": -3.43,
    "w": 477.86,
    "h": 725,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.sozai.01a": {
    "x": 174.24,
    "y": -3.43,
    "w": 477.86,
    "h": 725,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.sozai.01b": {
    "x": 174.24,
    "y": -3.43,
    "w": 477.86,
    "h": 725,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "配置図"
   },
   "p1.link.14_地域のなかの敷地_1-10000": {
-   "x": 609.68,
-   "y": 46,
+   "x": 613.44,
+   "y": 39.11,
    "w": 120,
    "h": 96,
    "artboard": 1
@@ -804,6 +863,7 @@
    "x": 168.61,
    "y": 484.99,
    "artboard": 3,
+   "layer": "図",
    "s": "を光の筋が照らす",
    "s_base": "666042c2"
   },
@@ -811,6 +871,7 @@
    "x": 168.61,
    "y": 481.49,
    "artboard": 3,
+   "layer": "図",
    "s": "保育室の暗い帯（西から約2〜8 m）",
    "s_base": "ad7663f3"
   },
@@ -818,6 +879,7 @@
    "x": 174,
    "y": 426.71,
    "artboard": 3,
+   "layer": "図",
    "s": "（杉の面のままなら約1割）",
    "s_base": "5175e3d7"
   },
@@ -825,6 +887,7 @@
    "x": 174,
    "y": 423.41,
    "artboard": 3,
+   "layer": "図",
    "s": "梁の下に出る光：鏡面で約8割",
    "s_base": "732e5e9c"
   },
@@ -832,6 +895,7 @@
    "x": 174,
    "y": 419.51,
    "artboard": 3,
+   "layer": "図",
    "s": "両側：鏡面のアルミ（反射率約0.95）、梁の下端まで",
    "s_base": "6ab72093"
   },
@@ -839,6 +903,7 @@
    "x": 174,
    "y": 416.21,
    "artboard": 3,
+   "layer": "図",
    "s": "上：乳白の複層ガラス（外は遮熱Low-E）",
    "s_base": "9a8f0c91"
   },
@@ -846,6 +911,7 @@
    "x": 174,
    "y": 412.91,
    "artboard": 3,
+   "layer": "図",
    "s": "架構の線ごと、2枚の梁のあいだ180",
    "s_base": "f0123890"
   },
@@ -853,6 +919,7 @@
    "x": 174,
    "y": 409.22,
    "artboard": 3,
+   "layer": "図",
    "s": "光の筋：溝の断面1/30",
    "s_base": "bd049dc3"
   },
@@ -860,6 +927,7 @@
    "x": 258,
    "y": 430.81,
    "artboard": 3,
+   "layer": "図",
    "s": "冬至の朝9時：断面の角22°、床の日だまり5.3 m",
    "s_base": "59d1ede3"
   },
@@ -867,6 +935,7 @@
    "x": 258,
    "y": 427.51,
    "artboard": 3,
+   "layer": "図",
    "s": "春秋分の朝9時：断面の角37°、床の日だまり2.1 m",
    "s_base": "ee9477cb"
   },
@@ -874,6 +943,7 @@
    "x": 258,
    "y": 424.21,
    "artboard": 3,
+   "layer": "図",
    "s": "夏至の朝9時：断面の角50°、床の日だまり0.8 m",
    "s_base": "ec20396f"
   },
@@ -881,6 +951,7 @@
    "x": 253,
    "y": 420.31,
    "artboard": 3,
+   "layer": "図",
    "s": "南中の日はこの断面ではほぼ真上（77〜88°）",
    "s_base": "6ad3c734"
   },
@@ -888,6 +959,7 @@
    "x": 253,
    "y": 417.01,
    "artboard": 3,
+   "layer": "図",
    "s": "夏至9:56・春秋分10:37・冬至11:19から（太陽時）",
    "s_base": "c66a0e0f"
   },
@@ -895,6 +967,7 @@
    "x": 253,
    "y": 413.71,
    "artboard": 3,
+   "layer": "図",
    "s": "61°より高い日はガラスに当たらない",
    "s_base": "a5bbf311"
   },
@@ -902,6 +975,7 @@
    "x": 253,
    "y": 410.41,
    "artboard": 3,
+   "layer": "図",
    "s": "ガラス戸は半分が片引き戸、半分は壁",
    "s_base": "2661a1ba"
   },
@@ -909,6 +983,7 @@
    "x": 253,
    "y": 407.22,
    "artboard": 3,
+   "layer": "図",
    "s": "深い軒（出約1.5 m）と縁側のガラス戸",
    "s_base": "df1a2766"
   },
@@ -916,6 +991,7 @@
    "x": 152.5,
    "y": 446.41,
    "artboard": 3,
+   "layer": "図",
    "s": "上からの柔らかい光が西の吹き抜けと奥へ",
    "s_base": "92ac306c"
   },
@@ -923,15 +999,137 @@
    "x": 152.5,
    "y": 442.92,
    "artboard": 3,
+   "layer": "図",
    "s": "越屋根：ガラスの蓋とルーバーのすき間から",
    "s_base": "d97b66b6"
+  },
+  "p3.saikou.darkband.l": {
+   "x": 168.01,
+   "y": 476.92,
+   "w": 60,
+   "h": 1,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.inset.l": {
+   "x": 160,
+   "y": 405.45,
+   "w": 12,
+   "h": 31.7,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.legend.touji.l": {
+   "x": 253,
+   "y": 429.85,
+   "w": 4,
+   "h": 0,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.legend.shunbun.l": {
+   "x": 253,
+   "y": 426.55,
+   "w": 4,
+   "h": 0,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.legend.geshi.l": {
+   "x": 253,
+   "y": 423.25,
+   "w": 4,
+   "h": 0,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.sun.noon.l": {
+   "x": 276.8,
+   "y": 460.42,
+   "w": 6.02,
+   "h": 11.27,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.sun.cutline.l": {
+   "x": 284.41,
+   "y": 458.72,
+   "w": 24.64,
+   "h": 44.03,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.sun.touji.l": {
+   "x": 231.49,
+   "y": 468.69,
+   "w": 83.56,
+   "h": 34.06,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.sun.shunbun.l": {
+   "x": 263.43,
+   "y": 463.35,
+   "w": 51.62,
+   "h": 39.4,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.sun.geshi.l": {
+   "x": 276.19,
+   "y": 457.23,
+   "w": 38.86,
+   "h": 45.52,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.louver.glow.l": {
+   "x": 148.01,
+   "y": 460.12,
+   "w": 18.59,
+   "h": 34.88,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.louver.l": {
+   "x": 147.81,
+   "y": 454.56,
+   "w": 25.7,
+   "h": 39.19,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.suji.arrows.l": {
+   "x": 173.6,
+   "y": 454.02,
+   "w": 78.9,
+   "h": 30.06,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.suji.glow.l": {
+   "x": 168,
+   "y": 470.25,
+   "w": 99,
+   "h": 27.11,
+   "artboard": 3,
+   "layer": "図"
+  },
+  "p3.saikou.suji.duct.l": {
+   "x": 167.6,
+   "y": 463.11,
+   "w": 117.3,
+   "h": 15.49,
+   "artboard": 3,
+   "layer": "図"
   },
   "p1.sozai.02": {
    "x": 697.18,
    "y": 93.05,
    "w": 127.31,
    "h": 130,
-   "artboard": 1
+   "artboard": 1,
+   "layer": "図"
   },
   "p1.note.footer": {
    "hidden": true
@@ -940,6 +1138,9 @@
    "hidden": true
   },
   "p1.top.N": {
+   "hidden": true
+  },
+  "p1.top.高野川": {
    "hidden": true
   },
   "p1.top.敷地": {
@@ -1012,6 +1213,12 @@
   "y": 39.43,
   "w": 365.83,
   "h": 539.75
+ },
+ "stacking": {
+  "注記": ["t:p5.t.（図はアプローチ係に依頼）", "t:p5.t.入口の前の菜園とひろばのかま", "t:p5.t.表の畑と火のオーブン", "g:枠：表の畑と火のオーブン", "t:p5.t.（図は本館係に依頼）", "t:p5.t.廊下の本棚と読む場所", "g:枠：廊下の本棚と読む場所", "t:p5.t.一日の帯：上は1600の小さ", "t:p5.note.footer", "t:p3.note.footer", "t:p2.t.敷地が高野川の右岸にあるとい", "t:p2.note.footer"],
+  "説明": ["t:p5.t.3歳の保育室", "t:p5.t.教室", "t:p5.t.ホールの北山杉の林", "t:p5.t.遊戯室", "t:p5.t.だいさんかく・しずかのもり約", "t:p5.t.園庭", "t:p5.t.こどもたちの環境", "t:p5.pagetitle", "t:p4.top.松ヶ崎こども園4平面図1階・", "g:環境への配慮", "t:p3.t.1100北を見る光の環境：光", "t:p3.t.断面図D本館の横断（光の筋で", "g:inspired by と面積表", "u:u20261029174520_0", "g:季節ごとの空気環境", "t:p3.t.1100空気の環境：本館と西", "t:p3.t.断面図C東西に切る（4歳・遊", "t:p3.t.1100保育室の中ほどの弧で", "t:p3.t.縦断面図A", "t:p3.pagetitle", "g:箱：景観の法規", "t:p2.t.高野川の向こう岸の歩道から、~2", "t:p2.t.沿川の景観夜", "t:p2.t.高野川の向こう岸の歩道から、", "t:p2.t.沿川の景観昼", "t:p2.t.目の高さ1.5m、左に向かい", "t:p2.t.透視図（A4）公園の角から西", "t:p2.t.杉の大和張りの静かな板の壁。", "t:p2.t.まちに溶け込み、やさしく守る", "t:p2.t.1100西の道路から", "t:p2.t.道路の側の立面図", "t:p2.t.縁側と深い軒が57m続き、3", "t:p2.t.園庭にひらく", "t:p2.t.1100円弧の中心の方向から", "t:p2.t.園庭の側の立面図", "t:p2.pagetitle", "g:箱　水の行方を見る", "g:箱　高野川と比叡にみたてる", "g:箱　風の道", "g:箱　東の隣家への配慮", "g:箱　野菜くずコンポスト", "g:箱　小竹薮公園を残す", "g:箱　車と自転車の出入りを南にまとめる", "g:箱　間伐材を使った林", "g:箱　お向かいさん", "g:箱　災害時の持ちつ持たれつ", "g:箱　用水を借りる", "t:p1.concept", "t:p1.t.地に足をつけて育つ", "t:p1.pagetitle"],
+  "配置図": ["g:配置図（まとめ）"],
+  "図": ["t:p1.link.14_地域のなかの敷地_1-10000", "g:平面図", "g:断面図D", "g:断面図C", "g:縦断面図A", "g:立面図　道路の側", "g:立面図　園庭の側", "t:p5.link.sodachiya_room3_1-50", "t:p5.link.sodachiya_forest_02", "t:p5.link.sodachiya_play_present", "t:p5.link.sodachiya_garden_01", "t:p5.sozai.11", "t:p5.sozai.10", "t:p5.sozai.09", "t:p5.sozai.08", "t:p5.sozai.07", "t:p5.sozai.06", "t:p5.other", "t:p2.sozai.05", "t:p2.sozai.04", "t:p2.sozai.03", "t:p2.sozai.16", "g:用水のネットワーク"]
  },
  "anchors": {
   "p1.siteplan": {
