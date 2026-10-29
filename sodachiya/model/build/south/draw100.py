@@ -5,7 +5,7 @@
   屋根の外形など切断より上の物は想像線（二点鎖線、梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
 - 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
 - 断面：A は円筒面 r=197 m で切って展開（西を見る）。B・C は架構に平行な鉛直面（北を見る）、奥 3.2 m まで。
-  D（別の紙 sodachiya_sections2_1-100）は本館だけの横断、架構 19 の線（光の筋の溝）で切る、北を見る。
+  D（別の紙 sodachiya_sections2_1-100）は本館と西館の横断、架構 13 の線（光の筋の溝）で切る、北を見る（西の道の境の外まで）。
   通り芯、幅の寸法、高さの記号（GL・FL・2FL・屋根・越屋根の蓋・西館の最高）。
 出力：PDF・PNG と DXF（レイヤー分け、1/100 の図を 1:1 の mm で。Rhino・LayOut で開いて手を入れる用）。
 """
@@ -1119,12 +1119,14 @@ def _frame_th():
     """架構の角度（柱の中心から、丸めない。TH_S は 1e-4 rad に丸めてあり、スパンが ±20 mm ずれる）。TH_S と同じ順"""
     th = np.array([float(unwrap(math.atan2(*(ob['T'].reshape(-1, 3)[:, :2].mean(0) - C)[::-1]))) for ob in OBJ if ob['layer'].startswith('11a')])
     return [float(th[np.abs(th - t) < 3e-4].mean()) for t in TH_S]
-# 断面 D（項 20261029-0946-present）：本館の横断、架構 19 の線（2 枚の梁のあいだ＝光の筋の溝）で切る、5 歳の部屋（架構 18〜20）の真ん中。
+# 断面 D（項 20261029-0946-present）：本館の横断、架構の線（2 枚の梁のあいだ＝光の筋の溝）で切る。
 # 光の筋の溝は幅約 170 mm なので、丸めた TH_S（±20 mm）でなく柱の中心から出した架構の角度で切る。紙は別（sodachiya_sections2_1-100）
-SEC_D_K = 19
+# 10-29 ユーザー（項 20261029-1819-present）：架構 13（3 歳＋遊戯室）に移し、西館まで含める（西館の越屋根・東の高窓の光）
+SEC_D_K = 13
+SEC_D_XW = -17500             # 図の西の端（v、mm）：西の道の境の少し外
 SEC_D_SKIP = r'^67c_'          # 読書の庭の木（本館の西の外、木は断面に出さない）。zumen.py も json から読む
 SECTIONS.append(('D', 'u', SGN * (_frame_th()[SEC_D_K - 1] - TH_S[0]) * 205000.0,
-                 f'本館の横断（架構{SEC_D_K}の線＝光の筋で切る、5歳）、北を見る'))
+                 f'本館と西館の横断（架構{SEC_D_K}の線＝光の筋で切る、3歳・遊戯室）、北を見る'))
 def _rows():
     """柱の列の半径（W・E、柱の中心の平均を 10 mm に丸める：網の目の中心は数 mm ずれる）"""
     r = np.array([float(np.hypot(*(ob['T'].reshape(-1, 3)[:, :2].mean(0) - C))) for ob in OBJ if ob['layer'].startswith('11a')])
@@ -1358,7 +1360,8 @@ def plan2_dims(A, sh):
 def plan_section_marks(A):
     for nm, kind_, val, _ in SECTIONS:
         if kind_ == 'u':
-            r0, r1 = (189000, 209500) if nm == 'D' else (184000, 222000)      # D は本館だけ（北の端は紙の縁が近い）：外縁側の先〜西館とのすき間
+            # D（架構 13 の線の上）：東は通り芯の符号 13（r 186.9 m）の外、西は道の境の少し外（西館の全長の寸法の字に掛からないように）
+            r0, r1 = (189000, 221000) if nm == 'D' else (184000, 222000)
             th = theta_u(val); a, b = at(r0, th), at(r1, th)
             A.lines([[a, b]], '70_断面の位置', lw=LW_THIN, ls=LS_CHAIN, z=10)
             tdir = at(205000, theta_u(val + 1)) - at(205000, th); tdir /= np.linalg.norm(tdir)
@@ -1964,12 +1967,12 @@ def make_sections():
     return S
 
 def make_sections2():
-    """断面 D だけの紙（A1 横）。光の環境の説明の図（換気の矢は描かない）。範囲は本館の西の外壁の少し西（v −2 m、西の吹き抜けと
-    西館とのすき間の縁）から東の軒先・外縁側の先まで。西館は奥に見えても −2 m で切る（図の範囲＝clip）"""
+    """断面 D だけの紙（A1 横）。光の環境の説明の図（換気の矢・西館の外壁の注は描かない）。範囲は西の道の境の少し外から、
+    本館の東の軒先・外縁側の先まで（10-29 ユーザー：西館も含める）。紙の空きはプレゼンが光の注に使う"""
     W_, H_ = 841, 594
     nm, kind_, val, cap_ = SECTIONS[3]
     S = Sheet(W_, H_, '断面図 D　1/100（A1）')
-    ext = (-2000, 22000, -2600, 7000)
+    ext = (SEC_D_XW, 22000, -2600, 10500)
     A = S.axes(round((W_ - (ext[1] - ext[0]) / 100) / 2), round((H_ - (ext[3] - ext[2]) / 100) / 2), ext)
     A.insul_x = (-1e5, 13500)
     A.rafter_cut = True
@@ -1977,15 +1980,24 @@ def make_sections2():
     S.view(A, '断面' + nm, 'section', origin=p0 + 205000 * u_r, right=-u_r, up=(0.0, 0.0, 1.0), view_dir=u_t,
            cut_plane_point=p0 + 205000 * u_r, cut_plane_normal=u_t, depth_mm=SEC_DEPTH, u_mm=val, frame_k=SEC_D_K, skip_layers_re=SEC_D_SKIP,
            _='鉛直の面（origin を通り、法線 view_dir）で切り、view_dir の向きに depth_mm まで見る。h＝v（西の柱の列 W から東へ）。'
-             '架構の線（2 枚の梁のあいだ）で切る。h が図の範囲（clip_paper_mm）より西の物（西館）は描かない')
+             '架構の線（2 枚の梁のあいだ）で切る。h が図の範囲（clip_paper_mm）の外の物は描かない')
     cutb = section_u(A, th_, skip=SEC_D_SKIP, snap=True, far_bin=400)
-    cutb = {k: b for k, b in cutb.items() if b[2] > ext[0]}      # 図の範囲より西（西館）の切り口は高さ・寸法に使わない
-    chain_dims(A, [-900, 0, 1600, 12000, 13500, 15000], -900)
+    westx = min([b[0] for k, b in cutb.items() if k.startswith('21_')] or [-900])
+    site_ = [P for ln, P in CURVES if ln.startswith('00')]          # 西の道の境（敷地の境）：断面の線が敷地の外に出る所
+    if site_:
+        sp_ = max((Polygon(np.asarray(P)[:, :2]).buffer(0) for P in site_), key=lambda g: g.area)
+        vs = np.arange(0, ext[0], -10.0)
+        xb = next((float(v) for v in vs if not sp_.contains(Point(*(p0[:2] + (205000 - v) * u_r[:2])))), None)
+        if xb is not None:
+            A.lines([[(xb, -1300), (xb, 6500)]], '30_敷地・外構', lw=0.13, color='0.35', ls=(0, (12, 3, 2, 3)), z=8, annot=True)
+            A.text(xb - 150, -1100, '道路境界', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='center', color='0.35')
+            print('section D 道の境 v', round(xb))
+    chain_dims(A, [westx, -900, 0, 1600, 12000, 13500, 15000], -900)
     for nm2, x in (('W', 0), ('E', 12000)):
-        A.lines([[(x, -1200), (x, 5600)]], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
+        A.lines([[(x, -1200), (x, 9800)]], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
         A.bubble(x, -1750, nm2)
-    levels(A, cutb, 18500, False)
-    sec_dims_ew(A, 0.0)                              # 西館の寸法は描かない（範囲の外）
+    levels(A, cutb, 18500, westx < -2000)
+    sec_dims_ew(A, westx)
     A.text(ext[0] + 300, ext[3] - 200, f'断面図{nm}　1/100　{cap_}', PT_TITLE, '80_図名・縮尺・方位', ha='left', va='top')
     A.text(ext[0] + 300, -2400, '← 西', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='bottom')
     A.text(16000, -2400, '東 →', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='bottom')
@@ -1993,7 +2005,7 @@ def make_sections2():
         A.ax.add_patch(plt.Rectangle((3000 + j * 1000, -2450), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
     A.text(3000, -2050, '0', PT_NOTE, '80_図名・縮尺・方位'); A.text(8000, -2050, '5 m', PT_NOTE, '80_図名・縮尺・方位')
     x0, y0 = A.ox / 100 + ext[0] / 100, H_ - (A.oy + ext[3]) / 100
-    print('section D', 'k', SEC_D_K, 'u', round(val), 'paper mm', round(x0), round(y0), round(x0 + (ext[1] - ext[0]) / 100), round(y0 + (ext[3] - ext[2]) / 100))
+    print('section D', 'k', SEC_D_K, 'u', round(val), 'westx', round(westx), 'paper mm', round(x0), round(y0), round(x0 + (ext[1] - ext[0]) / 100), round(y0 + (ext[3] - ext[2]) / 100))
     return S
 
 def legend_materials(S, x_mm, y_mm):
