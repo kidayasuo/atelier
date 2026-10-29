@@ -24,7 +24,8 @@ for n, c in [("70_外構_生垣・塀・格子", (90, 122, 58)), ("71_外構_屋
              # 公園の中身（ユーザー 10-29）：一つのレイヤーに一つの素材
              ("74p_外構_公園の鉄の物（鉄棒・柵・車止め）", (60, 60, 64)), ("74s_外構_公園のすべり台", (200, 204, 208)),
              ("75p_外構_公園の木のベンチ", (170, 128, 86)),
-             ("76g_外構_公園の芝生", (120, 160, 84)), ("73c_外構_アーチの棚のムベ（葉）", (80, 130, 60))]:
+             ("76g_外構_公園の芝生", (120, 160, 84)), ("74a_外構_駐車の舗装（アスファルト）", (62, 62, 64)), ("74w_外構_駐車の白線", (236, 236, 232)),
+             ("76b_外構_歩く舗装（ベージュ）", (204, 186, 156)), ("78a_外構_ひろばの真砂土", (190, 172, 140)), ("76s_外構_土（植栽・砂利・すき間）", (140, 116, 88)), ("73c_外構_アーチの棚のムベ（葉）", (80, 130, 60))]:
     layer(n, c)
 def attr(name):
     a = r.ObjectAttributes(); a.LayerIndex = LAY[name]; return a
@@ -331,5 +332,56 @@ for _y in _km["y"]:
     p = PK(_km["x"], _y)
     kcyl(p, 0.06, 0.0, _km["trunk_h"], "77_外構_樹木")
     m.Objects.AddBrep(r.Sphere(P3(p, _km["crown_z"]), _km["r"] * MM).ToBrep(), attr("77c_外構_樹冠・植え込み・苔（葉）"))
+
+# 外構の地面（ユーザー 10-29：地面が無く、落ちると奈落の底。監修の項 20261029-1457-kanshu、色は航空写真から）
+# 閉じた板 厚さ0.01（本体で −300〜−290）。敷地から建物・公園・みなみのさんかくとポーチ・園庭（本館の西の面より東）を引いた所を、
+# 駐車（アスファルト）→ 歩く所（ベージュ）→ ひろば（真砂土）→ ほか（土）の順に分ける。上に立つ植え込み・家具・バンプ・受け桝の足もとは抜く
+from shapely.geometry import Polygon as _GP, Point as _GPt
+from shapely.ops import unary_union as _GU
+def _sr(s0, s1, d0, d1): return _GP(srect(s0, s1, d0, d1))
+_WEST = _GP([W(-30, -0.35), W(80, -0.35), W(80, -60), W(-30, -60)])                       # 本館の西の外壁の外面より西
+_SOUTH_X = _GP([W(-0.1, -1.0), W(-0.1, 20), W(-30, 20), W(-30, -1.0)])                     # みなみのさんかく・ポーチ（本館係・みなみの地面がある）
+_gs = _GP(A.SITE).intersection(_WEST).intersection(_sr(-5, 29.6, -2, 40))
+_gs = _gs.difference(NC._CLOSED).difference(NC.MECH).difference(_GP(A.PARK)).difference(_SOUTH_X)
+_gn = _GU([NC.BAND_W, NC.MSTRIP, NC.FSTRIP, NC.GAPRON, NC.KOMICHI, NC.MAPRON]).difference(NC._CLOSED).difference(NC.MECH)
+_GROUND = _GU([_gs, _gn])
+_holes = [NC.READ, NC.HEDGE, NC.MID, NC.LOW, _sr(12.3, 17.6, *A.BUMP), _sr(18.9, 19.8, 10.7, 11.25), _sr(*A.KAM),
+          _GP(A.rect(19.3, 20.8, *A.TEA["shelf_v"], 2))] + [_sr(*b) for b in A.BEDS] + [_GP(A.rect(19.6, 20.5, va, vb, 2)) for (va, vb) in A.TEA["benches_v"]] \
+         + [_GPt(P(ri[0], ri[1])).buffer(ri[2], 32)]
+_GROUND = _GROUND.difference(_GU(_holes))
+_walk = _GU([_sr(A.SIDEWALK["s"][0], A.SIDEWALK["s"][1], *A.SIDEWALK["d"]), _sr(*A.VWALK), _sr(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D),
+             A.TRI, _sr(*A.DEL), A.POCKET, NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.KOMICHI, NC.GAPRON])
+_park = _GU([_sr(-5, 17.7, A.SIDEWALK["d"][1], A.HEDGE_D), _sr(17.7, 22.7, A.SIDEWALK["d"][1], A.NHEDGE_D)]).difference(_walk)
+_zones = [("74a_外構_駐車の舗装（アスファルト）", _GROUND.intersection(_park))]
+_zones.append(("76b_外構_歩く舗装（ベージュ）", _GROUND.intersection(_walk).difference(_park)))
+_zones.append(("78a_外構_ひろばの真砂土", _GROUND.intersection(A.plz).difference(_walk).difference(_park)))
+_zones.append(("76s_外構_土（植栽・砂利・すき間）", _GROUND.difference(_walk).difference(_park).difference(A.plz)))
+GROUND_AREA = {}
+for _ln, _g in _zones:
+    _g = _g.buffer(0.002, join_style=2).buffer(-0.004, join_style=2)                     # 隣の板と0.002あけ、細い切れ端を落とす
+    GROUND_AREA[_ln] = 0.0
+    for _q in polys(_g):
+        if _q.area < 0.05: continue
+        _q = _q.simplify(0.005)
+        if not list(_q.interiors):
+            slab_smooth(list(_q.exterior.coords)[:-1], 0.0, 0.01, _ln)
+        else:                                                            # 穴のある板は、穴を切る線で分けて穴なしにする
+            from shapely.ops import split as _split
+            from shapely.geometry import LineString as _GL
+            _pcs = [_q]
+            for _h in _q.interiors:
+                _c = _h.centroid; _b = _q.bounds
+                _cut = _GL([(_c.x, _b[1] - 1), (_c.x, _b[3] + 1)])
+                _pcs = [pp for pc in _pcs for pp in (_split(pc, _cut).geoms if pc.intersects(_cut) else [pc])]
+            for _pc in _pcs:
+                for _pp in polys(_pc):
+                    if _pp.area >= 0.05 and not list(_pp.interiors): slab_smooth(list(_pp.simplify(0.005).exterior.coords)[:-1], 0.0, 0.01, _ln)
+        GROUND_AREA[_ln] += _q.area
+# 駐車の白線（幅0.1、舗装の上に+0.002）：車室の境の線（車室の長い向き＝道路に沿う向き）
+for (_s0, _s1, _n) in ((7.2, 12.2, 3), (17.7, 22.7, 2)):
+    for _k in range(_n + 1):
+        _d = A.STALL_D0 + 2.5 * _k
+        slab(srect(_s0, _s1, _d - 0.05, _d + 0.05), 0.01, 0.002, "74w_外構_駐車の白線")
+print("ground", {k[:6]: round(v, 1) for k, v in GROUND_AREA.items()})
 m.Write(OUTF, 7)
 print("wrote", OUTF, len(m.Objects), "objects")
