@@ -299,9 +299,12 @@ def write(c):
                         q["pts"] = [[round(a + dx, 3), round(b + dy, 3)] for a, b in q["pts"]]
                     p["x"], p["y"], p["u"] = round(u["x"], 2), round(u["y"], 2), 1
                 continue
+            h0 = p.get("h")
             for key in ("x", "y", "w", "h", "pts"):
                 if key in u:
                     p[key] = u[key]
+            if p["kind"] == "area" and h0 and "h" in u and h0 > u["h"]:   # 字を大きくして中身が伸びたら、ユーザーの上端・左端はそのままで高さだけ伸ばす（10-29）
+                p["h"] = h0
             if any(k_ in u for k_ in ("x", "y", "w", "h", "pts")):
                 p["u"] = 1                          # ユーザーの割付で置いた（export は動かしていなくても書き出す：次の更新で既定に戻らないように）
             if p["kind"] == "link" and "w" in u and p.get("clip"):
@@ -332,7 +335,8 @@ def write(c):
     out = dict(note="mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
                generated=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M"),
                unit="mm", artboard=[W, H],
-               frame=dict(margin=M, header=16, title=dict(s="こどもたちの育ち舎", x=M + 4, y=M + 11, size_pt=pt(6.5), font="W6"),
+               frame=dict(margin=M, header=c.get("frame_hdr", (16, 11, 6.5))[0], title=dict(s="こどもたちの育ち舎", x=M + 4, y=M + c.get("frame_hdr", (16, 11, 6.5))[1],
+                          size_pt=pt(c.get("frame_hdr", (16, 11, 6.5))[2]), font="W6"),
                           footer=dict(s="建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", x=W - M - 4, y=H - M - 4, size_pt=pt(3.0), font="W3", align="right"),
                           lw_rect=0.6, lw_header=0.4, color="#222222"),
                anchors=c.get("anchors", {}), anchors_prev=c.get("anchors_prev", {}),
