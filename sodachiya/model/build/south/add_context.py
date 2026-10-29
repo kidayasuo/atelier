@@ -1,6 +1,7 @@
 """周辺の道路と建物（PLATEAU、data/context_plateau.json）を 3dm に
 使い方: python3 add_context.py IN.3dm OUT.3dm data/context_plateau.json
 - 03_周辺_道路（PLATEAU）：道路 LOD1 の面を一枚にまとめ、平らに（敷地の GL −300 の 20 下、10-25 ユーザー）。厚さ 100 の押し出し（穴あり）。西の道・北の道の建物の側の縁は敷地の境にそろえる。
+- 03g_周辺_地面（平ら）：敷地から30 mの帯のうち道路・敷地・川の側を除いた所に、上面−320・厚さ100の板（10-29）。
 - 04_周辺_建物（PLATEAU LOD1）：建物の外形を下端から上端まで押し出した箱（LOD1 なので屋根の形は無い）。
 - 敷地の中の今の住宅と、敷地の中を通る今の道は入れない（課題はそれを取り払った計画）。
 - 出典：国土交通省 Project PLATEAU（京都市 2025 年度）。
@@ -160,5 +161,30 @@ for g in getattr(RD, 'geoms', [RD]):
     K.prism(g, Z_RD - T_RD, Z_RD, L_RD)
     for o in list(m.Objects)[n0:]: o.Attributes.Name = '道路（平ら）'
     nr += len(m.Objects) - n0
+# 周辺の平らな地面（03g、10-29監修の項20261029-1457-kanshu）：北東の隣地（PLATEAUの建物だけで地面が無かった）・
+# 公園の南西の橋のたもと・北の角の先など、敷地から30 mの帯のうち、道路・敷地・川の側（護岸02）を除いた所に、
+# 道路と同じ上面−320・厚さ100の平らな板。隣の建物（04）はその上に立つ（建物の下端はPLATEAUのまま）
+L_GR = layer('03g_周辺_地面（平ら、上面−320）', (165, 150, 125))
+WG = 30000.0
+# 川の側：敷地の南東の辺（外向きが南東＝北の道の向きの逆）の線より外は護岸と川（add_site.py）
+SE = None
+for k in range(len(_ring) - 1):
+    e = LineString([_ring[k], _ring[k + 1]])
+    if e.length > 5000 and _out(e) @ np.array([0.6225, -0.7826]) > 0.95: SE = e
+GR = S.buffer(WG, join_style=2).difference(S).difference(RD)
+if SE is not None:
+    (x0, y0), (x1, y1) = SE.coords; d_ = np.array([x1 - x0, y1 - y0]) / SE.length; n_ = _out(SE)
+    p0, p1 = np.array([x0, y0]) - d_ * 200000, np.array([x1, y1]) + d_ * 200000
+    GR = GR.difference(Polygon([p0, p1, p1 + n_ * 200000, p0 + n_ * 200000]))
+GR = GR.buffer(-3, join_style=2)                     # 道路・敷地と3 mm離す（輪が一点で触れる所も離れる）
+ng = 0
+for g in getattr(GR, 'geoms', [GR]):
+    if g.geom_type != 'Polygon' or g.area < 1e6: continue          # 1 m²より小さいかけらは入れない
+    g = g.simplify(20)
+    n0 = len(m.Objects)
+    K.prism(g, Z_RD - T_RD, Z_RD, L_GR)
+    for o in list(m.Objects)[n0:]: o.Attributes.Name = '周辺の地面（平ら）'
+    ng += len(m.Objects) - n0
+print('ground: 周辺の地面%.1f m2（%d枚）' % (sum(g.area for g in getattr(GR, 'geoms', [GR]) if g.geom_type == 'Polygon' and g.area >= 1e6) / 1e6, ng))
 m.Write(OUT, 8)
 print('context: bldg', nb, '(site', skip_b, 'removed)  road', nr, '(site', skip_r, 'removed) →', OUT, len(m.Objects))
