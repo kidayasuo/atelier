@@ -23,7 +23,8 @@ for n, c in [("70_外構_生垣・塀・格子", (90, 122, 58)), ("71_外構_屋
              ("75t_外構_地中の雨水槽", (120, 120, 120)), ("75s_外構_石の受け桝", (150, 146, 138)),
              # 公園の中身（ユーザー 10-29）：一つのレイヤーに一つの素材
              ("74p_外構_公園の鉄の物（鉄棒・柵・車止め）", (60, 60, 64)), ("74s_外構_公園のすべり台", (200, 204, 208)),
-             ("75p_外構_公園の木のベンチ", (170, 128, 86)), ("76p_外構_公園の芝の保護材（車の帯）", (120, 150, 84))]:
+             ("75p_外構_公園の木のベンチ", (170, 128, 86)),
+             ("76g_外構_公園の芝生", (120, 160, 84)), ("73c_外構_アーチの棚のムベ（葉）", (80, 130, 60))]:
     layer(n, c)
 def attr(name):
     a = r.ObjectAttributes(); a.LayerIndex = LAY[name]; return a
@@ -143,6 +144,8 @@ for s in np.linspace(s_a, s_b, n + 1):
         d = PG_D + (A.WALL_D - PG_D) * t; p = P(s, d)
         pts.append(r.Point3d(p[0] * MM, p[1] * MM, (2.25 + 0.28 * math.sin(math.pi * t)) * MM))
     m.Objects.AddCurve(r.Polyline(pts).ToNurbsCurve(), attr("73_外構_アーチの棚"))
+# 73c 小径のアーチの棚にムベ（ユーザー 10-29：ムベのアーチにムベを）：梁の上に葉の層（h2.30〜2.60）
+slab([P(s_a, PG_D), P(s_b, PG_D), P(s_b, A.WALL_D), P(s_a, A.WALL_D)], 2.30, 0.30, "73c_外構_アーチの棚のムベ（葉）")
 # 73 木戸の内側の三角のムベの棚（小径の棚の続き、10-24）：柱・桁 h2.25、梁は 1.5 ごとに弓なり
 for p in A.TRI_POSTS: post(p, 2.25, 0.12, "73_外構_アーチの棚")
 for g in A.TRI_GIRDERS: add_curve(g, "73_外構_アーチの棚", 2.25)
@@ -152,6 +155,10 @@ for b0, b1 in A.TRI_BEAMS:
         p = (b0[0] + (b1[0] - b0[0]) * t, b0[1] + (b1[1] - b0[1]) * t)
         pts.append(r.Point3d(p[0] * MM, p[1] * MM, (2.25 + rise * math.sin(math.pi * t)) * MM))
     m.Objects.AddCurve(r.Polyline(pts).ToNurbsCurve(), attr("73_外構_アーチの棚"))
+# 73c 木戸の内側の三角の棚にもムベ（軒の下は屋根が覆うので葉は軒の外だけ、10-24）
+_mube = A.TRI.difference(A.EAVE_S)
+for _g in getattr(_mube, "geoms", [_mube]):
+    if _g.area > 0.3: slab(list(_g.exterior.coords)[:-1], 2.30, 0.30, "73c_外構_アーチの棚のムベ（葉）")
 # 74 parking, bump, bikes, curb cut
 for k in range(3): add_curve(srect(7.2, 12.2, A.STALL_D0 + 2.5 * k, A.STALL_D0 + 2.5 * (k + 1)), "74_外構_駐車・駐輪・バンプ", close=True)
 for k in range(2): add_curve(srect(17.7, 22.7, A.STALL_D0 + 2.5 * k, A.STALL_D0 + 2.5 * (k + 1)), "74_外構_駐車・駐輪・バンプ", close=True)
@@ -278,8 +285,9 @@ def kbar(x0, x1, y, z, rr, lay):                               # 川と平行な
         b.Transform(r.Transform.Rotation(math.pi, r.Vector3d(0, 0, 1), P3(p0, 0)))
     b.Transform(r.Transform.Translation(0, 0, z * MM))
     m.Objects.AddBrep(b, attr(lay))
-# 芝の保護材の帯（厚さ0.01、見た目は芝）：S字の帯の輪郭を直線と円弧にして押し出す
-slab_smooth([PK(*q) for q in list(A.BAND_LOC.exterior.coords)[:-1]], 0.0, 0.01, L76p)
+# 搬入の車の帯（芝の保護材）は芝の下なので3dmに入れない（ユーザー 10-29：見せない）
+# 公園は全面を芝生（ユーザー 10-29）：12×12の輪郭いっぱいに芝の面（厚さ0.01）
+slab(A.PARK, 0.0, 0.01, "76g_外構_公園の芝生")
 # 道路側の鉄柵h1.1（柱□50、上下の横材□40、縦格子□16を0.12ごと、開口のほかの区間）と車止め（上げ下げ式、φ0.1 h0.8、上げた姿）
 _rl = PP["rail"]; xr = _rl["x"]
 for y0r, y1r in _rl["segments"]:
