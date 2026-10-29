@@ -250,7 +250,8 @@ DL = {
     '11_見えがかり（家具）': (8, 9, 'Continuous'),
     '12_見えがかり（ガラス）': (5, 9, 'Continuous'),
     '20_上部（屋根の外形・梁）': (8, 9, 'PHANTOM'),     # 切断より上の物：想像線（細い二点鎖線、JIS A 0150）
-    '15_地盤': (8, 9, 'Continuous'),                  # 断面の GL の下の地盤の記号（斜線）
+    '15_地盤': (8, 9, 'Continuous'),
+    '14_鏡面': (8, 9, 'Continuous'),                  # 断面で奥に見える光の筋の鏡面の塗り（10-29）                  # 断面の GL の下の地盤の記号（斜線）
     '30_敷地・外構': (8, 9, 'Continuous'),
     '40_通り芯': (1, 9, 'DASHDOT'),
     '41_通り芯の符号': (1, 13, 'Continuous'),
@@ -671,6 +672,7 @@ def floor_build(A, pcs):
             A.lines([[(max(a, x0 + RISE_T), -FL_BOARD - 90), (min(b, x1 - RISE_T), -FL_BOARD - 90)]], '10_見えがかり', lw=0.07, color='0.4', z=5)   # 大引の下端（見えがかり）
     return occ
 
+MIRROR_LAYERS, MIRROR_FC = ('10m_', '20m_'), '#DCE5EE'
 def draw_visible(A, items, occ):
     """items=[(ob, silhouette)] 近い順。見える線だけ描く"""
     occ = occ if occ is not None else Polygon()
@@ -678,6 +680,9 @@ def draw_visible(A, items, occ):
         if sil is None or sil.is_empty: continue
         k = kind(ob['layer']); lay = LAYER_OF[k][1]
         vis = sil.boundary.difference(occ.buffer(2)) if not occ.is_empty else sil.boundary
+        if ob['layer'].startswith(MIRROR_LAYERS):             # 光の筋の鏡面（アルミ）：見える所に薄い銀の地と細い斜線（断面D、ユーザー 10-29：ここが鏡面と示す）
+            mv = sil.difference(occ) if not occ.is_empty else sil
+            if not mv.is_empty and mv.area > 1e4: A.fill(mv, '14_鏡面', fc=MIRROR_FC, z=2.6, hatch='/////')
         A.geom_lines(vis, lay, lw={'furn': 0.1, 'glass': 0.09}.get(k, 0.13), color={'glass': '#3d6f9a', 'furn': '0.25'}.get(k, 'k'), z=3)
         if k != 'glass':
             occ = unary_union([occ, sil]) if not occ.is_empty else sil
