@@ -3,10 +3,11 @@
 描くもの（決定事項（共通）の「屋根・光・電気」「屋根の構成」、決定事項_本館の「屋根：光の筋と太陽光」「越屋根」）：
 - 光の筋：2枚の梁のあいだ180の上の乳白ガラスから入る空の光が、鏡面のアルミの溝を下りて梁の下へ（約8割、杉のままなら約1割）。
   保育室の暗い帯（西から約2〜8 m）を明るくする。溝の向きの断面は小さな差し込みの図（1/25）で。
-- 越屋根（ガラスの蓋＋白いルーバー）と西の吹き抜け：上からの拡散光。
+- 越屋根（白の艶消しの木のルーバーのすき間＋ガラスの蓋）から、西の吹き抜けと奥へ落ちる上からの柔らかい光。
 - 東の縁側のガラス戸と深い軒：朝9時（太陽時）の日を、夏至・春秋分・冬至で。断面の面に映した高度（プロファイル角）で描く。
   南中の日はこの東西の断面ではほぼ真上（82〜89°）なので、軒と屋根が受ける。軒先とガラスの足を結ぶ角より高い日はガラスに当たらない。
-- 昼光率（監修の略算、曇天、床上0.5 m）：最小 約3.5%（西から5〜9 m）・平均 約4.8%、目安2%。曲線の形は模式（最小と平均を合わせた）。
+- 光だけに集中する（ユーザー 10-29 13:09）：空気・空調・換気の線と注は描かない。昼光率（曲線と数）は語らない（ユーザーが検証できないため）。
+  見本の下地からも空気の注（AIR_NOTES の文字と AIR_RGB の色の線）を消して見せる。断面Dでも同じ。
 
 形はすべて3dm（model/sodachiya_exact_mesh.3dm）から、紙の位置は drawings/<紙>_views.json の draw_to_paper で。
 断面Cは架構の線で切っていないので、切り口の奥の架構の線（いちばん近い光の筋）の形を使う。
@@ -146,6 +147,14 @@ def geometry(view):
     G["eave_tip"] = (ht, eave[eave[:, 0] > ht - 30, 1].min(), eave[eave[:, 0] > ht - 30, 1].max())
     lid = np.array([p for n, g in by("50a") for s in slice_(g, dc) for p in s])
     G["lid"] = (lid[:, 0].min(), lid[:, 0].max(), lid[:, 1].min(), lid[:, 1].max())
+    lv = []                                            # 越屋根の木のルーバー：板ごとの中心と板の向き
+    for n, g in by("50c"):
+        q = np.array([p for s_ in slice_(g, dc) for p in s_])
+        if len(q) < 3: continue
+        c_ = q.mean(0); u, sv, vt = np.linalg.svd(q - c_)
+        ax_ = vt[0] if vt[0][1] < 0 else -vt[0]       # 板の向き（下向き）
+        lv.append((c_, ax_))
+    G["louvers"] = sorted(lv, key=lambda t: t[0][0])
     fl = np.array([p for n, g in by("12_") for s in slice_(g, dc) for p in s])
     G["west_in"] = fl[:, 0].min()
     G["d_cut"] = dc
@@ -155,19 +164,6 @@ def geometry(view):
 def interp(poly, h):
     a = np.array(poly)
     return float(np.interp(h, a[:, 0], a[:, 1]))
-
-
-# ---------------------------------------------------------------- 昼光率（模式の曲線）
-def df_curve(x0, x1, xmid=(5.0, 9.0), dmin=3.5, davg=4.8):
-    """監修の略算の最小（西から5〜9 m）と平均に合わせた模式の形。x：西の外壁の内面から（m）。"""
-    xs = np.linspace(x0, x1, 400)
-    # 形：西の吹き抜け（越屋根）で高く、光の筋で中ほどを支え、東のガラスへ上がる
-    ax = np.array([0.0, 0.8, 1.7, 2.6, 3.6, 5.0, 7.0, 9.0, 10.3, 11.4, 12.4, 13.0, 13.7])
-    ay = np.array([2.6, 3.0, 2.2, 1.0, 0.45, 0.05, 0.0, 0.05, 0.45, 1.2, 2.6, 3.8, 5.0])
-    s = np.interp(xs, ax, ay)
-    s = np.convolve(np.pad(s, 15, mode="edge"), np.ones(31) / 31, mode="valid")
-    k = (davg - dmin) / np.trapezoid(s, xs) * (x1 - x0)
-    return xs, dmin + k * s
 
 
 # ---------------------------------------------------------------- 描く
@@ -188,7 +184,7 @@ def draw(paper, vname, out_pdf, out_json, out_png):
     c0, c1, cz = G["col_e"]
     zg = lambda h: gz0 + (gz1 - gz0) * (h - g0) / (g1 - g0)
 
-    PAGE = tuple(float(round(v, 1)) for v in (X(hW - 1300), Y(lz1 + 5300), X(ht + 6600), Y(0) + 54))
+    PAGE = tuple(float(round(v, 1)) for v in (X(hW - 1300), Y(lz1 + 5300), X(ht + 6600), Y(0) + 24))
     W, H = PAGE[2] - PAGE[0], PAGE[3] - PAGE[1]
     fig = plt.figure(figsize=(W / 25.4, H / 25.4))
     fig.patch.set_alpha(0)
@@ -227,15 +223,25 @@ def draw(paper, vname, out_pdf, out_json, out_png):
         arrow(P(h, z0 - 80), P(h + 260, z0 - 880), SKY, lw=0.4, a=0.6)
     for h in (8500, 10000):
         arrow(P(h + 250, zg(h) + 900), P(h, zg(h) + 90), SKY, lw=0.45, a=0.6)
-    # ---- 越屋根と西の吹き抜け
-    for h in (l0 + 450, (l0 + l1) / 2 + 100, l1 - 350):
-        arrow(P(h + 300, lz1 + 900), P(h, lz1 + 80), SKY, lw=0.5)
-    hv0, hv1 = hW, G["glass"][0][0] - 100
-    for h, dz in ((hv0 + 450, 1900), ((hv0 + hv1) / 2 + 150, 2300), (hv1 - 250, 1700)):
-        arrow(P(h, lz0 - 400), P(h - 100, lz0 - 400 - dz), SKY, lw=0.45, a=0.85)
-    arrow(P(hW + 60, 2100), P(hW + 900, 1500), SKY, lw=0.4, a=0.7)          # 白い西の壁で返る
-    txt(PAGE[0] + 17.5, PAGE[1] + 26.0, "越屋根：ガラスの蓋と白いルーバー", 2.9, SKY, w="bold")
-    txt(PAGE[0] + 17.5, PAGE[1] + 29.6, "拡散光を西の吹き抜けへ", 2.6, SKY)
+    # ---- 越屋根：ルーバーのすき間とガラスの蓋から、西の吹き抜けと奥へ
+    lvs = G["louvers"]
+    gaps = [((c1_ + c2_) / 2, (a1_ + a2_) / 2) for (c1_, a1_), (c2_, a2_) in zip(lvs[:-1], lvs[1:])]
+    for k, (c_, d_) in enumerate(gaps[1::3]):
+        d_ = d_ / np.linalg.norm(d_)
+        p0 = c_ - d_ * 650; p1 = c_ + d_ * 120          # 空 → すき間（板の向きに）
+        arrow(P(*p0), P(*p1), SKY, lw=0.45, ms=3.0)
+        z_end = 900 + 500 * (k % 3)                    # すき間 → 吹き抜けの下へ、少し広がりながら
+        dx = (p1[0] - hW) * 0.25 + 150 * ((k % 2) - 0.5)
+        arrow(P(p1[0], lz0 - 150), P(p1[0] - dx, z_end), SKY, lw=0.4, a=0.75)
+    # 吹き抜けを満たす柔らかい光（上ほど濃く）
+    hv0, hv1 = hW, G["glass"][0][0]
+    for k in range(8):
+        f = k / 8
+        ax.add_patch(MPoly([P(hv0, lz0), P(hv1, lz0), P(hv1, lz0 - 600 - f * 3300), P(hv0, lz0 - 600 - f * 3300)],
+                           closed=True, fc=SKY_F, ec="none", alpha=0.06 * (1 - f), zorder=1))
+    arrow(P(hW + 60, 2300), P(hW + 1500, 1300), SKY, lw=0.4, a=0.7)         # 白い西の壁で返り、奥へ
+    txt(PAGE[0] + 17.5, PAGE[1] + 26.0, "越屋根：ガラスの蓋とルーバーのすき間から", 2.9, SKY, w="bold")
+    txt(PAGE[0] + 17.5, PAGE[1] + 29.6, "上からの柔らかい光が西の吹き抜けと奥へ", 2.6, SKY)
 
     # ---- 東のガラス戸と深い軒：朝9時（太陽時）
     t9 = 9.0
@@ -316,34 +322,12 @@ def draw(paper, vname, out_pdf, out_json, out_png):
     txt(tx, y_g + 14.8, "梁の下に出る光：鏡面で約8割", 2.6, SKY, w="bold")
     txt(tx, y_g + 18.4, "（杉の面のままなら約1割）", 2.6, INK)
 
-    # ---- 昼光率の曲線（断面の下、横の目盛りは断面と同じ）
-    gy0 = Y(0) + 43.0                                  # 0% の線
-    sc = 1.6                                           # 1% = 1.6 mm
-    x_end = hd
-    xs, df = df_curve(0.0, (x_end - hW) / 1000)
-    gx = lambda x: X(hW + x * 1000)
-    gy = lambda v: gy0 - v * sc
-    ax.fill_between([gx(2.0), gx(8.0)], [gy(10)] * 2, [gy0] * 2, color=SKY_F, alpha=0.35, lw=0, zorder=1)
-    ax.plot([gx(0), gx(xs[-1])], [gy0, gy0], color=INK, lw=0.35)
-    for v in (0, 5, 10):
-        ax.plot([gx(0) - 0.8, gx(0)], [gy(v)] * 2, color=INK, lw=0.3)
-        txt(gx(0) - 1.3, gy(v), f"{v}%", 2.4, INK, ha="right")
-    ax.plot([gx(0), gx(0)], [gy0, gy(10)], color=INK, lw=0.3)
-    ax.plot([gx(0), gx(xs[-1])], [gy(2), gy(2)], color="#B0503A", lw=0.45, ls=(0, (4, 2)))
-    txt(gx(xs[-1]) + 1.0, gy(2), "教室の目安2%", 2.6, "#B0503A")
-    ax.plot([gx(x) for x in xs], [gy(v) for v in df], color=SKY, lw=1.0, zorder=5)
-    ax.plot([gx(0), gx(xs[-1])], [gy(4.8)] * 2, color=SKY, lw=0.3, ls=(0, (1, 1.2)))
-    txt(gx(xs[-1]) + 1.0, gy(4.8), "平均約4.8%", 2.6, SKY)
-    i7 = np.argmin(np.abs(xs - 7.0))
-    txt(gx(7.0), gy(df[i7]) - 1.6, "最小約3.5%（西から5〜9 m）", 2.6, SKY, ha="center", va="bottom", w="bold")
-    for x in range(0, int(xs[-1]) + 1, 2):
-        ax.plot([gx(x)] * 2, [gy0, gy0 + 0.8], color=INK, lw=0.3)
-        txt(gx(x), gy0 + 2.4, f"{x}", 2.4, INK, ha="center")
-    txt(gx(xs[-1]) + 1.0, gy0 + 2.4, "m（西の壁から）", 2.4, INK)
-    txt(gx(5.0), gy(10) + 0.2, "保育室の暗い帯（西から約2〜8 m）を光の筋が支える", 2.6, SKY, ha="center", va="top")
-    txt(gx(0), gy0 + 5.2, "昼光率（曇天、床上0.5 m、監修の略算。曲線の形は模式）", 2.9, INK, w="bold", va="top")
-    # 床上0.5 m の線（断面の中）
-    ax.plot([X(hW), X(hd)], [Y(500)] * 2, color=SKY, lw=0.3, ls=(0, (1.5, 1.5)), alpha=0.8)
+    # ---- 保育室の暗い帯（西から約2〜8 m）を光の筋が照らす
+    zb = interp(sof, 8000) - 250
+    xa, xb = X(hW + 2000), X(hW + 8000)
+    ax.plot([xa, xa, xb, xb], [Y(zb) - 1.0, Y(zb), Y(zb), Y(zb) - 1.0], color=SKY, lw=0.4, zorder=6)
+    for k_, s_ in enumerate(("保育室の暗い帯（西から約2〜8 m）", "を光の筋が照らす")):
+        txt(xa + 0.6, Y(zb) + 2.6 + 3.5 * k_, s_, 2.6, SKY, w="bold", zorder=6, bbox=dict(fc="white", ec="none", alpha=0.75, pad=0.5))
 
     fig.savefig(out_pdf, transparent=True)
     plt.close(fig)
@@ -359,13 +343,53 @@ def draw(paper, vname, out_pdf, out_json, out_png):
     print("PAGE", PAGE, "架構の線の奥行き", round(G["slot_d"]))
 
 
+# 見本の下地から外す空気・空調・換気の注（採光の図は光だけ、ユーザー 10-29 13:09）。断面Dの下地にも使う
+AIR_NOTES = ["越屋根のすき間から外へ", "梁間", "西へ上る", "夏の夜", "蹴込みのガラリ", "床下へ", "ガラス戸を開けて", "風", "空気", "換気", "空調",
+             "冷気", "すき間の下で"]
+AIR_RGB = [(0.1843137255, 0.4352941176, 0.6901960784)]   # 風の線と注の青（drawings の断面図）
+
+
+def strip_air(base):
+    """下地のPDFから空気の注（文字）と風の青い線を消した写しを返す（見本だけに使う。drawings/ は書き換えない）。"""
+    import fitz, re
+    d = fitz.open(base); p = d[0]
+    for b in p.get_text("dict")["blocks"]:
+        if b["type"] != 0: continue
+        for l in b["lines"]:                           # 行ごと（同じ塊に別の注が入っていることがある）
+            t = "".join(s_["text"] for s_ in l["spans"])
+            if any(k in t for k in AIR_NOTES):
+                p.add_redact_annot(fitz.Rect(l["bbox"]))
+    p.apply_redactions(images=0, graphics=0)
+    # 青い線：その色の後は透明に（CA/ca 0）、ほかの色の後は不透明に戻す
+    p.clean_contents()
+    xref = p.get_contents()[0]
+    st = d.xref_stream(xref)
+    blue = [rb"%.4f %.4f %.4f" % c for c in AIR_RGB]
+    def rep(m):
+        vals = tuple(float(v) for v in m.group(1).split())
+        isb = any(all(abs(a - b) < 2e-3 for a, b in zip(vals, c)) for c in AIR_RGB)
+        op = m.group(2)
+        g = (b"/AirS0" if op == b"RG" else b"/AirF0") if isb else (b"/AirS1" if op == b"RG" else b"/AirF1")
+        return m.group(0) + b" " + g + b" gs"
+    st = re.sub(rb"((?:[\d.]+ ){2}[\d.]+) (RG|rg)", rep, st)
+    d.update_stream(xref, st)
+    res = d.xref_get_key(p.xref, "Resources")
+    gsx = {}
+    for nm_, k_, v_ in (("AirS0", "CA", 0), ("AirS1", "CA", 1), ("AirF0", "ca", 0), ("AirF1", "ca", 1)):
+        x_ = d.get_new_xref(); d.update_object(x_, f"<< /Type /ExtGState /{k_} {v_} >>"); gsx[nm_] = x_
+    rx = p.xref
+    for nm_, x_ in gsx.items():
+        d.xref_set_key(rx, f"Resources/ExtGState/{nm_}", f"{x_} 0 R")
+    return d
+
+
 def preview(base, ovl, PAGE, out_png, px=1600):
     import fitz
     mm = 72 / 25.4
     W, H = (PAGE[2] - PAGE[0]) * mm, (PAGE[3] - PAGE[1]) * mm
     d = fitz.open(); pg = d.new_page(width=W, height=H)
     pg.draw_rect(pg.rect, color=None, fill=(1, 1, 1))
-    b = fitz.open(base)
+    b = strip_air(base)
     pg.show_pdf_page(pg.rect, b, 0, clip=fitz.Rect(PAGE[0] * mm, PAGE[1] * mm, PAGE[2] * mm, PAGE[3] * mm))
     pg.show_pdf_page(pg.rect, fitz.open(ovl), 0)
     z = px / max(W, H)
