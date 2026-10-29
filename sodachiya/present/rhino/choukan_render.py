@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """育ち舎　2枚目の鳥瞰の想像図（透視図 A4）を Rhino のレンダリングで書き出す（プレゼンの準備、10-29）
+（今のビューのまま描くなら render_hiru.py・render_yoru.py を使う。名前と大きさを聞かれる）
 
 使い方（Rhino 8、Mac）：
   1. atelier を pull して、sodachiya/sodachiya.3dm を開く。

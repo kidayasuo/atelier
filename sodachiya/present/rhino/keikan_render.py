@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """育ち舎　沿川の景観（昼・夜）を、高野川の向こう岸から見る目の高さの透視図として Rhino のレンダリングで書き出す（プレゼンの準備、10-27、10-29 透視に）
+（今のビューのまま描くなら render_hiru.py・render_yoru.py を使う。名前と大きさを聞かれる）
 
 使い方（Rhino 8、Mac）：
   1. atelier を pull して、sodachiya/sodachiya.3dm を開く。
