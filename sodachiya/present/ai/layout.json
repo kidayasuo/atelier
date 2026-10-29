@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-29 09:32",
+"generated": "2026-10-29 09:40",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -21594,6 +21594,48 @@
 "color": "#222222",
 "align": "left",
 "mock_hash": "93d29abd"
+},
+{
+"id": "p3.t.スターバックス京都二寧坂ヤサ",
+"name": "スターバックス京都二寧坂ヤサカ茶屋店",
+"kind": "text",
+"layer": "説明",
+"x": 604.5,
+"y": 358.4,
+"s": "スターバックス京都二寧坂ヤサカ茶屋店",
+"size_pt": 8.66,
+"font": "W6",
+"color": "#222222",
+"align": "left",
+"mock_hash": "c4f3880e"
+},
+{
+"id": "p3.t.町家の改修・京都・2017",
+"name": "町家の改修・京都・2017",
+"kind": "text",
+"layer": "説明",
+"x": 604.5,
+"y": 361.7,
+"s": "町家の改修・京都・2017",
+"size_pt": 7.09,
+"font": "W3",
+"color": "#666666",
+"align": "left",
+"mock_hash": "399fc813"
+},
+{
+"id": "p3.t.→放射冷房",
+"name": "→ 放射冷房",
+"kind": "text",
+"layer": "説明",
+"x": 606.0,
+"y": 364.8,
+"s": "→ 放射冷房",
+"size_pt": 7.48,
+"font": "W3",
+"color": "#222222",
+"align": "left",
+"mock_hash": "92069e0f"
 }
 ]
 },

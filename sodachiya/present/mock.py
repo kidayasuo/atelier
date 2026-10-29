@@ -2020,7 +2020,8 @@ INSP = [("Asilo Nido Iride", "Mario Cucinella Architects・Guastalla・2015", "�
         ("KAIT工房", "石上純也・厚木・2008", "柱の配列：見る向きで景色が変わる並び"),
         ("認定こども園らみどり", "はりゅうウッドスタジオ・須賀川・2026", "内と外の二重の縁側、遊具を置かない地形の園庭"),
         ("仙田満の園舎", "環境デザイン研究所", "摺鉢のネット、キャットウォーク、ニッチ"),
-        ("Waldorf School of the Peninsula", "California", "遊戯室の切り株")]
+        ("Waldorf School of the Peninsula", "California", "遊戯室の切り株"),
+        ("スターバックス京都二寧坂ヤサカ茶屋店","町家の改修・京都・2017", "放射冷房")]   # ユーザー 10-29
 
 
 
