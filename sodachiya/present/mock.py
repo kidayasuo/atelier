@@ -7,7 +7,7 @@
 
 python sodachiya/present/mock.py  →  sodachiya/presentation.pdf（5枚）／ present/out/ の全体の画像
 """
-import os, re, subprocess, sys, json
+import os, re, subprocess, sys, json, glob
 import numpy as np
 import rhino3dm as r
 import matplotlib
@@ -655,6 +655,7 @@ RHINO_MAP = {   # drawings/ の自動の図 → drawings_rhino/ の名前（zume
     "sodachiya_elevations_1-100.pdf": "sodachiya_elevations_1-100.pdf",
     "sodachiya_elevations2_1-100.pdf": "sodachiya_elevations2_1-100.pdf",
     "sodachiya_sections_1-100.pdf": "sodachiya_sections_1-100.pdf",
+    "sodachiya_sections2_1-100.pdf": "sodachiya_sections2_1-100.pdf",   # 断面D（更新係が別の紙にしたとき）
 }
 RHINO_TXT = {}      # (枚, embeds の番号) → 上に重ねる文字と寸法のPDF
 RHINO_USED = []
@@ -1997,21 +1998,35 @@ ELE2 = os.path.join(DRW, "sodachiya_elevations2_1-100.pdf")
 AJ = json.load(open(os.path.join(ROOT, "model", "drawings", "sodachiya_areas.json"), encoding="utf-8"))
 
 
-def area_table(ax, tx, ty, tw, size=2.2):
+def area_table(ax, tx, ty, tw, size=2.2, cols=1, gap=10):
+    """面積表。cols=2 で行を二つの欄に分ける（tw は一つの欄の幅）"""
     title(ax, tx, ty, "面積表", "m²（壁芯、3dmから自動）")
-    T(ax, tx, ty - 8, "室", size, NOTE); T(ax, tx + tw * 0.55, ty - 8, "要求", size, NOTE); T(ax, tx + tw, ty - 8, "計画", size, NOTE, ha="right")
-    yy = ty - 14
-    for r_ in AJ["rooms"]:
-        if r_["planned"] is None and not r_["judge"]:
-            continue
-        nm = r_["room"].replace(" ", "")
-        T(ax, tx, yy, nm[:11], size)
-        T(ax, tx + tw * 0.55, yy, r_["required"].replace(" ", "")[:8], size)
-        T(ax, tx + tw, yy, f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"], size, ha="right")
-        yy -= size + 2.2
-    T(ax, tx, yy, "延床（2,000以内）", size, bold=True)
-    T(ax, tx + tw, yy, f"{AJ['floor']['total']:,.1f}", size, ha="right", bold=True)
-    return yy
+    _hc = "#666666"                                # 列の見出し（注の紫は本番で消えるので灰に、10-29）
+    rows_ = [r_ for r_ in AJ["rooms"] if not (r_["planned"] is None and not r_["judge"])]
+    per = -(-(len(rows_) + 1) // cols)
+    yb = ty
+    for c_ in range(cols):
+        x_ = tx + c_ * (tw + gap)
+        T(ax, x_, ty - 8, "室", size, _hc); T(ax, x_ + tw * 0.55, ty - 8, "要求", size, _hc); T(ax, x_ + tw, ty - 8, "計画", size, _hc, ha="right")
+        ax.plot([x_, x_ + tw], [ty - 9.6, ty - 9.6], color="#BBBBBB", lw=0.25)
+        yy = ty - 14
+        for r_ in rows_[c_ * per:(c_ + 1) * per]:
+            nm = r_["room"].replace(" ", "")
+            T(ax, x_, yy, nm[:11], size)
+            T(ax, x_ + tw * 0.55, yy, r_["required"].replace(" ", "")[:8], size)
+            T(ax, x_ + tw, yy, f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"], size, ha="right")
+            yy -= size + 2.2
+        if c_ == cols - 1:
+            ax.plot([x_, x_ + tw], [yy + size + 0.6, yy + size + 0.6], color="#BBBBBB", lw=0.25)
+            T(ax, x_, yy, "延床（2,000以内）", size, bold=True)
+            T(ax, x_ + tw, yy, f"{AJ['floor']['total']:,.1f}", size, ha="right", bold=True)
+        yb = min(yb, yy)
+    return yb
+
+
+def _area_rows_h(size, cols=1):
+    n_ = sum(1 for r_ in AJ["rooms"] if not (r_["planned"] is None and not r_["judge"]))
+    return 14 + -(-(n_ + 1) // cols) * (size + 2.2)
 
 
 INSP = [("Asilo Nido Iride", "Mario Cucinella Architects・Guastalla・2015", "梁の列が並ぶ長細い本館と、外に付く付属の建物"),
@@ -2026,11 +2041,12 @@ INSP = [("Asilo Nido Iride", "Mario Cucinella Architects・Guastalla・2015", "�
 
 
 
-def inspired(ax, tx, ty, colw, rows=4):
-    T(ax, tx, ty, "inspired by", 3.0, bold=True)
+def inspired(ax, tx, ty, colw, rows=4, head=True):
+    if head:
+        T(ax, tx, ty, "inspired by", 3.0, bold=True)
     for i, (n, src, what) in enumerate(INSP):
         c_, r_ = divmod(i, rows)
-        x_, y2 = tx + c_ * colw, ty - 6 - r_ * 11.0          # 行の間を広げた（9 では次の行に重なった）
+        x_, y2 = tx + c_ * colw, ty - (6 if head else 0) - r_ * 11.0          # 行の間を広げた（9 では次の行に重なった）
         T(ax, x_, y2, n, 2.2, bold=True)
         T(ax, x_, y2 - 3.3, src, 1.8, "#666666")
         T(ax, x_ + 1.5, y2 - 6.4, "→ " + what, 1.9)
@@ -2151,16 +2167,21 @@ figs.append(fig)
 
 # ================================================================ 3　環境（10-28 13:17：5枚目から3枚目へ。ユーザー、10-24夜：断面2面と環境への配慮、縦断Aもここ）
 fig, ax = page()
-frame(ax, 3, "断面と環境", "二つの断面（1/100）と空気の環境。東西に切った断面Cで本館と西館の架構と風の道、縦断Aで弧の長さ。屋根材型の太陽光と蓄電池、資源のめぐり、時間（S&I は言葉で）",
-      "断面C（架構と風の道）→ 運転表と配慮 → 縦断A → 光の筋・接合部 → inspired by・面積表")
+frame(ax, 3, "断面と環境", "二つの横断（1/100）が主役。断面Cに空気の環境（本館と西館の架構と風の道）、断面D（本館、光の筋で切る）に光の環境。季節ごとの運転と環境への配慮を断面Cの右に",
+      "断面C（空気）→ 季節ごとの運転・配慮 → 断面D（光）→ inspired by・面積表")
+# 10-29 9:46（ユーザー）：横断の断面図が説明の主役。断面Cと断面Dは上と左右に矢印や注を描き込める余白（ユーザーが .ai で）。
+# 光の筋 1/20 と接合部の詳細は外した。縦断A は 124 mm の高さがあり細い帯にならないので外した（課題の断面2面は C と D）
 CLIP_C2 = (432, 252, 830, 382)
 CSC = 1.0                                       # 課題は断面 1/100・2面以上（ユーザー、10-27夜：1/75 をやめる）
 hC = (CLIP_C2[3] - CLIP_C2[1]) * CSC
 wC = (CLIP_C2[2] - CLIP_C2[0]) * CSC
-cx, cy = M + 6, H - M - 16 - 10 - hC
-title(ax, cx, cy + hC + 3, "断面図C　東西に切る（4歳・遊戯室）", "1/100　本館と西館の架構、昼と夏の夜の風の道")
+AIR = 40                                        # 断面の上に、矢印と注を描き込む余白（mm）
+SIDE = 30                                       # 断面の左右の余白（mm）
+_tC = H - M - 16 - 8                            # 断面Cの題の高さ
+cx, cy = M + 6 + SIDE, _tC - 8 - AIR - hC
+title(ax, M + 6, _tC, "断面図C　東西に切る（4歳・遊戯室）", "1/100　空気の環境：本館と西館の架構、昼と夏の夜の風の道")
 embed(3, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"))
-_rx5 = cx + wC + 8
+_rx5 = cx + wC + SIDE + 6
 _rw5 = W - M - 6 - _rx5
 # 季節ごとの運転と環境への配慮（ユーザー 10-29 9:43：監修のまとめに従い、ボードに合う短さで。8つの箱はやめ、同じ範囲に三つ）
 # 文字は一つずつ Illustrator の部品（鍵は固定：p3.unten.*・p3.reibou.*・p3.hairyo.*）、罫線と色は素材12
@@ -2201,11 +2222,12 @@ def _part(id_, x, y, w, lines, size, color=INK, bold=False, lead=1.3, name=None)
     return len(lines) * size / 0.72 * lead
 
 
-_top5 = cy + hC + 2                             # 範囲の上端（もとの素材12の上端）
-_bot5 = cy                                      # 下端
-_gap5 = 8
-_Lw = 236
-_Rw = _rw5 - _Lw - _gap5
+_top5 = _tC + 4                                 # 範囲の上端（断面Cの題にそろえる）
+_bot5 = cy - 12                                 # 下端（断面Cの下まで）
+_ROW2 = 150                                     # 環境への配慮（断面Dの右）に使える高さ
+_gap5 = 9                                       # 運転と配慮のあいだ
+_Lw = _rw5                                      # 一つの列に上から：季節ごとの運転・放射冷房のパネル・環境への配慮
+_Rw = _rw5
 _FS = None
 for _fs in (3.0, 2.8, 2.6):                     # 入る字の大きさを選ぶ
     _cpl = lambda w_: w_ / (_fs / 0.72)
@@ -2215,13 +2237,13 @@ for _fs in (3.0, 2.8, 2.6):                     # 入る字の大きさを選ぶ
     _hl = 6 + len(jwrap(UNTEN_SUM, _cpl(_Lw))) * _lh + 2 + (_lh + 2.4) + sum(_rows_h) + 5 + 6 + len(jwrap(REIBOU, _cpl(_Lw - 4))) * _lh + 4
     _nw = max(len(n_) for n_, _ in HAIRYO) * _fs / 0.72 + 3
     _hr = 6 + sum(len(jwrap(t_, _cpl(_Rw - _nw))) * _lh + 1.6 for _, t_ in HAIRYO)
-    if max(_hl, _hr) <= _top5 - _bot5:
+    if _hl <= _top5 - _bot5 and _hr <= _ROW2:
         _FS = _fs
         break
 if _FS is None:
-    raise SystemExit("3枚目：季節ごとの運転と環境への配慮が 2.6 mm でも入らない（左 %.0f・右 %.0f／%.0f mm）" % (_hl, _hr, _top5 - _bot5))
-print("3枚目の運転と配慮：字 %.1f mm、左 %.0f・右 %.0f／%.0f mm" % (_FS, _hl, _hr, _top5 - _bot5))
-sozai("12", "季節ごとの運転と環境への配慮", 3, _rx5, cy, _rw5, hC + 4)
+    raise SystemExit("3枚目：季節ごとの運転と環境への配慮が 2.6 mm でも入らない（運転 %.0f・配慮 %.0f／%.0f mm）" % (_hl, _hr, _top5 - _bot5))
+print("3枚目の運転と配慮：字 %.1f mm、運転 %.0f・配慮 %.0f／%.0f mm" % (_FS, _hl, _hr, _top5 - _bot5))
+sozai("12", "季節ごとの運転と環境への配慮（運転と放射冷房）", 3, _rx5 - 1, _top5 - _hl - 2, _rw5 + 2, _hl + 4)
 # 左：季節ごとの運転
 _x0, _y = _rx5, _top5 - 4
 _part("unten.head", _x0, _y, 0, ["季節ごとの運転"], 3.2, C_UNTEN, True, name="見出し：季節ごとの運転")
@@ -2252,8 +2274,50 @@ _rh = 6 + len(_rl) * _lh + 1
 ax.add_patch(Rectangle((_x0, _y - _rh + 2), 1.2, _rh, fc=C_UNTEN, ec="none"))
 _part("reibou.head", _x0 + 4, _y - 2, 0, ["放射冷房のパネル"], 3.0, C_UNTEN, True, name="見出し：放射冷房のパネル")
 _part("reibou.text", _x0 + 4, _y - 2 - 5.5, _Lw - 4, _rl, _FS, name="本文：放射冷房のパネル")
+# 断面D（本館の横断、光の筋で切る、1/100、北を見る）：光の環境。図は更新係に依頼（20261029-0946-present）。
+# drawings/sodachiya_sections*_views.json に「断面D」があれば、その範囲を断面Cと同じ仕組み（Rhinoの図があればRhino、文字と寸法は部品）で
+_SD = None
+for _vf in sorted(glob.glob(os.path.join(ROOT, "drawings", "sodachiya_sections*_1-100_views.json"))):
+    try:
+        for _v in json.load(open(_vf, encoding="utf-8")).get("views", []):
+            if _v.get("name", "").startswith("断面D"):
+                _SD = (_vf[:-len("_views.json")] + ".pdf", tuple(_v["clip_paper_mm"]))
+    except Exception:
+        pass
+DW, DH = (_SD[1][2] - _SD[1][0], _SD[1][3] - _SD[1][1]) if _SD else (250.0, 90.0)   # 無いあいだは約25 m×約9 m（西の吹き抜けの縁から東の外縁側の先まで）
+# 下の帯：inspired by と面積表を一つの囲みに（ユーザー 10-29：かっこよく読みやすく。二つの欄を左右に、細い罫線、見出しの格をそろえる）
+_bx0 = M + 6
+_bw = W - M - 6 - _bx0
+_atw, _atc, _atg = 92, 2, 10                    # 面積表：一つの欄の幅・欄の数・欄のあいだ
+_ins_rows = 4
+_ins_w = _bw - 6 - (_atw * _atc + _atg) - 7 - 6  # 左の欄（inspired by）
+_bh = 12 + max(6 + _ins_rows * 11.0, _area_rows_h(2.4, _atc)) + 2
+_by = M + 8
+ax.add_patch(Rectangle((_bx0, _by), _bw, _bh, fc="none", ec="#8A8A8A", lw=0.3))
+_hy = _by + _bh - 8
+title(ax, _bx0 + 6, _hy, "inspired by", "参照した建築")
+_ncol = -(-len(INSP) // _ins_rows)
+inspired(ax, _bx0 + 6, _hy - 10, _ins_w / _ncol, rows=_ins_rows, head=False)
+_sx = _bx0 + 6 + _ins_w + 3.5
+ax.plot([_sx, _sx], [_by + 4, _by + _bh - 4], color="#BBBBBB", lw=0.25)
+_atx = _sx + 3.5
+_atb = area_table(ax, _atx, _hy, _atw, size=2.4, cols=_atc, gap=_atg)
+sozai("15", "inspired by と面積表", 3, _bx0 - 1, _by - 1, _bw + 2, _bh + 2)
+# 断面D は断面Cの下と囲みの上のあいだの真ん中に（上に光の矢印を描く余白 AIR）
+_r2t, _r2b = cy - 14, _by + _bh + 8
+_tD = (_r2t + _r2b) / 2 + (8 + AIR + DH) / 2
+dx, dy = cx + (wC - DW) / 2, _tD - 8 - AIR - DH
+title(ax, M + 6, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根")
+if _SD and os.path.exists(_SD[0]):
+    embed(3, _SD[0], _SD[1], dx, dy, 1.0, dwg=("D", "断面図D"))
+    print("断面D：", os.path.basename(_SD[0]), _SD[1])
+else:
+    box(ax, dx, dy, DW, DH, "断面図D　本館の横断（光の筋で切る）1/100　北を見る",
+        "光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根\n（更新係の図を待つ：20261029-0946-present）")
+    print("断面D：まだ図が無いので枠")
 # 右：環境への配慮（一年を通して効くもの）
-_x1, _y = _rx5 + _Lw + _gap5, _top5 - 4
+_HAIRYO_TOP = _tD + 4                           # 断面Dの題にそろえる
+_x1, _y = _rx5, _HAIRYO_TOP - 4
 _part("hairyo.head", _x1, _y, 0, ["環境への配慮（LEED v5 Gold相当）"], 3.2, C_HAIRYO, True, name="見出し：環境への配慮")
 _y -= 3
 ax.plot([_x1, _x1 + _Rw], [_y, _y], color=C_HAIRYO, lw=0.5)
@@ -2263,26 +2327,7 @@ for i_, (n_, t_) in enumerate(HAIRYO):
     _tl = jwrap(t_, _cpl(_Rw - _nw))
     _part(f"hairyo.{i_}.text", _x1 + _nw, _y, _Rw - _nw, _tl, _FS, name="配慮の文：" + n_)
     _y -= len(_tl) * _lh + 1.6
-ya = cy - 12 - (CLIP_SA[3] - CLIP_SA[1])
-title(ax, cx, cy - 6, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
-embed(3, SEC, CLIP_SA, cx, ya, 1.0, dwg=("SA", "縦断面図A"))
-# 下の段：光の筋と架構・接合部・inspired by（断面Bと S&I の図は外した、ユーザー 10-27夜：S&I は言葉だけ）
-by = M + 8
-_bx = cx
-_bh5 = ya - 10 - by
-box(ax, _bx, by, 200, _bh5, "光の筋と架構　1/20", "2枚の梁のあいだ180の上にガラス\n溝の内側は鏡面のアルミ（光ダクト）")
-JD = os.path.join(ROOT, "out", "joint_detail.pdf")
-_jx = _bx + 208
-wJ, hJ = embed(3, JD, None, _jx, by, fit=(260, _bh5 - 6))
-T(ax, _jx, by + hJ + 2, "接合部（2枚の梁で柱を挟む）", 2.4, bold=True)
-_ix = _jx + max(wJ, 120) + 10
-# 面積表は最後の枚、inspired by の近くに（ユーザー、10-27夜）：右の端に面積表、その左に inspired by
-_atw = 100
-_atx = W - M - 6 - _atw
-inspired(ax, _ix, by + _bh5 - 2, (_atx - 10 - _ix) / 2, rows=4)
-_aty = by + _bh5 - 2
-_atb = area_table(ax, _atx, _aty, _atw, size=2.4)
-sozai("15", "面積表（壁芯、3dmから自動）", 3, _atx - 1, _atb - 3, _atw + 2, _aty - _atb + 8)
+sozai("12b", "環境への配慮", 3, _rx5 - 1, _HAIRYO_TOP - _hr - 2, _rw5 + 2, _hr + 4)
 figs.append(fig)
 
 # ================================================================ 4　平面図（10-28：もとの3枚目、いちど2枚目にしてから13:17に4枚目へ。ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
