@@ -1,0 +1,2 @@
+22a u21.33 v-10.30 z0-5468  a80c72eb np=1 thin parts 5k mm2
+22b u44.87 v-6.95 z3828-8052  ddbc2bad np=2 hole1 wall 25mm

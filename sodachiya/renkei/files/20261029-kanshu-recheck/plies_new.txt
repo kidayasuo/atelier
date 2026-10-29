@@ -1,0 +1,35 @@
+== ply outlines (pairs on same frame, same name, t<0 vs t>0)
+  u21.33 22b                    t=-131/139 xor=0.000m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]
+  unpaired 21.33 22b 出し梁（2 枚組の梁の先、外壁を貫いて軒先まで、せ [-131]
+  u21.33 22c                    t=-131/139 xor=0.073m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u24 22b                    t=-135/135 xor=0.159m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u24 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.010m2 haus=21mm dbounds(vmin,zmin,vmax,zmax)=[-21, 0, 1, 6]  <<
+  u24 22c                    t=-135/135 xor=0.159m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u27 22b                    t=-135/135 xor=0.022m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u27 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.012m2 haus=25mm dbounds(vmin,zmin,vmax,zmax)=[-25, 0, 1, 7]  <<
+  u27 22c                    t=-135/135 xor=0.022m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u30 22b                    t=-135/135 xor=0.025m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u30 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.013m2 haus=29mm dbounds(vmin,zmin,vmax,zmax)=[-29, 0, 1, 8]  <<
+  u30 22c                    t=-135/135 xor=0.026m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u33 22b                    t=-135/135 xor=0.029m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u33 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.015m2 haus=34mm dbounds(vmin,zmin,vmax,zmax)=[-34, 0, 2, 9]  <<
+  u33 22c                    t=-135/135 xor=0.073m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u33 22c 2 階の床梁（階段の上で切った西の片 t=-135/135 xor=0.076m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u36 22b                    t=-135/135 xor=0.033m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u36 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.017m2 haus=38mm dbounds(vmin,zmin,vmax,zmax)=[-38, 0, 2, 10]  <<
+  u39 22b                    t=-135/135 xor=0.033m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u39 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.017m2 haus=39mm dbounds(vmin,zmin,vmax,zmax)=[-39, 0, 2, 9]  <<
+  u42 22b                    t=-135/135 xor=0.075m2 haus=0mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, 0]  <<
+  u42 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.013m2 haus=10mm dbounds(vmin,zmin,vmax,zmax)=[9, -6, -2, -8]  <<
+  unpaired 42 22b 登り梁 120×800（北西の角、u43.5、東の [1553]
+  u45 22b                    t=-135/135 xor=0.668m2 haus=72mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, -3]  <<
+  u45 22b 出し梁（2 枚組の梁の先、外壁を貫い t=-135/135 xor=0.124m2 haus=281mm dbounds(vmin,zmin,vmax,zmax)=[281, 0, -9, -80]  <<
+  unpaired 45 22b 出し梁（北西の角の登り梁 u43.5 の先、西の桁 [-1606]
+  u48 22b                    t=-135/135 xor=0.439m2 haus=94mm dbounds(vmin,zmin,vmax,zmax)=[0, 0, 0, -4]  <<
+  unpaired 48 22b 出し梁（2 枚組の梁の先、外壁を貫いて軒先まで、せ [135]
+== holes vs girders
+  22b u45 t135  hole v-12.43 z4238 (114k): girder off dv=-16 dz=-0
+  22b u45 t-135  hole v-12.70 z4234 (96k): girder off dv=13 dz=0
+  22b u42 t135  hole v-14.62 z4214 (97k): girder off dv=-13 dz=-0
+  22b u24 t-135  hole v-12.35 z4275 (96k): girder off dv=-11 dz=-3
+  22c u24 t-135  hole v-12.35 z2720 (96k): girder off dv=-13 dz=0

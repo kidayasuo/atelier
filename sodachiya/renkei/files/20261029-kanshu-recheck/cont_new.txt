@@ -1,0 +1,115 @@
+  END 22a u48 t0                        end@ u48.00 v-1.21 z4: gap 4703 mm  len 7963  fc2309ca
+  END 22a u48 t0                        end@ u48.00 v-9.22 z0: gap 3857 mm  len 4948  17e482db
+  END 22a u45 t0                        end@ u45.00 v-1.22 z5: gap 4700 mm  len 8014  58b65747
+  END 22a u45 t0                        end@ u45.00 v-12.40 z-0: gap 3828 mm  len 4874  456e00f9
+  END 22a u42 t0                        end@ u42.00 v-1.22 z5: gap 4699 mm  len 8037  94af0785
+  END 22a u42 t0                        end@ u42.00 v-14.69 z-0: gap 3841 mm  len 4826  5fbbc464
+  END 22a u39 t0                        end@ u39.00 v-1.21 z5: gap 4700 mm  len 8033  32e1fa3e
+  END 22a u39 t0                        end@ u39.00 v-14.28 z0: gap 3850 mm  len 4834  23f6b31b
+  END 22a u36 t0                        end@ u36.00 v-1.21 z5: gap 2490 mm  len 8030  120d00f6
+  END 22a u36 t0                        end@ u36.00 v-13.83 z0: gap 3854 mm  len 4828  80d234e8
+  END 22a u33 t0                        end@ u33.00 v-1.25 z6: gap 1299 mm  len 8025  a9aa7b30
+  END 22a u33 t0                        end@ u33.00 v-13.33 z-0: gap 2236 mm  len 4902  bff90e5b
+  END 22a u30 t0                        end@ u30.00 v-1.25 z6: gap 1418 mm  len 8020  c986772e
+  END 22a u30 t0                        end@ u30.00 v-12.98 z0: gap 182 mm  len 4892  8eb8b8f4
+  END 22a u27 t0                        end@ u27.00 v-1.25 z6: gap 1713 mm  len 8019  4beeb0a9
+  END 22a u27 t0                        end@ u27.00 v-12.67 z-0: gap 242 mm  len 4896  242d544b
+  END 22a u24 t0                        end@ u24.00 v-1.25 z6: gap 1712 mm  len 8017  c56e6418
+  END 22a u24 t0                        end@ u24.00 v-12.41 z0: gap 2236 mm  len 4920  6942e569
+  END 22a u21.33 t4                        end@ u21.33 v-1.37 z5: gap 1710 mm  len 8008  1bcbe83d
+  END 22a u21.33 t4                        end@ u21.33 v-10.30 z-0: gap 2526 mm  len 5461  a80c72eb
+  END 22b u48 t135                        end@ u48.13 v-9.49 z3892: gap 10 mm  len 9288  7bbcadaa
+  END 22b u48 t-135                        end@ u47.87 v-9.49 z3892: gap 10 mm  len 9287  5fb81b75
+  END 22b u45 t135                        end@ u45.13 v-12.84 z4143: gap 20 mm  len 12358  4e8ba7a1
+  END 22b u45 t-135                        end@ u44.87 v-12.83 z4143: gap 8 mm  len 12357  ddbc2bad
+  END 22b u33 t135                        end@ u33.13 v-1.07 z7781: gap 33 mm  len 13192  496cf171
+  END 22b u33 t135                        end@ u33.13 v-13.72 z4181: gap 20 mm  len 13192  496cf171
+  END 22b u33 t-135                        end@ u32.87 v-1.07 z7781: gap 33 mm  len 13192  bfba3734
+  END 22b u33 t-135                        end@ u32.87 v-13.72 z4181: gap 20 mm  len 13192  bfba3734
+  END 22b u30 t135                        end@ u30.13 v-1.07 z7778: gap 31 mm  len 12847  8687620b
+  END 22b u30 t135                        end@ u30.13 v-13.36 z4184: gap 18 mm  len 12847  8687620b
+  END 22b u30 t-135                        end@ u29.87 v-1.07 z7778: gap 31 mm  len 12847  7af1f3ac
+  END 22b u30 t-135                        end@ u29.87 v-13.36 z4184: gap 18 mm  len 12847  7af1f3ac
+  END 22b u27 t135                        end@ u27.13 v-1.07 z7783: gap 33 mm  len 12551  a3567bb4
+  END 22b u27 t-135                        end@ u26.87 v-1.07 z7783: gap 33 mm  len 12551  2ce8667d
+  END 22b u24 t135                        end@ u24.13 v-1.07 z7781: gap 34 mm  len 12299  2ea7875d
+  END 22b u24 t-135                        end@ u23.87 v-1.07 z7781: gap 34 mm  len 12299  f8da6806
+  END 22b u21.33 t139                        end@ u21.47 v-1.08 z7774: gap 32 mm  len 10311  50799896
+  END 22b u21.33 t139                        end@ u21.46 v-10.87 z4703: gap 8 mm  len 10311  50799896
+  END 22b u21.33 t-131                        end@ u21.20 v-1.08 z7774: gap 32 mm  len 10311  430a1d70
+  END 22b u21.33 t-131                        end@ u21.21 v-10.87 z4703: gap 6 mm  len 10311  430a1d70
+  END 22c u30 t135                        end@ u30.13 v-13.48 z2714: gap 125 mm  len 12444  b70f1037
+  END 22c u30 t-135                        end@ u29.87 v-13.48 z2714: gap 125 mm  len 12444  7aec635a
+  END 22c u27 t135                        end@ u27.13 v-13.17 z2714: gap 123 mm  len 12136  28fe6b24
+  END 22c u27 t-135                        end@ u26.87 v-13.17 z2714: gap 123 mm  len 12136  f91b46a7
+  END 22c u24 t135                        end@ u24.13 v-12.91 z2714: gap 121 mm  len 11875  f0948e82
+  END 22c u24 t-135                        end@ u23.87 v-12.91 z2714: gap 121 mm  len 11875  926ca280
+  END 22c u21.33 t139                        end@ u21.47 v-1.07 z2487: gap 85 mm  len 9198  c913046d
+  END 22c u21.33 t-131                        end@ u21.20 v-1.07 z2487: gap 85 mm  len 9208  b8f88fcd
+  END 22d u45 t1487                        end@ u47.75 v-9.67 z4274: gap 132 mm  len 3997  64642a2f
+  END 22d u24 t-1328                        end@ u21.56 v-10.78 z4601: gap 8 mm  len 2983  f7761baa
+  END 22d u24 t-1402                        end@ u21.42 v-10.68 z2720: gap 18 mm  len 3142  956033ff
+  END 22a u24 t0 骨格の柱 180×400（架構 u24、2  end@ u24.00 v-3.40 z0: gap 137 mm  len 3170  5d50c347
+  END 22a u27 t0 骨格の柱 180×400（架構 u27、2  end@ u27.00 v-3.40 z0: gap 137 mm  len 3170  cd56691c
+  END 22d u24 t-1340 東の高窓の帯の窓台（120×180、柱と柱の end@ u21.43 v-1.11 z4804: gap 59 mm  len 2497  022a2840
+  END 22d u24 t-1340 東の高窓の帯の窓台（120×180、柱と柱の end@ u23.91 v-1.11 z4804: gap 59 mm  len 2497  022a2840
+  END 22d u24 t-1340 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u21.43 v-1.11 z6184: gap 59 mm  len 2497  69dc414c
+  END 22d u24 t-1340 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u23.91 v-1.11 z6184: gap 59 mm  len 2497  69dc414c
+  END 22d u27 t-1508 東の高窓の帯の窓台（120×180、柱と柱の end@ u24.09 v-1.11 z4804: gap 59 mm  len 2833  5b918d8e
+  END 22d u27 t-1508 東の高窓の帯の窓台（120×180、柱と柱の end@ u26.91 v-1.11 z4804: gap 58 mm  len 2833  5b918d8e
+  END 22d u27 t-1508 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u24.09 v-1.11 z6184: gap 59 mm  len 2833  98f3cda1
+  END 22d u27 t-1508 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u26.91 v-1.11 z6184: gap 58 mm  len 2833  98f3cda1
+  END 22d u30 t-1508 東の高窓の帯の窓台（120×180、柱と柱の end@ u27.09 v-1.11 z4804: gap 58 mm  len 2833  c99e4b6c
+  END 22d u30 t-1508 東の高窓の帯の窓台（120×180、柱と柱の end@ u29.91 v-1.11 z4804: gap 60 mm  len 2833  c99e4b6c
+  END 22d u30 t-1508 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u27.09 v-1.11 z6184: gap 58 mm  len 2833  0e68c398
+  END 22d u30 t-1508 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u29.91 v-1.11 z6184: gap 60 mm  len 2833  0e68c398
+  END 22d u33 t-1508 東の高窓の帯の窓台（120×180、柱と柱の end@ u30.09 v-1.11 z4804: gap 60 mm  len 2833  7fbd2d64
+  END 22d u33 t-1508 東の高窓の帯の窓台（120×180、柱と柱の end@ u32.91 v-1.11 z4804: gap 59 mm  len 2833  7fbd2d64
+  END 22d u33 t-1508 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u30.09 v-1.11 z6184: gap 60 mm  len 2833  b299676a
+  END 22d u33 t-1508 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u32.91 v-1.11 z6184: gap 59 mm  len 2833  b299676a
+  END 22d u36 t-1508 東の高窓の帯の窓台（120×180、柱と柱の end@ u33.09 v-1.11 z4804: gap 59 mm  len 2833  6bb10ae4
+  END 22d u36 t-1508 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u33.09 v-1.11 z6184: gap 59 mm  len 2833  0b699a1e
+  END 22d u48 t1428 東の高窓の帯の窓台（120×180、柱と柱の end@ u50.75 v-1.11 z4804: gap 2382 mm  len 2672  be6772e3
+  END 22d u48 t1428 東の高窓の帯のまぐさ（120×180、柱と柱 end@ u50.75 v-1.11 z6184: gap 1459 mm  len 2672  1c0dd06b
+  END 22c u33 t135 2 階の床梁（階段の上で切った西の片、10- end@ u33.13 v-13.83 z2714: gap 127 mm  len 8916  8acc3fac
+  END 22c u33 t-135 2 階の床梁（階段の上で切った西の片、10- end@ u32.87 v-13.83 z2714: gap 127 mm  len 8915  898a49ce
+  END 22b u48 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u48.13 v-9.51 z4717: gap 24 mm  len 677  4304f369
+  END 22b u48 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u48.13 v-10.10 z4360: gap 328 mm  len 677  4304f369
+  END 22b u45 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u45.13 v-12.87 z4647: gap 71 mm  len 641  a6d217b4
+  END 22b u45 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u45.13 v-13.46 z4414: gap 114 mm  len 641  a6d217b4
+  END 22b u45 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u44.87 v-12.86 z4727: gap 77 mm  len 944  50c38d05
+  END 22b u45 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u44.87 v-13.74 z4414: gap 52 mm  len 944  50c38d05
+  END 22b u42 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u42.13 v-15.00 z4670: gap 23 mm  len 819  343d4be4
+  END 22b u42 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u41.87 v-15.00 z4678: gap 19 mm  len 830  b9610406
+  END 22b u39 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u39.13 v-14.60 z4687: gap 19 mm  len 846  189467ba
+  END 22b u39 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u39.13 v-15.40 z4425: gap 20 mm  len 846  189467ba
+  END 22b u39 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u38.87 v-14.60 z4678: gap 23 mm  len 804  71081f14
+  END 22b u36 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u36.13 v-14.14 z4689: gap 20 mm  len 824  b48ef217
+  END 22b u36 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u36.13 v-14.92 z4426: gap 12 mm  len 824  b48ef217
+  END 22b u36 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u35.87 v-14.15 z4679: gap 24 mm  len 783  6b8a530c
+  END 22b u33 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u33.13 v-13.74 z4690: gap 20 mm  len 801  860a2ea8
+  END 22b u33 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u33.13 v-14.49 z4427: gap 17 mm  len 801  860a2ea8
+  END 22b u33 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u32.87 v-13.74 z4681: gap 24 mm  len 765  e61a9787
+  END 22b u33 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u32.87 v-14.46 z4427: gap 6 mm  len 765  e61a9787
+  END 22b u30 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u30.13 v-13.38 z4690: gap 20 mm  len 781  e4c2864c
+  END 22b u30 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u30.13 v-14.12 z4428: gap 7 mm  len 781  e4c2864c
+  END 22b u30 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u29.87 v-13.39 z4682: gap 24 mm  len 749  41d662e5
+  END 22b u30 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u29.87 v-14.09 z4428: gap 37 mm  len 749  41d662e5
+  END 22b u27 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u27.13 v-13.08 z4690: gap 21 mm  len 764  df702f1a
+  END 22b u27 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u27.13 v-13.79 z4428: gap 22 mm  len 764  df702f1a
+  END 22b u27 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u26.87 v-13.08 z4683: gap 24 mm  len 736  633e28a3
+  END 22b u27 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u26.87 v-13.76 z4428: gap 67 mm  len 736  633e28a3
+  END 22b u24 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u24.13 v-12.82 z4691: gap 21 mm  len 749  e52cf15c
+  END 22b u24 t135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u24.13 v-13.51 z4429: gap 65 mm  len 749  e52cf15c
+  END 22b u24 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u23.87 v-12.82 z4684: gap 24 mm  len 726  8ad13d19
+  END 22b u24 t-135 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u23.87 v-13.49 z4429: gap 10 mm  len 726  8ad13d19
+  END 22b u21.33 t-131 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u21.21 v-10.91 z5192: gap 75 mm  len 889  568cba1d
+  END 22b u21.33 t-131 出し梁（2 枚組の梁の先、外壁を貫いて軒先ま end@ u21.21 v-11.74 z4888: gap 372 mm  len 889  568cba1d
+  END 22b u42 t1553 登り梁 120×800（北西の角、u43.5 end@ u43.50 v-1.05 z8112: gap 1006 mm  len 13038  ab8208ce
+  END 22b u42 t1553 登り梁 120×800（北西の角、u43.5 end@ u43.50 v-13.49 z4125: gap 16 mm  len 13038  ab8208ce
+  END 22b u45 t-1606 出し梁（北西の角の登り梁 u43.5 の先、 end@ u43.50 v-13.82 z4722: gap 165 mm  len 1469  c8eeed1a
+  END 22b u45 t-1606 出し梁（北西の角の登り梁 u43.5 の先、 end@ u43.50 v-15.21 z4424: gap 71 mm  len 1469  c8eeed1a
+  OVL 1.36 L  22a x 22d at u45.08 v-12.45 z4218
+  OVL 0.90 L  22a x 22d at u42.08 v-14.63 z4228
+  OVL 0.93 L  22a x 22d at u23.92 v-12.35 z4281
+  OVL 0.88 L  22a x 22d at u23.92 v-12.36 z2717
