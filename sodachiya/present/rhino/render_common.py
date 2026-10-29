@@ -22,16 +22,11 @@ LED_LIGHT_POWER = 1.0                           # LED の線の光源の強さ�
 LED_LIGHT_DROP = 60.0                           # 線の光源を LED の帯の下端からどれだけ下に置くか（mm）
 LED_LEN_MIN, LED_LEN_MAX = 500.0, 200000.0      # 線の光源の長さがこの外なら置かない（mm）
 # 夜の切り替え（Rhino が落ちるときは一つずつ False にして、どれが原因かを見る。10-29 夜）
-USE_LED_LIGHTS = False                          # LED のレイヤーごとに線の光源を1本（本館・西館の2本）。Mac の Cycles で落ちた 10-29、使わない
+USE_LED_LIGHTS = False                           # LED のレイヤーごとに線の光源を1本（本館・西館の2本）
 USE_LED_MATERIAL = False                        # LED の帯に光る材料（RenderMaterial）。10-29 から 3dm の中で発光の材料が当たる（materials.json「越屋根の LED（発光）」、監修 5b61cfc）ので差し替えない
-USE_SKYLIGHT_DIM = True                         # スカイライトを消さずにごく弱く（SKYLIGHT_NIGHT）。強さを変えられなければ消す
-SKYLIGHT_NIGHT = 0.05                           # 夜のスカイライトの強さ（建物の陰が真っ黒なら 0.1〜0.2、明るすぎれば 0.02）
-USE_MOON = True                                 # 月明かり：ごく弱い青白い平行光を1本。光源が一つも無いと Rhino が既定の照明を点け、昼のように明るくなる
-MOON_POWER = 0.15                               # 月明かりの強さ（建物が明るすぎれば 0.05〜0.1、暗すぎれば 0.3）
-MOON_COLOR = System.Drawing.Color.FromArgb(0xAF, 0xC3, 0xE6)    # 青白い
-MOON_AZ, MOON_ALT = 135.0, 40.0                 # 月の向き（北から時計回りの方位、南東）と高さ角（度）
+USE_SKYLIGHT_OFF = True                         # スカイライトを消す
 USE_SKY_BG = True                               # 背景を群青の一色に
-NIGHT_SKY = System.Drawing.Color.FromArgb(0x1E, 0x2A, 0x5A)     # 夜の空：暗い群青（前は #4C6CB3）
+NIGHT_SKY = System.Drawing.Color.FromArgb(0x4C, 0x6C, 0xB3)     # 夜の空：群青色
 SKY_TOP = System.Drawing.Color.FromArgb(0xC9, 0xDC, 0xEC)       # 昼の空：淡い青（上）
 SKY_BOTTOM = System.Drawing.Color.FromArgb(0xEE, 0xF2, 0xF4)    # 地平の近く：ほぼ白
 CONTEXT_COLOR = System.Drawing.Color.FromArgb(0xD9, 0xD6, 0xCF)  # 周りの建物（PLATEAU）：淡い暖かい灰
@@ -247,72 +242,6 @@ def run(mode):
         else:
             say(u"スカイライト：効かなかった（いま", now, u"）。レンダリングのパネルの「スカイライト」を手で",
                 u"オンに" if on else u"オフに")
-
-    sky_int_old = []                                     # (物, 名前, 前の値)：終わったら戻す
-
-    def dim_skylight(val):
-        """スカイライトの強さを val に。版で名前が違うので試す。効かなければ消す"""
-        for get_obj, key in ((lambda: rs.Skylight, "Intensity"), (lambda: rs, "SkylightIntensity"),
-                             (lambda: doc.Lights.Skylight, "Intensity")):
-            try:
-                obj = get_obj()
-                old = getattr(obj, key)
-                setattr(obj, key, val)
-                try:
-                    rs.Skylight = obj if key == "Intensity" and obj is not rs else rs.Skylight
-                except Exception:
-                    pass
-                doc.RenderSettings = rs
-                sky_int_old.append((get_obj, key, old))
-                set_skylight(True)
-                say(u"スカイライトを弱くした：", key, old, u"→", val)
-                return
-            except Exception:
-                continue
-        say(u"スカイライトの強さを変えられなかった。消す")
-        set_skylight(False)
-
-    def restore_skylight_int():
-        for get_obj, key, old in reversed(sky_int_old):
-            try:
-                obj = get_obj()
-                setattr(obj, key, old)
-                try:
-                    if obj is not rs:
-                        rs.Skylight = obj
-                except Exception:
-                    pass
-                doc.RenderSettings = rs
-            except Exception as e:
-                say(u"  スカイライトの強さを戻せなかった：", e)
-
-    def add_moon():
-        """月明かり：青白い平行光を1本（led_lights に入れ、終わったら一緒に消す）"""
-        az, al = math.radians(MOON_AZ), math.radians(MOON_ALT)
-        toward = Rhino.Geometry.Vector3d(math.sin(az) * math.cos(al), math.cos(az) * math.cos(al), math.sin(al))  # 月の方へ
-        try:
-            lt = Rhino.Geometry.Light()
-            lt.LightStyle = Rhino.Geometry.LightStyle.WorldDirectional
-            lt.Location = Rhino.Geometry.Point3d(toward.X * 100000.0, toward.Y * 100000.0, toward.Z * 100000.0)
-            lt.Direction = -toward
-            lt.Diffuse = MOON_COLOR
-            lt.Intensity = MOON_POWER
-            try:
-                lt.IsEnabled = True
-            except Exception:
-                pass
-            try:
-                lt.Name = u"作業_レンダ_月明かり"
-            except Exception:
-                pass
-            k_ = doc.Lights.Add(lt)
-            if k_ >= 0:
-                led_lights.append(doc.Lights[k_].Id)
-                say(u"月明かりを置いた（強さ", MOON_POWER, u"）")
-            else:
-                say(u"月明かり：足せなかった")
-        except Exception as e:
-            say(u"月明かり：効かなかった", e)
 
     BG_KEYS = ("BackgroundStyle", "BackgroundColorTop", "BackgroundColorBottom")
     bg_old = {}
@@ -578,19 +507,15 @@ def run(mode):
                     say(u"光る材料を当てた：", len(old_attr))
             stage(u"太陽を消す")
             set_sun(False, NIGHT)
-            if USE_SKYLIGHT_DIM:
-                stage(u"スカイライトをごく弱く：", SKYLIGHT_NIGHT)
-                dim_skylight(SKYLIGHT_NIGHT)
+            if USE_SKYLIGHT_OFF:
+                stage(u"スカイライトを消す")
+                set_skylight(False)
             if USE_SKY_BG:
                 stage(u"背景を群青に")
                 sky(NIGHT_SKY, NIGHT_SKY, "SolidColor")
             if USE_LED_LIGHTS:
                 stage(u"LED の線の光源")
                 add_led_lights()
-            if USE_MOON:
-                stage(u"月明かりを足す")
-                add_moon()
-                stage(u"月明かりを足した")
             say(u"夜を描く前：スカイライト", sky_get(), u"／光源", doc.Lights.Count)
             view.Redraw()
             stage(u"描く（Render）")
@@ -649,7 +574,6 @@ def run(mode):
                 pass
         if bg_old:
             bg_set(bg_old)
-        restore_skylight_int()
         if sky_old is not None and sky_get() != sky_old:
             set_skylight(sky_old)
         try:
