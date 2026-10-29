@@ -11,7 +11,8 @@
   4. できたら drawings_rhino/ を git add して commit・push する（git add drawings_rhino && git commit && git push）。
 
 描くもの（どの図も 1/100、線だけ。塗り・文字は無し）：
-  - 1階平面（FL+1500 で切る）・2階平面（西館、2FL+1000、西の道路の外へずらす）・断面 B・C・立面（園庭の側・道路の側・南の妻・北の妻・高野川の側）。
+  - 1階平面（FL+1500 で切る）・2階平面（西館、2FL+1000、西の道路の外へずらす）・断面 B・C・D（D は別の紙 sodachiya_sections2_1-100、
+    本館の横断を架構 19 の線＝光の筋で切る。json の skip_layers_re の物は描かない）・立面（園庭の側・道路の側・南の妻・北の妻・高野川の側）。
     断面 A（縦断、r=197 m の円筒で切って平らに伸ばす、西を見る）も（下の draw_section_arc）。
   - 切断（太 0.35）：切断面で物を切った線（Brep は Intersection.BrepPlane、メッシュは MeshPlane）。
   - 見えがかり（細 0.13）：切断面の奥（平面は下）の見える線。RhinoCommon の HiddenLineDrawing（Make2D と同じ計算）にクリッピング平面を付けて。
@@ -611,9 +612,12 @@ def draw_section(sheet, v, OBJS):
     clip = v['clip_paper_mm']
     nm = v['name']
     depth = float(v['depth_mm'])
+    skip_re = re.compile(v['skip_layers_re']) if v.get('skip_layers_re') else None     # 断面 D：読書の庭の木（67c、draw100 と同じ）
     sel = []
     for o in OBJS:
         if o.leaf.startswith('47') or o.n in SEC_SKIP:
+            continue
+        if skip_re and skip_re.match(o.leaf):
             continue
         b = o.geo.GetBoundingBox(xf)
         if b.Max.Z < -depth or b.Min.Z > 0:

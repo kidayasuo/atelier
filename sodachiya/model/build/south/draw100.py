@@ -5,6 +5,7 @@
   屋根の外形など切断より上の物は想像線（二点鎖線、梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
 - 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
 - 断面：A は円筒面 r=197 m で切って展開（西を見る）。B・C は架構に平行な鉛直面（北を見る）、奥 3.2 m まで。
+  D（別の紙 sodachiya_sections2_1-100）は本館だけの横断、架構 19 の線（光の筋の溝）で切る、北を見る。
   通り芯、幅の寸法、高さの記号（GL・FL・2FL・屋根・越屋根の蓋・西館の最高）。
 出力：PDF・PNG と DXF（レイヤー分け、1/100 の図を 1:1 の mm で。Rhino・LayOut で開いて手を入れる用）。
 """
@@ -1113,6 +1114,12 @@ def _frame_th():
     """架構の角度（柱の中心から、丸めない。TH_S は 1e-4 rad に丸めてあり、スパンが ±20 mm ずれる）。TH_S と同じ順"""
     th = np.array([float(unwrap(math.atan2(*(ob['T'].reshape(-1, 3)[:, :2].mean(0) - C)[::-1]))) for ob in OBJ if ob['layer'].startswith('11a')])
     return [float(th[np.abs(th - t) < 3e-4].mean()) for t in TH_S]
+# 断面 D（項 20261029-0946-present）：本館の横断、架構 19 の線（2 枚の梁のあいだ＝光の筋の溝）で切る、5 歳の部屋（架構 18〜20）の真ん中。
+# 光の筋の溝は幅約 170 mm なので、丸めた TH_S（±20 mm）でなく柱の中心から出した架構の角度で切る。紙は別（sodachiya_sections2_1-100）
+SEC_D_K = 19
+SEC_D_SKIP = r'^67c_'          # 読書の庭の木（本館の西の外、木は断面に出さない）。zumen.py も json から読む
+SECTIONS.append(('D', 'u', SGN * (_frame_th()[SEC_D_K - 1] - TH_S[0]) * 205000.0,
+                 f'本館の横断（架構{SEC_D_K}の線＝光の筋で切る、5歳）、北を見る'))
 def _rows():
     """柱の列の半径（W・E、柱の中心の平均を 10 mm に丸める：網の目の中心は数 mm ずれる）"""
     r = np.array([float(np.hypot(*(ob['T'].reshape(-1, 3)[:, :2].mean(0) - C))) for ob in OBJ if ob['layer'].startswith('11a')])
@@ -1346,7 +1353,8 @@ def plan2_dims(A, sh):
 def plan_section_marks(A):
     for nm, kind_, val, _ in SECTIONS:
         if kind_ == 'u':
-            th = theta_u(val); a, b = at(184000, th), at(222000, th)
+            r0, r1 = (189000, 209500) if nm == 'D' else (184000, 222000)      # D は本館だけ（北の端は紙の縁が近い）：外縁側の先〜西館とのすき間
+            th = theta_u(val); a, b = at(r0, th), at(r1, th)
             A.lines([[a, b]], '70_断面の位置', lw=LW_THIN, ls=LS_CHAIN, z=10)
             tdir = at(205000, theta_u(val + 1)) - at(205000, th); tdir /= np.linalg.norm(tdir)
             ends = (a, b); outw = {0: a - b, 1: b - a}
@@ -1639,6 +1647,7 @@ def sec_dims_ew(A, westx, note=False):
         vdim(A, xd + 1400, -300, zmax, '本館の最高')
         # 縁側の奥行き・軒の出（外皮＝縁側の中ほどのガラス戸の線から軒先）
         g0, g1 = cut_x(A, PRE('16'))                       # 縁側の中ほどの断熱ガラス戸（外皮の線）
+        if g0 is None: g0, g1 = cut_x(A, PRE('17k'))       # 架構の線で切る（断面 D）：ガラス戸でなく、そのあいだの杉の壁の柱型
         xg = (g0 + g1) / 2 if g0 is not None else None
         _, xo = cut_x(A, PRE('14'))
         zt = _mx(cut_z(A, R10, 12000, xe))
@@ -1738,21 +1747,34 @@ def section_frame(theta):
     u_t = np.array([-math.sin(theta), math.cos(theta), 0.])
     if at(205000, theta + 0.01)[1] < at(205000, theta)[1]: u_t = -u_t      # 北を奥に
     return u_r, u_t, np.array([C[0], C[1], 0.])
-def section_u(A, theta, depth=SEC_DEPTH):
+def section_u(A, theta, depth=SEC_DEPTH, skip=None, snap=False, far_bin=None):
+    """skip：描かないレイヤーの頭（正規表現）。snap：切り口の点を 0.001 mm に丸めてからつなぐ（架構の線で柱を縦に切ると、
+    切り口の線の端がわずかに食い違って輪にならず、柱の穴だけが塗られていた。断面 D）。far_bin：見えがかりを、物の三角形の
+    奥行き far_bin mm ごとに分けて、近いものから描く（外壁と南北の妻が一つの物なので、切った西の外壁と一緒に、奥の北の妻の面が
+    いちばん手前に来て、梁・鏡面を隠していた。断面 D）。三つとも断面 B・C では使わない（今までどおり）"""
     u_r, u_t, p0 = section_frame(theta)
     X = lambda P: 205000 - (P - p0) @ u_r                # v（西の外壁の線 r=205 m から東へ、mm）、右が東
     D = lambda P: (P - p0) @ u_t
     far, cuts = [], []
     for ob in OBJ:
         if ob['layer'].startswith('47') or num(ob['layer']) in (76, 77) or 91 <= num(ob['layer']) <= 98 or num(ob['layer']) in (3, 4): continue   # 園庭の木・小屋は断面に出さない（園庭の断面は園庭のチャット）
+        if skip and re.match(skip, ob['layer']): continue
         T = ob['T']; d = D(T.reshape(-1, 3)).reshape(-1, 3)
         if d.max() < 0 or d.min() > depth: continue
         if d.min() < 0 < d.max():
             segs = slice_tris(T, p0, u_t)
             S2 = [((X(s[0]), s[0][2]), (X(s[1]), s[1][2])) for s in segs]
+            if snap: S2 = [tuple(tuple(np.round(q, 3)) for q in s_) for s_ in S2]
             cuts.append((ob, poche(S2), S2))
         if num(ob['layer']) in (2, 90, 12, 13): continue      # 川の護岸・園庭の地形は切り口だけ（見えがかりは長くなりすぎる）、床組は床の構成で描く
         keep = (d.max(1) >= 0) & (d.min(1) <= depth)
+        if far_bin:
+            dm = np.maximum(d.min(1), 0)
+            for b_ in np.unique((dm[keep] // far_bin).astype(int)):
+                kb = keep & ((dm // far_bin).astype(int) == b_)
+                T2 = np.stack([X(T[kb].reshape(-1, 3)).reshape(-1, 3), T[kb][:, :, 2]], -1)
+                if len(T2): far.append((float(dm[kb].min()), ob, silhouette(T2)))
+            continue
         T2 = np.stack([X(T[keep].reshape(-1, 3)).reshape(-1, 3), T[keep][:, :, 2]], -1)
         if len(T2): far.append((max(0, d.min()), ob, silhouette(T2)))
     A.cutsegs = {}; A.farsil = [(ob['layer'], sil) for _, ob, sil in far]    # 寸法が読む（sec_dims_ew）
@@ -1908,7 +1930,7 @@ def make_sections():
     A.text(extA[0] + 300, -5400, '← 南（高野川の側）', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='bottom')
     A.text(56000, -2400, '北 →', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='bottom')
     extX = (-17500, 21500, -2600, 10500)
-    for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:]):
+    for i, (nm, kind_, val, cap_) in enumerate(SECTIONS[1:3]):
         A = S.axes(30 + i * (390 + 15), H_ - 40 - 161 - 45 - 131, extX)
         A.insul_x = (-1e5, 13500)                   # 外皮の線は v13.5（縁側の中ほどの杉の壁とガラス戸）
         A.rafter_cut = True                         # 東西に切る：垂木（南北）を横に切る
@@ -1934,6 +1956,39 @@ def make_sections():
                 A.ax.add_patch(plt.Rectangle((-9000 + j * 1000, -2450), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
             A.text(-9000, -2050, '0', PT_NOTE, '80_図名・縮尺・方位'); A.text(-4000, -2050, '5 m', PT_NOTE, '80_図名・縮尺・方位')
     legend_materials(S, 30, 165)
+    return S
+
+def make_sections2():
+    """断面 D だけの紙（A1 横）。光の環境の説明の図（換気の矢は描かない）。範囲は本館の西の外壁の少し西（v −2 m、西の吹き抜けと
+    西館とのすき間の縁）から東の軒先・外縁側の先まで。西館は奥に見えても −2 m で切る（図の範囲＝clip）"""
+    W_, H_ = 841, 594
+    nm, kind_, val, cap_ = SECTIONS[3]
+    S = Sheet(W_, H_, '断面図 D　1/100（A1）')
+    ext = (-2000, 22000, -2600, 7000)
+    A = S.axes(round((W_ - (ext[1] - ext[0]) / 100) / 2), round((H_ - (ext[3] - ext[2]) / 100) / 2), ext)
+    A.insul_x = (-1e5, 13500)
+    A.rafter_cut = True
+    th_ = theta_u(val); u_r, u_t, p0 = section_frame(th_)
+    S.view(A, '断面' + nm, 'section', origin=p0 + 205000 * u_r, right=-u_r, up=(0.0, 0.0, 1.0), view_dir=u_t,
+           cut_plane_point=p0 + 205000 * u_r, cut_plane_normal=u_t, depth_mm=SEC_DEPTH, u_mm=val, frame_k=SEC_D_K, skip_layers_re=SEC_D_SKIP,
+           _='鉛直の面（origin を通り、法線 view_dir）で切り、view_dir の向きに depth_mm まで見る。h＝v（西の柱の列 W から東へ）。'
+             '架構の線（2 枚の梁のあいだ）で切る。h が図の範囲（clip_paper_mm）より西の物（西館）は描かない')
+    cutb = section_u(A, th_, skip=SEC_D_SKIP, snap=True, far_bin=400)
+    cutb = {k: b for k, b in cutb.items() if b[2] > ext[0]}      # 図の範囲より西（西館）の切り口は高さ・寸法に使わない
+    chain_dims(A, [-900, 0, 1600, 12000, 13500, 15000], -900)
+    for nm2, x in (('W', 0), ('E', 12000)):
+        A.lines([[(x, -1200), (x, 5600)]], '40_通り芯', lw=0.09, color='#B03030', ls=(0, (10, 3, 2, 3)), z=2)
+        A.bubble(x, -1750, nm2)
+    levels(A, cutb, 18500, False)
+    sec_dims_ew(A, 0.0)                              # 西館の寸法は描かない（範囲の外）
+    A.text(ext[0] + 300, ext[3] - 200, f'断面図{nm}　1/100　{cap_}', PT_TITLE, '80_図名・縮尺・方位', ha='left', va='top')
+    A.text(ext[0] + 300, -2400, '← 西', PT_NOTE, '80_図名・縮尺・方位', ha='left', va='bottom')
+    A.text(16000, -2400, '東 →', PT_NOTE, '80_図名・縮尺・方位', ha='right', va='bottom')
+    for j in range(5):
+        A.ax.add_patch(plt.Rectangle((3000 + j * 1000, -2450), 1000, 150, fc='k' if j % 2 == 0 else 'white', ec='k', lw=LW(0.1)))
+    A.text(3000, -2050, '0', PT_NOTE, '80_図名・縮尺・方位'); A.text(8000, -2050, '5 m', PT_NOTE, '80_図名・縮尺・方位')
+    x0, y0 = A.ox / 100 + ext[0] / 100, H_ - (A.oy + ext[3]) / 100
+    print('section D', 'k', SEC_D_K, 'u', round(val), 'paper mm', round(x0), round(y0), round(x0 + (ext[1] - ext[0]) / 100), round(y0 + (ext[3] - ext[2]) / 100))
     return S
 
 def legend_materials(S, x_mm, y_mm):
@@ -2618,7 +2673,7 @@ def make_siteplan():
     return S
 
 ONLY = os.environ.get('DRAW_ONLY', '')
-for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_siteplan_1-200', make_siteplan), ('sodachiya_sections_1-100', make_sections),
+for name, mk in (('sodachiya_plan_1-100', make_plans), ('sodachiya_siteplan_1-200', make_siteplan), ('sodachiya_sections_1-100', make_sections), ('sodachiya_sections2_1-100', make_sections2),
                  *ELEV_SHEETS):
     if ONLY and ONLY not in name: continue
     S = mk(); S.save(os.path.join(OUTD, name))
