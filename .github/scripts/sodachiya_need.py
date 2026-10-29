@@ -25,6 +25,13 @@ def reads(p):
 
 force = len(sys.argv) > 1 and sys.argv[1] == 'true'
 since = git('log', '-1', '--format=%H', '--', 'sodachiya/model/drawings/sodachiya_check.txt')
+# 10-30 監修：作り直しの commit は、作り直しのあいだにほかのチャットが push した commit の上に載せ直される。
+# その commit から比べると、あいだの commit（作り直しに入っていない）を見落とす（10-30 1:39 の西館 64ab09c）。
+# 題の「（<hash>まで）」が作り直しが読んだ HEAD なので、そこから比べる
+import re
+m_ = re.search(r'（([0-9a-f]{7,40})まで）', git('log', '-1', '--format=%s', since)) if since else None
+if m_ and git('rev-parse', '--verify', '-q', m_.group(1) + '^{commit}'):
+    since = git('rev-parse', m_.group(1))
 if not since:
     print('build=yes\nsince=')
     sys.exit()
