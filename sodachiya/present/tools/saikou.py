@@ -203,30 +203,68 @@ def draw(paper, vname, out_pdf, out_json, out_png):
     ax.patch.set_alpha(0)
     P = lambda h, z: (X(h), Y(z))
 
-    def txt(x, y, s, size=2.7, c=INK, ha="left", va="center", w="normal", **k):
-        return ax.text(x, y, s, fontsize=size * PT, color=c, ha=ha, va=va, fontweight=w, **k)
+    # ---- 部品の一覧（Illustrator の一つずつの部品、present/ai/layout.json の部品と同じ形）。紙の左上からの mm
+    PARTS, GR, cur = [], {}, [None]
+    NOTE_NAMES = {"saikou.note.louver": "注　越屋根のルーバーとガラスの蓋の光", "saikou.note.east": "注　深い軒と縁側のガラス戸、日の角"}
+    hx_ = lambda c: matplotlib.colors.to_hex(c) if c is not None else None
+
+    def grp(key, name):
+        cur[0] = key
+        GR.setdefault(key, dict(id=key, name=name, kind="lines", layer="説明", paths=[], group=key, group_name=name))
+
+    def addpath(pts_, stroke=None, fill=None, lw=0.0, dash=None, op=1.0, closed=False):
+        GR[cur[0]]["paths"].append(dict(pts=[[round(float(x_), 3), round(float(y_), 3)] for x_, y_ in pts_], closed=closed,
+                                        stroke=hx_(stroke), fill=hx_(fill), lw=round(float(lw), 3), dash=dash, op=round(float(op), 3), eo=False))
+
+    def pl(xs, ys, c, lw, ls=None, a=1.0, z=4, cap=None):
+        k = dict(color=c, lw=lw, alpha=a, zorder=z)
+        if ls: k["ls"] = ls
+        if cap: k["solid_capstyle"] = cap
+        ax.plot(xs, ys, **k)
+        addpath(list(zip(xs, ys)), stroke=c, lw=lw, op=a, dash=[d_ * lw for d_ in ls[1]] if ls else None)
+
+    def poly(pts_, fc, a=1.0, ec=None, lw=0.0, z=1):
+        ax.add_patch(MPoly(pts_, closed=True, fc=fc, ec=ec or "none", lw=lw, alpha=a, zorder=z))
+        addpath(pts_, stroke=ec, fill=fc, lw=lw, op=a, closed=True)
+
+    def txt(x, y, s, size=2.7, c=INK, ha="left", va="center", w="normal", key=None, group=None, **k):
+        t = ax.text(x, y, s, fontsize=size * PT, color=c, ha=ha, va=va, fontweight=w, **k)
+        base = {"center": y + 0.37 * size, "top": y + 0.88 * size, "bottom": y - 0.12 * size, "baseline": y}[va]   # 字の基準線（下向き +）
+        d_ = dict(id=f"saikou.note.{key}", name=f"注　{s[:20]}", kind="text", layer="説明", x=round(x, 2), y=round(base, 2), s=s,
+                  size_pt=round(size * PT, 2), font="W6" if w == "bold" else "W3", color=hx_(c), align=ha)
+        if group: d_.update(group=group, group_name=GR[group]["name"] if group in GR else NOTE_NAMES.get(group, group))
+        PARTS.append(d_)
+        return t
 
     def arrow(p, q, c, lw=0.5, ms=4.0, a=1.0, z=5):
         ax.add_patch(FancyArrowPatch(p, q, arrowstyle="-|>", mutation_scale=ms, lw=lw, color=c, alpha=a,
                                      shrinkA=0, shrinkB=0, zorder=z))
+        p, q = np.array(p, float), np.array(q, float)
+        u = (q - p) / np.linalg.norm(q - p); n = np.array([-u[1], u[0]])
+        hl, hw = 0.4 * ms / PT, 0.2 * ms / PT          # 矢じりの長さと半幅（mm、matplotlib の -|> と同じ）
+        addpath([p, q - u * hl * 0.8], stroke=c, lw=lw, op=a)
+        addpath([q, q - u * hl + n * hw, q - u * hl - n * hw], fill=c, op=a, closed=True)
 
     # ---- 光の筋：空の光 → 乳白ガラス → 鏡面の溝 → 梁の下へ
     sof = G["soffit"]
+    grp("saikou.suji.duct", "光の筋：鏡面の溝（ガラスの下〜梁の下端）")
     seg = [(h, z) for h, z in sof if h <= c0 + 5] , [(h, z) for h, z in sof if h >= c1 - 5]
     for part in seg:                                   # 溝（ガラスの下〜梁の下端）を淡い青で
         if len(part) < 2: continue
         hs = [h for h, _ in part]
-        poly = [P(h, zg(h) - 70) for h in hs] + [P(h, z) for h, z in part[::-1]]
-        ax.add_patch(MPoly(poly, closed=True, fc=SKY_F, ec="none", alpha=0.55, zorder=2))
-        ax.plot([X(h) for h, _ in part], [Y(z) for _, z in part], color=SKY, lw=0.35, zorder=3)
+        pg_ = [P(h, zg(h) - 70) for h in hs] + [P(h, z) for h, z in part[::-1]]
+        poly(pg_, SKY_F, a=0.55, z=2)
+        pl([X(h) for h, _ in part], [Y(z) for _, z in part], SKY, 0.35, z=3)
     # 梁の下へ広がる光（西から約2〜8 m を濃く）
+    grp("saikou.suji.glow", "光の筋：梁の下へ広がる光")
     for k in range(10):
         f = k / 10
         z_lo = lambda h: interp(sof, h) - 300 - f * 1700
         hs = np.linspace(1800, 11700, 60)
         wgt = np.clip(1 - np.abs(hs - 5000) / 5200, 0.25, 1)
-        poly = [P(h, interp(sof, h)) for h in hs] + [P(h, z_lo(h)) for h in hs[::-1]]
-        ax.add_patch(MPoly(poly, closed=True, fc=SKY_F, ec="none", alpha=0.07 * (1 - f), zorder=1))
+        pg_ = [P(h, interp(sof, h)) for h in hs] + [P(h, z_lo(h)) for h in hs[::-1]]
+        poly(pg_, SKY_F, a=0.07 * (1 - f))
+    grp("saikou.suji.arrows", "光の筋：空からガラスへ、梁の下へ")
     for h in (2500, 4000, 5500, 7000):                 # 空 → ガラス
         arrow(P(h + 250, zg(h) + 900), P(h, zg(h) + 90), SKY, lw=0.55)
         z0 = interp(sof, h)
@@ -235,6 +273,7 @@ def draw(paper, vname, out_pdf, out_json, out_png):
     for h in (8500, 10000):
         arrow(P(h + 250, zg(h) + 900), P(h, zg(h) + 90), SKY, lw=0.45, a=0.6)
     # ---- 越屋根：ルーバーのすき間とガラスの蓋から、西の吹き抜けと奥へ
+    grp("saikou.louver", "越屋根：ルーバーのすき間とガラスの蓋からの光")
     lvs = G["louvers"]
     gaps = [((c1_ + c2_) / 2, (a1_ + a2_) / 2) for (c1_, a1_), (c2_, a2_) in zip(lvs[:-1], lvs[1:])]
     for k, (c_, d_) in enumerate(gaps[1::3]):
@@ -245,15 +284,16 @@ def draw(paper, vname, out_pdf, out_json, out_png):
         dx = (p1[0] - hW) * 0.25 + 150 * ((k % 2) - 0.5)
         arrow(P(p1[0], lz0 - 150), P(p1[0] - dx, z_end), SKY, lw=0.4, a=0.75)
     # 吹き抜けを満たす柔らかい光（上ほど濃く）
+    grp("saikou.louver.glow", "越屋根：吹き抜けを満たす光")
     hv0, hv1 = hW, G["glass"][0][0]
     for k in range(8):
         f = k / 8
-        ax.add_patch(MPoly([P(hv0, lz0), P(hv1, lz0), P(hv1, lz0 - 600 - f * 3300), P(hv0, lz0 - 600 - f * 3300)],
-                           closed=True, fc=SKY_F, ec="none", alpha=0.06 * (1 - f), zorder=1))
+        poly([P(hv0, lz0), P(hv1, lz0), P(hv1, lz0 - 600 - f * 3300), P(hv0, lz0 - 600 - f * 3300)], SKY_F, a=0.06 * (1 - f))
+    grp("saikou.louver", "越屋根：ルーバーのすき間とガラスの蓋からの光")
     arrow(P(hW + 60, 2300), P(hW + 1500, 1300), SKY, lw=0.4, a=0.7)         # 白い西の壁で返り、奥へ
     kx, ky = PAGE[0] + LY["kosi"][0], PAGE[1] + LY["kosi"][1]
-    txt(kx, ky, "越屋根：ガラスの蓋とルーバーのすき間から", 2.9, SKY, w="bold")
-    txt(kx, ky + 3.6, "上からの柔らかい光が西の吹き抜けと奥へ", 2.6, SKY)
+    txt(kx, ky, "越屋根：ガラスの蓋とルーバーのすき間から", 2.9, SKY, w="bold", key="louver.head", group="saikou.note.louver")
+    txt(kx, ky + 3.6, "上からの柔らかい光が西の吹き抜けと奥へ", 2.6, SKY, key="louver.body", group="saikou.note.louver")
 
     # ---- 東のガラス戸と深い軒：朝9時（太陽時）
     t9 = 9.0
@@ -265,25 +305,29 @@ def draw(paper, vname, out_pdf, out_json, out_png):
         top = min(zd1, z_e)
         reach = top / tn                               # 床の日だまりの奥行き（ガラスから西へ）
         rays.append((nm, dec, a, th, tn, top, reach)); rays_az[nm] = az
+    SK = {"夏至": "geshi", "春秋分": "shunbun", "冬至": "touji"}
     for i, (nm, dec, a, th, tn, top, reach) in enumerate(rays):
         c = SUN[nm]
+        grp(f"saikou.sun.{SK[nm]}", f"{nm}の朝9時の日（線・床の日だまり）")
         h_in = hd - reach
         # 日の線：床の日だまりの奥 → ガラスの面の上の端（軒先の下を通る）→ 軒の外へ少し
         h_out = ht + 1500
         far = (h_out, (h_out - h_in) * tn)
-        ax.add_patch(MPoly([P(h_in, 0), P(hd, top), P(hd, 0)], closed=True, fc=c, ec="none", alpha=0.13, zorder=1))
-        ax.plot(*zip(P(h_in, 0), P(*far)), color=c, lw=0.55, zorder=4)
-        ax.plot([X(h_in), X(hd)], [Y(0) - 0.35 - 0.55 * i] * 2, color=c, lw=1.4, solid_capstyle="butt", zorder=5)
+        poly([P(h_in, 0), P(hd, top), P(hd, 0)], c, a=0.13)
+        pl(*zip(P(h_in, 0), P(*far)), c, 0.55)
+        pl([X(h_in), X(hd)], [Y(0) - 0.35 - 0.55 * i] * 2, c, 1.4, z=5, cap="butt")
         print(f"{nm} 9:00 高度 {a:.1f}° 方位 {rays_az[nm]:.1f}° → 断面の角 {th:.1f}°、床の日だまり {reach/1000:.2f} m")
     # 軒先とガラスの足を結ぶ角
     cut = np.degrees(np.arctan2(zt0, ht - hd))
-    ax.plot(*zip(P(hd, 0), P(ht + 900, zt0 + 900 * np.tan(np.radians(cut)))), color=INK, lw=0.3, ls=(0, (3, 2)), zorder=4)
+    grp("saikou.sun.cutline", "軒先とガラスの足を結ぶ線（この角より高い日はガラスに当たらない）")
+    pl(*zip(P(hd, 0), P(ht + 900, zt0 + 900 * np.tan(np.radians(cut)))), INK, 0.3, ls=(0, (3, 2)))
     tcut = {nm: time_at_profile(dec, cut, right) for nm, dec in (("夏至", 23.44), ("春秋分", 0.0), ("冬至", -23.44))}
     hm = lambda t: f"{int(t)}:{int(round((t % 1) * 60)):02d}"
     # 南中：この断面ではほぼ真上（屋根が受ける）
     noon = [(nm, *profile(dec, 12.0, right)[::2]) for nm, dec in (("夏至", 23.44), ("春秋分", 0.0), ("冬至", -23.44))]
     for nm, a, th in noon:
         print(f"{nm} 南中 高度 {a:.1f}° → 断面の角 {th:.1f}°")
+    grp("saikou.sun.noon", "南中の日（この断面ではほぼ真上）")
     for i, (nm, a, th) in enumerate(noon):
         nx = 12700 + 160 * i
         tn = np.tan(np.radians(th)); z0 = zg(nx) + 10
@@ -297,50 +341,54 @@ def draw(paper, vname, out_pdf, out_json, out_png):
          (f"夏至{hm(tcut['夏至'])}・春秋分{hm(tcut['春秋分'])}・冬至{hm(tcut['冬至'])}から（太陽時）", 2.6, "normal"),
          (f"南中の日はこの断面ではほぼ真上（{min(t for _,_,t in noon):.0f}〜{max(t for _,_,t in noon):.0f}°）", 2.6, "normal")]
     for k, (s_, sz, w_) in enumerate(L):
-        txt(ex, ey + LY["lh"] * k, s_, sz, INK, w=w_)
+        txt(ex, ey + LY["lh"] * k, s_, sz, INK, w=w_, key=f"east.{k}", group="saikou.note.east")
     for k, (nm, dec, a, th, tn, top, reach) in enumerate(rays):      # 日の線の凡例（朝9時、太陽時）
         yy = ey + LY["lh"] * (len(L) + k) + 0.6
-        ax.plot([ex, ex + 4.0], [yy, yy], color=SUN[nm], lw=1.2, solid_capstyle="butt")
-        txt(ex + 5.0, yy, f"{nm}の朝9時：断面の角{th:.0f}°、床の日だまり{reach / 1000:.1f} m", 2.6, SUN[nm], w="bold")
+        grp(f"saikou.legend.{SK[nm]}", f"凡例　{nm}の朝9時")
+        pl([ex, ex + 4.0], [yy, yy], SUN[nm], 1.2, cap="butt")
+        txt(ex + 5.0, yy, f"{nm}の朝9時：断面の角{th:.0f}°、床の日だまり{reach / 1000:.1f} m", 2.6, SUN[nm], w="bold",
+            key=f"legend.{SK[nm]}", group=f"saikou.legend.{SK[nm]}")
 
     # ---- 光の筋の溝の断面（差し込み、1/25）
     S = 1 / LY["inset_scale"]                         # 実寸 mm → 紙 mm
     ix, iy = PAGE[0] + LY["inset"][0], PAGE[1] + LY["inset"][1]   # 左上
     bw, gap, dep = 90, 180, 750
     ox = ix
-    def R_(x0_, y0_, w_, h_, **k):
-        ax.add_patch(plt.Rectangle((x0_, y0_), w_, h_, **k))
+    grp("saikou.inset", f"光の筋：溝の断面1/{LY['inset_scale']}")
+    def R_(x0_, y0_, w_, h_, fc, ec, lw, zorder=6):
+        poly([(x0_, y0_), (x0_ + w_, y0_), (x0_ + w_, y0_ + h_), (x0_, y0_ + h_)], fc, ec=ec, lw=lw, z=zorder)
     y_g = iy + 3.5                                     # ガラスの下端
     for bx in (0, bw + gap):
         R_(ox + bx * S, y_g - 60 * S, bw * S, (dep + 60) * S, fc="#E9D9BF", ec="#7A6A55", lw=0.3, zorder=6)
     R_(ox + bw * S - 3 * S, y_g - 60 * S, (gap + 6) * S, 60 * S, fc="#EEF4FA", ec=SKY, lw=0.4, zorder=6)   # 乳白ガラス
     for xx in (ox + bw * S, ox + (bw + gap) * S):
-        ax.plot([xx, xx], [y_g, y_g + dep * S], color="#9AA7B4", lw=0.9, zorder=7)                   # 鏡面
+        pl([xx, xx], [y_g, y_g + dep * S], "#9AA7B4", 0.9, z=7)                   # 鏡面
     # 跳ね返りながら下りる光
     xL, xR = ox + bw * S + 0.15, ox + (bw + gap) * S - 0.15
     Dp = dep * S
     pts = [(xL + 1.6, y_g - 3.2), (xL + 2.2, y_g + 0.2), (xR, y_g + 0.22 * Dp), (xL, y_g + 0.48 * Dp), (xR, y_g + 0.75 * Dp), (xL + 0.4 * (xR - xL), y_g + Dp + 3.5)]
     for p, q in zip(pts[:-1], pts[1:]):
-        ax.plot(*zip(p, q), color=SKY, lw=0.5, zorder=8)
+        pl(*zip(p, q), SKY, 0.5, z=8)
     arrow(pts[-2], pts[-1], SKY, lw=0.5, z=8)
     pts2 = [(xR - 1.0, y_g - 3.2), (xR - 1.3, y_g + 0.2), (xL, y_g + 0.33 * Dp), (xR, y_g + 0.62 * Dp), (xR - 0.4 * (xR - xL), y_g + Dp + 3.5)]
     for p, q in zip(pts2[:-1], pts2[1:]):
-        ax.plot(*zip(p, q), color=SKY, lw=0.4, alpha=0.7, zorder=8)
+        pl(*zip(p, q), SKY, 0.4, a=0.7, z=8)
     arrow(pts2[-2], pts2[-1], SKY, lw=0.4, a=0.7, z=8)
     tx = ox + (2 * bw + gap) * S + 2.0
-    txt(tx, y_g - 0.5, f"光の筋：溝の断面1/{LY['inset_scale']}", 2.9, INK, w="bold")
-    txt(tx, y_g + 1 * LY["lh"], "架構の線ごと、2枚の梁のあいだ180", 2.6, INK)
-    txt(tx, y_g + 2 * LY["lh"], "上：乳白の複層ガラス（外は遮熱Low-E）", 2.6, INK)
-    txt(tx, y_g + 3 * LY["lh"], "両側：鏡面のアルミ（反射率約0.95）、梁の下端まで", 2.6, INK)
-    txt(tx, y_g + 4 * LY["lh"] + 0.6, "梁の下に出る光：鏡面で約8割", 2.6, SKY, w="bold")
-    txt(tx, y_g + 5 * LY["lh"] + 0.6, "（杉の面のままなら約1割）", 2.6, INK)
+    txt(tx, y_g - 0.5, f"光の筋：溝の断面1/{LY['inset_scale']}", 2.9, INK, w="bold", key="inset.1", group="saikou.inset")
+    txt(tx, y_g + 1 * LY["lh"], "架構の線ごと、2枚の梁のあいだ180", 2.6, INK, key="inset.2", group="saikou.inset")
+    txt(tx, y_g + 2 * LY["lh"], "上：乳白の複層ガラス（外は遮熱Low-E）", 2.6, INK, key="inset.3", group="saikou.inset")
+    txt(tx, y_g + 3 * LY["lh"], "両側：鏡面のアルミ（反射率約0.95）、梁の下端まで", 2.6, INK, key="inset.4", group="saikou.inset")
+    txt(tx, y_g + 4 * LY["lh"] + 0.6, "梁の下に出る光：鏡面で約8割", 2.6, SKY, w="bold", key="inset.5", group="saikou.inset")
+    txt(tx, y_g + 5 * LY["lh"] + 0.6, "（杉の面のままなら約1割）", 2.6, INK, key="inset.6", group="saikou.inset")
 
     # ---- 保育室の暗い帯（西から約2〜8 m）を光の筋が照らす
     zb = interp(sof, 8000) - 250
     xa, xb = X(hW + 2000), X(hW + 8000)
-    ax.plot([xa, xa, xb, xb], [Y(zb) - 1.0, Y(zb), Y(zb), Y(zb) - 1.0], color=SKY, lw=0.4, zorder=6)
+    grp("saikou.darkband", "保育室の暗い帯（西から約2〜8 m）の印")
+    pl([xa, xa, xb, xb], [Y(zb) - 1.0, Y(zb), Y(zb), Y(zb) - 1.0], SKY, 0.4, z=6)
     for k_, s_ in enumerate(("保育室の暗い帯（西から約2〜8 m）", "を光の筋が照らす")):
-        txt(xa + 0.6, Y(zb) + 2.6 + 3.5 * k_, s_, 2.6, SKY, w="bold", zorder=6, bbox=dict(fc="white", ec="none", alpha=0.75, pad=0.5))
+        txt(xa + 0.6, Y(zb) + 2.6 + 3.5 * k_, s_, 2.6, SKY, w="bold", key=f"darkband.{k_}", group="saikou.darkband", zorder=6, bbox=dict(fc="white", ec="none", alpha=0.75, pad=0.5))
 
     fig.savefig(out_pdf, transparent=True)
     plt.close(fig)
@@ -351,6 +399,25 @@ def draw(paper, vname, out_pdf, out_json, out_png):
             "noon_profile_deg": {nm: round(th, 1) for nm, _, th in noon},
             "glass_sunlit_until": {k: hm(v) for k, v in tcut.items()}}
     json.dump(meta, open(out_json, "w"), ensure_ascii=False, indent=1)
+    lines = []
+    for g_ in GR.values():                               # 線のまとまりごとに一つ（外形の箱 x, y, w, h を付ける）
+        if not g_["paths"]: continue
+        a_ = np.array([p_ for q_ in g_["paths"] for p_ in q_["pts"]])
+        g_ = dict(g_, id=g_["id"] + ".l", x=round(float(a_[:, 0].min()), 2), y=round(float(a_[:, 1].min()), 2),
+                  w=round(float(np.ptp(a_[:, 0])), 2), h=round(float(np.ptp(a_[:, 1])), 2))
+        lines.append(g_)
+    for t_ in PARTS:                                     # 一つのまとまりに属さない注は、その注だけのグループ
+        if "group" not in t_:
+            t_.update(group=t_["id"], group_name=t_["name"])
+    out_parts = out_json[:-len(".json")] + "_parts.json"
+    json.dump({"_": "採光の図の部品（Illustrator の一つずつの部品）。present/ai/layout.json の parts と同じ形（kind＝text・lines）。"
+                    "座標は基の紙（base）の左上からの mm、下向き +。text の (x, y) は揃えの点の基準線、size_pt・lw は pt、dash は pt。"
+                    "線は意味のまとまりごとに一つの lines（group と同じ鍵＋.l）、注は一つずつの text（同じ group のものは一つのグループに）。"
+                    "present/tools/saikou.py が書く。手で書き換えない。",
+               "base": f"drawings/{paper}.pdf", "view": vname, "unit": "mm", "origin": "紙の左上",
+               "clip_paper_mm": view.get("clip_paper_mm"), "page_paper_mm": list(PAGE),
+               "parts": lines + PARTS}, open(out_parts, "w"), ensure_ascii=False, indent=1)
+    print("部品", len(lines), "まとまりの線", len(PARTS), "注 →", os.path.basename(out_parts))
     preview(os.path.join(ROOT, "drawings", paper + ".pdf"), out_pdf, PAGE, out_png)
     print("軒の角", round(cut, 1), "ガラスに日が当たる終わり", {k: hm(v) for k, v in tcut.items()})
     print("PAGE", PAGE, "架構の線の奥行き", round(G["slot_d"]))
