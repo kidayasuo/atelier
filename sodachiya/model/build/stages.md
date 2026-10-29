@@ -26,7 +26,7 @@
 | 7i | 西館の間仕切り | `data/wnew.pkl`・`model/build/south/add_inner.py`・`model/build/south/add_west_south.py`・`model/build/south/west_walls.py` |
 | 8 | 護岸と園庭の取り込み | `model/build/south/add_site.py`・`model/sodachiya_garden_layers.3dm` |
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
-| 10 | Rhino版 | `data/wnew.pkl`・`data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
+| 10 | Rhino版 | `data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
 | 10m | 素材 | `data/materials.json`・`logo/sodachiya_logo.svg`・`logo/sodachiya_logo_etch.png`・`logo/sodachiya_logo_etch_mask.png`・`model/build/south/materials.py`・`model/sodachiya_exact_mesh.3dm`・`sodachiya.3dm` |
 | 10n | 番号 | `model/build/south/marks.py`・`sodachiya.3dm` |
 | 12 | 面積表 | `data/garden.json`・`data/minami.json`・`data/siteplan_approach.json`・`model/build/south/areas.py`・`model/sodachiya_exact_mesh.3dm` |
