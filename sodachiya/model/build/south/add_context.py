@@ -135,15 +135,18 @@ if len(HB) == 3 and _W:
         for g in sorted(getattr(x, 'geoms', [x]), key=lambda g: min(_st(q)[1] for q in g.coords)):
             if not g.is_empty and min(_st(q)[1] for q in g.coords) < 300: return max(_st(q)[1] for q in g.coords)
         return 0.0
-    LB = 8000.0             # 前後のつなぎの長さ
+    LB = 8000.0             # 北のつなぎの長さ
+    LBS = 500.0             # 南は斜めでなく、ほぼ直角に張り出す（10-29、ユーザー：実際にはほぼ直角。その突端に木、アプローチ係のexport3dm.py）
     tS, tN = _edge(s0 - LB), _edge(s1 + LB)
     cut = Polygon([_xy(s0, _ln(s0)), _xy(s1, _ln(s1)), _xy(s1, _ln(s1) + 0.9 * _dep), _xy(s0, _ln(s0) + 0.9 * _dep)])
     fill = [Polygon([_xy(s0, -500), _xy(s1, -500), _xy(s1, _ln(s1)), _xy(s0, _ln(s0))]),
-            Polygon([_xy(s0 - LB, -500), _xy(s0, -500), _xy(s0, _ln(s0)), _xy(s0 - LB, tS)])]
+            Polygon([_xy(s0 - LBS, -500), _xy(s0, -500), _xy(s0, _ln(s0)), _xy(s0 - LBS, tS)])]
+    cutS = Polygon([_xy(s0 - LB, tS), _xy(s0 - LBS, tS), _xy(s0 - LBS, tS + 30000), _xy(s0 - LB, tS + 30000)])   # 南の張り出し：今の斜めの縁を削る
     if tN < _ln(s1): fill.append(Polygon([_xy(s1, -500), _xy(s1 + LB, -500), _xy(s1 + LB, tN), _xy(s1, _ln(s1))]))
     a0 = RD.intersection(unary_union(HB)).area
     RD0 = RD
-    RD = unary_union([RD] + fill).difference(cut).difference(unary_union(HB)).difference(S)
+    RD = unary_union([RD] + fill).difference(cut).difference(cutS).difference(unary_union(HB)).difference(S)
+    print('road: 南の張り出しの突端 xy %.2f, %.2f m' % tuple(np.array(_xy(s0 - LBS, tS)) / 1000))
     print('road: 三軒の面の線 辺から %.2f〜%.2f m（s %.1f〜%.1f m）、家への食い込み %.1f→%.1f m2、埋めた %.1f m2、削った %.1f m2'
           % (_ln(s0) / 1000, _ln(s1) / 1000, s0 / 1000, s1 / 1000, a0 / 1e6, RD.intersection(unary_union(HB)).area / 1e6,
              RD.difference(RD0).area / 1e6, RD0.difference(RD).area / 1e6))

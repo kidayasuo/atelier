@@ -108,6 +108,7 @@ def write(g):
     trees = [                                                    # 樹木：名前、幹の位置、樹冠の半径（3dm の 77・79 にも円がある）
         {"name": "入江の木（落葉樹）", "xy": _r(P(24.4, 9.6)), "r": 1.9},
         {"name": "モミジ", "xy": _r(NC.MOMIJI), "r": 1.5},
+        {"name": "お向かいの張り出しの木（現況）", "xy": _r(g["OPP_TREE"]["xy"]), "r": g["OPP_TREE"]["crown_r"]},
         *[{"name": "キンモクセイ", "xy": _r(g["PK"](g["PARK_PLAN"]["kinmokusei"]["x"], y)), "r": g["PARK_PLAN"]["kinmokusei"]["r"]} for y in g["PARK_PLAN"]["kinmokusei"]["y"]],
         {"name": "ヤマボウシ", "xy": _r(_mw(MN.xy(MN.D["TREE"]["c"]))), "r": MN.D["TREE"]["r"]},
     ]

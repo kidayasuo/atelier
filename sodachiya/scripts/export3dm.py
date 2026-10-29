@@ -384,5 +384,15 @@ for (_s0, _s1, _n) in ((7.2, 12.2, 3), (17.7, 22.7, 2)):
         _d = A.STALL_D0 + 2.5 * _k
         slab(srect(_s0, _s1, _d - 0.05, _d + 0.05), 0.01, 0.002, "74w_外構_駐車の白線")
 print("ground", {k[:6]: round(v, 1) for k, v in GROUND_AREA.items()})
+# お向かいの南の張り出しの突端の木（ユーザー 10-29：5mくらい、樹冠が道の半分少しまで）。地面は道路と同じ−320（GLの0.02下）
+import json as _json
+_OT = _json.load(open(os.path.join(os.path.dirname(HERE), "data", "approachA.json"), encoding="utf-8"))["OPP_TREE"]
+kcyl(_OT["xy"], _OT["trunk_r"], -0.02, _OT["crown_z"] + 0.02, "77_外構_樹木")
+_ns = r.Sphere(r.Point3d(0, 0, 0), _OT["crown_r"] * MM).ToNurbsSurface(); _cp = _ns.Points   # 樹冠は横に広い楕円体（制御点の z を縮める）
+for _i in range(_cp.CountU):
+    for _j in range(_cp.CountV):
+        _q = _cp[_i, _j]; _cp[_i, _j] = r.Point4d(_q.X, _q.Y, _q.Z * _OT["crown_rz"] / _OT["crown_r"], _q.W)
+_sp = r.Brep.CreateFromSurface(_ns); _sp.Transform(r.Transform.Translation(_OT["xy"][0] * MM, _OT["xy"][1] * MM, _OT["crown_z"] * MM))
+m.Objects.AddBrep(_sp, attr("77c_外構_樹冠・植え込み・苔（葉）"))
 m.Write(OUTF, 7)
 print("wrote", OUTF, len(m.Objects), "objects")
