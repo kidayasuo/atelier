@@ -61,6 +61,18 @@ for w in _ns['WALLS2']:
         a = (29.69, 29.94)          # 会議室｜階段：u30〜33 は階段の箱の西の壁（同じ線）と重なる → 箱の壁の端（29.94）まで
     WALLS.append(dict(kind=kind, c=float(c), a=(float(a[0]), float(a[1])), holes=holes, z0=FL2, top='rule', name='2階の間仕切り'))
 N2 = len(WALLS) - N1
+# 2 階の更衣｜会議室（u29.69、add_hall.py が会議室の南の端を更衣に仕切った線。10-29 夕：この段で 24 を作り直すときに表に無く、消えていた）。
+# 戸は通路から会議室へ（v−6.6〜−5.8、h2100、add_hall.py と同じ）
+WALLS.append(dict(kind='u', c=29.69, a=(-14.5, -5.0), holes=[(-6.6, -5.8, FL2, FL2 + DOOR_H)], z0=FL2, top='rule', name='2階の間仕切り（更衣・通路｜会議室）'))
+# 更衣（職員のロッカー室、u27.75〜29.69・v−7.0〜−13.3）の室内窓（10-29 夕、ユーザー：更衣が暗いので室内窓、屋根に穴は開けない）：
+# となりの明るい部屋（休憩室 u27.75・会議室 u29.69・通路 v−7.0）との間仕切りの上に、すりガラスのはめ殺しの欄間。2FL＋2.1（戸の上端にそろえる、
+# ロッカー h1.8 より上）から間仕切りの上端（屋根・梁の下）まで、幅は更衣に面する長さなり、2.0 m 以下の板に分ける。間仕切りはその上を除いた箱
+TRANSOM = {('u', 27.75): (-14.5, -7.06), ('u', 29.69): (-14.5, -7.06), ('v', -7.0): (27.81, 29.63)}
+TR_Z0 = FL2 + DOOR_H
+for w in WALLS:
+    k_ = (w['kind'], round(w['c'], 2))
+    if k_ in TRANSOM and w['z0'] >= FL2 - 1:
+        w['transom'] = TRANSOM[k_]; w['holes'] = list(w['holes']) + [(TRANSOM[k_][0], TRANSOM[k_][1], TR_Z0, 1e5)]
 # 階段の箱（fix_details.py の西館の節：芯 u30・u33.9・v−5.0・v−2.99、床から屋根の下まで）。開口：1 階の登り口（東の面 u30.06〜30.9、h3170）、
 # 2 階の着き口（南の面、箱の内面のあいだ v−4.94〜−3.05、3170〜5350）、階段の下の倉庫の戸（西の面 u30.30〜31.50、h2100）
 SB = dict(u0=30.0, u1=33.9, v0=-5.0, v1=-2.99)
@@ -122,7 +134,7 @@ def meets_other(w, E, d):
         if -70 <= t <= L_ + 70 and abs((E - A) @ np.array([-e[1], e[0]])) < 70: return True
     return False
 
-CUTLOG = []; out_objs = []; stat = dict(walls=0, pieces=0, full=0, part=0, horiz=0, slope=0); info = []
+CUTLOG = []; out_objs = []; TR_GLASS = []; stat = dict(walls=0, pieces=0, full=0, part=0, horiz=0, slope=0); info = []
 for w in WALLS:
     for a0, a1, j0, j1 in pieces(w):
         P0, P1 = P_of(w, a0), P_of(w, a1)
@@ -168,8 +180,20 @@ for w in WALLS:
         # 当たる所は、欠き込まず、壁を縦の帯に分けて箱を短くし突き当てる（帯の境＝開口・当たる物の端。上端が勾配の壁は上の面だけ傾いた箱）。
         # 前は立面の形から欠き、厚みの一部にかかる物は浅い箱で欠いたので、厚みの面に 2.5〜8.6 の段・自分と交わる輪郭ができていた。
         top = lambda s: c0 + c1 * s
+        tr_rng = None
+        if w.get('transom'):                                             # 欄間は、上端が 2FL＋2.1 より 300 以上高い所だけ（西の低い軒の側は壁のまま）
+            ta_, tb_ = sorted((S_of(w['transom'][0]), S_of(w['transom'][1]))); ta_, tb_ = max(ta_, s_a), min(tb_, s_b)
+            if abs(c1) > 1e-9:
+                sx_ = (TR_Z0 + 300.0 - c0) / c1
+                if c1 > 0: ta_ = max(ta_, sx_)
+                else: tb_ = min(tb_, sx_)
+            elif c0 < TR_Z0 + 300.0: tb_ = ta_
+            if tb_ - ta_ > 300.0: tr_rng = (ta_, tb_)
         obst = []                                                    # (s0, s1, z0, z1)：箱を置かない所
         for h in w['holes']:
+            if h[3] >= 1e5:                                              # 欄間の穴
+                if tr_rng is not None: obst.append((tr_rng[0], tr_rng[1], TR_Z0, 1e5))
+                continue
             sa, sb = sorted((S_of(h[0]), S_of(h[1])))
             obst.append((sa, sb, h[2] if h[2] > z0 + 1 else z0 - 500.0, h[3]))
         def frame_pts(Pw): return np.c_[(Pw[:, :2] - P0) @ d, (Pw[:, :2] - P0) @ n, Pw[:, 2]]
@@ -232,6 +256,21 @@ for w in WALLS:
                     try: setattr(at, k_, getattr(ATTR0, k_))
                     except Exception: pass
             out_objs.append((mm, at)); stat['pieces'] += 1
+        if tr_rng is not None:                                           # 欄間のガラス（t12、壁の芯、平らな板の押し出し）
+            ta_, tb_ = tr_rng
+            if tb_ - ta_ > 100.0:
+                npn_ = int(math.ceil((tb_ - ta_) / 2000.0)); edges_ = np.linspace(ta_, tb_, npn_ + 1)
+                for e0_, e1_ in zip(edges_, edges_[1:]):
+                    q_ = [(e0_, TR_Z0), (e1_, TR_Z0), (e1_, top(e1_)), (e0_, top(e0_))]
+                    L_ = np.array([[x_, -6.0, z_] for x_, z_ in q_] + [[x_, 6.0, z_] for x_, z_ in q_])
+                    Fq_ = np.array([[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]])
+                    tq_ = trimesh.Trimesh(to_world(L_), Fq_, process=False)
+                    if tq_.volume < 0: tq_ = trimesh.Trimesh(to_world(L_), Fq_[:, ::-1], process=False)
+                    mg_ = r.Mesh()
+                    for x_, y_, z_ in np.asarray(tq_.vertices): mg_.Vertices.Add(float(x_), float(y_), float(z_))
+                    for a_, b_, c_ in np.asarray(tq_.faces): mg_.Faces.AddFace(int(a_), int(b_), int(c_))
+                    mg_.Normals.ComputeNormals(); mg_.Compact()
+                    TR_GLASS.append((mg_, w['name'])); stat['transom'] = stat.get('transom', 0) + 1
     stat['walls'] += 1
 
 # 優先の低い物（家具 I・外の付属 X）は、作り直した壁と重なる所を削る（削る段と同じ決まり。弦にした壁が家具に数 mm 食い込む所）
@@ -259,9 +298,15 @@ for i, o in enumerate(m.Objects):
     if i in DROP: continue
     out.Objects.Add(FIX.get(i, o.Geometry), o.Attributes)
 for mm, at in out_objs: out.Objects.AddMesh(mm, at)
+if TR_GLASS:                                                             # すりガラスの室内窓（欄間）のレイヤー（一つのレイヤーに一つの素材：27 は透明、27f はすりガラス）
+    lf_ = r.Layer(); lf_.Name = '27f_西館_室内窓（すりガラス、欄間）'; lf_.Color = (205, 222, 232, 255)
+    L27F = out.Layers.Add(lf_)
+    for mg_, nm_ in TR_GLASS:
+        at = r.ObjectAttributes(); at.LayerIndex = L27F; at.Name = '室内窓（欄間、すりガラス t12、はめ殺し、更衣の明かり、' + nm_ + '）'
+        out.Objects.AddMesh(mg_, at)
 out.Write(OUT, 8)
 print(f'west_walls: 西館の間仕切り {len(DROP)} 物を捨て、壁 {stat["walls"]} 枚（1 階 {N1}・2 階 {N2}・階段の箱 4・北の壁と腰壁 2）を {stat["pieces"]} 片の直方体に'
-      f'（上端 水平 {stat["horiz"]}・勾配 {stat["slope"]}、開口・優先の物で箱を分けた所 {stat["full"]}、壁で削った家具 {stat.get("cut_I", 0)}）')
+      f'（上端 水平 {stat["horiz"]}・勾配 {stat["slope"]}、開口・優先の物で箱を分けた所 {stat["full"]}、壁で削った家具 {stat.get("cut_I", 0)}、更衣の欄間のガラス {stat.get("transom", 0)} 枚）')
 for x in info: print('  ', x)
 if os.environ.get('WW_LOG'):
     for x in CUTLOG: print('   cut', x)
