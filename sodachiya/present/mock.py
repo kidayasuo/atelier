@@ -539,6 +539,7 @@ info = dict(building=[round(BX1 - BX0, 1), round(BY1 - BY0, 1)], site=[round(SX1
 print("建物の外形（m）", info["building"], " 敷地（m）", info["site"])
 
 embeds = {i: [] for i in range(1, 6)}
+EMB_DWG = {}  # (枚, embeds の番号) → 図面のグループに入れる重ね（採光の図を断面図Dのグループに、10-29）
 SOZAI = []   # 素材：mock.pyが描いた図の範囲（紙のmm、左下）。書き出しで一つずつPDFに（ユーザー、10-25：.aiは素材から作る）
 
 
@@ -2170,17 +2171,22 @@ figs.append(fig)
 
 # ================================================================ 3　環境（10-28 13:17：5枚目から3枚目へ。ユーザー、10-24夜：断面2面と環境への配慮、縦断Aもここ）
 fig, ax = page()
-frame(ax, 3, "断面と環境", "二つの横断（1/100）が主役。断面Cに空気の環境（本館と西館の架構と風の道）、断面D（本館、光の筋で切る）に光の環境。季節ごとの運転と環境への配慮を断面Cの右に",
-      "断面C（空気）→ 季節ごとの空気環境・配慮 → 断面D（光）→ inspired by・面積表")
-# 10-29 9:46（ユーザー）：横断の断面図が説明の主役。断面Cと断面Dは上と左右に矢印や注を描き込める余白（ユーザーが .ai で）。
-# 光の筋 1/20 と接合部の詳細は外した。縦断A は 124 mm の高さがあり細い帯にならないので外した（課題の断面2面は C と D）
+frame(ax, 3, "断面と環境", "上に縦断A（弧の長さ）を一続きに。その下で二つの横断（1/100）が主役：断面Cに空気の環境（本館と西館の架構と風の道）、断面D（本館、光の筋で切る）に光の環境。右の列に季節ごとの空気環境・環境への配慮・inspired byと面積表",
+      "縦断A（上の帯）→ 断面C（空気）→ 季節ごとの空気環境・配慮 → 断面D（光）→ inspired by・面積表")
+# 10-29 9:46（ユーザー）：横断の断面図が説明の主役。断面Cと断面Dは上と左右に矢印や注を描き込める余白（ユーザーが .ai で）。光の筋 1/20 と接合部の詳細は外した。
+# 10-29 14:03（ユーザー）：「上繋がりで、それ（縦断）を一番上に置くのはどうでしょう」→ 縦断A を紙の上の帯のすぐ下に左から右へ。上下の空白（通り芯の上・地面の下）は切り抜きで詰めた
+CLIP_SA3 = (54, 56.5, 821.5, 167)
+_tA = H - M - 16 - 7
+title(ax, M + 6, _tA, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
+_ya = _tA - 4 - (CLIP_SA3[3] - CLIP_SA3[1])
+embed(3, SEC, CLIP_SA3, M + 6 + (W - 2 * M - 12 - (CLIP_SA3[2] - CLIP_SA3[0])) / 2, _ya, 1.0, dwg=("SA", "縦断面図A"))
 CLIP_C2 = (432, 252, 830, 382)
 CSC = 1.0                                       # 課題は断面 1/100・2面以上（ユーザー、10-27夜：1/75 をやめる）
 hC = (CLIP_C2[3] - CLIP_C2[1]) * CSC
 wC = (CLIP_C2[2] - CLIP_C2[0]) * CSC
-AIR = 40                                        # 断面の上に、矢印と注を描き込む余白（mm）
+AIR = 30                                        # 断面の上に、矢印と注を描き込む余白（mm、10-29 14:03：縦断Aを上に戻したので40→30）
 SIDE = 30                                       # 断面の左右の余白（mm）
-_tC = H - M - 16 - 8                            # 断面Cの題の高さ
+_tC = _ya - 10                                  # 断面Cの題の高さ（縦断Aの下）
 cx, cy = M + 6 + SIDE, _tC - 8 - AIR - hC
 title(ax, M + 6, _tC, "断面図C　東西に切る（4歳・遊戯室）", "1/100　空気の環境：本館と西館の架構、昼と夏の夜の風の道")
 embed(3, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"))
@@ -2296,7 +2302,8 @@ for _vf in sorted(glob.glob(os.path.join(ROOT, "drawings", "sodachiya_sections*_
     try:
         for _v in json.load(open(_vf, encoding="utf-8")).get("views", []):
             if _v.get("name", "").startswith("断面D"):
-                _SD = (_vf[:-len("_views.json")] + ".pdf", tuple(_v["clip_paper_mm"]))
+                _c = _v["clip_paper_mm"]                  # 上の 8 mm は図の題（題は mock.py が書く）なので切る
+                _SD = (_vf[:-len("_views.json")] + ".pdf", (_c[0], _c[1] + 8, _c[2], _c[3]))
     except Exception:
         pass
 DW, DH = (_SD[1][2] - _SD[1][0], _SD[1][3] - _SD[1][1]) if _SD else (250.0, 90.0)   # 無いあいだは約25 m×約9 m（西の吹き抜けの縁から東の外縁側の先まで）
@@ -2370,13 +2377,26 @@ if _HAIRYO_TOP_EST - _hr < _by + _bh + 6:
     raise SystemExit("3枚目：環境への配慮が右下の囲みに重なる")
 # 断面D は断面Cの下と囲みの上のあいだの真ん中に（上に光の矢印を描く余白 AIR）
 _r2t, _r2b = cy - 14, M + 8
-AIR_D = 60                                      # 断面Dの上の余白（光の矢印、下の段が空いた分を回した 10-29）
+AIR_D = 42                                      # 断面Dの上の余白（10-29：採光の図（素材17）が上へ約36 mm はみ出す、30 mm 以上残す）
 _tD = (_r2t + _r2b) / 2 + (8 + AIR_D + DH) / 2
 dx, dy = cx + (wC - DW) / 2, _tD - 8 - AIR_D - DH
 title(ax, M + 6, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根")
 if _SD and os.path.exists(_SD[0]):
     embed(3, _SD[0], _SD[1], dx, dy, 1.0, dwg=("D", "断面図D"))
     print("断面D：", os.path.basename(_SD[0]), _SD[1])
+    # 採光の図（素材17、present/tools/saikou.py）を断面Dの上に重ねる。置き場所は 17_光の環境_断面.json（断面Dの紙の mm、1 mm＝1 mm）。
+    # 見本には PDF を重ね、.ai では 17_光の環境_断面_parts.json の文字と線の部品を、断面図Dのグループの中のグループ「光の環境」に（ユーザー 10-29 14:11）
+    _s17 = os.path.join(HERE, "sozai", "17_光の環境_断面.pdf")
+    _j17 = os.path.join(HERE, "sozai", "17_光の環境_断面.json")
+    _q17 = os.path.join(HERE, "sozai", "17_光の環境_断面_parts.json")
+    if os.path.exists(_s17) and os.path.exists(_j17):
+        _p17 = json.load(open(_j17, encoding="utf-8"))["page_paper_mm"]
+        _x17 = dx + (_p17[0] - _SD[1][0])
+        _y17 = (dy + DH) - (_p17[3] - _SD[1][1])
+        EMB_DWG[(3, len(embeds[3]))] = dict(dwg="断面図D", parts=_q17 if os.path.exists(_q17) else None,
+                                            tl=(dx, H - (dy + DH)), origin=(_SD[1][0], _SD[1][1]), group=("saikou", "光の環境"))
+        embed(3, _s17, None, _x17, _y17, 1.0)
+        print("採光の図（素材17）：断面Dの上に、上へ %.1f mm はみ出す（余白 %d mm）、.ai は%s" % (_SD[1][1] - _p17[1], AIR_D, "部品" if os.path.exists(_q17) else "PDF"))
 else:
     box(ax, dx, dy, DW, DH, "断面図D　本館の横断（光の筋で切る）1/100　北を見る",
         "光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根\n（更新係の図を待つ：20261029-0946-present）")
@@ -2689,7 +2709,7 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
 print("Rhino の図：", "、".join(RHINO_USED) if RHINO_USED else "無し（drawings_rhino/ が無いので自動の図のまま）")
-ai_layout.write(dict(siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
+ai_layout.write(dict(emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
                      renumber=dict(id="2026-10-28b", maps={"2026-10-28": {"4": 2, "5": 3, "2": 4, "3": 5}, "_none": {"5": 3, "3": 4, "4": 5}},
                                    note="ユーザー、10-28 13:17：5枚の番号を振り直した（前の番号 → 新しい番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"),
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))

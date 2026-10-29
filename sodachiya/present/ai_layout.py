@@ -155,6 +155,26 @@ def write(c):
                     q["dwg"] = dw["name"]
                     q["mock_hash"] = djb2(q["s"]) if q["kind"] == "text" else djb2(q.pop("geo"))
                     add(q)
+            elif (no, k_e) in c.get("emb_dwg", {}):
+                # 図面に重ねる物（採光の図を断面図Dに、10-29）：部品の一覧があれば文字と線を一つずつ（図面のグループの中のグループ）、無ければ PDF のリンク
+                ed = c["emb_dwg"][(no, k_e)]
+                if ed.get("parts") and os.path.exists(ed["parts"]):
+                    T_ = lambda q: [round(ed["tl"][0] + (q[0] - ed["origin"][0]), 3), round(ed["tl"][1] + (q[1] - ed["origin"][1]), 3)]
+                    for q in json.load(open(ed["parts"], encoding="utf-8"))["parts"]:
+                        q = json.loads(json.dumps(q))
+                        if "x" in q and "y" in q:
+                            q["x"], q["y"] = T_((q["x"], q["y"]))
+                        for pp in q.get("paths", []):
+                            pp["pts"] = [T_(v) for v in pp["pts"]]
+                        if q.get("group_name"):
+                            q["name"] = q.get("name") or q["group_name"]
+                        q["group"], q["group_name"] = ed["group"]
+                        q["dwg"] = ed["dwg"]
+                        q.setdefault("mock_hash", djb2(json.dumps(q, ensure_ascii=False, sort_keys=True)))
+                        add(q)
+                else:
+                    add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {os.path.basename(src)}", kind="link", layer="図",
+                             file=rel(src), x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2), clip=None, scale=1, page=pno + 1, dwg=ed["dwg"]))
             else:
                 full = clip[0] == 0 and clip[1] == 0
                 add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {os.path.basename(src)}", kind="link", layer="図",
