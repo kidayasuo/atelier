@@ -123,15 +123,13 @@ L70 = "70_外構_生垣・塀・格子"
 _Y.to3dm(slab, E(A.GA1, 0), A.FENCE_END, L70)                                         # 公園側の塀
 _Y.to3dm(slab, E(0, 0), E(A.GA0, 0), L70)
 _Y.to3dm(slab, E(A.GA0 + 0.02, 0), E(A.GA1 - 0.02, 0), "72_外構_柱")                   # 公園の木戸の扉（閉じた位置）
-# 71 roofs (flat placeholders, 100 thick): kido 2.6, temizu 2.7, lean-to 2.6, back-door canopy 2.6
-slab(srect(*A.TEM), 2.7, 0.1, "71_外構_屋根（木戸・手水・下屋）")
+# 71 roofs (flat placeholders, 100 thick): kido 2.6, lean-to 2.6, back-door canopy 2.6
+# 手水の屋根は無し（ユーザー 10-30）
 import north_common as _NC0
 NC_WS = _NC0.WS
 slab_smooth(list(A.LEAN_ROOF.exterior.coords)[:-1], 2.6, 0.1, "71_外構_屋根（木戸・手水・下屋）")      # 下屋＋南西の丸みへの回り込み（勝手口の庇は外した、10-24）
 for _g in getattr(A.LEAN_GUTTER, "geoms", [A.LEAN_GUTTER]): add_curve(list(_g.coords), "75_外構_ひろばの家具", 2.6)   # 下屋の軒樋
 # 72 posts
-s0, s1, d0, d1 = A.TEM
-for p in [P(s0 + 0.3, d0 + 0.3), P(s1 - 0.3, d0 + 0.3), P(s0 + 0.3, d1 - 0.3), P(s1 - 0.3, d1 - 0.3)]: post(p, 2.7)
 for p in A.LEAN_POSTS: post(p, 2.6)
 # 73 arched trellis: posts at the frames, 桁, arched beams every ~1.5 m (spring 2.25, rise 0.28) to the wall
 PG_D = A.HEDGE_D + A.HW + 0.15
