@@ -2559,8 +2559,7 @@ def make_siteplan():
         q = M(e['xy']); A.ax.add_patch(plt.Circle(tuple(A.rot(q)), 350, fc='#D33A3A', ec='none', zorder=9))
     sl = SP.get('security_line')
     if sl: A.lines([M(sl['pts'])], '70_断面の位置', lw=0.25, color='#D33A3A', ls=(0, (6, 3)), z=8)
-    for w in SP.get('walks', {}).get('pts', []):
-        A.lines([M(w)], '10_見えがかり', lw=0.15, color='#8B5A2B', ls=(0, (2, 2)), z=7)
+    # 道すじ（SP['walks'] の茶の破線）は描かない（ユーザー 10-29：配置図の動線は全て消す。データは残す）
     for t in SP.get('trees', []):
         q = M(t['xy']); A.text(q[0], q[1] - t.get('r', 1.5) * 1000 - 400, t['name'], 5, '60_部屋名・面積', color='#4E6B34')
     SZ = {'key': 8, 'name': 6.5, 'small': 5, 'context': 6.5}
