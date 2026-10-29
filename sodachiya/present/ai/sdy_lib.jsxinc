@@ -185,6 +185,75 @@ SDY.applyRuns = function (tf, runs, id) {            // 区間ごとに当てる
     }
     if (bad) { SDY.missing.push("書式を当てられなかった（文が変わって段落が合わない）：" + id + "（" + bad + " か所）"); }
 };
+// 重ね順（ユーザー 10-29 17:39）：重ね順はレイヤーの中だけで効く。layout.json の order（グループ a を b の上に）と、
+// 書き出した layout_user.json の stacking（レイヤーごとの、いちばん上の階の物の上からの並び）を build・update_texts の終わりに当てる
+SDY.topOf = function (it) { var q = it; try { while (q.parent && q.parent.typename !== "Layer") { q = q.parent; } } catch (e) {} return q; };
+SDY.stackKey = function (it) {
+    var t = SDY.parseTag(it), u = SDY.userKey(it);
+    if (t) { return "t:" + t.id; }
+    if (u) { return "u:" + u; }
+    if (it.typename === "GroupItem" && it.name) { return "g:" + it.name; }
+    return null;
+};
+SDY.stackingOf = function (doc, rid) {               // 書き出し：{レイヤーの名前: [鍵（上から）]}
+    var out = {}, i, k, L, it, key, arr;
+    for (i = 0; i < doc.layers.length; i++) {
+        L = doc.layers[i]; arr = [];
+        for (k = 0; k < L.pageItems.length; k++) {
+            it = L.pageItems[k];
+            try { if (it.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
+            key = SDY.stackKey(it);
+            if (key && key.indexOf("t:") === 0 && rid) { key = "t:" + rid(key.substring(2)); }
+            if (key) { arr.push(key); }
+        }
+        if (arr.length) { out[L.name] = arr; }
+    }
+    return out;
+};
+SDY.findGroupTop = function (doc, name, lay) {       // いちばん上の階の、名前のグループ（レイヤーを指せばそのレイヤーを先に）
+    var i, g, cand = null;
+    for (i = 0; i < doc.groupItems.length; i++) {
+        g = doc.groupItems[i];
+        try { if (g.name !== name || g.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
+        if (!lay || g.layer === lay) { return g; }
+        if (!cand) { cand = g; }
+    }
+    return cand;
+};
+SDY.applyOrder = function (doc, L) {                 // layout.json の order：{layer, name, above}（name のグループを above のグループのすぐ上に）
+    var k, r, lay, a, b, n = 0;
+    for (k = 0; k < ((L && L.order) || []).length; k++) {
+        r = L.order[k];
+        try {
+            lay = SDY.layer(doc, r.layer);
+            a = SDY.findGroupTop(doc, r.name, lay); b = SDY.findGroupTop(doc, r.above, lay);
+            if (!a || !b) { continue; }
+            if (a.layer !== lay) { a.move(lay, ElementPlacement.PLACEATBEGINNING); }
+            if (b.layer !== lay) { continue; }
+            a.move(b, ElementPlacement.PLACEBEFORE); n++;
+        } catch (e) { SDY.missing.push("重ね順（" + r.name + "）：" + e.message); }
+    }
+    return n;
+};
+SDY.applyStacking = function (doc, U) {              // layout_user.json の stacking：書き出したときの並びに（レイヤーを移した物はそのレイヤーへ）
+    if (!U || !U.stacking) { return 0; }
+    var map = SDY.findByTag(doc), um = SDY.userKeys(doc), ln, arr, lay, k, key, it, n = 0;
+    for (ln in U.stacking) {
+        if (!U.stacking.hasOwnProperty(ln)) { continue; }
+        arr = U.stacking[ln];
+        try { lay = doc.layers.getByName(ln); } catch (e) { continue; }   // 編集モードなどの無いレイヤーは飛ばす
+        for (k = arr.length - 1; k >= 0; k--) {                          // 下から順に上へ積む
+            key = arr[k]; it = null;
+            if (key.indexOf("t:") === 0) { it = map[key.substring(2)]; }
+            else if (key.indexOf("u:") === 0) { it = um[key.substring(2)]; }
+            else if (key.indexOf("g:") === 0) { it = SDY.findGroupTop(doc, key.substring(2), lay); }
+            if (!it) { continue; }
+            it = SDY.topOf(it);
+            try { it.move(lay, ElementPlacement.PLACEATBEGINNING); n++; } catch (e1) {}
+        }
+    }
+    return n;
+};
 SDY.missing = [];
 // 5枚の番号の振り直し（ユーザー、10-28・10-28 13:17）：layout.json の renumber.maps（前の番号 → 新しい番号）。
 // 前に組んだときの layout_built.json の renumber の id で、今の .ai がどの番号かを見る（renumber が無ければ最初の番号＝"_none"）。

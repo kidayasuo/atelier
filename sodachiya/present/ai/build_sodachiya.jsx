@@ -66,6 +66,7 @@
     }
     try { SDY.groupPlan(doc, L); } catch (e) { SDY.missing.push("配置図のまとめ（" + e.message + "）"); }
     try { SDY.groupDrawings(doc, L); } catch (e) { SDY.missing.push("図面のまとめ（" + e.message + "）"); }
+    try { SDY.applyOrder(doc, L); SDY.applyStacking(doc, U); } catch (e) { SDY.missing.push("重ね順（" + e.message + "）"); }   // 重ね順：決め打ち → 書き出した並び（10-29）
     if (out.exists) {                                  // 前のファイルは old/ に日時を付けて退け、同じ名前で保存する（ユーザー、10-26：名前が増えていく）
         var d = new Date();
         var st = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2) + "-" + ("0" + d.getHours()).slice(-2) + ("0" + d.getMinutes()).slice(-2);

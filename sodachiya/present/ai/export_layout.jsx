@@ -20,7 +20,7 @@
     // update_texts で後から足した部品（組んだときに無かった物）は、layout.json の位置と比べる（動かしていなければ書き出さない、10-29）
     if (L && LB !== L) { for (bi = 0; bi < L.pages.length; bi++) { for (bj = 0; bj < L.pages[bi].parts.length; bj++) { if (!BUILT[L.pages[bi].parts[bj].id]) { BUILT[L.pages[bi].parts[bj].id] = L.pages[bi].parts[bj]; } } } }
     var same = function (rec, o) {                     // 組んだときから動いていないか（0.3 mm）
-        if (!o || rec.s !== undefined || rec.style !== undefined) { return false; }
+        if (!o || rec.s !== undefined || rec.style !== undefined || rec.layer !== undefined) { return false; }
         var a = ["x", "y", "w", "h"], k2;
         for (k2 = 0; k2 < a.length; k2++) { if (rec[a[k2]] !== undefined && o[a[k2]] !== undefined && o[a[k2]] !== null && Math.abs(rec[a[k2]] - o[a[k2]]) > 0.3) { return false; } }
         if (rec.pts && o.pts) {
@@ -73,6 +73,7 @@
             rec.x = (b[0] - r[0]) / K; rec.y = (r[1] - b[1]) / K; rec.w = (b[2] - b[0]) / K; rec.h = (b[1] - b[3]) / K;
         }
         rec.artboard = rab(ai + 1);
+        try { var lyn = it.layer.name, bp = BUILT[oid]; if (bp && bp.layer && lyn !== bp.layer && lyn !== "編集モード" && lyn !== "Isolation Mode") { rec.layer = lyn; } } catch (e7) {}   // レイヤーを移した部品（10-29）
         if ((t.kind === "text" || t.kind === "area") && it.typename === "TextFrame") {
             // 書き換えた文字だけ。そのときの mock の文の印（s_base）も：mock の文が後で変わったら、記録の文は使わない（10-29）。
             // 設計趣旨（p1.concept）は concept.txt が正本なので文は記録しない（位置・大きさだけ、10-29）
@@ -107,6 +108,7 @@
             }
         } catch (e3) { bad.push("配置図の切り抜き（" + e3.message + "）"); }
     }
+    try { out.stacking = SDY.stackingOf(doc, rid); } catch (e8) { bad.push("重ね順（" + e8.message + "）"); }   // レイヤーごとの重ね順（10-29）
     if (LB && LB.anchors) { out.anchors = LB.anchors; }   // 組んだときの配置図の目印（木田さんの物がどの配置図の上に描かれたか）
     // 木田さんが足した物（印の無い物、どの深さのグループの中でも）を台帳に。layout_user.json が正本で、build・update_texts はここから描き直す（10-29）。
     // 一つずつ印 sdyu:<鍵> を付けて次から同じ物と分かるように。前の書き出しにあって今回見つからない物は deleted_user へ（消した物は build で描かない）
