@@ -102,3 +102,6 @@ Illustrator のスクリプトで、それを部品ごとに動かせる .ai に
 - **図が新しくなったとき**（更新係の作り直し・Rhinoの図）：git pullして`.ai`を開いたまま`update_texts.jsx`。線のリンクを読み直し、形の変わった線の部品は作り直し、新しい部品を足し、図から無くなった部品は外す（動かしてある部品は、書き出してあればその位置）。図の大きさは変わらないのでbuildは要らない。
 - 前に組んだ`.ai`は、git pullのあと`update_texts.jsx`を一度：図のリンクが線だけの写しに替わり（Rhinoの「文字と寸法」のリンクは外れる）、文字と寸法の部品が足されて、図ごとのグループにまとまる。
 
+
+## 鳥瞰の想像図（10-29）
+- 2枚目の鳥瞰は素材16（`sozai/16_鳥瞰.pdf`）。絵は写真`present/photo/choukan.jpg`→Rhinoのレンダリング`rhino/out/choukan.png`（`rhino/choukan_render.py`）→仮の想像図`out/choukan_kari.png`（3dmから自動）の順に使う。写真に替える日は、写真を`present/photo/choukan.jpg`に置いてpush→mock.py。素材の名前は同じまま中身だけ替わるので、.aiのリンクがそのまま写真になる（update_texts、大きさは同じ297×210 mm）。

@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-29 09:04",
+"generated": "2026-10-29 09:13",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -2560,6 +2560,19 @@
 "frame": true,
 "parts": [
 {
+"id": "p2.sozai.16",
+"name": "素材 16_鳥瞰",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/16_鳥瞰.pdf",
+"x": 21.0,
+"y": 361.0,
+"w": 297,
+"h": 210,
+"clip": null,
+"scale": 1
+},
+{
 "id": "p2.sozai.03",
 "name": "素材 03_沿川の景観立面_昼_1-300",
 "kind": "link",
@@ -2984,6 +2997,181 @@
 "mock_hash": "2d5cfc28"
 },
 {
+"id": "p2.dwg.E1.dim.4,825西館の軒の高さ.l",
+"name": "線　4,825　西館の軒の高さ",
+"kind": "lines",
+"layer": "図",
+"x": 32.09,
+"y": 101.94,
+"w": 6.05,
+"h": 50.01,
+"paths": [
+{
+"pts": [
+[
+36.343,
+151.072
+],
+[
+36.343,
+102.872
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+36.343,
+102.872
+],
+[
+36.343,
+102.825
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+38.143,
+151.072
+],
+[
+34.543,
+151.072
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+37.227,
+151.956
+],
+[
+35.459,
+150.188
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.51,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+38.143,
+102.825
+],
+[
+34.543,
+102.825
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+37.227,
+103.709
+],
+[
+35.459,
+101.941
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.51,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+35.119,
+140.259
+],
+[
+35.119,
+113.638
+],
+[
+32.09,
+113.638
+],
+[
+32.09,
+140.259
+]
+],
+"closed": true,
+"stroke": null,
+"fill": "#ffffff",
+"lw": 0.0,
+"dash": null,
+"op": 0.85,
+"eo": false
+}
+],
+"group": "dwg.E1.dim.4,825西館の軒の高さ",
+"group_name": "寸法　4,825　西館の軒の高さ",
+"dwg": "立面図　園庭の側",
+"mock_hash": "d33c8c98"
+},
+{
+"id": "p2.dwg.E1.dim.4,825西館の軒の高さ.t",
+"name": "4,825　西館の軒の高さ",
+"kind": "text",
+"layer": "図",
+"x": 34.47,
+"y": 126.94,
+"s": "4,825　西館の軒の高さ",
+"size_pt": 7.1,
+"font": "W3",
+"color": "#2e7d32",
+"align": "center",
+"rot": 90.0,
+"group": "dwg.E1.dim.4,825西館の軒の高さ",
+"group_name": "寸法　4,825　西館の軒の高さ",
+"dwg": "立面図　園庭の側",
+"mock_hash": "7af2b9e6"
+},
+{
 "id": "p2.dwg.E1.dim.4,893本館の最高.l",
 "name": "線　4,893　本館の最高",
 "kind": "lines",
@@ -3157,181 +3345,6 @@
 "group_name": "寸法　4,893　本館の最高",
 "dwg": "立面図　園庭の側",
 "mock_hash": "b738dea3"
-},
-{
-"id": "p2.dwg.E1.dim.4,550西館の軒の高さ.l",
-"name": "線　4,550　西館の軒の高さ",
-"kind": "lines",
-"layer": "図",
-"x": 32.09,
-"y": 104.69,
-"w": 6.05,
-"h": 47.27,
-"paths": [
-{
-"pts": [
-[
-36.343,
-151.072
-],
-[
-36.343,
-105.572
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-36.343,
-105.572
-],
-[
-36.343,
-105.569
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-38.143,
-151.072
-],
-[
-34.543,
-151.072
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-37.227,
-151.956
-],
-[
-35.459,
-150.188
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.51,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-38.143,
-105.569
-],
-[
-34.543,
-105.569
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-37.227,
-106.452
-],
-[
-35.459,
-104.685
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.51,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-35.119,
-141.631
-],
-[
-35.119,
-115.009
-],
-[
-32.09,
-115.009
-],
-[
-32.09,
-141.631
-]
-],
-"closed": true,
-"stroke": null,
-"fill": "#ffffff",
-"lw": 0.0,
-"dash": null,
-"op": 0.85,
-"eo": false
-}
-],
-"group": "dwg.E1.dim.4,550西館の軒の高さ",
-"group_name": "寸法　4,550　西館の軒の高さ",
-"dwg": "立面図　園庭の側",
-"mock_hash": "c2d232a2"
-},
-{
-"id": "p2.dwg.E1.dim.4,550西館の軒の高さ.t",
-"name": "4,550　西館の軒の高さ",
-"kind": "text",
-"layer": "図",
-"x": 34.47,
-"y": 128.31,
-"s": "4,550　西館の軒の高さ",
-"size_pt": 7.1,
-"font": "W3",
-"color": "#2e7d32",
-"align": "center",
-"rot": 90.0,
-"group": "dwg.E1.dim.4,550西館の軒の高さ",
-"group_name": "寸法　4,550　西館の軒の高さ",
-"dwg": "立面図　園庭の側",
-"mock_hash": "b08e1881"
 },
 {
 "id": "p2.dwg.E1.level.2FL+3,250.l",
@@ -4291,6 +4304,181 @@
 "mock_hash": "2d5cfc28"
 },
 {
+"id": "p2.dwg.E2.dim.4,825西館の軒の高さ.l",
+"name": "線　4,825　西館の軒の高さ",
+"kind": "lines",
+"layer": "図",
+"x": 32.09,
+"y": 248.7,
+"w": 6.05,
+"h": 50.01,
+"paths": [
+{
+"pts": [
+[
+36.343,
+297.828
+],
+[
+36.343,
+249.628
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+36.343,
+249.628
+],
+[
+36.343,
+249.581
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+38.143,
+297.828
+],
+[
+34.543,
+297.828
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+37.227,
+298.711
+],
+[
+35.459,
+296.944
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.51,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+38.143,
+249.581
+],
+[
+34.543,
+249.581
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.255,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+37.227,
+250.464
+],
+[
+35.459,
+248.697
+]
+],
+"closed": false,
+"stroke": "#2e7d32",
+"fill": null,
+"lw": 0.51,
+"dash": null,
+"op": 1.0,
+"eo": false
+},
+{
+"pts": [
+[
+35.119,
+287.015
+],
+[
+35.119,
+260.393
+],
+[
+32.09,
+260.393
+],
+[
+32.09,
+287.015
+]
+],
+"closed": true,
+"stroke": null,
+"fill": "#ffffff",
+"lw": 0.0,
+"dash": null,
+"op": 0.85,
+"eo": false
+}
+],
+"group": "dwg.E2.dim.4,825西館の軒の高さ",
+"group_name": "寸法　4,825　西館の軒の高さ",
+"dwg": "立面図　道路の側",
+"mock_hash": "d33c8c98"
+},
+{
+"id": "p2.dwg.E2.dim.4,825西館の軒の高さ.t",
+"name": "4,825　西館の軒の高さ",
+"kind": "text",
+"layer": "図",
+"x": 34.47,
+"y": 273.69,
+"s": "4,825　西館の軒の高さ",
+"size_pt": 7.1,
+"font": "W3",
+"color": "#2e7d32",
+"align": "center",
+"rot": 90.0,
+"group": "dwg.E2.dim.4,825西館の軒の高さ",
+"group_name": "寸法　4,825　西館の軒の高さ",
+"dwg": "立面図　道路の側",
+"mock_hash": "7af2b9e6"
+},
+{
 "id": "p2.dwg.E2.dim.4,893本館の最高.l",
 "name": "線　4,893　本館の最高",
 "kind": "lines",
@@ -4464,181 +4652,6 @@
 "group_name": "寸法　4,893　本館の最高",
 "dwg": "立面図　道路の側",
 "mock_hash": "b738dea3"
-},
-{
-"id": "p2.dwg.E2.dim.4,550西館の軒の高さ.l",
-"name": "線　4,550　西館の軒の高さ",
-"kind": "lines",
-"layer": "図",
-"x": 32.09,
-"y": 251.44,
-"w": 6.05,
-"h": 47.27,
-"paths": [
-{
-"pts": [
-[
-36.343,
-297.828
-],
-[
-36.343,
-252.328
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-36.343,
-252.328
-],
-[
-36.343,
-252.324
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-38.143,
-297.828
-],
-[
-34.543,
-297.828
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-37.227,
-298.711
-],
-[
-35.459,
-296.944
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.51,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-38.143,
-252.324
-],
-[
-34.543,
-252.324
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.255,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-37.227,
-253.208
-],
-[
-35.459,
-251.44
-]
-],
-"closed": false,
-"stroke": "#2e7d32",
-"fill": null,
-"lw": 0.51,
-"dash": null,
-"op": 1.0,
-"eo": false
-},
-{
-"pts": [
-[
-35.119,
-288.387
-],
-[
-35.119,
-261.765
-],
-[
-32.09,
-261.765
-],
-[
-32.09,
-288.387
-]
-],
-"closed": true,
-"stroke": null,
-"fill": "#ffffff",
-"lw": 0.0,
-"dash": null,
-"op": 0.85,
-"eo": false
-}
-],
-"group": "dwg.E2.dim.4,550西館の軒の高さ",
-"group_name": "寸法　4,550　西館の軒の高さ",
-"dwg": "立面図　道路の側",
-"mock_hash": "c2d232a2"
-},
-{
-"id": "p2.dwg.E2.dim.4,550西館の軒の高さ.t",
-"name": "4,550　西館の軒の高さ",
-"kind": "text",
-"layer": "図",
-"x": 34.47,
-"y": 275.07,
-"s": "4,550　西館の軒の高さ",
-"size_pt": 7.1,
-"font": "W3",
-"color": "#2e7d32",
-"align": "center",
-"rot": 90.0,
-"group": "dwg.E2.dim.4,550西館の軒の高さ",
-"group_name": "寸法　4,550　西館の軒の高さ",
-"dwg": "立面図　道路の側",
-"mock_hash": "b08e1881"
 },
 {
 "id": "p2.dwg.E2.level.2FL+3,250.l",
@@ -5353,77 +5366,32 @@
 "mock_hash": "bb540ddf"
 },
 {
-"id": "p2.box.透視図（A4）　模型写真の鳥瞰",
-"name": "枠：透視図（A4）　模型写真の鳥瞰",
-"kind": "box",
-"layer": "注記",
-"x": 21.0,
-"y": 361.0,
-"w": 297,
-"h": 210,
-"fill": "#F4F1FF",
-"stroke": "#6B4FE0",
-"lw": 0.6,
-"dash": [
-3,
-2
-]
-},
-{
-"id": "p2.t.透視図（A4）模型写真の鳥瞰",
-"name": "透視図（A4）　模型写真の鳥瞰",
+"id": "p2.t.透視図（A4）鳥瞰の想像図",
+"name": "透視図（A4）　鳥瞰の想像図",
 "kind": "text",
-"layer": "注記",
-"x": 169.5,
-"y": 465.25,
-"s": "透視図（A4）　模型写真の鳥瞰",
-"size_pt": 14.17,
+"layer": "説明",
+"x": 21.0,
+"y": 358.0,
+"s": "透視図（A4）　鳥瞰の想像図",
+"size_pt": 16.53,
 "font": "W6",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "7d55730a"
+"color": "#222222",
+"align": "left",
+"mock_hash": "c8dbb01b"
 },
 {
 "id": "p2.t.南西の上空（公園と高野川の橋",
 "name": "南西の上空（公園と高野川の橋の上）から北東を見る",
 "kind": "text",
-"layer": "注記",
-"x": 169.5,
-"y": 470.26,
+"layer": "説明",
+"x": 101.2,
+"y": 358.0,
 "s": "南西の上空（公園と高野川の橋の上）から北東を見る",
-"size_pt": 10.24,
+"size_pt": 11.81,
 "font": "W3",
-"color": "#6B4FE0",
-"align": "center",
+"color": "#222222",
+"align": "left",
 "mock_hash": "abdd5c5c"
-},
-{
-"id": "p2.t.手前に道の側の静かな壁と公園",
-"name": "手前に道の側の静かな壁と公園、奥に弧の縁側と園庭",
-"kind": "text",
-"layer": "注記",
-"x": 169.5,
-"y": 474.76,
-"s": "手前に道の側の静かな壁と公園、奥に弧の縁側と園庭",
-"size_pt": 10.24,
-"font": "W3",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "df863ce2"
-},
-{
-"id": "p2.t.（模型ができるまではRhin",
-"name": "（模型ができるまでは Rhino の鳥瞰を仮に）",
-"kind": "text",
-"layer": "注記",
-"x": 169.5,
-"y": 479.26,
-"s": "（模型ができるまでは Rhino の鳥瞰を仮に）",
-"size_pt": 10.24,
-"font": "W3",
-"color": "#6B4FE0",
-"align": "center",
-"mock_hash": "af82244f"
 },
 {
 "id": "p2.t.沿川の景観立面昼",
@@ -47887,15 +47855,15 @@
 "name": "こどもたちの育ち舎　3dm（sodachiya.",
 "kind": "text",
 "layer": "図",
-"x": 56.65,
+"x": 56.46,
 "y": 584.63,
-"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-29 08:08（atelier 6ab94c4 の次の版の 3dm）",
+"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-29 08:49（atelier 1173fdc の次の版の 3dm）",
 "size_pt": 4.5,
 "font": "W3",
 "color": "#737373",
 "align": "center",
 "dwg": "平面図",
-"mock_hash": "b137dffc"
+"mock_hash": "5af902fd"
 },
 {
 "id": "p4.top.こどもたちの育ち舎45平面図",

@@ -76,3 +76,4 @@
 - 10-29：配置図の河原を橋に向かって細らせた（航空写真で測った幅、mock.pyのRIV_D・RIV_BED・RIV_FAR）。課題の要求の図面（立面二つ・断面C・縦断A・平面）の文字と寸法を一つずつのIllustratorの部品にし、図ごとのグループに（`zumen_parts.py`：文字の層から部品、自動の図からは線だけの写し`ai/parts/<紙>_線だけ.pdf`、pikepdfが要る。使い方は`ai/README.md`の「図面の文字と寸法」）。
 - 10-29：景観立面のレンダリング（`rhino/keikan_render.py`）を直した（ユーザーの試し）。昼は隠れていた周りの建物（04_周辺_建物と親）を一時的に表示して淡い暖かい灰（CONTEXT_COLOR）に、夜はスカイライトなし・空は群青（NIGHT_SKY）で不透明、越屋根のLEDの帯に沿って線の光源（LED_LIGHT_POWER）を一時的に置く。終われば全部戻す。曲線は Render に写らない（ビューで消す方法は冒頭の使い方に）。
 - 10-29：配置図の動線の点線（アプローチ係の`walks`、茶の破線4本）を外した（ユーザー：「動線は全て消して」）。更新係の`draw100.py`のmake_siteplanの小さな直し（知らせ 20261029-0904）。赤い破線（防犯の線）・灰の破線（外構の屋根）は動線ではないので残した。
+- 10-29：2枚目の鳥瞰（透視図 A4）に想像図（ユーザー：「まずはレンダリングに差し替えて、準備ができたら写真に」）。Rhinoの`rhino/choukan_render.py`（カメラ CAM・TGT・LENS、`USE_CURRENT_VIEW`で今のビューのまま）→`rhino/out/choukan.png`。来るまでは`choukan_kari.py`が3dmのメッシュから仮の想像図（zバッファ、materials.jsonの色、約1分）`out/choukan_kari.png`。写真は`photo/choukan.jpg`が先。素材16`16_鳥瞰.pdf`。

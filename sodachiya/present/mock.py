@@ -2067,7 +2067,38 @@ _, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0, dwg=("E
 y_ -= h_ + G2
 bh = BH2
 _pw = 297
-box(ax, ex, M + 8, _pw, bh, "透視図（A4）　模型写真の鳥瞰", "南西の上空（公園と高野川の橋の上）から北東を見る\n手前に道の側の静かな壁と公園、奥に弧の縁側と園庭\n（模型ができるまでは Rhino の鳥瞰を仮に）")
+# 鳥瞰の想像図（ユーザー 10-29：まずはレンダリング、準備ができたら写真に差し替えるかも）。絵は上から順に探す：
+#   写真 photo/choukan.jpg（.png）→ Rhino のレンダリング rhino/out/choukan.png（rhino/choukan_render.py）→ 仮の想像図 out/choukan_kari.png（choukan_kari.py が 3dm から）
+_CK_PHOTO = [os.path.join(HERE, "photo", "choukan" + e_) for e_ in (".jpg", ".jpeg", ".png")]
+_CK_RH = os.path.join(HERE, "rhino", "out", "choukan.png")
+_CK_KARI = os.path.join(HERE, "out", "choukan_kari.png")
+_ck = next((p_ for p_ in _CK_PHOTO if os.path.exists(p_)), None) or (_CK_RH if os.path.exists(_CK_RH) else None)
+_ck_kind = "模型写真" if _ck and _ck in _CK_PHOTO else ("Rhino のレンダリング" if _ck else "仮の想像図")
+if _ck is None:
+    _ksrc = [os.path.join(HERE, "choukan_kari.py"), os.path.join(HERE, "rhino", "choukan_render.py"), os.path.join(ROOT, "model", "sodachiya_exact_mesh.3dm"), os.path.join(ROOT, "data", "materials.json")]
+    if not os.path.exists(_CK_KARI) or os.path.getmtime(_CK_KARI) < max(os.path.getmtime(f_) for f_ in _ksrc if os.path.exists(f_)):
+        try:
+            subprocess.run([sys.executable, os.path.join(HERE, "choukan_kari.py"), _CK_KARI], check=True, timeout=900)
+        except Exception as e_:
+            print("鳥瞰の仮の想像図：作れなかった", e_)
+    _ck = _CK_KARI if os.path.exists(_CK_KARI) else None
+if _ck:
+    _ci = plt.imread(_ck)
+    _ih, _iw = _ci.shape[:2]
+    _s = max(_pw / _iw, bh / _ih)                # 箱いっぱいに（縦横の比を保ち、はみ出す分を切る）
+    _dw, _dh = _iw * _s, _ih * _s
+    _ccx, _ccy = ex + _pw / 2, M + 8 + bh / 2
+    _rp = clip_rect(ax, ex, M + 8, _pw, bh)
+    _xl, _yl = ax.get_xlim(), ax.get_ylim()
+    _im = ax.imshow(_ci, extent=(_ccx - _dw / 2, _ccx + _dw / 2, _ccy - _dh / 2, _ccy + _dh / 2), origin="upper", interpolation="lanczos", zorder=2, aspect="auto")
+    _im.set_clip_path(_rp)
+    ax.set_xlim(_xl); ax.set_ylim(_yl)
+    title(ax, ex, M + 8 + bh + 3, "透視図（A4）　鳥瞰の" + ("模型写真" if _ck_kind == "模型写真" else "想像図"), "南西の上空（公園と高野川の橋の上）から北東を見る")
+    sozai("16", "鳥瞰（透視図 A4）", 2, ex, M + 8, _pw, bh, _ck_kind + "（" + os.path.relpath(_ck, HERE) + "）")
+    dimnote(ax, ex + 2, M + 8 + 2, "鳥瞰：" + _ck_kind + "（" + os.path.relpath(_ck, HERE) + "）")
+    print("鳥瞰：", _ck_kind, os.path.relpath(_ck, HERE))
+else:
+    box(ax, ex, M + 8, _pw, bh, "透視図（A4）　鳥瞰の想像図", "南西の上空（公園と高野川の橋の上）から北東を見る\n手前に道の側の静かな壁と公園、奥に弧の縁側と園庭\n（rhino/choukan_render.py のレンダリングを待つ）")
 # 鳥瞰の右に、沿川の景観立面 昼（上）・夜（下）1/300（ユーザー、10-27夜：1枚目の下から移した。外から見た姿を鳥瞰と並べる）
 _lx = ex + _pw + 8
 _ly_d = M + 8 + bh - _lh1                    # 昼の上端を鳥瞰の上端にそろえる
