@@ -96,12 +96,14 @@ def write(g):
     L("北西の道路", NC.T(20.0, -2.5), "context", along=_r(NC.t2))
     PK, PP = g["PK"], g["PARK_PLAN"]                             # 公園の中身（ユーザー 10-29、局所座標はapproachA.PK）
     PXD = _r(np.array(PK(1, 0)) - np.array(PK(0, 0)))            # 川に沿う向き
-    L("公園（芝生）", PK(6.3, 6.35), "name", along=PXD)
-    L("搬入の車の帯2.5", PK(7.6, 1.95), "small", along=PXD, note="芝の保護材（見た目は芝）、道路の開口から非常用の門へ")
-    L("鉄棒", PK(2.7, PP["bars"]["y"] + 0.6), "small", along=PXD)
-    L("すべり台", PK(6.35, PP["slide"]["y"][1] + 0.45), "small", along=PXD)
-    L("砂場", PK(sum(PP["sand"]["x"]) / 2, sum(PP["sand"]["y"]) / 2), "small")
-    L("車止め", PK(-0.9, 1.5), "small", note="上げ下げ式、開口3.0")
+    L("公園（芝生）", PK(8.0, 6.3), "name", along=PXD)
+    _th = g["BAND_TH"]; _mq = g["SL"](g["BAND_CL"]).interpolate(0.5, normalized=True)
+    L("搬入の車の帯2.5", PK(_mq.x + 0.4, _mq.y + 0.75), "small", along=_r(np.array(PK(math.cos(_th), -math.sin(_th))) - np.array(PK(0, 0))),
+      note="芝の保護材（見た目は芝）、道路側の辺の真ん中の開口からS字で非常用の門へ（内側の半径約%.1f）" % g["BAND_R_IN"])
+    L("鉄棒", PK(2.3, PP["bars"]["y"] + 0.6), "small", along=PXD)
+    L("すべり台", g["SLD"](2.5, 0.85), "small", along=[0.0, 1.0], note="真南へ滑り降りる")
+    L("木のベンチ", PK(10.3, 6.4), "small", along=_r(np.array(PK(0, 1)) - np.array(PK(0, 0))), note="キンモクセイの間、塀ぎわ")
+    L("車止め", PK(-0.9, 6.0), "small", note="上げ下げ式、開口3.0")
     L("行事の日の自転車のあふれ", PK(2.0, 10.0), "small")
     L("高野川", _mw(tuple(MN.R0 + (MN.R1 - MN.R0) * 0.5 - MN.NRM * 6.0)), "context", along=RIV)
 
@@ -135,8 +137,8 @@ def write(g):
             "78_外構_みなみのさんかく（丘・小径・砂場・水）": {"draw": "outline", "lw": 0.13, "note": "丘の等高線、小径、砂場、水のテーブル、芝の川と足あとの石"},
             "79_外構_みなみのさんかく（緑の目隠しの株）": {"draw": "tree", "note": "川の柵の緑の目隠しの株（ムベ）"},
             "74p_外構_公園の鉄の物（鉄棒・柵・車止め）": {"draw": "outline", "lw": 0.18, "note": "公園の道路側の鉄柵（現況）は濃い線、鉄棒は線と柱の点、車止めは小さな白丸（10-29）"},
-            "74s_外構_公園のすべり台": {"draw": "outline", "lw": 0.13, "note": "現況のすべり台（簡単な形）"},
-            "75p_外構_公園の木の物（ベンチ・砂場の縁）": {"draw": "outline", "lw": 0.13, "note": "ベンチと砂場の縁（砂場の中は砂の色）"},
+            "74s_外構_公園のすべり台": {"draw": "outline", "lw": 0.13, "note": "現況のすべり台（簡単な形、真南へ滑り降りる）"},
+            "75p_外構_公園の木のベンチ": {"draw": "fill", "fc": "#7a5a36", "note": "木のベンチ2脚（キンモクセイの間、塀ぎわ）。砂場は撤去（10-29 9時）"},
             "76p_外構_公園の芝の保護材（車の帯）": {"draw": "fill", "fc": "#D2E3BC", "note": "搬入の車の帯2.5（芝の保護材）。芝より少し濃い緑に細い破線の縁"},
         },
         "labels": labels,

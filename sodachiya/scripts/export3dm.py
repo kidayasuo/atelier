@@ -23,7 +23,7 @@ for n, c in [("70_外構_生垣・塀・格子", (90, 122, 58)), ("71_外構_屋
              ("75t_外構_地中の雨水槽", (120, 120, 120)), ("75s_外構_石の受け桝", (150, 146, 138)),
              # 公園の中身（ユーザー 10-29）：一つのレイヤーに一つの素材
              ("74p_外構_公園の鉄の物（鉄棒・柵・車止め）", (60, 60, 64)), ("74s_外構_公園のすべり台", (200, 204, 208)),
-             ("75p_外構_公園の木の物（ベンチ・砂場の縁）", (170, 128, 86)), ("76p_外構_公園の芝の保護材（車の帯）", (120, 150, 84))]:
+             ("75p_外構_公園の木のベンチ", (170, 128, 86)), ("76p_外構_公園の芝の保護材（車の帯）", (120, 150, 84))]:
     layer(n, c)
 def attr(name):
     a = r.ObjectAttributes(); a.LayerIndex = LAY[name]; return a
@@ -263,7 +263,7 @@ for q in (P(_g0, _pd), P(_g1, _pd)): post(q, 1.9)
 for (p0, p1, lay, h, foot) in FENCES: yamato.to3dm(slab, p0, p1, lay, h=h, foot=foot, posts=POSTS)
 # 公園の中身（ユーザー 10-29、data/approachA.jsonのPARK_PLAN、局所座標はapproachA.PK）。どれも閉じた立体、z＝0（GL）から上
 PK, PP = A.PK, A.PARK_PLAN
-L74p, L74s, L75p, L76p = "74p_外構_公園の鉄の物（鉄棒・柵・車止め）", "74s_外構_公園のすべり台", "75p_外構_公園の木の物（ベンチ・砂場の縁）", "76p_外構_公園の芝の保護材（車の帯）"
+L74p, L74s, L75p, L76p = "74p_外構_公園の鉄の物（鉄棒・柵・車止め）", "74s_外構_公園のすべり台", "75p_外構_公園の木のベンチ", "76p_外構_公園の芝の保護材（車の帯）"
 def kbox(x0, x1, y0, y1, z0, z1, lay): slab([PK(x0, y0), PK(x1, y0), PK(x1, y1), PK(x0, y1)], z0, z1 - z0, lay)
 def kcyl(p, rr, z0, h, lay):                                   # 立てた丸棒
     e = up(r.Circle(P3(p, z0), rr * MM).ToNurbsCurve(), h, True)
@@ -278,14 +278,16 @@ def kbar(x0, x1, y, z, rr, lay):                               # 川と平行な
         b.Transform(r.Transform.Rotation(math.pi, r.Vector3d(0, 0, 1), P3(p0, 0)))
     b.Transform(r.Transform.Translation(0, 0, z * MM))
     m.Objects.AddBrep(b, attr(lay))
-# 芝の保護材の帯（厚さ0.01、見た目は芝）
-kbox(*PP["car_band"]["x"], *PP["car_band"]["y"], 0.0, 0.01, L76p)
-# 道路側の鉄柵h1.1（柱□50、上下の横材□40、縦格子□16を0.12ごと）と車止め（上げ下げ式、φ0.1 h0.8、上げた姿）
-_rl = PP["rail"]; y0r, y1r = _rl["y"]; xr = _rl["x"]
-for _y in np.arange(y0r, y1r + 0.01, _rl["post_pitch"]): kbox(xr - 0.025, xr + 0.025, _y - 0.025 if _y > y0r else _y, _y + 0.025 if _y < y1r else _y, 0.0, _rl["h"], L74p)
-for z0, z1 in ((0.08, 0.12), (_rl["h"] - 0.04, _rl["h"])): kbox(xr - 0.02, xr + 0.02, y0r + 0.025, y1r - 0.025, z0, z1, L74p)
-for _y in np.arange(y0r + 0.1, y1r - 0.05, _rl["bar_pitch"]):
-    if min(abs(_y - q) for q in np.arange(y0r, y1r + 0.01, _rl["post_pitch"])) > 0.04: kbox(xr - 0.008, xr + 0.008, _y - 0.008, _y + 0.008, 0.12, _rl["h"] - 0.04, L74p)
+# 芝の保護材の帯（厚さ0.01、見た目は芝）：S字の帯の輪郭を直線と円弧にして押し出す
+slab_smooth([PK(*q) for q in list(A.BAND_LOC.exterior.coords)[:-1]], 0.0, 0.01, L76p)
+# 道路側の鉄柵h1.1（柱□50、上下の横材□40、縦格子□16を0.12ごと、開口のほかの区間）と車止め（上げ下げ式、φ0.1 h0.8、上げた姿）
+_rl = PP["rail"]; xr = _rl["x"]
+for y0r, y1r in _rl["segments"]:
+    _ps = A.rail_posts(y0r, y1r, _rl["post_pitch"])
+    for _y in _ps: kbox(xr - 0.025, xr + 0.025, max(y0r, _y - 0.025), min(y1r, _y + 0.025), 0.0, _rl["h"], L74p)
+    for z0, z1 in ((0.08, 0.12), (_rl["h"] - 0.04, _rl["h"])): kbox(xr - 0.02, xr + 0.02, y0r + 0.025, y1r - 0.025, z0, z1, L74p)
+    for _y in np.arange(y0r + 0.1, y1r - 0.05, _rl["bar_pitch"]):
+        if min(abs(_y - q) for q in _ps) > 0.04: kbox(xr - 0.008, xr + 0.008, _y - 0.008, _y + 0.008, 0.12, _rl["h"] - 0.04, L74p)
 _op = PP["opening"]
 for _y in _op["bollards_y"]: kcyl(PK(xr, _y), _op["bollard_d"] / 2, 0.0, _op["bollard_h"], L74p)
 # 鉄棒：柱φ0.06（高い方の棒 +0.05）、棒φ0.03を0.9・1.1・1.3
@@ -295,24 +297,18 @@ for k, _x in enumerate(_bx):
     kcyl(PK(_x, _br["y"]), _br["post_d"] / 2, 0.0, hh, L74p)
 for k, hb in enumerate(_br["h"]):
     kbar(_bx[k] + _br["post_d"] / 2, _bx[k + 1] - _br["post_d"] / 2, _br["y"], hb, _br["bar_d"] / 2, L74p)
-# すべり台（簡単な形）：踊り場の台h1.2、滑り面（側面の形を幅0.6で押し出す）、はしご（くさび）
-_sl = PP["slide"]; _sy = _sl["y"]; _cy = sum(_sy) / 2; _cw = _sl["chute_w"] / 2; H = _sl["h"]
-kbox(*_sl["deck"], *_sy, 0.0, H, L74s)
-def side_prism(prof, y0, y1, lay):                             # 側面の形(X, z)をYの向きにy0→y1押し出す
-    c = r.Polyline([P3(PK(x, y0), z) for x, z in prof + [prof[0]]]).ToNurbsCurve()
-    w = (y1 - y0) * MM; e = r.Extrusion.Create(c, w, True)
-    tgt = PK(sum(x for x, _ in prof) / len(prof), (y0 + y1) / 2)
-    cc = e.GetBoundingBox().Center
-    if (cc.X - tgt[0] * MM) ** 2 + (cc.Y - tgt[1] * MM) ** 2 > (w / 3) ** 2: e = r.Extrusion.Create(c, -w, True)
+# すべり台（簡単な形、真南へ滑り降りる）：踊り場の台h1.2、滑り面（側面の形を東へ幅0.6で押し出す）、はしご（くさび）。SLD(a, s)＝はしごの後ろから真南へ a、東へ s
+_sl = PP["slide"]; H = _sl["h"]; SLD = A.SLD
+slab(A.SLR(*_sl["deck"], _sl["w_deck"]), 0.0, H, L74s)
+def side_prism(prof, w, lay):                                  # 側面の形 (a, z) を、s＝−w/2 の面から東へ w 押し出す
+    c = r.Polyline([P3(SLD(a, -w / 2), z) for a, z in prof + [prof[0]]]).ToNurbsCurve()
+    e = r.Extrusion.Create(c, w * MM, True)
+    if e.GetBoundingBox().Center.X < SLD(0, 0)[0] * MM - 1: e = r.Extrusion.Create(c, -w * MM, True)
     m.Objects.AddExtrusion(e, attr(lay))
-x0c, x1c = _sl["chute"]; xl0, xl1 = _sl["landing"]
-side_prism([(xl0, 0.0), (x1c, 0.0), (x1c, H), (x1c - 0.3, H), (x0c, 0.3), (xl0, 0.25)], _cy - _cw, _cy + _cw, L74s)
-xa0, xa1 = _sl["ladder"]
-side_prism([(xa0, 0.0), (xa1, 0.0), (xa0, H)], _cy - 0.3, _cy + 0.3, L74s)
-# 砂場の縁（木0.1×h0.3、4本の箱）
-_sd = PP["sand"]; (sx0, sx1), (sy0, sy1), t, hr = _sd["x"], _sd["y"], _sd["rim_w"], _sd["rim_h"]
-for b in ((sx0, sx1, sy0, sy0 + t), (sx0, sx1, sy1 - t, sy1), (sx0, sx0 + t, sy0 + t, sy1 - t), (sx1 - t, sx1, sy0 + t, sy1 - t)):
-    kbox(*b, 0.0, hr, L75p)
+a0c, a1c = _sl["chute"]; al0, al1 = _sl["landing"]
+side_prism([(a0c, 0.0), (al1, 0.0), (al1, 0.25), (al0, 0.3), (a0c + 0.3, H), (a0c, H)], _sl["w"], L74s)
+aa0, aa1 = _sl["ladder"]
+side_prism([(aa0, 0.0), (aa1, 0.0), (aa1, H)], _sl["w"], L74s)
 # ベンチ（座t0.04 at h0.42、脚2枚）
 for _b in PP["benches"]["list"]:
     (bx0, bx1), (by0, by1) = _b["x"], _b["y"]; hb = PP["benches"]["h"]

@@ -104,40 +104,57 @@ _PO = np.array(PARK[0]); _PX = np.array(PARK[3]) - _PO; _PX /= np.linalg.norm(_P
 def PK(x, y): p = _PO + _PX * x + _PY * y; return (float(p[0]), float(p[1]))
 def PKR(x0, x1, y0, y1): return [PK(x0, y0), PK(x1, y0), PK(x1, y1), PK(x0, y1)]
 PP = PARK_PLAN
-PK_BAND = PKR(*PP["car_band"]["x"], *PP["car_band"]["y"])
+# 車の帯（ユーザー 10-29 9時）：道路側の辺の真ん中の開口から、同じ半径の弧2つのS字で川の端の非常用の門へ
+_cb = PP["car_band"]; _dY = _cb["entry_y"] - _cb["exit_y"]; BAND_TH = 2 * math.atan(_dY / _cb["len"]); BAND_R = _cb["len"] / (2 * math.sin(BAND_TH))
+_c1 = np.array([0.0, _cb["entry_y"] - BAND_R]); _c2 = np.array([_cb["len"], _cb["exit_y"] + BAND_R])
+BAND_CL = [tuple(_c1 + BAND_R * np.array([math.sin(t), math.cos(t)])) for t in np.linspace(0, BAND_TH, 40)] + \
+          [tuple(_c2 + BAND_R * np.array([-math.sin(t), -math.cos(t)])) for t in np.linspace(BAND_TH, 0, 40)[1:]]     # 中心の線（局所座標）
+BAND_LOC = SL(BAND_CL).buffer(_cb["w"] / 2, cap_style=2, resolution=32).intersection(SP([(0, 0), (12, 0), (12, 12), (0, 12)]))                        # 帯（局所座標、両端は辺に直角）
+BAND_R_IN = BAND_R - _cb["w"] / 2
+PK_BAND = [PK(*q) for q in BAND_LOC.exterior.coords]
 poly(PK_BAND, fc="#D2E3BC", ec="#7a8a5a", lw=0.35, ls=(0, (3, 1.5)), z=1.2)                   # 車の帯2.5（芝の保護材、見た目は芝）
-for _x in np.arange(0.6, 12.0, 1.2):                                                          # 保護材の格子の目（薄く）
-    line([PK(_x, 0.25), PK(_x, 2.25)], lw=0.2, c="#9aae7a", z=1.25)
-ax.annotate("", xy=PK(11.2, 1.25), xytext=PK(4.0, 1.25), arrowprops=dict(arrowstyle="-|>", lw=0.6, color="#6b7a4a", shrinkA=0, shrinkB=0), zorder=1.3)
+_bcl = SL(BAND_CL)
+for _t in np.arange(0.6, _bcl.length, 1.2):                                                    # 保護材の格子の目（薄く、帯に直角）
+    _q = np.array(_bcl.interpolate(_t).coords[0]); _q2 = np.array(_bcl.interpolate(_t + 0.01).coords[0]); _tg = (_q2 - _q) / np.linalg.norm(_q2 - _q); _nm = np.array([-_tg[1], _tg[0]])
+    line([PK(*(_q - _nm * 1.0)), PK(*(_q + _nm * 1.0))], lw=0.2, c="#9aae7a", z=1.25)
+_arr = [PK(*_bcl.interpolate(t).coords[0]) for t in np.linspace(1.5, _bcl.length - 0.6, 30)]
+line(_arr[:-1], lw=0.6, c="#6b7a4a", z=1.3)
+ax.annotate("", xy=_arr[-1], xytext=_arr[-2], arrowprops=dict(arrowstyle="-|>", lw=0.6, color="#6b7a4a", shrinkA=0, shrinkB=0), zorder=1.3)
 PK_ROT = math.degrees(math.atan2(_PX[1], _PX[0]))                                             # 文字を川の向きに
-T(PK(7.6, 1.95), "搬入の車の帯2.5（芝の保護材）", 4.0, c="#4f5f35", rot=PK_ROT)
+_mq = np.array(_bcl.interpolate(0.5, normalized=True).coords[0])
+T(PK(_mq[0] + 0.4, _mq[1] + 0.75), "搬入の車の帯2.5（芝の保護材）", 4.0, c="#4f5f35", rot=PK_ROT - math.degrees(BAND_TH))
 poly(PKR(*PP["bike_overflow"]["x"], *PP["bike_overflow"]["y"]), fc="none", ec="#999999", lw=0.3, ls=(0, (1.5, 1.5)), z=1.3)
 T(PK(2.0, 10.0), "行事の日の\n自転車のあふれ", 3.8, c="#777777")
 _rl = PP["rail"]; _op = PP["opening"]
-line([PK(0, _rl["y"][0]), PK(0, _rl["y"][1])], lw=1.0, c="#333333", z=7)                      # 道路側の鉄柵h1.1（現況）
-for _y in np.arange(_rl["y"][0], _rl["y"][1] + 0.01, _rl["post_pitch"]): post(PK(0, _y), 0.12)
+def rail_posts(y0, y1, pitch): n = max(1, round((y1 - y0) / pitch)); return list(np.linspace(y0, y1, n + 1))
+for _ya, _yb in _rl["segments"]:
+    line([PK(0, _ya), PK(0, _yb)], lw=1.0, c="#333333", z=7)                                  # 道路側の鉄柵h1.1（現況）
+    for _y in rail_posts(_ya, _yb, _rl["post_pitch"]): post(PK(0, _y), 0.12)
 for _y in _op["bollards_y"]: ax.add_patch(Circle(PK(0, _y), 0.12, fc="white", ec="#333333", lw=0.5, zorder=11))   # 上げ下げ式の車止め
 _br = PP["bars"]; _bx = [_br["x0"] + _br["len"] * k for k in range(len(_br["h"]) + 1)]
-poly(PKR(_bx[0], _bx[-1], _br["y"] - _br["clear"], _br["y"] + _br["clear"]), fc="none", ec="#999999", lw=0.25, ls=(0, (1, 1.2)), z=1.4)   # 前後1.5
+BARS_CLR = SP(PKR(_bx[0], _bx[-1], max(0.0, _br["y"] - _br["clear"]), _br["y"] + _br["clear"]))
+poly(BARS_CLR, fc="none", ec="#999999", lw=0.25, ls=(0, (1, 1.2)), z=1.4)                    # 前1.5（柵の側は柵まで）
 line([PK(_bx[0], _br["y"]), PK(_bx[-1], _br["y"])], lw=0.9, c="#333333", z=7)
 for _x in _bx: post(PK(_x, _br["y"]), 0.12)
 T(PK((_bx[0] + _bx[-1]) / 2, _br["y"] + 0.6), "鉄棒h0.9・1.1・1.3", 3.8, c="#333333", rot=PK_ROT)
-_sl = PP["slide"]; _sy = _sl["y"]; _cy = sum(_sy) / 2; _cw = _sl["chute_w"] / 2
-poly(PKR(*_sl["chute"], _cy - _cw, _cy + _cw), fc="#E8EAEC", ec="#555555", lw=0.4, z=6)
-poly(PKR(*_sl["landing"], _cy - _cw, _cy + _cw), fc="#F2F3F4", ec="#888888", lw=0.3, z=6)
-poly(PKR(*_sl["deck"], *_sy), fc="#D0D3D6", ec="#555555", lw=0.4, z=6)
-poly(PKR(*_sl["ladder"], _cy - 0.3, _cy + 0.3), fc="white", ec="#555555", lw=0.35, z=6)
-for _x in np.arange(_sl["ladder"][0] + 0.15, _sl["ladder"][1], 0.15): line([PK(_x, _cy - 0.3), PK(_x, _cy + 0.3)], lw=0.25, c="#555555", z=6.1)
-T(PK(6.35, _sy[1] + 0.45), "すべり台", 3.8, c="#333333", rot=PK_ROT)
-_sd = PP["sand"]
-poly(PKR(*_sd["x"], *_sd["y"]), fc="#EADBB0", ec=C["wood"], lw=0.7, z=6)
-T(PK(sum(_sd["x"]) / 2, sum(_sd["y"]) / 2), "砂場", 3.8, c="#6b5a3a")
-for _b in PP["benches"]["list"]: poly(PKR(*_b["x"], *_b["y"]), fc=C["wood"], ec="none", z=6)
+# すべり台：真南（3dm の −y）へ滑り降りる。SLD(a, s)＝p0 から真南へ a、東へ s（3dm の xy）
+_sl = PP["slide"]; _p0 = np.array(PK(*_sl["p0"]))
+def SLD(a, s): return (float(_p0[0] + s), float(_p0[1] - a))
+def SLR(a0, a1, w): return [SLD(a0, -w / 2), SLD(a1, -w / 2), SLD(a1, w / 2), SLD(a0, w / 2)]
+SLIDE_FOOT = SP(SLR(0, _sl["landing"][1], _sl["w_deck"])); SLIDE_CLR = SP(SLR(_sl["landing"][1], _sl["landing"][1] + _sl["clear"], _sl["w_deck"]))
+poly(SLR(*_sl["chute"], _sl["w"]), fc="#E8EAEC", ec="#555555", lw=0.4, z=6)
+poly(SLR(*_sl["landing"], _sl["w"]), fc="#F2F3F4", ec="#888888", lw=0.3, z=6)
+poly(SLR(*_sl["deck"], _sl["w_deck"]), fc="#D0D3D6", ec="#555555", lw=0.4, z=6)
+poly(SLR(*_sl["ladder"], _sl["w"]), fc="white", ec="#555555", lw=0.35, z=6)
+for _a in np.arange(_sl["ladder"][0] + 0.12, _sl["ladder"][1], 0.12): line([SLD(_a, -_sl["w"] / 2), SLD(_a, _sl["w"] / 2)], lw=0.25, c="#555555", z=6.1)
+poly(SLIDE_CLR, fc="none", ec="#999999", lw=0.25, ls=(0, (1, 1.2)), z=1.4)                   # 降り口の先1.5
+T(SLD(2.5, 0.85), "すべり台（真南へ）", 3.8, c="#333333", rot=90)
+for _b in PP["benches"]["list"]: poly(PKR(*_b["x"], *_b["y"]), fc=C["wood"], ec="none", z=6.8)   # 木のベンチ（キンモクセイの間、塀ぎわ）
 _km = PP["kinmokusei"]
 for _y in _km["y"]:
     ax.add_patch(Circle(PK(_km["x"], _y), _km["r"], fc="#E9D9A0", ec="#9a7a2a", lw=0.5, zorder=6.5, alpha=0.9))   # キンモクセイ（秋の橙の花）
     ax.add_patch(Circle(PK(_km["x"], _y), 0.08, fc="#6b5a3a", ec="none", zorder=6.6))
-T(PK(6.3, 6.35), "公園（芝生、12×12 m）", 5.4, c=C["green"], rot=PK_ROT)        # 公園の真ん中の木は無い（ユーザー 10-24）
+T(PK(8.0, 6.3), "公園（芝生、12×12 m）", 5.4, c=C["green"], rot=PK_ROT)        # 公園の真ん中の木は無い（ユーザー 10-24）
 kid = SP(SITE).difference(SP(PARK)).intersection(SP(rect(-14, 40, 1.6, 40))).difference(SP(rect(0, 40, 0, 15)))
 poly(kid, fc=C["kid"], ec="none", z=1)
 line([W(0, 1.6), W(MN.D["FENCE_END_U"], 1.45), FENCE_END], lw=1.1, c="#6b5a3a", z=6)   # infant-garden fence h1.2
@@ -453,7 +470,7 @@ N = [(E(0.9, -2.6), 1), (W(-2.2, -0.3), 2), (PK(10.6, 3.5), 3), (W(3.0, 3.0), 4)
      (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (W(20.1, -10.9), 9), (P(25.0, 8.1), 10), (P(24.4, 9.6), 11),
      (W(19.6, -2.0), 12), (W(19.4, -3.95), 13), (W(19.6, -7.0), 14), (P(31.2, 0.2), 15), (P(14.95, -1.4), 16),
      (P(10.0, 9.45), 17), (P(3.6, -1.2), 18), (P(26.2, 0.6), 19),
-     (PK(7.6, 4.6), "P1"), (PK(3.0, 1.25), "P2"), (PK(-1.0, 1.5), "P3"), (PK(2.7, 6.6), "P4"), (PK(8.3, 10.0), "P5"), (PK(9.4, 6.4), "P6")]
+     (PK(9.0, 4.6), "P1"), (PK(2.8, 5.55), "P2"), (PK(-1.0, 6.0), "P3"), (PK(4.6, 1.2), "P4"), (PK(5.24, 10.55), "P5"), (PK(9.6, 8.6), "P6")]
 for p, k in N: num(p, k)
 
 # north arrow + scale (1/200)
@@ -492,11 +509,11 @@ legend = [
     ("18", "駐輪 %d台（子乗せ 0.7・0.65 ピッチ）" % N_BIKE),
     ("19", "大和張りの塀 h1.8（道路側、西日と視線よけ、外壁と同じスギ）"),
     ("P1", "公園：全面を芝生（真ん中に木は置かない）"),
-    ("P2", "搬入の車の帯2.5（川沿い、芝の保護材）→ 非常用の門"),
-    ("P3", "道路側の鉄柵h1.1（現況）、車の開口3.0に上げ下げ式の車止め3本"),
-    ("P4", "鉄棒h0.9・1.1・1.3（棒は川と平行、前後1.5空ける）"),
-    ("P5", "すべり台・砂場・ベンチ（現況を残す）"),
-    ("P6", "キンモクセイ3本（塀ぎわ、門の扉と木戸の前は空ける）"),
+    ("P2", "搬入の車の帯2.5（芝の保護材）：道路側の開口からS字で非常用の門へ"),
+    ("P3", "道路側の鉄柵h1.1（現況）、辺の真ん中の開口3.0に上げ下げ式の車止め3本"),
+    ("P4", "鉄棒h0.9・1.1・1.3（川の柵ぎわ、棒は川と平行、前1.5空ける）"),
+    ("P5", "すべり台（現況を残す、真南へ滑り降りる）"),
+    ("P6", "キンモクセイ3本、その間に木のベンチ2脚（塀ぎわ）"),
 ]
 LX = 221
 def leg_row(y, k, txt, r=1.6):
@@ -521,7 +538,8 @@ notes = ("職員の自転車：大和張りの塀をひろばの西で東へ2.0�
          "歩道：西の道路沿いの敷地の境から 1.0 を、公園の上の端から食材納品場まで歩道として開放（洗い出し）。車路の前はスピードバンプ（長さ 1.0＝歩道の幅、台形 h約0.05）が歩道を続け、車室の口はその奥（道路から 1.3 m 以上）。駐輪は歩道にはみ出さない。来客の門はなし、来客も公園の木戸から。\n"
          "ひろば（線の内側、真砂土）約 %d m²。菜園は南の日なた（大豆・カブ・ダイコン・サツマイモ、冬は葉もの）、縁台は西館の南の下屋（入口の前まで一続き）の下。かまどは下屋から約 2 m、建物から 4 m 以上（行事のときだけ）。\n"
          "搬入は線の外：搬入の車室の後ろから搬入路（幅1.6、約7 m）を手押しで勝手口へ。西館の南の下屋を南西の丸みへ回り込ませ（外皮から2.0、敷地の境の0.1手前まで）、勝手口と搬入路の終わりを覆う。西館の南の鎖樋は下屋の上の集水で受け、下屋の軒樋で南の縁の鎖樋から地中の雨水槽へ。\n"
-         "公園（全面を芝生）：園庭への搬入の車は道路から南西の辺の開口（3.0、ふだんは上げ下げ式の車止め）で入り、川沿いの帯2.5（芝の保護材）を通って非常用の門へ。鉄棒は帯の外（川の柵から4.2）、北西の角は行事の日の自転車のあふれに空ける。")
+         "公園（全面を芝生）：園庭への搬入の車は道路側の辺の真ん中の開口（3.0、ふだんは上げ下げ式の車止め）から、帯2.5（芝の保護材）のS字（中心の半径約{BR}、内側約{BRI}）で非常用の門へ。鉄棒は川の柵ぎわ、北西の角は行事の日の自転車のあふれに空ける。砂場は撤去。")
+notes = notes.replace("{BR}", "%.1f" % BAND_R).replace("{BRI}", "%.1f" % BAND_R_IN)
 plaza_area = plz.area
 fig.text(PL / 297, 108 / 420, notes % round(plaza_area), fontsize=6.1, va="top", color="#333333", linespacing=1.45)
 
