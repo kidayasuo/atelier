@@ -526,10 +526,11 @@
     "w": 3.25,
     "ring_r": 2.1,
     "bottom_r": 0.3,
-    "bottom_h": 0.5,
+    "bottom_h": 0.15,
     "mesh_upper": 0.09,
     "mesh_lower": 0.05,
-    "rope_d": 0.018
+    "rope_d": 0.018,
+    "_note": "ユーザー 10-29：下ほど急、上ほど寝る漏斗（変曲なし）。断面は r＝bottom_r＋(ring_r−bottom_r)·t^1.6、z は t に一次（t＝0 が出口、1 が上の縁 h3.0）。出口は鋼の輪 φ0.6、高さ bottom_h は FL＋0.15＝穴の底のマットの上（FL−0.35）から 0.5"
   },
   "pit": {
     "r": 1.6,

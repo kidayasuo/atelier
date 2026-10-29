@@ -206,6 +206,7 @@ def rod(p0, p1, rad, li, col):
         if best is None or dm < best[0]: best = (dm, ex)
     if best is not None: out.Objects.AddExtrusion(best[1], K.attr(li, col))
 # ---------------------------------------------------------------- 摺鉢ネット
+# ユーザー 10-29：下ほど急、上ほど寝る漏斗（この式のまま）。出口の輪は穴の底のマットの上から 0.5（bottom_h 0.15）
 # 10-28（監修の項 2346）：鉢は一つの回転体（断面＝厚さ 20 の帯を中心の軸のまわりに一周、閉じた立体）。前は 17×49 の四角形の面で 770 面
 _pr = []
 for i in range(17):

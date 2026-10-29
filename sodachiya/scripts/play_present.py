@@ -287,10 +287,10 @@ T(*S(st['u'], -0.95), 'クスノキ', 4.2, C['tree'], ha='center', va='top', bol
 # 摺鉢ネット（見え掛かりの輪郭）と輪（東から 4.3 で切る）
 H3 = cw['h']
 for side in (-1, 1):
-    xs_ = np.linspace(nt['ring_r'], nt['bottom_r'], 24); zz_ = nt['bottom_h'] + (H3 - nt['bottom_h']) * ((xs_ - nt['bottom_r']) / (nt['ring_r'] - nt['bottom_r'])) ** 1.6
+    xs_ = np.linspace(nt['ring_r'], nt['bottom_r'], 24); zz_ = nt['bottom_h'] + (H3 - nt['bottom_h']) * ((xs_ - nt['bottom_r']) / (nt['ring_r'] - nt['bottom_r'])) ** (1 / 1.6)   # 3dm と同じ（下ほど急、ユーザー 10-29）
     SL([(nt['u'] + side * x_, z_) for x_, z_ in zip(xs_, zz_)], 0.9, C['net'], zz=4.5)
 for k in range(1, 6):
-    zz0 = nt['bottom_h'] + (H3 - nt['bottom_h']) * k / 6; rr = nt['bottom_r'] + (nt['ring_r'] - nt['bottom_r']) * (k / 6) ** (1 / 1.6)
+    zz0 = nt['bottom_h'] + (H3 - nt['bottom_h']) * k / 6; rr = nt['bottom_r'] + (nt['ring_r'] - nt['bottom_r']) * (k / 6) ** 1.6
     SL([(nt['u'] - rr, zz0), (nt['u'] + rr, zz0)], 0.2, C['net'], zz=4.4)
 ri, ro = math.sqrt(rg['inner_r'] ** 2 - off ** 2), math.sqrt(rg['outer_r'] ** 2 - off ** 2)
 for sgn in (-1, 1):
