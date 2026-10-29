@@ -113,7 +113,7 @@ ns = 0
 for g in getattr(SOIL, 'geoms', [SOIL]):
     if g.geom_type != 'Polygon' or g.area < 1e4: continue
     n0 = len(m.Objects)
-    K.prism(g.simplify(5), GL - 300, GL, L_SOIL)
+    K.prism(g.simplify(5), GL - 305, GL - 5, L_SOIL)                 # 10-30 監修：上面をGLより5下げる（GLに置く62・64などの板と同じ面でちらつく、ユーザー）
     for o in list(m.Objects)[n0:]: o.Attributes.Name = '敷地の土（受け皿）'
     ns += len(m.Objects) - n0
 print('soil: 建物の外形%.1f m2、園庭の地形%.1f m2、公園%.1f m2 → 受け皿%.1f m2（%d枚）'
