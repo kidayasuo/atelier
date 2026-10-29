@@ -3064,8 +3064,18 @@ if slits:
                 if not _CLm.contains(Point(*q_)): far_ = t_ - 25.0; break
             if far_ is None or far_ < 150.0: continue
             qf_ = Ec_[:2] + o2_ * far_; uf_ = uv(*qf_)[0]
-            if not ((uf_ < 21.15) or (uf_ > 48.3 and not WS_W.contains(Point(*qf_)))): continue     # 妻の軒の出（南の端の架構の外・北西の外壁の外）だけ
-            if WS_W.contains(Point(*qf_)) or _BCX0.intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)) and uf_ > 48.3: continue
+            # 10-30（監修の項 0552）：南西の角（u21.15〜24）で外壁で止まる母屋も、外壁を貫いて鼻母屋の下まで延ばし、鼻母屋を飼木（母屋の上の面から
+            #   鼻母屋の下の面まで）に載せる（鼻母屋の継手が突き当たりだけ・母屋が片持ちだった）
+            _eave_ = 21.15 <= uf_ <= 24.0 and not WS_W.contains(Point(*qf_))          # 南西の角（u21.33〜24）
+            if not ((uf_ < 21.15) or (uf_ > 48.3 and not WS_W.contains(Point(*qf_))) or _eave_): continue     # 妻の軒の出・西の軒の外壁の外だけ
+            _stop_ = False
+            if _eave_ and _BCX0.intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)):     # 途中の出し梁の横の面で止める（出し梁が受ける、飼木なし）
+                hit_ = None
+                for t_ in np.arange(300.0, far_, 5.0):
+                    if _BCX0.intersects(LineString([Ec_[:2] + o2_ * t_ + np.array([-o2_[1], o2_[0]]) * 30.0, Ec_[:2] + o2_ * t_ - np.array([-o2_[1], o2_[0]]) * 30.0])): hit_ = t_; break
+                if hit_ is None: continue
+                far_ = hit_ - 2.0; qf_ = Ec_[:2] + o2_ * far_; _stop_ = True
+            elif WS_W.contains(Point(*qf_)) or _BCX0.intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)) and (uf_ > 48.3 or _eave_): continue
             tt_ = far_ / float(np.linalg.norm(o_[:2]))                                # 3 次元の d3 に沿う長さ
             En_ = Ec_ + o_ * tt_
             T2_ = list(T_)
@@ -3076,16 +3086,28 @@ if slits:
             M_ = _tm_mf(_ext_tm(e_))
             if M_ is None or any((M_ ^ Mc_).volume() > 1.0 for _w, Mc_ in _colM): _n_gskip += 1; continue
             _XNEW[rec_['i']] = (e_, _XNEW[rec_['i']][1]); _XNEW[rec_['i']][1].Name = rec_['name'] + '（妻の軒の出へ片持ちで延ばす）'
-            rec_['T'] = T2_; T_ = T2_; _n_gx += 1
+            rec_['T'] = T2_; T_ = T2_; _n_gx += 1; rec_['gx'] = rec_.get('gx', ()) + (end_,)
             _GX_TM.append(_ext_tm(e_)); _GX_M.append(M_)
-            # 飼木：先の 150、上の面から野地の下面（屋根の面の 45 上）まで
-            Pm_ = En_ - o_ * 75.0 / float(np.linalg.norm(o_[:2]))
-            h_ = (float(_RWf['roof_f'](*Pm_[:2])) + BAT_T - float(Pm_[2])) * float(N_[2])
-            if h_ < 20.0: continue
-            Ti_ = En_ - o_ * 150.0 / float(np.linalg.norm(o_[:2]))
+            if _stop_: continue
+            if _eave_:
+                # 鼻母屋（軒先から 100〜160）の下：母屋の先から、鼻母屋の内の面（160）を 10 越えた所まで。高さは鼻母屋の下の面（屋根の面の 150 下）まで
+                t160_ = far_
+                for t_ in np.arange(far_, 0.0, -5.0):
+                    if WSL.buffer(-160.0, join_style=2).contains(Point(*(Ec_[:2] + o2_ * t_))): t160_ = t_; break
+                Lk_ = min(max(far_ - t160_ + 10.0, 60.0), 400.0)
+                Pm_ = En_ - o_ * (Lk_ / 2) / float(np.linalg.norm(o_[:2]))
+                h_ = (float(_RWf['roof_f'](*Pm_[:2])) - PUR_T - float(Pm_[2])) * float(N_[2])
+                nm2_ = '飼木 杉 60×{h:.0f}×{L:.0f}（母屋の先の上、鼻母屋を受ける）'
+            else:
+                # 飼木：先の 150、上の面から野地の下面（屋根の面の 45 上）まで
+                Lk_ = 150.0; Pm_ = En_ - o_ * 75.0 / float(np.linalg.norm(o_[:2]))
+                h_ = (float(_RWf['roof_f'](*Pm_[:2])) + BAT_T - float(Pm_[2])) * float(N_[2])
+                nm2_ = '飼木 杉 60×{h:.0f}×{L:.0f}（母屋の先の上、妻の軒の出の野地を受ける）'
+            if h_ < 3.0: continue
+            Ti_ = En_ - o_ * Lk_ / float(np.linalg.norm(o_[:2]))
             e2_ = _box_top([En_ + s3 * 30.0, En_ - s3 * 30.0, Ti_ - s3 * 30.0, Ti_ + s3 * 30.0], N_, h_, True)
             if e2_ is not None:
-                at2_ = r.ObjectAttributes(); at2_.LayerIndex = L20V; at2_.Name = f'飼木 杉 60×{h_:.0f}×150（母屋の先の上、妻の軒の出の野地を受ける）'
+                at2_ = r.ObjectAttributes(); at2_.LayerIndex = L20V; at2_.Name = nm2_.format(h=h_, L=Lk_)
                 _XNEW.append((e2_, at2_))
     # 母屋が貫く端の架構の板に穴（桁と同じ作り方、全周 10）、外壁を欠く
     if _GX_TM:
