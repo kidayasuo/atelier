@@ -2041,15 +2041,18 @@ INSP = [("Asilo Nido Iride", "Mario Cucinella Architects・Guastalla・2015", "�
 
 
 
+INSP_PITCH = 13.5                                # 一件の高さ（mm）。字は名前2.6・出どころ2.2・理由2.4（右下の縦長の囲み、10-29：2.2 mm 以上）
+
+
 def inspired(ax, tx, ty, colw, rows=4, head=True):
     if head:
         T(ax, tx, ty, "inspired by", 3.0, bold=True)
     for i, (n, src, what) in enumerate(INSP):
         c_, r_ = divmod(i, rows)
-        x_, y2 = tx + c_ * colw, ty - (6 if head else 0) - r_ * 11.0          # 行の間を広げた（9 では次の行に重なった）
-        T(ax, x_, y2, n, 2.2, bold=True)
-        T(ax, x_, y2 - 3.3, src, 1.8, "#666666")
-        T(ax, x_ + 1.5, y2 - 6.4, "→ " + what, 1.9)
+        x_, y2 = tx + c_ * colw, ty - (6 if head else 0) - r_ * INSP_PITCH
+        T(ax, x_, y2, n, 2.6, bold=True)
+        T(ax, x_, y2 - 3.9, src, 2.2, "#666666")
+        T(ax, x_ + 1.5, y2 - 7.8, "→" + what, 2.4)
 
 
 # ================================================================ 2　景観（10-28：もとの2枚目、いちど4枚目にしてから13:17に2枚目へ。ユーザー、10-24夜：立面図2面 → 鳥瞰・約束・素材と色。10-27夜：沿川の景観立面（昼・夜）を1枚目から下の段へ）
@@ -2224,7 +2227,6 @@ def _part(id_, x, y, w, lines, size, color=INK, bold=False, lead=1.3, name=None)
 
 _top5 = _tC + 4                                 # 範囲の上端（断面Cの題にそろえる）
 _bot5 = cy - 12                                 # 下端（断面Cの下まで）
-_ROW2 = 150                                     # 環境への配慮（断面Dの右）に使える高さ
 _gap5 = 9                                       # 運転と配慮のあいだ
 _Lw = _rw5                                      # 一つの列に上から：季節ごとの運転・放射冷房のパネル・環境への配慮
 _Rw = _rw5
@@ -2237,7 +2239,7 @@ for _fs in (3.0, 2.8, 2.6):                     # 入る字の大きさを選ぶ
     _hl = 6 + len(jwrap(UNTEN_SUM, _cpl(_Lw))) * _lh + 2 + (_lh + 2.4) + sum(_rows_h) + 5 + 6 + len(jwrap(REIBOU, _cpl(_Lw - 4))) * _lh + 4
     _nw = max(len(n_) for n_, _ in HAIRYO) * _fs / 0.72 + 3
     _hr = 6 + sum(len(jwrap(t_, _cpl(_Rw - _nw))) * _lh + 1.6 for _, t_ in HAIRYO)
-    if _hl <= _top5 - _bot5 and _hr <= _ROW2:
+    if _hl <= _top5 - _bot5:
         _FS = _fs
         break
 if _FS is None:
@@ -2285,28 +2287,25 @@ for _vf in sorted(glob.glob(os.path.join(ROOT, "drawings", "sodachiya_sections*_
     except Exception:
         pass
 DW, DH = (_SD[1][2] - _SD[1][0], _SD[1][3] - _SD[1][1]) if _SD else (250.0, 90.0)   # 無いあいだは約25 m×約9 m（西の吹き抜けの縁から東の外縁側の先まで）
-# 下の帯：inspired by と面積表を一つの囲みに（ユーザー 10-29：かっこよく読みやすく。二つの欄を左右に、細い罫線、見出しの格をそろえる）
-_bx0 = M + 6
+# 右下の縦長の囲み：上に inspired by（一列）、細い罫線、下に面積表（一列）（ユーザー 10-29 10:26：「Inspired by と面積表は右下に縦長のボックスに」）
+_bx0 = _rx5
 _bw = W - M - 6 - _bx0
-_atw, _atc, _atg = 92, 2, 10                    # 面積表：一つの欄の幅・欄の数・欄のあいだ
-_ins_rows = 4
-_ins_w = _bw - 6 - (_atw * _atc + _atg) - 7 - 6  # 左の欄（inspired by）
-_bh = 12 + max(6 + _ins_rows * 11.0, _area_rows_h(2.4, _atc)) + 2
 _by = M + 8
+_ins_h = len(INSP) * INSP_PITCH
+_bh = 8 + 10 + _ins_h + 4 + 10 + _area_rows_h(2.4) + 4
 ax.add_patch(Rectangle((_bx0, _by), _bw, _bh, fc="none", ec="#8A8A8A", lw=0.3))
 _hy = _by + _bh - 8
 title(ax, _bx0 + 6, _hy, "inspired by", "参照した建築")
-_ncol = -(-len(INSP) // _ins_rows)
-inspired(ax, _bx0 + 6, _hy - 10, _ins_w / _ncol, rows=_ins_rows, head=False)
-_sx = _bx0 + 6 + _ins_w + 3.5
-ax.plot([_sx, _sx], [_by + 4, _by + _bh - 4], color="#BBBBBB", lw=0.25)
-_atx = _sx + 3.5
-_atb = area_table(ax, _atx, _hy, _atw, size=2.4, cols=_atc, gap=_atg)
+inspired(ax, _bx0 + 6, _hy - 10, _bw - 12, rows=len(INSP), head=False)
+_ry = _hy - 10 - _ins_h + 2
+ax.plot([_bx0 + 6, _bx0 + _bw - 6], [_ry, _ry], color="#BBBBBB", lw=0.25)
+_atb = area_table(ax, _bx0 + 6, _ry - 8, _bw - 12, size=2.4)
 sozai("15", "inspired by と面積表", 3, _bx0 - 1, _by - 1, _bw + 2, _bh + 2)
 # 断面D は断面Cの下と囲みの上のあいだの真ん中に（上に光の矢印を描く余白 AIR）
-_r2t, _r2b = cy - 14, _by + _bh + 8
-_tD = (_r2t + _r2b) / 2 + (8 + AIR + DH) / 2
-dx, dy = cx + (wC - DW) / 2, _tD - 8 - AIR - DH
+_r2t, _r2b = cy - 14, M + 8
+AIR_D = 60                                      # 断面Dの上の余白（光の矢印、下の段が空いた分を回した 10-29）
+_tD = (_r2t + _r2b) / 2 + (8 + AIR_D + DH) / 2
+dx, dy = cx + (wC - DW) / 2, _tD - 8 - AIR_D - DH
 title(ax, M + 6, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根")
 if _SD and os.path.exists(_SD[0]):
     embed(3, _SD[0], _SD[1], dx, dy, 1.0, dwg=("D", "断面図D"))
@@ -2316,7 +2315,9 @@ else:
         "光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根\n（更新係の図を待つ：20261029-0946-present）")
     print("断面D：まだ図が無いので枠")
 # 右：環境への配慮（一年を通して効くもの）
-_HAIRYO_TOP = _tD + 4                           # 断面Dの題にそろえる
+_HAIRYO_TOP = _top5 - _hl - _gap5              # 季節ごとの運転の下に続ける（右下は inspired by と面積表の囲み、10-29 10:26）
+if _HAIRYO_TOP - _hr < _by + _bh + 6:
+    raise SystemExit("3枚目：環境への配慮が右下の囲みに重なる")
 _x1, _y = _rx5, _HAIRYO_TOP - 4
 _part("hairyo.head", _x1, _y, 0, ["環境への配慮（LEED v5 Gold相当）"], 3.2, C_HAIRYO, True, name="見出し：環境への配慮")
 _y -= 3
