@@ -163,7 +163,8 @@ for _g in getattr(_mube, "geoms", [_mube]):
 # 74 parking, bump, bikes, curb cut
 for k in range(3): add_curve(srect(7.2, 12.2, A.STALL_D0 + 2.5 * k, A.STALL_D0 + 2.5 * (k + 1)), "74_外構_駐車・駐輪・バンプ", close=True)
 for k in range(2): add_curve(srect(17.7, 22.7, A.STALL_D0 + 2.5 * k, A.STALL_D0 + 2.5 * (k + 1)), "74_外構_駐車・駐輪・バンプ", close=True)
-slab(srect(12.3, 17.6, *A.BUMP), 0, 0.05, "74_外構_駐車・駐輪・バンプ")
+slab(srect(12.3, 17.6, *A.BUMP), 0, 0.05, "74a_外構_駐車の舗装（アスファルト）")      # スピードバンプ（地はアスファルト）
+for _s in A.BUMP_STRIPES: slab(srect(_s, _s + 0.45, *A.BUMP), 0.05, 0.002, "74w_外構_駐車の白線")   # 横断歩道の縞（ユーザー 10-29）
 add_curve(srect(A.SIDEWALK["s"][0], A.SIDEWALK["s"][1], *A.SIDEWALK["d"]), "76_外構_舗装の区分", close=True)   # 歩道（開放）
 for kind, a, b in A.BIKES:
     q = srect(a, a + 0.7, b, b + 1.9) if kind == "d" else srect(a, a + 1.9, b, b + A.BIKE_ROW2["pitch"])
@@ -350,7 +351,7 @@ _holes = [NC.READ, NC.HEDGE, NC.MID, NC.LOW, _sr(12.3, 17.6, *A.BUMP), _sr(18.9,
          + [_GPt(P(ri[0], ri[1])).buffer(ri[2], 32)]
 _GROUND = _GROUND.difference(_GU(_holes))
 _walk = _GU([_sr(A.SIDEWALK["s"][0], A.SIDEWALK["s"][1], *A.SIDEWALK["d"]), _sr(*A.VWALK), _sr(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D),
-             A.TRI, _sr(*A.DEL), A.POCKET, NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.KOMICHI, NC.GAPRON])
+             A.TRI, _sr(*A.DEL), A.POCKET, _sr(22.7, 30.0, A.SIDEWALK["d"][1], A.STALL_D0), NC.STAFF_PATH, NC.APRON, NC.MAPRON, NC.KOMICHI, NC.GAPRON])
 _park = _GU([_sr(-5, 17.7, A.SIDEWALK["d"][1], A.HEDGE_D), _sr(17.7, 22.7, A.SIDEWALK["d"][1], A.NHEDGE_D)]).difference(_walk)
 _zones = [("74a_外構_駐車の舗装（アスファルト）", _GROUND.intersection(_park))]
 _zones.append(("76b_外構_歩く舗装（ベージュ）", _GROUND.intersection(_walk).difference(_park)))

@@ -224,13 +224,13 @@ for k in range(3): stall(7.2, 12.2, STALL_D0 + 2.5 * k, STALL_D0 + 2.5 * (k + 1)
 stall(17.7, 22.7, STALL_D0, STALL_D0 + 2.5, "搬入"); stall(17.7, 22.7, STALL_D0 + 2.5, STALL_D0 + 5.0)   # north 2
 line(Q([(12.2, -0.05), (17.7, -0.05)]), lw=2.2, c="#888888", z=8)                       # one curb cut
 # speed bump across the aisle (stalls open only beyond it)
-poly(srect(12.3, 17.6, *BUMP), fc="#F2C94C", ec="#555555", lw=0.4, z=3.2)
-for s in np.arange(12.6, 17.6, 0.6):
-    poly(srect(s, s + 0.3, *BUMP), fc="#333333", ec="none", z=3.3)
+poly(srect(12.3, 17.6, *BUMP), fc="#8E8E8A", ec="#555555", lw=0.4, z=3.2)          # 横断歩道の縞（ユーザー 10-29）：白い帯0.45・あき0.45、帯は車の向き
+BUMP_STRIPES = [12.3 + (5.3 - 0.45 * 11) / 2 + 0.9 * k for k in range(6)]
+for s in BUMP_STRIPES:
+    poly(srect(s, s + 0.45, *BUMP), fc="#F4F4F2", ec="none", z=3.3)
 T(P(14.95, 5.0), "車路 5.5", 5.2, c="#777777", rot=ROT)
 # planting strip along the road in front of the stalls / delivery path
-for (s0, s1) in [(STAFF_BIKE["road_gap"][1], 29.4)]:                 # 公園〜食材納品場は歩道（SIDEWALK）
-    poly(srect(s0, s1, 0.15, STALL_D0 - 0.1), fc="#E3ECD6", ec="none", z=2)
+# 職員の駐輪の前（s22.7〜30.0）も歩道（ユーザー 10-29：ほかの歩道と同じ色で）。前の植栽帯はやめた
 # 敷地の境から 1.0 を歩道として開放（公園の上の端〜食材納品場、ユーザー 10-25）
 poly(srect(SIDEWALK["s"][0], SIDEWALK["s"][1], *SIDEWALK["d"]), fc=C["arai"], ec="#999999", lw=0.3, z=3.0)
 line(Q([(SIDEWALK["s"][0], SIDEWALK["d"][1]), (SIDEWALK["s"][1], SIDEWALK["d"][1])]), lw=0.3, c="#999999", ls=(0, (2, 1.5)), z=3.05)

@@ -143,7 +143,7 @@ def write(g):
         "parking": {"stalls": stalls, "count": 5, "delivery": 1, "bump": "車路の道路から0.5に"},
         "bikes": {"parents": g["N_BIKE"], "staff": g["STAFF_N"]},
         "reserve": _reserve(g),
-        "bump": {"style": "zebra", "fc": "#8E8E8A", "stripe": "#F4F4F2", "pitch": 0.45,
+        "bump": {"style": "zebra", "fc": "#8E8E8A", "stripe": "#F4F4F2", "pitch": 0.45, "stripes": [[_r(q) for q in g["srect"](s0, s0 + 0.45, *g["BUMP"])] for s0 in g["BUMP_STRIPES"]],
                  "pts": [_r(q) for q in g["srect"](12.3, 17.6, *g["BUMP"])],
                  "note": "横断歩道のような縞（灰と白、0.45ごと）。縞は車路の向き（道路に平行な帯）に並べる、つまり長い辺（車路の幅 5.3）に沿って区切る。歩道 1.0 の上にあり、歩道は白のまま続いて見える"},
         "sidewalk": {"pts": [_r(q) for q in g["srect"](g["SIDEWALK"]["s"][0], g["SIDEWALK"]["s"][1], *g["SIDEWALK"]["d"])], "fc": "white",
