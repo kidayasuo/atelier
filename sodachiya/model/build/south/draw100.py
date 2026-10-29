@@ -5,7 +5,8 @@
   屋根の外形など切断より上の物は想像線（二点鎖線、梁は描かない）、部屋は決定事項の色で淡く塗る。通り芯（架構 1〜20、W・E）、スパンの寸法、断面の位置、部屋名と面積。
 - 立面：東・西・南・北を、平面と同じ向き（北が右）に回して正投影。建物だけ、見える面だけ（近いものから手前の形で後ろを切る）。
 - 断面：A は円筒面 r=197 m で切って展開（西を見る）。B・C は架構に平行な鉛直面（北を見る）、奥 3.2 m まで。
-  D（別の紙 sodachiya_sections2_1-100）は本館と西館の横断、架構 13 の線（光の筋の溝）で切る、北を見る（西の道の境の外まで）。
+  D（別の紙 sodachiya_sections2_1-100）は本館と西館の横断、架構 13 の手前（約 0.5 m 南、スパン 12 の中）で切る、北を見る（西の道の境の外まで）。
+  架構 13 の柱・梁・光の筋は奥の見えがかり（断面は柱で切らない）。
   通り芯、幅の寸法、高さの記号（GL・FL・2FL・屋根・越屋根の蓋・西館の最高）。
 出力：PDF・PNG と DXF（レイヤー分け、1/100 の図を 1:1 の mm で。Rhino・LayOut で開いて手を入れる用）。
 """
@@ -1119,14 +1120,16 @@ def _frame_th():
     """架構の角度（柱の中心から、丸めない。TH_S は 1e-4 rad に丸めてあり、スパンが ±20 mm ずれる）。TH_S と同じ順"""
     th = np.array([float(unwrap(math.atan2(*(ob['T'].reshape(-1, 3)[:, :2].mean(0) - C)[::-1]))) for ob in OBJ if ob['layer'].startswith('11a')])
     return [float(th[np.abs(th - t) < 3e-4].mean()) for t in TH_S]
-# 断面 D（項 20261029-0946-present）：本館の横断、架構の線（2 枚の梁のあいだ＝光の筋の溝）で切る。
-# 光の筋の溝は幅約 170 mm なので、丸めた TH_S（±20 mm）でなく柱の中心から出した架構の角度で切る。紙は別（sodachiya_sections2_1-100）
+# 断面 D（項 20261029-0946-present）：本館の横断。架構の角度は、丸めた TH_S（±20 mm）でなく柱の中心から出す。紙は別（sodachiya_sections2_1-100）
 # 10-29 ユーザー（項 20261029-1819-present）：架構 13（3 歳＋遊戯室）に移し、西館まで含める（西館の越屋根・東の高窓の光）
+# 10-30 ユーザー（項 20261030-0022-kanshu、先生）：断面は柱で切らない。架構の線で切ると柱が黒い塊になるので、架構 13 の柱の中心から
+# 0.5 m 南（スパン 12 の中）で切る。架構 13 の柱・2 枚の梁・光の筋（立ち上がり・ガラス・鏡面）は奥の見えがかり
 SEC_D_K = 13
+SEC_D_OFF = -500              # 架構の線から（u、mm、r=205 m に沿って）。−＝南
 SEC_D_XW = -17500             # 図の西の端（v、mm）：西の道の境の少し外
 SEC_D_SKIP = r'^67c_'          # 読書の庭の木（本館の西の外、木は断面に出さない）。zumen.py も json から読む
-SECTIONS.append(('D', 'u', SGN * (_frame_th()[SEC_D_K - 1] - TH_S[0]) * 205000.0,
-                 f'本館と西館の横断（架構{SEC_D_K}の線＝光の筋で切る、3歳・遊戯室）、北を見る'))
+SECTIONS.append(('D', 'u', SGN * (_frame_th()[SEC_D_K - 1] - TH_S[0]) * 205000.0 + SEC_D_OFF,
+                 f'本館と西館の横断（架構{SEC_D_K}の手前で切る、3歳・遊戯室）、北を見る'))
 def _rows():
     """柱の列の半径（W・E、柱の中心の平均を 10 mm に丸める：網の目の中心は数 mm ずれる）"""
     r = np.array([float(np.hypot(*(ob['T'].reshape(-1, 3)[:, :2].mean(0) - C))) for ob in OBJ if ob['layer'].startswith('11a')])
@@ -1360,7 +1363,7 @@ def plan2_dims(A, sh):
 def plan_section_marks(A):
     for nm, kind_, val, _ in SECTIONS:
         if kind_ == 'u':
-            # D（架構 13 の線の上）：東は通り芯の符号 13（r 186.9 m）の外、西は道の境の少し外（西館の全長の寸法の字に掛からないように）
+            # D（架構 13 の 0.5 m 手前）：東は通り芯の符号 13（r 186.9 m）の外、西は道の境の少し外（西館の全長の寸法の字に掛からないように）
             r0, r1 = (189000, 221000) if nm == 'D' else (184000, 222000)
             th = theta_u(val); a, b = at(r0, th), at(r1, th)
             A.lines([[a, b]], '70_断面の位置', lw=LW_THIN, ls=LS_CHAIN, z=10)
@@ -1980,7 +1983,7 @@ def make_sections2():
     S.view(A, '断面' + nm, 'section', origin=p0 + 205000 * u_r, right=-u_r, up=(0.0, 0.0, 1.0), view_dir=u_t,
            cut_plane_point=p0 + 205000 * u_r, cut_plane_normal=u_t, depth_mm=SEC_DEPTH, u_mm=val, frame_k=SEC_D_K, skip_layers_re=SEC_D_SKIP,
            _='鉛直の面（origin を通り、法線 view_dir）で切り、view_dir の向きに depth_mm まで見る。h＝v（西の柱の列 W から東へ）。'
-             '架構の線（2 枚の梁のあいだ）で切る。h が図の範囲（clip_paper_mm）の外の物は描かない')
+             '架構 13 の線の 0.5 m 南で切る（柱は切らない、架構 13 は奥の見え）。h が図の範囲（clip_paper_mm）の外の物は描かない')
     cutb = section_u(A, th_, skip=SEC_D_SKIP, snap=True, far_bin=400)
     westx = min([b[0] for k, b in cutb.items() if k.startswith('21_')] or [-900])
     site_ = [P for ln, P in CURVES if ln.startswith('00')]          # 西の道の境（敷地の境）：断面の線が敷地の外に出る所
