@@ -2058,8 +2058,8 @@ def inspired(ax, tx, ty, colw, rows=4, head=True):
 
 # ================================================================ 2　景観（10-28：もとの2枚目、いちど4枚目にしてから13:17に2枚目へ。ユーザー、10-24夜：立面図2面 → 鳥瞰・約束・素材と色。10-27夜：沿川の景観立面（昼・夜）を1枚目から下の段へ）
 fig, ax = page()
-frame(ax, 2, "景観", "建物に正対する二つの立面（園庭の側・道路の側）で、伸びやかな梁と縁側、西館の立ち上がり。下の段に外から見た姿：鳥瞰と、川の向こうから見た沿川の景観立面（昼・夜）",
-      "園庭の側・道路の側の立面図 → 鳥瞰・沿川の景観立面（昼・夜）→ 景観の約束・素材と色")
+frame(ax, 2, "景観", "建物に正対する二つの立面（園庭の側・道路の側）で、伸びやかな梁と縁側、西館の立ち上がり。下の段に外から見た姿：目の高さの透視図（公園の角から西の道、お向かいさんとの関係）と、川の向こう岸から見た沿川の景観（昼・夜、透視図）",
+      "園庭の側・道路の側の立面図 → 透視図（A4）・沿川の景観（昼・夜）→ 景観の法規・素材と色")
 CLIP_E1 = (25, 35.6, 788.5, 143.0)         # 自動の立面図1：園庭の側（10-28：右の高さの記号・左の高さの寸法・下の全長まで。縮尺の棒は外す）
 CLIP_E2 = (25, 200.1, 788.5, 308.6)        # 自動の立面図1：道路の側（10-28：上は表題の切れ端を外し、右の高さの記号・下の全長まで）
 CLIP_SA = (54, 46.6, 821.5, 171)           # 自動の断面図：縦断A（10-28：左は敷地の境から、上は通り芯の頭から。右は高さの記号まで（更新係が図を3 m左へ寄せた）。「← 南」は表題に書いてあるので外す）
@@ -2088,48 +2088,65 @@ _, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0, dwg=("E
 y_ -= h_ + G2
 bh = BH2
 _pw = 297
-# 鳥瞰の想像図（ユーザー 10-29：まずはレンダリング、準備ができたら写真に差し替えるかも）。絵は上から順に探す：
-#   写真 photo/choukan.jpg（.png）→ Rhino のレンダリング rhino/out/choukan.png（rhino/choukan_render.py）→ 仮の想像図 out/choukan_kari.png（choukan_kari.py が 3dm から）
-_CK_PHOTO = [os.path.join(HERE, "photo", "choukan" + e_) for e_ in (".jpg", ".jpeg", ".png")]
-_CK_RH = os.path.join(HERE, "rhino", "out", "choukan.png")
-_CK_KARI = os.path.join(HERE, "out", "choukan_kari.png")
-_ck = next((p_ for p_ in _CK_PHOTO if os.path.exists(p_)), None) or (_CK_RH if os.path.exists(_CK_RH) else None)
-_ck_kind = "模型写真" if _ck and _ck in _CK_PHOTO else ("Rhino のレンダリング" if _ck else "仮の想像図")
-if _ck is None:
-    _ksrc = [os.path.join(HERE, "choukan_kari.py"), os.path.join(HERE, "rhino", "choukan_render.py"), os.path.join(ROOT, "model", "sodachiya_exact_mesh.3dm"), os.path.join(ROOT, "data", "materials.json")]
-    if not os.path.exists(_CK_KARI) or os.path.getmtime(_CK_KARI) < max(os.path.getmtime(f_) for f_ in _ksrc if os.path.exists(f_)):
-        try:
-            subprocess.run([sys.executable, os.path.join(HERE, "choukan_kari.py"), _CK_KARI], check=True, timeout=900)
-        except Exception as e_:
-            print("鳥瞰の仮の想像図：作れなかった", e_)
-    _ck = _CK_KARI if os.path.exists(_CK_KARI) else None
-if _ck:
-    _ci = plt.imread(_ck)
-    _ih, _iw = _ci.shape[:2]
-    _s = max(_pw / _iw, bh / _ih)                # 箱いっぱいに（縦横の比を保ち、はみ出す分を切る）
-    _dw, _dh = _iw * _s, _ih * _s
-    _ccx, _ccy = ex + _pw / 2, M + 8 + bh / 2
-    _rp = clip_rect(ax, ex, M + 8, _pw, bh)
-    _xl, _yl = ax.get_xlim(), ax.get_ylim()
-    _im = ax.imshow(_ci, extent=(_ccx - _dw / 2, _ccx + _dw / 2, _ccy - _dh / 2, _ccy + _dh / 2), origin="upper", interpolation="lanczos", zorder=2, aspect="auto")
-    _im.set_clip_path(_rp)
-    ax.set_xlim(_xl); ax.set_ylim(_yl)
-    title(ax, ex, M + 8 + bh + 3, "透視図（A4）　鳥瞰の" + ("模型写真" if _ck_kind == "模型写真" else "想像図"), "南西の上空（公園と高野川の橋の上）から北東を見る")
-    sozai("16", "鳥瞰（透視図 A4）", 2, ex, M + 8, _pw, bh, _ck_kind + "（" + os.path.relpath(_ck, HERE) + "）")
-    dimnote(ax, ex + 2, M + 8 + 2, "鳥瞰：" + _ck_kind + "（" + os.path.relpath(_ck, HERE) + "）")
-    print("鳥瞰：", _ck_kind, os.path.relpath(_ck, HERE))
+def _img_box(path, x, y, w, h, fit="cover", align="center"):
+    """絵を枠に。cover＝枠いっぱい（はみ出す分を切る）、contain＝枠に収める（縦横の比を保つ）。返り値は絵の範囲 (x, y, w, h)"""
+    ci_ = plt.imread(path)
+    ih_, iw_ = ci_.shape[:2]
+    s_ = (max if fit == "cover" else min)(w / iw_, h / ih_)
+    dw_, dh_ = iw_ * s_, ih_ * s_
+    x0_ = x + (w - dw_) / 2 if (fit == "cover" or align == "center") else x
+    y0_ = y + (h - dh_) / 2 if fit == "cover" else y + h - dh_         # contain は上にそろえる
+    rp_ = clip_rect(ax, x, y, w, h)
+    xl_, yl_ = ax.get_xlim(), ax.get_ylim()
+    im_ = ax.imshow(ci_, extent=(x0_, x0_ + dw_, y0_, y0_ + dh_), origin="upper", interpolation="lanczos", zorder=2, aspect="auto")
+    im_.set_clip_path(rp_)
+    ax.set_xlim(xl_); ax.set_ylim(yl_)
+    return (max(x, x0_), max(y, y0_), min(w, dw_), min(h, dh_))
+
+
+# 透視図（A4）：目の高さの透視図（ユーザー 10-29：公園の角から西の道を北へ、お向かいさんとの関係）。絵は上から順に探す：
+#   写真 photo/me.jpg（.png）→ Rhino のレンダリング rhino/out/me.png（rhino/me_render.py）→ 仮の図 out/me_kari.png（tools/me_kari.py）。鳥瞰（choukan）は2枚目から外した
+_ME_PHOTO = [os.path.join(HERE, "photo", "me" + e_) for e_ in (".jpg", ".jpeg", ".png")]
+_ME_RH = os.path.join(HERE, "rhino", "out", "me.png")
+_ME_KARI = os.path.join(HERE, "out", "me_kari.png")
+_me = next((p_ for p_ in _ME_PHOTO if os.path.exists(p_)), None) or (_ME_RH if os.path.exists(_ME_RH) else (_ME_KARI if os.path.exists(_ME_KARI) else None))
+_me_kind = "写真" if _me and _me in _ME_PHOTO else ("Rhino のレンダリング" if _me == _ME_RH else "仮の図")
+title(ax, ex, M + 8 + bh + 3, "透視図（A4）　公園の角から西の道を見る", "目の高さ1.5 m、左に向かいの住宅、右に西館の低い軒")
+if _me:
+    _img_box(_me, ex, M + 8, _pw, bh, fit="cover")
+    sozai("16", "透視図（A4）", 2, ex, M + 8, _pw, bh, _me_kind + "（" + os.path.relpath(_me, HERE) + "）")
+    dimnote(ax, ex + 2, M + 8 + 2, "透視図：" + _me_kind + "（" + os.path.relpath(_me, HERE) + "）")
+    print("透視図（A4）：", _me_kind, os.path.relpath(_me, HERE))
 else:
-    box(ax, ex, M + 8, _pw, bh, "透視図（A4）　鳥瞰の想像図", "南西の上空（公園と高野川の橋の上）から北東を見る\n手前に道の側の静かな壁と公園、奥に弧の縁側と園庭\n（rhino/choukan_render.py のレンダリングを待つ）")
-# 鳥瞰の右に、沿川の景観立面 昼（上）・夜（下）1/300（ユーザー、10-27夜：1枚目の下から移した。外から見た姿を鳥瞰と並べる）
+    box(ax, ex, M + 8, _pw, bh, "透視図（A4）　公園の角から西の道を見る", "rhino/me_render.py のレンダリングを待つ")
+# 透視図の右に、沿川の景観 昼（上）・夜（下）（ユーザー 10-29：立面である必要はなく景観なので透視図に）。
+# Rhino の絵（rhino/keikan_render.py）は keikan_view.json に projection: "perspective" があるときだけ使う（前の平行投影の絵は使わない）。無ければ仮の図 out/keikan_kari_*.png
 _lx = ex + _pw + 8
-_ly_d = M + 8 + bh - _lh1                    # 昼の上端を鳥瞰の上端にそろえる
-_ly_n = M + 8 + 9                            # 夜は下（題は図の下）
-title(ax, _lx, _ly_d - 5.5, "沿川の景観立面　昼", f"1/{LE_SC}　高野川の向こうから（川の辺に直角）、周りの建物とともに")
-title(ax, _lx, _ly_n - 5.5, "沿川の景観立面　夜", "本館と西館の越屋根の東の縁の光が水平に二本")
-land_elev(ax, _lx, _ly_d, False)
-land_elev(ax, _lx, _ly_n, True)
-sozai("03", f"沿川の景観立面　昼　1/{LE_SC}", 2, _lx, _ly_d, _lw1, _lh1)
-sozai("04", f"沿川の景観立面　夜　1/{LE_SC}", 2, _lx, _ly_n, _lw1, _lh1)
+_lw1 = W - M - 6 - 126 - 8 - _lx              # 右の景観の法規の箱（126 mm、前と同じ）の左まで
+_lh1 = (bh - 9 - 9 - 6) / 2                   # 二枚と題
+_ly_d = M + 8 + bh - _lh1
+_ly_n = M + 8 + 9
+try:
+    _kv = json.load(open(os.path.join(HERE, "rhino", "out", "keikan_view.json"), encoding="utf-8"))
+except Exception:
+    _kv = {}
+_kpersp = _kv.get("projection") == "perspective"
+for _night, _yy in ((False, _ly_d), (True, _ly_n)):
+    _nm = "yoru" if _night else "hiru"
+    _rh = os.path.join(HERE, "rhino", "out", f"keikan_{_nm}.png")
+    _ka = os.path.join(HERE, "out", f"keikan_kari_{_nm}.png")
+    _src, _kind = (_rh, "Rhino") if _kpersp and os.path.exists(_rh) else ((_ka, "仮の図") if os.path.exists(_ka) else (None, None))
+    if _src is None and _night and os.path.exists(os.path.join(HERE, "out", "keikan_kari_hiru.png")):
+        _src, _kind = os.path.join(HERE, "out", "keikan_kari_hiru.png"), "仮の図（昼）"
+    title(ax, _lx, _yy - 5.5, "沿川の景観　" + ("夜" if _night else "昼"), "高野川の向こう岸の歩道から、目の高さ1.5 m" + ("　本館と西館の越屋根の光" if _night else ""))
+    if _src:
+        _r = _img_box(_src, _lx, _yy, _lw1, _lh1, fit="contain", align="left")
+        sozai("04" if _night else "03", "沿川の景観　" + ("夜" if _night else "昼"), 2, _r[0], _r[1], _r[2], _r[3], _kind + "（" + os.path.relpath(_src, HERE) + "）")
+        if _night and _kind != "Rhino":
+            dimnote(ax, _r[0] + 2, _r[1] + 2, "夜はRhinoの絵を待つ（いまは" + _kind + "）")
+        print("沿川の景観", "夜" if _night else "昼", "：", _kind, os.path.relpath(_src, HERE))
+    else:
+        box(ax, _lx, _yy, _lw1, _lh1, "沿川の景観　" + ("夜" if _night else "昼"), "rhino/keikan_render.py の絵を待つ")
 # 右の列：景観の法規と素材と色を一つの箱に（ユーザー 10-29：「景観のお約束を、景観の法規に。ここは情緒ではなく正確に。」「素材と色は上の囲みのなかに。色ラベルをもう少し小さくしてコンパクトに。」）
 # 根拠は決定事項（共通）の「地区と法規」。高さは自動の図（立面）の縦の寸法「9,049　西館の最高」（GLから。+8,717 は FL±0 からの高さの記号）
 _kx = _lx + _lw1 + 8
