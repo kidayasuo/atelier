@@ -492,7 +492,7 @@ for p in parts:
         if U is not None: cutters.append(U); why.append('屋根の下面')
         O = outside_solid(b) if k == 'P' and not p['layer'].startswith(('48', '27')) else None     # 窓のガラスは外壁の面に、外へ出る戸は外壁の開口にあってよい
         if O is not None: cutters.append(O); why.append('建物の外')
-    if k == 'X' and not p['layer'].startswith(('29', '30', '50b', '50c', '20p')):     # 10-29 西館係：閉じた 20p（屋根の上）は建物の中で削らない（中の立体の上端が一番高い所の平らな面で、軒の帯のほかが消えていた）
+    if k == 'X' and not p['layer'].startswith(('29', '30', '50b', '50c', '20p', '10p')):     # 10-29 西館係：閉じた 20p（屋根の上）は建物の中で削らない（中の立体の上端が一番高い所の平らな面で、軒の帯のほかが消えていた）。10-29 監修：本館の 10p も同じ（本館係の依頼）
         Iin = inside_solid(b)
         if Iin is not None: cutters.append(Iin); why.append('建物の中')
     if not cutters: continue
