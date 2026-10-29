@@ -23,7 +23,7 @@ LED_LIGHT_DROP = 60.0                           # 線の光源を LED の帯の�
 LED_LEN_MIN, LED_LEN_MAX = 500.0, 200000.0      # 線の光源の長さがこの外なら置かない（mm）
 # 夜の切り替え（Rhino が落ちるときは一つずつ False にして、どれが原因かを見る。10-29 夜）
 USE_LED_LIGHTS = True                           # LED のレイヤーごとに線の光源を1本（本館・西館の2本）
-USE_LED_MATERIAL = True                         # LED の帯に光る材料（RenderMaterial）
+USE_LED_MATERIAL = False                        # LED の帯に光る材料（RenderMaterial）。10-29 から 3dm の中で発光の材料が当たる（materials.json「越屋根の LED（発光）」、監修 5b61cfc）ので差し替えない
 USE_SKYLIGHT_OFF = True                         # スカイライトを消す
 USE_SKY_BG = True                               # 背景を群青の一色に
 NIGHT_SKY = System.Drawing.Color.FromArgb(0x4C, 0x6C, 0xB3)     # 夜の空：群青色
