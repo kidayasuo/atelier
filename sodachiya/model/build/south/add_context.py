@@ -1,7 +1,7 @@
 """周辺の道路と建物（PLATEAU、data/context_plateau.json）を 3dm に
 使い方: python3 add_context.py IN.3dm OUT.3dm data/context_plateau.json
 - 03_周辺_道路（PLATEAU）：道路 LOD1 の面を一枚にまとめ、平らに（敷地の GL −300 の 20 下、10-25 ユーザー）。厚さ 100 の押し出し（穴あり）。西の道・北の道の建物の側の縁は敷地の境にそろえる。
-- 03g_周辺_地面（平ら）：敷地から30 mの帯のうち道路・敷地・川の側を除いた所に、上面−320・厚さ100の板（10-29）。
+- 03g_周辺_地面（平ら）：PLATEAU の範囲全体（入れた道路・建物の凸包を5 m広げた範囲）から敷地と高野川（02の平面）を抜いた一枚。上面−340（道路の20下、道路の下にも続く）・厚さ100（10-30）。
 - 04_周辺_建物（PLATEAU LOD1）：建物の外形を下端から上端まで押し出した箱（LOD1 なので屋根の形は無い）。
 - 敷地の中の今の住宅と、敷地の中を通る今の道は入れない（課題はそれを取り払った計画）。
 - 出典：国土交通省 Project PLATEAU（京都市 2025 年度）。
@@ -46,13 +46,14 @@ ROT_BLOCK = {'ids': ('bldg_15ae39bf-872c-42a8-889f-3138a573794e', 'bldg_d62c7741
              'pivot': (-32517.4, -46079.2), 'deg': -12.65}   # 10-26 周辺を(-1.369, 1.722) m動かした分も
 nb = nr = skip_b = skip_r = 0
 HB = []                             # 回した三軒の外形（道の西の縁を合わせる、下）
+PL = []                             # 入れた建物の外形（周辺の地面03gの範囲、下）
 for b in J['bldg']:
     F = Polygon(np.array(b['foot']) * 1000).buffer(0)
     if b.get('id') in ROT_BLOCK['ids']: F = _aff.rotate(F, ROT_BLOCK['deg'], origin=ROT_BLOCK['pivot']); HB.append(F)
     if F.is_empty or F.area < 2e6: continue
     if F.intersection(S).area > 0.5e6: skip_b += 1; continue          # 敷地にかかる建物は入れない（今の住宅、北で敷地に入る隣家も、ユーザー10-26）
     if b['z1'] - b['z0'] < 500: continue
-    K.prism(F, float(b['z0']), float(b['z1']), L_BL); nb += 1
+    K.prism(F, float(b['z0']), float(b['z1']), L_BL); nb += 1; PL.append(F)
 # 道路（10-25、ユーザー）：平らな一枚に（道の少々の起伏は無視する。平面図に道路の片の継ぎ目や斜めの三角形の筋が入らないように）。
 # 敷地に接する西の道・北の道は、建物の側の縁だけを敷地の境にそろえる（道が敷地にかかる所は削り、敷地とのすき間は道で埋める。
 # 道の向こう側の縁は PLATEAU のまま）。元々道路と敷地が正確ではない（ユーザー）。
@@ -164,30 +165,34 @@ for g in getattr(RD, 'geoms', [RD]):
     K.prism(g, Z_RD - T_RD, Z_RD, L_RD)
     for o in list(m.Objects)[n0:]: o.Attributes.Name = '道路（平ら）'
     nr += len(m.Objects) - n0
-# 周辺の平らな地面（03g、10-29監修の項20261029-1457-kanshu）：北東の隣地（PLATEAUの建物だけで地面が無かった）・
-# 公園の南西の橋のたもと・北の角の先など、敷地から30 mの帯のうち、道路・敷地・川の側（護岸02）を除いた所に、
-# 道路と同じ上面−320・厚さ100の平らな板。隣の建物（04）はその上に立つ（建物の下端はPLATEAUのまま）
-L_GR = layer('03g_周辺_地面（平ら、上面−320）', (165, 150, 125))
-WG = 30000.0
-# 川の側：敷地の南東の辺（外向きが南東＝北の道の向きの逆）の線より外は護岸と川（add_site.py）
-SE = None
-for k in range(len(_ring) - 1):
-    e = LineString([_ring[k], _ring[k + 1]])
-    if e.length > 5000 and _out(e) @ np.array([0.6225, -0.7826]) > 0.95: SE = e
-GR = S.buffer(WG, join_style=2).difference(S).difference(RD)
-if SE is not None:
-    (x0, y0), (x1, y1) = SE.coords; d_ = np.array([x1 - x0, y1 - y0]) / SE.length; n_ = _out(SE)
-    p0, p1 = np.array([x0, y0]) - d_ * 200000, np.array([x1, y1]) + d_ * 200000
-    GR = GR.difference(Polygon([p0, p1, p1 + n_ * 200000, p0 + n_ * 200000]))
-GR = GR.buffer(-3, join_style=2)                     # 道路・敷地と3 mm離す（輪が一点で触れる所も離れる）
+# 周辺の平らな地面（03g）：PLATEAU の範囲全体に一枚（10-30、ユーザーの項 20261029-2211-present：レイトレースの鳥瞰で、
+# 道路と建物のあいだに地面が無く空が四角く抜けていた。前は敷地から30 mの帯だけ、10-29）。
+# 範囲は入れた道路（03）・建物（04）の凸包を5 m広げた所。そこから敷地（00）と高野川（02：護岸・河川敷・水・川底の平面）を抜く。
+# 上面は道路の20下（−340）なので、道路とは平面で重なってよい（道路の下に続き、継ぎ目のすき間が残らない）。建物（04）はその上に立つ
+L_GR = layer('03g_周辺_地面（平ら、上面−340）', (165, 150, 125))
+Z_GR = Z_RD - 20.0
+def _plan(g):
+    """メッシュの面を平面に写した多角形の和（add_site.py と同じ）"""
+    if not isinstance(g, r.Mesh): return None
+    V = np.array([[p.X, p.Y] for p in g.Vertices]); T = []
+    for i in range(g.Faces.Count):
+        f = g.Faces[i]; ids = [f[0], f[1], f[2]] + ([f[3]] if f[3] != f[2] else [])
+        P = Polygon(V[ids])
+        if abs(P.area) > 1e3: T.append(P.buffer(0))
+    return unary_union(T) if T else None
+RV = [_plan(o.Geometry) for o in m.Objects if m.Layers[o.Attributes.LayerIndex].Name.startswith('02_')]
+RV = unary_union([f for f in RV if f is not None and not f.is_empty])
+HULL = unary_union(PL + [RD]).convex_hull.buffer(5000, join_style=2)
+GR = HULL.difference(S).difference(RV)
+GR = GR.buffer(-3, join_style=2)                     # 敷地・川と3 mm離す（輪が一点で触れる所も離れる）
 ng = 0
 for g in getattr(GR, 'geoms', [GR]):
     if g.geom_type != 'Polygon' or g.area < 1e6: continue          # 1 m²より小さいかけらは入れない
-    g = g.simplify(20)
+    g = g.simplify(2)                                              # 敷地・川の縁から出ないように細かく
     n0 = len(m.Objects)
-    K.prism(g, Z_RD - T_RD, Z_RD, L_GR)
+    K.prism(g, Z_GR - T_RD, Z_GR, L_GR)
     for o in list(m.Objects)[n0:]: o.Attributes.Name = '周辺の地面（平ら）'
     ng += len(m.Objects) - n0
-print('ground: 周辺の地面%.1f m2（%d枚）' % (sum(g.area for g in getattr(GR, 'geoms', [GR]) if g.geom_type == 'Polygon' and g.area >= 1e6) / 1e6, ng))
+print('ground: 範囲%.1f m2、敷地%.1f m2・川%.1f m2を抜いて、周辺の地面%.1f m2（%d枚）' % (HULL.area / 1e6, HULL.intersection(S).area / 1e6, HULL.intersection(RV).difference(S).area / 1e6, sum(g.area for g in getattr(GR, 'geoms', [GR]) if g.geom_type == 'Polygon' and g.area >= 1e6) / 1e6, ng))
 m.Write(OUT, 8)
 print('context: bldg', nb, '(site', skip_b, 'removed)  road', nr, '(site', skip_r, 'removed) →', OUT, len(m.Objects))
