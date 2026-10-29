@@ -2,7 +2,7 @@
 
 描くもの（決定事項（共通）の「屋根・光・電気」「屋根の構成」、決定事項_本館の「屋根：光の筋と太陽光」「越屋根」）：
 - 光の筋：2枚の梁のあいだ180の上の乳白ガラスから入る空の光が、鏡面のアルミの溝を下りて梁の下へ（約8割、杉のままなら約1割）。
-  保育室の暗い帯（西から約2〜8 m）を明るくする。溝の向きの断面は小さな差し込みの図（1/25）で。
+  保育室の暗い帯（西から約2〜8 m）を明るくする。溝の向きの断面は小さな差し込みの図（断面Cは1/25、断面Dは1/30）で。
 - 越屋根（白の艶消しの木のルーバーのすき間＋ガラスの蓋）から、西の吹き抜けと奥へ落ちる上からの柔らかい光。
 - 東の縁側のガラス戸と深い軒：朝9時（太陽時）の日を、夏至・春秋分・冬至で。断面の面に映した高度（プロファイル角）で描く。
   南中の日はこの東西の断面ではほぼ真上（82〜89°）なので、軒と屋根が受ける。軒先とガラスの足を結ぶ角より高い日はガラスに当たらない。
@@ -166,6 +166,16 @@ def interp(poly, h):
     return float(np.interp(h, a[:, 0], a[:, 1]))
 
 
+# ---------------------------------------------------------------- 割付（ページの左上からの mm）
+# 越屋根の注 kosi、差し込み（溝の断面）inset と縮尺、東の注 east、行の間 lh。
+# 断面D：3枚目では図の範囲（clip_paper_mm）の上に 30 mm の余白（mock.py の AIR_D）。差し込みと東の注はその余白に、
+# 越屋根の注は断面Dの図の題の下に置く。
+LAYOUT = {
+    "断面C": dict(kosi=(17.5, 26.0), inset=(77.0, 4.0), inset_scale=25, east=(165.0, 20.0), lh=3.6),
+    "断面D": dict(kosi=(17.5, 37.5), inset=(25.0, 0.8), inset_scale=30, east=(118.0, 1.8), lh=3.3),
+}
+
+
 # ---------------------------------------------------------------- 描く
 def draw(paper, vname, out_pdf, out_json, out_png):
     vj = os.path.join(ROOT, "drawings", paper + "_views.json")
@@ -175,6 +185,7 @@ def draw(paper, vname, out_pdf, out_json, out_png):
     Y = lambda z: T["e"] * z + T["f"]
     G = geometry(view)
     right = view["right"]
+    LY = LAYOUT.get(vname, LAYOUT["断面D"])
 
     hW = G["west_in"]                                  # 西の外壁の内面
     hd, zd0, zd1 = G["door"]                           # ガラス戸
@@ -240,8 +251,9 @@ def draw(paper, vname, out_pdf, out_json, out_png):
         ax.add_patch(MPoly([P(hv0, lz0), P(hv1, lz0), P(hv1, lz0 - 600 - f * 3300), P(hv0, lz0 - 600 - f * 3300)],
                            closed=True, fc=SKY_F, ec="none", alpha=0.06 * (1 - f), zorder=1))
     arrow(P(hW + 60, 2300), P(hW + 1500, 1300), SKY, lw=0.4, a=0.7)         # 白い西の壁で返り、奥へ
-    txt(PAGE[0] + 17.5, PAGE[1] + 26.0, "越屋根：ガラスの蓋とルーバーのすき間から", 2.9, SKY, w="bold")
-    txt(PAGE[0] + 17.5, PAGE[1] + 29.6, "上からの柔らかい光が西の吹き抜けと奥へ", 2.6, SKY)
+    kx, ky = PAGE[0] + LY["kosi"][0], PAGE[1] + LY["kosi"][1]
+    txt(kx, ky, "越屋根：ガラスの蓋とルーバーのすき間から", 2.9, SKY, w="bold")
+    txt(kx, ky + 3.6, "上からの柔らかい光が西の吹き抜けと奥へ", 2.6, SKY)
 
     # ---- 東のガラス戸と深い軒：朝9時（太陽時）
     t9 = 9.0
@@ -278,27 +290,27 @@ def draw(paper, vname, out_pdf, out_json, out_png):
         arrow(P(nx + 1100 / tn, z0 + 1100), P(nx, z0), SUN[nm], lw=0.45, ms=3.0)
 
     # 注：東（屋根の上の余白）
-    ex, ey = PAGE[0] + 165.0, PAGE[1] + 20.0
+    ex, ey = PAGE[0] + LY["east"][0], PAGE[1] + LY["east"][1]
     L = [("深い軒（出約1.5 m）と縁側のガラス戸", 2.9, "bold"),
          ("ガラス戸は半分が片引き戸、半分は壁", 2.6, "normal"),
          (f"{cut:.0f}°より高い日はガラスに当たらない", 2.6, "normal"),
          (f"夏至{hm(tcut['夏至'])}・春秋分{hm(tcut['春秋分'])}・冬至{hm(tcut['冬至'])}から（太陽時）", 2.6, "normal"),
          (f"南中の日はこの断面ではほぼ真上（{min(t for _,_,t in noon):.0f}〜{max(t for _,_,t in noon):.0f}°）", 2.6, "normal")]
     for k, (s_, sz, w_) in enumerate(L):
-        txt(ex, ey + 3.6 * k, s_, sz, INK, w=w_)
+        txt(ex, ey + LY["lh"] * k, s_, sz, INK, w=w_)
     for k, (nm, dec, a, th, tn, top, reach) in enumerate(rays):      # 日の線の凡例（朝9時、太陽時）
-        yy = ey + 3.6 * (len(L) + k) + 0.6
+        yy = ey + LY["lh"] * (len(L) + k) + 0.6
         ax.plot([ex, ex + 4.0], [yy, yy], color=SUN[nm], lw=1.2, solid_capstyle="butt")
         txt(ex + 5.0, yy, f"{nm}の朝9時：断面の角{th:.0f}°、床の日だまり{reach / 1000:.1f} m", 2.6, SUN[nm], w="bold")
 
     # ---- 光の筋の溝の断面（差し込み、1/25）
-    S = 1 / 25 * 1.0                                  # 実寸 mm → 紙 mm
-    ix, iy = PAGE[0] + 77.0, PAGE[1] + 4.0           # 左上
+    S = 1 / LY["inset_scale"]                         # 実寸 mm → 紙 mm
+    ix, iy = PAGE[0] + LY["inset"][0], PAGE[1] + LY["inset"][1]   # 左上
     bw, gap, dep = 90, 180, 750
     ox = ix
     def R_(x0_, y0_, w_, h_, **k):
         ax.add_patch(plt.Rectangle((x0_, y0_), w_, h_, **k))
-    y_g = iy + 4.5                                     # ガラスの下端
+    y_g = iy + 3.5                                     # ガラスの下端
     for bx in (0, bw + gap):
         R_(ox + bx * S, y_g - 60 * S, bw * S, (dep + 60) * S, fc="#E9D9BF", ec="#7A6A55", lw=0.3, zorder=6)
     R_(ox + bw * S - 3 * S, y_g - 60 * S, (gap + 6) * S, 60 * S, fc="#EEF4FA", ec=SKY, lw=0.4, zorder=6)   # 乳白ガラス
@@ -306,21 +318,22 @@ def draw(paper, vname, out_pdf, out_json, out_png):
         ax.plot([xx, xx], [y_g, y_g + dep * S], color="#9AA7B4", lw=0.9, zorder=7)                   # 鏡面
     # 跳ね返りながら下りる光
     xL, xR = ox + bw * S + 0.15, ox + (bw + gap) * S - 0.15
-    pts = [(xL + 1.6, y_g - 4.0), (xL + 2.2, y_g + 0.2), (xR, y_g + 6.5), (xL, y_g + 14.5), (xR, y_g + 22.5), (xL + 3.4, y_g + dep * S + 4.5)]
+    Dp = dep * S
+    pts = [(xL + 1.6, y_g - 3.2), (xL + 2.2, y_g + 0.2), (xR, y_g + 0.22 * Dp), (xL, y_g + 0.48 * Dp), (xR, y_g + 0.75 * Dp), (xL + 0.4 * (xR - xL), y_g + Dp + 3.5)]
     for p, q in zip(pts[:-1], pts[1:]):
         ax.plot(*zip(p, q), color=SKY, lw=0.5, zorder=8)
     arrow(pts[-2], pts[-1], SKY, lw=0.5, z=8)
-    pts2 = [(xR - 1.0, y_g - 4.0), (xR - 1.3, y_g + 0.2), (xL, y_g + 10.0), (xR, y_g + 18.5), (xR - 2.6, y_g + dep * S + 4.5)]
+    pts2 = [(xR - 1.0, y_g - 3.2), (xR - 1.3, y_g + 0.2), (xL, y_g + 0.33 * Dp), (xR, y_g + 0.62 * Dp), (xR - 0.4 * (xR - xL), y_g + Dp + 3.5)]
     for p, q in zip(pts2[:-1], pts2[1:]):
         ax.plot(*zip(p, q), color=SKY, lw=0.4, alpha=0.7, zorder=8)
     arrow(pts2[-2], pts2[-1], SKY, lw=0.4, a=0.7, z=8)
     tx = ox + (2 * bw + gap) * S + 2.0
-    txt(tx, y_g - 0.5, "光の筋：溝の断面1/25", 2.9, INK, w="bold")
-    txt(tx, y_g + 3.4, "架構の線ごと、2枚の梁のあいだ180", 2.6, INK)
-    txt(tx, y_g + 7.0, "上：乳白の複層ガラス（外は遮熱Low-E）", 2.6, INK)
-    txt(tx, y_g + 10.6, "両側：鏡面のアルミ（反射率約0.95）、梁の下端まで", 2.6, INK)
-    txt(tx, y_g + 14.8, "梁の下に出る光：鏡面で約8割", 2.6, SKY, w="bold")
-    txt(tx, y_g + 18.4, "（杉の面のままなら約1割）", 2.6, INK)
+    txt(tx, y_g - 0.5, f"光の筋：溝の断面1/{LY['inset_scale']}", 2.9, INK, w="bold")
+    txt(tx, y_g + 1 * LY["lh"], "架構の線ごと、2枚の梁のあいだ180", 2.6, INK)
+    txt(tx, y_g + 2 * LY["lh"], "上：乳白の複層ガラス（外は遮熱Low-E）", 2.6, INK)
+    txt(tx, y_g + 3 * LY["lh"], "両側：鏡面のアルミ（反射率約0.95）、梁の下端まで", 2.6, INK)
+    txt(tx, y_g + 4 * LY["lh"] + 0.6, "梁の下に出る光：鏡面で約8割", 2.6, SKY, w="bold")
+    txt(tx, y_g + 5 * LY["lh"] + 0.6, "（杉の面のままなら約1割）", 2.6, INK)
 
     # ---- 保育室の暗い帯（西から約2〜8 m）を光の筋が照らす
     zb = interp(sof, 8000) - 250
@@ -398,8 +411,8 @@ def preview(base, ovl, PAGE, out_png, px=1600):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--paper", default="sodachiya_sections_1-100")
-    ap.add_argument("--view", default="断面C")
+    ap.add_argument("--paper", default="sodachiya_sections2_1-100")
+    ap.add_argument("--view", default="断面D")
     ap.add_argument("--name", default="17_光の環境_断面")
     a = ap.parse_args()
     S = os.path.join(ROOT, "present", "sozai"); O = os.path.join(ROOT, "present", "out")
