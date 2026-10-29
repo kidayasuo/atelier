@@ -40,9 +40,11 @@ for f in (FONT, FONTB):
 
 W, H = 841.0, 594.0            # A1横（mm）
 M = 15.0                       # 余白
-HDR = 21.0                     # 上の帯の高さ（mm、10-29 15:16：テーマを10 mmにしたので16→21）
-HDR_BL = 15.2                  # 帯の上端から字の基準線まで
-NAME_SZ, THEME_SZ, THEME_X = 8.0, 10.0, 112.0   # 園の名前・テーマの字（mm）、テーマの左（M から）
+HDR = 24.0                     # 上の帯の高さ（mm、10-29 15:16：16→21、16:02：40 pt の表題で24）
+HDR_BL = 17.0                  # 帯の上端から字の基準線まで
+PT2MM = 0.3528 * 0.72          # Illustrator の pt → 文字の高さ（mm）
+SCHOOL = "松ヶ崎こども園"        # 枠の表題（ユーザー 10-29 16:02、前は「こどもたちの育ち舎」）
+NAME_SZ, THEME_SZ, THEME_X = 40 * PT2MM, 40 * PT2MM, 112.0   # 園の名前・テーマの字（40 pt）、テーマの左（M から）
 NOTE = "#6B4FE0"               # 割付の注記（本番では消す）
 INK = "#222222"
 MM = 72 / 25.4
@@ -255,14 +257,14 @@ def frame(ax, no, theme, focus, order):
     AIMUTE[0] += 1
     ax.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK, gid="aipart"))
     ax.plot([M, W - M], [H - M - HDR, H - M - HDR], color=INK, lw=0.4, gid="aipart")
-    T(ax, M + 4, H - M - HDR_BL, "こどもたちの育ち舎", NAME_SZ, bold=True)
-    T(ax, M + THEME_X, H - M - HDR_BL, f"{no}/5　{theme}", THEME_SZ, bold=True)
+    T(ax, M + 4, H - M - HDR_BL, SCHOOL, NAME_SZ, bold=True)
+    T(ax, M + THEME_X, H - M - HDR_BL, f"{no}　{theme}", THEME_SZ, bold=True)
     T(ax, W - M - 4, M + 4, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")   # 名前などは右下（ユーザー、10-25）
     # 注記
     T(ax, M + 4, M - 6, f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", 3.2, NOTE)
     AIMUTE[0] -= 1
     _airec(ax.figure, kind="frame")
-    _airec(ax.figure, kind="text", id="pagetitle", name="ページとサブタイトル", x=M + THEME_X, y=H - M - HDR_BL, s=f"{no}/5　{theme}", size=THEME_SZ, color=INK, bold=True, ha="left", va="baseline")
+    _airec(ax.figure, kind="text", id="pagetitle", name="ページとサブタイトル", x=M + THEME_X, y=H - M - HDR_BL, s=f"{no}　{theme}", size=THEME_SZ, color=INK, bold=True, ha="left", va="baseline")
     _airec(ax.figure, kind="text", id="note.footer", name="割付の注記", x=M + 4, y=M - 6, s=f"［割付の注記］フォーカス：{focus}　／　目に入る順：{order}", size=3.2, color=NOTE, bold=False, ha="left", va="baseline")
 
 
@@ -630,13 +632,14 @@ def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2, key=None):
 # 1枚目の説明の箱は案H（ユーザー、10-28 14:04）：枠と塗りなし、見出しの頭に番号の印（自然＝青の○、地域＝茶の□、白抜きの数字）、
 # 配置図の上の点にも同じ印（引き出し線なし）。印は一つずつ Illustrator の部品（○か□と数字のグループ）
 MARKS = []          # dict(id, cat, num, cx, cy（紙のmm、下原点）, r, ring, group, group_name, follow)
-MARK_R_BOX, MARK_R_PLAN = 3.2, 3.0
-MARK_NUM = 2.6      # 印の数字の高さ（mm）
+MARK_R_BOX, MARK_R_PLAN = 4.4, 3.0                  # 箱の印は見出し 20 pt に合わせて大きく（10-29 16:02）
+MARK_NUM = 2.6      # 印の数字の高さ（mm、配置図の上）
+MARK_NUM_BOX = 3.6  # 箱の印の数字
 HIND = 1 + 2 * MARK_R_BOX + 2.5                     # 見出しと本文の字下げ（印の幅）
 
 
-BOX_TS, BOX_FS = 4.2, 3.5                           # 1枚目の説明の箱：見出し・本文の字（10-29 15:16：3.8・3.0 から大きく）
-BOX_TOP, BOX_BODY = 8.0, 15.5                        # 箱の上端から見出しの基準線・本文の1行目の基準線まで
+BOX_TS, BOX_FS = 20 * PT2MM, 20 * PT2MM             # 1枚目の説明の箱：見出し（W6）・本文（W3）とも 20 pt（ユーザー 10-29 16:02）
+BOX_TOP, BOX_BODY = 9.0, 20.0                        # 箱の上端から見出しの基準線・本文の1行目の基準線まで
 
 
 def ibox_h(ax, x, y, w, h, title, lines, color, cat, num, key, size=BOX_FS):
@@ -646,7 +649,7 @@ def ibox_h(ax, x, y, w, h, title, lines, color, cat, num, key, size=BOX_FS):
     _airec(ax.figure, kind="text", id=f"ibox.{key}.title", name=f"見出し：{title}", x=tx, y=hy, s=title, size=BOX_TS, color=color, bold=True, ha="left", va="baseline")
     _airec(ax.figure, kind="area", id=f"ibox.{key}.text", name=f"本文：{title}", x=tx, y=y + h - BOX_BODY, w=w - HIND - 3, h=h - BOX_BODY - 1,
            s="\n".join(lines), size=size, color=INK, bold=False, leading=1.5, para_space=1.0)
-    MARKS.append(dict(id=f"ibox.{key}.mark", cat=cat, num=num, cx=x + 1 + MARK_R_BOX, cy=hy + 1.4, r=MARK_R_BOX, ring=False,
+    MARKS.append(dict(id=f"ibox.{key}.mark", cat=cat, num=num, cx=x + 1 + MARK_R_BOX, cy=hy + 0.35 * BOX_TS / 0.72, r=MARK_R_BOX, ring=False,
                       group=f"ibox.{key}.mark", group_name=f"印（箱）　{title}", key=key))
     AIMUTE[0] += 1
     T(ax, tx, hy, title, BOX_TS, color, bold=True)
@@ -730,7 +733,7 @@ fig, ax = page()
 frame(ax, 1, "敷地と自然環境・地域", "周囲の自然環境との関係と地域環境への配慮。配置図の上に夏の夜の風・比叡への視線",
       "タイトルと趣旨 → 真ん中の配置図 → 左右の箱（青＝自然環境、茶＝地域）→ 用水のネットワーク・地域のなかの敷地")
 top = H - M - HDR
-T(ax, M + 6, top - 15, "地に足をつけて育つ", 10.0, bold=True)
+T(ax, M + 6, top - 15, "地に足をつけて育つ", 40 * PT2MM, bold=True)   # 40 pt（ユーザー 10-29 16:02）
 # 設計趣旨はpresent/設計趣旨.txt（ユーザーが編集する）。改行は無視してつなぐ
 # 設計趣旨は sodachiya/concept.txt（ユーザーが編集する、10-24に直下へ）。「#」の行は読まない。空行で段落を分け、段落の中の改行はつなぐ
 _paras, _cur = [], []
@@ -767,20 +770,21 @@ def jwrap(t, width=40.0):
     return out + ([cur] if cur else [])
 
 
+CSZ, CCH = 20 * PT2MM, 29                        # 設計趣旨：20 pt、1行29字（ユーザーの箱の幅 206 mm、10-29 16:02）
 _y = top - 28
-_airec(fig, kind="area", id="concept", name="設計趣旨", x=M + 6, y=_y, w=37 * 4.0 / 0.72 + 1, h=0, s="\n".join(p_.lstrip("　 ") for p_ in _paras),
-       size=4.0, color=INK, bold=False, leading=1.5, para_space=1.0)
+_airec(fig, kind="area", id="concept", name="設計趣旨", x=M + 6, y=_y, w=CCH * CSZ / 0.72 + 1, h=0, s="\n".join(p_.lstrip("　 ") for p_ in _paras),
+       size=CSZ, color=INK, bold=False, leading=1.5, para_space=1.0)
 _ystart = _y
 AIMUTE[0] += 1
 for _p in _paras:
-    for s in jwrap(_p.lstrip("　 "), 37):     # 一字下げしない（ユーザー、10-25夕）
-        T(ax, M + 6, _y, s, 4.0)
-        _y -= 4.0 / 0.72 * 1.5        # 行送りは文字の1.5倍（ユーザー、10-25夕）
-    _y -= 4.0 / 0.72                  # 段落のあいだは1行分（ユーザー、10-25夕）
+    for s in jwrap(_p.lstrip("　 "), CCH):     # 一字下げしない（ユーザー、10-25夕）
+        T(ax, M + 6, _y, s, CSZ)
+        _y -= CSZ / 0.72 * 1.5        # 行送りは文字の1.5倍（ユーザー、10-25夕）
+    _y -= CSZ / 0.72                  # 段落のあいだは1行分（ユーザー、10-25夕）
 AIMUTE[0] -= 1
 AIREC[-1]["h"] = _ystart - _y + 6
 CONCEPT_BOT = _y - 6                                     # 設計趣旨の下端（左の箱の列はここから下）
-dimnote(ax, M + 6, _y + 1, f"設計趣旨 約{len(concept.replace(' ', ''))}字（課題は300字程度）。文字4.0 mmなら1 m離れて読める")
+dimnote(ax, M + 6, _y + 1, f"設計趣旨 約{len(concept.replace(' ', ''))}字（課題は300字程度）。文字20 pt（5.1 mm）")
 # 配置図1/200と小さな地図の共通（高野川の辺を下に水平：川向こうから見る向き、ユーザー。園庭の図と同じ回し方）
 from shapely import affinity
 _Ms = np.array([d, wv])                                # to_sの回転の部分（3dmのxy → 紙の座標）
@@ -1998,9 +2002,9 @@ _wq = _ym([(272, 76)])[0]; ax.plot([_wq[0]], [_wq[1]], marker="v", ms=4, color=C
 _eq = _ym([(200, 151)])[0]; ax.plot([_eq[0]], [_eq[1]], "o", ms=3, mfc="white", mec=INK, zorder=7)
 _sq = _ym([(247, 148)])[0] + np.array([4.5, -1.2])   # 図の「樋ノ上川」の「樋」の字のあたり（ユーザー、10-24夜）
 # 敷地の印は描かない（ユーザー、10-25朝：不要）
-TOPT[1].append((_fx0, _ny0 + 5.5, "大正から昭和初期の図（https://kyoto-machisen.jp/chiiki_hp/matsugasaki_hp/history/history.htm）", 2.6, False, None, NOTE,
+TOPT[1].append((_fx0, _ny0 + 5.5, "大正から昭和初期の図（https://kyoto-machisen.jp/chiiki_hp/matsugasaki_hp/history/history.htm）", 2.6, False, None, "#666666",
                 dict(id="water.source", name="用水ネットワークの出典（1行目）", follow="sozai.02")))
-TOPT[1].append((_fx0, _ny0 + 2.0, "図：http://ksdobokuisan.stars.ne.jp/80_takaragaike/takaragaike.html の図をなぞって描き直し", 2.6, False, None, NOTE,
+TOPT[1].append((_fx0, _ny0 + 2.0, "図：http://ksdobokuisan.stars.ne.jp/80_takaragaike/takaragaike.html の図をなぞって描き直し", 2.6, False, None, "#666666",
                 dict(id="water.source2", name="用水ネットワークの出典（2行目）", follow="sozai.02")))
 sozai("02", "松ヶ崎の用水の網（北が上）", 1, _nbx, _ny0, _box_patch.get_width(), _ny1 - _ny0)
 figs.append(fig)
@@ -2455,7 +2459,7 @@ figs.append(fig)
 fig, ax = page()
 PLAN3 = os.environ.get("SODACHIYA_PLAN3", PLAN)        # 確かめるときだけ手元の書き出しを指す
 embed(4, PLAN3, None, 0, 0, 1.0, dwg=("plan", "平面図"))
-TOPT[4].append((14, H - 12, "こどもたちの育ち舎　4/5　平面図　1階・2階", 3.6, True))
+TOPT[4].append((14, H - 12, SCHOOL + "　4　平面図　1階・2階", 3.6, True))
 figs.append(fig)
 
 # ================================================================ 5　こどもたち（と働く人たち）の環境（ユーザー、10-24夜：一日の帯を先頭に、透視図もここ）
@@ -2634,7 +2638,7 @@ for si in range(1, 6):
             else:
                 s_ = r_ * 0.9
                 pg.draw_rect(fitz.Rect((cx_ - s_) * MM, (H - cy_ - s_) * MM, (cx_ + s_) * MM, (H - cy_ + s_) * MM), color=ring_, fill=col_, width=0.8 if ring_ else 0)
-            e_ = MARK_NUM / 0.72
+            e_ = (MARK_NUM if mk["ring"] else MARK_NUM_BOX) / 0.72
             t_ = str(mk["num"])
             pg.insert_text(fitz.Point((cx_ - _FB.text_length(t_, e_) / 2) * MM, (H - (cy_ - 0.35 * e_)) * MM), t_, fontsize=e_ * MM, fontname="F_B", fontfile=FONTB, color=(1, 1, 1))
         _FNT = {False: fitz.Font(fontfile=FONT), True: fitz.Font(fontfile=FONTB)}
@@ -2715,8 +2719,8 @@ figF = plt.figure(figsize=(W / 25.4, H / 25.4))
 axF = figF.add_axes([0, 0, 1, 1]); axF.set_xlim(0, W); axF.set_ylim(0, H); axF.axis("off")
 axF.add_patch(Rectangle((M, M), W - 2 * M, H - 2 * M, fill=False, lw=0.6, ec=INK))
 axF.plot([M, W - M], [H - M - HDR, H - M - HDR], color=INK, lw=0.4)
-T(axF, M + 4, H - M - HDR_BL, "こどもたちの育ち舎", NAME_SZ, bold=True)
-T(axF, M + THEME_X, H - M - HDR_BL, "1/5　サブタイトル", THEME_SZ, bold=True)
+T(axF, M + 4, H - M - HDR_BL, SCHOOL, NAME_SZ, bold=True)
+T(axF, M + THEME_X, H - M - HDR_BL, "1　サブタイトル", THEME_SZ, bold=True)
 T(axF, W - M - 4, M + 4, "建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", 3.0, ha="right")
 _fn0 = "00_枠.pdf"
 figF.savefig(os.path.join(SZ, _fn0), transparent=True)
@@ -2744,7 +2748,7 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
 print("Rhino の図：", "、".join(RHINO_USED) if RHINO_USED else "無し（drawings_rhino/ が無いので自動の図のまま）")
-ai_layout.write(dict(frame_hdr=(HDR, HDR_BL, NAME_SZ), emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
+ai_layout.write(dict(groups={f"p1.{k_}": ("water", "用水のネットワーク") for k_ in ("sozai.02", "water.title", "water.source", "water.source2")}, frame_hdr=(HDR, HDR_BL, NAME_SZ, SCHOOL), mark_num_box=MARK_NUM_BOX, emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
                      renumber=dict(id="2026-10-28b", maps={"2026-10-28": {"4": 2, "5": 3, "2": 4, "3": 5}, "_none": {"5": 3, "3": 4, "4": 5}},
                                    note="ユーザー、10-28 13:17：5枚の番号を振り直した（前の番号 → 新しい番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"),
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))

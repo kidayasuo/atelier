@@ -249,9 +249,10 @@ def write(c):
                 else:
                     shp.update(kind="box", dash=None)
                 add(shp)
-                e = em(c["mark_num"])
+                mn_ = c["mark_num"] if mk["ring"] else c.get("mark_num_box", c["mark_num"])   # 箱の印の数字は大きく（10-29）
+                e = em(mn_)
                 add(dict(id=f"{mk['id']}.num", name=f"番号　{mk['group_name']}", kind="text", layer="説明", x=round(mk["cx"], 2), y=round(H - (mk["cy"] - 0.35 * e), 2),
-                         s=str(mk["num"]), size_pt=pt(c["mark_num"]), font="W6", color="#FFFFFF", align="center", mock_hash=djb2(str(mk["num"])),
+                         s=str(mk["num"]), size_pt=pt(mn_), font="W6", color="#FFFFFF", align="center", mock_hash=djb2(str(mk["num"])),
                          no_user_s=True, **gk, **fo))
         # 6) 配置図の中の文字・注の線・突き出た木（1枚目、ユーザー 10-25夕：一つずつ動かして書き換える。注の文字と線は一つのグループ）
         if no == 1:
@@ -275,6 +276,10 @@ def write(c):
             g_ = p.get("group")
             if g_ and not p.get("group_name"):
                 p["group_name"] = "突き出た木" if g_ == "site.g.tree" else ("縮尺" if g_ == "site.g.縮尺" else "配置図の注　" + g_.split(".")[-1])
+        for p in parts:                             # 部品をまとめるグループ（mock.py の groups、10-29：用水のネットワークの図と表題・出典を一つに）
+            g_ = c.get("groups", {}).get(p["id"])
+            if g_:
+                p["group"], p["group_name"], p["layer"] = g_[0], g_[1], "説明"
         # ユーザーの割付を優先。follow の付いた部品は、自分の割付が無ければ、ついて行く部品（素材など）がユーザーに動かされた分だけ一緒に動く
         for p in parts:                             # 前の部品の .ai の位置へ一度だけ移す（mock.py の AI_SHIFT、例：前の箱 → 案Hの見出し・本文・印）
             for pre, (dx, dy) in c.get("ai_shift", {}).items():
@@ -341,7 +346,7 @@ def write(c):
     out = dict(note="mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
                generated=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d %H:%M"),
                unit="mm", artboard=[W, H],
-               frame=dict(margin=M, header=c.get("frame_hdr", (16, 11, 6.5))[0], title=dict(s="こどもたちの育ち舎", x=M + 4, y=M + c.get("frame_hdr", (16, 11, 6.5))[1],
+               frame=dict(margin=M, header=c.get("frame_hdr", (16, 11, 6.5))[0], title=dict(s=(c.get("frame_hdr") or (0, 0, 0, "松ヶ崎こども園"))[3], x=M + 4, y=M + c.get("frame_hdr", (16, 11, 6.5))[1],
                           size_pt=pt(c.get("frame_hdr", (16, 11, 6.5))[2]), font="W6"),
                           footer=dict(s="建築設計実習Ⅱ—Ⅰ　2026.11.05　木田", x=W - M - 4, y=H - M - 4, size_pt=pt(3.0), font="W3", align="right"),
                           lw_rect=0.6, lw_header=0.4, color="#222222"),

@@ -375,7 +375,7 @@ SDY.makeLine = function (doc, lay, i, p) {
 SDY.layerOf = function (doc, p) { return SDY.layer(doc, p.layer || "説明"); };
 SDY.make = function (doc, i, p) {
     var lay = SDY.layerOf(doc, p);
-    if (p.kind === "link") { return SDY.placeLink(doc, lay, i, p); }
+    if (p.kind === "link") { var lk = SDY.placeLink(doc, lay, i, p); return (p.group && !p.clipgroup) ? SDY.intoCont(lay, p, lk) : lk; }   // グループに入れるリンク（用水のネットワーク、10-29）
     if (p.kind === "text" || p.kind === "area") { return SDY.makeText(doc, lay, i, p); }
     if (p.kind === "box") { return SDY.makeBox(doc, lay, i, p); }
     if (p.kind === "line") { return SDY.makeLine(doc, lay, i, p); }
