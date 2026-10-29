@@ -33,7 +33,14 @@
     note.printable = false;                          // 割付の注記は見えるが印刷しない
     try { if (first.pageItems.length === 0 && first.name !== "枠") { first.remove(); } } catch (e) {}
     var out = File(SDY.here.fsName + "/sodachiya_present.ai");
-    var carried = 0;
+    var carried = 0, drawnU = 0, U = null, known = {}, q;
+    // 木田さんが足した物は layout_user.json の user_items から描き直す（正本、10-29：build で消えない）
+    try { var uf = File(SDY.here.fsName + "/layout_user.json"); if (uf.exists) { U = SDY.readJSON(uf); } } catch (e) { SDY.missing.push("layout_user.json を読めなかった（" + e.message + "）"); }
+    if (U) {
+        for (q = 0; q < (U.user_items || []).length; q++) { if (U.user_items[q].key) { known[U.user_items[q].key] = true; } }
+        for (q = 0; q < (U.deleted_user || []).length; q++) { if (U.deleted_user[q].key) { known[U.deleted_user[q].key] = true; } }
+        try { drawnU = SDY.drawUserItems(doc, L, U); } catch (e) { SDY.missing.push("足した物（" + e.message + "）"); }
+    }
     if (out.exists) {                                  // 前の .ai にある木田さんの物（印の無い物）を新しい .ai へ写す（ユーザー、10-26）
         try {
             var RM = SDY.oldNumbering(L);
@@ -52,7 +59,7 @@
             if (an && ao && ao.window && ab1 >= 0) {
                 SDY.planShift = { ab: ab1, win: ao.window, dx: an.origin[0] - ao.origin[0], dy: an.origin[1] - ao.origin[1], n: 0 };
             }
-            carried = SDY.copyUserItems(oldDoc, doc);
+            carried = SDY.copyUserItems(oldDoc, doc, known);   // まだ書き出していない物だけ（補助）
             oldDoc.close(SaveOptions.DONOTSAVECHANGES);
             app.activeDocument = doc;
         } catch (e) { SDY.missing.push("前の .ai を開けなかった（" + e.message + "）"); }

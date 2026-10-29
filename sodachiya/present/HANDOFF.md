@@ -85,3 +85,4 @@
 - 10-29 12:52（ユーザー）：環境への配慮をLEED v5 BD+Cの評価項目の8つ（IP・LT・SS・WE・EA・MR・EQ・PR）の順に、表題は「LEED v5 Goldを目指す」（相当をやめた）。kyoutsuの「提出と講評の方針」も直した。
 - 10-29 14:03（ユーザー）：縦断Aを3枚目の一番上に戻した（CLIP_SA3、上下の空白を詰めた）。断面C・Dの上の余白は30・42 mm。断面Dは更新係の本物の図（sections2、題の8 mmを切る）、その上に採光の図（素材17）を重ねる。見本はPDF、.aiは17_光の環境_断面_parts.jsonの文字と線の部品を断面図Dのグループの中のグループ「光の環境」に（mock.pyのEMB_DWG→ai_layout）。
 - 10-29（ユーザー）：2枚目の沿川の景観を透視図に（keikan_view.jsonにprojection: "perspective"があるときだけRhinoの絵、無ければ仮の図out/keikan_kari_*.png、夜の仮が無ければ昼の仮）。枠に収める（縦横比、上・左にそろえる）、縮尺はやめた。素材03・04は「沿川の景観　昼・夜」。A4の透視図を目の高さ（photo/me.jpg→rhino/out/me.png→out/me_kari.png、素材16「透視図」）、鳥瞰は2枚目から外した。
+- 10-29 14:24（ユーザー：風の矢印がbuildごとに消える）：足した物の正本をlayout_user.jsonのuser_itemsに（sdy_libのdrawUserItems・userKey、exportは鍵を付けdeleted_userへ、buildはjsonから描き前の.aiは補助、update_textsも足す）。風の線を09fd4e4から戻した（レイヤーが「編集モード」だった＝分離モードのまま書き出していた）。

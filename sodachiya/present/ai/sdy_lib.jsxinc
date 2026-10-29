@@ -498,13 +498,16 @@ SDY.describe = function (doc, it) {                   // 台帳に残す中身�
     }
     return d;
 };
-SDY.copyUserItems = function (src, dst) {             // 前の .ai の木田さんの物を、新しい .ai の同じレイヤー・同じアートボードの同じ位置へ
-    var items = SDY.userItems(src), n = 0, i, it, ai, ra, rb, dup, lay;
+SDY.copyUserItems = function (src, dst, known) {      // 前の .ai の木田さんの物を、新しい .ai の同じレイヤー・同じアートボードの同じ位置へ
+    // known：layout_user.json にある鍵（user_items と deleted_user）。それらは json から描く・消したので写さない。写すのはまだ書き出していない物だけ（補助、10-29）
+    var items = SDY.userItems(src), n = 0, i, it, ai, ra, rb, dup, lay, uk;
     for (i = items.length - 1; i >= 0; i--) {
         it = items[i];
+        uk = SDY.userKey(it);
+        if (uk && known && known[uk]) { continue; }
         try {
             ai = SDY.abOf(src, it.geometricBounds);
-            lay = SDY.layer(dst, it.layer.name);
+            lay = SDY.userLayer(dst, it.layer.name);
             dup = it.duplicate(lay, ElementPlacement.PLACEATBEGINNING);
             if (ai >= 0 && ai < dst.artboards.length) {
                 var bi = SDY.abMap ? SDY.abMap(ai) : ai;      // 番号を振り直したときは新しい番号のアートボードへ
@@ -521,6 +524,99 @@ SDY.copyUserItems = function (src, dst) {             // 前の .ai の木田さ
             }
             n++;
         } catch (e) { SDY.missing.push("木田さんの物（" + (it.name || it.typename) + "）を写せなかった：" + e.message); }
+    }
+    return n;
+};
+
+// 木田さんが足した物の正本は layout_user.json の user_items（ユーザー 10-29 14:24：build で風の矢印が消えた）。
+// 書き出しのときに一つずつ印 "sdyu:<鍵>" を付け（部品の印 "sdy:" とは別）、build と update_texts は user_items から描き直す
+SDY.UKEY = "sdyu:";
+SDY.userKey = function (it) { var n = ""; try { n = it.note; } catch (e) { return null; } return (n && n.indexOf(SDY.UKEY) === 0) ? n.substring(SDY.UKEY.length) : null; };
+SDY.userKeys = function (doc) {                      // 鍵 → 物（.ai の中の、印の付いた木田さんの物）
+    var m = {}, i, k;
+    for (i = 0; i < doc.pageItems.length; i++) { k = SDY.userKey(doc.pageItems[i]); if (k) { m[k] = doc.pageItems[i]; } }
+    return m;
+};
+SDY.colorOf = function (v) {                         // describe の色（#rrggbb・grayNN）→ Illustrator の色
+    if (!v) { return null; }
+    v = String(v);
+    if (v.charAt(0) === "#") { return SDY.rgb(v); }
+    var m = /^gray(\d+)$/.exec(v);
+    if (m) { var g = Math.round(255 * (1 - Number(m[1]) / 100)), h = ("0" + g.toString(16)).slice(-2); return SDY.rgb("#" + h + h + h); }
+    return null;
+};
+SDY.userLayer = function (doc, name) {               // 編集モード（分離）で書き出したときのレイヤーの名前は使わない
+    if (!name || name === "編集モード" || name === "Isolation Mode") { name = "説明"; }
+    return SDY.layer(doc, name);
+};
+SDY.drawUser = function (doc, ai, d, dx, dy, cont) {  // describe の形から描き直す（mm、アートボードの左上から。dx・dy は配置図と一緒に動かす分）
+    var r = SDY.ab(doc, ai), K = SDY.K, k, it = null, c;
+    var P = function (q) { return [r[0] + (q[0] + dx) * K, r[1] - (q[1] + dy) * K]; };
+    var fillPath = function (pi, e) {
+        var pp, m, q;
+        for (m = 0; m < e.pts.length; m++) {
+            q = e.pts[m];
+            if (typeof q[0] === "number") { q = [q, q, q]; }   // 点だけの形（[x, y]）も
+            pp = pi.pathPoints.add();
+            pp.anchor = P(q[0]); pp.leftDirection = P(q[1] || q[0]); pp.rightDirection = P(q[2] || q[0]);
+        }
+        pi.closed = !!e.closed;
+        c = SDY.colorOf(e.fill); pi.filled = !!c; if (c) { pi.fillColor = c; }
+        c = SDY.colorOf(e.stroke); pi.stroked = !!c; if (c) { pi.strokeColor = c; pi.strokeWidth = Number(e.stroke_pt || 1); }
+    };
+    if (d.type === "PathItem" && d.pts) {
+        it = cont.pathItems.add(); fillPath(it, d);
+    } else if (d.type === "CompoundPathItem") {
+        it = cont.compoundPathItems.add();
+        for (k = (d.children || []).length - 1; k >= 0; k--) { if (d.children[k].pts) { fillPath(it.pathItems.add(), d.children[k]); } }
+    } else if (d.type === "GroupItem") {
+        it = cont.groupItems.add();
+        var j;
+        for (j = (d.children || []).length - 1; j >= 0; j--) { try { SDY.drawUser(doc, ai, d.children[j], dx, dy, it); } catch (e1) { SDY.missing.push("足した物の中（" + (d.children[j].name || d.children[j].type) + "）：" + e1.message); } }
+    } else if (d.type === "TextFrame" && d.s !== undefined) {
+        it = cont.textFrames.pointText(P([d.x, d.y + (d.h || 4) * 0.8]));
+        it.contents = String(d.s).replace(/\n/g, "\r");
+        try { if (d.size_pt) { it.textRange.characterAttributes.size = Number(d.size_pt); } } catch (e2) {}
+        try { c = SDY.colorOf(d.color); if (c) { it.textRange.characterAttributes.fillColor = c; } } catch (e3) {}
+    } else if ((d.type === "PlacedItem" || d.type === "RasterItem") && d.file && File(d.file).exists) {
+        it = cont.placedItems.add(); it.file = File(d.file);
+        it.width = d.w * K; it.height = d.h * K; it.position = P([d.x, d.y]);
+    }
+    if (!it) { return null; }
+    if (d.name) { it.name = d.name; }
+    try { if (d.opacity !== undefined && d.opacity !== null) { it.opacity = Number(d.opacity); } } catch (e4) {}
+    return it;
+};
+// layout_user.json の user_items のうち、.ai にまだ無い物（鍵で見る）を描く。配置図の上の物は配置図と一緒に動かし、配置図のまとめへ。返り値は描いた数
+SDY.drawUserItems = function (doc, L, U) {
+    if (!U || !U.user_items) { return 0; }
+    var have = SDY.userKeys(doc), n = 0, i, d, ai, pg, dx, dy, cont, it, gi, an, au, inWin;
+    an = (L && L.anchors) ? L.anchors["p1.siteplan"] : null;
+    au = (U.anchors) ? U.anchors["p1.siteplan"] : null;
+    var sdx = (an && au) ? an.origin[0] - au.origin[0] : 0, sdy = (an && au) ? an.origin[1] - au.origin[1] : 0;
+    for (i = 0; i < U.user_items.length; i++) {
+        d = U.user_items[i];
+        if (!d || (d.key && have[d.key])) { continue; }
+        ai = -1;
+        for (pg = 0; pg < L.pages.length; pg++) { if (L.pages[pg].no === d.artboard) { ai = pg; } }
+        if (ai < 0) { SDY.missing.push("足した物の枚が無い：" + (d.name || d.type)); continue; }
+        inWin = false;
+        if (d.artboard === 1 && au && au.window) {
+            var cx = d.x + d.w / 2, cy = d.y + d.h / 2, w = au.window;
+            inWin = d.plan || (cx >= w[0] && cx <= w[0] + w[2] && cy >= w[1] && cy <= w[1] + w[3]);
+        }
+        dx = inWin ? sdx : 0; dy = inWin ? sdy : 0;
+        cont = SDY.userLayer(doc, d.layer);
+        if (d.group && d.group !== SDY.PLAN_GROUP) {
+            for (gi = 0; gi < doc.groupItems.length; gi++) { if (doc.groupItems[gi].name === d.group) { cont = doc.groupItems[gi]; break; } }
+        }
+        try {
+            it = SDY.drawUser(doc, ai, d, dx, dy, cont);
+            if (!it) { SDY.missing.push("足した物を描けなかった：" + (d.name || d.type)); continue; }
+            if (d.key) { it.note = SDY.UKEY + d.key; }
+            if (inWin && cont.typename === "Layer") { SDY.planUser.push(it); }
+            n++;
+        } catch (e) { SDY.missing.push("足した物（" + (d.name || d.type) + "）：" + e.message); }
     }
     return n;
 };

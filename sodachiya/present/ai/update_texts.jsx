@@ -50,11 +50,13 @@
             }
         }
     }
+    var nu = 0;                                        // layout_user.json の足した物で、.ai に無い物を足す（10-29）
+    try { var uf = File(SDY.here.fsName + "/layout_user.json"); if (uf.exists) { nu = SDY.drawUserItems(doc, L, SDY.readJSON(uf)); } } catch (e8) { SDY.missing.push("足した物（" + e8.message + "）"); }
     var ng = 0;                                        // 配置図のまとめ（10-28）：まだ入っていない配置図の部品と、配置図の上の木田さんの物を入れる
     try { for (i = 0; i < L.pages.length; i++) { if (L.pages[i].no === 1) { SDY.planUser = SDY.planUserIn(doc, i); } } ng = SDY.groupPlan(doc, L); } catch (e3) { SDY.missing.push("配置図のまとめ（" + e3.message + "）"); }
     try { nd = SDY.groupDrawings(doc, L); } catch (e7) { SDY.missing.push("図面のまとめ（" + e7.message + "）"); }
     var msg = "更新しました：文字 " + nt + "、リンク " + nl + "、新しい部品 " + na + (ng ? "、配置図のまとめに入れた物 " + ng : "") +
-              (nr ? "、形の変わった図面の線 " + nr : "") + (nx ? "、図から無くなった部品（外した） " + nx : "") + (nd ? "、図面のまとめに入れた物 " + nd : "");
+              (nr ? "、形の変わった図面の線 " + nr : "") + (nx ? "、図から無くなった部品（外した） " + nx : "") + (nd ? "、図面のまとめに入れた物 " + nd : "") + (nu ? "、足した物（layout_user.json から） " + nu : "");
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + SDY.missing.join("\n"); }
     alert(msg);
 })();

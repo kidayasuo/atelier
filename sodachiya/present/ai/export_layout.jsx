@@ -103,9 +103,31 @@
         } catch (e3) { bad.push("配置図の切り抜き（" + e3.message + "）"); }
     }
     if (LB && LB.anchors) { out.anchors = LB.anchors; }   // 組んだときの配置図の目印（木田さんの物がどの配置図の上に描かれたか）
-    var ui = SDY.userItems(doc), q;                    // 木田さんが足した物も台帳に（プレゼンの準備が読む）
+    // 木田さんが足した物（印の無い物、どの深さのグループの中でも）を台帳に。layout_user.json が正本で、build・update_texts はここから描き直す（10-29）。
+    // 一つずつ印 sdyu:<鍵> を付けて次から同じ物と分かるように。前の書き出しにあって今回見つからない物は deleted_user へ（消した物は build で描かない）
+    var ui = SDY.userItems(doc), q, PU = null, seen = {}, d, gp, uk;
+    try { var uf = File(SDY.here.fsName + "/layout_user.json"); if (uf.exists) { PU = SDY.readJSON(uf); } } catch (e4) { PU = null; }
     out.user_items = [];
-    for (q = 0; q < ui.length; q++) { try { out.user_items.push(rui(SDY.describe(doc, ui[q]))); } catch (e2) {} }
+    var stamp = (function () { var t = new Date(); return t.getFullYear() + ("0" + (t.getMonth() + 1)).slice(-2) + ("0" + t.getDate()).slice(-2) + ("0" + t.getHours()).slice(-2) + ("0" + t.getMinutes()).slice(-2) + ("0" + t.getSeconds()).slice(-2); })();
+    for (q = 0; q < ui.length; q++) {
+        try {
+            uk = SDY.userKey(ui[q]);
+            if (!uk || seen[uk]) { uk = "u" + stamp + "_" + q; ui[q].note = SDY.UKEY + uk; }
+            seen[uk] = true;
+            d = rui(SDY.describe(doc, ui[q]));
+            d.key = uk;
+            gp = null; try { if (ui[q].parent.typename === "GroupItem") { gp = ui[q].parent.name || null; } } catch (e5) {}
+            if (gp) { d.group = gp; }
+            if (gp === SDY.PLAN_GROUP) { d.plan = true; }
+            out.user_items.push(d);
+        } catch (e2) { bad.push("足した物 " + q + "（" + e2.message + "）"); }
+    }
+    out.deleted_user = [];
+    if (PU) {
+        var prev = (PU.user_items || []).concat(PU.deleted_user || []);
+        for (q = 0; q < prev.length; q++) { if (!prev[q].key || !seen[prev[q].key]) { out.deleted_user.push(prev[q]); } }
+        if (out.deleted_user.length > 200) { out.deleted_user = out.deleted_user.slice(out.deleted_user.length - 200); }
+    }
     SDY.writeText(File(SDY.here.fsName + "/layout_user.json"), SDY.stringify(out));
     alert("書き出しました：部品 " + n + " 個、木田さんが足した物 " + out.user_items.length + " 個（書き換えた文字 " + edited + "、消した部品 " + gone + "）\n" + SDY.here.fsName + "/layout_user.json\n\natelier で git add・commit・push してください。" + (bad.length ? "\n\n書き出せなかった部品（位置は前のまま）：\n" + bad.slice(0, 15).join("\n") : ""));
 })();
