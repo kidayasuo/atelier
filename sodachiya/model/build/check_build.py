@@ -11,6 +11,7 @@
 知らせる（止めない）：
   - 面積が0.5 m²より大きく変わった部屋（触っていない部屋が変わっていたら、古い写しや取り違えを疑う）
   - 種類をまたぐ食い込みが増えた
+  - 力の道（10-29、段14 load_path.py の sodachiya_loadpath.json・.txt があれば）：check の行に数、下に節
 """
 import sys, os, json, subprocess
 
@@ -74,8 +75,19 @@ if n > o:
     warn.append(f'干渉：種類をまたぐ食い込み {o} → {n}')
 info.append(f'種類をまたぐ食い込み {n}')
 
+# 力の道の点検（10-29、load_path.py の段 14）：知らせだけ（止めない）。数は check の行に、中身は下の節に
+lp_txt, lp_json = os.path.join(NEW, 'sodachiya_loadpath.txt'), os.path.join(NEW, 'sodachiya_loadpath.json')
+lp_sec = []
+if os.path.exists(lp_json) and os.path.exists(lp_txt):
+    try:
+        lp = json.load(open(lp_json))
+        info.append(f'力が地面に届かない{len(lp["floating"])}・金物頼みだけ{len(lp["hardware_only"])}')
+        lp_sec = [''] + open(lp_txt).read().rstrip('\n').split('\n')
+    except Exception as e:
+        warn.append(f'力の道の点検が読めない（{e}）')
+
 L = ['check: ' + ('止める（直してから作り直す）' if stop else '通った') + '　' + '・'.join(info)]
-L += ['  ✗ ' + s for s in stop] + ['  ! ' + s for s in warn]
+L += ['  ✗ ' + s for s in stop] + ['  ! ' + s for s in warn] + lp_sec
 txt = '\n'.join(L)
 print(txt)
 if REPORT:
