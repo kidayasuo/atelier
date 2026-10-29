@@ -24,7 +24,7 @@
 敷地の角（m）：北 (0, 0)・東 (34.86, -43.83)・南 (-14.44, -83.04)・南西 (-21.91, -73.65)・北西 (-25.83, -20.54)。
 小竹薮公園は南西の角（中ほど約 (-13.5, -74.6)）、馬橋はその西の縁の延長で高野川を南へ渡る。
 """
-import os, json, datetime
+import os, io, json, datetime
 import Rhino
 import scriptcontext as sc
 import System
@@ -85,11 +85,11 @@ for m in Rhino.Display.DisplayModeDescription.GetDisplayModes():
         break
 view.Redraw()
 _c, _t = vp.CameraLocation, vp.CameraTarget
-json.dump(dict(camera_mm=[round(_c.X), round(_c.Y), round(_c.Z)], target_mm=[round(_t.X), round(_t.Y), round(_t.Z)],
+with io.open(os.path.join(OUT, "choukan_view.json"), "w", encoding="utf-8") as _f:   # IronPython では閉じないと書かれない（10-30）
+    _f.write(u"%s" % json.dumps(dict(camera_mm=[round(_c.X), round(_c.Y), round(_c.Z)], target_mm=[round(_t.X), round(_t.Y), round(_t.Z)],
                lens_mm=round(vp.Camera35mmLensLength, 1), px=list(SIZE), current_view=USE_CURRENT_VIEW,
                made=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-               note=u"3dm の mm。mock.py は choukan.png を2枚目の鳥瞰の箱（297×210 mm）に縦横の比を保って切って入れる"),
-          open(os.path.join(OUT, "choukan_view.json"), "w"), indent=1, ensure_ascii=False)
+               note=u"3dm の mm。mock.py は choukan.png を2枚目の鳥瞰の箱（297×210 mm）に縦横の比を保って切って入れる"), indent=1, ensure_ascii=True))
 try:
     doc.NamedViews.Add(u"鳥瞰", vp.Id)
 except Exception:

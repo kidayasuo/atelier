@@ -6,7 +6,7 @@
 夜：太陽とスカイライトを消し、空は群青、越屋根の LED に光る材料と線の光源）。ビューは動かさない、手前の物も隠さない
 （隠したい物は Rhino で Hide してから走らせる）。終わったら全部戻す。
 """
-import os, json, datetime, math
+import os, io, json, datetime, math
 import Rhino
 import scriptcontext as sc
 import System
@@ -136,7 +136,9 @@ def run(mode):
         say(u"名前付きビューに残した：", name)
     except Exception as e:
         say(u"名前付きビュー：効かなかった", e)
-    json.dump(info, open(os.path.join(OUT, u"%s_view.json" % name), "w"), indent=1, ensure_ascii=False)
+    # IronPython（Rhino の RunPythonScript）では閉じないとファイルに書かれない（空の json になった、10-30）。閉じて、ASCII で書く
+    with io.open(os.path.join(OUT, u"%s_view.json" % name), "w", encoding="utf-8") as f_:
+        f_.write(u"%s" % json.dumps(info, indent=1, ensure_ascii=True))
     # 昼はレイトレースの表示で（前のとおり）。夜は、光源・材料・スカイライト・背景を変えるあいだと描くあいだ、
     # シェーディング（無ければワイヤーフレーム）にしておく（レイトレースの表示のまま変えると落ちることがあった、10-29 夜）
     want = ("raytrac",) if mode == "hiru" else ("shaded", "wireframe")

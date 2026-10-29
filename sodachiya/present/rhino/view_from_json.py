@@ -13,6 +13,7 @@ git pull で sodachiya.3dm が作り直されると、名前付きビューは�
   画面の縦横比は記録と違うことがある（絵の大きさはレンダリングの側で決まるので、写る範囲は同じになる）。
 """
 import os
+import io
 import json
 import Rhino
 import rhinoscriptsyntax as rs
@@ -31,14 +32,25 @@ def main():
     if not os.path.isdir(OUT):
         say(u"out/ が無い：", OUT)
         return
+    def _load(n):
+        try:
+            with io.open(os.path.join(OUT, n + "_view.json"), "r", encoding="utf-8-sig") as f_:
+                t_ = f_.read().strip()
+            return json.loads(t_) if t_ else None
+        except Exception:
+            return None
     names = sorted(f[:-len("_view.json")] for f in os.listdir(OUT) if f.endswith("_view.json"))
+    empty = [n for n in names if _load(n) is None]
+    if empty:
+        say(u"空か読めない記録（前の版のスクリプトで描いたもの。視点は残っていない）：", u"・".join(empty))
+    names = [n for n in names if n not in empty]
     if not names:
-        say(u"out/ に *_view.json が無い（まだ render_hiru/yoru で描いていない）")
+        say(u"読める *_view.json が無い（まだ render_hiru/yoru で描いていないか、前の版で空になった）")
         return
     name = rs.ListBox(names, u"どの視点に戻しますか", u"視点を戻す") if len(names) > 1 else names[0]
     if not name:
         return
-    info = json.load(open(os.path.join(OUT, name + "_view.json")))
+    info = _load(name)
     if "camera_mm" not in info or "target_mm" not in info:
         say(u"この記録にはカメラが無い（前の平行投影の書式）：", name)
         return

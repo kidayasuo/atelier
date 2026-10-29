@@ -27,7 +27,7 @@
 昼：11/5 10:00 の太陽（京都）。夜：ナイトモード。太陽とスカイライトを消し、空は群青、越屋根の LED（50b・29）だけを光らせる。
 数字を変えたいときは下の「決める数」だけを直す。
 """
-import os, json, datetime, math
+import os, io, json, datetime, math
 import Rhino
 import scriptcontext as sc
 import System
@@ -122,13 +122,13 @@ else:
     print("Raytraced display mode not found")
 view.Redraw()
 _c, _t = vp.CameraLocation, vp.CameraTarget
-json.dump(dict(projection="perspective", camera_mm=[round(_c.X), round(_c.Y), round(_c.Z)],
+with io.open(os.path.join(OUT, "keikan_view.json"), "w", encoding="utf-8") as _f:   # IronPython では閉じないと書かれない（10-30）
+    _f.write(u"%s" % json.dumps(dict(projection="perspective", camera_mm=[round(_c.X), round(_c.Y), round(_c.Z)],
                target_mm=[round(_t.X), round(_t.Y), round(_t.Z)], direction=[round(D_DIR[0], 6), round(D_DIR[1], 6), 0.0],
                lens_mm=round(vp.Camera35mmLensLength, 1), hfov_deg=round(2 * math.degrees(math.atan(18.0 / vp.Camera35mmLensLength)), 1),
                two_point=True, px=[W, H], current_view=USE_CURRENT_VIEW,
                made=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-               note=u"3dm の mm。高野川の向こう岸から川に直角に見る目の高さ（1.5 m）の透視。昼は背景が透明"),
-          open(os.path.join(OUT, "keikan_view.json"), "w"), indent=1, ensure_ascii=False)
+               note=u"3dm の mm。高野川の向こう岸から川に直角に見る目の高さ（1.5 m）の透視。昼は背景が透明"), indent=1, ensure_ascii=True))
 try:
     doc.NamedViews.Add(u"景観_向こう岸から", vp.Id)
 except Exception:

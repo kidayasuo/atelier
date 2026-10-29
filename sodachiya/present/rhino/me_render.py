@@ -30,7 +30,7 @@
 小竹薮公園は南西の角（南・南西・(-12.52, -66.18)・(-5.05, -75.57) の四角）。西の道（幅 6 m）は南西の角で折れて馬橋へ。
 西館は y −44〜−13.5、道の側の軒は高さ約 4.5 m。
 """
-import os, json, datetime
+import os, io, json, datetime
 import Rhino
 import scriptcontext as sc
 import System
@@ -95,11 +95,11 @@ for m in Rhino.Display.DisplayModeDescription.GetDisplayModes():
         break
 view.Redraw()
 _c, _t = vp.CameraLocation, vp.CameraTarget
-json.dump(dict(camera_mm=[round(_c.X), round(_c.Y), round(_c.Z)], target_mm=[round(_t.X), round(_t.Y), round(_t.Z)],
+with io.open(os.path.join(OUT, "me_view.json"), "w", encoding="utf-8") as _f:   # IronPython では閉じないと書かれない（10-30）
+    _f.write(u"%s" % json.dumps(dict(camera_mm=[round(_c.X), round(_c.Y), round(_c.Z)], target_mm=[round(_t.X), round(_t.Y), round(_t.Z)],
                lens_mm=round(vp.Camera35mmLensLength, 1), px=list(SIZE), current_view=USE_CURRENT_VIEW,
                made=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-               note=u"3dm の mm。公園の角から西の道を北へ見る目の高さの透視。2枚目「景観」の A4 の透視図の箱（297×210 mm）に縦横の比を保って入れる"),
-          open(os.path.join(OUT, "me_view.json"), "w"), indent=1, ensure_ascii=False)
+               note=u"3dm の mm。公園の角から西の道を北へ見る目の高さの透視。2枚目「景観」の A4 の透視図の箱（297×210 mm）に縦横の比を保って入れる"), indent=1, ensure_ascii=True))
 try:
     doc.NamedViews.Add(u"目の高さ_公園の角から北", vp.Id)
 except Exception:
