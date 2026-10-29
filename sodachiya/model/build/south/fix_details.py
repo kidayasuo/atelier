@@ -2249,7 +2249,11 @@ if src is not None:
                 q_ = o.Geometry.Vertices[i_]; uu_, vv_ = uv(q_.X, q_.Y)
                 if abs(vv_ - _vp) < 0.1 and uu_ < 0: _fu.append(uu_)
         _up = (min(_fu) - 0.05) if _fu else u_edge(1.6) + 0.15
-        _zt = ROOF_Z(_vp) + RT_BOT - 100.0
+        # 10-30（監修の項 20261030-0552：柱の頭が上の骨から 88 離れていた）：柱の頭は、柱の真上を通る骨（v 1.6）の下のフランジの下面まで。
+        # 骨は u0r の点の平面の高さ zc_ に、下へ細る深さ dep を足して作るので、同じ式で測る
+        _ue6 = u_edge(_vp) + 0.15; _u0 = -0.18
+        _zc6 = zpl(('s', 0), *xyk(('s', 0), _u0, _vp))
+        _zt = _zc6 + RT_BOT - (200.0 + (100.0 - 200.0) * (_up - _u0) / (_ue6 - _u0)) if _ue6 <= _u0 - 0.3 else ROOF_Z(_vp) + RT_BOT - 100.0
         a_p = r.ObjectAttributes(); a_p.LayerIndex = L10S; a_p.Name = '南の軒の柱（鋼 角 100、柵＝一本の線の南の端、乳児の庭の外）'
         tmp_ = r.File3dm(); Kt_ = Kit(tmp_); Kt_.prism(R(_up - 0.05, _up + 0.05, _vp - 0.05, _vp + 0.05, 0.05), -300.0, float(_zt), L10S)
         for o2 in tmp_.Objects: new_objs.append((o2.Geometry, a_p))
