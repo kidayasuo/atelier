@@ -639,9 +639,9 @@ def ibox(ax, x, y, w, h, head, lines, color, fill, size=3.2, key=None):
 # 1枚目の説明の箱は案H（ユーザー、10-28 14:04）：枠と塗りなし、見出しの頭に番号の印（自然＝青の○、地域＝茶の□、白抜きの数字）、
 # 配置図の上の点にも同じ印（引き出し線なし）。印は一つずつ Illustrator の部品（○か□と数字のグループ）
 MARKS = []          # dict(id, cat, num, cx, cy（紙のmm、下原点）, r, ring, group, group_name, follow)
-MARK_R_BOX, MARK_R_PLAN = 4.3, 3.0                  # 箱の印は見出し 20 pt に合わせて大きく（10-29 16:02）
-MARK_NUM = 2.6      # 印の数字の高さ（mm、配置図の上）
+MARK_R_BOX, MARK_R_PLAN = 3.2, 3.2                  # 箱の印は○の径 6.4 mm（ユーザーが .ai で小さくした、10-29）。配置図の上の印も同じ大きさ（10-30）
 MARK_NUM_BOX = 15.5 * PT2MM  # 箱の印の数字（15.5 pt、10-29 17:49）
+MARK_NUM = MARK_NUM_BOX      # 配置図の上の印の数字も箱と同じ（ユーザー 10-30）
 HIND = 1 + 2 * MARK_R_BOX + 2.5                     # 見出しと本文の字下げ（印の幅）
 
 
@@ -1918,6 +1918,12 @@ def _hbox(x_, y_, w_, h_, head, ls_, col, key_):
     ub_ = _UP.get(f"p1.ibox.{key_}")
     if ub_ and "x" in ub_:
         AI_SHIFT[f"ibox.{key_}."] = (ub_["x"] - x_, ub_["y"] - (H - y_ - h_))
+
+
+# 配置図の上の印は、箱の印と同じ大きさ（ユーザー 10-30：.ai で箱の印を小さくした大きさに合わせる）。○の径＝箱の○の幅、□は○の0.9
+_bw = sorted(v_["w"] for k_, v_ in _UP.items() if re.match(r"^p1\.ibox\.nat\.[^.]+\.mark\.shape$", k_) and v_.get("w"))
+if _bw:
+    MARK_R_PLAN = _bw[len(_bw) // 2] / 2
 
 
 def _pmarks(key_, pts, head):

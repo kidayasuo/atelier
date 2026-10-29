@@ -338,7 +338,7 @@ def write(c):
                     continue
                 tsz = p["size_pt"] * 0.3528                  # 見出しの字の大きさ（em、mm）
                 cy_ = p["y"] - 0.38 * tsz                    # 行の中心（紙の上から mm、y は基準線）
-                d_ = 8.6 if k_.startswith("nat.") else 7.8
+                d_ = 6.4 if k_.startswith("nat.") else 5.76   # ユーザーが .ai で小さくした大きさ（10-29）
                 cx_ = p["x"] - 0.5 * tsz * 0.72 - d_ / 2
                 sh_.update(x=round(cx_ - d_ / 2, 2), y=round(cy_ - d_ / 2, 2), w=d_, h=d_, u=1)
                 nsz = 15.5 * 0.3528
