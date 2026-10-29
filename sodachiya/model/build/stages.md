@@ -32,3 +32,4 @@
 | 12 | 面積表 | `data/garden.json`・`data/minami.json`・`data/siteplan_approach.json`・`model/build/south/areas.py`・`model/sodachiya_exact_mesh.3dm` |
 | 11 | 図（平面・断面・立面、部屋の面積は面積表から） | `data/garden.json`・`data/siteplan_approach.json`・`model/build/south/draw100.py`・`model/build/south/uv.py`・`model/drawings/sodachiya_areas.json`・`model/sodachiya_exact_mesh.3dm`・`scripts/garden_common.py` |
 | 13 | 干渉の一覧 | `model/build/south/clash.py`・`model/sodachiya_exact_mesh.3dm` |
+| 14 | 力の道 | `model/build/south/load_path.py`・`model/sodachiya_exact_mesh.3dm` |
