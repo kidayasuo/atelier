@@ -291,12 +291,16 @@ def write(c):
             if f_ and p["id"] not in user and f_ in user and "x" in user[f_] and _base.get(f_, (None,))[0] is not None:
                 p["x"] = round(p["x"] + user[f_]["x"] - _base[f_][0], 2)
                 p["y"] = round(p["y"] + user[f_].get("y", _base[f_][1]) - _base[f_][1], 2)
+                if user[f_].get("layer"):           # ついて行く部品を別のレイヤーへ移したら、一緒に（10-30）
+                    p["layer"] = user[f_]["layer"]
         for p in parts:
             u = user.get(p["id"])
             if not u:
                 continue
             if u.get("hidden"):
                 p["hidden"] = True
+            if u.get("layer"):                          # .ai でレイヤーを移した部品（書き出しで拾った、10-29）。線の部品も（10-30：光の図の線が戻った）
+                p["layer"] = u["layer"]
             if p["kind"] == "lines":                    # 図面の線の部品（寸法線など）：動かした分だけ線をずらす（大きさは変えない）
                 if "x" in u and "y" in u:
                     dx, dy = u["x"] - p["x"], u["y"] - p["y"]

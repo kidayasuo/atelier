@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-30 08:16",
+"generated": "2026-10-30 08:33",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -1190,7 +1190,7 @@
 {
 "id": "p1.mark.com.saigai.1.shape",
 "name": "□　印　災害時の持ちつ持たれつ（大学）",
-"layer": "説明",
+"layer": "配置図",
 "x": 381.25,
 "y": 72.49,
 "w": 7.74,
@@ -1207,7 +1207,7 @@
 "id": "p1.mark.com.saigai.1.num",
 "name": "番号　印　災害時の持ちつ持たれつ（大学）",
 "kind": "text",
-"layer": "説明",
+"layer": "配置図",
 "x": 385.12,
 "y": 78.27,
 "s": "4",
@@ -16467,7 +16467,7 @@
 "id": "p3.saikou.suji.duct.l",
 "name": "光の筋：鏡面の溝（ガラスの下〜梁の下端）",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -17068,7 +17068,7 @@
 "id": "p3.saikou.suji.glow.l",
 "name": "光の筋：梁の下へ広がる光",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -21995,7 +21995,7 @@
 "id": "p3.saikou.suji.arrows.l",
 "name": "光の筋：空からガラスへ、梁の下へ",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -22600,7 +22600,7 @@
 "id": "p3.saikou.louver.l",
 "name": "越屋根：ルーバーのすき間とガラスの蓋からの光",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23247,7 +23247,7 @@
 "id": "p3.saikou.louver.glow.l",
 "name": "越屋根：吹き抜けを満たす光",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23480,7 +23480,7 @@
 "id": "p3.saikou.sun.geshi.l",
 "name": "夏至の朝9時の日（線・床の日だまり）",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23558,7 +23558,7 @@
 "id": "p3.saikou.sun.shunbun.l",
 "name": "春秋分の朝9時の日（線・床の日だまり）",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23636,7 +23636,7 @@
 "id": "p3.saikou.sun.touji.l",
 "name": "冬至の朝9時の日（線・床の日だまり）",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23714,7 +23714,7 @@
 "id": "p3.saikou.sun.cutline.l",
 "name": "軒先とガラスの足を結ぶ線（この角より高い日はガラスに当たらない）",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23753,7 +23753,7 @@
 "id": "p3.saikou.sun.noon.l",
 "name": "南中の日（この断面ではほぼ真上）",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23896,7 +23896,7 @@
 "id": "p3.saikou.legend.geshi.l",
 "name": "凡例　夏至の朝9時",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23932,7 +23932,7 @@
 "id": "p3.saikou.legend.shunbun.l",
 "name": "凡例　春秋分の朝9時",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -23968,7 +23968,7 @@
 "id": "p3.saikou.legend.touji.l",
 "name": "凡例　冬至の朝9時",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -24004,7 +24004,7 @@
 "id": "p3.saikou.inset.l",
 "name": "光の筋：溝の断面1/30",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
@@ -24395,7 +24395,7 @@
 "id": "p3.saikou.darkband.l",
 "name": "保育室の暗い帯（西から約2〜8 m）の印",
 "kind": "lines",
-"layer": "説明",
+"layer": "図",
 "paths": [
 {
 "pts": [
