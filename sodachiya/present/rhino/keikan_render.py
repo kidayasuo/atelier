@@ -1,28 +1,32 @@
 # -*- coding: utf-8 -*-
-"""育ち舎　沿川の景観立面（昼・夜）を Rhino のレイトレースで書き出す（プレゼンの準備、10-27）
+"""育ち舎　沿川の景観（昼・夜）を、高野川の向こう岸から見る目の高さの透視図として Rhino のレンダリングで書き出す（プレゼンの準備、10-27、10-29 透視に）
 
 使い方（Rhino 8、Mac）：
   1. atelier を pull して、sodachiya/sodachiya.3dm を開く。
-  2. ツール → スクリプト → 実行…（または コマンド RunPythonScript）で、このファイルを選ぶ。
-  3. いまのビューが一時的に景観立面の向きになり、レンダリング（Render）で昼・夜の2枚を書き出す（1枚に数分）。
-     画質（回数）は レンダリングの設定 → 「レンダリング」の最大回数で決まる。
-     書き出し先：このファイルの隣の out/keikan_hiru.png・out/keikan_yoru.png（と、写った範囲の keikan_view.json）。
+  2. ツール→スクリプト→実行…（またはコマンド RunPythonScript）で、このファイルを選ぶ。
+  3. いまのビューが一時的に景観の透視（二点透視：縦の線は縦）になり、レンダリング（Render）で昼・夜の2枚を書き出す。
+     4252×1701（2.5:1）で1枚に約5〜15分。画質（回数）はレンダリングの設定→「レンダリング」の最大回数で決まる。試しは PX を半分に。
+     書き出し先：このファイルの隣の out/keikan_hiru.png・out/keikan_yoru.png（と、カメラを書いた keikan_view.json）。
   4. 走り終わると、足した物・変えた設定は元に戻る（3dm は保存しなくてよい）。
      昼・夜とも、ふだん隠している周りの建物（04_周辺_建物（PLATEAU LOD1）と親の「L 周辺の道路・建物…」）を
      一時的に表示し、淡い暖かい灰（CONTEXT_COLOR）を当てる。夜は、スカイライトを切り、空を群青（NIGHT_SKY）の一色に、
      背景は不透明にし、越屋根の LED の帯に沿って線の光源（LED_LIGHT_POWER）を一時的に置く。
+     3dm に無い向こう岸（川の水際から川沿いの道まで：河原と石積み）を、一時的に面で足す（足元が抜けないように）。
      コマンド行に「〜：効かなかった」と出たら、その設定はレンダリングのパネルで手で直す。
      曲線（等高線・駐車の線・屋根の円など）は Render の絵には写らない。ビューのレンダリング表示で光って見えるのを消すには、
      Rhino 設定＞表示モード＞レンダリング（またはレイトレース）＞オブジェクト＞曲線→「曲線を表示」を外す。
-  5. out/ の3つを push する（git add sodachiya/present/rhino/out）。mock.py が素材03・04にこの絵を使う。
-     絵が無いあいだは今までの影絵のまま。
+  5. 視点を直すとき：下の CAM_T（川に沿う位置、S から北東へ mm）・CAM_D（川に直角、S−E の辺から手前へ負）・EYE・LENS を直す。
+     見る向きは川に直角（D_DIR）、見る点は目と同じ高さ（縦は縦）。仮の図で確かめる：
+       python3 sodachiya/present/tools/keikan_kari.py → present/out/keikan_kari_hiru.png（同じ数を読む）。
+     Rhino で好きな透視にしたときは USE_CURRENT_VIEW を True に（今のビューのまま描き、カメラは json に書かれる）。
+  6. out/ の3つを push する（git add sodachiya/present/rhino/out）。mock.py が素材03・04にこの絵を使う。
 
-見る向き：高野川の向こうから、敷地の川の辺（S→E）に直角に（mock.py の「沿川の景観立面」と同じ）。
-平行投影、1/300 で 360×85 mm（横 108 m × 高さ 25.5 m）、昼の背景は透明（空と川の色は mock.py が塗る）、夜は群青の空ごと不透明。
+見る向き：高野川の向こう岸（南東、川沿いの道の川の側の歩道）から、敷地の川の辺（S→E）に直角に、目の高さ 1.5 m。
+昼の背景は透明（空は mock.py が塗る）、夜は群青の空ごと不透明。
 昼：11/5 10:00 の太陽（京都）。夜：ナイトモード。太陽とスカイライトを消し、空は群青、越屋根の LED（50b・29）だけを光らせる。
 数字を変えたいときは下の「決める数」だけを直す。
 """
-import os, json, datetime
+import os, json, datetime, math
 import Rhino
 import scriptcontext as sc
 import System
@@ -31,15 +35,24 @@ import System
 S_MM = (-14440.0, -83040.0)            # 敷地の南の角（3dm、mm）
 T_DIR = (0.78264675, 0.62246611)       # 川から見て右（北東）へ
 D_DIR = (-0.62246611, 0.78264675)      # 奥（北西）へ＝見る向き
-T0, T1, Z0, Z1 = -22000.0, 86000.0, -6500.0, 19000.0   # 写す範囲（S から t、高さ z、mm）
-PX_PER_MM = 300 / 25.4                  # 紙の 300 dpi
-SCALE = 300
+USE_CURRENT_VIEW = False               # True：今のビューのまま描く（その場で視点を直したとき）
+CAM_T = 38000.0                         # カメラの川に沿う位置（S から北東へ、mm）：建物（t 約13〜64 m）の中ほど
+CAM_D = -45000.0                        # 川に直角（S−E の辺＝敷地の側の崖の上の縁から手前へ、mm）：向こう岸の川沿いの道（3dm では d −44〜−54 m、高さ−0.42 m）の川の側の歩道
+GROUND_Z = -420.0                       # 向こう岸の道の高さ（PLATEAU の道、mm）
+EYE = 1500.0                            # 目の高さ（地面から、mm）
+LENS = 24.0                             # レンズ（35 mm 換算、横 36 mm に当てる）。横の画角約74°
+PX = (4252, 1701)                       # 横長 2.5:1（横 360 mm・300 dpi）
+CAM = (S_MM[0] + T_DIR[0] * CAM_T + D_DIR[0] * CAM_D, S_MM[1] + T_DIR[1] * CAM_T + D_DIR[1] * CAM_D, GROUND_Z + EYE)
+TGT = (CAM[0] + D_DIR[0] * 75000.0, CAM[1] + D_DIR[1] * 75000.0, GROUND_Z + EYE)   # 川に直角に、同じ高さ
+# 向こう岸（3dm に無い）：川の水際（d −29 m、水面−6.1 m）→河原（−4.6 m）→石積み→道（d −44 m）。一時的に足す
+BANK = [(-29000.0, -6100.0), (-30500.0, -4600.0), (-38500.0, -4600.0), (-44000.0, GROUND_Z), (-60000.0, GROUND_Z)]
+BANK_COLOR = System.Drawing.Color.FromArgb(0xB4, 0xB4, 0x9C)
 PASSES = 400                            # レイトレースの回数（多いほどざらつきが減る）
 DAY = datetime.datetime(2026, 11, 5, 10, 0)
 LAT, LON, TZ = 35.049106, 135.785095, 9.0
 LED_LAYERS = ("50b_越屋根_LED", "29_西館_越屋根_LED")   # 本館・西館の越屋根
 NIGHT = datetime.datetime(2026, 11, 5, 21, 0)   # 夜は太陽を地平の下にも置く（消すのが効かない Rhino があった）
-FRONT_CUT = -8000.0                     # 川の辺より手前（川の向こう岸の建物など）は隠す（mm、mock.py と同じ）
+FRONT_CUT = CAM_D - 300.0              # カメラより手前（後ろ）の物だけ隠す（川・橋・向こう岸の道は写す）
 LED_COLOR = System.Drawing.Color.FromArgb(255, 217, 138)
 LED_LIGHT_POWER = 1.0                   # LED の線の光源の強さ（Light.Intensity）。軒が暗ければ 2〜5、白く飛べば 0.3〜0.5
 LED_LIGHT_DROP = 60.0                   # 線の光源を LED の帯の下端からどれだけ下に置くか（mm）
@@ -53,6 +66,10 @@ if not os.path.isdir(OUT):
     os.makedirs(OUT)
 
 doc = sc.doc
+
+
+def say(*a):
+    print(u" ".join([x if isinstance(x, type(u"")) else (x.decode("utf-8") if isinstance(x, bytes) else u"%s" % (x,)) for x in a]))
 
 
 def P(t, d, z):
@@ -79,37 +96,40 @@ vp = view.ActiveViewport
 saved_vi = Rhino.DocObjects.ViewportInfo(vp)
 saved_mode = vp.DisplayMode
 cw, ch = vp.Size.Width, vp.Size.Height
-tc, zc = (T0 + T1) / 2, (Z0 + Z1) / 2
-# 写す範囲（t0〜t1 × z0〜z1）がビューの縦横の比で全部入るように広げる（広げた分は json に書き、mock.py が切る）
-half_w, half_h = (T1 - T0) / 2, (Z1 - Z0) / 2
-if half_w / half_h > cw / float(ch):
-    half_h = half_w * ch / float(cw)
-else:
-    half_w = half_h * cw / float(ch)
-vp.ChangeToParallelProjection(True)
-target = P(tc, 0, zc)
-camera = P(tc, -400000.0, zc)
-vp.SetCameraLocations(target, camera)
-vp.CameraUp = Rhino.Geometry.Vector3d.ZAxis
-vi = Rhino.DocObjects.ViewportInfo(vp)
-vi.SetFrustum(-half_w, half_w, -half_h, half_h, 1000.0, 800000.0)
-vp.SetViewProjection(vi, True)
+W, H = PX
+if not USE_CURRENT_VIEW:
+    try:
+        vp.ChangeToTwoPointPerspectiveProjection(LENS)       # 二点透視（縦の線は縦）
+    except Exception as e:
+        say(u"二点透視：効かなかった（ふつうの透視で。見る点が目と同じ高さなので縦はほぼ縦）", e)
+        try:
+            vp.ChangeToPerspectiveProjection(True, LENS)
+        except Exception as e2:
+            say(u"透視への切り替え：効かなかった", e2)
+    vp.SetCameraLocations(Rhino.Geometry.Point3d(*TGT), Rhino.Geometry.Point3d(*CAM))
+    vp.CameraUp = Rhino.Geometry.Vector3d.ZAxis
+    try:
+        vp.Camera35mmLensLength = LENS
+    except Exception as e:
+        say(u"レンズ：効かなかった", e)
+elif not vp.IsPerspectiveProjection:
+    say(u"今のビューは透視ではない（平行投影のまま描く）")
 mode = raytraced()
 if mode:
     vp.DisplayMode = mode
 else:
     print("Raytraced display mode not found")
 view.Redraw()
-W = int(round(2 * half_w / SCALE * PX_PER_MM))
-H = int(round(W * ch / float(cw)))
-if max(W, H) > 8000:                     # 大きすぎる絵は Rhino が書けない
-    f_ = 8000.0 / max(W, H)
-    W, H = int(W * f_), int(H * f_)
-json.dump(dict(t0=tc - half_w, t1=tc + half_w, z0=zc - half_h, z1=zc + half_h, scale=SCALE, px=[W, H],
-               made=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), note="t・z は mm（S から）。mock.py が読む"),
-          open(os.path.join(OUT, "keikan_view.json"), "w"), indent=1)
+_c, _t = vp.CameraLocation, vp.CameraTarget
+json.dump(dict(projection="perspective", camera_mm=[round(_c.X), round(_c.Y), round(_c.Z)],
+               target_mm=[round(_t.X), round(_t.Y), round(_t.Z)], direction=[round(D_DIR[0], 6), round(D_DIR[1], 6), 0.0],
+               lens_mm=round(vp.Camera35mmLensLength, 1), hfov_deg=round(2 * math.degrees(math.atan(18.0 / vp.Camera35mmLensLength)), 1),
+               two_point=True, px=[W, H], current_view=USE_CURRENT_VIEW,
+               made=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+               note=u"3dm の mm。高野川の向こう岸から川に直角に見る目の高さ（1.5 m）の透視。昼は背景が透明"),
+          open(os.path.join(OUT, "keikan_view.json"), "w"), indent=1, ensure_ascii=False)
 try:
-    doc.NamedViews.Add("景観立面", vp.Id)
+    doc.NamedViews.Add(u"景観_向こう岸から", vp.Id)
 except Exception:
     pass
 
@@ -294,7 +314,7 @@ def _render_to(path, transparent=True):
             pass
     try:
         rs.UseViewportSize = False
-        rs.ImageSize = System.Drawing.Size(W, H)     # ビューと同じ縦横の比なので、写る範囲は json のとおり
+        rs.ImageSize = System.Drawing.Size(W, H)
         rs.TransparentBackground = transparent     # 昼は透明（空は mock.py）、夜は群青の空ごと
         doc.RenderSettings = rs
     except Exception as e:
@@ -415,6 +435,28 @@ for oid in hidden:
     doc.Objects.Hide(oid, True)
 say(u"手前の物を隠した：", len(hidden), u"／材料を当てたレイヤー：", len(layer_old))
 
+# 2b）向こう岸（3dm に無い、川の水際から川沿いの道まで）を一時的に面で足す。足元が抜けないように
+bank_ids, bank_mat = [], -1
+try:
+    bm_ = Rhino.DocObjects.Material()
+    bm_.Name = u"作業_景観_向こう岸"
+    bm_.DiffuseColor = BANK_COLOR
+    bank_mat = doc.Materials.Add(bm_)
+    t_a, t_b = CAM_T - 150000.0, CAM_T + 150000.0
+    for (d0, z0), (d1, z1) in zip(BANK[:-1], BANK[1:]):
+        mesh = Rhino.Geometry.Mesh()
+        for t_, d_, z_ in ((t_a, d0, z0), (t_b, d0, z0), (t_b, d1, z1), (t_a, d1, z1)):
+            mesh.Vertices.Add(P(t_, d_, z_))
+        mesh.Faces.AddFace(0, 1, 2, 3)
+        mesh.Normals.ComputeNormals()
+        at_ = Rhino.DocObjects.ObjectAttributes()
+        at_.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
+        at_.MaterialIndex = bank_mat
+        bank_ids.append(doc.Objects.AddMesh(mesh, at_))
+    say(u"向こう岸の面を足した：", len(bank_ids))
+except Exception as e:
+    say(u"向こう岸の面：効かなかった", e)
+
 # 3）夜の LED（光る材料）
 led_objs = []
 for lay in doc.Layers:
@@ -518,6 +560,16 @@ try:
     capture("keikan_yoru.png", transparent=False)
 finally:
     remove_led_lights()
+    for oid in bank_ids:
+        try:
+            doc.Objects.Delete(oid, True)
+        except Exception:
+            pass
+    if bank_mat >= 0:
+        try:
+            doc.Materials.Delete(bank_mat, True)
+        except Exception:
+            pass
     for oid, a in old_attr:
         doc.Objects.ModifyAttributes(oid, a, True)
     for oid in hidden:
