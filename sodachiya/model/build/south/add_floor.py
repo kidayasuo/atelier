@@ -102,20 +102,21 @@ L_ho=layer('16i_本館_縁側の片引き戸の框（杉、開）',(196,160,118)
 for _li in (L_do,L_ho): m.Layers[_li].Visible=False                          # 開けた位置は最初は隠す（Rhinoで表示を切り替えて見比べる）
 # 戸の板：框は見付 60（縦框・上框）・下框 90、見込み 40（戸の厚さ）。ガラスは框の中に t12（強化か合わせ）、戸の厚さの真ん中。
 DOOR_R=RG+60; DOOR_GL=12
+def _arc_band(R_,a0,a1,z0f,z1f,thick,li,at=None,n=8):
+    """10-29（監修の依頼の 5）：弧 R_ に沿う厚さ thick の板を一つの物で（前は wall_along で弧の区間ごとに 7 片、
+    _square が片ごとに平らな板にして幅 約200 の短冊になり、シェーディングで縦の線に見えた）。fix_details.py の _square がスパンの弦の上の一枚の平らな板にする"""
+    a_=np.linspace(a0,a1,n); q=[P(R_-thick/2,x) for x in a_]+[P(R_+thick/2,x) for x in a_[::-1]]
+    m.Objects.AddMesh(mesh_prism([(x,y,float(z0f(x,y))) for x,y in q],[(x,y,float(z1f(x,y))) for x,y in q]),at if at is not None else attr(li))
 def door_leaf(a0,a1,li_f,li_g,mark=False):
-    da=np.sign(a1-a0)*60/DOOR_R; inner=np.linspace(a0+da,a1-da,8)
+    da=np.sign(a1-a0)*60/DOOR_R
     for b0,b1 in ((a0,a0+da),(a1-da,a1)):                                   # 縦框
         wall_along([P(DOOR_R,b0),P(DOOR_R,b1)],lambda x,y:0,lambda x,y:KAMOI-10,40,li_f)
-    wall_along([P(DOOR_R,a) for a in inner],lambda x,y:0,lambda x,y:90,40,li_f)                    # 下框
-    wall_along([P(DOOR_R,a) for a in inner],lambda x,y:KAMOI-70,lambda x,y:KAMOI-10,40,li_f)       # 上框
-    # ガラス（7 片。真ん中の片に、ロゴを貼る場所をユーザー文字列 'etch' で書いておく → 最後の段 materials.py が絵を貼る）
-    pts=[P(DOOR_R,a) for a in inner]
-    for i,(p0,p1) in enumerate(zip(pts,pts[1:])):
-        d=np.array(p1)-np.array(p0); d/=np.linalg.norm(d); nrm=np.array([-d[1],d[0]])*DOOR_GL/2
-        q=[np.array(p0)-nrm,np.array(p1)-nrm,np.array(p1)+nrm,np.array(p0)+nrm]
-        at=attr(li_g)
-        if mark and i==3: at.SetUserString('etch',_etch((a0+a1)/2))
-        m.Objects.AddMesh(mesh_prism([(x[0],x[1],90.0) for x in q],[(x[0],x[1],float(KAMOI-70)) for x in q]),at)
+    _arc_band(DOOR_R,a0+da,a1-da,lambda x,y:0,lambda x,y:90,40,li_f)                    # 下框（一本）
+    _arc_band(DOOR_R,a0+da,a1-da,lambda x,y:KAMOI-70,lambda x,y:KAMOI-10,40,li_f)       # 上框（一本）
+    # ガラス（戸 1 枚に 1 枚。ロゴを貼る場所をユーザー文字列 'etch' で書いておく → 最後の段 materials.py が絵を貼る）
+    at=attr(li_g)
+    if mark: at.SetUserString('etch',_etch((a0+a1)/2))
+    _arc_band(DOOR_R,a0+da,a1-da,lambda x,y:90.0,lambda x,y:float(KAMOI-70),DOOR_GL,li_g,at)
 # 10-25：本物のロゴ（sodachiya/logo/sodachiya_logo.svg、黒＝エッチング）。φ180、中心 FL+1.0、ガラスの室内側の面に。
 # 大人の目の高さ（FL+1.5）には幅 10・長さ 600 の細い横の帯。
 # 10-27（ユーザー：ガラスのロゴのエッチングは、テクスチャマッピングで単に絵を貼り付けて）：ここでは形を作らない（前の網目は
@@ -144,7 +145,7 @@ for k in range(19):
     _ring=lambda b0,b1: [P(RG-100,a) for a in np.linspace(b0,b1,8)]+[P(RG+35,a) for a in np.linspace(b1,b0,8)]
     _q=_ring(a_n,mid); m.Objects.AddMesh(mesh_prism([(x,y,-150.0) for x,y in _q],[(x,y,KAMOI+60.0) for x,y in _q]),attr(L_ew))
     _q=_ring(a_b,mid); m.Objects.AddMesh(mesh_prism([(x,y,KAMOI+60.0) for x,y in _q],[(x,y,float(ZUND(x,y))) for x,y in _q]),attr(L_ew))
-    wall_along([P(RG,a) for a in np.linspace(mid,a_s,8)],lambda x,y:KAMOI+60,ZUND,20,L_gl)   # 鴨居の上の固定ガラス（戸の側の半分だけ）
+    _arc_band(RG,mid,a_s,lambda x,y:KAMOI+60,ZUND,20,L_gl)   # 鴨居の上の固定ガラス（戸の側の半分だけ、一枚）
     span_no=19-k                                                             # 南から数えたスパンの番号
     mk=span_no>=5                                                            # 0・1歳（スパン1–4）の低い所には入れない
     door_leaf(mid-50/RG,a_s,L_hc,L_dc,mk)                                   # 片引き戸（閉）
@@ -154,7 +155,7 @@ for k in range(19):
 # 架構の線で切れた短いものは 3〜9 万 mm³ の離れた片）が壁の半分ごとに残った。戸の側の形は前と同じ
 for k in range(19):
     a_n,a_s=TH[k],(TH[k+1] if k<18 else th19); mid=(a_n+a_s)/2
-    wall_along([P(RG,a) for a in np.linspace(mid,a_s,8)],lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)
+    _arc_band(RG,mid,a_s,lambda x,y:KAMOI,lambda x,y:KAMOI+60,90,L_kam)       # 一本
 # 鴨居の上の固定ガラスは、上のスパンごとの所で戸の側の半分だけに作る（10-27）
 # 10-24：床下の風の道（決定事項（共通）の「床下の風の道」）。外縁側（−150）から内縁側（±0）への段の蹴込みにガラリ
 # （夏の夜の外気 → 床下、防虫網・ごみよけ・防犯の格子・ダンパー）。ガラス戸は腰の無いシンプルな引き戸（上のまま）。あまのがわの口は除く。
