@@ -188,11 +188,34 @@ SDY.applyRuns = function (tf, runs, id) {            // 区間ごとに当てる
 // 重ね順（ユーザー 10-29 17:39）：重ね順はレイヤーの中だけで効く。layout.json の order（グループ a を b の上に）と、
 // 書き出した layout_user.json の stacking（レイヤーごとの、いちばん上の階の物の上からの並び）を build・update_texts の終わりに当てる
 SDY.topOf = function (it) { var q = it; try { while (q.parent && q.parent.typename !== "Layer") { q = q.parent; } } catch (e) {} return q; };
+SDY.firstTagIn = function (it) {                    // グループの中の、いちばん初めの印の付いた部品の id（無ければ null）
+    var k, t, r;
+    if (it.typename !== "GroupItem") { return null; }
+    for (k = 0; k < it.pageItems.length; k++) {
+        t = SDY.parseTag(it.pageItems[k]); if (t) { return t.id; }
+        r = SDY.firstTagIn(it.pageItems[k]); if (r) { return r; }
+    }
+    return null;
+};
+SDY.firstUserIn = function (it) {                   // グループの中の、いちばん初めの木田さんの物の鍵
+    var k, u, r;
+    if (it.typename !== "GroupItem") { return null; }
+    for (k = 0; k < it.pageItems.length; k++) {
+        u = SDY.userKey(it.pageItems[k]); if (u) { return u; }
+        r = SDY.firstUserIn(it.pageItems[k]); if (r) { return r; }
+    }
+    return null;
+};
 SDY.stackKey = function (it) {
-    var t = SDY.parseTag(it), u = SDY.userKey(it);
+    // レイヤーのすぐ下の物の鍵（10-30：レイヤーは完璧に覚える）。グループは中の印の付いた部品で覚える（名前は同じものがあり、変わることもある）
+    var t = SDY.parseTag(it), u = SDY.userKey(it), d;
     if (t) { return "t:" + t.id; }
     if (u) { return "u:" + u; }
-    if (it.typename === "GroupItem" && it.name) { return "g:" + it.name; }
+    if (it.typename === "GroupItem") {
+        d = SDY.firstTagIn(it); if (d) { return "d:" + d; }
+        d = SDY.firstUserIn(it); if (d) { return "e:" + d; }
+        if (it.name) { return "g:" + it.name; }
+    }
     return null;
 };
 SDY.stackingOf = function (doc, rid) {               // 書き出し：{レイヤーの名前: [鍵（上から）]}
@@ -203,7 +226,7 @@ SDY.stackingOf = function (doc, rid) {               // 書き出し：{レイ�
             it = L.pageItems[k];
             try { if (it.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
             key = SDY.stackKey(it);
-            if (key && key.indexOf("t:") === 0 && rid) { key = "t:" + rid(key.substring(2)); }
+            if (key && (key.indexOf("t:") === 0 || key.indexOf("d:") === 0) && rid) { key = key.substring(0, 2) + rid(key.substring(2)); }
             if (key) { arr.push(key); }
         }
         if (arr.length) { out[L.name] = arr; }
@@ -244,8 +267,8 @@ SDY.applyStacking = function (doc, U) {              // layout_user.json の sta
         try { lay = doc.layers.getByName(ln); } catch (e) { continue; }   // 編集モードなどの無いレイヤーは飛ばす
         for (k = arr.length - 1; k >= 0; k--) {                          // 下から順に上へ積む
             key = arr[k]; it = null;
-            if (key.indexOf("t:") === 0) { it = map[key.substring(2)]; }
-            else if (key.indexOf("u:") === 0) { it = um[key.substring(2)]; }
+            if (key.indexOf("t:") === 0 || key.indexOf("d:") === 0) { it = map[key.substring(2)]; }
+            else if (key.indexOf("u:") === 0 || key.indexOf("e:") === 0) { it = um[key.substring(2)]; }
             else if (key.indexOf("g:") === 0) { it = SDY.findGroupTop(doc, key.substring(2), lay); }
             if (!it) { continue; }
             it = SDY.topOf(it);
@@ -354,6 +377,8 @@ SDY.cont = function (lay, p) {
         return dg;
     }
     for (k = 0; k < lay.groupItems.length; k++) { if (lay.groupItems[k].name === nm) { return lay.groupItems[k]; } }
+    var ex = SDY.findGroupTop(app.activeDocument, nm, null);   // 別のレイヤーにある同じグループ（部品のレイヤーが違っても割らない。レイヤーは後で重ね順の記録が決める、10-30）
+    if (ex) { return ex; }
     var g = lay.groupItems.add(); g.name = nm;
     return g;
 };
