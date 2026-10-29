@@ -76,6 +76,10 @@ def make(name, spec, layer_color):
         pb.OpacityIOR = spec['ior']
     if 'clearcoat' in spec:
         pb.Clearcoat = spec['clearcoat']
+    if 'emission' in spec:                                          # 10-29 プレゼンの準備：越屋根の LED を 3dm の中で初めから光らせる（夜のレンダリングで材料を差し替えると Rhino が落ちる）
+        e = spec['emission']; k = spec.get('emission_strength', 1.0)
+        a.EmissionColor = (*e, 255)
+        pb.EmissionColor = (e[0] / 255 * k, e[1] / 255 * k, e[2] / 255 * k, 1.0)
     a.SetUserString('sodachiya', 'data/materials.json')
     return a
 
