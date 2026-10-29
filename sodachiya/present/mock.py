@@ -2162,16 +2162,107 @@ title(ax, cx, cy + hC + 3, "断面図C　東西に切る（4歳・遊戯室）",
 embed(3, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"))
 _rx5 = cx + wC + 8
 _rw5 = W - M - 6 - _rx5
-cells4 = [("夏の昼", "庇・天井扇\n床下空調"), ("夏の夜", "床下→梁間\n→越屋根・遊戯室"), ("春・秋", "越屋根を開ける\n縁側を開け放す"), ("冬", "換気口を閉じる\n熱交換・断熱"),
-          ("パッシブ", "床下に冷えをためる\n通風・光の筋"), ("エネルギー", "屋根材型の太陽光\n蓄電池"), ("資源", "北山杉の間伐材\n土・雨・生ごみを回す"), ("時間", "スケルトン＆インフィル\n3 mの架構は残し、中は変えられる")]
-_cw5, _ch5 = (_rw5 - 4) / 2, (hC - 10 - 3 * 4) / 4
-T(ax, _rx5, cy + hC - 2, "運転表", 3.2, bold=True)
-sozai("12", "運転表と環境への配慮（8つの箱）", 3, _rx5, cy, _rw5, hC + 4)
-T(ax, _rx5 + _cw5 + 4, cy + hC - 2, "環境への配慮（LEED v5 Gold相当）", 3.0, bold=True)
-for i_, (h1, s1) in enumerate(cells4):
-    c_, r_ = divmod(i_, 4)
-    box(ax, _rx5 + c_ * (_cw5 + 4), cy + hC - 8 - (r_ + 1) * _ch5 - r_ * 4, _cw5, _ch5, h1, s1,
-        fill="#FAF8FF" if c_ == 0 else "#F5FAF0", color=NOTE if c_ == 0 else "#4E8A3A")
+# 季節ごとの運転と環境への配慮（ユーザー 10-29 9:43：監修のまとめに従い、ボードに合う短さで。8つの箱はやめ、同じ範囲に三つ）
+# 文字は一つずつ Illustrator の部品（鍵は固定：p3.unten.*・p3.reibou.*・p3.hairyo.*）、罫線と色は素材12
+C_UNTEN, C_HAIRYO = "#5B4A9E", "#4E8A3A"        # 見出しの色（運転＝紫、配慮＝緑）
+UNTEN_SUM = "夏は夜の外気で床下の重さを冷やし、昼はその冷えと、触れて冷たい壁と天井扇で過ごす。冬は閉じて床から暖め、熱と湿気を逃がさない。春と秋は床下から越屋根へ風を通す。"
+UNTEN_COLS = [("季節", 16), ("開け閉め", 67), ("動かすもの", 70), ("効くもの", 0)]   # 幅 mm（最後は残り）
+UNTEN = [
+    ("夏の昼", "窓・越屋根・床下の入口を閉じる", "放射冷房のパネル・天井扇（下向き）・床下の送風", "深い軒、夜に冷やした底板"),
+    ("夏の夜", "縁側のガラリと西館の越屋根を開く（本館の越屋根は閉じる）", "開け閉めは自動（外気が涼しいとき・雨で閉じる）", "外気が床下の底板を冷やす。遊戯室の吹き抜けの高低差約8 mで引く"),
+    ("春・秋", "窓・越屋根を開く", "機械は止める", "通風（梁間から越屋根へ）"),
+    ("冬", "すべて閉じる", "床下の暖房・全熱交換の換気・加湿・天井扇（上向きに弱く）", "断熱と気密。ガラス戸の際の床からの暖気がガラスの冷えを止める")]
+REIBOU = "保育室と遊戯室の壁、こどもの手の届く高さに置く。表面は約15℃で、触れて「つめた！」とわかる。結露した水を外へ流して除湿も兼ねる。風が無いので静かで、午睡を妨げない。"
+HAIRYO = [
+    ("断熱・気密", "屋根、基礎の内側、光の筋の複層ガラス"),
+    ("日射を切る", "深い軒、光の筋の遮熱Low-E、東のガラス戸の半分を壁に"),
+    ("熱をためる", "ベタ基礎の底板"),
+    ("空気の道", "縁側のガラリ→床下→床のスリット→梁間→越屋根"),
+    ("換気", "全熱交換。静養室と大人の便所は別の換気扇"),
+    ("光", "光の筋の内側を鏡面にして奥まで明るく、昼の照明を減らす"),
+    ("地下水", "井戸の水を熱源にしたヒートポンプで、放射冷房と床下の空調を動かす。災害時は近隣に水を届ける"),
+    ("エネルギー", "屋根材型の太陽光と蓄電池（停電のときも）"),
+    ("資源", "北山杉の間伐材、野菜くずのコンポスト、雨を庭へ"),
+    ("時間", "3 mの架構は残し、中は変えられる（スケルトン＆インフィル）")]
+
+
+def _part(id_, x, y, w, lines, size, color=INK, bold=False, lead=1.3, name=None):
+    """文字の部品（固定の鍵）。lines は折り返した行。見本は T で描く。返り値は使った高さ（mm）"""
+    s_ = "".join(lines)
+    if w:
+        _airec(fig, kind="area", id=id_, name=name or ("文：" + s_[:12]), x=x, y=y, w=w, h=len(lines) * size / 0.72 * lead + 1,
+               s=s_, size=size, color=color, bold=bold, leading=lead, para_space=0)
+    else:
+        _airec(fig, kind="text", id=id_, name=name or ("文：" + s_[:12]), x=x, y=y, s=s_, size=size, color=color, bold=bold, ha="left", va="baseline")
+    AIMUTE[0] += 1
+    for k_, l_ in enumerate(lines):
+        T(ax, x, y - k_ * size / 0.72 * lead, l_, size, color, bold=bold)
+    AIMUTE[0] -= 1
+    return len(lines) * size / 0.72 * lead
+
+
+_top5 = cy + hC + 2                             # 範囲の上端（もとの素材12の上端）
+_bot5 = cy                                      # 下端
+_gap5 = 8
+_Lw = 236
+_Rw = _rw5 - _Lw - _gap5
+_FS = None
+for _fs in (3.0, 2.8, 2.6):                     # 入る字の大きさを選ぶ
+    _cpl = lambda w_: w_ / (_fs / 0.72)
+    _lh = _fs / 0.72 * 1.3
+    _cw = [w_ or (_Lw - sum(c[1] for c in UNTEN_COLS)) for _, w_ in UNTEN_COLS]
+    _rows_h = [max(len(jwrap(t_, _cpl(_cw[j_] - 2))) for j_, t_ in enumerate(r_)) * _lh + 2.4 for r_ in UNTEN]
+    _hl = 6 + len(jwrap(UNTEN_SUM, _cpl(_Lw))) * _lh + 2 + (_lh + 2.4) + sum(_rows_h) + 5 + 6 + len(jwrap(REIBOU, _cpl(_Lw - 4))) * _lh + 4
+    _nw = max(len(n_) for n_, _ in HAIRYO) * _fs / 0.72 + 3
+    _hr = 6 + sum(len(jwrap(t_, _cpl(_Rw - _nw))) * _lh + 1.6 for _, t_ in HAIRYO)
+    if max(_hl, _hr) <= _top5 - _bot5:
+        _FS = _fs
+        break
+if _FS is None:
+    raise SystemExit("3枚目：季節ごとの運転と環境への配慮が 2.6 mm でも入らない（左 %.0f・右 %.0f／%.0f mm）" % (_hl, _hr, _top5 - _bot5))
+print("3枚目の運転と配慮：字 %.1f mm、左 %.0f・右 %.0f／%.0f mm" % (_FS, _hl, _hr, _top5 - _bot5))
+sozai("12", "季節ごとの運転と環境への配慮", 3, _rx5, cy, _rw5, hC + 4)
+# 左：季節ごとの運転
+_x0, _y = _rx5, _top5 - 4
+_part("unten.head", _x0, _y, 0, ["季節ごとの運転"], 3.2, C_UNTEN, True, name="見出し：季節ごとの運転")
+_y -= 6
+_y -= _part("unten.sum", _x0, _y, _Lw, jwrap(UNTEN_SUM, _cpl(_Lw)), _FS, name="まとめ：季節ごとの運転") + 1
+_xs = [_x0]
+for w_ in _cw[:-1]:
+    _xs.append(_xs[-1] + w_)
+ax.plot([_x0, _x0 + _Lw], [_y, _y], color=C_UNTEN, lw=0.5)
+_ytb = _y
+_y -= _lh
+for j_, (h_, _) in enumerate(UNTEN_COLS):
+    _part(f"unten.h.c{j_}", _xs[j_] + 1, _y, 0, [h_], _FS, C_UNTEN, True, name="表の見出し：" + h_)
+_y -= 2.4
+ax.plot([_x0, _x0 + _Lw], [_y + 1, _y + 1], color=C_UNTEN, lw=0.3)
+for i_, r_ in enumerate(UNTEN):
+    _yt = _y - _lh + 0.6
+    for j_, t_ in enumerate(r_):
+        _part(f"unten.r{i_}.c{j_}", _xs[j_] + 1, _yt, _cw[j_] - 2, jwrap(t_, _cpl(_cw[j_] - 2)), _FS, bold=(j_ == 0), name=f"表：{r_[0]}・{UNTEN_COLS[j_][0]}")
+    _y -= _rows_h[i_]
+    ax.plot([_x0, _x0 + _Lw], [_y + 1, _y + 1], color="#9A9A9A", lw=0.2)
+for x_ in _xs[1:]:
+    ax.plot([x_ - 0.5, x_ - 0.5], [_y + 1, _ytb], color="#BBBBBB", lw=0.2)
+# 左の下：放射冷房のパネル（小さな段、左に色の帯）
+_y -= 5
+_rl = jwrap(REIBOU, _cpl(_Lw - 4))
+_rh = 6 + len(_rl) * _lh + 1
+ax.add_patch(Rectangle((_x0, _y - _rh + 2), 1.2, _rh, fc=C_UNTEN, ec="none"))
+_part("reibou.head", _x0 + 4, _y - 2, 0, ["放射冷房のパネル"], 3.0, C_UNTEN, True, name="見出し：放射冷房のパネル")
+_part("reibou.text", _x0 + 4, _y - 2 - 5.5, _Lw - 4, _rl, _FS, name="本文：放射冷房のパネル")
+# 右：環境への配慮（一年を通して効くもの）
+_x1, _y = _rx5 + _Lw + _gap5, _top5 - 4
+_part("hairyo.head", _x1, _y, 0, ["環境への配慮（LEED v5 Gold相当）"], 3.2, C_HAIRYO, True, name="見出し：環境への配慮")
+_y -= 3
+ax.plot([_x1, _x1 + _Rw], [_y, _y], color=C_HAIRYO, lw=0.5)
+_y -= _lh
+for i_, (n_, t_) in enumerate(HAIRYO):
+    _part(f"hairyo.{i_}.name", _x1, _y, 0, [n_], _FS, C_HAIRYO, True, name="配慮の項目：" + n_)
+    _tl = jwrap(t_, _cpl(_Rw - _nw))
+    _part(f"hairyo.{i_}.text", _x1 + _nw, _y, _Rw - _nw, _tl, _FS, name="配慮の文：" + n_)
+    _y -= len(_tl) * _lh + 1.6
 ya = cy - 12 - (CLIP_SA[3] - CLIP_SA[1])
 title(ax, cx, cy - 6, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
 embed(3, SEC, CLIP_SA, cx, ya, 1.0, dwg=("SA", "縦断面図A"))

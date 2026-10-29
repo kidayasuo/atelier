@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-29 09:40",
+"generated": "2026-10-29 09:49",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -5518,10 +5518,10 @@
 "parts": [
 {
 "id": "p3.sozai.12",
-"name": "素材 12_運転表と環境への配慮",
+"name": "素材 12_季節ごとの運転と環境への配慮",
 "kind": "link",
 "layer": "図",
-"file": "present/sozai/12_運転表と環境への配慮.pdf",
+"file": "present/sozai/12_季節ごとの運転と環境への配慮.pdf",
 "x": 427.0,
 "y": 37.0,
 "w": 393.0,
@@ -47911,15 +47911,15 @@
 "name": "こどもたちの育ち舎　3dm（sodachiya.",
 "kind": "text",
 "layer": "図",
-"x": 56.46,
+"x": 56.64,
 "y": 584.63,
-"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-29 08:49（atelier 1173fdc の次の版の 3dm）",
+"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-29 09:30（atelier 1a4997e の次の版の 3dm）",
 "size_pt": 4.5,
 "font": "W3",
 "color": "#737373",
 "align": "center",
 "dwg": "平面図",
-"mock_hash": "5af902fd"
+"mock_hash": "f5f55baf"
 },
 {
 "id": "p4.top.こどもたちの育ち舎45平面図",
