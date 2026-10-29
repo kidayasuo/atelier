@@ -82,6 +82,15 @@ for idx, o in enumerate(m.Objects):
     w['ends'] = strip_ends(fp, V)
     walls.append(w)
 
+def svol(V, g):
+    """網目の符号つきの体積（四角の面は二つの三角形に）"""
+    s = 0.0
+    for i in range(g.Faces.Count):
+        f = g.Faces[i]
+        for t in ((f[0], f[1], f[2]), (f[0], f[2], f[3])) if f[2] != f[3] else ((f[0], f[1], f[2]),):
+            s += np.dot(V[t[0]], np.cross(V[t[1]], V[t[2]])) / 6.0
+    return s
+
 def zover(a, b):
     return min(a['z1'], b['z1']) - max(a['z0'], b['z0'])
 
@@ -159,7 +168,9 @@ for a in walls:
 out = r.File3dm(); out.Settings.ModelUnitSystem = m.Settings.ModelUnitSystem
 for l in m.Layers: out.Layers.Add(l)
 for mt in m.Materials: out.Materials.Add(mt)
-n = 0
+n = 0; stats_skip = []
+sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.abspath(__file__)))
+from uv import uv as uv_
 for idx, o in enumerate(m.Objects):
     g = o.Geometry
     if idx in moves:
@@ -181,9 +192,13 @@ for idx, o in enumerate(m.Objects):
             else: V[sel, 0] = vec[0]; V[sel, 1] = vec[1]
         if cf is not None:
             V[top, 2] = cf[0] * (V[top, 0] - mx_) + cf[1] * (V[top, 1] - my_) + cf[2]
+        # 体積が半分より減った・裏返った＝つぶれた（短い片の両端を動かして厚みが 0 になる、監修 10-29：
+        # 38 の u41.98 v1.6 の 50×100 の片の角が入れ違って体積 0 の膜になっていた）ときは動かさない
+        if abs(svol(V, g)) < 0.5 * abs(svol(V0, g)) or svol(V, g) * svol(V0, g) <= 0:
+            V = V0; stats_skip.append((LN[o.Attributes.LayerIndex][:3], *[round(x, 2) for x in uv_(*V0[:, :2].mean(0))]))
         for i in range(len(V)): g.Vertices.SetPoint3dAt(i, r.Point3d(float(V[i, 0]), float(V[i, 1]), float(V[i, 2])))
         g.Normals.ComputeNormals(); n += 1
     out.Objects.Add(g, o.Attributes)
 out.Write(OUT, 8)
 import collections
-print('join_walls: ends', len(log), 'walls', n, dict(collections.Counter((k, t) for k, t, _ in log)), '→', OUT)
+print('join_walls: ends', len(log), 'walls', n, 'skip', stats_skip, dict(collections.Counter((k, t) for k, t, _ in log)), '→', OUT)

@@ -436,6 +436,20 @@ def end_cut(M, C, split=False):
             if best is None or key > best[2]: best = (R, v0 - R.volume(), key)
     if best is None or best[1] > 0.6 * v0: return None
     return best[0], best[1]
+def floor_cut(M, C):
+    """板の物 M の足もとが床 C に入る所は、重なりの上端（床の上面）の水平な一枚の平面で足もとを切る（欠き込まない、監修 10-29：
+    本館の 38 の u2.7 v1.68 の腰壁・37 の u6.0 の棚の板の足が床 12 の形に沿って段に欠かれ、箱でなくなっていた）。
+    → 新しい M（当たらなければ M のまま）か None（重なりの外まで大きく落ちる・まだ当たる＝前のとおり削る）"""
+    X = M ^ C
+    if X.is_empty() or X.volume() < 2e5: return M
+    b = M.bounding_box(); zf = X.bounding_box()[5]
+    if zf >= b[5] - 1: return None
+    H = mf.Manifold.cube([b[3] - b[0] + 200, b[4] - b[1] + 200, zf - b[2] + 100]).translate([b[0] - 100, b[1] - 100, b[2] - 100])
+    R = M - H
+    if R.is_empty(): return None
+    if (M.volume() - R.volume()) - X.volume() > max(0.25 * X.volume(), 2e5): return None
+    if (R ^ C).volume() > 2e5: return None
+    return R
 from rtree import index
 idx = index.Index(properties=index.Property(dimension=3))
 for k, p in enumerate(parts):
@@ -465,6 +479,10 @@ for p in parts:
         if q is p or q['M'] is None: continue
         if RANK[q['klass']] >= RANK[k]: continue
         if k == 'F' and q['klass'] not in 'SE': continue
+        # 床は梁・桁に載る：西館の床梁・梁・桁（22b・22c・22d）では欠き込まない（監修 10-29：2 階の床 23 を 22c で削ると、梁の側面に沿う
+        # 膜 40 と三角形 約5,600 の網目になり、Rhino 版で閉じた立体に戻せなかった）。床の下面 3.17 と梁の上端 3.20 の重なり 30 は、床が梁に載る
+        # 取り合いとして干渉の一覧（clash.py）で数だけにする（床の下面を上げると、西館の 1 階の壁の上端・階段の箱の開口 3170 とずれる）
+        if k == 'F' and q['layer'].split('_')[0] in ('22b', '22c', '22d'): continue
         if k == 'X' and q['klass'] not in 'SE': continue              # 外の付属を削るのは構造と外皮だけ
         if is_plate(p) and q['layer'].split('_')[0] in TOPOBS: continue     # 板の物は屋根の部材・梁で削らない（段 1c の上端の平面で止めた）
         cutters.append(q['M']); why.append(q['layer'][:3])
@@ -484,7 +502,11 @@ for p in parts:
         rest = []; rest_w = []; end_w = []
         todo = [(C, w_) for C, w_ in zip(cutters, why) if C is not None]
         for C, w_ in todo:
-            if w_[:2] in ('12', '13', '14', '15', '23'): rest.append(C); rest_w.append(w_)
+            if w_[:2] in ('12', '13', '14', '15', '23'):
+                try: R2 = floor_cut(R, C)
+                except Exception: R2 = None
+                if R2 is None: rest.append(C); rest_w.append(w_)
+                elif R2 is not R: R = R2; end_w.append(w_); stats['plate_floor'] += 1
         todo = [(C, w_) for C, w_ in todo if w_[:2] not in ('12', '13', '14', '15', '23')]
         for _pass in range(3):                     # 一つを止めると、次の物が端に当たるようになることがある（外へ出た端を切った後の外壁など）
             left = []
@@ -502,6 +524,14 @@ for p in parts:
         cut = cutters[0]
         for c in cutters[1:]: cut = cut + c
         R = R - cut
+    # 削った後に残る厚みの無い片（体積 1e5 mm³ 未満の体：当たる物の面に沿って並ぶ膜・角の細い片）は捨てる（監修 10-29：西館の 2 階の床 23 が
+    # 2 階の床梁 22c の面に沿う膜 40 個と一つの網目になり、Rhino 版で閉じた立体に戻せなかった。38 の u41.98 v1.6 の細い片も）。
+    # もとから小さな体を持つ物（金物など）は触らない
+    if not R.is_empty():
+        bodies = R.decompose()
+        small = [b_ for b_ in bodies if b_.volume() < 1e5]
+        if small and len(small) < len(bodies) and not any(b_.volume() < 1e5 for b_ in p['M'].decompose()):
+            R = mf.Manifold.compose([b_ for b_ in bodies if b_.volume() >= 1e5]); stats['cut_sliver_' + p['layer'].split('_')[0]] += len(small)
     v1 = R.volume()
     if v0 - v1 < 2e5: continue                                   # 0.2 L 未満の差は直さない（接するだけ）
     if v1 < 0.02 * v0 or R.is_empty():
