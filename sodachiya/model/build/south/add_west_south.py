@@ -659,6 +659,32 @@ _fS1, _pS1 = _foot(_Csw, *_gS); _fS2, _pS2 = _foot(_Csw, _CHu[21.0], _CHu[24.0])
 _fN1, _pN1 = _foot(_Cn, *_gN); _fN2, _pN2 = _foot(_Cn, _CHu[48.0], _CHu[51.0])
 EAVE_LINE = LineString([_gS[0]] + _blend(_Csw, _fS1, _pS1, _fS2, _pS2) + [_CHu[u_] for u_ in _BAYS if 21.5 < u_ < 48.5] + _blend(_Cn, _fN2, _pN2, _fN1, _pN1) + [_gN[0]])
 Z_TIP = float(roof_f(*_CHu[24.0]))             # 水平な軒の先の高さ（梁の上端の面）
+# 10-29 昼（ユーザー、監修の項 20261029-0928 の 6）：北西の角（u39〜北の角の円弧の始まり）の軒先を、屋根の線ごとの折れ（u43.5 で 26°、u42 で 10〜19°）の無い
+# 一本のなめらかな曲線に。まっすぐな線（屋根の線の同じ高さの点を結ぶ）を 20 おきの点にし、両端はまっすぐな線の向きに延ばしてから、幅を
+# 変えた移動平均でならす（端の向きは変わらない）。曲線は平面の曲線で、屋根の板・軒樋・出し梁の先はこの線を縦に切る。屋根の面は変えないので、
+# 軒の先の高さは曲線とまっすぐな線の差の分だけ変わる（下の print、最大の差）。
+_ec = np.asarray(EAVE_LINE.coords); _ecu = np.array([uv(*c_) for c_ in _ec])
+_i0 = int(np.argmin(np.linalg.norm(_ec - _CHu[39.0], axis=1))); _i1 = int(np.argmin(np.linalg.norm(_ec - _fN2, axis=1)))
+_seg = LineString(_ec[_i0:_i1 + 1]); _L_ = _seg.length
+_P = np.array([np.asarray(_seg.interpolate(s_).coords[0]) for s_ in np.arange(0.0, _L_, 20.0)] + [_ec[_i1]])
+_d0_ = (_ec[_i0] - _ec[_i0 - 1]) / np.linalg.norm(_ec[_i0] - _ec[_i0 - 1]); _d1_ = (_ec[_i1 + 1] - _ec[_i1]) / np.linalg.norm(_ec[_i1 + 1] - _ec[_i1])
+_WW = 50; _NP = 150                                                  # 端の外へ 3 m 延ばす（ならしても端の向きがまっすぐな線のまま）
+_Q = np.r_[[_P[0] - _d0_ * 20.0 * k for k in range(_NP, 0, -1)], _P, [_P[-1] + _d1_ * 20.0 * k for k in range(1, _NP + 1)]]
+for _w in (_WW, _WW, _WW):                                 # 幅 _WW×20 の移動平均を 3 回（なめらかな曲線、曲がりは 3 回とも同じ所へ寄る）
+    _K = np.ones(_w) / _w; _Q = np.c_[np.convolve(np.pad(_Q[:, 0], _w // 2, mode='reflect', reflect_type='odd'), _K, 'valid'), np.convolve(np.pad(_Q[:, 1], _w // 2, mode='reflect', reflect_type='odd'), _K, 'valid')]
+_Q = _Q[_NP:_NP + len(_P)]
+# 角でならした線はまっすぐな線の内側へ寄り（軒の先が上がる）、まっすぐな所では線の上に戻る。寄った量（をならした量）の 0.9 倍だけ外へ戻す（
+# なめらかさは変わらない）→ 軒の先の高さの差がおよそ上下に半分ずつ
+_e = np.array([_seg.distance(Point(*q_)) for q_ in _Q]); _K = np.ones(_WW) / _WW
+for _ in range(2): _e = np.convolve(np.pad(_e, _WW // 2, mode='edge'), _K, 'valid')[:len(_Q)]
+_T = np.gradient(_Q, axis=0); _T /= np.linalg.norm(_T, axis=1)[:, None]; _Nn = np.c_[_T[:, 1], -_T[:, 0]]
+if WS.contains(Point(*(_Q[len(_Q) // 2] + _Nn[len(_Q) // 2] * 2000.0))): _Nn = -_Nn          # 外向き
+_Q = _Q + _Nn * (0.9 * _e)[:, None]
+EAVE_LINE = LineString([tuple(c_) for c_ in _ec[:_i0]] + [tuple(c_) for c_ in _Q] + [tuple(c_) for c_ in _ec[_i1 + 1:]])
+_dz_nw = [roof_f(*q_) - Z_TIP for q_ in _Q]
+_tq = np.diff(_Q, axis=0); _tq = _tq / np.linalg.norm(_tq, axis=1)[:, None]; _turn = np.degrees(np.arccos(np.clip((_tq[1:] * _tq[:-1]).sum(1), -1, 1)))
+print('NW eave (10-29): smooth curve u%.1f→u%.1f, %d pts, off the straight lines max %.0f mm, tip height %+.0f〜%+.0f mm, max turn per 20 mm %.2f°' %
+      (uv(*_Q[0])[0], uv(*_Q[-1])[0], len(_Q), max(_seg.distance(Point(*q_)) for q_ in _Q), min(_dz_nw), max(_dz_nw), _turn.max()))
 GUT_RISE = 30.0                                # 軒樋は軒の先がこれより上がらない所だけ（角の円弧の途中で止める）
 print('roof outline (10-29): SW corner R %.0f, eave out %.0f -> %.0f (%d pts), N corner R %.0f, %.0f -> %.0f; level tip z %.0f' %
       (_Rsw, _pS1 - _Rsw, _pS2 - _Rsw, len(EAVE_LINE.coords), _Rn, _pN1 - _Rn, _pN2 - _Rn, Z_TIP))
@@ -750,7 +776,7 @@ if len(gut_line) > 3:
     # 軒樋は軒先に沿う（上端＝屋根の先の 20 下、深さ 150、幅 120）。10-28（監修の項 2346）：軒先の線をまっすぐな区間に分け（ずれ 2 mm）、
     # 区間ごとに断面 120×150 の押し出し（前は 100 ごとの箱を一つの網目にまとめ、Rhino 版で 404 面）。北西の角は軒先がまっすぐな水平の線なのでそのまま
     from shapely.geometry import LineString as _LS
-    _C3 = np.array([np.r_[e_[1] + e_[2] * (e_[3] - GUT_W / 2), min(zt_top(e_, e_[3] - GUT_W), Z_TIP + RT_W) - 20.0] for e_ in seg])   # 10-29：水平（角の円弧の途中で止まる所も上げない）
+    _C3 = np.array([np.r_[e_[1] + e_[2] * (e_[3] - GUT_W / 2 + 2.0), min(zt_top(e_, e_[3] - GUT_W), Z_TIP + RT_W) - 20.0] for e_ in seg])   # 10-29 昼：屋根の先から 2 離す（まっすぐな区間にしたずれ 2 の分、屋根の板に重ならない）   # 10-29：水平（角の円弧の途中で止まる所も上げない）
     _keep = np.asarray(_LS(_C3[:, :2]).simplify(2.0).coords)
     _ix = [int(np.argmin(np.linalg.norm(_C3[:, :2] - q_, axis=1))) for q_ in _keep]
     _ngut = 0

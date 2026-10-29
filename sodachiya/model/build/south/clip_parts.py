@@ -473,6 +473,7 @@ CUTTABLE = set('FDPIX')
 for p in parts:
     k = p['klass']
     if k not in CUTTABLE or p['M'] is None: continue
+    if p['layer'].startswith('20p_'): continue                       # 10-29 西館係：西館の太陽光 20p は屋根材 20 と同じ板（削らない。削ると網目版で閉じない片になっていた）
     b = p['bb']; cutters = []; why = []
     for c in idx.intersection((*b[0], *b[1])):
         q = parts[c]

@@ -15,9 +15,9 @@
       1 階（2 階の床の下まで）：3170 の水平（元のまま）。
       2 階・階段の箱：A 架構の線（u＝3 の倍数）の壁は両脇の梁の下端、B ほかは屋根の下面・梁・桁の下（壁の厚みの中の 5 本の線で 50 ごと）
       に収まるいちばん高い直線。その直線と水平の差が 150 未満なら水平。
-  - 戸・窓の開口は長方形の穴（元の表のまま）。
-  - 構造・外皮・床・戸（削る段で間仕切りより優先の物）と重なる所は、重なりの外接の箱（壁の向きにそろえた直方体）で欠く：
-    厚みの 8 割以上にかかれば厚み全体の長方形の欠き（立面の形から引く。押し出しのまま）、それより浅ければその深さだけの箱。
+  - 10-29 昼（監修の項 20261029-0928 の 2）：欠き込みはしない。戸・窓の開口と、構造・外皮・床・戸（削る段で間仕切りより優先の物）に
+    重なる所（重なりの外接の範囲、厚み全体とみる）では、壁を縦の帯に分けて箱を短くし、突き当てる。一片はいつも 8 頂点の箱
+    （上端が勾配の壁は上の面だけ傾く）。前は立面から欠き、厚みの一部にかかる物は浅い箱で欠いて、段・自分と交わる輪郭ができていた。
   - 壁の端：外壁の内面で止める。ほかの間仕切りの芯に当たる端は厚みの半分（60）延ばす（L 字の角・T 字。重なりはそのまま）。
 読む表（同じ形を二度書かない）：1 階＝add_west_south.py の wall_u・wall_v の呼び出し、2 階＝add_inner.py の WALLS2、
 階段の箱と 2 階の北の壁（u33）は下の表（fix_details.py の西館の節と同じ寸法）。
@@ -164,52 +164,64 @@ for w in WALLS:
             if max(c0 + c1 * s_a, c0 + c1 * s_b) - zh < 150.0: c0, c1 = zh, 0.0
             stat['horiz' if c1 == 0 else 'slope'] += 1
             info.append('%s u%.2f v%.2f %s %.0f〜%.0f' % (w['name'], *uv(*(P0 + d * (s_a + s_b) / 2)), 'A' if isA else 'B', c0 + c1 * s_a, c0 + c1 * s_b))
-        el = Polygon([(s_a, z0), (s_b, z0), (s_b, c0 + c1 * s_b), (s_a, c0 + c1 * s_a)])
+        # 10-29 昼（監修の項 20261029-0928 の 2、ユーザー：間仕切りは必ず直方体）：壁は直方体の箱だけ。開口と、優先の物（構造・外皮・床・戸）に
+        # 当たる所は、欠き込まず、壁を縦の帯に分けて箱を短くし突き当てる（帯の境＝開口・当たる物の端。上端が勾配の壁は上の面だけ傾いた箱）。
+        # 前は立面の形から欠き、厚みの一部にかかる物は浅い箱で欠いたので、厚みの面に 2.5〜8.6 の段・自分と交わる輪郭ができていた。
+        top = lambda s: c0 + c1 * s
+        obst = []                                                    # (s0, s1, z0, z1)：箱を置かない所
         for h in w['holes']:
             sa, sb = sorted((S_of(h[0]), S_of(h[1])))
-            el = el.difference(box(sa, h[2] if h[2] > z0 + 1 else z0 - 500, sb, h[3]))
-        # 優先の物との重なり
+            obst.append((sa, sb, h[2] if h[2] > z0 + 1 else z0 - 500.0, h[3]))
         def frame_pts(Pw): return np.c_[(Pw[:, :2] - P0) @ d, (Pw[:, :2] - P0) @ n, Pw[:, 2]]
         def to_world(L):
             return np.c_[P0[0] + L[:, 0] * d[0] + L[:, 1] * n[0], P0[1] + L[:, 0] * d[1] + L[:, 1] * n[1], L[:, 2]]
-        def build(el, boxes):
-            Ms = []
-            for pg in getattr(el, 'geoms', [el]):
-                if pg.geom_type != 'Polygon' or pg.area < 100: continue
-                pg = orient(pg.simplify(0.01), 1.0)
-                t_ = trimesh.creation.extrude_polygon(pg, T)                     # (s, z, t)
-                V = np.asarray(t_.vertices); Vl = np.c_[V[:, 0], V[:, 2] - H_, V[:, 1]]   # (s, w, z)
-                F = np.asarray(t_.faces)[:, ::-1]                               # 軸の入れ替えで向きが逆になる
-                M_ = mf.Manifold(mf.Mesh(vert_properties=Vl.astype(np.float32), tri_verts=F.astype(np.uint32)))
-                if M_.is_empty() or M_.volume() < 0:
-                    M_ = mf.Manifold(mf.Mesh(vert_properties=Vl.astype(np.float32), tri_verts=F[:, ::-1].astype(np.uint32).copy()))
-                for bx in boxes: M_ = M_ - bx
-                Ms += [b_ for b_ in M_.decompose() if b_.volume() > 1e5]
-            return Ms
-        boxes = []
-        for it in range(3):
-            Ms = build(el, boxes); hit_ = False
-            for M_ in Ms:
-                g_ = M_.to_mesh(); Vl = np.asarray(g_.vert_properties)[:, :3].astype(float); Fw = np.asarray(g_.tri_verts)
-                Mw = to_manifold(trimesh.Trimesh(to_world(Vl), Fw, process=False))
+        def pieces_of(obst):
+            br = sorted(set([s_a, s_b] + [x for o in obst for x in (o[0], o[1]) if s_a + 0.5 < x < s_b - 0.5]))
+            strips = []
+            for a, b in zip(br, br[1:]):
+                if b - a < 0.5: continue
+                cov = sorted([(o[2], o[3]) for o in obst if o[0] < b - 0.25 and o[1] > a + 0.25])
+                tlo = min(top(a), top(b)); iv = []; lo = z0
+                for c_lo, c_hi in cov:
+                    if c_hi <= lo + 0.5: continue
+                    if c_lo >= tlo - 0.5: break
+                    if c_lo > lo + 0.5: iv.append((round(lo, 1), round(c_lo, 1)))
+                    lo = max(lo, c_hi)
+                if lo < tlo - 0.5: iv.append((round(lo, 1), 'T'))
+                if strips and strips[-1][2] == iv: strips[-1][1] = b      # となりの帯と同じ高さの並びなら一つに
+                else: strips.append([a, b, iv])
+            out_ = []
+            for a, b, iv in strips:
+                if b - a < 20.0: continue                                # 20 未満の細い帯は置かない
+                for lo, hi in iv:
+                    if hi == 'T': q = [(a, lo), (b, lo), (b, top(b)), (a, top(a))]
+                    else: q = [(a, lo), (b, lo), (b, hi), (a, hi)]
+                    if min(q[2][1], q[3][1]) - lo < 20.0: continue
+                    out_.append(q)
+            return out_
+        def box_tm(q):
+            L_ = np.array([[x_, -H_, z_] for x_, z_ in q] + [[x_, H_, z_] for x_, z_ in q])     # (s, w, z)
+            F_ = np.array([[0, 2, 1], [0, 3, 2], [4, 5, 6], [4, 6, 7], [0, 1, 5], [0, 5, 4], [1, 2, 6], [1, 6, 5], [2, 3, 7], [2, 7, 6], [3, 0, 4], [3, 4, 7]])
+            t_ = trimesh.Trimesh(to_world(L_), F_, process=False)
+            if t_.volume < 0: t_ = trimesh.Trimesh(to_world(L_), F_[:, ::-1], process=False)
+            return t_
+        for it in range(5):
+            Q = pieces_of(obst); hit_ = False
+            for q in Q:
+                Mw = to_manifold(box_tm(q))
                 if Mw is None: continue
-                bbw = Mw.bounding_box()
-                for k in _idx.intersection(tuple(bbw)):
+                for k in _idx.intersection(tuple(Mw.bounding_box())):
                     X = Mw ^ CUT[k]['M']
                     if X.is_empty() or X.volume() < 1e5: continue
                     gx = X.to_mesh(); Lx = frame_pts(np.asarray(gx.vert_properties)[:, :3].astype(float))
                     lo, hi = Lx.min(0), Lx.max(0); hit_ = True
                     CUTLOG.append('%s %s %s s%.0f〜%.0f w%.0f〜%.0f z%.0f〜%.0f' % (w['name'][:8], round(uv(*P0)[0], 2), CUT[k]['layer'].split('::')[-1][:12], lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]))
-                    if hi[1] - lo[1] >= 0.8 * T or lo[0] < s_a + 15 or hi[0] > s_b - 15:      # 端にかかる重なり（外壁・桁・柱）は端を引く
-                        el = el.difference(box(lo[0], lo[2], hi[0], hi[2])); stat['full'] += 1
-                    else:
-                        wl, wh = (lo[1], H_ + 50) if hi[1] > H_ - 1 else (-H_ - 50, hi[1])
-                        bx = mf.Manifold.cube([hi[0] - lo[0], wh - wl, hi[2] - lo[2]]).translate([lo[0], wl, lo[2]]); boxes.append(bx); stat['part'] += 1
+                    obst.append((lo[0], hi[0], lo[2], hi[2])); stat['full'] += 1
             if not hit_: break
         else:
             raise RuntimeError('重なりが消えない：' + w['name'])
-        for M_ in Ms:
-            g_ = M_.to_mesh(); Vw = to_world(np.asarray(g_.vert_properties)[:, :3].astype(float)); Fw = np.asarray(g_.tri_verts)
+        for q in Q:
+            t_ = box_tm(q); Vw = np.asarray(t_.vertices); Fw = np.asarray(t_.faces)
             mm = r.Mesh()
             for x_, y_, z_ in Vw: mm.Vertices.Add(float(x_), float(y_), float(z_))
             for a_, b_, c_ in Fw: mm.Faces.AddFace(int(a_), int(b_), int(c_))
@@ -249,7 +261,7 @@ for i, o in enumerate(m.Objects):
 for mm, at in out_objs: out.Objects.AddMesh(mm, at)
 out.Write(OUT, 8)
 print(f'west_walls: 西館の間仕切り {len(DROP)} 物を捨て、壁 {stat["walls"]} 枚（1 階 {N1}・2 階 {N2}・階段の箱 4・北の壁と腰壁 2）を {stat["pieces"]} 片の直方体に'
-      f'（上端 水平 {stat["horiz"]}・勾配 {stat["slope"]}、優先の物で欠いた所 厚み全体 {stat["full"]}・一部 {stat["part"]}、壁で削った家具 {stat.get("cut_I", 0)}）')
+      f'（上端 水平 {stat["horiz"]}・勾配 {stat["slope"]}、開口・優先の物で箱を分けた所 {stat["full"]}、壁で削った家具 {stat.get("cut_I", 0)}）')
 for x in info: print('  ', x)
 if os.environ.get('WW_LOG'):
     for x in CUTLOG: print('   cut', x)
