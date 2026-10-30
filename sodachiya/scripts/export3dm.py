@@ -185,7 +185,7 @@ for q in [srect(A.S_PATH0 - 0.4, 29.5, A.HEDGE_D + A.HW, A.WALL_D), srect(*A.DEL
 # 77 trees (canopy circles at 3.0, trunk line)
 for (p, rr) in [(P(24.4, 9.6), 1.9)]:                                          # 入江の木（外構の図と同じ位置、10-27 に P(25.0,11.3) から合わせた）
     m.Objects.AddBrep(r.Sphere(P3(p, 3.0), rr * MM).ToBrep(), attr("77c_外構_樹冠・植え込み・苔（葉）"))   # 樹冠は球（10-29 ユーザー：水平な円だけでは宙に浮いた輪に見えた）
-    m.Objects.AddLine(P3(p, 0), P3(p, 3.0), attr("77_外構_樹木"))
+    m.Objects.AddExtrusion(up(r.Circle(P3(p, 0), 0.08 * MM).ToNurbsCurve(), 3.0, True), attr("77_外構_樹木"))   # 幹は円柱（10-31 ユーザー：木はみな幹の円柱＋丸い樹冠、園庭の係）
 # 75・76 西館の西の軒の雨：南の地中の雨水槽・受け桝・手押しポンプと鎖樋（線）、北の雨庭（輪郭）と鎖樋
 R = A.RAIN
 tk = R["S_TANK"]; slab(srect(tk["s"][0], tk["s"][1], *tk["d"]), -tk["depth"], tk["depth"] - 0.3, "75t_外構_地中の雨水槽")   # 地中の雨水槽（上は土 0.3。z は GL から、本体では GL＝−300 なので −1500〜−600）
@@ -241,7 +241,7 @@ wall(_sc, MN.RS["h"], L79c)
 for (xy, k) in MN.screen_plants():
     m.Objects.AddLine(P3(W(xy[1], xy[0]), 0), P3(W(xy[1], xy[0]), MN.RS["h"]), attr(L79))
 tp = W(*MN.D["TREE"]["c"])                                       # みなみのさんかくの木は外構の樹木のレイヤーへ（10-28 ユーザー：樹木は樹木レイヤに）
-m.Objects.AddLine(P3(tp, 0), P3(tp, 4.5), attr("77_外構_樹木"))
+m.Objects.AddExtrusion(up(r.Circle(P3(tp, 0), 0.08 * MM).ToNurbsCurve(), 3.4, True), attr("77_外構_樹木"))   # 幹は円柱、樹冠の球の中心まで（10-31 ユーザー：木の形をそろえる、園庭の係）
 # 樹冠の高さごとの円（3本）はやめた（10-29 ユーザー：球の上に水平な筋が光って見えた）。樹冠は球だけ
 sph = r.Sphere(P3(tp, 3.4), MN.D["TREE"]["r"] * MM).ToBrep()
 m.Objects.AddBrep(sph, attr("77c_外構_樹冠・植え込み・苔（葉）"))
