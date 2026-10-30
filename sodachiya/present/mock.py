@@ -2592,7 +2592,7 @@ FIGS[3] = fig
 # 10-30 16:15（ユーザー）：こどもたちの環境も全部2枚目に詰める。左：ゾーニング1/200（園庭と一体、土足・トイレ・駐車場・歩道）と樹木図1/400。
 # 右：一日の帯3コマ（朝・日中・時間外）、季節ごとの空気環境と環境への配慮、遊戯室（平面）・教室3つ・居場所2つの軸測図
 fig, ax = page()
-frame(ax, 2, "ゾーニングと動線・環境", "左にゾーニング（園庭と一体、使う人・土足・トイレ）と樹木。右の上に一日の帯（朝・日中・時間外）、下に教室・居場所・遊戯室",
+frame(ax, 2, "ゾーニングと動線・環境", "左にゾーニング（園庭と一体、使う人・土足・トイレ）と樹木。右の上に一日の帯（朝と帰り・日中・食事・延長保育）、下に教室・居場所・遊戯室",
       "ゾーニング→一日の帯→教室・居場所・遊戯室→樹木")
 Y = lambda t_: H - t_                            # 紙の上からの mm → 下からの mm
 _RX = M + 6 + 340 + 8                           # 右の列の左（左の列はゾーニング1/200の幅）
@@ -2624,50 +2624,9 @@ _WIN = Polygon([(WX0, WY0), (WX1, WY0), (WX1, WY1), (WX0, WY1)])
 _ROADS_R = unary_union([rot(g_) for ln_, g_ in CTX if ln_.startswith("03_") and g_ is not None and g_.geom_type.endswith("Polygon")]).buffer(0).intersection(_WIN)
 _swS2 = _SITEP.intersection(LineString([_A_ - _tW * 10, _B_ + _tW * 10]).buffer(1.0, cap_style=2)).intersection(_slab).difference(_PARK_R.buffer(0.02))   # 西の道沿いの歩道 1 m
 
-# ---- 一日の帯（10-30 16:15：3コマに。朝／日中（外で遊ぶ・食べる・寝る・当番）／時間外（延長保育）。降園は朝の逆なので描かない）
-FLOW = {
-    "朝　登園8:00": [["park", "15_", "59_1F_4歳"], ["59_1F_事務（スパン", "52_"], ["57_", "32_"]],
-    "日中　9:30〜15:00": [["59_1F_4歳", "13_", "north", "hut", "compost"], ["33_", "59_1F_3歳", "14_"], ["32_", "33_"]],
-    "時間外　延長保育16:30〜": [["54_", "52_", "15_", "park"], ["54_", "52_"], ["57_", "52_"]],
-}
-frames_ = [
-    ("朝　登園8:00", ["52_", "15_", "59_1F_ホール", "33_", "59_1F_事務（スパン"], (), None,
-     ["公園→木戸→小径→あまのがわ。0・1歳は受け取り土間で手渡し", "おはようの窓口で挨拶、受け取り土間で受け取る", "検収と下処理（南のガラス越しに見える）"]),
-    ("日中　9:30〜15:00", ["31_", "13_", "14_", "32_", "33_", "59_1F_3歳", "59_1F_4歳", "59_1F_5歳", "53_", "54_"], ("north", "shizu", "mound", "hut", "compost"), None,
-     ["庭で遊ぶ（3〜5歳はだいさんかく、0〜2歳はしずかのもり）→保育室の食卓で食べる→ねどこで寝る→4・5歳はコンポスト当番",
-      "縁側から庭全体を見る。配膳口から配り、いっしょに食べる。午睡のあいだ交代で2階の休憩室へ",
-      "仕込み・オープンキッチンでこどもと目が合う・片付け。受け取り台で野菜くずを渡す"]),
-    ("時間外　延長保育16:30〜", ["54_", "52_", "15_"], (), None,
-     ["2歳の部屋で延長保育。迎えが来たら受け取り土間から公園へ", "受け取り土間で手渡し、縁台で保護者と話す。2階で会議", "職員の通用口から帰る"]),
-]
-ROLES = [("こども", "#3E8A3A"), ("保育士", "#B5651D"), ("調理", "#4E6FB0")]
-nf = len(frames_)
-fw = (_RW - (nf - 1) * 5) / nf
+# ---- 一日の帯（10-30 22:44：4コマ）は、ゾーニングの色の体系で塗るので、ゾーニングの形を作ったあと（下）で描く
 fh = 150
 fy = Y(45) - fh
-txt_h = 3 * (3.4 + 3 * 3.3) + 2
-ksc = next(s_ for s_ in (500, 600, 700, 800, 1000)
-           if (WX1 - WX0) * 1000 / s_ <= fw - 6 and (WY1 - WY0) * 1000 / s_ <= fh - 10 - txt_h)
-for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
-    fx = _RX + i * (fw + 5)
-    ax.add_patch(Rectangle((fx, fy), fw, fh, fc="none", ec="#BBBBBB", lw=0.3))
-    sozai(f"{6 + i:02d}", f"一日の帯　{h1.split('　')[0]}（小さな配置1/{ksc}と三者の動線）", 2, fx, fy, fw, fh)
-    T(ax, fx + 3, fy + fh - 6, h1, 3.4, bold=True)
-    kw_, kh_ = (WX1 - WX0) * 1000 / ksc, (WY1 - WY0) * 1000 / ksc
-    kox, koy = fx + (fw - kw_) / 2, fy + txt_h + 2
-    kxf = xform(kox, koy, ksc, WX0, WY0)
-    draw_shape(ax, _ROADS_R, kxf, fc="#E6E6E4", ec="none", z=0.4)
-    draw_shape(ax, _swS2, kxf, fc="#EFE6D2", ec="none", z=0.45)
-    draw_garden(ax, kxf, hi=ghi, thin=True)
-    draw_plan(ax, kox, koy, ksc, WX0, WY0, kw_, kh_, keyhi=keys, thin=True)
-    # 動線の線と矢印は描かない（ユーザー 10-30 18:05：文だけ残す。FLOW は控え）
-    yy = fy + txt_h - 1
-    for (rn, rc), s_ in zip(ROLES, lines3):
-        T(ax, fx + 3, yy - 3.0, rn, 2.4, rc, bold=True)
-        for k_, ln_ in enumerate(jwrap(s_, (fw - 16) / (2.3 / 0.72))[:3]):
-            T(ax, fx + 13, yy - 3.0 - k_ * 3.3, ln_, 2.3)
-        yy -= 3.4 + 3 * 3.3
-dimnote(ax, _RX, Y(45) + 2, f"一日の帯：1/{ksc}の小さな配置（西の道路から高野川まで、その時間に使う所を濃く）、下に三者（こども・保育士・調理）のそれぞれの時間。降園は朝の逆")
 
 # ---- ゾーニング 1/200（10-30 22:14 直し、ユーザー）：園庭も土足。セキュリティ外・セキュリティ内（外構）・建物の中の土足・乳児の園庭・しずかのもり・だいさんかくを
 # 同じ色相（H 28°）で彩度・明度を変えた一族に。塀・柵・木戸（セキュリティの線）は太い線。駐車・駐輪は灰、トイレ・倉庫・水はそれぞれの色。白い抜けは下に地の色を敷いて無くす
@@ -2751,59 +2710,8 @@ ZSC = 200
 zw, zh = (WX1 - WX0) * 1000 / ZSC, (WY1 - WY0) * 1000 / ZSC
 zox, zoy = M + 6, Y(55) - zh
 title(ax, M + 6, Y(51), "ゾーニング", f"1/{ZSC}　使う人ごとの色、セキュリティの内と外、園庭と一体（配置図と同じ向き、高野川を下に）")
-zxf = xform(zox, zoy, ZSC, WX0, WY0)
-_zrp = clip_rect(ax, zox, zoy, zw, zh)
-_zs, _zls = len(ax.patches), len(ax.lines)
-draw_shape(ax, _ROADS_R, zxf, fc="#E6E6E4", ec="none", z=0.3)
-draw_shape(ax, _PARK_R, zxf, fc=Z_COL["park"], ec="#B9C9A8", lw=0.15, z=0.35)
-draw_shape(ax, _SITEP, zxf, fc=Z_COL["out"], ec="none", z=0.36)                     # 地（白い抜けを無くす）
-if _OUT is not None:
-    draw_shape(ax, _OUT, zxf, fc=Z_COL["out"], ec="none", z=0.4)
-if _IN is not None:
-    draw_shape(ax, _IN, zxf, fc=Z_COL["in_ext"], ec="none", z=0.41)
-draw_shape(ax, _fill(GD["garden"]), zxf, fc=Z_COL["g35"], ec="none", z=0.5)
-draw_shape(ax, GD["shizu"], zxf, fc=Z_COL["gboth"], ec="none", z=0.55)
-if _MINAMI is not None:
-    draw_shape(ax, _fill(_MINAMI), zxf, fc=Z_COL["g02"], ec="none", z=0.55)
-draw_shape(ax, _PARKING, zxf, fc=Z_COL["park_car"], ec="none", z=0.58)
-for g_ in _CONT:
-    draw_shape(ax, g_, zxf, ec=_HSB(F_H, 0.55, 0.45), lw=0.12, z=0.6)
-draw_shape(ax, GD["mound"], zxf, fc="none", ec=_HSB(F_H, 0.6, 0.38), lw=0.3, z=0.62)
-if _STREAM_W is not None:
-    draw_shape(ax, _STREAM_W, zxf, fc="#9ECBE6", ec="none", z=0.65)
-draw_shape(ax, GD["stream"], zxf, ec="#3E8CC4", lw=0.8, z=0.66)
-draw_shape(ax, GD["culvert"], zxf, ec="#6FA8D0", lw=0.25, z=0.66, ls=(0, (2, 1.5)))
-draw_shape(ax, _WATER, zxf, fc=Z_COL["water"], ec="none", z=0.67)
-draw_shape(ax, GD["compost"], zxf, fc="#CDBFAA", ec="none", z=0.8)
-draw_shape(ax, _HUT_WC, zxf, fc=Z_COL["wc"], ec="none", z=0.81)
-draw_shape(ax, _HUT_ST, zxf, fc=Z_COL["store"], ec="none", z=0.81)
-draw_shape(ax, _BLD, zxf, fc=C_SHARE, ec="none", z=0.9)                              # 建物の中の地（部屋の板の無い所・隙間）
-
-
-def _zcol(ln_, g_):
-    """部屋の色。0〜2歳の教室の範囲の廊下・窓際は 0〜2歳、0・1歳の南の外縁側ははだし（0〜2歳の色）"""
-    best = None
-    for k_, z_ in ZONE.items():
-        if ln_.startswith(k_) and (best is None or len(k_) > len(best[0])):
-            best = (k_, z_)
-    return best[1] if best else None
-
-
-_order_z = sorted([it for it in plan_items if it[2] is not None and it[2].geom_type.endswith("Polygon") and _zcol(it[0], it[2])],
-                  key=lambda it: 0 if it[0].startswith("12_") else (1 if it[0].startswith(Z_BASE) else 2))
-for ln_, k_, g_ in _order_z:
-    z_ = _zcol(ln_, g_)
-    g_ = _fill(g_)
-    lay_ = 1.0 if ln_.startswith("12_") else (1.01 if ln_.startswith(Z_BASE) else (1.03 if z_ in ("wc", "store") else 1.02))   # トイレ・倉庫は上（階段の下の倉庫など）
-    if ln_.startswith(Z_BASE):
-        draw_shape(ax, g_.difference(_STRIP02), zxf, fc=Z_COL[z_], ec="none", z=lay_)
-        draw_shape(ax, g_.intersection(_STRIP02), zxf, fc=Z_COL["z02"], ec="none", z=lay_)
-    elif ln_.startswith("14_") and _unrot(g_).centroid.x < _u0_south:
-        draw_shape(ax, g_, zxf, fc=Z_COL["z02"], ec="#9A9A9A", lw=0.12, z=lay_)
-    else:
-        draw_shape(ax, g_, zxf, fc=Z_COL[z_], ec="none" if ln_.startswith("12_") else "#9A9A9A", lw=0.12, z=lay_)
-# 0〜2歳の部屋の中のトイレ（部屋の形が無く、便器・手洗い（39）とこどもの便所の丸い個室（38）があるだけ）：便器のまわりをトイレの色に
-# 3dm には部屋の形が無いので、更新係の平面図（drawings/sodachiya_plan_1-100.pdf）の「水まわり」の塗り（淡い水色）を紙→3dm→回した座標に戻して使う
+_GRAYL = lambda c_: (lambda r_: matplotlib.colors.to_hex([0.55 + 0.45 * (0.299 * r_[0] + 0.587 * r_[1] + 0.114 * r_[2])] * 3))(matplotlib.colors.to_rgb(c_))   # 使っていない所は無彩色（明るさだけ残す）
+# 0〜2歳の部屋の中のトイレ：3dm には部屋の形が無いので、更新係の平面図（drawings/sodachiya_plan_1-100.pdf）の「水まわり」の塗り（淡い水色）を紙→3dm→回した座標に戻して使う
 _wc02 = []
 try:
     _mp = json.load(open(os.path.join(DRW, "sodachiya_plan_1-100_views.json"), encoding="utf-8"))["views"][0]["model_to_paper"]
@@ -2823,27 +2731,90 @@ try:
                 pts_ += [it_[1], it_[4]]
         if len(pts_) < 3:
             continue
-        pg_ = Polygon([_p2m((q_.x / MM, q_.y / MM)) for q_ in pts_]).buffer(0)
-        pg_ = _G3R(pg_)
+        pg_ = _G3R(Polygon([_p2m((q_.x / MM, q_.y / MM)) for q_ in pts_]).buffer(0))
         if pg_.intersects(_g02) and pg_.intersection(_g02).area > 0.5 * pg_.area:
             _wc02.append(pg_)
 except Exception as e_:
     print("0〜2歳のトイレ（平面図の水まわり）を読めない：", e_)
-if _wc02:
-    draw_shape(ax, unary_union(_wc02), zxf, fc=Z_COL["wc"], ec="#9A9A9A", lw=0.12, z=1.04)
-    print("0〜2歳のトイレ：%d か所、%.1f m²" % (len(_wc02), unary_union(_wc02).area))
-for a_ in ax.patches[_zs:]:
-    a_.set_clip_path(_zrp)
-for a_ in ax.lines[_zls:]:
-    a_.set_clip_path(_zrp)
-_ROOM_SAVE = dict(ROOM)
-ROOM.clear(); ROOM.update({k_: "none" for k_ in ZONE})     # 壁・建具・屋根の破線だけ draw_plan で（部屋の塗りは上で、ここは輪郭だけ）
-draw_plan(ax, zox, zoy, ZSC, WX0, WY0, zw, zh, thin=True, outdoor=False)
-ROOM.clear(); ROOM.update(_ROOM_SAVE)
-_zls2 = len(ax.lines)
-draw_shape(ax, _FEN.intersection(_WIN), zxf, fc="#2B2B2B", ec="#2B2B2B", lw=0.3, z=6)   # セキュリティの線（塀・柵・木戸・南の生垣）
-for a_ in ax.lines[_zls2:]:
-    a_.set_clip_path(_zrp)
+_WC02 = unary_union(_wc02) if _wc02 else None
+print("0〜2歳のトイレ：%d か所" % len(_wc02))
+
+
+def _zcol(ln_, g_=None):
+    best = None
+    for k_, z_ in ZONE.items():
+        if ln_.startswith(k_) and (best is None or len(k_) > len(best[0])):
+            best = (k_, z_)
+    return best[1] if best else None
+
+
+def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, contours=True):
+    """ゾーニングの色で塗る（ゾーニング図と一日の帯で共通）。act(種類, レイヤー, 形) が True・False か、使う範囲の形を返す。
+    act が無ければ全部に色。使っていない所は無彩色。種類：site・out・in_ext・g35・gboth・g02・parking・water・hut・bld・room"""
+    xf_ = xform(ox, oy, sc, WX0, WY0)
+    rp_ = clip_rect(ax, ox, oy, w_, h_)
+    s0_, l0_ = len(ax.patches), len(ax.lines)
+
+    def P(g_, col_, kind_, ln_="", z_=1.0, ec_="none", lw_=0.0):
+        if g_ is None or g_.is_empty:
+            return
+        a_ = True if act is None else act(kind_, ln_, g_)
+        if a_ is True or a_ is False:
+            draw_shape(ax, g_, xf_, fc=col_ if a_ else _GRAYL(col_), ec=ec_, lw=lw_, z=z_)
+        else:                                       # 一部だけ使う：使う所は色、ほかは無彩色
+            draw_shape(ax, g_.intersection(a_), xf_, fc=col_, ec=ec_, lw=lw_, z=z_)
+            draw_shape(ax, g_.difference(a_), xf_, fc=_GRAYL(col_), ec=ec_, lw=lw_, z=z_)
+    draw_shape(ax, _ROADS_R, xf_, fc="#E6E6E4", ec="none", z=0.3)
+    P(_PARK_R, Z_COL["park"], "out", z_=0.35)
+    P(_SITEP, Z_COL["out"], "site", z_=0.36)
+    P(_OUT, Z_COL["out"], "out", z_=0.4)
+    P(_IN, Z_COL["in_ext"], "in_ext", z_=0.41)
+    P(_fill(GD["garden"]), Z_COL["g35"], "g35", z_=0.5)
+    P(GD["shizu"], Z_COL["gboth"], "gboth", z_=0.55)
+    P(_fill(_MINAMI) if _MINAMI is not None else None, Z_COL["g02"], "g02", z_=0.55)
+    P(_PARKING, Z_COL["park_car"], "parking", z_=0.58)
+    if contours:
+        for g_ in _CONT:
+            draw_shape(ax, g_, xf_, ec=_HSB(F_H, 0.55, 0.45), lw=0.12, z=0.6)
+        draw_shape(ax, GD["mound"], xf_, fc="none", ec=_HSB(F_H, 0.6, 0.38), lw=0.3, z=0.62)
+    P(_STREAM_W, "#9ECBE6", "water", z_=0.65)
+    draw_shape(ax, GD["stream"], xf_, ec="#3E8CC4" if act is None or act("water", "", GD["stream"]) is not False else "#AAAAAA", lw=0.8 * lw_fen / 0.3, z=0.66)
+    P(_WATER, Z_COL["water"], "water", z_=0.67)
+    P(GD["compost"], "#CDBFAA", "hut", z_=0.8)
+    P(_HUT_WC, Z_COL["wc"], "hut", z_=0.81)
+    P(_HUT_ST, Z_COL["store"], "hut", z_=0.81)
+    P(_BLD, C_SHARE, "bld", z_=0.9)
+    its_ = sorted([it for it in plan_items if it[2] is not None and it[2].geom_type.endswith("Polygon") and _zcol(it[0])],
+                  key=lambda it: 0 if it[0].startswith("12_") else (1 if it[0].startswith(Z_BASE) else 2))
+    for ln_, k_, g_ in its_:
+        z_ = _zcol(ln_)
+        g_ = _fill(g_)
+        lay_ = 1.0 if ln_.startswith("12_") else (1.01 if ln_.startswith(Z_BASE) else (1.03 if z_ in ("wc", "store") else 1.02))
+        e_ = ("none", 0) if ln_.startswith(("12_",) + Z_BASE) else ("#9A9A9A", lw_room)
+        if ln_.startswith(Z_BASE):
+            P(g_.difference(_STRIP02), Z_COL[z_], "room", ln_, lay_)
+            P(g_.intersection(_STRIP02), Z_COL["z02"], "room", ln_, lay_)
+        elif ln_.startswith("14_") and _unrot(g_).centroid.x < _u0_south:
+            P(g_, Z_COL["z02"], "room", ln_, lay_, *e_)
+        else:
+            P(g_, Z_COL[z_], "room", ln_, lay_, *e_)
+    P(_WC02, Z_COL["wc"], "room", "53_便所", 1.04, "#9A9A9A", lw_room)
+    for a_ in ax.patches[s0_:]:
+        a_.set_clip_path(rp_)
+    for a_ in ax.lines[l0_:]:
+        a_.set_clip_path(rp_)
+    rs_ = dict(ROOM)
+    ROOM.clear(); ROOM.update({k_: "none" for k_ in ZONE})     # 壁・建具・屋根の破線だけ draw_plan で（部屋の塗りは上で、ここは輪郭だけ）
+    draw_plan(ax, ox, oy, sc, WX0, WY0, w_, h_, thin=True, outdoor=False)
+    ROOM.clear(); ROOM.update(rs_)
+    l2_ = len(ax.lines)
+    draw_shape(ax, _FEN.intersection(_WIN), xf_, fc="#2B2B2B", ec="#2B2B2B", lw=lw_fen, z=6)   # セキュリティの線（塀・柵・木戸）
+    for a_ in ax.patches[s0_:] + ax.lines[l2_:]:
+        a_.set_clip_path(rp_)
+    return xf_
+
+
+zxf = _zone_paint(ax, zox, zoy, ZSC, zw, zh)
 _lab = {}
 for ln_, k_, g_ in plan_items:                 # 部屋の名前（小さく）
     if k_ == "mesh" and _zcol(ln_, g_) and not ln_.startswith(("12_", "59_1F_倉庫")):
@@ -2891,6 +2862,58 @@ T(ax, M + 200, _ly, "小川", 2.5)
 _ly += 7                                         # 樹木図の題は _ly − 14
 print("ゾーニングの色：", {k_: Z_COL[k_] for k_ in ("out", "in_ext", "shoe", "g02", "gboth", "g35")})
 
+# ---- 一日の帯（10-30 22:44、ユーザー：4コマ。朝（と帰り）／日中／食事／延長保育。動線の線は描かない。使われている所だけゾーニングの色、ほかは無彩色）
+_u_ama = _unrot(unary_union([g_ for ln_, k_, g_ in plan_items if ln_.startswith("15_")])).centroid.x    # あまのがわの位置（本館の軸の u）
+_SOUTH_AMA = rot(Polygon([(-200, -200), (_u_ama, -200), (_u_ama, 200), (-200, 200)]))
+_NORTH_AMA = rot(Polygon([(_u_ama, -200), (300, -200), (300, 200), (_u_ama, 200)]))
+
+
+def _act_morning(kind_, ln_, g_):
+    if kind_ in ("out", "site"):
+        return True                                  # 公園の木戸・ムベのアーチの下・ひろば・小径（セキュリティ外の全域）
+    if kind_ == "room":
+        if ln_.startswith(("52_", "15_", "57_", "59_1F_事務（スパン")):   # 受け取り土間・あまのがわ・勝手口と検収・おはようの窓口
+            return True
+        if ln_.startswith("14_"):                    # 外縁側（あまのがわから北の外廊下も）
+            return True
+    return False
+
+
+def _act_day(kind_, ln_, g_):
+    return kind_ in ("room", "bld", "g35", "gboth", "g02", "water", "hut")
+
+
+def _act_late(kind_, ln_, g_):
+    if kind_ == "room":
+        if ln_.startswith(("54_", "13_", "15_")):    # 2歳の部屋・内縁側・あまのがわ
+            return True
+        if ln_.startswith("59_1F_西吹き抜け"):       # 西の吹き抜けのうち、あまのがわより南
+            return _SOUTH_AMA
+    return False
+
+
+frames_ = [
+    ("朝（と帰り）", _act_morning, "公園の木戸からムベのアーチの下へ。0・1歳は受け取り土間で手渡し、ひろばで見送り、おはようの窓口で挨拶。食材は勝手口で検収。帰りはこの逆"),
+    ("日中", _act_day, "建物の中のすべてと、だいさんかく・しずかのもり・みなみのさんかくで過ごす"),
+    ("食事", _act_day, "保育室の食卓でクラスごとに食べる。キッチンから配膳口を通って運ぶ"),
+    ("延長保育", _act_late, "2歳の部屋で迎えを待つ。内縁側・あまのがわ・西の吹き抜けの南だけを使い、ほかは閉じる"),
+]
+nf = len(frames_)
+fw = (_RW - (nf - 1) * 5) / nf
+txt_h = 3 * 3.3 + 3
+ksc = next(s_ for s_ in (500, 600, 700, 800, 1000)
+           if (WX1 - WX0) * 1000 / s_ <= fw - 4 and (WY1 - WY0) * 1000 / s_ <= fh - 10 - txt_h)
+for i, (h1, act_, s1_) in enumerate(frames_):
+    fx = _RX + i * (fw + 5)
+    ax.add_patch(Rectangle((fx, fy), fw, fh, fc="none", ec="#BBBBBB", lw=0.3))
+    sozai(f"{6 + i:02d}", f"一日の帯　{h1}（小さな配置1/{ksc}）", 2, fx, fy, fw, fh)
+    T(ax, fx + 3, fy + fh - 6, h1, 3.4, bold=True)
+    kw_, kh_ = (WX1 - WX0) * 1000 / ksc, (WY1 - WY0) * 1000 / ksc
+    _zone_paint(ax, fx + (fw - kw_) / 2, fy + fh - 9 - kh_, ksc, kw_, kh_, act=act_, lw_room=0.06, lw_fen=0.25, contours=False)
+    for k_, ln_ in enumerate(jwrap(s1_, (fw - 6) / (2.3 / 0.72))[:3]):
+        T(ax, fx + 3, fy + fh - 9 - kh_ - 4.5 - k_ * 3.3, ln_, 2.3)
+dimnote(ax, _RX, Y(45) + 2, f"一日の帯：1/{ksc}の小さな配置（西の道路から高野川まで）。その時間に使う所だけゾーニングの色、ほかは灰。動線は .ai で")
+
 # ---- 樹木図 1/400（10-30 18:05 作り直し：常緑と落葉の2色で塗り、香り・花・紅葉・実・ちくちくを小さな印で。園児が目にする木を全部）
 # 入れる物：園庭の木（94c、garden.json の TREES。柳の家も）、読書の庭のモミジ（67c）、ムベのアーチ（73c）、外構の木（siteplan_approach.json の trees＝77）、
 # 緑の目隠しのムベ（79c）、刈り込み・植え込み（77c の低い物）、生垣（70h・97h、線で）。木の性格は一般の植物の知識（確かでない物は付けない）
@@ -2917,9 +2940,18 @@ TRAIT = {"ウメ": ("D", "香花実"), "ロウバイ": ("D", "香花"), "クロ�
          "エノキ": ("D", "実"), "カシワ": ("D", "実"), "カツラ": ("D", "香紅"), "クヌギ": ("D", "実"), "ケヤキ": ("D", "紅"),
          "コナラ": ("D", "実紅"), "ムクノキ": ("D", "実"), "ヤナギ": ("D", ""), "ムベ": ("E", "香花実"),
          "刈り込み・植え込み": ("E", ""), "入江の木": ("D", "")}
-BADGE = [("香", "#9B6BC4", "香り"), ("花", "#E57A9A", "花"), ("紅", "#D9572B", "紅葉・黄葉"), ("実", "#D9A520", "実"), ("痛", "#222222", "ちくちく（とげ・痛い葉）")]
+# 印は色相と形をはっきり変える（ユーザー 10-30 22:44：赤系ばかりで分かりにくい）。塗りの緑と紛れない色
+BADGE = [("香", "#7A4FC0", "香り", "o"), ("花", "#E8B400", "花", "D"), ("紅", "#E0621B", "紅葉・黄葉", "^"), ("実", "#2B6CD6", "実", "s"), ("痛", "#111111", "ちくちく（とげ・痛い葉）", "X")]
 C_EVER, C_DECI, C_UNK = "#4F8A5B", "#B9D98F", "#CFCFCF"
-_tr = lambda sp_: TRAIT.get(sp_.split("（")[0], (None, ""))
+TRAIT.update({"ギンモクセイ": ("E", "香"), "クスノキ": ("E", "香"), "ベニシダレ": ("D", "紅")})     # クスノキは葉の香り（樟脳）
+# 香りの木は（この中では）花の香りなので、香りと花が重なる木は香りの印だけ（ユーザー 10-30 22:44）
+_tr = lambda sp_: (lambda t_: (t_[0], t_[1].replace("花", "") if "香" in t_[1] else t_[1]))(TRAIT.get(sp_.split("（")[0], (None, "")))
+# 図の上での読み替え（データ（garden.json など）はほかの係の物なので書き換えない。ユーザー 10-30 22:44）
+# モミジの種類（ユーザー 10-30 22:53）：園庭のモミジ＝イロハモミジ（garden.json のオオモミジも）、入江の木＝オオモミジ、読書の庭（67）＝ベニシダレ（枝垂れの細葉）
+SP_READ = {"モミジ（読書の庭）": "ベニシダレ", "オオモミジ": "イロハモミジ", "入江の木": "オオモミジ",
+           "ムベ（アーチの棚）": "ムベ", "ムベ（緑の目隠し）": "ムベ",
+           "刈り込み・植え込み（キンモクセイ・ギンモクセイ・苔など）": "ギンモクセイ"}
+KUSU_AT = (46.68, 1.77)                          # クスノキに読み替える木：garden.json の TREES のシラカシ（北東の境の並び、キンモクセイとイロハモミジのあいだ）
 _trees = []                                      # (樹種, 回した座標の点, 形)
 for o in objs:
     ln_ = o["layer"]
@@ -2960,6 +2992,12 @@ try:                                             # 外構の木（77、アプロ
         _trees.append((sp_, p_, Point(p_).buffer(t_.get("r", 1.0), 24)))
 except Exception as e_:
     print("外構の木：", e_)
+_trees = [(SP_READ.get(sp_, sp_), p_, g_) for sp_, p_, g_ in _trees]
+_kp = rot(_gs(Point(gc.XS([KUSU_AT])[0])))
+_ki = min((i_ for i_, t_ in enumerate(_trees) if t_[0] == "シラカシ"), key=lambda i_: _trees[i_][2].centroid.distance(_kp), default=None)
+if _ki is not None:
+    _trees[_ki] = ("クスノキ",) + tuple(_trees[_ki][1:])
+    print("クスノキ：シラカシ（%.1f m 先の木）を読み替え" % _trees[_ki][2].centroid.distance(_kp))
 _HEDGE = [g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith(("70h", "97h"))) if g_ is not None]
 for sp_, p_, g_ in sorted(_trees, key=lambda t_: -t_[2].area):
     ev_ = _tr(sp_)[0]
@@ -2970,21 +3008,21 @@ for a_ in ax.patches[_ts:]:
     a_.set_clip_path(_trp)
 for a_ in ax.lines[_tls:]:
     a_.set_clip_path(_trp)
-_order = sorted({sp_ for sp_, _, _ in _trees}, key=lambda sp_: ({"E": 0, "D": 1}.get(_tr(sp_)[0], 2), -len(_tr(sp_)[1]), sp_))
+_order = sorted({sp_ for sp_, _, _ in _trees if _tr(sp_)[0] is not None}, key=lambda sp_: ({"E": 0, "D": 1}.get(_tr(sp_)[0], 2), -len(_tr(sp_)[1]), sp_))
 _num = {sp_: i_ + 1 for i_, sp_ in enumerate(_order)}
 _BR = 0.75                                       # 印の丸の半径（mm）
 
 
 def _badges(x_, y_, tr_, z=3):
-    for k_, (b_, c_, _) in enumerate([b for b in BADGE if b[0] in tr_]):
-        ax.add_patch(matplotlib.patches.Circle((x_ + k_ * 1.7, y_), _BR, fc=c_, ec="white", lw=0.15, zorder=z))
+    for k_, (b_, c_, _, m_) in enumerate([b for b in BADGE if b[0] in tr_]):
+        ax.plot([x_ + k_ * 1.7], [y_], marker=m_, ms=4.0 if m_ != "X" else 4.4, mfc=c_, mec="white", mew=0.25, ls="none", zorder=z)
 
 
 for sp_, p_, g_ in _trees:
-    if g_.area < 0.6 and "刈り込み" not in sp_:
+    if (g_.area < 0.6 and sp_ != "ギンモクセイ") or _tr(sp_)[0] is None:   # 樹種不明は灰で塗るだけ（番号も凡例も無し）
         continue
     q_ = txf(np.array([p_]))[0]
-    if "刈り込み" in sp_ or "目隠し" in sp_ or "アーチ" in sp_:
+    if sp_ in ("ギンモクセイ", "ムベ"):
         q_ = txf(np.array([g_.representative_point().coords[0]]))[0]
     T(ax, q_[0], q_[1] + 0.6, str(_num[sp_]), 1.5, "white" if _tr(sp_)[0] == "E" else "#222222", ha="center", va="baseline")
     tr_ = _tr(sp_)[1]
@@ -2997,15 +3035,15 @@ for sp_, _, _ in _trees:
 _lx = tox + tw_ + 5
 _col_w = (M + 6 + 340 - _lx) / 2
 _yy = _tt - 1
-for c_, nm_ in ((C_EVER, "常緑"), (C_DECI, "落葉"), (C_UNK, "樹種不明")):
+for c_, nm_ in ((C_EVER, "常緑"), (C_DECI, "落葉")):
     ax.add_patch(Rectangle((_lx, _yy - 1.0), 4, 3, fc=c_, ec="#777777", lw=0.15))
     T(ax, _lx + 5, _yy, nm_, 2.3)
     _yy -= 3.6
 ax.plot([_lx, _lx + 4], [_yy + 0.5, _yy + 0.5], color="#3E6B3A", lw=0.9)
 T(ax, _lx + 5, _yy, "生垣（線）", 2.3)
 _yy -= 3.6
-for b_, c_, nm_ in BADGE:
-    ax.add_patch(matplotlib.patches.Circle((_lx + 2, _yy + 0.6), _BR, fc=c_, ec="white", lw=0.15))
+for b_, c_, nm_, m_ in BADGE:
+    ax.plot([_lx + 2], [_yy + 0.6], marker=m_, ms=4.0, mfc=c_, mec="white", mew=0.25, ls="none")
     T(ax, _lx + 5, _yy, nm_, 2.3)
     _yy -= 3.4
 _yy -= 1.5
