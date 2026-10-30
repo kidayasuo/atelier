@@ -54,6 +54,11 @@ VIEW_ROT = json.load(open(os.path.join(SOD, "data", "garden.json"), encoding="ut
 
 MEMBER_LAYERS = ("11a_", "11b_", "11c_", "22a_", "22b_", "22c_", "22d_")
 P0 = np.r_[xy(28.5, -1.0), 0.0] / 1000          # 軸測図の原点（m）
+# 本館と西館は構造が別（エキスパンション）。分解図のように西館を本館に直角の向き（西）へ GAP m 離して描く（ユーザー 10-30）
+GAP = 6.0
+_t = xy(36.0, -5.0) - xy(36.0, 0.0)
+SH = np.r_[_t / np.linalg.norm(_t) * GAP, 0.0]
+NISHI = ("21_", "22", "24_")
 
 
 def sample(c, n=40):
@@ -134,6 +139,9 @@ for o in m.Objects:
         _, e = feature_edges(V, F)
     else:
         continue
+    if ln.startswith(NISHI):
+        f = [P + SH for P in f]
+        e = [(a + SH, b + SH) for a, b in e]
     members.append((f, e, ln))
 
 
@@ -178,7 +186,7 @@ walls = []          # (面, 色の分類, 辺のリスト)
 wall_cut = []       # 平面の切断に使う三角形 (V3, 分類, 切る高さ)
 
 
-def add_wall_mesh(g, fn, zcut):
+def add_wall_mesh(g, fn, zcut, sh=np.zeros(3)):
     V, F = mesh_faces(g)
     nrm, edges = feature_edges(V, F)
     cls_f = []
@@ -188,8 +196,8 @@ def add_wall_mesh(g, fn, zcut):
         k = fn(u, v, c[2], nrm[fi])
         cls_f.append(k)
         if k:
-            walls.append((V[f], k))
-            P = V[f]
+            walls.append((V[f] + sh, k))
+            P = V[f] + sh
             for tri in ([P[0], P[1], P[2]],) + (([P[0], P[2], P[3]],) if len(f) == 4 else ()):
                 wall_cut.append((np.array(tri), k, zcut))
     # 辺はそばの面の分類で
@@ -198,7 +206,7 @@ def add_wall_mesh(g, fn, zcut):
         u, v = uv(c[0] * 1000, c[1] * 1000)
         k = fn(u, v, c[2], np.array([0.0, 0.0, 1.0]))
         if k:
-            walls.append((np.array([a, b]), "edge:" + k))
+            walls.append((np.array([a + sh, b + sh]), "edge:" + k))
 
 
 for o in m.Objects:
@@ -207,7 +215,7 @@ for o in m.Objects:
     if ln.startswith("17_") and isinstance(g, r.Mesh):
         add_wall_mesh(g, lambda u, v, z, n: cls_honkan(u, v, z), 1.0)
     elif ln.startswith("21_") and isinstance(g, r.Mesh):
-        add_wall_mesh(g, cls_nishi, 0.05)
+        add_wall_mesh(g, cls_nishi, 0.05, SH)
     elif ln.startswith("24_") and (o.Attributes.Name or "").startswith("階段の箱の壁") and isinstance(g, r.Mesh):
         def fn(u, v, z, n):
             t = u_dir(u, v)
@@ -215,7 +223,7 @@ for o in m.Objects:
             if np.linalg.norm(nh) < 0.3:     # 上下の面：箱の南北の面か東西の面か、位置で
                 return "EW" if (u < 30.2 or u > 33.7) else "NS"
             return "EW" if abs(float(nh @ t)) / np.linalg.norm(nh) > 0.7 else "NS"
-        add_wall_mesh(g, fn, 1.0)
+        add_wall_mesh(g, fn, 1.0, SH)
 
 # ---------------------------------------------------------------- 軸測図（南西の上から、平行投影）
 AZ, EL = math.radians(225.0), math.radians(33.0)       # 見る人の方角（3dm の +Y を北）、見下ろす角
@@ -283,7 +291,7 @@ ax.add_collection(pc)
 
 
 def P3(u, v, z):
-    return np.r_[xy(u, v) / 1000, z]
+    return np.r_[xy(u, v) / 1000, z] + (SH if v < -0.8 else 0)      # 西館（v＜−0.8）は離した位置
 
 
 def lab(u, v, z, s, dx, dy, ha="left", bold=False, size=FSL, color=INK, at=None):
@@ -334,10 +342,10 @@ for o in m.Objects:
         A_ = sample(g.Profile3d(0, 0.0)); B_ = sample(g.Profile3d(0, 1.0))
         if min(A_[:, 2].min(), B_[:, 2].min()) > 0.5:       # 2階だけの柱は描かない
             continue
-        Q = np.vstack([A_, B_])[:, :2]
+        Q = np.vstack([A_, B_])[:, :2] + (SH[:2] if ln.startswith(NISHI) else 0)
         plan_cols.append(Q[ConvexHull(Q).vertices])
     elif ln.startswith(("11b_", "22b_")) and isinstance(g, r.Extrusion):
-        Q = np.vstack([sample(g.Profile3d(0, 0.0)), sample(g.Profile3d(0, 1.0))])[:, :2]
+        Q = np.vstack([sample(g.Profile3d(0, 0.0)), sample(g.Profile3d(0, 1.0))])[:, :2] + (SH[:2] if ln.startswith(NISHI) else 0)
         plan_beams.append(Q[ConvexHull(Q).vertices])
 
 allq = rp(np.vstack([s[:, :2] for L_ in segs.values() for s in L_] + plan_cols))
@@ -373,13 +381,13 @@ ax.text(W - 3, H - 36, "1階　1/600", fontsize=FS, ha="right", va="center", col
 # ---------------------------------------------------------------- 軸測図の名前と注
 SEL = os.environ.get("KOZO_NOLABEL")
 if not SEL:
-    name(10.0, 18.0, 8.0, "本館")
-    ax.text(AX_L + 4, H - 8, "西館", fontsize=12, fontweight="bold", ha="left", va="center", color=INK)
+    name(16.0, 15.0, 6.5, "本館")
+    name(47.0, -16.0, 9.5, "西館")
     lab(0.0, 12.0, 2.6, "架構1", -2, 16, ha="right")
     lab(57.0, 6.0, 4.1, "架構20", 8, 6)
     lab(39.0, 13.6, 2.8, "縁側の杉の壁（19か所）", 10, 8)
     lab(57.3, 10.0, 3.0, "北の妻", 10, 5)
-    lab(0.0, 11.6, 1.2, "南の妻（門型）", 3, 0, at="bottom")
+    lab(0.0, 11.6, 1.2, "南の妻（門型）", -4, 0, ha="right", at="bottom")
     lab(14.0, -0.35, 1.0, "西の外壁", 0, -10, ha="center")
     lab(46.0, -12.5, 1.0, "北西の斜め", 0, 0, ha="right", at=(AX_L - 2, 40))
     lab(51.0, -5.0, 5.0, "北の妻", 0, 0, ha="right", at=(AX_L - 2, 120))
@@ -399,7 +407,8 @@ for k, s in leg:
 ax.add_patch(plt.Rectangle((LX, y - 1.6), 7.0, 3.2, fc=C_MEM, ec=C_MEM_E, lw=0.3))
 ax.text(LX + 9.0, y, "柱・梁・桁・2階の床梁（架構）", fontsize=FS, va="center")
 y -= 7.0
-notes = ["本館の東西は架構1〜20（柱と梁の門型）で受ける。",
+notes = ["本館と西館は構造が別（エキスパンション）。離して描いた。",
+         "本館の東西は架構1〜20（柱と梁の門型）で受ける。",
          "間仕切りは構造にしない（動かせるように）。",
          "西館の外壁は窓を含めて構造用合板で通す。",
          "屋根は母屋の上の合板を水平構面に。"]
