@@ -810,7 +810,7 @@ def _xbox(u0_, u1_, v0_, v1_, z0_, z1_, li_, name_):
     _XNEW.append((e_, at_)); return e_
 # 1・2) 梁を深く、東の穴をふさぐ
 BEAM_K = 800.0 / 700.0
-def _deepen(g, off2=None):
+def _deepen(g, off2=None, g_orig=None):
     pl = g.GetProfilePlane(0.0)
     O = np.array([pl.Origin.X, pl.Origin.Y, pl.Origin.Z])
     X = np.array([pl.XAxis.X, pl.XAxis.Y, pl.XAxis.Z]); Y = np.array([pl.YAxis.X, pl.YAxis.Y, pl.YAxis.Z])
@@ -833,6 +833,13 @@ def _deepen(g, off2=None):
         zr_ = np.array([_RWf['roof_f'](*(q_ + hm)) for q_ in P[:, :2]])               # その 1 枚の上の屋根の面（梁の上端、厚みの真ん中）
         if k_ == 0:
             dep = zt - P[:, 2]
+            # 10-30（梁18）：3) で端を外壁の内面まで縮めた点は、高さをそのままに中ほどへ動いたので、上端の線からの深さを動かす前の点で測る
+            #   （北の端の架構 u50.565 は角の丸みで西の端が 0.4 縮み、上端が屋根の面から最大 13 cm 下がっていた）
+            if g_orig is not None:
+                P0_ = extedit._pts(extedit.profiles3d(g_orig)[0])
+                if P0_.shape == P.shape:
+                    mv_ = np.linalg.norm(P0_[:, :2] - P[:, :2], axis=1) > 1.0
+                    if mv_.any(): dep = np.where(mv_, ztop((P0_[:, :2] - O[:2]) @ hd) - P0_[:, 2], dep)
             if off2 is not None:                                                    # 10-29：北西の角の 2 枚は、上端はそれぞれの面、下の方はもう 1 枚と同じ（低いほうの面から）
                 zr2_ = np.array([_RWf['roof_f'](*(q_ + hm + off2)) for q_ in P[:, :2]]); w_ = np.clip(dep / 300.0, 0.0, 1.0)
                 zr_ = zr_ * (1 - w_) + np.minimum(zr_, zr2_) * w_
@@ -850,14 +857,14 @@ def _deepen(g, off2=None):
         if not e.AddInnerProfile(c2): return None, 0
     return e, n_hole
 _n_deep = 0; _n_hole = 0; _BEAM_BOT_E = {}; _BEAM_MID_E = {}               # 架構の u → 東の桁の線（v −1.30）での梁の下端（2 枚のうち低いほう）
-_deep = []; _g0 = {}
+_deep = []; _g0 = {}; _go = {}
 for o in m.Objects:
     if o.Attributes.LayerIndex != L22B: continue
     k_ = str(o.Attributes.Id); g = cur_g(o)
     if not isinstance(g, r.Extrusion) or k_ in _bn2: continue
-    e, nh = _deepen(g)
+    e, nh = _deepen(g, None, o.Geometry)
     if e is None: continue
-    EXT[k_] = e; _n_deep += 1; _n_hole += nh; _deep.append(k_); _g0[k_] = g
+    EXT[k_] = e; _n_deep += 1; _n_hole += nh; _deep.append(k_); _g0[k_] = g; _go[k_] = o.Geometry
 # 10-29（監修の項 20261028-2355 の E）：一つの架構の 2 枚の板は同じ形に。2 枚の上の屋根の面の差が 15 以下の架構（u21〜42）は、上の低いほうの
 # 1 枚を厚みの向きに平行に写す（前は 1 枚ずつ自分の上の面から作って、下端・穴が 6〜9 違った）。北西の角（u45・48）は 2 枚の上の面が最大 8〜11 cm
 # 違うので、それぞれ自分の上の面のまま（2 枚組の梁は 2 枚とも屋根の面に、ユーザー 10-28）、下の方（上端から 300 より下）は 2 枚で同じ（低いほうの面から。
@@ -880,7 +887,7 @@ for kk_, ks_ in _by_f.items():
     if max(dv_) > 15.0:
         _ply_keep.append(round(float(uv(c1_[0], c1_[1])[0]), 2))
         for ka_, kb_ in ((ks_[0], ks_[1]), (ks_[1], ks_[0])):
-            ca_, _ = _pmid(EXT[ka_]); cb_, _ = _pmid(EXT[kb_]); e_ = _deepen(_g0[ka_], (cb_ - ca_)[:2])[0]
+            ca_, _ = _pmid(EXT[ka_]); cb_, _ = _pmid(EXT[kb_]); e_ = _deepen(_g0[ka_], (cb_ - ca_)[:2], _go[ka_])[0]
             if e_ is not None: EXT[ka_] = e_
         continue
     mst, oth = (ks_[0], ks_[1]) if z1_.max() <= z2_.max() else (ks_[1], ks_[0])
@@ -1650,7 +1657,8 @@ for w, pads_ in _PADS:
             _XNEW.append((ep_, at_)); _g3['pad'] += 1
 # e. 出し梁の付く梁の西の端の上の角（10-29 夕、監修の項 1530：一つの架構の 2 枚は、片方だけに出し梁が付く端の架構（u21.33・u48）でも 2 枚とも直角に。
 #    前は出し梁の付く 1 枚だけ直したので 2 枚の輪郭が 81 違った）
-_FR3 = [21.33] + [24.0 + 3.0 * k for k in range(7)] + [43.5, 45.0, 48.0]
+U_F18 = 50.565                                                                # 北の端の架構（梁18、10-30 ユーザー、run_exact_new.py で足した。2 枚 u50.39〜50.74）
+_FR3 = [21.33] + [24.0 + 3.0 * k for k in range(7)] + [43.5, 45.0, 48.0, U_F18]
 _fk3 = lambda u_: min(_FR3, key=lambda f_: abs(f_ - u_))
 _sqf = set()
 for w in _W3:
@@ -2951,8 +2959,30 @@ if slits:
         if len(T_): tm_ = trimesh.Trimesh(T_.reshape(-1, 3), np.arange(len(T_) * 3).reshape(-1, 3)); tm_.merge_vertices(); _BTMW.append(tm_)
     _KETA_SKIP = []                                                  # 桁に重なるので作らなかった母屋（10-30）
     _GIRM = [(M_, tm_) for M_, tm_ in ((_tm_mf(_ext_tm(gi_[1])), _ext_tm(gi_[1])) for gi_ in _GIR) if M_ is not None]
+    # 10-30（梁18）：板の網目が閉じていないと contains がいつも False になり、楔の直しが抜けた（桁が u48 の板を通るようになって穴が増え、
+    #   北西の母屋の木口が u48 の板に最大 約50 入ったまま、板に母屋の穴が開いた）。閉じていない板は、外の輪郭（穴は見ない）と厚みで見る
+    _BPLW = []
+    for g_ in [cur_g(o) for o in m.Objects if o.Attributes.LayerIndex == L22B] + _raf():
+        if not isinstance(g_, r.Extrusion): continue
+        try:
+            pl_ = g_.GetProfilePlane(0.0); O_ = np.array([pl_.Origin.X, pl_.Origin.Y, pl_.Origin.Z])
+            X_ = np.array([pl_.XAxis.X, pl_.XAxis.Y, pl_.XAxis.Z]); Y_ = np.array([pl_.YAxis.X, pl_.YAxis.Y, pl_.YAxis.Z])
+            a_, b_ = g_.PathStart, g_.PathEnd; D_ = np.array([b_.X - a_.X, b_.Y - a_.Y, b_.Z - a_.Z]); L_ = float(np.linalg.norm(D_)); D_ = D_ / L_
+            nc_ = g_.Profile3d(0, 0.0).ToNurbsCurve(); dm_ = nc_.Domain
+            Pp_ = np.array([[q.X, q.Y, q.Z] for q in (nc_.PointAt(t) for t in np.linspace(dm_.T0, dm_.T1, 800))])
+            pg_ = Polygon(np.c_[(Pp_ - O_) @ X_, (Pp_ - O_) @ Y_]).buffer(0)
+            bb_ = g_.GetBoundingBox()
+            _BPLW.append((np.array([bb_.Min.X, bb_.Min.Y, bb_.Min.Z]), np.array([bb_.Max.X, bb_.Max.Y, bb_.Max.Z]), O_, X_, Y_, D_, L_, pg_))
+        except Exception:
+            continue
     def _in_beam(P3_):
-        return any(np.all(t_.bounds[0] - 1.0 <= P3_) and np.all(P3_ <= t_.bounds[1] + 1.0) and t_.contains([P3_])[0] for t_ in _BTMW)
+        for t_ in _BTMW:
+            if np.all(t_.bounds[0] - 1.0 <= P3_) and np.all(P3_ <= t_.bounds[1] + 1.0) and t_.is_watertight and t_.contains([P3_])[0]: return True
+        for lo_, hi_, O_, X_, Y_, D_, L_, pg_ in _BPLW:
+            if not (np.all(lo_ - 1.0 <= P3_) and np.all(P3_ <= hi_ + 1.0)): continue
+            w_ = P3_ - O_; t_ = float(w_ @ D_)
+            if -0.5 <= t_ <= L_ + 0.5 and pg_.contains(Point(float((w_ - D_ * t_) @ X_), float((w_ - D_ * t_) @ Y_))): return True
+        return False
     def _purl_x(A2, B2, ztop, name_):
         """平面の A2→B2（水平）、上の面の中心の高さ ztop の 60×150 の押し出し（断面は屋根の面に直角）"""
         A3 = np.r_[A2, ztop]; B3 = np.r_[B2, ztop]; L_ = float(np.linalg.norm(B3 - A3)); d3 = (B3 - A3) / L_
@@ -3096,6 +3126,9 @@ if slits:
     _CLm = max(getattr(_CLm, 'geoms', [_CLm]), key=lambda q: q.area)
     _colM = [(w, _tm_mf(_ext_tm(w[4]))) for w in _WOOD if w[2] == L22A and (w[5] < 21.7 or w[5] > 47.7)]
     _colM = [(w, M_) for w, M_ in _colM if M_ is not None]
+    # 10-30（梁18、ユーザー）：北の端の架構（u50.565、2 枚 u50.39〜50.74）の外の妻の軒の出（u50.75〜51.3）も、南と同じく母屋を端の架構の 2 枚を
+    #   貫いて（板に母屋の穴）片持ちで延ばす。北では端の架構の帯だけは越えてよい（ほかの梁・出し梁の帯に当たる母屋は延ばさない）
+    _BCX0N = _BCX0.difference(Polygon([xy(u_, -0.5) for u_ in np.arange(U_F18 - 0.3, U_F18 + 0.3001, 0.05)] + [xy(u_, -16.0) for u_ in np.arange(U_F18 + 0.3, U_F18 - 0.3001, -0.05)]))
     _n_gx = _n_gskip = 0; _GX_TM = []; _GX_M = []
     def _box_top(T4, N_, h_, up_):
         """上の面（または下の面）の 4 隅 T4 から N_ の向きに h_ の押し出し（up_：上へ）"""
@@ -3129,7 +3162,7 @@ if slits:
                     if _BCX0.intersects(LineString([Ec_[:2] + o2_ * t_ + np.array([-o2_[1], o2_[0]]) * 30.0, Ec_[:2] + o2_ * t_ - np.array([-o2_[1], o2_[0]]) * 30.0])): hit_ = t_; break
                 if hit_ is None: continue
                 far_ = hit_ - 2.0; qf_ = Ec_[:2] + o2_ * far_; _stop_ = True
-            elif WS_W.contains(Point(*qf_)) or _BCX0.intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)) and (uf_ > 48.3 or _eave_): continue
+            elif WS_W.contains(Point(*qf_)) or (_BCX0N if uf_ > 48.3 else _BCX0).intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)) and (uf_ > 48.3 or _eave_): continue
             tt_ = far_ / float(np.linalg.norm(o_[:2]))                                # 3 次元の d3 に沿う長さ
             En_ = Ec_ + o_ * tt_
             T2_ = list(T_)
@@ -3204,6 +3237,8 @@ if slits:
             T_w = tris(mm0_)
             if not len(T_w): continue
             tm_w = trimesh.Trimesh(T_w.reshape(-1, 3), np.arange(len(T_w) * 3).reshape(-1, 3)); tm_w.merge_vertices(digits_vertex=1)
+            if not tm_w.is_watertight:                                       # 10-30（梁18）：出し梁で欠いた片は 0.1 mm で丸めると近い点がつぶれて閉じない。丸めずに
+                tm_w = trimesh.Trimesh(T_w.reshape(-1, 3), np.arange(len(T_w) * 3).reshape(-1, 3)); tm_w.merge_vertices()
             if not tm_w.is_watertight: continue
             M_w = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(tm_w.vertices, np.float32), tri_verts=np.asarray(tm_w.faces, np.uint32)))
             if M_w.is_empty(): continue
@@ -3508,7 +3543,7 @@ if slits:
         pa_, da_ = _near_ply(fa_, cB_); pb_, db_ = _near_ply(fb_, cA_)
         tA_ = pa_ - da_ * 30.0; tB_ = pb_ - db_ * 30.0                          # 端はとなりの架構に近いほうの 1 枚の出し梁の先（先から 30 内）
         Qm_ = [q_ for q_ in Q_[1:-1] if np.linalg.norm(q_ - tA_) > 400.0 and np.linalg.norm(q_ - tB_) > 400.0]
-        _sk_ = next((k_ for k_ in _STUD if abs(k_ - fa_) < 0.2), None) if abs(fb_ - 24.0) < 0.2 else None
+        _sk_ = next((k_ for k_ in _STUD if abs(k_ - fa_) < 0.2), None) if (abs(fb_ - 24.0) < 0.2 or abs(fb_ - U_F18) < 0.2) else None   # 10-30：北西の斜めの壁（u48〜梁18）も腕木の上で折る
         if _sk_ is not None and _STUD[_sk_]: Qm_ = [st_['q'] for st_ in _STUD[_sk_]]      # 10-30：折れ目（継手）は腕木の上だけ
         def _inset(p_, d_, q_):                                                  # 母屋が出し梁に斜めに当たる所は、木口がみな出し梁の横の面に載るよう先から 30／sinθ 内に
             e_ = (q_ - p_) / np.linalg.norm(q_ - p_); sn_ = abs(e_[0] * d_[1] - e_[1] * d_[0]) / np.linalg.norm(d_)
@@ -3529,8 +3564,9 @@ if slits:
             for j_, st_ in enumerate(_STUD[_sk_]):
                 _n_arm += _arm_build(st_, [(Q_[j_], Q_[j_ + 1]), (Q_[j_ + 1], Q_[j_ + 2])])
     # 10-30：北西の斜めの壁（架構 u48〜u50.1）の鼻母屋：u48 の出し梁の先から、腕木の上の折れ目を通り、終わりの腕木の先の面（腕木の芯から 60 先）まで
+    #   10-30（梁18）：北の端の架構の出し梁があるときは、上の区間（u48〜梁18 の出し梁の先、腕木の上で折る）が受け持つので作らない
     _skn_ = next((k_ for k_ in _STUD if abs(k_ - 48.0) < 0.2), None); _fn_ = next((f_ for f_ in _tk if abs(f_ - 48.0) < 0.2), None)
-    if _skn_ is not None and _fn_ is not None and _STUD[_skn_]:
+    if _skn_ is not None and _fn_ is not None and _STUD[_skn_] and not any(abs(f_ - U_F18) < 0.2 for f_ in _tk):
         Sn_ = _STUD[_skn_]; qs_ = [st_['q'] for st_ in Sn_]
         pa_, da_ = _near_ply(_fn_, qs_[0])
         e_ = (qs_[0] - pa_) / np.linalg.norm(qs_[0] - pa_); sn_ = abs(e_[0] * da_[1] - e_[1] * da_[0]) / np.linalg.norm(da_)
