@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-30 08:33",
+"generated": "2026-10-30 09:13",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -2393,19 +2393,19 @@
 "u": 1
 },
 {
-"id": "p1.site.t.北のもり",
-"name": "配置図の文字　北のもり",
+"id": "p1.site.t.おくのもり",
+"name": "配置図の文字　おくのもり",
 "kind": "text",
 "layer": "配置図",
 "x": 575.08,
 "y": 256.86,
-"s": "北のもり",
+"s": "おくのもり",
 "size_pt": 12.6,
 "font": "W6",
 "color": "#3f5f2f",
 "align": "right",
 "group": null,
-"mock_hash": "aac19476",
+"mock_hash": "8d243c98",
 "plan": true,
 "u": 1
 },
@@ -53093,15 +53093,15 @@
 "name": "こどもたちの育ち舎　3dm（sodachiya.",
 "kind": "text",
 "layer": "図",
-"x": 56.69,
+"x": 56.74,
 "y": 584.63,
-"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-30 07:52（atelier 09785da の次の版の 3dm）",
+"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-30 08:36（atelier e8d0d16 の次の版の 3dm）",
 "size_pt": 4.5,
 "font": "W3",
 "color": "#737373",
 "align": "center",
 "dwg": "平面図",
-"mock_hash": "367ed647"
+"mock_hash": "fc4e3674"
 },
 {
 "id": "p4.pagetitle",
