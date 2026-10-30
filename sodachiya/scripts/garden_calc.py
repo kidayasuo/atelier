@@ -45,7 +45,7 @@ west_if_crawl = 0.0
 garden_cut = bowl_cut + stream_cut + rain_cut + fount_cut + splash_cut
 mound_area = float(((gc.mound_h(AA, DD) > 0.02) & inside).sum() * cell)
 cap = mound_area * 0.2                                         # 築山の表面 0.2 は表土
-TH0 = {"big": 3.0, "climb": 3.2, "mid": 2.1, "fruit": 2.3, "ever": 1.9}
+TH0 = {"big": 3.0, "bigever": 3.0, "climb": 3.2, "mid": 2.1, "fruit": 2.3, "ever": 1.9}
 woods = unary_union([Point(t[0], t[1]).buffer(TH0[t[2]]) for t in G["TREES"]]).intersection(gpoly)
 forest = woods.area * 0.2                                      # 木の下（林床）に表土 0.2（10-24、西館の表土も）
 topsoil = honkan_top + west_top
@@ -82,7 +82,7 @@ ca, sa = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
 fp = Polygon([gc.X(F["c"][0] + F["r"][0] * math.cos(q) * ca - F["r"][1] * math.sin(q) * sa,
                    F["c"][1] + F["r"][0] * math.cos(q) * sa + F["r"][1] * math.sin(q) * ca) for q in np.linspace(0, 2 * math.pi, 64)])
 roof = gc.read_mesh_layers(["10_本館_屋根"])["10_本館_屋根"]
-TH = {"big": (6.5, 3.2), "climb": (6.0, 3.4), "mid": (4.0, 2.2), "fruit": (3.2, 2.0), "ever": (3.0, 1.6)}   # 樹冠の中心の高さ、半径
+TH = {"big": (6.5, 3.2), "bigever": (6.5, 3.2), "climb": (6.0, 3.4), "mid": (4.0, 2.2), "fruit": (3.2, 2.0), "ever": (3.0, 1.6)}   # 樹冠の中心の高さ、半径
 def shade(alt, az):
     k = 1 / math.tan(alt); dx, dy = -math.sin(az) * k, -math.cos(az) * k
     sh = [translate(roof, dx * h, dy * h) for h in np.linspace(0, 3.0, 7)]   # 軒の高さ 約 3 m の屋根と壁

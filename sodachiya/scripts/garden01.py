@@ -391,7 +391,7 @@ def sp_of(note):
 for a, d, kind, _, note in G["TREES"]:
     r = TT[kind]["r"]; p = X(a, d)
     fc = GC[SP[sp_of(note)]["g"]]
-    ax.add_patch(Circle(p, r, fc=fc, ec=C["treeE"], lw=0.35, alpha=0.42 if kind != "ever" else 0.55, zorder=10))
+    ax.add_patch(Circle(p, r, fc=fc, ec=C["treeE"], lw=0.35, alpha=0.42 if kind not in ("ever", "bigever") else 0.55, zorder=10))
     T(ax, (p[0], p[1] - 0.55), sp_of(note), 3.0, c="#3A3A3A", rot=-38, z=10.8)
     ax.add_patch(Circle(p, 0.12, fc="#5D4A36", ec="none", zorder=10.5))
     if kind == "climb":
@@ -674,9 +674,9 @@ def section(key, y_mm, title, beyond=None, zmin=-5.6, zmax=6.0):
             if not (0 <= x <= sax.get_xlim()[1]):
                 continue
             g0 = float(h_at(np.array(a), np.array(d)))
-            r = TT[kind]["r"]; ht = {"big": 7.5, "climb": 7, "mid": 5, "fruit": 4.0, "ever": 4.5}[kind]
+            r = TT[kind]["r"]; ht = {"big": 7.5, "bigever": 7.5, "climb": 7, "mid": 5, "fruit": 4.0, "ever": 4.5}[kind]
             sax.plot([x, x], [g0, g0 + ht * 0.45], c="#5D4A36", lw=1.0, zorder=6)
-            sax.add_patch(Ellipse((x, g0 + ht * 0.68), r * 2, ht * 0.62, fc=C["ever"] if kind == "ever" else C["tree"], ec=C["treeE"], lw=0.4, alpha=0.35, zorder=6, clip_on=True))
+            sax.add_patch(Ellipse((x, g0 + ht * 0.68), r * 2, ht * 0.62, fc=C["ever"] if kind in ("ever", "bigever") else C["tree"], ec=C["treeE"], lw=0.4, alpha=0.35, zorder=6, clip_on=True))
     # 人
     def person(x, z0, hgt, c="#555555"):
         sax.add_patch(Circle((x, z0 + hgt - hgt * 0.09), hgt * 0.09, fc=c, ec="none", zorder=9))
