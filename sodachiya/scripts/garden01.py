@@ -391,22 +391,19 @@ def sp_of(note):
 for a, d, kind, _, note in G["TREES"]:
     r = TT[kind]["r"]; p = X(a, d)
     fc = GC[SP[sp_of(note)]["g"]]
-    ax.add_patch(Circle(p, r, fc=fc, ec=C["treeE"], lw=0.35, alpha=0.42 if kind != "ever" else 0.55, zorder=10))
+    ax.add_patch(Circle(p, r, fc=fc, ec=C["treeE"], lw=0.35, alpha=0.42 if kind not in ("ever", "small") else 0.55, zorder=10))
     T(ax, (p[0], p[1] - 0.55), sp_of(note), 3.0, c="#3A3A3A", rot=-38, z=10.8)
     ax.add_patch(Circle(p, 0.12, fc="#5D4A36", ec="none", zorder=10.5))
     if kind == "climb":
         ax.add_patch(Circle(p, r, fc="none", ec=C["ink"], lw=0.6, ls=(0, (2, 1)), zorder=10.6))
 
-# てんぐのたに（10-31）：両端の口をヒイラギの低い刈り込みでふさぐ、中はヤマブキとシャガ
+# てんぐのたに（10-31）：中はヤマブキとシャガ（口のヒイラギは TREES）
 TG = G.get("TENGU", {})
 for a_, d_, r_ in TG.get("shaga", []):
     ax.add_patch(Circle(X(a_, d_), r_, fc="#C9D99A", ec="#6F8F57", lw=0.4, ls=(0, (1.2, 0.8)), alpha=0.85, zorder=10.9))
 for a_, d_, r_ in TG.get("yamabuki", []) + G.get("KATA", {}).get("yamabuki", []):
     ax.add_patch(Circle(X(a_, d_), r_, fc="#E8C547", ec="#8C7A2E", lw=0.4, alpha=0.8, zorder=11.0))
-for a0_, a1_, d0_, d1_ in TG.get("hedges", []):
-    poly(ax, P([(a0_, d0_), (a1_, d0_), (a1_, d1_), (a0_, d1_)]), fc=C["ever"], ec=C["treeE"], lw=0.3, z=11.1, alpha=0.8)
-if TG.get("hedges"):
-    T(ax, X(33.0, -0.7), "ヒイラギの刈り込み", 3.0, c="#3F5A2E", rot=-38, z=11.2)
+if TG.get("yamabuki"):
     T(ax, X(39.0, 0.9), "ヤマブキ・シャガ", 3.0, c="#3F5A2E", rot=-38, z=11.2)
 
 # 年中行事の草（セリ・ショウブ・摘み草・ススキ）
@@ -519,9 +516,8 @@ def sw(y, kind, txt):
         lax.add_patch(Rectangle((1, y - 1.4), 8, 2.8, fc="#F2EFE6", ec="#8C8677", lw=0.3, hatch="o."))
         lax.add_patch(Circle((6.5, y), 0.8, fc="#8C8677", ec="#4A4438", lw=0.3))
     elif kind == "tengu":
-        lax.add_patch(Rectangle((1, y - 0.6), 2.4, 1.2, fc=C["ever"], ec=C["treeE"], lw=0.3, alpha=0.8))
-        lax.add_patch(Circle((6.0, y), 1.0, fc="#E8C547", ec="#8C7A2E", lw=0.3, alpha=0.8))
-        lax.add_patch(Rectangle((7.6, y - 0.6), 2.4, 1.2, fc=C["ever"], ec=C["treeE"], lw=0.3, alpha=0.8))
+        lax.add_patch(Circle((3.0, y), 1.2, fc=GC["香り"], ec=C["treeE"], lw=0.3, alpha=0.55))
+        lax.add_patch(Circle((7.0, y), 1.0, fc="#E8C547", ec="#8C7A2E", lw=0.3, alpha=0.8))
     elif kind == "gyoji":
         lax.add_patch(Circle((5, y), 2.0, fc="#C9D99A", ec="#6F8F57", lw=0.4, ls=(0, (1.2, 0.8))))
     elif kind == "seki":
@@ -561,7 +557,7 @@ lax.text(0, y, "凡例", fontsize=8, fontweight="bold", va="center"); y += 8
 from collections import Counter as _Ct
 _cnt = _Ct(sp_of(t[4]) for t in G["TREES"])
 rows = [("g:" + g, g + "：" + "・".join(f"{k} {_cnt[k]}" for k in SP if k != "_" and SP[k]["g"] == g and _cnt[k])) for g in GC] + [
-        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ・キク"), ("tengu", "てんぐのたに（入らない所）：両端の口をヒイラギの低い刈り込み（h1.1）でふさぐ。中は築山の裾にヤマブキ、足もとにシャガ。築山の北東の肩にもヤマブキの茂みの帯（転がり落ちない）"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）。上に輪のシャワー「あめのわ」。0〜2歳の前にも小さな床の噴水（φ4.0、低い泡と霧のわ、南のカツラの木陰）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて雨庭へ。大雨で溢れたらすりばちが雨の池）"), ("amaniwa", "雨庭（洲浜）：玉石の浜の浅いくぼみ −0.25、下に砕石。初めの約5 mmの雨を溜めてしみ込ませ、溢れた分だけ護岸の溝から高野川へ。景石3、ミソハギ（盆花）・ギボウシ・カンスゲ・ハンゲショウ"),
+        ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ・キク"), ("tengu", "てんぐのたにと小屋の裏（入らない帯）：三つの口にヒイラギの小さい木（低く刈り込む、h約1.8）、先生が脇を通れる間を残す。中は築山の裾にヤマブキ、足もとにシャガ。築山の北東の肩にもヤマブキの茂みの帯（転がり落ちない）"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）。上に輪のシャワー「あめのわ」。0〜2歳の前にも小さな床の噴水（φ4.0、低い泡と霧のわ、南のカツラの木陰）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて雨庭へ。大雨で溢れたらすりばちが雨の池）"), ("amaniwa", "雨庭（洲浜）：玉石の浜の浅いくぼみ −0.25、下に砕石。初めの約5 mmの雨を溜めてしみ込ませ、溢れた分だけ護岸の溝から高野川へ。景石3、ミソハギ（盆花）・ギボウシ・カンスゲ・ハンゲショウ"),
         ("sand", "砂場・粒の遊び場（1〜2 mm、2.4×3.0 の木の縁、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
@@ -690,9 +686,9 @@ def section(key, y_mm, title, beyond=None, zmin=-5.6, zmax=6.0):
             if not (0 <= x <= sax.get_xlim()[1]):
                 continue
             g0 = float(h_at(np.array(a), np.array(d)))
-            r = TT[kind]["r"]; ht = {"big": 7.5, "climb": 7, "mid": 5, "fruit": 4.0, "ever": 4.5}[kind]
+            r = TT[kind]["r"]; ht = {"small": 1.8, "big": 7.5, "climb": 7, "mid": 5, "fruit": 4.0, "ever": 4.5}[kind]
             sax.plot([x, x], [g0, g0 + ht * 0.45], c="#5D4A36", lw=1.0, zorder=6)
-            sax.add_patch(Ellipse((x, g0 + ht * 0.68), r * 2, ht * 0.62, fc=C["ever"] if kind == "ever" else C["tree"], ec=C["treeE"], lw=0.4, alpha=0.35, zorder=6, clip_on=True))
+            sax.add_patch(Ellipse((x, g0 + ht * 0.68), r * 2, ht * 0.62, fc=C["ever"] if kind in ("ever", "small") else C["tree"], ec=C["treeE"], lw=0.4, alpha=0.35, zorder=6, clip_on=True))
     # 人
     def person(x, z0, hgt, c="#555555"):
         sax.add_patch(Circle((x, z0 + hgt - hgt * 0.09), hgt * 0.09, fc=c, ec="none", zorder=9))
