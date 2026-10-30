@@ -2431,7 +2431,7 @@ for r_ in _ia_rows:
     _cols["room"].append(r_["room"].replace(" ", ""))
     _cols["req"].append(r_["required"].replace(" ", ""))
     # 食堂は「なし」、駐車・駐輪は台数（サービス車・職員の分も、ユーザー 10-30）。台数は areas.json の parts（決定事項_外構・外構の図の counts）から
-    _pl = {"食堂": "なし", "駐車場": "5台（南3・北2、うち搬入1）",
+    _pl = {"食堂": "なし", "駐車場": "5台（うち搬入1）",
            "駐輪スペース": "21台（保護者12・職員9）"}.get(r_["room"].replace(" ", ""))
     if r_["room"].replace(" ", "") == "駐車場" and "南 3" not in r_.get("parts", ""):
         _pl = None; print("面積表：駐車場の台数が変わった。mock.py の台数を直す：", r_.get("parts"))
