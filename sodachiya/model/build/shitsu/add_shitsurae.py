@@ -475,13 +475,21 @@ for a, b in [(33, 39), (42, 48), (51, 57)]:
 c = (54.4, -2.3)
 ang = np.linspace(0, 2 * np.pi, 13)[:-1]
 solid_uv([(c[0] + 0.08 * np.cos(t), c[1] + 0.08 * np.sin(t)) for t in ang], -300, 2200, L_TR, (0.35, 0.25, 0.15, 1))
-solid_uv([(c[0] + 1.3 * np.cos(t), c[1] + 1.3 * np.sin(t)) for t in ang], 2200, 3300, L_TRc, (0.55, 0.7, 0.35, 1))
+def crown_ell(c_uv, rad, z0, z1, li, col):     # 樹冠は縦に少しつぶれた楕円体（10-31 ユーザー：木はみな幹の円柱＋丸い樹冠、園庭の係）。外形（半径・下端・上端）は前の円柱と同じ
+    _ns = r.Sphere(r.Point3d(0, 0, 0), rad * 1000).ToNurbsSurface(); _cp = _ns.Points
+    for _i in range(_cp.CountU):
+        for _j in range(_cp.CountV):
+            _q = _cp[_i, _j]; _cp[_i, _j] = r.Point4d(_q.X, _q.Y, _q.Z * (z1 - z0) / 2 / (rad * 1000), _q.W)
+    _b = r.Brep.CreateFromSurface(_ns); _x, _y = W(*c_uv)
+    _b.Transform(r.Transform.Translation(_x, _y, (z0 + z1) / 2))
+    m.Objects.AddBrep(_b, attr(li, col))
+crown_ell(c, 1.3, 2200, 3300, L_TRc, (0.55, 0.7, 0.35, 1))
 # 読書の庭のロウバイ（ユーザー 10-31、園庭の項 20261031-0008）：南の低い窓（u52.6〜53.85）の前、窓から約1.1、西館の北の窓にも近い。
 # 株立ちの低木、刈り込んで h2.5・葉張り約φ1.8（1〜2月、葉のない枝に香りの花）。ベニシダレ（u54.4）の樹冠と重ならない所
 c = (52.3, -1.3)
 for dx, dy in ((-0.12, 0.0), (0.08, 0.1), (0.06, -0.1)):
     solid_uv([(c[0] + dx + 0.04 * np.cos(t), c[1] + dy + 0.04 * np.sin(t)) for t in ang], -300, 1300, L_TR, (0.35, 0.25, 0.15, 1))
-solid_uv([(c[0] + 0.9 * np.cos(t), c[1] + 0.9 * np.sin(t)) for t in ang], 1300, 2500, L_TRc, (0.86, 0.78, 0.35, 1))
+crown_ell(c, 0.9, 1300, 2500, L_TRc, (0.86, 0.78, 0.35, 1))
 # ---- 3・4歳、4・5歳のあいだの通り抜け（こどもの小径）の床を「便所・倉庫」から分ける（10-24夜、プレゼンの準備の依頼：通りの色で塗る）----
 # plan04 の路地（C_LOOP の多角形、スパン14・17）で、add_floor の「59_1F_便所・倉庫」の床の板を切り分ける。形は変えない。
 import colorsys as _cs
