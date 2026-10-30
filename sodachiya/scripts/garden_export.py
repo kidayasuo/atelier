@@ -412,6 +412,9 @@ for a_, d_, r_ in TG.get("shaga", []):
 for a_, d_, r_ in TG.get("yamabuki", []):
     _rp = ring_pts((a_, d_), r_, 24)
     vcyl((a_, d_), r_, gmin(_rp) - 0.05, gmin(_rp) + 1.2, "94c", "ヤマブキ（てんぐのたに、低木の株 h1.2）")
+for a_, d_, r_ in G.get("KATA", {}).get("yamabuki", []):     # 築山の北東の肩のヤマブキの茂み（10-31）
+    _rp = ring_pts((a_, d_), r_, 24)
+    vcyl((a_, d_), r_, gmin(_rp) - 0.05, gmax(_rp) + G["KATA"].get("h", 1.0), "94c", "ヤマブキ（築山の北東の肩の茂み、転がり落ちない帯 h1.0）")
 for a0_, a1_, d0_, d1_ in TG.get("hedges", []):
     nseg = max(1, int(round((d1_ - d0_) / 1.0)))
     for i in range(nseg):
