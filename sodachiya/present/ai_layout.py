@@ -251,7 +251,8 @@ def write(c):
             add(dict(id=o_.get("id") or f"top.{_slug(ts)}", name=o_.get("name") or ts[:24], kind="text", layer="説明", x=round(tx, 2), y=round(H - ty, 2), s=ts,
                      size_pt=pt(th), font=(ex[0] if ex and ex[0] else ("W6" if tb else "W3")), color=(ex[1] if len(ex) > 1 else "#1A1A1A"),
                      align=o_.get("align", "left"), mock_hash=djb2(ts), **({"follow": f"p{no}." + o_["follow"]} if o_.get("follow") else {}),
-                     **({"plan": True} if o_.get("plan") else {})))
+                     **({"plan": True} if o_.get("plan") else {}),
+                     **({"group": o_["group"], "group_name": o_.get("group_name") or o_["group"]} if o_.get("group") else {})))   # 図ごとの文字のグループ（10-30 23:07）
         # 5b) 番号の印（案H、1枚目、ユーザー 10-28）：○（自然）か□（地域）と白抜きの数字を一つのグループに。
         #     配置図の上の印は素材01a（配置図）について行く（.ai で配置図ごと動かしたら一緒に）。数字は mock.py が決めた番号（.ai の書き換えは mock.py が拾う）
         if no == 1:

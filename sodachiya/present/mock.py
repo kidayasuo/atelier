@@ -244,6 +244,16 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
     if SITE_LIVE[0] is not None and ax is SITE_LIVE[0] and s:
         SITEPARTS.append(dict(kind="text", x=x, y=y, s=s, size=size, color=matplotlib.colors.to_hex(color), bold=bold, ha=ha, va=va, group=kw.get("group")))
         return
+    _lv = LIVE_TXT[0]
+    if _lv is not None and ax is _lv["ax"] and s and matplotlib.colors.to_hex(color) != matplotlib.colors.to_hex(NOTE):
+        # 図の中の文字を図に焼き込まず、一つずつ Illustrator の部品に（図ごとのグループ、ユーザー 10-30 23:07）。見本には後から重ねる（TOPT）
+        e_ = size / 0.72
+        by_ = y + {"center": -0.35 * e_, "top": -0.88 * e_, "bottom": 0.12 * e_}.get(va, 0.0)
+        TOPT[_lv["sheet"]].append((x, by_, s, size, bold, kw.get("font"), matplotlib.colors.to_hex(color),
+                                   dict(id="t." + re.sub(r"[\s　/\\|:]+", "", s)[:14], name=s[:24], align=ha if ha in ("left", "center", "right") else "left",
+                                        group=_lv["group"], group_name=_lv["name"])))
+        LIVE_N[0] += 1
+        return
     kw.pop("group", None)
     fnt = kw.pop("font", None)                     # Illustratorで使う書体の名前（無ければヒラギノ）。見本では似た書体で
     pt = size / 0.3528 / 0.72
@@ -251,6 +261,14 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
             fontproperties=FontProperties(fname=FONT_ALT.get(fnt, FONTB if bold else FONT), size=pt), **kw)
     if s:
         _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va, font=fnt)
+
+
+LIVE_TXT = [None]   # dict(ax, sheet, group, name)：このあいだの T は部品の文字（TOPT）に
+LIVE_N = [0]
+
+
+def _live(ax_, sheet_, group_, name_):
+    LIVE_TXT[0] = dict(ax=ax_, sheet=sheet_, group=group_, name=name_) if group_ else None
 
 
 FRAME_TOP = {3, 4}   # 4枚目も周りの図の上に枠（10-30 18:05）。 枠を図の上に重ねる紙（3枚目は1階の平面図が紙いっぱいで白い地、ユーザー 10-29 18:01。10-30 の6枚で4枚目→3枚目）
@@ -2634,12 +2652,14 @@ import colorsys
 _HSB = lambda h_, s_, b_: matplotlib.colors.to_hex(colorsys.hsv_to_rgb(h_ / 360, s_, b_))
 F_H = 28                                          # 土足の一族の色相
 Z_COL = {"z02": "#C5DE9A", "z35": "#7FB872", "share": C_SHARE, "adult": C_ADULT, "kitchen": "#E8A6A6",
-         "wc": "#6FA8C6", "store": "#CDD5DD",
-         "out": _HSB(F_H, 0.12, 0.96), "in_ext": _HSB(F_H, 0.20, 0.90), "shoe": _HSB(F_H, 0.30, 0.88),
+         "wc": "#6FA8C6", "store": "#8E8E8E",                                     # 倉庫は無彩色の濃い灰（大人の紫と分ける、10-30 23:07）
+         # セキュリティ外は青みの灰の族、セキュリティ内（外構・土足・園庭）は土の色相の族（ユーザー 10-30 23:07：内と外をはっきり）
+         "out": _HSB(212, 0.07, 0.93), "in_ext": _HSB(F_H, 0.20, 0.90), "shoe": _HSB(F_H, 0.30, 0.88),
          "g02": _HSB(F_H, 0.28, 0.80), "gboth": _HSB(F_H, 0.40, 0.71), "g35": _HSB(F_H, 0.52, 0.62),
-         "park_car": "#A9A9A5", "water": "#B8DDF2", "park": "#E3EDD8"}
+         "park_car": _HSB(212, 0.10, 0.70), "water": "#B8DDF2", "park": "#E3EDD8"}
 Z_LEG1 = [("z02", "0〜2歳"), ("z35", "3〜5歳"), ("share", "みんなの場所"), ("adult", "大人"), ("kitchen", "調理"), ("wc", "トイレ"), ("store", "倉庫")]
-Z_LEG2 = [("out", "セキュリティ外（歩道・ひろば・小径・搬入路）"), ("in_ext", "セキュリティ内の外構（北の坪庭・機械室のまわり）"), ("shoe", "建物の中の土足（受け取り土間・あまのがわ・外縁側）")]
+Z_LEG2 = [("out", "セキュリティ外（歩道・ひろば・搬入路）"), ("in_ext", "セキュリティ内の外構（北の坪庭・読書の庭）"),
+          ("shoe", "土足（木戸の内の小径・ムベの下、受け取り土間・あまのがわ・外縁側）")]
 Z_LEG3 = [("g02", "乳児の園庭（みなみのさんかく）"), ("gboth", "しずかのもり（両方）"), ("g35", "だいさんかく（3〜5歳）"),
           ("park_car", "駐車場・駐輪場"), ("water", "水遊び場・雨庭"), ("park", "公園")]
 ZONE = {"53_": "z02", "54_": "z02",
@@ -2655,7 +2675,7 @@ ZONE = {"53_": "z02", "54_": "z02",
 Z_BASE = ("12_", "13_", "56_", "59_1F_西吹き抜け", "59_1F_路地")       # 0〜2歳の教室の範囲では 0〜2歳の色（内廊下・西の窓際まで教室、ユーザー）
 Z2 = []                                        # 西館の2階（会議・更衣・休憩・便所・ホール）。plan_items は1階だけ（高さ2 m より下）なので3dmから
 for o in objs:
-    if o["layer"].startswith(("41_", "42_", "43_", "44_", "45_")):
+    if o["layer"].startswith(("41_", "42_", "43_", "43b_", "44_", "45_")):         # 43b 職員の更衣・ロッカーも（10-30 23:07）
         g_ = shape(o, "plan")
         if g_ is not None and g_.area > 1e-3:
             Z2.append((o["layer"], rot(g_)))
@@ -2681,16 +2701,53 @@ _CONT = [g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith("91_")) if 
 _zname = lambda ln_: re.split(r"[（(]", ln_.split("_")[-1])[0]
 # 建物の足もと（部屋・壁・外縁側。穴を埋める）
 _BLD = _fill(unary_union([g_.buffer(0.05) for ln_, k_, g_ in plan_items if g_ is not None and ln_[:1] in "12345" and g_.geom_type.endswith("Polygon")]).buffer(0.1).buffer(-0.1))
-# セキュリティの線：塀・生垣・格子（70）・柵（60）・扉（66）と、南の生垣の線（siteplan_approach.json の security_line）
-# 3dm の塀は板一枚ずつの箱なので、太らせて一続きの帯に
-# （アプローチ係の security_line（南の生垣の線）は、ユーザーの「キッチン前のひろばはセキュリティ外」と合わないので描かない。報告済み）
-_FEN = unary_union([g_.buffer(0.15) for g_ in (_sh(o) for o in objs if o["layer"].startswith(("70_", "60_", "66_"))) if g_ is not None]).buffer(0.05).buffer(-0.05)
-# セキュリティ内の外構＝塀の内の北の坪庭・機械室のまわり（ユーザー）：塀と建物で閉じた所のうち機械室（35）に接する所。ほかの外構はすべてセキュリティ外（駐車場・駐輪場を除く）
-_EXT = _SITEP.difference(_BLD.buffer(0.3)).difference(_FEN.buffer(1.0))
-_IN = unary_union([p_ for p_ in getattr(_EXT, "geoms", [_EXT]) if R35 is not None and p_.distance(R35) < 0.8 and p_.area < 300])
-_IN = _IN.buffer(1.0).intersection(_SITEP).difference(_BLD) if not _IN.is_empty else None
-_OUT = _SITEP.difference(_BLD)
-print("ゾーニング：セキュリティ外 %.0f m²・内の外構 %.0f m²" % (_OUT.area if _OUT else 0, _IN.area if _IN else 0))
+# セキュリティの線：塀・生垣・格子（70）・柵（60）・扉（66）と、南の生垣の線（siteplan_approach.json の security_line）。
+# 3dm の塀は板一枚ずつの箱なので、太らせて縮め、途切れない一続きの帯に（10-30 23:07：セキュリティを切る線ははっきり）
+_SECL = _G3R(LineString(_SAJ["security_line"]["pts"]))
+_FEN = unary_union([g_.buffer(0.3) for g_ in (_sh(o) for o in objs if o["layer"].startswith(("70_", "60_", "66_"))) if g_ is not None]
+                   + [_SECL.buffer(0.3)]).buffer(-0.15)
+# 塀と建物で分けた外構のかたまり。道路（西・北）に開いたかたまりがセキュリティ外。キッチン前のひろば（78a と家具 75）は外（ユーザー）
+# 北の塀の東の端（FENCE_T_END）と機械室の北西の面のあいだ（約2 m）は、塀が機械室の壁へ折れてつながる（3dm に無い）。最短の線で閉じる
+from shapely.ops import nearest_points as _np_pts
+_fp = [f_ for f_ in getattr(_FEN, "geoms", [_FEN]) if f_.area > 0.2]
+_add = []
+for i_, f_ in enumerate(_fp):                      # 木戸（扉の形の無い、閉じれば線になる開口）：塀どうしの 2.5 m 以下の隙間をつなぐ
+    for g_ in _fp[i_ + 1:]:
+        if 0.05 < f_.distance(g_) < 2.5:
+            a_, b_ = _np_pts(f_, g_); _add.append(LineString([a_, b_]).buffer(0.15))
+    if R35 is not None and 0.05 < f_.distance(R35) < 4.0:   # 塀の端と機械室の壁
+        a_, b_ = _np_pts(f_, R35); _add.append(LineString([a_, b_]).buffer(0.15))
+if R35 is not None:                                # 機械室と敷地の境（北・北東）のあいだ 1.5 m 以下
+    for e_ in (LineString(R3(np.array([SITE_C["NW"], SITE_C["N"]]))), LineString(R3(np.array([SITE_C["N"], SITE_C["E"]])))):
+        if R35.distance(e_) < 1.5:
+            a_, b_ = _np_pts(R35, e_); _add.append(LineString([a_, b_]).buffer(0.15))
+if _add:
+    _FEN = unary_union([_FEN] + _add)
+_SEAL = 0.7                                       # 塀と壁のあいだの細い隙間は閉じて数える（分けたあとで元の広さに戻す）
+_EXT0 = _SITEP.difference(_BLD).difference(_FEN).difference(_PARK_R)          # 公園（小竹薮公園）は敷地の角にあるが公の場所なので別に
+_EXT = _SITEP.difference(_BLD.buffer(_SEAL)).difference(_FEN.buffer(_SEAL)).difference(_PARK_R.buffer(_SEAL))
+_OPEN = LineString(R3(np.array([SITE_C["SW"], SITE_C["NW"], SITE_C["N"]]))).difference(_FEN.buffer(0.4)).difference(_BLD.buffer(0.4))
+_HIROBA = unary_union([g_ for g_ in [_zg("78a")] + [(_sh(o).convex_hull if _sh(o) is not None else None) for o in objs if o["layer"].startswith("75_")] if g_ is not None])
+_GATEP = _G3R(Point(_SAJ["entrance"]["xy"]))
+_GARDEN_ALL = unary_union([g_ for g_ in (GD["garden"], GD["shizu"], _MINAMI) if g_ is not None])
+_o_, _a_, _i_ = [], [], []
+for p_ in getattr(_EXT, "geoms", [_EXT]):
+    if p_.area < 0.05:
+        continue
+    if p_.buffer(0.3).intersection(_OPEN).length > 1.0 and p_.intersection(_GARDEN_ALL).area < 5.0:   # 園庭とつながるかたまりは内（塀の描かれていない所から漏れても）
+        _o_.append(p_)
+    elif p_.distance(_GATEP) < 1.5:
+        _a_.append(p_)                             # 公園の木戸の内（見送りの小径・ムベの下）：土足の色
+    else:
+        _i_.append(p_)
+_cl = lambda L_: unary_union(L_).buffer(_SEAL + 0.05).intersection(_EXT0) if L_ else None
+_OUT, _APPR, _IN = _cl(_o_), _cl(_a_), _cl(_i_)
+_hb_ = _HIROBA.buffer(0.3).intersection(_SITEP).difference(_BLD) if not _HIROBA.is_empty else None
+if _hb_ is not None:
+    _OUT = _OUT.union(_hb_) if _OUT is not None else _hb_
+    _APPR = _APPR.difference(_hb_) if _APPR is not None else None
+    _IN = _IN.difference(_hb_) if _IN is not None else None
+print("ゾーニング：セキュリティ外 %.0f m²・木戸の内 %.0f m²・内の外構 %.0f m²" % (_OUT.area if _OUT else 0, _APPR.area if _APPR else 0, _IN.area if _IN else 0))
 _swS3 = _swS2.union(_G3R(Polygon(_SAJ["sidewalk"]["pts"])).intersection(_SITEP))
 _sb_ = _AAJ["STAFF_BIKE"]["pocket"]                                       # 職員の駐輪（s0, s1, d0, d1）
 _BIKE_ST = Polygon([_PSD(_sb_[0], _sb_[2]), _PSD(_sb_[1], _sb_[2]), _PSD(_sb_[1], _sb_[3]), _PSD(_sb_[0], _sb_[3])]).intersection(_SITEP)
@@ -2709,6 +2766,7 @@ _u0_south = _ub[0] + 1.0
 ZSC = 200
 zw, zh = (WX1 - WX0) * 1000 / ZSC, (WY1 - WY0) * 1000 / ZSC
 zox, zoy = M + 6, Y(55) - zh
+_live(ax, 2, "zoning", "ゾーニング（文字）")
 title(ax, M + 6, Y(51), "ゾーニング", f"1/{ZSC}　使う人ごとの色、セキュリティの内と外、園庭と一体（配置図と同じ向き、高野川を下に）")
 _GRAYL = lambda c_: (lambda r_: matplotlib.colors.to_hex([0.55 + 0.45 * (0.299 * r_[0] + 0.587 * r_[1] + 0.114 * r_[2])] * 3))(matplotlib.colors.to_rgb(c_))   # 使っていない所は無彩色（明るさだけ残す）
 # 0〜2歳の部屋の中のトイレ：3dm には部屋の形が無いので、更新係の平面図（drawings/sodachiya_plan_1-100.pdf）の「水まわり」の塗り（淡い水色）を紙→3dm→回した座標に戻して使う
@@ -2765,10 +2823,11 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
             draw_shape(ax, g_.intersection(a_), xf_, fc=col_, ec=ec_, lw=lw_, z=z_)
             draw_shape(ax, g_.difference(a_), xf_, fc=_GRAYL(col_), ec=ec_, lw=lw_, z=z_)
     draw_shape(ax, _ROADS_R, xf_, fc="#E6E6E4", ec="none", z=0.3)
-    P(_PARK_R, Z_COL["park"], "out", z_=0.35)
-    P(_SITEP, Z_COL["out"], "site", z_=0.36)
+    P(_SITEP, Z_COL["in_ext"], "site", z_=0.35)        # 地（どのかたまりにも入らない塀ぎわの細い所はセキュリティ内の色）
+    P(_PARK_R, Z_COL["park"], "out", z_=0.37)
     P(_OUT, Z_COL["out"], "out", z_=0.4)
     P(_IN, Z_COL["in_ext"], "in_ext", z_=0.41)
+    P(_APPR, Z_COL["shoe"], "approach", z_=0.42)
     P(_fill(GD["garden"]), Z_COL["g35"], "g35", z_=0.5)
     P(GD["shizu"], Z_COL["gboth"], "gboth", z_=0.55)
     P(_fill(_MINAMI) if _MINAMI is not None else None, Z_COL["g02"], "g02", z_=0.55)
@@ -2778,7 +2837,6 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
             draw_shape(ax, g_, xf_, ec=_HSB(F_H, 0.55, 0.45), lw=0.12, z=0.6)
         draw_shape(ax, GD["mound"], xf_, fc="none", ec=_HSB(F_H, 0.6, 0.38), lw=0.3, z=0.62)
     P(_STREAM_W, "#9ECBE6", "water", z_=0.65)
-    draw_shape(ax, GD["stream"], xf_, ec="#3E8CC4" if act is None or act("water", "", GD["stream"]) is not False else "#AAAAAA", lw=0.8 * lw_fen / 0.3, z=0.66)
     P(_WATER, Z_COL["water"], "water", z_=0.67)
     P(GD["compost"], "#CDBFAA", "hut", z_=0.8)
     P(_HUT_WC, Z_COL["wc"], "hut", z_=0.81)
@@ -2808,7 +2866,9 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
     draw_plan(ax, ox, oy, sc, WX0, WY0, w_, h_, thin=True, outdoor=False)
     ROOM.clear(); ROOM.update(rs_)
     l2_ = len(ax.lines)
-    draw_shape(ax, _FEN.intersection(_WIN), xf_, fc="#2B2B2B", ec="#2B2B2B", lw=lw_fen, z=6)   # セキュリティの線（塀・柵・木戸）
+    draw_shape(ax, _FEN.intersection(_WIN), xf_, fc="#1E1E1E", ec="#1E1E1E", lw=lw_fen, z=6)   # セキュリティの線（塀・柵・木戸・南の生垣）
+    if R35 is not None:                              # 機械室の外の壁（draw_plan では部屋の扱いなので線が出ない）
+        draw_shape(ax, R35.exterior if R35.geom_type == "Polygon" else R35.boundary, xf_, ec="#333333", lw=0.5 * lw_fen / 0.3, z=5.5)
     for a_ in ax.patches[s0_:] + ax.lines[l2_:]:
         a_.set_clip_path(rp_)
     return xf_
@@ -2832,7 +2892,9 @@ for nm_, g_ in (("だいさんかく", GD["north"]), ("しずかのもり", GD["
 # 2階（西館）：図の左上に同じ縮尺で。更衣室も大人、便所はトイレの色
 _z2b = unary_union([g_ for _, g_ in Z2]).bounds if Z2 else (0, 0, 1, 1)
 z2w, z2h = (_z2b[2] - _z2b[0] + 2) * 1000 / ZSC, (_z2b[3] - _z2b[1] + 2) * 1000 / ZSC
-z2ox, z2oy = zox + 2, Y(55) - 6 - z2h
+_r20 = zxf(np.array(R20.envelope.exterior.coords)) if R20 is not None else None   # 1階の西館（屋根の範囲）の紙の上の位置
+z2ox = max(zox + 2, _r20[:, 0].min() - z2w - 8) if _r20 is not None else zox + 2         # 西館のすぐ左（西の道の上）に寄せる（10-30 23:07）
+z2oy = min(Y(55) - 6 - z2h, _r20[:, 1].max() - z2h - 6) if _r20 is not None else Y(55) - 6 - z2h
 z2xf = xform(z2ox, z2oy, ZSC, _z2b[0] - 1, _z2b[1] - 1)
 ax.add_patch(Rectangle((z2ox - 1, z2oy - 1), z2w + 2, z2h + 7, fc="white", ec="#888888", lw=0.25, zorder=9))
 T(ax, z2ox + 1, z2oy + z2h + 2, "2階（西館）", 2.4, bold=True, zorder=10)
@@ -2869,8 +2931,8 @@ _NORTH_AMA = rot(Polygon([(_u_ama, -200), (300, -200), (300, 200), (_u_ama, 200)
 
 
 def _act_morning(kind_, ln_, g_):
-    if kind_ in ("out", "site"):
-        return True                                  # 公園の木戸・ムベのアーチの下・ひろば・小径（セキュリティ外の全域）
+    if kind_ in ("out", "site", "approach"):
+        return True                                  # 公園の木戸・ムベのアーチの下・ひろば・小径
     if kind_ == "room":
         if ln_.startswith(("52_", "15_", "57_", "59_1F_事務（スパン")):   # 受け取り土間・あまのがわ・勝手口と検収・おはようの窓口
             return True
@@ -2904,6 +2966,7 @@ txt_h = 3 * 3.3 + 3
 ksc = next(s_ for s_ in (500, 600, 700, 800, 1000)
            if (WX1 - WX0) * 1000 / s_ <= fw - 4 and (WY1 - WY0) * 1000 / s_ <= fh - 10 - txt_h)
 for i, (h1, act_, s1_) in enumerate(frames_):
+    _live(ax, 2, f"day{i + 1}", f"一日の帯　{h1}（文字）")
     fx = _RX + i * (fw + 5)
     ax.add_patch(Rectangle((fx, fy), fw, fh, fc="none", ec="#BBBBBB", lw=0.3))
     sozai(f"{6 + i:02d}", f"一日の帯　{h1}（小さな配置1/{ksc}）", 2, fx, fy, fw, fh)
@@ -2914,6 +2977,7 @@ for i, (h1, act_, s1_) in enumerate(frames_):
         T(ax, fx + 3, fy + fh - 9 - kh_ - 4.5 - k_ * 3.3, ln_, 2.3)
 dimnote(ax, _RX, Y(45) + 2, f"一日の帯：1/{ksc}の小さな配置（西の道路から高野川まで）。その時間に使う所だけゾーニングの色、ほかは灰。動線は .ai で")
 
+_live(ax, 2, "trees", "樹木（文字）")
 # ---- 樹木図 1/400（10-30 18:05 作り直し：常緑と落葉の2色で塗り、香り・花・紅葉・実・ちくちくを小さな印で。園児が目にする木を全部）
 # 入れる物：園庭の木（94c、garden.json の TREES。柳の家も）、読書の庭のモミジ（67c）、ムベのアーチ（73c）、外構の木（siteplan_approach.json の trees＝77）、
 # 緑の目隠しのムベ（79c）、刈り込み・植え込み（77c の低い物）、生垣（70h・97h、線で）。木の性格は一般の植物の知識（確かでない物は付けない）
@@ -3062,6 +3126,7 @@ for i_, sp_ in enumerate(_order):
     _yy -= 3.1
 print("樹木図：1/%d、%d 本・%d 種（生垣 %d）" % (TSC, len(_trees), len(_order), len(_HEDGE)))
 print("樹木図の樹種：", "、".join(_order))
+_live(None, 2, None, None)
 plan_items[:] = _SAVE[0]
 GD.clear(); GD.update(_SAVE[1])
 roofs_plan = _SAVE[2]
@@ -3092,8 +3157,36 @@ for (fn_, nm_, png_, key_), (cx_, cy_) in zip(AXO, _cells):
 PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
 _pcx, _pcy = _cells[5]
 title(ax, _pcx, _pcy + _cell_h + TITLE_GAP, "遊戯室", "平面")
-embed(2, PLAYP, (0, 0, 230, 150), _pcx, _pcy, fit=(_cell_w, _cell_h))     # 遊戯室の図の平面だけ（断面は外す、ユーザー 10-30 16:15）
+# 遊戯室の図の平面だけ（断面は外す、ユーザー 10-30 16:15）。文字は図から外して一つずつ部品に（グループ「遊戯室（文字）」、10-30 23:07）
+PLAY_CLIP = (0, 0, 230, 150)
+PLAYP_NT = os.path.join(HERE, "sozai", "26_遊戯室_平面_文字なし.pdf")
+_pd = fitz.open(PLAYP)
+_pp = _pd[0]
+_spans = []
+for b_ in _pp.get_text("dict")["blocks"]:
+    for l_ in b_.get("lines", []):
+        for sp_ in l_["spans"]:
+            if sp_["text"].strip():
+                _spans.append(sp_)
+                _pp.add_redact_annot(fitz.Rect(sp_["bbox"]), fill=False)
+_pp.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE, graphics=fitz.PDF_REDACT_LINE_ART_NONE)
+_pd.save(PLAYP_NT, garbage=3, deflate=True)
+embed(2, PLAYP_NT, PLAY_CLIP, _pcx, _pcy, fit=(_cell_w, _cell_h))
 _topalign(2, _pcy + _cell_h)
+_e_ = embeds[2][-1][3]
+_psc = _e_[2] / (PLAY_CLIP[2] - PLAY_CLIP[0])
+_live(ax, 2, "play", "遊戯室（文字）")
+_np = 0
+for sp_ in _spans:
+    ox_, oy_ = sp_["origin"][0] / MM, sp_["origin"][1] / MM
+    if not (PLAY_CLIP[0] <= ox_ <= PLAY_CLIP[2] and PLAY_CLIP[1] <= oy_ <= PLAY_CLIP[3]):
+        continue
+    c_ = sp_["color"]
+    T(ax, _e_[0] + (ox_ - PLAY_CLIP[0]) * _psc, _e_[1] + _e_[3] - (oy_ - PLAY_CLIP[1]) * _psc, sp_["text"].strip(),
+      sp_["size"] * 0.3528 * 0.72 * _psc, "#%06x" % c_, bold=("Bold" in sp_["font"] or "W6" in sp_["font"]))
+    _np += 1
+_live(None, 2, None, None)
+print("遊戯室の平面：文字 %d を部品に" % _np)
 _AXO_TOP = _gy0 + 2 * _cell_h + 10 + 8           # 軸測図のますの上端（題を含む）
 
 FIGS[2] = fig
@@ -3164,8 +3257,8 @@ for si in range(1, 7):
     for ui_ in USER_ITEMS.get(si, []):                # 木田さんがIllustratorで足した物（export_layout.jsx の user_items）を見本にも（矢じりなどは出ない）
         _draw_user_item(pg, ui_)
     for (tx, ty, ts, th, tb, *ex) in TOPT[si]:
-        if len(ex) > 2 and ex[2].get("align") == "right":       # 右寄せ：x は右の端
-            tx -= fitz.Font(fontfile=FONTB if tb else FONT).text_length(ts, th / 0.72)
+        if len(ex) > 2 and ex[2].get("align") in ("right", "center"):       # 右寄せ：x は右の端、中央：x は真ん中
+            tx -= fitz.Font(fontfile=FONTB if tb else FONT).text_length(ts, th / 0.72) * (1.0 if ex[2]["align"] == "right" else 0.5)
         _fa = FONT_ALT.get(ex[0]) if ex and ex[0] else None
         _cc = tuple(int(ex[1][k:k + 2], 16) / 255 for k in (1, 3, 5)) if len(ex) > 1 else (0.1, 0.1, 0.1)
         pg.insert_text(fitz.Point(tx * MM, (H - ty) * MM), ts, fontsize=th / 0.72 * MM, fontname=("F_A" if _fa else ("F_B" if tb else "F_R")),
