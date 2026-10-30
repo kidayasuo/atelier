@@ -1,0 +1,50 @@
+{
+ "_": "3dm（sodachiya.3dm・sodachiya_exact_mesh.3dm と同じ座標、mm）→ この紙の mm（左上が原点、右へ x、下へ y）。平面：x = a·X + b·Y + c、y = d·X + e·Y + f（X, Y は 3dm の x, y、mm。2階はずらし shift_mm を含む）。断面・立面：h = (P − origin)·right（右へ）、上は +z、view_dir の向きを見る。紙 x = a·h + c、y = e·z + f（draw_to_paper）。model_to_paper_3d は (x, y, z, 1) → 紙 の 2×4。clip_paper_mm は図の範囲（左・上・右・下）。draw100.py が書く（更新係、10-28、項 20261028-0911-kanshu）。rhino/zumen.py が読む。",
+ "paper_mm": [
+  841,
+  594
+ ],
+ "scale": 200,
+ "line_weights_mm": {
+  "cut": 0.35,
+  "mid": 0.18,
+  "thin": 0.09
+ },
+ "views": [
+  {
+   "name": "配置図",
+   "kind": "roofplan",
+   "scale": 200,
+   "draw_to_paper": {
+    "a": 0.005,
+    "b": 0.0,
+    "c": 592.9878692624927,
+    "d": 0.0,
+    "e": -0.005,
+    "f": 167.00551443643104
+   },
+   "clip_paper_mm": [
+    10.0,
+    10.0,
+    831.0,
+    584.0
+   ],
+   "rotate_deg": -38.5,
+   "model_to_paper": {
+    "a": 0.00391304078426207,
+    "b": 0.0031125731831880975,
+    "c": 592.9878692624927,
+    "d": 0.0031125731831880975,
+    "e": -0.00391304078426207,
+    "f": 167.00551443643104
+   },
+   "layers_re": "^(0[0-2]|10|17|20|21|26|2[89]|30|35|50|6\\d|7\\d|9[2-7]|99)[a-z]?_",
+   "site_outer_only": true,
+   "_roof": "真上から見た見えがかり（切らない、隠れ線を消す）：layers_re の物。部屋の色の板（31〜59 の床の面積の板）は描かない。敷地の境は外の一本（site_outer_only）",
+   "context_re": "^0[34]_",
+   "context_skip_re": "^03g_",
+   "context_curves_re": "^01_",
+   "context_": "周り：context_re の物は一つずつ真上からの外形（context_skip_re は除く）、context_curves_re の曲線もそのまま。細い見えがかり（図の範囲で切る）"
+  }
+ ]
+}
