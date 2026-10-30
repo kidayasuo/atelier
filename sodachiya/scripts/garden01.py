@@ -219,10 +219,12 @@ fpoly = P(ell_ad(F["c"], F["r"], F["rot"]))
 poly(ax, fpoly, fc="#E6E3DA", ec="#8C8677", lw=0.6, z=6)
 ca, sa_ = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
 nj = 0
+_rp = G["SHOWER"].get("ring", {}).get("posts", [G["SHOWER"]["c"]])   # あめのわの柱と重なる噴き口は外す
 for i in np.arange(-F["r"][0], F["r"][0] + 0.01, F["jets"][0]):
     for j in np.arange(-F["r"][1], F["r"][1] + 0.01, F["jets"][1]):
         if (i / (F["r"][0] - 0.4)) ** 2 + (j / (F["r"][1] - 0.4)) ** 2 <= 1:
             q = (F["c"][0] + i * ca - j * sa_, F["c"][1] + i * sa_ + j * ca)
+            if min(math.hypot(q[0] - p_[0], q[1] - p_[1]) for p_ in _rp) < 0.3: continue
             ax.add_patch(Circle(X(*q), 0.11, fc="#4C8DB8", ec="none", zorder=6.3)); nj += 1
 dr = F["drain"]; line(ax, XS([F["c"], dr]), lw=0.5, c="#4C8DB8", ls=(0, (1.5, 1.5)), z=6.2)
 ax.add_patch(Rectangle(np.array(X(*dr)) - 0.25, 0.5, 0.5, fc="#8C8677", ec="none", zorder=6.4))
@@ -252,7 +254,7 @@ T(ax, UV(30.5, 16.6), "雨の川（晴れの日は枯れ流れ）", 4.4, c="#6B6
 sp = AM["spill"]
 ax.add_patch(FancyArrowPatch(X(*sp[0]), X(*sp[1]), arrowstyle="-|>", mutation_scale=6, lw=0.6, color="#2F6E95", ls=(0, (2, 1.5)), zorder=8.7))
 T(ax, X(G["BOWL"]["c"][0] - 0.2, G["BOWL"]["c"][1] - 1.2), "雨の池（大雨のとき）", 4.2, c="#2F6E95", rot=-38)
-# シャワーの柱（床の噴水の北の端）
+# シャワーの柱とあめのわ（床の噴水の真ん中、10-30）
 sh = G["SHOWER"]; shp = np.array(X(*sh["c"]))
 ax.add_patch(Rectangle(shp - 0.09, 0.18, 0.18, fc=C["wood"], ec="none", zorder=6.9))          # 柱 1 本
 _rg = sh.get("ring")
@@ -265,7 +267,7 @@ if _rg:
     for k in range(_rg["n"]):
         q = 2 * math.pi * k / _rg["n"]
         ax.add_patch(Circle(rcp + _rg["r"] * np.array([math.cos(q), math.sin(q)]), 0.035, fc="#2F6E95", ec="none", zorder=6.82))
-    T(ax, rcp + np.array([0.3, 1.55]), "あめのわ（輪のシャワー φ2.4）", 4.2, c="#2F6E95", z=21, fontweight="bold")
+    T(ax, rcp + np.array([0.3, 1.95]), "あめのわ（輪のシャワー φ2.4）", 4.2, c="#2F6E95", z=21, fontweight="bold")
 else:
     line(ax, [tuple(shp), tuple(shp + np.array([0.45, -0.35]))], lw=0.8, c=C["wood"], z=6.85)        # 腕
     ax.add_patch(Circle(shp + np.array([0.45, -0.35]), 0.3, fc="#CFE6F3", ec="#2F6E95", lw=0.5, zorder=6.8))
@@ -346,7 +348,7 @@ for q in G["SEKIMORI"]["pts"]:
 # 噴水のバルブます
 _vb = G["FOUNTAIN"]["valve"]["c"]
 poly(ax, P([(_vb[0] - .45, _vb[1] - .3), (_vb[0] + .45, _vb[1] - .3), (_vb[0] + .45, _vb[1] + .3), (_vb[0] - .45, _vb[1] + .3)]), fc="#D8D2C2", ec=C["ink"], lw=0.4, z=7.2)
-T(ax, X(_vb[0] - 1.2, _vb[1] - 0.2), "バルブます", 3.4, rot=-38, z=9.3)
+T(ax, X(_vb[0] + 0.1, _vb[1] - 1.0), "バルブます", 3.4, rot=-38, z=9.3)
 wl = G["WILLOW"]; ax.add_patch(Circle(X(*wl["c"]), wl["r"], fc="none", ec=C["treeE"], lw=0.9, ls=(0, (1, 1)), zorder=8))
 
 # 小屋（ひとつの屋根：便所｜倉庫｜コンポスト）
