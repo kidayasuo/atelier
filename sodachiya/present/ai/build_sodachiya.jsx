@@ -8,9 +8,9 @@
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var doc = app.documents.add(DocumentColorSpace.RGB, L.artboard[0] * K, L.artboard[1] * K, n,
                                 DocumentArtboardLayout.GridByRow, 30 * K, 3);
-    // アートボードは壁に貼るときと同じ並び（ユーザー、10-28）：3列「1 ｜ 2・3 ｜ 4・5」、1は二段の真ん中
+    // アートボードは壁に貼るときと同じ並び（先生のエスキス 10-30、ユーザー）：2段×3列、上の段1・3・5、下の段2・4・6（[列, 段]）
     var GAP = 30 * K, AW = L.artboard[0] * K, AH = L.artboard[1] * K;
-    var PLACE = { 1: [0, 0.5], 2: [1, 0], 3: [1, 1], 4: [2, 0], 5: [2, 1] };
+    var PLACE = { 1: [0, 0], 2: [0, 1], 3: [1, 0], 4: [1, 1], 5: [2, 0], 6: [2, 1] };
     for (i = 0; i < n; i++) {
         var cr = PLACE[L.pages[i].no] || [i, 0];
         var x0 = cr[0] * (AW + GAP), y0 = -cr[1] * (AH + GAP);
@@ -19,7 +19,7 @@
     var first = doc.layers[0];
     var names = ["枠", "図", "線", "説明", "注記"], i, j, p, made = 0, skipped = 0;
     for (i = 0; i < names.length; i++) { SDY.layer(doc, names[i]); }        // 下から 枠・図・線・説明・注記
-    for (i = 0; i < n; i++) { doc.artboards[i].name = L.pages[i].no + "/5"; }
+    for (i = 0; i < n; i++) { doc.artboards[i].name = L.pages[i].no + "/" + n; }
     try { SDY.makeFrame(doc, L); } catch (e) { SDY.missing.push("枠（" + e.message + "）"); }
     for (i = 0; i < n; i++) {
         for (j = 0; j < L.pages[i].parts.length; j++) {

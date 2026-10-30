@@ -311,6 +311,22 @@ SDY.oldNumbering = function (L) {
     if (was === L.renumber.id) { return null; }
     return L.renumber.maps[was] || null;
 };
+// 枚が分かれた部品（10-30、6枚）：layout.json の renumber.split（前に組んだときの id ごと、部品の名前の頭 → 新しい頭）。無ければ null
+SDY.oldSplit = function (L) {
+    if (!L || !L.renumber || !L.renumber.split || !SDY.oldNumbering(L)) { return null; }
+    var OB = null;
+    try { var bf = File(SDY.here.fsName + "/layout_built.json"); if (bf.exists) { OB = SDY.readJSON(bf); } } catch (e) {}
+    var was = (OB && OB.renumber) ? OB.renumber.id : "_none";
+    return L.renumber.split[was] || null;
+};
+// 前の番号の名前 → 今の名前。split の頭に当たれば（長い方が先）それで、無ければ枚の番号の写し方（RN）で。戻り値 [名前, split に当たったか]
+SDY.renameOld = function (id, RN, SP) {
+    var best = "", k;
+    if (SP) { for (k in SP) { if (SP.hasOwnProperty(k) && id.indexOf(k) === 0 && k.length > best.length) { best = k; } } }
+    if (best) { return [SP[best] + id.substring(best.length), true]; }
+    var m = /^p(\d+)\./.exec(id);
+    return [(RN && m && RN[m[1]]) ? "p" + RN[m[1]] + id.substring(m[0].length - 1) : id, false];
+};
 SDY.abMap = null;                                    // 前の .ai のアートボード番号（0から）→ 新しい .ai のアートボード番号
 SDY.placeLink = function (doc, lay, i, p) {
     var f = File(SDY.root.fsName + "/" + p.file);

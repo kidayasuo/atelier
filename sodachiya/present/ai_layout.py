@@ -151,7 +151,26 @@ def write(c):
                          file=rel(dw["lines"]), x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2),
                          clip=None if full else [round(v, 2) for v in clip], scale=round(w / (clip[2] - clip[0]), 4) if clip else 1, page=pno + 1, dwg=dw["name"]))
                 from zumen_parts import parts_for
-                for q in parts_for(dw["moji"], None if full else clip, (x, H - y - h), w / (clip[2] - clip[0]) if clip else 1.0, dw["key"], pno):
+                sc_ = w / (clip[2] - clip[0]) if clip else 1.0
+                pc_ = dw.get("parts_clip")                  # 部品を作る範囲（10-30：1階の平面図は紙全体から、2階の範囲を除く）
+                if dw.get("noparts"):
+                    qs_ = []
+                elif pc_:
+                    tl_ = (x + (pc_[0] - clip[0]) * sc_, H - y - h + (pc_[1] - clip[1]) * sc_)
+                    qs_ = parts_for(dw["moji"], None if (pc_[0] == 0 and pc_[1] == 0 and abs(pc_[2] - W) < 0.5 and abs(pc_[3] - H) < 0.5) else pc_, tl_, sc_, dw["key"], pno)
+                    def _src_c(q, tl_=tl_, pc_=pc_):    # 部品の中心（元の紙の mm）
+                        if q.get("w") is not None and q.get("x") is not None:
+                            cx_, cy_ = q["x"] + q["w"] / 2, q["y"] + q.get("h", 0) / 2
+                        elif q.get("x") is not None:
+                            cx_, cy_ = q["x"], q["y"]
+                        else:
+                            pp_ = [v for pa in q.get("paths", []) for v in pa["pts"]] or [[tl_[0], tl_[1]]]
+                            cx_, cy_ = sum(v[0] for v in pp_) / len(pp_), sum(v[1] for v in pp_) / len(pp_)
+                        return pc_[0] + (cx_ - tl_[0]) / sc_, pc_[1] + (cy_ - tl_[1]) / sc_
+                    qs_ = [q for q in qs_ if not any(e[0] <= _src_c(q)[0] <= e[2] and e[1] <= _src_c(q)[1] <= e[3] for e in dw.get("exclude", []))]
+                else:
+                    qs_ = parts_for(dw["moji"], None if full else clip, (x, H - y - h), sc_, dw["key"], pno)
+                for q in qs_:
                     q["dwg"] = dw["name"]
                     q["mock_hash"] = djb2(q["s"]) if q["kind"] == "text" else djb2(q.pop("geo"))
                     add(q)
@@ -159,7 +178,8 @@ def write(c):
                 # 図面に重ねる物（採光の図を断面図Dに、10-29）：部品の一覧があれば文字と線を一つずつ（図面のグループの中のグループ）、無ければ PDF のリンク
                 ed = c["emb_dwg"][(no, k_e)]
                 if ed.get("parts") and os.path.exists(ed["parts"]):
-                    T_ = lambda q: [round(ed["tl"][0] + (q[0] - ed["origin"][0]), 3), round(ed["tl"][1] + (q[1] - ed["origin"][1]), 3)]
+                    _es = ed.get("scale", 1.0)              # 図面を縮めて置いたとき（10-30：6枚目の断面D）
+                    T_ = lambda q: [round(ed["tl"][0] + (q[0] - ed["origin"][0]) * _es, 3), round(ed["tl"][1] + (q[1] - ed["origin"][1]) * _es, 3)]
                     for q in json.load(open(ed["parts"], encoding="utf-8"))["parts"]:
                         q = json.loads(json.dumps(q))
                         if "x" in q and "y" in q:

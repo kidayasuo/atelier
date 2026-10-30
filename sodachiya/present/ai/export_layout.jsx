@@ -8,16 +8,19 @@
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var L = null;
     try { L = SDY.readJSON(File(SDY.here.fsName + "/layout.json")); } catch (e) { L = null; }
-    // 5枚の番号の振り直し（10-28）：この .ai が前の番号のままなら、部品の名前（p2.… など）とアートボードを新しい番号に直して書き出す
-    var RN = SDY.oldNumbering(L);
+    // 番号の振り直し（10-28・10-30 の6枚）：この .ai が前の番号のままなら、部品の名前（p2.… など）とアートボードを新しい番号に直して書き出す。
+    // 枚が分かれた部品（renumber.split：前の3枚目の季節ごとの空気環境・配慮 → 2枚目など）は、前の紙の位置なので位置を書き出さない（文字・書式・レイヤー・消したは書き出す）
+    var RN = SDY.oldNumbering(L), SP = SDY.oldSplit(L), SPLIT = {};
     var rab = function (n) { return (RN && RN[String(n)]) ? RN[String(n)] : n; };
-    var rid = function (id) { var m = /^p(\d+)\./.exec(id); return (RN && m && RN[m[1]]) ? "p" + RN[m[1]] + id.substring(m[0].length - 1) : id; };
+    var rid = function (id) { var r2 = SDY.renameOld(id, RN, SP); if (r2[1]) { SPLIT[r2[0]] = true; } return r2[0]; };
     var rui = function (d) { var k3; if (d && d.artboard > 0) { d.artboard = rab(d.artboard); } if (d && d.children) { for (k3 = 0; k3 < d.children.length; k3++) { rui(d.children[k3]); } } return d; };
     var FAILED = SDY.readFailed();                    // build・update_texts が作れなかった部品（10-30）
     var LB = null;                                     // 組んだときの位置（layout_built.json、無ければ layout.json）
     try { LB = SDY.readJSON(File(SDY.here.fsName + "/layout_built.json")); } catch (e) { LB = L; }
     var BUILT = {}, bi, bj;
     if (LB) { for (bi = 0; bi < LB.pages.length; bi++) { for (bj = 0; bj < LB.pages[bi].parts.length; bj++) { BUILT[LB.pages[bi].parts[bj].id] = LB.pages[bi].parts[bj]; } } }
+    var RB = {}, rb;                                   // 前の番号の .ai：組んだときにあった部品の今の名前（ここに無い新しい部品は「消した」にしない、10-30）
+    if (RN) { for (rb in BUILT) { if (BUILT.hasOwnProperty(rb)) { RB[rid(rb)] = true; } } }
     // update_texts で後から足した部品（組んだときに無かった物）は、layout.json の位置と比べる（動かしていなければ書き出さない、10-29）
     if (L && LB !== L) { for (bi = 0; bi < L.pages.length; bi++) { for (bj = 0; bj < L.pages[bi].parts.length; bj++) { if (!BUILT[L.pages[bi].parts[bj].id]) { BUILT[L.pages[bi].parts[bj].id] = L.pages[bi].parts[bj]; } } } }
     var same = function (rec, o) {                     // 組んだときから動いていないか（0.3 mm）
@@ -74,6 +77,10 @@
             rec.x = (b[0] - r[0]) / K; rec.y = (r[1] - b[1]) / K; rec.w = (b[2] - b[0]) / K; rec.h = (b[1] - b[3]) / K;
         }
         rec.artboard = rab(ai + 1);
+        if (SPLIT[t.id]) {                             // 枚が分かれた部品：位置は前の紙のものなので書き出さない（10-30）
+            delete rec.x; delete rec.y; delete rec.w; delete rec.h; delete rec.pts;
+            var mp = /^p(\d+)\./.exec(t.id); if (mp) { rec.artboard = parseInt(mp[1], 10); }
+        }
         try { var lyn = it.layer.name, bp = BUILT[oid]; if (bp && bp.layer && lyn !== bp.layer && lyn !== "編集モード" && lyn !== "Isolation Mode") { rec.layer = lyn; } } catch (e7) {}   // レイヤーを移した部品（10-29）
         if ((t.kind === "text" || t.kind === "area") && it.typename === "TextFrame") {
             // 書き換えた文字だけ。そのときの mock の文の印（s_base）も：mock の文が後で変わったら、記録の文は使わない（10-29）。
@@ -92,7 +99,7 @@
         for (i = 0; i < L.pages.length; i++) {
             for (j = 0; j < L.pages[i].parts.length; j++) {
                 p = L.pages[i].parts[j];
-                if (!found[p.id] && !FAILED[p.id]) { out.parts[p.id] = { hidden: true }; gone++; }   // 作れなかった部品は「消した」にしない（10-30）
+                if (!found[p.id] && !FAILED[p.id] && (!RN || RB[p.id])) { out.parts[p.id] = { hidden: true }; gone++; }   // 作れなかった部品は「消した」にしない（10-30）
             }
         }
     }

@@ -9,7 +9,7 @@
     var doc = app.activeDocument;
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var L = SDY.readJSON(File(SDY.here.fsName + "/layout.json"));
-    if (SDY.oldNumbering(L)) { alert("5枚の番号を振り直しました（10-28）。この .ai は前の番号のままなので、update_texts ではなく build_sodachiya.jsx で組み直してください（木田さんの物は新しい番号の枚へ写ります）。"); return; }
+    if (SDY.oldNumbering(L)) { alert("枚の番号を振り直しました（10-28、10-30 の6枚）。この .ai は前の番号のままなので、update_texts ではなく build_sodachiya.jsx で組み直してください（木田さんの物は新しい番号の枚へ写ります）。"); return; }
     var map = SDY.findByTag(doc), i, j, p, it, nt = 0, nl = 0, na = 0, nr = 0, nx = 0, nd = 0;
     try { nx = SDY.removeStaleDrawingParts(doc, L); map = SDY.findByTag(doc); } catch (e6) { SDY.missing.push("図面の古い部品（" + e6.message + "）"); }
     for (i = 0; i < L.pages.length; i++) {

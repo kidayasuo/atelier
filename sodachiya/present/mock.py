@@ -253,7 +253,7 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
         _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va, font=fnt)
 
 
-FRAME_TOP = {4}      # 枠を図の上に重ねる紙（4枚目は平面図が紙いっぱいで白い地、ユーザー 10-29 18:01）
+FRAME_TOP = {3}      # 枠を図の上に重ねる紙（3枚目は1階の平面図が紙いっぱいで白い地、ユーザー 10-29 18:01。10-30 の6枚で4枚目→3枚目）
 
 
 PAGE_TITLES = {}
@@ -559,7 +559,7 @@ SX1, SY1 = site_s.max(0)
 info = dict(building=[round(BX1 - BX0, 1), round(BY1 - BY0, 1)], site=[round(SX1 - SX0, 1), round(SY1 - SY0, 1)])
 print("建物の外形（m）", info["building"], " 敷地（m）", info["site"])
 
-embeds = {i: [] for i in range(1, 6)}
+embeds = {i: [] for i in range(1, 7)}
 EMB_DWG = {}  # (枚, embeds の番号) → 図面のグループに入れる重ね（採光の図を断面図Dのグループに、10-29）
 SOZAI = []   # 素材：mock.pyが描いた図の範囲（紙のmm、左下）。書き出しで一つずつPDFに（ユーザー、10-25：.aiは素材から作る）
 
@@ -607,8 +607,8 @@ def _draw_user_item(pg, d):
         print("木田さんの物を見本に描けなかった：", d.get("name") or d.get("type"), e_)
 
 
-TOPT = {i: [] for i in range(1, 6)}     # 貼った図の上に置く文字（紙のmm、左下）：(x, y, 文字, 高さmm, 太字)
-TOPL = {i: [] for i in range(1, 6)}     # 貼った図の上に描く引き出し線（紙のmm）：(点, 箱の端, 色)
+TOPT = {i: [] for i in range(1, 7)}     # 貼った図の上に置く文字（紙のmm、左下）：(x, y, 文字, 高さmm, 太字)
+TOPL = {i: [] for i in range(1, 7)}     # 貼った図の上に描く引き出し線（紙のmm）：(点, 箱の端, 色)
 
 
 def topline(sheet, p_pt, p_box, color, via=(), key=None):
@@ -711,7 +711,7 @@ def _rhino_of(src, pageno, clip):
 DWG = {}            # (枚, embeds の番号) → 課題の要求の図面（文字と寸法をIllustratorの部品にする、ユーザー 10-29 0:16）
 
 
-def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None, dwg=None):
+def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None, dwg=None, dwg_opt=None):
     """clip（元のPDFのmm、上原点）を、紙の(x,y)（下原点、左下）に倍率scale_factorで置く。
     fit=(w,h)を渡すと、その枠に縮めて入れる。戻り値は置いた大きさ（mm）。
     dwg=(鍵, 名前)：課題の要求の図面。.ai では線だけのリンクと、文字の層（<図>_文字.pdf）の文字と寸法の部品を、名前のグループに"""
@@ -724,7 +724,8 @@ def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None, dwg=None
     w, h = w0 * scale_factor, h0 * scale_factor
     rh_ = _rhino_of(src, pageno, clip)
     if dwg and os.path.exists(src[:-4] + "_文字.pdf"):
-        DWG[(sheet, len(embeds[sheet]))] = dict(key=dwg[0], name=dwg[1], auto=src, moji=src[:-4] + "_文字.pdf", rhino=bool(rh_), src=rh_[0] if rh_ else src)
+        DWG[(sheet, len(embeds[sheet]))] = dict(key=dwg[0], name=dwg[1], auto=src, moji=src[:-4] + "_文字.pdf", rhino=bool(rh_), src=rh_[0] if rh_ else src,
+                                                **(dwg_opt or {}))   # dwg_opt：parts_clip・exclude・noparts（10-30：1階の平面図を三つの四角で切り抜くとき）
     if rh_:                                        # Rhino の線を下に、文字と寸法を上に（同じ切り抜き・同じ位置）
         RHINO_TXT[(sheet, len(embeds[sheet]))] = rh_[1]
         RHINO_USED.append(f"{sheet}枚目 {os.path.basename(src)}")
@@ -734,6 +735,7 @@ def embed(sheet, src, clip, x, y, scale_factor=1.0, pageno=0, fit=None, dwg=None
 
 
 figs = []
+FIGS = {}           # 枚の番号 → 図（6枚、先生のエスキス 10-30）。最後に番号の順に figs へ
 
 # ================================================================ 1　敷地と応答
 fig, ax = page()
@@ -2029,7 +2031,7 @@ TOPT[1].append((_fx0, _ny0 + 5.5, "大正から昭和初期の図（https://kyot
 TOPT[1].append((_fx0, _ny0 + 2.0, "図：http://ksdobokuisan.stars.ne.jp/80_takaragaike/takaragaike.html の図をなぞって描き直し", 2.6, False, None, "#666666",
                 dict(id="water.source2", name="用水ネットワークの出典（2行目）", follow="sozai.02")))
 sozai("02", "松ヶ崎の用水の網（北が上）", 1, _nbx, _ny0, _box_patch.get_width(), _ny1 - _ny0)
-figs.append(fig)
+FIGS[1] = fig
 
 # 図のPDF（3dmから自動の図）
 DRW = os.path.join(ROOT, "drawings")   # 図のPDFは sodachiya/drawings/（10-24）
@@ -2098,9 +2100,9 @@ def inspired(ax, tx, ty, colw, rows=4, head=True):
         T(ax, x_ + 1.5, y2 - 7.8, "→" + what, 2.4)
 
 
-# ================================================================ 2　景観（10-28：もとの2枚目、いちど4枚目にしてから13:17に2枚目へ。ユーザー、10-24夜：立面図2面 → 鳥瞰・約束・素材と色。10-27夜：沿川の景観立面（昼・夜）を1枚目から下の段へ）
+# ================================================================ 5　立面・景観（10-30：6枚の5枚目、前の2枚目のまま。10-28：もとの2枚目、いちど4枚目にしてから13:17に2枚目へ。ユーザー、10-24夜：立面図2面 → 鳥瞰・約束・素材と色。10-27夜：沿川の景観立面（昼・夜）を1枚目から下の段へ）
 fig, ax = page()
-frame(ax, 2, "景観", "建物に正対する二つの立面（園庭の側・道路の側）で、伸びやかな梁と縁側、西館の立ち上がり。下の段に外から見た姿：目の高さの透視図（公園の角から西の道、お向かいさんとの関係）と、川の向こう岸から見た沿川の景観（昼・夜、透視図）",
+frame(ax, 5, "立面・景観", "建物に正対する二つの立面（園庭の側・道路の側）で、伸びやかな梁と縁側、西館の立ち上がり。下の段に外から見た姿：目の高さの透視図（公園の角から西の道、お向かいさんとの関係）と、川の向こう岸から見た沿川の景観（昼・夜、透視図）",
       "園庭の側・道路の側の立面図 → 透視図（A4）・沿川の景観（昼・夜）→ 景観の法規・素材と色")
 CLIP_E1 = (25, 35.6, 788.5, 143.0)         # 自動の立面図1：園庭の側（10-28：右の高さの記号・左の高さの寸法・下の全長まで。縮尺の棒は外す）
 CLIP_E2 = (25, 200.1, 788.5, 308.6)        # 自動の立面図1：道路の側（10-28：上は表題の切れ端を外し、右の高さの記号・下の全長まで）
@@ -2120,13 +2122,13 @@ title(ax, ex, y_ - 7 + TITLE_GAP, "園庭の側の立面図", "1/100　円弧の
 T(ax, ex + 300, y_ - 7 + TITLE_GAP, CONTRAST["garden"][0], 4.2, "#4E8A3A", bold=True)
 T(ax, ex + 340, y_ - 7 + TITLE_GAP, CONTRAST["garden"][1][0], 2.8)
 y_ -= 7
-_, h_ = embed(2, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0, dwg=("E1", "立面図　園庭の側"))
+_, h_ = embed(5, ELE1, CLIP_E1, ex, y_ - (CLIP_E1[3] - CLIP_E1[1]), 1.0, dwg=("E1", "立面図　園庭の側"))
 y_ -= h_ + G2
 title(ax, ex, y_ - 7 + TITLE_GAP, "道路の側の立面図", "1/100　西の道路から")
 T(ax, ex + 300, y_ - 7 + TITLE_GAP, CONTRAST["road"][0], 4.2, "#8A5A2B", bold=True)
 T(ax, ex + 372, y_ - 7 + TITLE_GAP, CONTRAST["road"][1][0], 2.8)
 y_ -= 7
-_, h_ = embed(2, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0, dwg=("E2", "立面図　道路の側"))
+_, h_ = embed(5, ELE1, CLIP_E2, ex, y_ - (CLIP_E2[3] - CLIP_E2[1]), 1.0, dwg=("E2", "立面図　道路の側"))
 y_ -= h_ + G2
 bh = BH2
 _pw = 297
@@ -2156,7 +2158,7 @@ _me_kind = "写真" if _me and _me in _ME_PHOTO else ("Rhino のレンダリン�
 title(ax, ex, M + 8 + bh + TITLE_GAP, "透視図（A4）　公園の角から西の道を見る", "目の高さ1.5 m、左に向かいの住宅、右に西館の低い軒")
 if _me:
     _img_box(_me, ex, M + 8, _pw, bh, fit="cover")
-    sozai("16", "透視図（A4）", 2, ex, M + 8, _pw, bh, _me_kind + "（" + os.path.relpath(_me, HERE) + "）")
+    sozai("16", "透視図（A4）", 5, ex, M + 8, _pw, bh, _me_kind + "（" + os.path.relpath(_me, HERE) + "）")
     dimnote(ax, ex + 2, M + 8 + 2, "透視図：" + _me_kind + "（" + os.path.relpath(_me, HERE) + "）")
     print("透視図（A4）：", _me_kind, os.path.relpath(_me, HERE))
 else:
@@ -2183,7 +2185,7 @@ for _night, _yy in ((False, _ly_d), (True, _ly_n)):
     title(ax, _lx, _yy + _lh1 + TITLE_GAP, "沿川の景観　" + ("夜" if _night else "昼"), "高野川の向こう岸の歩道から、目の高さ1.5 m" + ("　本館と西館の越屋根の光" if _night else ""))
     if _src:
         _r = _img_box(_src, _lx, _yy, _lw1, _lh1, fit="contain", align="left")
-        sozai("04" if _night else "03", "沿川の景観　" + ("夜" if _night else "昼"), 2, _r[0], _r[1], _r[2], _r[3], _kind + "（" + os.path.relpath(_src, HERE) + "）")
+        sozai("04" if _night else "03", "沿川の景観　" + ("夜" if _night else "昼"), 5, _r[0], _r[1], _r[2], _r[3], _kind + "（" + os.path.relpath(_src, HERE) + "）")
         if _night and _kind != "Rhino":
             dimnote(ax, _r[0] + 2, _r[1] + 2, "夜はRhinoの絵を待つ（いまは" + _kind + "）")
         print("沿川の景観", "夜" if _night else "昼", "：", _kind, os.path.relpath(_src, HERE))
@@ -2225,20 +2227,22 @@ for r_ in range(0, len(_sw), 2):
         for j_, s_ in enumerate(_swl[i_]):
             T(ax, x_ + _SWW + 2, _yy - _SWH / 2 - 0.9 - j_ * _SWT / 0.72 * 1.3, s_, _SWT)
     _yy -= _rows[r_ // 2]
-sozai("05", "素材と色", 2, _kx + 1, _ky + 1, _kw - 2, _mh + 2)
-figs.append(fig)
+sozai("05", "素材と色", 5, _kx + 1, _ky + 1, _kw - 2, _mh + 2)
+FIGS[5] = fig
 
-# ================================================================ 3　環境（10-28 13:17：5枚目から3枚目へ。ユーザー、10-24夜：断面2面と環境への配慮、縦断Aもここ）
+# ================================================================ 6　断面・構造（10-30：6枚の6枚目。先生のエスキス 10-30、ユーザーが選んだ「6枚の構成」）
+# 前の3枚目（断面と環境）から縦断A・断面C（空気）・断面D（光、採光の図）と inspired by。季節ごとの空気環境と環境への配慮は2枚目へ、面積表は4枚目へ。
+# 構造の図（別の手伝い：present/sozai/18_構造_架構と耐力壁.pdf）を左下に
 fig, ax = page()
-frame(ax, 3, "断面と環境", "上に縦断A（弧の長さ）を一続きに。その下で二つの横断（1/100）が主役：断面Cに空気の環境（本館と西館の架構と風の道）、断面D（本館、光の筋で切る）に光の環境。右の列に季節ごとの空気環境・環境への配慮・inspired byと面積表",
-      "縦断A（上の帯）→ 断面C（空気）→ 季節ごとの空気環境・配慮 → 断面D（光）→ inspired by・面積表")
+frame(ax, 6, "断面・構造", "上に縦断A（弧の長さ）を一続きに。その下に二つの横断（1/100）：断面Cに空気の環境（本館と西館の架構と風の道）、断面D（本館、光の筋で切る）に光の環境。左下に構造（架構と耐力壁の分布）、右下に inspired by",
+      "縦断A（上の帯）→断面C（空気）・断面D（光）→構造→inspired by")
 # 10-29 9:46（ユーザー）：横断の断面図が説明の主役。断面Cと断面Dは上と左右に矢印や注を描き込める余白（ユーザーが .ai で）。光の筋 1/20 と接合部の詳細は外した。
 # 10-29 14:03（ユーザー）：「上繋がりで、それ（縦断）を一番上に置くのはどうでしょう」→ 縦断A を紙の上の帯のすぐ下に左から右へ。上下の空白（通り芯の上・地面の下）は切り抜きで詰めた
 CLIP_SA3 = (54, 57.5, 821.5, 165.5)   # 10-29 15:16：上の帯が太くなったので上下をもう少し詰めた
 _tA = H - M - HDR - 7
 title(ax, M + 6, _tA, "縦断面図A", "1/100　保育室の中ほどの弧で切って展開、西を見る（左が南の高野川）")
 _ya = _tA - TITLE_GAP - (CLIP_SA3[3] - CLIP_SA3[1])
-embed(3, SEC, CLIP_SA3, M + 6 + (W - 2 * M - 12 - (CLIP_SA3[2] - CLIP_SA3[0])) / 2, _ya, 1.0, dwg=("SA", "縦断面図A"))
+embed(6, SEC, CLIP_SA3, M + 6 + (W - 2 * M - 12 - (CLIP_SA3[2] - CLIP_SA3[0])) / 2, _ya, 1.0, dwg=("SA", "縦断面図A"))
 CLIP_C2 = (432, 252, 830, 382)
 CSC = 1.0                                       # 課題は断面 1/100・2面以上（ユーザー、10-27夜：1/75 をやめる）
 hC = (CLIP_C2[3] - CLIP_C2[1]) * CSC
@@ -2248,11 +2252,11 @@ SIDE = 30                                       # 断面の左右の余白（mm�
 _tC = _ya - 10                                  # 断面Cの題の高さ（縦断Aの下）
 cx, cy = M + 6 + SIDE, _tC - 8 - AIR - hC
 title(ax, M + 6, _tC, "断面図C　東西に切る（4歳・遊戯室）", "1/100　空気の環境：本館と西館の架構、昼と夏の夜の風の道")
-embed(3, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"))
+embed(6, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"))
 _rx5 = cx + wC + SIDE + 6
 _rw5 = W - M - 6 - _rx5
 # 季節ごとの運転と環境への配慮（ユーザー 10-29 9:43：監修のまとめに従い、ボードに合う短さで。8つの箱はやめ、同じ範囲に三つ）
-# 文字は一つずつ Illustrator の部品（鍵は固定：p3.unten.*・p3.reibou.*・p3.hairyo.*）、罫線と色は素材12
+# 文字は一つずつ Illustrator の部品（鍵は固定：unten.*・reibou.*・hairyo.*。10-30 から2枚目）
 C_UNTEN, C_HAIRYO = "#5B4A9E", "#4E8A3A"        # 見出しの色（運転＝紫、配慮＝緑）
 UNTEN_SUM = "夏は夜の外気で床下の重さを冷やし、昼はその冷えと、触れて冷たい壁と天井扇で過ごす。冬は閉じて床から暖め、熱と湿気を逃がさない。春と秋は床下から越屋根へ風を通す。"
 UNTEN_COLS = [("季節", 16), ("開け閉め", 67), ("動かすもの", 70), ("効くもの", 0)]   # 幅 mm（最後は残り）
@@ -2299,61 +2303,9 @@ def _rule(id_, pts, color, lw, group=None, name=None):
 
 G_UNTEN = ("unten", "季節ごとの空気環境")
 G_HAIRYO = ("hairyo", "環境への配慮")
-G_IA = ("insp_area", "inspired by と面積表")
+G_IA = ("insp_area", "inspired by")                # 10-30：面積表は4枚目へ（グループ「面積表」）
+G_AREA = ("area", "面積表")
 
-
-_top5 = _tC + 4                                 # 範囲の上端（断面Cの題にそろえる）
-_bot5 = cy - 12                                 # 下端（断面Cの下まで）
-_HAIRYO_TOP_EST = None
-_gap5 = 9                                       # 運転と配慮のあいだ
-_Lw = _rw5                                      # 一つの列に上から：季節ごとの運転・放射冷房のパネル・環境への配慮
-_Rw = _rw5
-_FS = None
-for _fs in (3.0, 2.8, 2.6):                     # 入る字の大きさを選ぶ
-    _cpl = lambda w_: w_ / (_fs / 0.72)
-    _lh = _fs / 0.72 * 1.3
-    _cw = [w_ or (_Lw - sum(c[1] for c in UNTEN_COLS)) for _, w_ in UNTEN_COLS]
-    _rows_h = [max(len(jwrap(t_, _cpl(_cw[j_] - 2))) for j_, t_ in enumerate(r_)) * _lh + 2.4 for r_ in UNTEN]
-    _hl = 6 + len(jwrap(UNTEN_SUM, _cpl(_Lw))) * _lh + 2 + (_lh + 2.4) + sum(_rows_h) + 5 + 6 + len(jwrap(REIBOU, _cpl(_Lw - 4))) * _lh + 4
-    _nw = max(len(n_) for n_, _ in HAIRYO) * _fs / 0.72 + 3
-    _hr = 6 + sum(len(jwrap(t_, _cpl(_Rw - _nw))) * _lh + 1.6 for _, t_ in HAIRYO)
-    if _hl <= _top5 - _bot5:
-        _FS = _fs
-        break
-if _FS is None:
-    raise SystemExit("3枚目：季節ごとの運転と環境への配慮が 2.6 mm でも入らない（運転 %.0f・配慮 %.0f／%.0f mm）" % (_hl, _hr, _top5 - _bot5))
-print("3枚目の運転と配慮：字 %.1f mm、運転 %.0f・配慮 %.0f／%.0f mm" % (_FS, _hl, _hr, _top5 - _bot5))
-# 素材12・12bはやめた：文字と罫線は Illustrator の部品（ユーザー 10-29 12:49：イメージではなく文字に）
-# 左：季節ごとの運転
-_x0, _y = _rx5, _top5 - 4
-_part("unten.head", _x0, _y, 0, ["季節ごとの空気環境"], 3.2, C_UNTEN, True, name="見出し：季節ごとの空気環境", group=G_UNTEN)   # ユーザー 10-29：「運転」→「空気環境」
-_y -= 6
-_y -= _part("unten.sum", _x0, _y, _Lw, jwrap(UNTEN_SUM, _cpl(_Lw)), _FS, name="まとめ：季節ごとの運転", group=G_UNTEN) + 1
-_xs = [_x0]
-for w_ in _cw[:-1]:
-    _xs.append(_xs[-1] + w_)
-_rule("unten.rule.top", [(_x0, _y), (_x0 + _Lw, _y)], C_UNTEN, 0.5, G_UNTEN)
-_ytb = _y
-_y -= _lh
-for j_, (h_, _) in enumerate(UNTEN_COLS):
-    _part(f"unten.h.c{j_}", _xs[j_] + 1, _y, 0, [h_], _FS, C_UNTEN, True, name="表の見出し：" + h_, group=G_UNTEN)
-_y -= 2.4
-_rule("unten.rule.head", [(_x0, _y + 1), (_x0 + _Lw, _y + 1)], C_UNTEN, 0.3, G_UNTEN)
-for i_, r_ in enumerate(UNTEN):
-    _yt = _y - _lh + 0.6
-    for j_, t_ in enumerate(r_):
-        _part(f"unten.r{i_}.c{j_}", _xs[j_] + 1, _yt, _cw[j_] - 2, jwrap(t_, _cpl(_cw[j_] - 2)), _FS, bold=(j_ == 0), name=f"表：{r_[0]}・{UNTEN_COLS[j_][0]}", group=G_UNTEN)
-    _y -= _rows_h[i_]
-    _rule(f"unten.rule.r{i_}", [(_x0, _y + 1), (_x0 + _Lw, _y + 1)], "#9A9A9A", 0.2, G_UNTEN)
-for j_, x_ in enumerate(_xs[1:]):
-    _rule(f"unten.rule.c{j_ + 1}", [(x_ - 0.5, _y + 1), (x_ - 0.5, _ytb)], "#BBBBBB", 0.2, G_UNTEN)
-# 左の下：放射冷房のパネル（小さな段、左に色の帯）
-_y -= 5
-_rl = jwrap(REIBOU, _cpl(_Lw - 4))
-_rh = 6 + len(_rl) * _lh + 1
-_rule("reibou.bar", [(_x0 + 0.6, _y + 2), (_x0 + 0.6, _y - _rh + 2)], C_UNTEN, 1.2 / 0.3528, G_UNTEN)
-_part("reibou.head", _x0 + 4, _y - 2, 0, ["放射冷房のパネル"], 3.0, C_UNTEN, True, name="見出し：放射冷房のパネル", group=G_UNTEN)
-_part("reibou.text", _x0 + 4, _y - 2 - 5.5, _Lw - 4, _rl, _FS, name="本文：放射冷房のパネル", group=G_UNTEN)
 # 断面D（本館の横断、光の筋で切る、1/100、北を見る）：光の環境。図は更新係に依頼（20261029-0946-present）。
 # drawings/sodachiya_sections*_views.json に「断面D」があれば、その範囲を断面Cと同じ仕組み（Rhinoの図があればRhino、文字と寸法は部品）で
 _SD = None
@@ -2366,7 +2318,7 @@ for _vf in sorted(glob.glob(os.path.join(ROOT, "drawings", "sodachiya_sections*_
     except Exception:
         pass
 DW, DH = (_SD[1][2] - _SD[1][0], _SD[1][3] - _SD[1][1]) if _SD else (250.0, 90.0)   # 無いあいだは約25 m×約9 m（西の吹き抜けの縁から東の外縁側の先まで）
-# 右下の縦長の囲み：上に inspired by、細い罫線、下に面積表（ユーザー 10-29 10:26・12:49・12:50：縦長に、イメージではなく文字に、列ごとに一つの文字）
+# 右下の囲み：inspired by（ユーザー 10-29 10:26・12:49・12:50：イメージではなく文字に。10-30：面積表は4枚目の囲みへ）
 # 部品はグループ「inspired by と面積表」：囲み p3.ia.box、罫線 p3.area.rule.*、inspired by は一つの文字 p3.insp.text（8件を段落で、名前は太・出どころは小さく灰）、
 # 面積表は列ごとに一つの文字 p3.area.col.room／req／plan（1行目が見出し、最後が延床、どちらも太。計画は右揃え）。数は sodachiya_areas.json から自動
 IA_W = 133                                      # 囲みの幅（mm）。inspired by を2行にしたので、いちばん長い行（斑鳩の2行目、約120 mm）が入る幅（ユーザー 10-30）
@@ -2405,11 +2357,15 @@ for i_, (n_, src_, what_) in enumerate(INSP):
     _INS_P += [(n_ + "　" + src_, 2.6, INK, True, 0 if i_ == 0 else 5.7, (len(n_) + 1, 2.2, "#666666", False)), ("→" + what_, 2.4, INK, False, 3.9)]
 _ins_h = sum(p_[4] for p_ in _INS_P)
 _bw = IA_W
-_bh = IA_PAD + 4 + 9 + _ins_h + 4 + 8 + 9 + (len(_ia_rows) + 1) * IA_ROW + IA_PAD
+_bh = IA_PAD + 4 + 9 + _ins_h + IA_PAD
 _bx0 = W - M - 6 - _bw
 _by = M + 8
+_uI = _UP.get("p6.insp.head") or {}             # 10-30：既定は木田さんが .ai で置いた inspired by の見出しの位置に合わせる（見本も .ai と同じ並びに）
+if "x" in _uI and "y" in _uI:
+    _bx0 = _uI["x"] - IA_PAD
+    _by = (H - _uI["y"]) + IA_PAD + 4 - _bh
 ax.add_patch(Rectangle((_bx0, _by), _bw, _bh, fc="none", ec="#8A8A8A", lw=0.3, gid="aipart"))
-_airec(fig, kind="box", id="ia.box", name="囲み：inspired by と面積表", x=_bx0, y=_by, w=_bw, h=_bh, fill="none", stroke="#8A8A8A", lw=0.3, dash=None,
+_airec(fig, kind="box", id="ia.box", name="囲み：inspired by", x=_bx0, y=_by, w=_bw, h=_bh, fill="none", stroke="#8A8A8A", lw=0.3, dash=None,
        group=G_IA[0], group_name=G_IA[1])
 _ix = _bx0 + IA_PAD
 _iw = _bw - 2 * IA_PAD
@@ -2418,45 +2374,27 @@ _part("insp.head", _ix, _y, 0, ["inspired by"], 4.2, INK, True, name="見出し�
 _part("insp.sub", _ix + 34, _y, 0, ["参照した建築"], 3.0, INK, name="見出しの添え：参照した建築", group=G_IA)
 _y -= 9
 _y = _mpart("insp.text", _ix, _y, _INS_P, G_IA, "inspired by（8件）")
-_y -= 4
-_rule("area.rule.sep", [(_ix, _y), (_ix + _iw, _y)], "#BBBBBB", 0.25, G_IA, "罫線：inspired by と面積表のあいだ")
-_y -= 8
-_part("area.head", _ix, _y, 0, ["面積表"], 4.2, INK, True, name="見出し：面積表", group=G_IA)
-_part("area.sub", _ix + 21, _y, 0, ["m²（壁芯、3dmから自動）"], 3.0, INK, name="見出しの添え：面積表", group=G_IA)
-_y -= 9
-_rule("area.rule.top", [(_ix, _y + IA_FS + 1.2), (_ix + _iw, _y + IA_FS + 1.2)], "#666666", 0.35, G_IA, "罫線：面積表の上")
-_rule("area.rule.head", [(_ix, _y - 1.6), (_ix + _iw, _y - 1.6)], "#999999", 0.25, G_IA, "罫線：面積表の見出しの下")
-_cols = {"room": ["室"], "req": ["要求"], "plan": ["計画"]}
-for r_ in _ia_rows:
-    _cols["room"].append(r_["room"].replace(" ", ""))
-    _cols["req"].append(r_["required"].replace(" ", ""))
-    # 食堂は「なし」、駐車・駐輪は台数（サービス車・職員の分も、ユーザー 10-30）。台数は areas.json の parts（決定事項_外構・外構の図の counts）から
-    _pl = {"食堂": "なし", "駐車場": "5台（うち搬入1）",
-           "駐輪スペース": "21台（保護者12・職員9）"}.get(r_["room"].replace(" ", ""))
-    if r_["room"].replace(" ", "") == "駐車場" and "南 3" not in r_.get("parts", ""):
-        _pl = None; print("面積表：駐車場の台数が変わった。mock.py の台数を直す：", r_.get("parts"))
-    if r_["room"].replace(" ", "") == "駐輪スペース" and "計 21" not in r_.get("parts", ""):
-        _pl = None; print("面積表：駐輪の台数が変わった。mock.py の台数を直す：", r_.get("parts"))
-    _cols["plan"].append(_pl or (f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"]))
-_cols["room"].append("延床（2,000以内）"); _cols["req"].append(""); _cols["plan"].append(f"{AJ['floor']['total']:,.1f}")
-_cx = {"room": _ix, "req": _ix + 44, "plan": _ix + _iw}       # 要求は左揃え、計画は右揃え（小数点がそろう）
-_nm = {"room": "室", "req": "要求", "plan": "計画"}
-for k_, col_ in _cols.items():
-    n_ = len(col_)
-    _yl = _mpart(f"area.col.{k_}", _cx[k_], _y, [(t_, IA_FS, INK, j_ in (0, n_ - 1), IA_ROW) for j_, t_ in enumerate(col_)], G_IA,
-                 f"面積表の列：{_nm[k_]}", ha="right" if k_ == "plan" else "left")
-_rule("area.rule.bottom", [(_ix, _yl - 1.6), (_ix + _iw, _yl - 1.6)], "#666666", 0.35, G_IA, "罫線：面積表の下")
-_HAIRYO_TOP_EST = _top5 - _hl - _gap5
-if _HAIRYO_TOP_EST - _hr < _by + _bh + 6:
-    raise SystemExit("3枚目：環境への配慮が右下の囲みに重なる")
-# 断面D は断面Cの下と囲みの上のあいだの真ん中に（上に光の矢印を描く余白 AIR）
-_r2t, _r2b = cy - 14, M + 8
-AIR_D = 42                                      # 断面Dの上の余白（10-29：採光の図（素材17）が上へ約36 mm はみ出す、30 mm 以上残す）
-_tD = (_r2t + _r2b) / 2 + (8 + AIR_D + DH) / 2
-dx, dy = cx + (wC - DW) / 2, _tD - 8 - AIR_D - DH
-title(ax, M + 6, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根")
+# 断面D：10-30（6枚）から、既定は木田さんが .ai で置いた所と大きさ（layout_user.json の p6.link.sodachiya_sections2_1-100 と題の文字）。
+# 6枚目の左下を構造の図に空けるため（.ai では断面Dは断面Cの右）。記録が無ければ前の既定（断面Cの下、1/100）。上に光の矢印を描く余白 AIR_D
+AIR_D = 42
+_uD = _UP.get("p6.link.sodachiya_sections2_1-100") or {}
+_uDt = _UP.get("p6.t.断面図D本館の横断（光の筋で") or {}
+D_SC = 1.0
+if _SD and all(k_ in _uD for k_ in ("x", "y", "w")):
+    # .ai の断面Dのリンクは木田さんの記録の幅（240 mm）で置かれる（ai_layout が w から倍率を出す）。図面の文字・寸法の部品と採光の図も同じ倍率にそろえる
+    # （10-30：更新係の断面Dが 395×123 mm に広がったので約0.61倍。1/100 に戻すかは木田さんが .ai で決める）
+    D_SC = round(_uD["w"] / DW, 4)
+    dx, dy = _uD["x"], H - _uD["y"] - DH * D_SC
+    _tD = H - _uDt["y"] if "y" in _uDt else dy + DH * D_SC + AIR_D * D_SC + 8
+    _tDx = _uDt.get("x", dx)
+else:
+    _r2t, _r2b = cy - 14, M + 8
+    _tD = (_r2t + _r2b) / 2 + (8 + AIR_D + DH) / 2
+    dx, dy = cx + (wC - DW) / 2, _tD - 8 - AIR_D - DH
+    _tDx = M + 6
+title(ax, _tDx, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根")
 if _SD and os.path.exists(_SD[0]):
-    embed(3, _SD[0], _SD[1], dx, dy, 1.0, dwg=("D", "断面図D"))
+    embed(6, _SD[0], _SD[1], dx, dy, D_SC, dwg=("D", "断面図D"))
     print("断面D：", os.path.basename(_SD[0]), _SD[1])
     # 採光の図（素材17、present/tools/saikou.py）を断面Dの上に重ねる。置き場所は 17_光の環境_断面.json（断面Dの紙の mm、1 mm＝1 mm）。
     # 見本には PDF を重ね、.ai では 17_光の環境_断面_parts.json の文字と線の部品を、断面図Dのグループの中のグループ「光の環境」に（ユーザー 10-29 14:11）
@@ -2465,46 +2403,52 @@ if _SD and os.path.exists(_SD[0]):
     _q17 = os.path.join(HERE, "sozai", "17_光の環境_断面_parts.json")
     if os.path.exists(_s17) and os.path.exists(_j17):
         _p17 = json.load(open(_j17, encoding="utf-8"))["page_paper_mm"]
-        _x17 = dx + (_p17[0] - _SD[1][0])
-        _y17 = (dy + DH) - (_p17[3] - _SD[1][1])
-        EMB_DWG[(3, len(embeds[3]))] = dict(dwg="断面図D", parts=_q17 if os.path.exists(_q17) else None,
-                                            tl=(dx, H - (dy + DH)), origin=(_SD[1][0], _SD[1][1]), group=("saikou", "光の環境"))
-        embed(3, _s17, None, _x17, _y17, 1.0)
+        _x17 = dx + (_p17[0] - _SD[1][0]) * D_SC
+        _y17 = (dy + DH * D_SC) - (_p17[3] - _SD[1][1]) * D_SC
+        EMB_DWG[(6, len(embeds[6]))] = dict(dwg="断面図D", parts=_q17 if os.path.exists(_q17) else None,
+                                            tl=(dx, H - (dy + DH * D_SC)), origin=(_SD[1][0], _SD[1][1]), group=("saikou", "光の環境"), scale=D_SC)
+        embed(6, _s17, None, _x17, _y17, D_SC)
         print("採光の図（素材17）：断面Dの上に、上へ %.1f mm はみ出す（余白 %d mm）、.ai は%s" % (_SD[1][1] - _p17[1], AIR_D, "部品" if os.path.exists(_q17) else "PDF"))
 else:
-    box(ax, dx, dy, DW, DH, "断面図D　本館の横断（光の筋で切る）1/100　北を見る",
+    box(ax, dx, dy, DW * D_SC, DH * D_SC, "断面図D　本館の横断（光の筋で切る）1/100　北を見る",
         "光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根\n（更新係の図を待つ：20261029-0946-present）")
     print("断面D：まだ図が無いので枠")
-# 右：環境への配慮（一年を通して効くもの）
-_HAIRYO_TOP = _top5 - _hl - _gap5              # 季節ごとの運転の下に続ける（右下は inspired by と面積表の囲み、10-29 10:26）
+# 構造の図（10-30、先生のエスキス）：別の手伝いが present/sozai/18_構造_架構と耐力壁.pdf を作る。左下（断面Cの下）に約380×150 mm。
+# 無いあいだは同じ大きさの仮の枠。ファイルができたら mock.py を走らせ直すだけで入る（見本は貼り込み、.ai はリンク）
+KOZO = os.path.join(HERE, "sozai", "18_構造_架構と耐力壁.pdf")
+KZ_W, KZ_H = 380.0, 150.0
+_kzt = H - 352.0
+title(ax, M + 6, _kzt, "構造", "架構と耐力壁の分布")
+if os.path.exists(KOZO):
+    embed(6, KOZO, None, M + 6, _kzt - TITLE_GAP - KZ_H, fit=(KZ_W, KZ_H))
+    _topalign(6, _kzt - TITLE_GAP)
+    print("構造の図：", os.path.relpath(KOZO, HERE))
+else:
+    box(ax, M + 6, _kzt - TITLE_GAP - KZ_H, KZ_W, KZ_H, "構造：架構と耐力壁の分布（作成中）", "sozai/18_構造_架構と耐力壁.pdfができたら入る")
+    print("構造の図：まだ無いので仮の枠")
+FIGS[6] = fig
 
-_x1, _y = _rx5, _HAIRYO_TOP - 4
-_part("hairyo.head", _x1, _y, 0, ["環境への配慮（LEED v5 Goldを目指す）"], 3.2, C_HAIRYO, True, name="見出し：環境への配慮", group=G_HAIRYO)
-_part("hairyo.url", _x1 + _Rw, _y, 0, ["LEED v5（USGBC）　https://www.usgbc.org/leed/v5"], 2.2, "#777777", False,
-      name="LEED v5 のURL", group=G_HAIRYO, ha="right")    # ユーザー 10-29：LEED v5 の文書のURL
-_y -= 3
-_rule("hairyo.rule", [(_x1, _y), (_x1 + _Rw, _y)], C_HAIRYO, 0.5, G_HAIRYO)
-_y -= _lh
-for i_, (n_, t_) in enumerate(HAIRYO):
-    _part(f"hairyo.{i_}.name", _x1, _y, 0, [n_], _FS, C_HAIRYO, True, name="配慮の項目：" + n_, group=G_HAIRYO)
-    _tl = jwrap(t_, _cpl(_Rw - _nw))
-    _part(f"hairyo.{i_}.text", _x1 + _nw, _y, _Rw - _nw, _tl, _FS, name="配慮の文：" + n_, group=G_HAIRYO)
-    _y -= len(_tl) * _lh + 1.6
-figs.append(fig)
-
-# ================================================================ 4　平面図（10-28：もとの3枚目、いちど2枚目にしてから13:17に4枚目へ。ユーザー、10-25：敷地全体1/100を配置図と同じ向き、2階は西の道路の外。図は更新係のdraw100.pyがA1の一枚で出す：表題・色の凡例・縮尺・方位も入っている）
+# ================================================================ 3　平面図　1階（10-30：6枚の3枚目。前の4枚目の平面図のうち1階。ユーザー、10-25：敷地全体1/100を配置図と同じ向き。図は更新係のdraw100.pyがA1の一枚で出す）
 fig, ax = page()
-# 共通の枠をそのまま当てる（ユーザー 10-29 18:01）：平面図は動かさず縮めず切らない（枠の帯と重なってよい、ユーザーが見てから考える）。
-# 平面図は白い地の紙いっぱいの図なので、枠はその上に重ねる（FRAME_TOP）。前の小さな題の文字（TOPT）は枠の表題と二重なので外した
-frame(ax, 4, "平面図　1階・2階", "敷地全体の平面図1/100（1階と西館の2階）、配置図と同じ向き", "平面図 → 色の凡例・面積")
+# 共通の枠をそのまま当てる（ユーザー 10-29 18:01）：平面図は動かさず縮めず（枠の帯と重なってよい）。白い地の紙いっぱいの図なので、枠はその上に重ねる（FRAME_TOP）
+frame(ax, 3, "平面図　1階", "敷地全体の1階の平面図1/100、配置図と同じ向き。2階（西館）は4枚目", "平面図→色の凡例・面積")
 PLAN3 = os.environ.get("SODACHIYA_PLAN3", PLAN)        # 確かめるときだけ手元の書き出しを指す
-embed(4, PLAN3, None, 0, 0, 1.0, dwg=("plan", "平面図"))
-figs.append(fig)
+# 1階だけを前と同じ紙の位置（1:1）に。更新係の一枚では2階（西館）が左上（西の道路の外）にあるので、三つの四角で切り抜いて外す（仮、10-30）：
+# 2階の角は x≈393 mm・y≈71 mm、下の端は y≈295 mm。キッチンの左の端は x≈387 mm（y 190〜290 mm）なので、細い帯で拾う。
+# 四角の境をまたぐ寸法・文字は部品にならない（parts_for は中に収まる物だけ）
+# 文字と寸法の部品は紙全体から作り（鍵が前の4枚目と同じ）、2階の範囲（PLAN_2F_EX）に中心のある物だけ除く。線だけのリンクは三つ（部品は一つ目に）
+PLAN_1F_CLIPS = [(394, 0, 841, 594), (380, 90, 394, 594), (0, 298, 380, 594)]
+PLAN_2F_EX = [(0, 0, 380, 298), (380, 0, 394, 90)]
+for _i1, _c1 in enumerate(PLAN_1F_CLIPS):
+    embed(3, PLAN3, _c1, _c1[0], H - _c1[3], 1.0, dwg=("plan", "平面図　1階"),
+          dwg_opt=dict(parts_clip=(0, 0, W, H), exclude=PLAN_2F_EX) if _i1 == 0 else dict(noparts=True))
+FIGS[3] = fig
 
-# ================================================================ 5　こどもたち（と働く人たち）の環境（ユーザー、10-24夜：一日の帯を先頭に、透視図もここ）
+# ================================================================ 2　ゾーニングと動線・環境（10-30：6枚の2枚目。先生のエスキス 10-30）
+# 上は一日の帯6コマ（前の5枚目の上の段のまま）。下の左にゾーニング（新しく）、右に季節ごとの空気環境と環境への配慮（前の3枚目から）
 fig, ax = page()
-frame(ax, 5, "動線とこどもたちの環境", "上は一日の動線（4枚目の平面図の続き）。分離線の下は、こどもたちが地に足をつけて育つ場所：園庭・遊戯室・北山杉の林・教室・廊下の本棚・表の畑と火のオーブン",
-      "一日の帯と動線 → 分離線 → 園庭 → 遊戯室・林 → 教室・本棚・畑")
+frame(ax, 2, "ゾーニングと動線・環境", "上は一日の動線（6コマ）。下の左にゾーニング（1階と西館の2階を、使う人ごとの色で）、右に季節ごとの空気環境と環境への配慮（LEED v5）",
+      "一日の帯と動線→ゾーニング→季節ごとの空気環境→環境への配慮")
 STRIP_H = 150
 px, py = M + 6, H - M - HDR - 2
 # 一日の帯の小さな配置も配置図と同じ向き（高野川を下辺）に回す（ユーザー、10-25）。帯を描くあいだだけ形を回したものに入れ替える
@@ -2567,7 +2511,7 @@ ksc = next(s_ for s_ in (500, 600, 700, 800, 1000)
 for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
     fx = px + i * (fw + 5)
     ax.add_patch(Rectangle((fx, fy), fw, fh, fc="none", ec="#BBBBBB", lw=0.3))
-    sozai(f"{6 + i:02d}", f"一日の帯　{h1}（小さな配置1/{ksc}と三者の動線）", 5, fx, fy, fw, fh)
+    sozai(f"{6 + i:02d}", f"一日の帯　{h1}（小さな配置1/{ksc}と三者の動線）", 2, fx, fy, fw, fh)
     T(ax, fx + 3, fy + fh - 6, h1, 3.4, bold=True)
     kw_, kh_ = (kx1 - kx0) * 1000 / ksc, (ky1 - ky0) * 1000 / ksc
     kox, koy = fx + (fw - kw_) / 2, fy + txt_h + 2
@@ -2587,47 +2531,231 @@ for i, (h1, keys, ghi, path, lines3) in enumerate(frames_):
         for k_, ln_ in enumerate(jwrap(s_, (fw - 16) / (2.3 / 0.72))[:2]):
             T(ax, fx + 13, yy - 3.0 - k_ * 3.3, ln_, 2.3)
         yy -= 3.4 + 2 * 3.3
+
+# ---- ゾーニング（10-30、先生のエスキス：新しく）。1階と西館の2階の小さな平面を、配置図と同じ向き（高野川を下）に、使う人ごとの色で。
+# 帯と同じく形を回したまま描く。部屋の色の表（ROOM）を描くあいだだけゾーンの色に入れ替えて draw_plan を使う
+_sep = fy - 8                                  # 一日の帯の下の分離線
+ax.plot([M + 6, W - M - 6], [_sep, _sep], color="#888888", lw=0.5, zorder=5)
+rt = _sep - 8                                  # 下の段の上端
+_rw5 = 335                                     # 右の列（季節ごとの空気環境・環境への配慮）の幅（前の3枚目と同じ：文の折り返しが変わらない）
+_rx5 = W - M - 6 - _rw5
+Z_COL = {"z02": "#C5DE9A", "z35": "#7FB872", "share": C_SHARE, "adult": C_ADULT, "kitchen": "#EBAA80"}
+Z_LEG = [("z02", "0〜2歳"), ("z35", "3〜5歳"), ("share", "みんなの場所"), ("adult", "大人"), ("kitchen", "調理")]
+Z_NOTE = ["みんなの場所＝遊戯室・ホール・東の帯・内縁側・外縁側・あまのがわ・西の吹き抜け・路地・多目的便所。こどもの便所はいちばん近い保育室の色",
+          "大人＝事務・医務・静養室・職員の便所・倉庫・機械室・階段・受け取り土間・西館の2階（会議・休憩・更衣・ホール）。調理＝キッチン・調理の更衣・前室"]
+ZONE = {"53_": "z02", "54_": "z02",
+        "59_1F_3歳": "z35", "59_1F_4歳": "z35", "59_1F_5歳": "z35",
+        "31_": "share", "33_": "share", "12_": "share", "13_": "share", "14_": "share", "15_": "share", "56_": "share",
+        "59_1F_ホール": "share", "59_1F_西吹き抜け": "share", "59_1F_路地": "share", "59_1F_多目的便所": "share",
+        "59_1F_事務": "adult", "59_1F_医務": "adult", "59_1F_静養室": "adult", "59_1F_便所（職員）": "adult", "59_1F_倉庫": "adult",
+        "35_": "adult", "36_": "adult", "52_": "adult",
+        "32_": "kitchen", "57_": "kitchen"}
+Z_KIDS = ("53_", "54_", "59_1F_3歳", "59_1F_4歳", "59_1F_5歳")
+Z2 = []                                        # 西館の2階（会議・更衣・休憩・便所・ホール）。plan_items は1階だけ（高さ2 m より下）なので3dmから
+for o in objs:
+    if o["layer"].startswith(("41_", "42_", "43_", "44_", "45_")):
+        g_ = shape(o, "plan")
+        if g_ is not None and g_.area > 1e-3:
+            Z2.append((o["layer"], rot(g_)))
+_zb = unary_union([roofs_plan, GD["garden"]]).bounds
+zx0, zy0, zx1, zy1 = _zb[0] - 1.0, _zb[1] - 1.0, _zb[2] + 1.0, _zb[3] + 1.0
+_z2b = unary_union([g_ for _, g_ in Z2]).bounds if Z2 else (0, 0, 1, 1)
+_z2x0, _z2y0, _z2x1, _z2y1 = _z2b[0] - 1.0, _z2b[1] - 1.0, _z2b[2] + 1.0, _z2b[3] + 1.0
+Z_AW = _rx5 - 12 - (M + 6)                     # 使える幅
+Z_AH = (rt - 10) - (M + 8 + 18)                # 使える高さ（下に凡例）
+zsc = next((s_ for s_ in (250, 300, 400, 500) if ((zx1 - zx0) + (_z2x1 - _z2x0)) * 1000 / s_ + 10 <= Z_AW
+            and max(zy1 - zy0, _z2y1 - _z2y0) * 1000 / s_ <= Z_AH), 500)
+zw, zh = (zx1 - zx0) * 1000 / zsc, (zy1 - zy0) * 1000 / zsc
+z2w, z2h = (_z2x1 - _z2x0) * 1000 / zsc, (_z2y1 - _z2y0) * 1000 / zsc
+zox, zoy = M + 6, rt - 10 - zh
+z2ox, z2oy = zox + zw + 10, rt - 10 - z2h
+title(ax, M + 6, rt - 4, "ゾーニング", f"1/{zsc}　1階と西館の2階、配置図と同じ向き（高野川を下に）")
+T(ax, zox + 2, rt - 9, "1階", 3.0, bold=True)
+T(ax, z2ox, rt - 9, "2階（西館）", 3.0, bold=True)
+_ROOM_SAVE = dict(ROOM)
+ROOM.clear(); ROOM.update({k_: Z_COL[v_] for k_, v_ in ZONE.items()})
+zxf = xform(zox, zoy, zsc, zx0, zy0)
+draw_shape(ax, GD["garden"], zxf, fc="#EEF2E8", ec="#9DB08A", lw=0.25, z=0.6)            # 園庭は淡く（ゾーンの緑と紛れないように）
+draw_plan(ax, zox, zoy, zsc, zx0, zy0, zw, zh, thin=True)
+_kidg = [(ln_, g_) for ln_, k_, g_ in plan_items if ln_.startswith(Z_KIDS) and k_ == "mesh"]
+for ln_, k_, g_ in plan_items:                 # こどもの便所は、いちばん近い保育室のゾーンの色
+    if ln_.startswith("59_1F_便所（こども）") and k_ == "mesh" and g_ is not None and _kidg:
+        _nz = ZONE[next(p_ for p_ in Z_KIDS if min(_kidg, key=lambda q_: q_[1].distance(g_))[0].startswith(p_))]
+        draw_shape(ax, g_, zxf, fc=Z_COL[_nz], ec="#9A9A9A", lw=0.12, z=1.05)
+ROOM.clear(); ROOM.update(_ROOM_SAVE)
+z2xf = xform(z2ox, z2oy, zsc, _z2x0, _z2y0)
+for ln_, g_ in Z2:
+    draw_shape(ax, g_, z2xf, fc=Z_COL["adult"], ec="#9A9A9A", lw=0.12, z=1)
+if Z2:
+    draw_shape(ax, unary_union([g_.buffer(0.05) for _, g_ in Z2]), z2xf, fc="none", ec="#333333", lw=0.35, z=5)
+sozai("19", f"ゾーニング（1/{zsc}、1階と西館の2階）", 2, zox, min(zoy, z2oy), z2ox + z2w - zox, rt - 10 - min(zoy, z2oy))
+_ly = min(zoy, z2oy) - 7                       # 凡例
+_lx = M + 6
+for k_, nm_ in Z_LEG:
+    ax.add_patch(Rectangle((_lx, _ly - 1.2), 8, 5, fc=Z_COL[k_], ec="#777777", lw=0.2))
+    T(ax, _lx + 10, _ly, nm_, 3.0)
+    _lx += 10 + len(nm_) * 4.2 + 8
+for i_, s_ in enumerate(Z_NOTE):
+    T(ax, M + 6, _ly - 6 - i_ * 4.2, s_, 2.6, "#444444")
+print("ゾーニング：1/%d、1階 %.0f×%.0f mm、2階 %.0f×%.0f mm（2階の部屋 %d）" % (zsc, zw, zh, z2w, z2h, len(Z2)))
 plan_items[:] = _SAVE[0]
 GD.clear(); GD.update(_SAVE[1])
 roofs_plan = _SAVE[2]
 dimnote(ax, px + 230, py - 4.5, f"一日の帯：上は1/{ksc}の小さな配置（建物＋園庭）と三者の動線（こども緑・保育士茶・調理青）、下にそれぞれの一日")
 
-# 一日の帯は4枚目の平面図の続き（ユーザー、10-27夜）。その下に分離線、下は「こどもたちの環境」
-_sep = fy - 8
-ax.plot([M + 6, W - M - 6], [_sep, _sep], color="#888888", lw=0.5, zorder=5)
-T(ax, M + 6, _sep - 9, "こどもたちの環境", 5.0, bold=True)
-rt = _sep - 16                                 # 下の段の上端
-by = M + 8
-_avh = rt - by                                  # 使える高さ
-# 左：園庭（だいさんかく・しずかのもり。配置1/200を縮小）
-GSC = min(0.62, (_avh - 8) / _gh)
-title(ax, M + 6, rt - 8 + TITLE_GAP, "園庭", f"だいさんかく・しずかのもり　約1/{int(round(200 / GSC, -1))}（配置1/200を縮小）")
-wGa, hGa = embed(5, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), (14, 40, 14 + _gw, 40 + _gh), M + 6, rt - 8 - _gh * GSC, GSC)
-x2 = M + 6 + wGa + 8
-_rw = W - M - 6 - x2
-# 右の上の行：遊戯室・北山杉の林
-PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
-_rowh = (_avh - 14) * 0.56
-title(ax, x2, rt - 8 + TITLE_GAP, "遊戯室", "")
-wPl, hPl = embed(5, PLAYP, None, x2, rt - 8 - _rowh, fit=(_rw * 0.58, _rowh))
-_topalign(5, rt - 8)
-x3 = x2 + wPl + 8
+# ---- 季節ごとの空気環境と環境への配慮（10-30：前の3枚目の右の列から。幅と字は前と同じ、置き場所は2枚目の下の段の右）
+_top5 = rt                                      # 範囲の上端（ゾーニングの題にそろえる）
+_bot5 = M + 8
+_HAIRYO_TOP_EST = None
+_gap5 = 9                                       # 運転と配慮のあいだ
+_Lw = _rw5                                      # 一つの列に上から：季節ごとの運転・放射冷房のパネル・環境への配慮
+_Rw = _rw5
+_FS = None
+for _fs in (3.0, 2.8, 2.6):                     # 入る字の大きさを選ぶ
+    _cpl = lambda w_: w_ / (_fs / 0.72)
+    _lh = _fs / 0.72 * 1.3
+    _cw = [w_ or (_Lw - sum(c[1] for c in UNTEN_COLS)) for _, w_ in UNTEN_COLS]
+    _rows_h = [max(len(jwrap(t_, _cpl(_cw[j_] - 2))) for j_, t_ in enumerate(r_)) * _lh + 2.4 for r_ in UNTEN]
+    _hl = 6 + len(jwrap(UNTEN_SUM, _cpl(_Lw))) * _lh + 2 + (_lh + 2.4) + sum(_rows_h) + 5 + 6 + len(jwrap(REIBOU, _cpl(_Lw - 4))) * _lh + 4
+    _nw = max(len(n_) for n_, _ in HAIRYO) * _fs / 0.72 + 3
+    _hr = 6 + sum(len(jwrap(t_, _cpl(_Rw - _nw))) * _lh + 1.6 for _, t_ in HAIRYO)
+    if _hl <= _top5 - _bot5:
+        _FS = _fs
+        break
+if _FS is None:
+    raise SystemExit("2枚目：季節ごとの運転と環境への配慮が 2.6 mm でも入らない（運転 %.0f・配慮 %.0f／%.0f mm）" % (_hl, _hr, _top5 - _bot5))
+print("2枚目の運転と配慮：字 %.1f mm、運転 %.0f・配慮 %.0f／%.0f mm" % (_FS, _hl, _hr, _top5 - _bot5))
+# 素材12・12bはやめた：文字と罫線は Illustrator の部品（ユーザー 10-29 12:49：イメージではなく文字に）
+# 左：季節ごとの運転
+_x0, _y = _rx5, _top5 - 4
+_part("unten.head", _x0, _y, 0, ["季節ごとの空気環境"], 3.2, C_UNTEN, True, name="見出し：季節ごとの空気環境", group=G_UNTEN)   # ユーザー 10-29：「運転」→「空気環境」
+_y -= 6
+_y -= _part("unten.sum", _x0, _y, _Lw, jwrap(UNTEN_SUM, _cpl(_Lw)), _FS, name="まとめ：季節ごとの運転", group=G_UNTEN) + 1
+_xs = [_x0]
+for w_ in _cw[:-1]:
+    _xs.append(_xs[-1] + w_)
+_rule("unten.rule.top", [(_x0, _y), (_x0 + _Lw, _y)], C_UNTEN, 0.5, G_UNTEN)
+_ytb = _y
+_y -= _lh
+for j_, (h_, _) in enumerate(UNTEN_COLS):
+    _part(f"unten.h.c{j_}", _xs[j_] + 1, _y, 0, [h_], _FS, C_UNTEN, True, name="表の見出し：" + h_, group=G_UNTEN)
+_y -= 2.4
+_rule("unten.rule.head", [(_x0, _y + 1), (_x0 + _Lw, _y + 1)], C_UNTEN, 0.3, G_UNTEN)
+for i_, r_ in enumerate(UNTEN):
+    _yt = _y - _lh + 0.6
+    for j_, t_ in enumerate(r_):
+        _part(f"unten.r{i_}.c{j_}", _xs[j_] + 1, _yt, _cw[j_] - 2, jwrap(t_, _cpl(_cw[j_] - 2)), _FS, bold=(j_ == 0), name=f"表：{r_[0]}・{UNTEN_COLS[j_][0]}", group=G_UNTEN)
+    _y -= _rows_h[i_]
+    _rule(f"unten.rule.r{i_}", [(_x0, _y + 1), (_x0 + _Lw, _y + 1)], "#9A9A9A", 0.2, G_UNTEN)
+for j_, x_ in enumerate(_xs[1:]):
+    _rule(f"unten.rule.c{j_ + 1}", [(x_ - 0.5, _y + 1), (x_ - 0.5, _ytb)], "#BBBBBB", 0.2, G_UNTEN)
+# 左の下：放射冷房のパネル（小さな段、左に色の帯）
+_y -= 5
+_rl = jwrap(REIBOU, _cpl(_Lw - 4))
+_rh = 6 + len(_rl) * _lh + 1
+_rule("reibou.bar", [(_x0 + 0.6, _y + 2), (_x0 + 0.6, _y - _rh + 2)], C_UNTEN, 1.2 / 0.3528, G_UNTEN)
+_part("reibou.head", _x0 + 4, _y - 2, 0, ["放射冷房のパネル"], 3.0, C_UNTEN, True, name="見出し：放射冷房のパネル", group=G_UNTEN)
+_part("reibou.text", _x0 + 4, _y - 2 - 5.5, _Lw - 4, _rl, _FS, name="本文：放射冷房のパネル", group=G_UNTEN)
+_HAIRYO_TOP_EST = _top5 - _hl - _gap5
+if _HAIRYO_TOP_EST - _hr < M + 8:
+    raise SystemExit("2枚目：環境への配慮が紙の下に入らない")
+# 右：環境への配慮（一年を通して効くもの）
+_HAIRYO_TOP = _top5 - _hl - _gap5              # 季節ごとの運転の下に続ける
+
+_x1, _y = _rx5, _HAIRYO_TOP - 4
+_part("hairyo.head", _x1, _y, 0, ["環境への配慮（LEED v5 Goldを目指す）"], 3.2, C_HAIRYO, True, name="見出し：環境への配慮", group=G_HAIRYO)
+_part("hairyo.url", _x1 + _Rw, _y, 0, ["LEED v5（USGBC）　https://www.usgbc.org/leed/v5"], 2.2, "#777777", False,
+      name="LEED v5 のURL", group=G_HAIRYO, ha="right")    # ユーザー 10-29：LEED v5 の文書のURL
+_y -= 3
+_rule("hairyo.rule", [(_x1, _y), (_x1 + _Rw, _y)], C_HAIRYO, 0.5, G_HAIRYO)
+_y -= _lh
+for i_, (n_, t_) in enumerate(HAIRYO):
+    _part(f"hairyo.{i_}.name", _x1, _y, 0, [n_], _FS, C_HAIRYO, True, name="配慮の項目：" + n_, group=G_HAIRYO)
+    _tl = jwrap(t_, _cpl(_Rw - _nw))
+    _part(f"hairyo.{i_}.text", _x1 + _nw, _y, _Rw - _nw, _tl, _FS, name="配慮の文：" + n_, group=G_HAIRYO)
+    _y -= len(_tl) * _lh + 1.6
+FIGS[2] = fig
+
+# ================================================================ 4　平面図　2階・こどもたちの環境（10-30：6枚の4枚目。先生のエスキス 10-30）
+# 前の4枚目の平面図のうち2階（西館）、前の5枚目の下の段（こどもたちの環境）、前の3枚目の右下の囲みから面積表
+fig, ax = page()
+frame(ax, 4, "平面図　2階・こどもたちの環境", "2階（西館）の平面図1/100と面積表。こどもたちが地に足をつけて育つ場所：園庭・遊戯室・北山杉の林・教室・廊下の本棚・表の畑と火のオーブン",
+      "2階の平面図・面積表→園庭→遊戯室・林→教室・本棚・畑")
+# 2階（西館）：更新係の一枚の左上（西の道路の外）を切り抜く（仮、10-30）。右の端の細い帯にキッチンの角が少し入る
+CLIP_2F = (12, 20, 394, 298)
+_p2w, _p2h = CLIP_2F[2] - CLIP_2F[0], CLIP_2F[3] - CLIP_2F[1]
+_p2t = H - 50                                   # 図の上端
+title(ax, M + 6, _p2t + TITLE_GAP, "平面図　2階（西館）", "1/100　2FL+1000で切断、配置図と同じ向き")
+embed(4, PLAN3, CLIP_2F, M + 6, _p2t - _p2h, 1.0, dwg=("plan2", "平面図　2階"))
+# 面積表（前の3枚目の右下の囲みの下の半分。部品の鍵は同じ area.*、グループは「面積表」）
+_ax0 = M + 6 + _p2w + 8
+_abw = IA_W
+_abh = IA_PAD + 4 + 9 + (len(_ia_rows) + 2) * IA_ROW + IA_PAD
+_aby = _p2t - _abh
+ax.add_patch(Rectangle((_ax0, _aby), _abw, _abh, fc="none", ec="#8A8A8A", lw=0.3, gid="aipart"))
+_airec(fig, kind="box", id="area.box", name="囲み：面積表", x=_ax0, y=_aby, w=_abw, h=_abh, fill="none", stroke="#8A8A8A", lw=0.3, dash=None,
+       group=G_AREA[0], group_name=G_AREA[1])
+_ix = _ax0 + IA_PAD
+_iw = _abw - 2 * IA_PAD
+_y = _p2t - IA_PAD - 4
+_part("area.head", _ix, _y, 0, ["面積表"], 4.2, INK, True, name="見出し：面積表", group=G_AREA)
+_part("area.sub", _ix + 21, _y, 0, ["m²（壁芯、3dmから自動）"], 3.0, INK, name="見出しの添え：面積表", group=G_AREA)
+_y -= 9
+_rule("area.rule.top", [(_ix, _y + IA_FS + 1.2), (_ix + _iw, _y + IA_FS + 1.2)], "#666666", 0.35, G_AREA, "罫線：面積表の上")
+_rule("area.rule.head", [(_ix, _y - 1.6), (_ix + _iw, _y - 1.6)], "#999999", 0.25, G_AREA, "罫線：面積表の見出しの下")
+_cols = {"room": ["室"], "req": ["要求"], "plan": ["計画"]}
+for r_ in _ia_rows:
+    _cols["room"].append(r_["room"].replace(" ", ""))
+    _cols["req"].append(r_["required"].replace(" ", ""))
+    # 食堂は「なし」、駐車・駐輪は台数（サービス車・職員の分も、ユーザー 10-30）。台数は areas.json の parts（決定事項_外構・外構の図の counts）から
+    _pl = {"食堂": "なし", "駐車場": "5台（うち搬入1）",
+           "駐輪スペース": "21台（保護者12・職員9）"}.get(r_["room"].replace(" ", ""))
+    if r_["room"].replace(" ", "") == "駐車場" and "南 3" not in r_.get("parts", ""):
+        _pl = None; print("面積表：駐車場の台数が変わった。mock.py の台数を直す：", r_.get("parts"))
+    if r_["room"].replace(" ", "") == "駐輪スペース" and "計 21" not in r_.get("parts", ""):
+        _pl = None; print("面積表：駐輪の台数が変わった。mock.py の台数を直す：", r_.get("parts"))
+    _cols["plan"].append(_pl or (f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"]))
+_cols["room"].append("延床（2,000以内）"); _cols["req"].append(""); _cols["plan"].append(f"{AJ['floor']['total']:,.1f}")
+_cx = {"room": _ix, "req": _ix + 44, "plan": _ix + _iw}       # 要求は左揃え、計画は右揃え（小数点がそろう）
+_nm = {"room": "室", "req": "要求", "plan": "計画"}
+for k_, col_ in _cols.items():
+    n_ = len(col_)
+    _yl = _mpart(f"area.col.{k_}", _cx[k_], _y, [(t_, IA_FS, INK, j_ in (0, n_ - 1), IA_ROW) for j_, t_ in enumerate(col_)], G_AREA,
+                 f"面積表の列：{_nm[k_]}", ha="right" if k_ == "plan" else "left")
+_rule("area.rule.bottom", [(_ix, _yl - 1.6), (_ix + _iw, _yl - 1.6)], "#666666", 0.35, G_AREA, "罫線：面積表の下")
+# こどもたちの環境（前の5枚目の下の段）。右の列：北山杉の林・廊下の本棚・表の畑。下の段：園庭・遊戯室・教室
+_rcx = _ax0 + _abw + 8
+_rcw = W - M - 6 - _rcx
+T(ax, _rcx, _p2t + TITLE_GAP + 0.5, "こどもたちの環境", 5.0, bold=True)
 FOREST = os.path.join(ROOT, "out", "sodachiya_forest_02.pdf")
-title(ax, x3, rt - 8 + TITLE_GAP, "ホールの北山杉の林", "")
-embed(5, FOREST, (0, 27, 420, 118), x3, rt - 8 - _rowh, fit=(W - M - 6 - x3, _rowh))
-_topalign(5, rt - 8)
-# 右の下の行：教室・廊下の本棚と読む場所・表の畑と火のオーブン
-_r2t = rt - 8 - _rowh - 8
-_r2h = _r2t - 6 - by
+_ft = _p2t - 10
+title(ax, _rcx, _ft + TITLE_GAP, "ホールの北山杉の林", "")
+embed(4, FOREST, (0, 27, 420, 118), _rcx, _ft - 70, fit=(_rcw, 70))
+_topalign(4, _ft)
+_fh = embeds[4][-1][3][3]
+_bt = _ft - _fh - 8
+_bb = _p2t - _p2h
+_bw4 = (_rcw - 8) / 2
+box(ax, _rcx, _bb, _bw4, _bt - _bb, "廊下の本棚と読む場所", "（図は本館係に依頼）")
+box(ax, _rcx + _bw4 + 8, _bb, _bw4, _bt - _bb, "表の畑と火のオーブン", "入口の前の菜園とひろばのかまど\n（図はアプローチ係に依頼）")
+_r2top = _p2t - _p2h - 12                       # 下の段の図の上端
+by = M + 8
+_r2h = _r2top - by
+GSC = min(0.62, _r2h / _gh, 215 / _gw)
+title(ax, M + 6, _r2top + TITLE_GAP, "園庭", f"だいさんかく・しずかのもり　約1/{int(round(200 / GSC, -1))}（配置1/200を縮小）")
+wGa, hGa = embed(4, os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"), (14, 40, 14 + _gw, 40 + _gh), M + 6, _r2top - _gh * GSC, GSC)
+x2 = M + 6 + wGa + 10
+PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
+title(ax, x2, _r2top + TITLE_GAP, "遊戯室", "")
+wPl, hPl = embed(4, PLAYP, None, x2, by, fit=(270, _r2h))
+_topalign(4, _r2top)
+x3 = x2 + wPl + 10
 ROOM3 = os.path.join(ROOT, "out", "sodachiya_room3_1-50.pdf")
-title(ax, x2, _r2t, "教室", "3歳の保育室")
-wR3, hR3 = embed(5, ROOM3, None, x2, by, fit=(_rw * 0.42, _r2h))
-_topalign(5, _r2t - TITLE_GAP)
-_bx4 = x2 + wR3 + 8
-_bw4 = (W - M - 6 - _bx4 - 8) / 2
-box(ax, _bx4, by, _bw4, _r2h, "廊下の本棚と読む場所", "（図は本館係に依頼）")
-box(ax, _bx4 + _bw4 + 8, by, _bw4, _r2h, "表の畑と火のオーブン", "入口の前の菜園とひろばのかまど\n（図はアプローチ係に依頼）")
-figs.append(fig)
+title(ax, x3, _r2top + TITLE_GAP, "教室", "3歳の保育室")
+wR3, hR3 = embed(4, ROOM3, None, x3, by, fit=(W - M - 6 - x3, _r2h))
+_topalign(4, _r2top)
+FIGS[4] = fig
+figs[:] = [FIGS[i_] for i_ in range(1, 7)]      # 枚の番号の順（ai_layout は figs の順で p1〜p6）
 
 # ---------------------------------------------------------------- 書き出し
 base = os.path.join(OUT, "_base.pdf")
@@ -2636,7 +2764,7 @@ with PdfPages(base) as pp:
     for f in figs:
         pp.savefig(f)
 doc = fitz.open(base)
-for si in range(1, 6):
+for si in range(1, 7):
     pg = doc[si - 1]
     for k_e, (src, pno, clip, (x, y, w, h)) in enumerate(embeds[si]):
         sd = fitz.open(src)
@@ -2651,7 +2779,7 @@ for si in range(1, 6):
         pg.insert_text(fitz.Point((M + 4) * MM, (M + HDR_BL) * MM), SCHOOL, fontsize=NAME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
         pg.insert_text(fitz.Point((M + THEME_X) * MM, (M + HDR_BL) * MM), PAGE_TITLES.get(si, ""), fontsize=THEME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
 doc_clean = fitz.open("pdf", doc.tobytes())          # 素材は引き出し線・重ねた文字を入れる前から切り抜く（ユーザー、10-25）
-for si in range(1, 6):
+for si in range(1, 7):
     pg = doc[si - 1]
     for (pts, col, *_k) in TOPL[si]:                     # 引き出し線は貼った図の上に（箱 → 折れ点 → 配置図の点）
         rgb = tuple(int(col[k:k + 2], 16) / 255 for k in (1, 3, 5))
@@ -2775,7 +2903,7 @@ _st[_fn0] = dict(hash=_hs0, updated=_o0.get("updated", _now) if _o0.get("hash") 
 _rows.append(f"| 00 | `{_fn0}` | 枠（外枠・上の帯の線・表題・ページ・サブタイトル・右下の名前） | 全ページ | {W:.0f}×{H:.0f} | {_st[_fn0]['updated']} | シンボルにして5枚に。ページとサブタイトルは各ページで書き換える |")
 _rows.sort(key=lambda r_: r_.split("|")[1].strip())
 _ext = []
-for sh_ in range(1, 6):
+for sh_ in range(1, 7):
     for k_e, (src, pno, clip, (x, y, w, h)) in enumerate(embeds[sh_]):
         rel = os.path.relpath(src, ROOT) + (f"`＋`{os.path.relpath(RHINO_TXT[(sh_, k_e)], ROOT)}`（上に重ねる）" if (sh_, k_e) in RHINO_TXT else "")
         _ext.append(f"| {sh_}枚目 | `{rel}` | {'全体' if clip[0] == 0 and clip[1] == 0 else '切り抜き (%.0f, %.0f)–(%.0f, %.0f) mm' % tuple(clip)} | {w / (clip[2] - clip[0]):.2f} 倍 |")
@@ -2791,17 +2919,34 @@ open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
 
 # Illustratorの割付（present/ai/layout.json と部品のPDF、ユーザー、10-25夕：部品ごとに動かせる .ai をスクリプトで組む）
 import ai_layout
+# 番号の振り直し（前に組んだ .ai の番号 → 今の番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。
+# 10-28 13:17（ユーザー）：5枚の番号を振り直した（id 2026-10-28b）。10-30（先生のエスキス、ユーザー）：6枚に組み直した（id 2026-10-30）。
+# 前の id の写し方は、今の番号まで続けて写した形（2026-10-28 → 2026-10-28b → 2026-10-30）。
+# split：枚が分かれた部品（前の3枚目の季節ごとの空気環境・配慮は2枚目、面積表は4枚目。前の5枚目のこどもたちの環境は4枚目）。部品の名前の頭 → 新しい頭（長い方が先）。
+# export_layout が前の番号の .ai から書き出すとき、split に当たった部品は位置を書き出さない（前の紙の位置なので）
+RENUMBER = dict(id="2026-10-30",
+                maps={"2026-10-28b": {"1": 1, "2": 5, "3": 6, "4": 3, "5": 2},
+                      "2026-10-28": {"1": 1, "2": 3, "3": 2, "4": 5, "5": 6},
+                      "_none": {"1": 1, "2": 5, "3": 3, "4": 2, "5": 6}},
+                split={"2026-10-28b": {"p3.unten.": "p2.unten.", "p3.reibou.": "p2.reibou.", "p3.hairyo.": "p2.hairyo.", "p3.area.": "p4.area.",
+                                       "p5.link.": "p4.link.", "p5.box.": "p4.box.", "p5.t.こどもたちの環境": "p4.t.こどもたちの環境",
+                                       "p5.t.園庭": "p4.t.園庭", "p5.t.だいさんかく": "p4.t.だいさんかく", "p5.t.遊戯室": "p4.t.遊戯室",
+                                       "p5.t.ホールの北山杉の林": "p4.t.ホールの北山杉の林", "p5.t.教室": "p4.t.教室", "p5.t.3歳の保育室": "p4.t.3歳の保育室",
+                                       "p5.t.廊下の本棚と読む場所": "p4.t.廊下の本棚と読む場所", "p5.t.（図は本館係に依頼）": "p4.t.（図は本館係に依頼）",
+                                       "p5.t.表の畑と火のオーブン": "p4.t.表の畑と火のオーブン", "p5.t.入口の前の菜園": "p4.t.入口の前の菜園",
+                                       "p5.t.（図はアプローチ係に依頼）": "p4.t.（図はアプローチ係に依頼）"}},
+                note="10-30：6枚に組み直した（先生のエスキス、ユーザー）。前（2026-10-28b）の1→1、2→5、3→6、4→3、5→2。"
+                     "枚が分かれた部品は split（前の番号の .ai から書き出すと位置は書き出さない）。前の id の写し方は今の番号まで続けた形")
 print("Rhino の図：", "、".join(RHINO_USED) if RHINO_USED else "無し（drawings_rhino/ が無いので自動の図のまま）")
 # 地域のなかの敷地（素材14）は用水のネットワークと同じレイヤー（説明）の、その上に（ユーザー 10-29 17:24）。表題・出典はユーザーが隠した・離したので、図だけのグループ
 _GROUPS = {f"p1.{k_}": ("water", "用水のネットワーク") for k_ in ("sozai.02", "water.title", "water.source", "water.source2")}
 _GROUPS["p1.link.14_地域のなかの敷地_1-10000"] = ("areamap", "地域のなかの敷地")
 _GROUPS["p1.top.地域のなかの敷地110000"] = ("areamap", "地域のなかの敷地")
 ai_layout.write(dict(order=[dict(layer="説明", name="地域のなかの敷地", above="用水のネットワーク")], groups=_GROUPS, frame_hdr=(HDR, HDR_BL, NAME_SZ, SCHOOL), mark_num_box=MARK_NUM_BOX, emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
-                     renumber=dict(id="2026-10-28b", maps={"2026-10-28": {"4": 2, "5": 3, "2": 4, "3": 5}, "_none": {"5": 3, "3": 4, "4": 5}},
-                                   note="ユーザー、10-28 13:17：5枚の番号を振り直した（前の番号 → 新しい番号）。maps のキーは前に組んだときの renumber の id（_none は最初の番号）。前の .ai の木田さんの物は build で新しい番号の枚へ写す"),
+                     renumber=RENUMBER,
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
 
-# 壁に貼ったときの全体（3列：1 ｜ 2・3 ｜ 4・5）。枠と注をmatplotlibで描き、5枚はPDFのまま縮めて貼る
+# 壁に貼ったときの全体（2段×3列：上の段1・3・5、下の段2・4・6、10-30）。枠と注をmatplotlibで描き、6枚はPDFのまま縮めて貼る
 fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4))
 ax = fig.add_axes([0, 0, 1, 1])
 SC = 594 / 2500                       # 壁のmm → 紙のmm
@@ -2811,11 +2956,10 @@ ax.axis("off")
 x0w, base_ = 250, 350
 _cx = lambda c_: x0w + c_ * (841 + 120)
 _top = base_ + 594 + 60
-pos = {1: (_cx(0), base_ + (594 + 60) / 2), 2: (_cx(1), _top), 3: (_cx(1), base_), 4: (_cx(2), _top), 5: (_cx(2), base_)}
-# 壁の並び（ユーザー、10-28 13:17）：3列「1 ｜ 2・3 ｜ 4・5」。1は二段の真ん中の高さ。立面（2）の下に断面（3）、平面（4）の下に一日の帯（5）。
-# 読む順は外から中へ：敷地→外から見た姿と切った姿→中の平面と暮らし。濃い面（配置図・色の平面）と軽い面（線の立面・断面）が濃・淡・濃。
-# 1の川の辺の右に沿川の景観立面。主題（こどもたちの環境）で締める
-for i in range(5):
+pos = {1: (_cx(0), _top), 2: (_cx(0), base_), 3: (_cx(1), _top), 4: (_cx(1), base_), 5: (_cx(2), _top), 6: (_cx(2), base_)}
+# 壁の並び（先生のエスキス 10-30、ユーザー）：2段×3列、上の段1・3・5、下の段2・4・6。
+# 列ごとに：配置図とゾーニング・動線／1階と2階の平面／立面と断面
+for i in range(6):
     x, y = pos[i + 1]
     ax.add_patch(Rectangle((x, y), 841, 594, fill=False, ec="#555555", lw=0.5, zorder=2))
 ax.plot([100, 3300], [0 + 5, 5], color=INK, lw=1)
@@ -2824,20 +2968,19 @@ def TW(x, y, s, size, **kw):  # sizeは紙のmm
     T(ax, x, y, s, size, **kw)
 TW(110, 1515, "目の高さ1.5 m", 3.2, color=NOTE)
 TW(110, 20, "床", 3.2)
-TW(x0w, 2400, "壁に貼ったとき　3列：1 ｜ 2・3 ｜ 4・5（1は二段の真ん中）", 6.0, bold=True)
-notes = ["1　敷地と自然環境・地域（二段の真ん中）。",
-         "その右に2　景観（立面図1/100、下の段に沿川の景観立面）、その下に3　断面と環境（断面図1/100）。",
-         "その右に4　平面図、その下に5　動線とこどもたちの環境（一日の帯は平面図の続き）。",
-         "外から中へ：敷地→外から見た姿と切った姿→中の平面と暮らし。",
-         "2・3・4枚目の立面・断面・平面は3dmから自動の図を実寸で貼る。"]
+TW(x0w, 2400, "壁に貼ったとき　2段×3列：上の段1・3・5、下の段2・4・6", 6.0, bold=True)
+notes = ["1　敷地と自然環境・地域、その下に2　ゾーニングと動線・環境。",
+         "真ん中の列に3　平面図1階、その下に4　平面図2階・こどもたちの環境。",
+         "右の列に5　立面・景観、その下に6　断面・構造。",
+         "3・4・5・6枚目の平面・立面・断面は3dmから自動の図を実寸で貼る。"]
 for i, s_ in enumerate(notes):
-    TW(x0w, pos[1][1] - 80 - i * 70, s_, 3.2, color=NOTE)
+    TW(x0w, base_ - 60 - i * 55, s_, 3.2, color=NOTE)
 ov = os.path.join(OUT, "_overview.pdf")
 fig.savefig(ov)
 plt.close(fig)
 _od = fitz.open(ov)
 _pg = _od[0]
-for i in range(5):
+for i in range(6):
     x, y = pos[i + 1]
     _pg.show_pdf_page(fitz.Rect(x * SC * MM, (594 - (y + 594) * SC) * MM, (x + 841) * SC * MM, (594 - y * SC) * MM), doc, i)
 _od.save(os.path.join(OUT, "sodachiya_present_overview.pdf"), garbage=3, deflate=True)
