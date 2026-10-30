@@ -1,169 +1,169 @@
 {
  "note": "Illustratorから export_layout.jsx が書き出した。ユーザーの割付（位置・大きさ・書き換えた文字・消した部品）。",
  "parts": {
-  "p2.hairyo.7.text": {
-   "artboard": 2
+  "p6.hairyo.7.text": {
+   "artboard": 6
   },
-  "p2.hairyo.7.name": {
-   "artboard": 2
+  "p6.hairyo.7.name": {
+   "artboard": 6
   },
-  "p2.hairyo.6.text": {
-   "artboard": 2
+  "p6.hairyo.6.text": {
+   "artboard": 6
   },
-  "p2.hairyo.6.name": {
-   "artboard": 2
+  "p6.hairyo.6.name": {
+   "artboard": 6
   },
-  "p2.hairyo.5.text": {
-   "artboard": 2
+  "p6.hairyo.5.text": {
+   "artboard": 6
   },
-  "p2.hairyo.5.name": {
-   "artboard": 2
+  "p6.hairyo.5.name": {
+   "artboard": 6
   },
-  "p2.hairyo.4.text": {
-   "artboard": 2
+  "p6.hairyo.4.text": {
+   "artboard": 6
   },
-  "p2.hairyo.4.name": {
-   "artboard": 2
+  "p6.hairyo.4.name": {
+   "artboard": 6
   },
-  "p2.hairyo.3.text": {
-   "artboard": 2
+  "p6.hairyo.3.text": {
+   "artboard": 6
   },
-  "p2.hairyo.3.name": {
-   "artboard": 2
+  "p6.hairyo.3.name": {
+   "artboard": 6
   },
-  "p2.hairyo.2.text": {
-   "artboard": 2
+  "p6.hairyo.2.text": {
+   "artboard": 6
   },
-  "p2.hairyo.2.name": {
-   "artboard": 2
+  "p6.hairyo.2.name": {
+   "artboard": 6
   },
-  "p2.hairyo.1.text": {
-   "artboard": 2
+  "p6.hairyo.1.text": {
+   "artboard": 6
   },
-  "p2.hairyo.1.name": {
-   "artboard": 2
+  "p6.hairyo.1.name": {
+   "artboard": 6
   },
-  "p2.hairyo.0.text": {
-   "artboard": 2
+  "p6.hairyo.0.text": {
+   "artboard": 6
   },
-  "p2.hairyo.0.name": {
-   "artboard": 2
+  "p6.hairyo.0.name": {
+   "artboard": 6
   },
-  "p2.hairyo.rule": {
-   "artboard": 2
+  "p6.hairyo.rule": {
+   "artboard": 6
   },
-  "p2.hairyo.url": {
-   "artboard": 2
+  "p6.hairyo.url": {
+   "artboard": 6
   },
-  "p2.hairyo.head": {
-   "artboard": 2
+  "p6.hairyo.head": {
+   "artboard": 6
   },
   "p6.t.断面図D本館の横断（光の筋で": {
    "x": 472.12,
    "y": 170.88,
    "artboard": 6
   },
-  "p2.reibou.text": {
-   "artboard": 2
+  "p6.reibou.text": {
+   "artboard": 6
   },
-  "p2.reibou.head": {
-   "artboard": 2
+  "p6.reibou.head": {
+   "artboard": 6
   },
-  "p2.reibou.bar": {
-   "artboard": 2
+  "p6.reibou.bar": {
+   "artboard": 6
   },
-  "p2.unten.rule.c3": {
-   "artboard": 2
+  "p6.unten.rule.c3": {
+   "artboard": 6
   },
-  "p2.unten.rule.c2": {
-   "artboard": 2
+  "p6.unten.rule.c2": {
+   "artboard": 6
   },
-  "p2.unten.rule.c1": {
-   "artboard": 2
+  "p6.unten.rule.c1": {
+   "artboard": 6
   },
-  "p2.unten.rule.r3": {
-   "artboard": 2
+  "p6.unten.rule.r3": {
+   "artboard": 6
   },
-  "p2.unten.r3.c3": {
-   "artboard": 2
+  "p6.unten.r3.c3": {
+   "artboard": 6
   },
-  "p2.unten.r3.c2": {
-   "artboard": 2
+  "p6.unten.r3.c2": {
+   "artboard": 6
   },
-  "p2.unten.r3.c1": {
-   "artboard": 2
+  "p6.unten.r3.c1": {
+   "artboard": 6
   },
-  "p2.unten.r3.c0": {
-   "artboard": 2
+  "p6.unten.r3.c0": {
+   "artboard": 6
   },
-  "p2.unten.rule.r2": {
-   "artboard": 2
+  "p6.unten.rule.r2": {
+   "artboard": 6
   },
-  "p2.unten.r2.c3": {
-   "artboard": 2
+  "p6.unten.r2.c3": {
+   "artboard": 6
   },
-  "p2.unten.r2.c2": {
-   "artboard": 2
+  "p6.unten.r2.c2": {
+   "artboard": 6
   },
-  "p2.unten.r2.c1": {
-   "artboard": 2
+  "p6.unten.r2.c1": {
+   "artboard": 6
   },
-  "p2.unten.r2.c0": {
-   "artboard": 2
+  "p6.unten.r2.c0": {
+   "artboard": 6
   },
-  "p2.unten.rule.r1": {
-   "artboard": 2
+  "p6.unten.rule.r1": {
+   "artboard": 6
   },
-  "p2.unten.r1.c3": {
-   "artboard": 2
+  "p6.unten.r1.c3": {
+   "artboard": 6
   },
-  "p2.unten.r1.c2": {
-   "artboard": 2
+  "p6.unten.r1.c2": {
+   "artboard": 6
   },
-  "p2.unten.r1.c1": {
-   "artboard": 2
+  "p6.unten.r1.c1": {
+   "artboard": 6
   },
-  "p2.unten.r1.c0": {
-   "artboard": 2
+  "p6.unten.r1.c0": {
+   "artboard": 6
   },
-  "p2.unten.rule.r0": {
-   "artboard": 2
+  "p6.unten.rule.r0": {
+   "artboard": 6
   },
-  "p2.unten.r0.c3": {
-   "artboard": 2
+  "p6.unten.r0.c3": {
+   "artboard": 6
   },
-  "p2.unten.r0.c2": {
-   "artboard": 2
+  "p6.unten.r0.c2": {
+   "artboard": 6
   },
-  "p2.unten.r0.c1": {
-   "artboard": 2
+  "p6.unten.r0.c1": {
+   "artboard": 6
   },
-  "p2.unten.r0.c0": {
-   "artboard": 2
+  "p6.unten.r0.c0": {
+   "artboard": 6
   },
-  "p2.unten.rule.head": {
-   "artboard": 2
+  "p6.unten.rule.head": {
+   "artboard": 6
   },
-  "p2.unten.h.c3": {
-   "artboard": 2
+  "p6.unten.h.c3": {
+   "artboard": 6
   },
-  "p2.unten.h.c2": {
-   "artboard": 2
+  "p6.unten.h.c2": {
+   "artboard": 6
   },
-  "p2.unten.h.c1": {
-   "artboard": 2
+  "p6.unten.h.c1": {
+   "artboard": 6
   },
-  "p2.unten.h.c0": {
-   "artboard": 2
+  "p6.unten.h.c0": {
+   "artboard": 6
   },
-  "p2.unten.rule.top": {
-   "artboard": 2
+  "p6.unten.rule.top": {
+   "artboard": 6
   },
-  "p2.unten.sum": {
-   "artboard": 2
+  "p6.unten.sum": {
+   "artboard": 6
   },
-  "p2.unten.head": {
-   "artboard": 2
+  "p6.unten.head": {
+   "artboard": 6
   },
   "p5.ibox.景観の約束.body": {
    "x": 650.04,
@@ -1059,10 +1059,6 @@
    "layer": "図"
   },
   "p3.dwg.plan.title.D30,194西館の南北の全長（.l": {
-   "x": 414.55,
-   "y": 44.3,
-   "w": 286.87,
-   "h": 260.41,
    "artboard": 3
   },
   "p6.saikou.note.darkband.1": {
@@ -1584,7 +1580,7 @@
  },
  "stacking": {
   "注記": ["t:p4.t.（図はアプローチ係に依頼）", "t:p4.t.入口の前の菜園とひろばのかま", "t:p4.t.表の畑と火のオーブン", "d:p4.box.表の畑と火のオーブン", "t:p4.t.（図は本館係に依頼）", "t:p4.t.廊下の本棚と読む場所", "d:p4.box.廊下の本棚と読む場所", "t:p2.t.一日の帯：上は1600の小さ", "t:p2.note.footer", "t:p6.note.footer", "t:p3.note.footer"],
-  "説明": ["t:p4.t.3歳の保育室", "t:p4.t.教室", "t:p4.t.ホールの北山杉の林", "t:p4.t.遊戯室", "t:p4.t.だいさんかく・しずかのもり約", "t:p4.t.園庭", "t:p4.t.こどもたちの環境", "t:p2.pagetitle", "d:p2.hairyo.7.text", "t:p6.t.断面図D本館の横断（光の筋で", "d:p2.reibou.text", "t:p6.t.1100空気の環境：本館と西", "t:p6.t.断面図C東西に切る（4歳・遊", "t:p6.t.1100保育室の中ほどの弧で", "t:p6.t.縦断面図A", "t:p6.pagetitle", "d:p5.ibox.景観の約束.body", "t:p5.t.高野川の向こう岸の歩道から、~2", "t:p5.t.沿川の景観夜", "t:p5.t.高野川の向こう岸の歩道から、", "t:p5.t.沿川の景観昼", "t:p5.t.目の高さ1.5m、左に向かい", "t:p5.t.透視図（A4）公園の角から西", "t:p5.t.杉の大和張りの静かな板の壁。", "t:p5.t.まちに溶け込み、やさしく守る", "t:p5.t.1100西の道路から", "t:p5.t.道路の側の立面図", "t:p5.t.縁側と深い軒が57m続き、3", "t:p5.t.園庭にひらく", "t:p5.t.1100円弧の中心の方向から", "t:p5.t.園庭の側の立面図", "t:p5.pagetitle", "d:p1.ibox.nat.mizu.mark.num", "d:p1.ibox.nat.mitate.mark.num", "d:p1.ibox.nat.kaze.mark.num", "d:p1.ibox.com.east.mark.num", "d:p1.ibox.nat.compost.mark.num", "d:p1.ibox.com.park.mark.num", "d:p1.ibox.com.traffic.mark.num", "d:p1.ibox.nat.rin.mark.num", "d:p1.ibox.com.mukai.mark.num", "d:p1.ibox.com.saigai.mark.num", "d:p1.ibox.nat.yousui.mark.num", "t:p1.concept", "t:p1.t.地に足をつけて育つ", "t:p1.pagetitle", "d:p6.area.rule.bottom", "t:p3.pagetitle"],
+  "説明": ["t:p4.t.3歳の保育室", "t:p4.t.教室", "t:p4.t.ホールの北山杉の林", "t:p4.t.遊戯室", "t:p4.t.だいさんかく・しずかのもり約", "t:p4.t.園庭", "t:p4.t.こどもたちの環境", "t:p2.pagetitle", "d:p6.hairyo.7.text", "t:p6.t.断面図D本館の横断（光の筋で", "d:p6.reibou.text", "t:p6.t.1100空気の環境：本館と西", "t:p6.t.断面図C東西に切る（4歳・遊", "t:p6.t.1100保育室の中ほどの弧で", "t:p6.t.縦断面図A", "t:p6.pagetitle", "d:p5.ibox.景観の約束.body", "t:p5.t.高野川の向こう岸の歩道から、~2", "t:p5.t.沿川の景観夜", "t:p5.t.高野川の向こう岸の歩道から、", "t:p5.t.沿川の景観昼", "t:p5.t.目の高さ1.5m、左に向かい", "t:p5.t.透視図（A4）公園の角から西", "t:p5.t.杉の大和張りの静かな板の壁。", "t:p5.t.まちに溶け込み、やさしく守る", "t:p5.t.1100西の道路から", "t:p5.t.道路の側の立面図", "t:p5.t.縁側と深い軒が57m続き、3", "t:p5.t.園庭にひらく", "t:p5.t.1100円弧の中心の方向から", "t:p5.t.園庭の側の立面図", "t:p5.pagetitle", "d:p1.ibox.nat.mizu.mark.num", "d:p1.ibox.nat.mitate.mark.num", "d:p1.ibox.nat.kaze.mark.num", "d:p1.ibox.com.east.mark.num", "d:p1.ibox.nat.compost.mark.num", "d:p1.ibox.com.park.mark.num", "d:p1.ibox.com.traffic.mark.num", "d:p1.ibox.nat.rin.mark.num", "d:p1.ibox.com.mukai.mark.num", "d:p1.ibox.com.saigai.mark.num", "d:p1.ibox.nat.yousui.mark.num", "t:p1.concept", "t:p1.t.地に足をつけて育つ", "t:p1.pagetitle", "d:p6.area.rule.bottom", "t:p3.pagetitle"],
   "配置図": ["d:p1.mark.com.saigai.1.num"],
   "図": ["d:p1.link.14_地域のなかの敷地_1-10000", "d:p3.dwg.plan.note.こどもたちの育ち舎3dm（sod.t", "d:p6.saikou.note.darkband.1", "d:p6.dwg.C.note.東→.t", "d:p6.dwg.SA.note.敷地の境.t", "d:p5.dwg.E2.dim.67,431建物の全長.t", "d:p5.dwg.E1.dim.67,431建物の全長.t", "t:p4.link.sodachiya_room3_1-50", "t:p4.link.sodachiya_forest_02", "t:p4.link.sodachiya_play_present", "t:p4.link.sodachiya_garden_01", "t:p2.sozai.11", "t:p2.sozai.10", "t:p2.sozai.09", "t:p2.sozai.08", "t:p2.sozai.07", "t:p2.sozai.06", "t:p2.other", "t:p5.sozai.05", "t:p5.sozai.04", "t:p5.sozai.03", "t:p5.sozai.16", "d:p1.sozai.02"]
  },
