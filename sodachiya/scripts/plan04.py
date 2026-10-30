@@ -364,9 +364,9 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
     for s0 in (1.2, 4.8):
         bx(s0 - 0.175, s0 + 0.175, 6.6, 7.8, fc="white", lw=0.5, z=4)          # 移動式の低い腰壁（両面の棚 h700、キャスター）
     bx(0.3, 2.7, 2.0, 5.6, fc="none", lw=0.5, ls=(0, (1, 1.2)), ec="#1f7a8c", z=6)   # 布の天蓋（吊り桟から）
-    for vv in [2.0 + 0.9 * k for k in range(11)]:                               # 吊り桟 h2400（脚立で楽に届く）、ロフトの上は除く
-        for s0, s1 in ((0.1, 2.9), (3.1, W - 0.1)):
-            if s0 > 3 and vv < 3.7: continue
+    for vv in [2.0 + 0.9 * k for k in range(12)]:                               # 吊り桟 h2000（10-30：脚立の2段目で目の高さ）、ロフトと家具階段の上は除く
+        for s0, s1 in ((0.13, 2.87), (3.13, W - 0.13)):
+            if s0 > 3 and vv < 4.2: continue
             line([(S(s0), vv), (S(s1), vv)], lw=0.3, ls=(0, (2, 1.5)), c="#1f7a8c", z=6)
     xs, ys = pt(1.5, 4.9); ax.text(xs, ys, "巣", fontsize=5.0, ha="center", va="center", zorder=8, color="#2b4a66")
     xs, ys = pt(4.5, 5.6); ax.text(xs, ys, "巣", fontsize=5.0, ha="center", va="center", zorder=8, color="#2b4a66")
