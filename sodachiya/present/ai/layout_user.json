@@ -618,32 +618,46 @@
    "y": 32,
    "artboard": 1
   },
-  "p4.area.rule.bottom": {
-   "artboard": 4
+  "p6.area.rule.bottom": {
+   "pts": [[686.27, 566.19], [786.27, 566.19]],
+   "artboard": 6
   },
-  "p4.area.col.plan": {
-   "artboard": 4
+  "p6.area.col.plan": {
+   "x": 786.27,
+   "y": 491.49,
+   "artboard": 6
   },
-  "p4.area.col.req": {
-   "artboard": 4
+  "p6.area.col.req": {
+   "x": 730.27,
+   "y": 491.49,
+   "artboard": 6
   },
-  "p4.area.col.room": {
-   "artboard": 4
+  "p6.area.col.room": {
+   "x": 686.27,
+   "y": 491.49,
+   "artboard": 6
   },
-  "p4.area.rule.head": {
-   "artboard": 4
+  "p6.area.rule.head": {
+   "pts": [[686.27, 493.09], [786.27, 493.09]],
+   "artboard": 6
   },
-  "p4.area.rule.top": {
-   "artboard": 4
+  "p6.area.rule.top": {
+   "pts": [[686.27, 487.89], [786.27, 487.89]],
+   "artboard": 6
   },
-  "p4.area.sub": {
-   "artboard": 4
+  "p6.area.sub": {
+   "x": 707.27,
+   "y": 482.49,
+   "artboard": 6
   },
-  "p4.area.head": {
-   "artboard": 4
+  "p6.area.head": {
+   "x": 686.27,
+   "y": 482.49,
+   "artboard": 6
   },
-  "p4.area.rule.sep": {
-   "artboard": 4
+  "p6.area.rule.sep": {
+   "pts": [[686.27, 474.49], [786.27, 474.49]],
+   "artboard": 6
   },
   "p6.insp.text": {
    "x": 686.27,
@@ -1570,7 +1584,7 @@
  },
  "stacking": {
   "注記": ["t:p4.t.（図はアプローチ係に依頼）", "t:p4.t.入口の前の菜園とひろばのかま", "t:p4.t.表の畑と火のオーブン", "d:p4.box.表の畑と火のオーブン", "t:p4.t.（図は本館係に依頼）", "t:p4.t.廊下の本棚と読む場所", "d:p4.box.廊下の本棚と読む場所", "t:p2.t.一日の帯：上は1600の小さ", "t:p2.note.footer", "t:p6.note.footer", "t:p3.note.footer"],
-  "説明": ["t:p4.t.3歳の保育室", "t:p4.t.教室", "t:p4.t.ホールの北山杉の林", "t:p4.t.遊戯室", "t:p4.t.だいさんかく・しずかのもり約", "t:p4.t.園庭", "t:p4.t.こどもたちの環境", "t:p2.pagetitle", "d:p2.hairyo.7.text", "t:p6.t.断面図D本館の横断（光の筋で", "d:p2.reibou.text", "t:p6.t.1100空気の環境：本館と西", "t:p6.t.断面図C東西に切る（4歳・遊", "t:p6.t.1100保育室の中ほどの弧で", "t:p6.t.縦断面図A", "t:p6.pagetitle", "d:p5.ibox.景観の約束.body", "t:p5.t.高野川の向こう岸の歩道から、~2", "t:p5.t.沿川の景観夜", "t:p5.t.高野川の向こう岸の歩道から、", "t:p5.t.沿川の景観昼", "t:p5.t.目の高さ1.5m、左に向かい", "t:p5.t.透視図（A4）公園の角から西", "t:p5.t.杉の大和張りの静かな板の壁。", "t:p5.t.まちに溶け込み、やさしく守る", "t:p5.t.1100西の道路から", "t:p5.t.道路の側の立面図", "t:p5.t.縁側と深い軒が57m続き、3", "t:p5.t.園庭にひらく", "t:p5.t.1100円弧の中心の方向から", "t:p5.t.園庭の側の立面図", "t:p5.pagetitle", "d:p1.ibox.nat.mizu.mark.num", "d:p1.ibox.nat.mitate.mark.num", "d:p1.ibox.nat.kaze.mark.num", "d:p1.ibox.com.east.mark.num", "d:p1.ibox.nat.compost.mark.num", "d:p1.ibox.com.park.mark.num", "d:p1.ibox.com.traffic.mark.num", "d:p1.ibox.nat.rin.mark.num", "d:p1.ibox.com.mukai.mark.num", "d:p1.ibox.com.saigai.mark.num", "d:p1.ibox.nat.yousui.mark.num", "t:p1.concept", "t:p1.t.地に足をつけて育つ", "t:p1.pagetitle", "d:p4.area.rule.bottom", "t:p3.pagetitle"],
+  "説明": ["t:p4.t.3歳の保育室", "t:p4.t.教室", "t:p4.t.ホールの北山杉の林", "t:p4.t.遊戯室", "t:p4.t.だいさんかく・しずかのもり約", "t:p4.t.園庭", "t:p4.t.こどもたちの環境", "t:p2.pagetitle", "d:p2.hairyo.7.text", "t:p6.t.断面図D本館の横断（光の筋で", "d:p2.reibou.text", "t:p6.t.1100空気の環境：本館と西", "t:p6.t.断面図C東西に切る（4歳・遊", "t:p6.t.1100保育室の中ほどの弧で", "t:p6.t.縦断面図A", "t:p6.pagetitle", "d:p5.ibox.景観の約束.body", "t:p5.t.高野川の向こう岸の歩道から、~2", "t:p5.t.沿川の景観夜", "t:p5.t.高野川の向こう岸の歩道から、", "t:p5.t.沿川の景観昼", "t:p5.t.目の高さ1.5m、左に向かい", "t:p5.t.透視図（A4）公園の角から西", "t:p5.t.杉の大和張りの静かな板の壁。", "t:p5.t.まちに溶け込み、やさしく守る", "t:p5.t.1100西の道路から", "t:p5.t.道路の側の立面図", "t:p5.t.縁側と深い軒が57m続き、3", "t:p5.t.園庭にひらく", "t:p5.t.1100円弧の中心の方向から", "t:p5.t.園庭の側の立面図", "t:p5.pagetitle", "d:p1.ibox.nat.mizu.mark.num", "d:p1.ibox.nat.mitate.mark.num", "d:p1.ibox.nat.kaze.mark.num", "d:p1.ibox.com.east.mark.num", "d:p1.ibox.nat.compost.mark.num", "d:p1.ibox.com.park.mark.num", "d:p1.ibox.com.traffic.mark.num", "d:p1.ibox.nat.rin.mark.num", "d:p1.ibox.com.mukai.mark.num", "d:p1.ibox.com.saigai.mark.num", "d:p1.ibox.nat.yousui.mark.num", "t:p1.concept", "t:p1.t.地に足をつけて育つ", "t:p1.pagetitle", "d:p6.area.rule.bottom", "t:p3.pagetitle"],
   "配置図": ["d:p1.mark.com.saigai.1.num"],
   "図": ["d:p1.link.14_地域のなかの敷地_1-10000", "d:p3.dwg.plan.note.こどもたちの育ち舎3dm（sod.t", "d:p6.saikou.note.darkband.1", "d:p6.dwg.C.note.東→.t", "d:p6.dwg.SA.note.敷地の境.t", "d:p5.dwg.E2.dim.67,431建物の全長.t", "d:p5.dwg.E1.dim.67,431建物の全長.t", "t:p4.link.sodachiya_room3_1-50", "t:p4.link.sodachiya_forest_02", "t:p4.link.sodachiya_play_present", "t:p4.link.sodachiya_garden_01", "t:p2.sozai.11", "t:p2.sozai.10", "t:p2.sozai.09", "t:p2.sozai.08", "t:p2.sozai.07", "t:p2.sozai.06", "t:p2.other", "t:p5.sozai.05", "t:p5.sozai.04", "t:p5.sozai.03", "t:p5.sozai.16", "d:p1.sozai.02"]
  },
