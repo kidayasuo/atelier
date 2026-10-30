@@ -417,7 +417,9 @@ for k in range(14):
 line([(56.95, 0.3), (56.95, 1.3)], lw=0.6, z=7)                   # exit door (north)
 ax.add_patch(Circle(P(54.4, -2.3), 1.3, fc="none", ec="#5a7a3a", lw=0.5, zorder=3))
 ax.add_patch(Circle(P(54.4, -2.3), 0.1, fc="#5a7a3a", ec="none", zorder=3))
-t(56.75, -2.6, "読書の庭（モミジ・苔）", size=4.2)
+ax.add_patch(Circle(P(52.3, -1.3), 0.9, fc="none", ec="#a08a2a", lw=0.5, zorder=3))      # ロウバイ（10-31、低い窓の前）
+ax.add_patch(Circle(P(52.3, -1.3), 0.08, fc="#a08a2a", ec="none", zorder=3))
+t(56.75, -2.6, "読書の庭（ベニシダレ・ロウバイ・苔）", size=4.2)
 t(54.4, 0.85, "", size=4)
 
 # ---------- 大人のトイレ（10-23夜、ユーザー：3か所とも性別を示さない個室）----------
