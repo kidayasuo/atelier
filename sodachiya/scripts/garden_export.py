@@ -21,7 +21,7 @@ LAY = {}
 # ほかの物はみな閉じた立体（91 等高線・98 等高線の板は線のまま、90 地形・92 水・99 雨の川はメッシュのまま）
 NAMES = {90: ("90_園庭_地形（GL からの起伏、メッシュ）", (196, 186, 150)), 91: ("91_園庭_等高線（0.2 m、名前に高さ）", (138, 122, 92)),
          "90l": ("90l_園庭_線（中心線・輪郭・道すじ。開いたときは消す）", (120, 120, 120)),
-         92: ("92_園庭_水（小川の溝と水面・滝壺の水面）", (76, 141, 184)), 93: ("93_園庭_小屋（便所・倉庫・コンポストの間）", (155, 118, 83)),
+         92: ("92_園庭_水（小川の溝と水面・滝壺の水面）", (76, 141, 184)), "92s": ("92s_園庭_雨庭の玉石（洲浜、白）", (222, 218, 206)), 93: ("93_園庭_小屋（便所・倉庫・コンポストの間）", (155, 118, 83)),
          94: ("94_園庭_木の幹（円柱、名前＝種類）", (111, 100, 80)), "94c": ("94c_園庭_樹冠（葉、名前＝種類、柳の家）", (111, 143, 87)), "94g": ("94g_園庭_草（年中行事の草、h0.3の塊、葉）", (150, 175, 100)),
          95: ("95_園庭_遊び場（砂場の砂・粒の遊び場の粒）", (168, 142, 88)),
          "95w": ("95w_園庭_鉄棒の柱（栗の丸太）", (140, 110, 80)), "95m": ("95m_園庭_鉄棒の棒（ステンレス）", (150, 155, 162)),
@@ -346,6 +346,44 @@ if AW:
     for sa_, sd_, sr_ in AW["stones"]:
         c0 = P3(sa_, sd_); sph = r.Sphere(r.Point3d(c0.X, c0.Y, c0.Z + sr_ * 300), sr_ * 1000)
         m.Objects.AddBrep(sph.ToBrep(), at(96, "雨庭の景石"))
+    # 10-30（ユーザー）：洲浜の白い玉石の層。地形（くぼみを含む H）に沿って厚さ 0.05 の閉じた立体（メッシュ）
+    from shapely import constrained_delaunay_triangles as _cdt
+    _pg = Polygon(AW["poly"]).buffer(0)
+    _bd = list(_pg.exterior.coords)[:-1]; _dn = []
+    for (a0_, d0_), (a1_, d1_) in zip(_bd, _bd[1:] + _bd[:1]):
+        n_ = max(1, int(math.ceil(math.hypot(a1_ - a0_, d1_ - d0_) / 0.3)))
+        _dn += [(a0_ + (a1_ - a0_) * t / n_, d0_ + (d1_ - d0_) * t / n_) for t in range(n_)]
+    _tris = [list(t.exterior.coords)[:3] for t in _cdt(Polygon(_dn)).geoms]
+
+    def _split(t, lv):                                  # 中点で4つに（隣どうし同じ点で割れるので継ぎ目なし）
+        if lv == 0:
+            return [t]
+        p, q, s = t; mid = lambda u, v: ((u[0] + v[0]) / 2, (u[1] + v[1]) / 2)
+        pq, qs, sp = mid(p, q), mid(q, s), mid(s, p)
+        return sum((_split(x, lv - 1) for x in ((p, pq, sp), (pq, q, qs), (sp, qs, s), (pq, qs, sp))), [])
+    _tris = sum((_split(t, 3) for t in _tris), [])
+    WM = r.Mesh(); _vi = {}; TH = 0.05
+
+    def _v(p, top):
+        k_ = (round(p[0], 6), round(p[1], 6), top)
+        if k_ not in _vi:
+            q_ = P3(p[0], p[1], H(*p) + (TH if top else 0.0)); _vi[k_] = WM.Vertices.Add(q_.X, q_.Y, q_.Z)
+        return _vi[k_]
+    _edges = {}
+    for t in _tris:
+        xy = [gc.X(*p) for p in t]
+        if (xy[1][0] - xy[0][0]) * (xy[2][1] - xy[0][1]) - (xy[1][1] - xy[0][1]) * (xy[2][0] - xy[0][0]) < 0:
+            t = (t[0], t[2], t[1])                       # xy で左回りに（上面が上向き）
+        WM.Faces.AddFace(_v(t[0], 1), _v(t[1], 1), _v(t[2], 1))
+        WM.Faces.AddFace(_v(t[0], 0), _v(t[2], 0), _v(t[1], 0))
+        for u_, w_ in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+            ku, kw = (round(u_[0], 6), round(u_[1], 6)), (round(w_[0], 6), round(w_[1], 6))
+            _edges[(ku, kw)] = (u_, w_)
+    for (ku, kw), (u_, w_) in _edges.items():         # 外周（逆向きの辺が無い辺）に側面
+        if (kw, ku) not in _edges:
+            WM.Faces.AddFace(_v(u_, 0), _v(w_, 0), _v(w_, 1), _v(u_, 1))
+    WM.Normals.ComputeNormals(); WM.Compact()
+    m.Objects.AddMesh(WM, at("92s", f"雨庭の白い玉石の層（洲浜、t{TH:.2f}、地形のくぼみに沿う）"))
 
 # ---- シャワーの柱と輪のシャワー「あめのわ」（95） ----
 SH = G["SHOWER"]; _rg = SH.get("ring")

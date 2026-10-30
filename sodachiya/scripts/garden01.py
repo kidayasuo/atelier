@@ -243,7 +243,7 @@ ax.add_patch(Rectangle(ga2 - 0.25, 0.5, 0.5, fc=C["water"], ec="#2F6E95", lw=0.5
 # 雨庭（洲浜）：雨の川の行き着く所、しずかのもりの高野川べり（ユーザー）
 AW = G.get("AMANIWA")
 if AW:
-    poly(ax, Polygon(XS(AW["poly"])), fc="#E4DFD2", ec="#8C8677", lw=0.4, z=5.7, hatch="o.")
+    poly(ax, Polygon(XS(AW["poly"])), fc="#F2EFE6", ec="#8C8677", lw=0.4, z=5.7, hatch="o.")
     for sa_, sd_, sr_ in AW["stones"]:
         ax.add_patch(Circle(X(sa_, sd_), sr_, fc="#8C8677", ec="#4A4438", lw=0.4, zorder=8.8))
     T(ax, X(54.7, 28.2), "雨庭（洲浜）", 4.6, c="#4A4438", rot=52, z=21, fontweight="bold")
@@ -501,7 +501,7 @@ def sw(y, kind, txt):
     elif kind.startswith("g:"):
         lax.add_patch(Circle((5, y), 1.7, fc=GC[kind[2:]], ec=C["treeE"], lw=0.4, alpha=0.6))
     elif kind == "amaniwa":
-        lax.add_patch(Rectangle((1, y - 1.4), 8, 2.8, fc="#E4DFD2", ec="#8C8677", lw=0.3, hatch="o."))
+        lax.add_patch(Rectangle((1, y - 1.4), 8, 2.8, fc="#F2EFE6", ec="#8C8677", lw=0.3, hatch="o."))
         lax.add_patch(Circle((6.5, y), 0.8, fc="#8C8677", ec="#4A4438", lw=0.3))
     elif kind == "gyoji":
         lax.add_patch(Circle((5, y), 2.0, fc="#C9D99A", ec="#6F8F57", lw=0.4, ls=(0, (1.2, 0.8))))
