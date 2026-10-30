@@ -1445,7 +1445,8 @@ _zl(GD["north"], "だいさんかく", (6, -4), size=3.6)
 _zl(GD["shizu"], "しずかのもり", (-4, 0), size=3.2)
 _stl0 = gc.XS([tuple(p) for p in GJ["STREAM"]["line"]])[0]
 _q0 = xf(R3(_stl0))[0]
-T(ax, _q0[0] - 4, _q0[1] - 10, "おくのもり", 3.2, "#3F5F2F", ha="right", va="center", bold=True)
+# 部品の鍵（site.t.北のもり）を変えない：木田さんが .ai でこの名前を「かぜのもり」に書き換えて動かした（10-30）
+T(ax, _q0[0] - 4, _q0[1] - 10, "北のもり", 3.2, "#3F5F2F", ha="right", va="center", bold=True)
 _car = [x for x in (_poly_of(o) for o in _rp_("74_")) if x is not None and x.geom_type.endswith("Polygon") and x.area > 8]   # 車室
 if _car:
     _cu = unary_union(_car)
