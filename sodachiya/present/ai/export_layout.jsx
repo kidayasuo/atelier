@@ -13,6 +13,7 @@
     var rab = function (n) { return (RN && RN[String(n)]) ? RN[String(n)] : n; };
     var rid = function (id) { var m = /^p(\d+)\./.exec(id); return (RN && m && RN[m[1]]) ? "p" + RN[m[1]] + id.substring(m[0].length - 1) : id; };
     var rui = function (d) { var k3; if (d && d.artboard > 0) { d.artboard = rab(d.artboard); } if (d && d.children) { for (k3 = 0; k3 < d.children.length; k3++) { rui(d.children[k3]); } } return d; };
+    var FAILED = SDY.readFailed();                    // build・update_texts が作れなかった部品（10-30）
     var LB = null;                                     // 組んだときの位置（layout_built.json、無ければ layout.json）
     try { LB = SDY.readJSON(File(SDY.here.fsName + "/layout_built.json")); } catch (e) { LB = L; }
     var BUILT = {}, bi, bj;
@@ -91,7 +92,7 @@
         for (i = 0; i < L.pages.length; i++) {
             for (j = 0; j < L.pages[i].parts.length; j++) {
                 p = L.pages[i].parts[j];
-                if (!found[p.id]) { out.parts[p.id] = { hidden: true }; gone++; }
+                if (!found[p.id] && !FAILED[p.id]) { out.parts[p.id] = { hidden: true }; gone++; }   // 作れなかった部品は「消した」にしない（10-30）
             }
         }
     }

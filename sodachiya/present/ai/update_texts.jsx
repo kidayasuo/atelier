@@ -18,13 +18,13 @@
             if (p.hidden) { continue; }
             it = map[p.id];
             if (!it) {
-                try { if (SDY.make(doc, i, p)) { na++; } } catch (e) { SDY.missing.push(p.id + "（" + e.message + "）"); }
+                try { if (SDY.make(doc, i, p)) { na++; } else { SDY.failed[p.id] = 1; } } catch (e) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e.message + "）"); }
                 continue;
             }
             if (p.kind === "lines") {                    // 図面の線の部品：図が変わって形が変わったら作り直す（.ai で動かしていた分は、書き出してあれば layout.json の位置に入っている）
                 var tg = SDY.parseTag(it);
                 if (tg && tg.mock_hash !== p.mock_hash) {
-                    try { it.remove(); if (SDY.make(doc, i, p)) { nr++; } } catch (e5) { SDY.missing.push(p.id + "（" + e5.message + "）"); }
+                    try { it.remove(); if (SDY.make(doc, i, p)) { nr++; } else { SDY.failed[p.id] = 1; } } catch (e5) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e5.message + "）"); }
                 }
             } else if ((p.kind === "text" || p.kind === "area") && it.typename === "TextFrame") {
                 var want = String(p.s).replace(/\n/g, "\r");
@@ -61,5 +61,6 @@
     var msg = "更新しました：文字 " + nt + "、リンク " + nl + "、新しい部品 " + na + (ng ? "、配置図のまとめに入れた物 " + ng : "") +
               (nr ? "、形の変わった図面の線 " + nr : "") + (nx ? "、図から無くなった部品（外した） " + nx : "") + (nd ? "、図面のまとめに入れた物 " + nd : "") + (nu ? "、足した物（layout_user.json から） " + nu : "");
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + SDY.missing.join("\n"); }
+    SDY.writeFailed();
     alert(msg);
 })();

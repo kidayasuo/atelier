@@ -129,6 +129,17 @@ SDY.styleText = function (tf, p) {
             try { var ff = SDY.font(st.font); if (ff) { pr.characterAttributes.textFont = ff; } } catch (e8) {}
             try { if (st.color) { pr.characterAttributes.fillColor = SDY.rgb(st.color); } } catch (e9) {}
             try { if (st.leading_pt) { pr.characterAttributes.autoLeading = false; pr.characterAttributes.leading = Number(st.leading_pt); } } catch (e10) {}
+            if (st.tail) {                            // 段落の後ろの区間だけ別の書式（inspired by の名前の後ろの出どころ、10-30）
+                try {
+                    var tf_ = SDY.font(st.tail.font), j_;
+                    for (j_ = st.tail.from; j_ < pr.characters.length; j_++) {
+                        var ca_ = pr.characters[j_].characterAttributes;
+                        if (st.tail.size_pt) { ca_.size = Number(st.tail.size_pt); }
+                        if (tf_) { ca_.textFont = tf_; }
+                        if (st.tail.color) { ca_.fillColor = SDY.rgb(st.tail.color); }
+                    }
+                } catch (e11) {}
+            }
         }
     }
 };
@@ -278,6 +289,17 @@ SDY.applyStacking = function (doc, U) {              // layout_user.json の sta
     return n;
 };
 SDY.missing = [];
+// 作れなかった部品（10-30：編集モードで update_texts が作れなかった寸法を、書き出しが「消した」と記録した）。
+// build・update_texts が failed_parts.json に書き、export_layout はそこにある部品を「消した」にしない
+SDY.failed = {};
+SDY.writeFailed = function () {
+    var a = [], k; for (k in SDY.failed) { if (SDY.failed.hasOwnProperty(k)) { a.push(SDY.q(k)); } }
+    try { SDY.writeText(File(SDY.here.fsName + "/failed_parts.json"), "[" + a.join(",") + "]\n"); } catch (e) {}
+};
+SDY.readFailed = function () {
+    var m = {}, a, k; try { a = SDY.readJSON(File(SDY.here.fsName + "/failed_parts.json")); for (k = 0; k < a.length; k++) { m[a[k]] = true; } } catch (e) {}
+    return m;
+};
 // 5枚の番号の振り直し（ユーザー、10-28・10-28 13:17）：layout.json の renumber.maps（前の番号 → 新しい番号）。
 // 前に組んだときの layout_built.json の renumber の id で、今の .ai がどの番号かを見る（renumber が無ければ最初の番号＝"_none"）。
 // 今の番号のままなら null、前の番号なら写し方（{"前": 新, …}）を返す

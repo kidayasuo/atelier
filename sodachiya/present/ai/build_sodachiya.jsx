@@ -25,7 +25,7 @@
         for (j = 0; j < L.pages[i].parts.length; j++) {
             p = L.pages[i].parts[j];
             if (p.hidden) { skipped++; continue; }
-            try { if (SDY.make(doc, i, p)) { made++; } } catch (e) { SDY.missing.push(p.id + "（" + e.message + "）"); }
+            try { if (SDY.make(doc, i, p)) { made++; } else { SDY.failed[p.id] = 1; } } catch (e) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e.message + "）"); }
         }
     }
     try { SDY.groupBoxes(doc); } catch (e) { SDY.missing.push("箱のまとめ（" + e.message + "）"); }
@@ -85,5 +85,6 @@
     if (SDY.planShift && SDY.planShift.n && (Math.abs(SDY.planShift.dx) > 0.05 || Math.abs(SDY.planShift.dy) > 0.05)) { msg += "\n配置図の上の物 " + SDY.planShift.n + " 個を、配置図と一緒に " + Math.round(SDY.planShift.dx) + "・" + Math.round(SDY.planShift.dy) + " mm 動かしました"; }
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + SDY.missing.join("\n"); }
     if (!SDY.font("W3")) { msg += "\n\nヒラギノ角ゴシックが見つからないので、書体は既定のままです。"; }
+    SDY.writeFailed();
     alert(msg);
 })();

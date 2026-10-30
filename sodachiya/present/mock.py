@@ -2074,7 +2074,7 @@ def _area_rows_h(size, cols=1):
 
 INSP = [("Asilo Nido Iride", "Mario Cucinella Architects・Guastalla・2015", "梁の列が並ぶ長細い本館と、外に付く付属の建物"),
         ("Tamedia", "坂茂・Zürich・2013", "梁の端の楕円の頭と、それを貫く楕円の桁"),
-        ("レイモンド斑鳩こども園", "キノアーキテクツ・斑鳩・2026", "室内に木を立てる（ホールの北山杉）"),
+        ("レイモンド斑鳩こども園", "キノアーキテクツ・斑鳩・2026", "室内に木を立てる（ホールの北山杉）・内と外の回廊・回廊と遊戯室に居場所"),   # 項 20261029-1334-kanshu
         ("KAIT工房", "石上純也・厚木・2008", "柱の配列：見る向きで景色が変わる並び"),
         ("認定こども園らみどり", "はりゅうウッドスタジオ・須賀川・2026", "内と外の二重の縁側、遊具を置かない地形の園庭"),
         ("仙田満の園舎", "環境デザイン研究所", "摺鉢のネット、キャットウォーク、ニッチ"),
@@ -2369,7 +2369,7 @@ DW, DH = (_SD[1][2] - _SD[1][0], _SD[1][3] - _SD[1][1]) if _SD else (250.0, 90.0
 # 右下の縦長の囲み：上に inspired by、細い罫線、下に面積表（ユーザー 10-29 10:26・12:49・12:50：縦長に、イメージではなく文字に、列ごとに一つの文字）
 # 部品はグループ「inspired by と面積表」：囲み p3.ia.box、罫線 p3.area.rule.*、inspired by は一つの文字 p3.insp.text（8件を段落で、名前は太・出どころは小さく灰）、
 # 面積表は列ごとに一つの文字 p3.area.col.room／req／plan（1行目が見出し、最後が延床、どちらも太。計画は右揃え）。数は sodachiya_areas.json から自動
-IA_W = 112                                      # 囲みの幅（mm）
+IA_W = 133                                      # 囲みの幅（mm）。inspired by を2行にしたので、いちばん長い行（斑鳩の2行目、約120 mm）が入る幅（ユーザー 10-30）
 IA_PAD = 6
 IA_FS = 2.4                                     # 面積表の字
 IA_ROW = IA_FS + 1.9                            # 面積表の行送り（mm、10-29 15:16：2.2→1.9）
@@ -2378,23 +2378,31 @@ _ia_rows = [r_ for r_ in AJ["rooms"] if not (r_["planned"] is None and not r_["j
 
 def _mpart(id_, x, y, paras, group, name, ha="left"):
     """段落ごとに書式のある一つの文字の部品。paras = [(文, 字mm, 色, 太字, 前の行からの送りmm)]。返り値は最後の行の基準線"""
-    st_ = [dict(size_pt=sz_ / 0.72 / 0.3528, font="W6" if bd_ else "W3", color=matplotlib.colors.to_hex(c_), leading_pt=ld_ / 0.3528)
-           for (_, sz_, c_, bd_, ld_) in paras]
+    paras = [tuple(q_) + (None,) * (6 - len(q_)) for q_ in paras]     # 6つ目：後ろの区間 (何文字目から, 字mm, 色, 太字)（10-30）
+    st_ = [dict(size_pt=sz_ / 0.72 / 0.3528, font="W6" if bd_ else "W3", color=matplotlib.colors.to_hex(c_), leading_pt=ld_ / 0.3528,
+                **({"tail": dict(**{"from": tl_[0]}, size_pt=tl_[1] / 0.72 / 0.3528, font="W6" if tl_[3] else "W3", color=matplotlib.colors.to_hex(tl_[2]))} if tl_ else {}))
+           for (_, sz_, c_, bd_, ld_, tl_) in paras]
     _airec(fig, kind="text", id=id_, name=name, x=x, y=y, s="\n".join(t_ for t_, *_ in paras), size=paras[0][1], color=paras[0][2], bold=paras[0][3],
            ha=ha, va="baseline", para_styles=st_, group=group[0], group_name=group[1])
     AIMUTE[0] += 1
     yy = y
-    for k_, (t_, sz_, c_, bd_, ld_) in enumerate(paras):
+    for k_, (t_, sz_, c_, bd_, ld_, tl_) in enumerate(paras):
         if k_:
             yy -= ld_
-        T(ax, x, yy, t_, sz_, c_, bold=bd_, ha=ha)
+        if tl_:
+            h_ = t_[:tl_[0]]
+            T(ax, x, yy, h_, sz_, c_, bold=bd_, ha=ha)
+            T(ax, x + fitz.Font(fontfile=FONTB if bd_ else FONT).text_length(h_, sz_ / 0.72), yy, t_[tl_[0]:], tl_[1], tl_[2], bold=tl_[3], ha=ha)
+        else:
+            T(ax, x, yy, t_, sz_, c_, bold=bd_, ha=ha)
     AIMUTE[0] -= 1
     return yy
 
 
 _INS_P = []
 for i_, (n_, src_, what_) in enumerate(INSP):
-    _INS_P += [(n_, 2.6, INK, True, 0 if i_ == 0 else 5.7), (src_, 2.2, "#666666", False, 3.9), ("→" + what_, 2.4, INK, False, 3.9)]
+    # 2行に（ユーザー 10-30）：1行目＝名前（太）＋出どころ（小さく灰）、2行目＝何を参考にしたか
+    _INS_P += [(n_ + "　" + src_, 2.6, INK, True, 0 if i_ == 0 else 5.7, (len(n_) + 1, 2.2, "#666666", False)), ("→" + what_, 2.4, INK, False, 3.9)]
 _ins_h = sum(p_[4] for p_ in _INS_P)
 _bw = IA_W
 _bh = IA_PAD + 4 + 9 + _ins_h + 4 + 8 + 9 + (len(_ia_rows) + 1) * IA_ROW + IA_PAD
