@@ -508,7 +508,7 @@ for d0_, d1_ in _runs:
     for i in range(nseg):
         e0, e1 = d0_ + (d1_ - d0_) * i / nseg, d0_ + (d1_ - d0_) * (i + 1) / nseg
         _c4 = [(_ha0, e0), (_ha1, e0), (_ha1, e1), (_ha0, e1)]
-        box(_ha0, _ha1, e0, e1, gmin(_c4) - 0.05, gmax(_c4) + 0.6, "97h", "のぞきの低い生垣 ギンモクセイ h0.6（口 3 か所）")
+        box(_ha0, _ha1, e0, e1, gmin(_c4) - 0.05, gmax(_c4) + 0.6, "97h", "のぞきの低い生垣（ギンモクセイ）h0.6（口 3 か所）")
 
 out = os.path.join(gc.ROOT, "model", "sodachiya_garden_layers.3dm")
 m.Write(out, 7)
