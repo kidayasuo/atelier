@@ -39,8 +39,11 @@ CONTEXT_LAYER = u"04_周辺_建物"
 TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする名前（mock.py が空を塗る）。ほかは淡い空で不透明
 
 NAMES = [(u"keikan", u"keikan＝沿川の景観"), (u"me", u"me＝透視図（公園の角）"), (u"choukan", u"choukan＝鳥瞰"),
+         (u"room_3to5", u"room_3to5＝4歳の保育室（room_view.py で準備）"), (u"room_01", u"room_01＝0・1歳の保育室"),
+         (u"room_2", u"room_2＝2歳の保育室"), (u"room_dokusho", u"room_dokusho＝絵本の通りと本の奥"),
+         (u"room_hako", u"room_hako＝遊戯室の西の壁のひだ"),
          (u"*", u"その他（名前を文字で入れる。例 naibu_4sai）")]
-SIZES = [((3508, 2480), u"A4横 3508×2480"), ((4252, 1701), u"横長 2.5:1 4252×1701"),
+SIZES = [((3508, 2480), u"A4横 3508×2480"), ((1600, 1200), u"1600×1200（教室・居場所、room_）"), ((4252, 1701), u"横長 2.5:1 4252×1701"),
          (None, u"今のビューの縦横比で長辺4252")]
 # mock.py が読む名前：沿川の景観は keikan_hiru.png・keikan_yoru.png、透視図は me.png、鳥瞰は choukan.png
 DAY_PLAIN = ("me", "choukan")                   # 昼は <名前>.png（_hiru を付けない）
@@ -76,7 +79,7 @@ def ask():
             return None
         name = name.strip().replace(" ", "_")
     labels = [l for _, l in SIZES]
-    got = rss.ListBox(labels, u"大きさ（画素）", u"レンダリング", labels[0])
+    got = rss.ListBox(labels, u"大きさ（画素）", u"レンダリング", labels[1] if name.startswith(u"room_") else labels[0])
     if got is None:
         return None
     size = [s for s, l in SIZES if l == got][0]
