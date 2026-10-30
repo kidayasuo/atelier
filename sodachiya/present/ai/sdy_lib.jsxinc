@@ -71,7 +71,12 @@ SDY.font = function (w) {
     return f;
 };
 SDY.layer = function (doc, name) {
-    try { return doc.layers.getByName(name); } catch (e) { var l = doc.layers.add(); l.name = name; return l; }
+    try { return doc.layers.getByName(name); } catch (e) {
+        var l = doc.layers.add(); l.name = name;
+        // ゾーニングの白地図のレイヤー（10-31）：図より上、文字（説明）より下。後から作るときも「説明」のすぐ下へ（境界→上の線の順に作ると上の線が上）
+        if (name.indexOf("ゾーニング") === 0) { try { l.move(doc.layers.getByName("説明"), ElementPlacement.PLACEAFTER); } catch (e2) {} }
+        return l;
+    }
 };
 SDY.ab = function (doc, i) { return doc.artboards[i].artboardRect; };            // [左, 上, 右, 下]（pt、ドキュメント座標、yは上へ）
 SDY.P = function (doc, i, x, y) { var r = SDY.ab(doc, i); return [r[0] + x * SDY.K, r[1] - y * SDY.K]; };
@@ -454,12 +459,26 @@ SDY.makeText = function (doc, lay, i, p) {
 };
 // 図面の線の部品（寸法線と端の印、高さの記号、通り芯の丸、字の白い地など、10-29）：いくつかのパスを一つのグループに。もとの重なりの順（後のものが上）
 SDY.makeLines = function (doc, lay, i, p) {
-    var g = lay.groupItems.add(), k, j, q, pts, pi;
+    var g = lay.groupItems.add(), k, j, q, pts, pi, r, cp;
     for (k = 0; k < p.paths.length; k++) {
         q = p.paths[k]; pts = [];
+        if (q.rings) {                                 // 穴のある形（ゾーニングの区分、10-31）：複合パス。塗りは穴を抜く
+            cp = g.compoundPathItems.add();
+            for (r = 0; r < q.rings.length; r++) {
+                pts = [];
+                for (j = 0; j < q.rings[r].length; j++) { pts.push(SDY.P(doc, i, q.rings[r][j][0], q.rings[r][j][1])); }
+                pi = cp.pathItems.add(); pi.setEntirePath(pts); pi.closed = true;
+                if (q.fill) { pi.filled = true; pi.fillColor = SDY.rgb(q.fill); } else { pi.filled = false; }
+                if (q.stroke && q.lw > 0) { pi.stroked = true; pi.strokeColor = SDY.rgb(q.stroke); pi.strokeWidth = q.lw; } else { pi.stroked = false; }
+                try { pi.evenodd = true; } catch (e3) {}
+            }
+            if (q.name) { cp.name = q.name; }
+            continue;
+        }
         for (j = 0; j < q.pts.length; j++) { pts.push(SDY.P(doc, i, q.pts[j][0], q.pts[j][1])); }
         pi = g.pathItems.add();
         pi.setEntirePath(pts);
+        if (q.name) { pi.name = q.name; }
         pi.closed = !!q.closed;
         if (q.fill) { pi.filled = true; pi.fillColor = SDY.rgb(q.fill); } else { pi.filled = false; }
         if (q.stroke && q.lw > 0) {
@@ -645,6 +664,24 @@ SDY.userInGroup = function (g, out) {               // 印の無いグループ�
         if (clip) { continue; }
         if (c.typename === "GroupItem" && SDY.hasTag(c)) { SDY.userInGroup(c, out); } else { out.push(c); }
     }
+};
+// 線の部品（グループ）の塗り：最初の塗りのあるパスの色（ゾーニングの区分に木田さんが付けた塗り、10-31）。無ければ null
+SDY.fillOf = function (it) {
+    var k, c, f = null;
+    try {
+        if (it.typename === "PathItem") { return it.filled ? SDY.hexOf(it.fillColor) : null; }
+        if (it.typename === "CompoundPathItem") { return it.pathItems.length ? SDY.fillOf(it.pathItems[0]) : null; }
+        if (it.typename === "GroupItem") { for (k = 0; k < it.pageItems.length && !f; k++) { f = SDY.fillOf(it.pageItems[k]); } }
+    } catch (e) {}
+    return f;
+};
+SDY.setFill = function (it, hex) {
+    var k;
+    try {
+        if (it.typename === "PathItem") { it.filled = true; it.fillColor = SDY.rgb(hex); return; }
+        if (it.typename === "CompoundPathItem" || it.typename === "GroupItem") { for (k = 0; k < it.pageItems.length; k++) { SDY.setFill(it.pageItems[k], hex); } }
+        if (it.typename === "CompoundPathItem") { for (k = 0; k < it.pathItems.length; k++) { SDY.setFill(it.pathItems[k], hex); } }
+    } catch (e) {}
 };
 SDY.hexOf = function (c) {
     try {

@@ -17,7 +17,7 @@
         doc.artboards[i].artboardRect = [x0, y0, x0 + AW, y0 - AH];
     }
     var first = doc.layers[0];
-    var names = ["枠", "図", "線", "説明", "注記"], i, j, p, made = 0, skipped = 0;
+    var names = ["枠", "図", "ゾーニング　境界", "ゾーニング　上の線", "線", "説明", "注記"], i, j, p, made = 0, skipped = 0;   // ゾーニングの白地図（10-31）
     for (i = 0; i < names.length; i++) { SDY.layer(doc, names[i]); }        // 下から 枠・図・線・説明・注記
     for (i = 0; i < n; i++) { doc.artboards[i].name = L.pages[i].no + "/" + n; }
     try { SDY.makeFrame(doc, L); } catch (e) { SDY.missing.push("枠（" + e.message + "）"); }

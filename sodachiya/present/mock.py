@@ -2874,7 +2874,134 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
     return xf_
 
 
-zxf = _zone_paint(ax, zox, zoy, ZSC, zw, zh)
+# ---- ゾーニングは白地図（10-31 00:10、ユーザー）：線だけにして木田さんが Illustrator で彩色する。
+# レイヤー「ゾーニング　境界」：ゾーン（部屋・庭・外構の区分）ごとの閉じたパス（塗りなし、細い線、名前＝ゾーンの名前。隣とは境界を共有して隙間なく）と、
+# セキュリティの線（塀・柵・木戸・南の生垣、太い帯の閉じたパス）。レイヤー「ゾーニング　上の線」：等高線・築山・車室・駐輪・バンプ。
+# 色を付けた版は参考として sozai/19_ゾーニング_彩色（参考）.pdf（.ai には貼らない）
+zxf = xform(zox, zoy, ZSC, WX0, WY0)
+_z2b = unary_union([g_ for _, g_ in Z2]).bounds if Z2 else (0, 0, 1, 1)
+z2w, z2h = (_z2b[2] - _z2b[0] + 2) * 1000 / ZSC, (_z2b[3] - _z2b[1] + 2) * 1000 / ZSC
+_r20 = zxf(np.array(R20.envelope.exterior.coords)) if R20 is not None else None   # 1階の西館（屋根の範囲）の紙の上の位置
+z2ox = max(zox + 2, _r20[:, 0].min() - z2w - 8) if _r20 is not None else zox + 2         # 西館のすぐ左（西の道の上）に寄せる（10-30 23:07）
+z2oy = min(Y(55) - 6 - z2h, _r20[:, 1].max() - z2h - 6) if _r20 is not None else Y(55) - 6 - z2h
+z2xf = xform(z2ox, z2oy, ZSC, _z2b[0] - 1, _z2b[1] - 1)
+# 参考の彩色版（別の図）
+_figZ = plt.figure(figsize=(zw / 25.4, zh / 25.4))
+_axZ = _figZ.add_axes([0, 0, 1, 1]); _axZ.set_xlim(zox, zox + zw); _axZ.set_ylim(zoy, zoy + zh); _axZ.axis("off")
+_zone_paint(_axZ, zox, zoy, ZSC, zw, zh)
+_axZ.add_patch(Rectangle((z2ox - 1, z2oy - 1), z2w + 2, z2h + 7, fc="white", ec="#888888", lw=0.25, zorder=9))
+for ln_, g_ in Z2:
+    draw_shape(_axZ, _fill(g_), z2xf, fc=Z_COL["wc"] if ln_.startswith("42_") else Z_COL["adult"], ec="#9A9A9A", lw=0.12, z=9.5)
+_figZ.savefig(os.path.join(HERE, "sozai", "19_ゾーニング_彩色（参考）.pdf"))
+plt.close(_figZ)
+# ゾーンの区分（回した座標、上の物が先）：重ならないよう、先に取った所を引いて境界を共有させる
+_ZL = []
+
+
+def _za(name_, g_):
+    if g_ is not None and not g_.is_empty:
+        _ZL.append((name_, g_))
+
+
+_rooms = {}
+for ln_, k_, g_ in plan_items:
+    z_ = _zcol(ln_)
+    if z_ and g_ is not None and g_.geom_type.endswith("Polygon"):
+        pr_ = 3 if z_ in ("wc", "store") else (0 if ln_.startswith("12_") else (1 if ln_.startswith(Z_BASE) else 2))
+        _rooms.setdefault((pr_, ln_), []).append(_fill(g_))
+_za("便所（0〜2歳）", _WC02)
+for (pr_, ln_), gs_ in sorted(_rooms.items(), key=lambda kv: -kv[0][0]):
+    u_ = unary_union(gs_)
+    nm_ = "本館の床（廊下ほか）" if ln_.startswith("12_") else _zname(ln_)
+    if ln_.startswith(Z_BASE):
+        _za(nm_ + "（0〜2歳の範囲）", u_.intersection(_STRIP02))
+        _za(nm_, u_.difference(_STRIP02))
+    elif ln_.startswith("14_"):
+        _s_ = [p_ for p_ in getattr(u_, "geoms", [u_]) if _unrot(p_).centroid.x < _u0_south]
+        _za("外縁側（0・1歳の南）", unary_union(_s_) if _s_ else None)
+        _za(nm_, u_.difference(unary_union(_s_)) if _s_ else u_)
+    else:
+        _za(nm_, u_)
+_za("建物（壁・すき間）", _BLD)
+_za("小屋の便所", _HUT_WC); _za("小屋の倉庫", _HUT_ST); _za("コンポスト", GD["compost"])
+_za("水遊び場・雨庭", _WATER); _za("小川", _STREAM_W)
+_za("みなみのさんかく", _fill(_MINAMI) if _MINAMI is not None else None); _za("しずかのもり", GD["shizu"]); _za("だいさんかく", _fill(GD["garden"]))
+_za("職員の駐輪場", _BIKE_ST); _za("駐車場", _PARKING)
+_za("歩道", _swS3); _za("ひろば", _hb_)
+_za("木戸の内（小径・ムベの下）", _APPR); _za("セキュリティ内の外構", _IN); _za("セキュリティ外の外構", _OUT)
+_za("公園", _PARK_R); _za("敷地（そのほか）", _SITEP); _za("道路", _ROADS_R); _za("周り", _WIN)
+_taken = None
+_ZP = []                                          # (名前, 形)
+for nm_, g_ in _ZL:
+    g_ = g_.buffer(0).intersection(_WIN)
+    if _taken is not None:
+        g_ = g_.difference(_taken)
+    if g_.area > 0.02:
+        _ZP.append((nm_, g_))
+    _taken = g_ if _taken is None else _taken.union(g_)
+
+
+def _rings(g_, xf_):
+    """形 → パス（穴のある形は rings、無ければ pts）。紙の mm（下原点）"""
+    out_ = []
+    for p_ in getattr(g_, "geoms", [g_]):
+        if p_.geom_type != "Polygon" or p_.area < 0.02:
+            continue
+        p_ = p_.simplify(0.01, preserve_topology=True)
+        ex_ = [list(map(float, q_)) for q_ in xf_(np.array(p_.exterior.coords))[:-1]]
+        if p_.interiors:
+            out_.append(dict(rings=[ex_] + [[list(map(float, q_)) for q_ in xf_(np.array(r_.coords))[:-1]] for r_ in p_.interiors]))
+        else:
+            out_.append(dict(pts=ex_, closed=True))
+    return out_
+
+
+G_ZB = ("zoning_border", "ゾーニング　境界")
+G_ZU = ("zoning_upper", "ゾーニング　上の線")
+_nz, _nzp = 0, 0
+
+
+def _zpart(id_, name_, paths_, layer_, group_, fill_=None, stroke_="#555555", lw_=0.2):
+    global _nz, _nzp
+    for q_ in paths_:
+        q_.update(fill=fill_, stroke=stroke_, lw=lw_, name=name_)
+        rs_ = q_.get("rings") or [q_["pts"]]
+        for r_ in rs_:
+            P_ = np.array(r_)
+            ax.add_patch(MPoly(P_, closed=bool(q_.get("closed", True)) or "rings" in q_, fc=fill_ or "none", ec=stroke_ if lw_ else "none",
+                               lw=lw_ * 0.35 if lw_ else 0, zorder=7, gid="aipart")) if (q_.get("closed") or "rings" in q_) else \
+                ax.plot(P_[:, 0], P_[:, 1], color=stroke_, lw=lw_ * 0.35, zorder=7, gid="aipart")
+    if paths_:
+        _airec(fig, kind="lines", id=id_, name=name_, paths=paths_, layer=layer_, group=group_[0], group_name=group_[1], keep_fill=True)
+        _nz += 1; _nzp += len(paths_)
+
+
+_zs_ = lambda s_: re.sub(r"[\s　/\\|:（）()、。・]+", "", s_)[:14]
+for nm_, g_ in _ZP:
+    _zpart("zone." + _zs_(nm_), nm_, _rings(g_, zxf), "ゾーニング　境界", G_ZB)
+_FENW = _FEN.intersection(_WIN)
+_zpart("zone.セキュリティの線", "セキュリティの線（塀・柵・木戸・南の生垣）", _rings(_FENW, zxf), "ゾーニング　境界", G_ZB, fill_="#1E1E1E", stroke_=None, lw_=0)
+# 2階（西館）の差し込み：枠と部屋（同じ縮尺）
+_z2bg = Polygon([(_z2b[0] - 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[3] + 1 + 7 * ZSC / 1000), (_z2b[0] - 1, _z2b[3] + 1 + 7 * ZSC / 1000)])
+_t2 = None
+for ln_, g_ in sorted(Z2, key=lambda t_: 0 if t_[0].startswith("42_") else 1):
+    g_ = _fill(g_)
+    if _t2 is not None:
+        g_ = g_.difference(_t2)
+    _zpart("zone2." + _zs_(_zname(ln_)), "2階　" + _zname(ln_), _rings(g_, z2xf), "ゾーニング　境界", G_ZB)
+    _t2 = g_ if _t2 is None else _t2.union(g_)
+if _t2 is not None:
+    _zpart("zone2.ホールほか", "2階　ホール・すき間", _rings(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2])).difference(_t2), z2xf), "ゾーニング　境界", G_ZB)
+    _zpart("zone2.枠", "2階（西館）の枠", _rings(_z2bg.difference(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2]))), z2xf), "ゾーニング　境界", G_ZB, fill_="#FFFFFF")
+# 上の線
+_up = lambda gs_: [dict(pts=[list(map(float, q_)) for q_ in zxf(np.array(l_.coords))], closed=False) for g0_ in gs_ for l_ in
+                   (lambda g1_: [b_ for b_ in getattr(g1_, "geoms", [g1_]) if b_.geom_type.endswith("LineString") and len(b_.coords) > 1])(
+                       (g0_.boundary if g0_.geom_type.endswith("Polygon") else g0_).intersection(_WIN))]
+_zpart("zup.等高線", "等高線 0.2 m", _up(_CONT), "ゾーニング　上の線", G_ZU, stroke_="#8A8A8A", lw_=0.15)
+_zpart("zup.築山", "築山の輪郭", _up([GD["mound"]]), "ゾーニング　上の線", G_ZU, stroke_="#666666", lw_=0.3)
+_zpart("zup.車室", "車室・駐輪の区画・バンプ", _up([g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith(("74_", "74w"))) if g_ is not None]),
+       "ゾーニング　上の線", G_ZU, stroke_="#666666", lw_=0.15)
+print("ゾーニング（白地図）：区分 %d、部品 %d、閉じたパス・線 %d" % (len(_ZP), _nz, _nzp))
 _lab = {}
 for ln_, k_, g_ in plan_items:                 # 部屋の名前（小さく）
     if k_ == "mesh" and _zcol(ln_, g_) and not ln_.startswith(("12_", "59_1F_倉庫")):
@@ -2889,38 +3016,25 @@ for nm_, g_ in (("だいさんかく", GD["north"]), ("しずかのもり", GD["
     if g_ is not None and not g_.is_empty:
         q_ = zxf(np.array([g_.representative_point().coords[0]]))[0]
         T(ax, q_[0], q_[1], nm_, 2.4, "#3F3528" if nm_ != "駐車場" else "#333333", bold=True, ha="center", va="center")
-# 2階（西館）：図の左上に同じ縮尺で。更衣室も大人、便所はトイレの色
-_z2b = unary_union([g_ for _, g_ in Z2]).bounds if Z2 else (0, 0, 1, 1)
-z2w, z2h = (_z2b[2] - _z2b[0] + 2) * 1000 / ZSC, (_z2b[3] - _z2b[1] + 2) * 1000 / ZSC
-_r20 = zxf(np.array(R20.envelope.exterior.coords)) if R20 is not None else None   # 1階の西館（屋根の範囲）の紙の上の位置
-z2ox = max(zox + 2, _r20[:, 0].min() - z2w - 8) if _r20 is not None else zox + 2         # 西館のすぐ左（西の道の上）に寄せる（10-30 23:07）
-z2oy = min(Y(55) - 6 - z2h, _r20[:, 1].max() - z2h - 6) if _r20 is not None else Y(55) - 6 - z2h
-z2xf = xform(z2ox, z2oy, ZSC, _z2b[0] - 1, _z2b[1] - 1)
-ax.add_patch(Rectangle((z2ox - 1, z2oy - 1), z2w + 2, z2h + 7, fc="white", ec="#888888", lw=0.25, zorder=9))
 T(ax, z2ox + 1, z2oy + z2h + 2, "2階（西館）", 2.4, bold=True, zorder=10)
-if Z2:
-    draw_shape(ax, _fill(unary_union([g_.buffer(0.08) for _, g_ in Z2])), z2xf, fc=C_SHARE, ec="none", z=9.4)
 for ln_, g_ in Z2:
-    draw_shape(ax, _fill(g_), z2xf, fc=Z_COL["wc"] if ln_.startswith("42_") else Z_COL["adult"], ec="#9A9A9A", lw=0.12, z=9.5)
     q_ = z2xf(np.array([g_.representative_point().coords[0]]))[0]
     T(ax, q_[0], q_[1], _zname(ln_), 1.8, "#333333", ha="center", va="center", zorder=10)
-if Z2:
-    draw_shape(ax, unary_union([g_.buffer(0.05) for _, g_ in Z2]), z2xf, fc="none", ec="#333333", lw=0.35, z=9.6)
-sozai("19", f"ゾーニング（1/{ZSC}、園庭と一体）", 2, zox, zoy, zw, zh)
-_ly = zoy - 6                                  # 凡例（三段）
+# 凡例：色の見本は外し、項目の名前と塗りなしの四角（木田さんが色を付ける）
+_ly = zoy - 6
 for row_ in (Z_LEG1, Z_LEG2, Z_LEG3):
     _lx = M + 6
     for k_, nm_ in row_:
-        ax.add_patch(Rectangle((_lx, _ly - 1.2), 6, 4, fc=Z_COL[k_], ec="#777777", lw=0.2))
+        ax.add_patch(Rectangle((_lx, _ly - 1.2), 6, 4, fc="none", ec="#777777", lw=0.2, gid="aipart"))
+        _airec(fig, kind="box", id=f"zleg.{k_}", name="凡例の四角：" + nm_, x=_lx, y=_ly - 1.2, w=6, h=4, fill=None, stroke="#777777", lw=0.2, dash=None,
+               group="zoning", group_name="ゾーニング（文字）")
         T(ax, _lx + 7.5, _ly, nm_, 2.5)
         _lx += 7.5 + fitz.Font(fontfile=FONT).text_length(nm_, 2.5 / 0.72) + 5
     _ly -= 6
 ax.plot([M + 6, M + 13], [_ly + 0.6, _ly + 0.6], color="#2B2B2B", lw=1.1)
 T(ax, M + 15, _ly, "塀・柵・木戸・生垣（セキュリティの線）", 2.5)
-ax.plot([M + 105, M + 111], [_ly + 0.6, _ly + 0.6], color=_HSB(F_H, 0.55, 0.45), lw=0.4)
+ax.plot([M + 105, M + 111], [_ly + 0.6, _ly + 0.6], color="#8A8A8A", lw=0.4)
 T(ax, M + 113, _ly, "等高線 0.2 m（園庭の地形・築山）", 2.5)
-ax.plot([M + 192, M + 198], [_ly + 0.6, _ly + 0.6], color="#3E8CC4", lw=1.0)
-T(ax, M + 200, _ly, "小川", 2.5)
 _ly += 7                                         # 樹木図の題は _ly − 14
 print("ゾーニングの色：", {k_: Z_COL[k_] for k_ in ("out", "in_ext", "shoe", "g02", "gboth", "g35")})
 

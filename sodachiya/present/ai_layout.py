@@ -238,6 +238,22 @@ def write(c):
                     continue
                 add(dict(id=r["id"], name=r["name"], kind="box", layer=layer, x=round(r["x"], 2), y=round(H - r["y"] - r["h"], 2),
                          w=round(r["w"], 2), h=round(r["h"], 2), fill=r["fill"], stroke=r["stroke"], lw=r["lw"], dash=r["dash"], **_grp(r)))
+            elif k == "lines":                          # 閉じたパス・線の部品（ゾーニングの白地図、10-31）。paths の点は紙の mm（下原点）
+                P_ = []
+                for q in r["paths"]:
+                    q = dict(q)
+                    if "rings" in q:
+                        q["rings"] = [[[round(a, 2), round(H - b, 2)] for a, b in rg] for rg in q["rings"]]
+                        P_ += [v for rg in q["rings"] for v in rg]
+                    else:
+                        q["pts"] = [[round(a, 2), round(H - b, 2)] for a, b in q["pts"]]
+                        P_ += q["pts"]
+                    r.setdefault("_paths", []).append(q)
+                xs_, ys_ = [v[0] for v in P_], [v[1] for v in P_]
+                add(dict(id=r["id"], name=r.get("name") or r["id"], kind="lines", layer=r.get("layer") or layer,
+                         x=round(min(xs_), 2), y=round(min(ys_), 2), w=round(max(xs_) - min(xs_), 2), h=round(max(ys_) - min(ys_), 2),
+                         paths=r.pop("_paths"), mock_hash=djb2(json.dumps(r["paths"])[:4000] + str(len(r["paths"]))),
+                         **({"keep_fill": True} if r.get("keep_fill") else {}), **_grp(r)))
             elif k == "line":                           # 罫線の部品（3枚目の表、10-29）
                 add(dict(id=r["id"], name=r.get("name") or "罫線", kind="line", layer=layer, pts=[[round(q[0], 2), round(H - q[1], 2)] for q in r["pts"]],
                          color=r["color"], lw=r["lw"], **_grp(r)))
@@ -322,11 +338,17 @@ def write(c):
                 p["hidden"] = True
             if u.get("layer"):                          # .ai でレイヤーを移した部品（書き出しで拾った、10-29）。線の部品も（10-30：光の図の線が戻った）
                 p["layer"] = u["layer"]
+            if p["kind"] == "lines" and u.get("fill"):  # 木田さんが付けた塗り（ゾーニングの区分、10-31）
+                for q in p["paths"]:
+                    q["fill"] = u["fill"]
             if p["kind"] == "lines":                    # 図面の線の部品（寸法線など）：動かした分だけ線をずらす（大きさは変えない）
                 if "x" in u and "y" in u:
                     dx, dy = u["x"] - p["x"], u["y"] - p["y"]
                     for q in p["paths"]:
-                        q["pts"] = [[round(a + dx, 3), round(b + dy, 3)] for a, b in q["pts"]]
+                        if "rings" in q:
+                            q["rings"] = [[[round(a + dx, 3), round(b + dy, 3)] for a, b in rg] for rg in q["rings"]]
+                        else:
+                            q["pts"] = [[round(a + dx, 3), round(b + dy, 3)] for a, b in q["pts"]]
                     p["x"], p["y"], p["u"] = round(u["x"], 2), round(u["y"], 2), 1
                 continue
             if u.get("layer"):                          # .ai でレイヤーを移した部品（書き出しで拾った、10-29）

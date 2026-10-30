@@ -24,7 +24,7 @@
     // update_texts で後から足した部品（組んだときに無かった物）は、layout.json の位置と比べる（動かしていなければ書き出さない、10-29）
     if (L && LB !== L) { for (bi = 0; bi < L.pages.length; bi++) { for (bj = 0; bj < L.pages[bi].parts.length; bj++) { if (!BUILT[L.pages[bi].parts[bj].id]) { BUILT[L.pages[bi].parts[bj].id] = L.pages[bi].parts[bj]; } } } }
     var same = function (rec, o) {                     // 組んだときから動いていないか（0.3 mm）
-        if (!o || rec.s !== undefined || rec.style !== undefined || rec.layer !== undefined) { return false; }
+        if (!o || rec.s !== undefined || rec.style !== undefined || rec.layer !== undefined || rec.fill !== undefined) { return false; }
         var a = ["x", "y", "w", "h"], k2;
         for (k2 = 0; k2 < a.length; k2++) { if (rec[a[k2]] !== undefined && o[a[k2]] !== undefined && o[a[k2]] !== null && Math.abs(rec[a[k2]] - o[a[k2]]) > 0.3) { return false; } }
         if (rec.pts && o.pts) {
@@ -77,6 +77,10 @@
             rec.x = (b[0] - r[0]) / K; rec.y = (r[1] - b[1]) / K; rec.w = (b[2] - b[0]) / K; rec.h = (b[1] - b[3]) / K;
         }
         rec.artboard = rab(ai + 1);
+        if (t.kind === "lines") {                      // 線の部品の塗り（ゾーニングの区分に木田さんが付けた色、10-31）。build・update_texts が戻す
+            var fl = SDY.fillOf(it), bpf = BUILT[oid];
+            if (fl && !(bpf && bpf.paths && bpf.paths.length && bpf.paths[0].fill === fl)) { rec.fill = fl; }
+        }
         if (SPLIT[t.id]) {                             // 枚が分かれた部品：位置は前の紙のものなので書き出さない（10-30）
             delete rec.x; delete rec.y; delete rec.w; delete rec.h; delete rec.pts;
             var mp = /^p(\d+)\./.exec(t.id); if (mp) { rec.artboard = parseInt(mp[1], 10); }

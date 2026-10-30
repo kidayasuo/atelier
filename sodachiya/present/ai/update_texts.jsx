@@ -24,7 +24,9 @@
             if (p.kind === "lines") {                    // 図面の線の部品：図が変わって形が変わったら作り直す（.ai で動かしていた分は、書き出してあれば layout.json の位置に入っている）
                 var tg = SDY.parseTag(it);
                 if (tg && tg.mock_hash !== p.mock_hash) {
-                    try { it.remove(); if (SDY.make(doc, i, p)) { nr++; } else { SDY.failed[p.id] = 1; } } catch (e5) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e5.message + "）"); }
+                    // 形が変わったら作り直す。木田さんが付けた塗り（ゾーニングの区分など、10-31）は作り直した物へ移す（書き出していなくても消えない）
+                    var keepFill = SDY.fillOf(it), nw = null;
+                    try { it.remove(); nw = SDY.make(doc, i, p); if (nw) { nr++; if (keepFill && p.keep_fill) { SDY.setFill(nw, keepFill); } } else { SDY.failed[p.id] = 1; } } catch (e5) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e5.message + "）"); }
                 }
             } else if ((p.kind === "text" || p.kind === "area") && it.typename === "TextFrame") {
                 var want = String(p.s).replace(/\n/g, "\r");
