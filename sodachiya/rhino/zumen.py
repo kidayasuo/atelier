@@ -14,6 +14,11 @@
   - 1階平面（FL+1500 で切る）・2階平面（西館、2FL+1000、西の道路の外へずらす）・断面 B・C・D（D は別の紙 sodachiya_sections2_1-100、
     本館と西館の横断を架構 13 の手前（約 0.5 m 南、柱を切らない）で切る。json の skip_layers_re の物は描かない）・立面（園庭の側・道路の側・南の妻・北の妻・高野川の側）。
     断面 A（縦断、r=197 m の円筒で切って平らに伸ばす、西を見る）も（下の draw_section_arc）。
+  - 3・4枚目（10-30、項 20261030-2258-present）：sodachiya_plan1F_1-100（1階平面、周りまで紙いっぱい）と sodachiya_plan2F_1-100
+    （2階平面、1階と同じ紙の位置・縮尺。西館は 2FL+1000 で切り、その外の本館の屋根・園庭・周りは切らずに真上から見た見えがかり。
+    西館の外壁の外形の内は消す：draw_below_top）。周り（PLATEAU の道・建物、公園の線）は組「周り」（細 0.09）：draw_context。
+  - 配置図 1/200（項 20261030-0750-present）：sodachiya_siteplan_1-200。真上から見た見えがかり（屋根・越屋根・光の筋・太陽光・
+    外構・園庭の物・樹冠・高野川の側）と周り・敷地の境（外の一本）：draw_roofplan。色は draw100 の _色.pdf のまま。
   - 切断（太 0.35）：切断面で物を切った線（Brep は Intersection.BrepPlane、メッシュは MeshPlane）。
   - 見えがかり（細 0.13）：切断面の奥（平面は下）の見える線。RhinoCommon の HiddenLineDrawing（Make2D と同じ計算）にクリッピング平面を付けて。
   - 想像線（細 0.09 の破線）：平面だけ。切断より上の、あえて示す物（屋根・軒の外形、光の筋、越屋根、2階の床の縁、遊戯室の上の遊具、
@@ -134,13 +139,22 @@ def load_objects():
     return out
 
 
-def site_curves():
+def site_curves(pat=r'^00_'):
     out = []
+    rx = re.compile(pat)
     for ro in doc.Objects:
         ly = doc.Layers[ro.Attributes.LayerIndex]
-        if ly.Name.startswith('00_') and isinstance(ro.Geometry, G.Curve) and layer_visible(ly):
+        if rx.match(ly.Name) and isinstance(ro.Geometry, G.Curve) and layer_visible(ly):
             out.append(ro.Geometry)
     return out
+
+
+def site_outer():
+    """敷地の境の外の一本（00 には境から 1 m 内の線もある。配置図は外の一本だけ、draw100 と同じ）"""
+    cs = [c for c in site_curves() if c.IsClosed]
+    if not cs:
+        return site_curves()
+    return [max(cs, key=lambda c: c.GetBoundingBox(True).Diagonal.Length)]
 
 
 # ---------------------------------------------------------------- 折れ線
@@ -204,13 +218,78 @@ def clip_poly(P, R):
     return out
 
 
+def _pip(x, y, R):
+    """点 (x, y) が閉じた折れ線 R の内か（偶奇）"""
+    ins, j = False, len(R) - 1
+    for i in range(len(R)):
+        (xi, yi), (xj, yj) = R[i], R[j]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+            ins = not ins
+        j = i
+    return ins
+
+
+def mask_out(P, rings):
+    """折れ線 P（紙の mm）から、rings（閉じた形、どれか一つの内なら除く）の内の所を除く → 折れ線のリスト。
+    2 階の紙で、西館の外の見えがかりを西館の外壁の外形の内で消す（2 階の図がある所、10-30）"""
+    if not rings or len(P) < 2:
+        return [P]
+    xs, ys = [p[0] for p in P], [p[1] for p in P]
+    bb = [(min(q[0] for q in R), min(q[1] for q in R), max(q[0] for q in R), max(q[1] for q in R)) for R in rings]
+    act = [k for k, b in enumerate(bb) if not (max(xs) < b[0] or min(xs) > b[2] or max(ys) < b[1] or min(ys) > b[3])]
+    if not act:
+        return [P]
+    out, cur = [], []
+
+    def flush():
+        if len(cur) > 1:
+            out.append(list(cur))
+    for a, b in zip(P[:-1], P[1:]):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        ts = [0.0, 1.0]
+        sx0, sx1, sy0, sy1 = min(a[0], b[0]), max(a[0], b[0]), min(a[1], b[1]), max(a[1], b[1])
+        for k in act:
+            B = bb[k]
+            if sx1 < B[0] or sx0 > B[2] or sy1 < B[1] or sy0 > B[3]:
+                continue
+            R = rings[k]
+            for c, d in zip(R, R[1:] + R[:1]):
+                ex, ey = d[0] - c[0], d[1] - c[1]
+                den = dx * ey - dy * ex
+                if abs(den) < 1e-12:
+                    continue
+                t = ((c[0] - a[0]) * ey - (c[1] - a[1]) * ex) / den
+                u = ((c[0] - a[0]) * dy - (c[1] - a[1]) * dx) / den
+                if 0.0 < t < 1.0 and 0.0 <= u <= 1.0:
+                    ts.append(t)
+        ts.sort()
+        for t0, t1 in zip(ts[:-1], ts[1:]):
+            if t1 - t0 < 1e-9:
+                continue
+            tm = (t0 + t1) / 2
+            mx, my = a[0] + dx * tm, a[1] + dy * tm
+            pa, pb = (a[0] + dx * t0, a[1] + dy * t0), (a[0] + dx * t1, a[1] + dy * t1)
+            if any(bb[k][0] <= mx <= bb[k][2] and bb[k][1] <= my <= bb[k][3] and _pip(mx, my, rings[k]) for k in act):
+                flush()
+                cur = []
+                continue
+            if cur and abs(cur[-1][0] - pa[0]) < 1e-9 and abs(cur[-1][1] - pa[1]) < 1e-9:
+                cur.append(pb)
+            else:
+                flush()
+                cur = [pa, pb]
+    flush()
+    return out
+
+
 # ---------------------------------------------------------------- 一つの紙の線
 class Sheet(object):
     def __init__(s, name, J):
         s.name, s.J = name, J
         s.W, s.H = J['paper_mm']
         lw = J.get('line_weights_mm', {})
-        s.LW = {u'切断': lw.get('cut', 0.35), u'見えがかり': VIS_MM, u'想像線': lw.get('thin', 0.09), u'敷地の境': lw.get('thin', 0.09)}
+        s.LW = {u'切断': lw.get('cut', 0.35), u'見えがかり': VIS_MM, u'想像線': lw.get('thin', 0.09), u'敷地の境': lw.get('thin', 0.09),
+                u'周り': lw.get('thin', 0.09)}          # 周り：PLATEAU の道・建物、公園の線（細い見えがかり、10-30）
         s.groups = {}          # レイヤーの組 → [折れ線（紙 mm、y 下）]
 
     def add(s, view, cls, leaf, polys2d, clip):
@@ -352,12 +431,29 @@ def view_plane(v):
 
 def paper_fn(v):
     """局所の (X, Y) → 紙の mm（左上が原点、下へ y）"""
-    if v['kind'] == 'plan':                     # 局所の X, Y はモデルの x, y（2 階のずらしは model_to_paper に入っている）
+    if v['kind'] in ('plan', 'roofplan'):                     # 局所の X, Y はモデルの x, y（2 階のずらしは model_to_paper に入っている）
         M = v['model_to_paper']
     else:                                       # 局所の X, Y は (h, z)
         M = v['draw_to_paper']
     a, b, c, d, e, f = M['a'], M['b'], M['c'], M['d'], M['e'], M['f']
     return lambda X, Y: (a * X + b * Y + c, d * X + e * Y + f)
+
+
+def paper_box_model(v):
+    """図の範囲（clip_paper_mm）をモデルの xy に戻した範囲 (x0, y0, x1, y1)。平面・配置図だけ（範囲の外の物を先に除く）"""
+    M = v['model_to_paper']
+    a, b, c, d, e, f = M['a'], M['b'], M['c'], M['d'], M['e'], M['f']
+    det = a * e - b * d
+    x0, y0, x1, y1 = v['clip_paper_mm']
+    pts = []
+    for px, py in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
+        u, w = px - c, py - f
+        pts.append(((e * u - b * w) / det, (a * w - d * u) / det))
+    return (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
+
+
+def in_box(o, B, pad=0.0):
+    return not (o.bmax[0] < B[0] - pad or o.bmin[0] > B[2] + pad or o.bmax[1] < B[1] - pad or o.bmin[1] > B[3] + pad)
 
 
 def local_xf(pl):
@@ -602,6 +698,71 @@ def draw_plan(sheet, v, OBJS):
     if not is2:
         for c in site_curves():
             sheet.add(nm, u'敷地の境', u'00_敷地', [[P(p.X, p.Y) for p in polyline_pts(c)]], clip)
+    draw_context(sheet, v, OBJS)
+    if v.get('below_top'):
+        draw_below_top(sheet, v, OBJS, set(str(o.id) for o in sel))
+
+
+# ---------------------------------------------------------------- 周り（3・4枚目の平面、配置図。項 20261030-2258-present）
+def draw_context(sheet, v, OBJS):
+    """周り：context_re の物（PLATEAU の道・建物）を一つずつ真上からの外形で、context_curves_re の曲線（公園・駐車場）も。
+    組「周り」（細い見えがかり）。json に context_re が無い図（今の平面図など）は何もしない"""
+    if not v.get('context_re'):
+        return
+    cre = re.compile(v['context_re'])
+    skip = re.compile(v['context_skip_re']) if v.get('context_skip_re') else None
+    P = paper_fn(v)
+    clip = v['clip_paper_mm']
+    nm = v['name']
+    B = paper_box_model(v)
+    L = [o for o in OBJS if cre.match(o.leaf) and not (skip and skip.match(o.leaf)) and in_box(o, B)]
+    say(u'%s：周り %d' % (nm, len(L)))
+    for o in L:
+        for Q in outlines([o]):
+            sheet.add(nm, u'周り', o.leaf, [[P(*q) for q in Q]], clip)
+    if v.get('context_curves_re'):
+        for c in site_curves(v['context_curves_re']):
+            sheet.add(nm, u'周り', u'01_公園・駐車場', [[P(p.X, p.Y) for p in polyline_pts(c)]], clip)
+
+
+def draw_below_top(sheet, v, OBJS, skip_ids):
+    """2 階の紙：西館の外の物（below_top.layers_re、2 階に描いた物を除く）を切らずに真上から見た見えがかり（本館の屋根・太陽光・
+    光の筋・越屋根、園庭、高野川の側）。HiddenLineDrawing（クリッピング平面なし）で隠れ線を消す。西館の外壁（mask_re）の
+    真上からの外形の内は消す（2 階の図がある所）。敷地の境も"""
+    Bt = v['below_top']
+    tre, mre = re.compile(Bt['layers_re']), re.compile(Bt['mask_re'])
+    room = re.compile(v['rules']['room_re'])
+    P = paper_fn(v)
+    clip = v['clip_paper_mm']
+    nm = v['name']
+    B = paper_box_model(v)
+    sel = [o for o in OBJS if tre.match(o.leaf) and str(o.id) not in skip_ids and not room.match(o.leaf)
+           and not o.leaf.startswith('47') and in_box(o, B)]
+    rings = [[P(*q) for q in Q] for Q in outlines([o for o in OBJS if mre.match(o.leaf)]) if len(Q) > 3]
+    say(u'%s：下に見える（真上から）%d・消す外形 %d' % (nm, len(sel), len(rings)))
+    for o, pts in hidden_lines(sel, G.Transform.Identity, clip=None):
+        sheet.add(nm, u'見えがかり', o.leaf, mask_out([P(*q) for q in pts], rings), clip)
+    for c in site_curves():
+        sheet.add(nm, u'敷地の境', u'00_敷地', mask_out([P(p.X, p.Y) for p in polyline_pts(c)], rings), clip)
+
+
+# ---------------------------------------------------------------- 配置図（真上から、1/200。項 20261030-0750-present）
+def draw_roofplan(sheet, v, OBJS):
+    """配置図の線：layers_re の物（屋根・越屋根・光の筋・太陽光・外構・園庭の物・樹冠・高野川の側）を真上から見た見えがかり
+    （切らない、隠れ線を消す）。周り（PLATEAU）は外形、敷地の境は外の一本。紙・位置・向き・縮尺は draw100 の _xform.json と同じ"""
+    tre = re.compile(v['layers_re'])
+    room = re.compile(v.get('room_re') or r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_')
+    P = paper_fn(v)
+    clip = v['clip_paper_mm']
+    nm = v['name']
+    B = paper_box_model(v)
+    sel = [o for o in OBJS if tre.match(o.leaf) and not room.match(o.leaf) and not o.leaf.startswith('47') and in_box(o, B)]
+    say(u'%s：真上から %d' % (nm, len(sel)))
+    for o, pts in hidden_lines(sel, G.Transform.Identity, clip=None):
+        sheet.add(nm, u'見えがかり', o.leaf, [[P(*q) for q in pts]], clip)
+    draw_context(sheet, v, OBJS)
+    for c in (site_outer() if v.get('site_outer_only') else site_curves()):
+        sheet.add(nm, u'敷地の境', u'00_敷地', [[P(p.X, p.Y) for p in polyline_pts(c)]], clip)
 
 
 # ---------------------------------------------------------------- 断面
@@ -817,6 +978,8 @@ def main():
                     draw_elevation(sh, v, OBJS, room_re)
                 elif v['kind'] == 'section_arc':
                     draw_section_arc(sh, v, OBJS)
+                elif v['kind'] == 'roofplan':
+                    draw_roofplan(sh, v, OBJS)
                 else:
                     say(u'  %s（%s）は Rhino では描かない' % (v['name'], v['kind']))
             except Exception as ex:
