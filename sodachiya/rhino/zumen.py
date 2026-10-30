@@ -91,7 +91,7 @@ class Obj(object):
 
 
 # sodachiya.3dm で開いたときに消してあるレイヤー（clean_wire.py の HIDE_DEFAULT：街の建物・樹木、ユーザー 10-28）は、消えていても読む
-HIDE_DEFAULT = ('04', '67', '67c', '77', '77c', '79', '79c', '91', '94', '94c')   # 樹木は親の「T 樹木」で消している（10-29）、91 園庭の等高線（10-29）
+HIDE_DEFAULT = ('04', '67', '67c', '77', '77c', '79', '79c', '91', '94', '94b', '94c', '94g')   # 樹木は親の「T 樹木」で消している（10-29）、91 園庭の等高線（10-29）
 def _code(name):
     m_ = re.match(r'^(\d+[a-z]?)_', name)
     return m_.group(1) if m_ else None
