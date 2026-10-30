@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-30 09:38",
+"generated": "2026-10-30 09:42",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -13104,8 +13104,7 @@
 "group": "dwg.D.level.西館最高+8,717",
 "group_name": "高さ　西館 最高　+8,717",
 "dwg": "断面図D",
-"mock_hash": "d7f423da",
-"hidden": true
+"mock_hash": "d7f423da"
 },
 {
 "id": "p3.dwg.D.level.西館最高+8,717.t",
@@ -13122,8 +13121,7 @@
 "group": "dwg.D.level.西館最高+8,717",
 "group_name": "高さ　西館 最高　+8,717",
 "dwg": "断面図D",
-"mock_hash": "f54c1f32",
-"hidden": true
+"mock_hash": "f54c1f32"
 },
 {
 "id": "p3.dwg.D.dim.9,049西館の最高（10m以下.l",
@@ -13261,8 +13259,7 @@
 "group": "dwg.D.dim.9,049西館の最高（10m以下",
 "group_name": "寸法　9,049　西館の最高（10 m 以下）",
 "dwg": "断面図D",
-"mock_hash": "f5cddd60",
-"hidden": true
+"mock_hash": "f5cddd60"
 },
 {
 "id": "p3.dwg.D.dim.9,049西館の最高（10m以下.t",
@@ -13280,8 +13277,7 @@
 "group": "dwg.D.dim.9,049西館の最高（10m以下",
 "group_name": "寸法　9,049　西館の最高（10 m 以下）",
 "dwg": "断面図D",
-"mock_hash": "5b15cb63",
-"hidden": true
+"mock_hash": "5b15cb63"
 },
 {
 "id": "p3.dwg.D.line.245_310.l",
@@ -13319,8 +13315,7 @@
 }
 ],
 "dwg": "断面図D",
-"mock_hash": "dd66acaa",
-"hidden": true
+"mock_hash": "dd66acaa"
 },
 {
 "id": "p3.dwg.D.dim.729軒の出.l",
@@ -13458,8 +13453,7 @@
 "group": "dwg.D.dim.729軒の出",
 "group_name": "寸法　729　軒の出",
 "dwg": "断面図D",
-"mock_hash": "7507bb81",
-"hidden": true
+"mock_hash": "7507bb81"
 },
 {
 "id": "p3.dwg.D.dim.729軒の出.t",
@@ -13476,8 +13470,7 @@
 "group": "dwg.D.dim.729軒の出",
 "group_name": "寸法　729　軒の出",
 "dwg": "断面図D",
-"mock_hash": "22e45a81",
-"hidden": true
+"mock_hash": "22e45a81"
 },
 {
 "id": "p3.dwg.D.dim.4,858垂木の下.l",
@@ -13615,8 +13608,7 @@
 "group": "dwg.D.dim.4,858垂木の下",
 "group_name": "寸法　4,858　垂木の下",
 "dwg": "断面図D",
-"mock_hash": "7d6fc90c",
-"hidden": true
+"mock_hash": "7d6fc90c"
 },
 {
 "id": "p3.dwg.D.dim.4,858垂木の下.t",
@@ -13634,8 +13626,7 @@
 "group": "dwg.D.dim.4,858垂木の下",
 "group_name": "寸法　4,858　垂木の下",
 "dwg": "断面図D",
-"mock_hash": "c45e9c2d",
-"hidden": true
+"mock_hash": "c45e9c2d"
 },
 {
 "id": "p3.dwg.D.level.本館越屋根の蓋+4,563.l",
@@ -13693,8 +13684,7 @@
 "group": "dwg.D.level.本館越屋根の蓋+4,563",
 "group_name": "高さ　本館 越屋根の蓋　+4,563",
 "dwg": "断面図D",
-"mock_hash": "d7f423da",
-"hidden": true
+"mock_hash": "d7f423da"
 },
 {
 "id": "p3.dwg.D.level.本館越屋根の蓋+4,563.t",
@@ -13711,8 +13701,7 @@
 "group": "dwg.D.level.本館越屋根の蓋+4,563",
 "group_name": "高さ　本館 越屋根の蓋　+4,563",
 "dwg": "断面図D",
-"mock_hash": "f943a9e9",
-"hidden": true
+"mock_hash": "f943a9e9"
 },
 {
 "id": "p3.dwg.D.dim.3,000縁側の奥行き.l",
@@ -14026,8 +14015,7 @@
 "group": "dwg.D.dim.4,907軒の高さ",
 "group_name": "寸法　4,907　軒の高さ",
 "dwg": "断面図D",
-"mock_hash": "3cc8548e",
-"hidden": true
+"mock_hash": "3cc8548e"
 },
 {
 "id": "p3.dwg.D.dim.4,907軒の高さ.t",
@@ -14045,8 +14033,7 @@
 "group": "dwg.D.dim.4,907軒の高さ",
 "group_name": "寸法　4,907　軒の高さ",
 "dwg": "断面図D",
-"mock_hash": "4ae19ab2",
-"hidden": true
+"mock_hash": "4ae19ab2"
 },
 {
 "id": "p3.dwg.D.dim.4,440梁の下端.l",
@@ -14184,8 +14171,7 @@
 "group": "dwg.D.dim.4,440梁の下端",
 "group_name": "寸法　4,440　梁の下端",
 "dwg": "断面図D",
-"mock_hash": "83b2aef0",
-"hidden": true
+"mock_hash": "83b2aef0"
 },
 {
 "id": "p3.dwg.D.dim.4,440梁の下端.t",
@@ -14203,8 +14189,7 @@
 "group": "dwg.D.dim.4,440梁の下端",
 "group_name": "寸法　4,440　梁の下端",
 "dwg": "断面図D",
-"mock_hash": "bc20dc66",
-"hidden": true
+"mock_hash": "bc20dc66"
 },
 {
 "id": "p3.dwg.D.dim.4,863本館の最高.l",
@@ -14361,8 +14346,7 @@
 "group": "dwg.D.dim.4,863本館の最高",
 "group_name": "寸法　4,863　本館の最高",
 "dwg": "断面図D",
-"mock_hash": "d46d2548",
-"hidden": true
+"mock_hash": "d46d2548"
 },
 {
 "id": "p3.dwg.D.dim.4,863本館の最高.t",
@@ -14380,8 +14364,7 @@
 "group": "dwg.D.dim.4,863本館の最高",
 "group_name": "寸法　4,863　本館の最高",
 "dwg": "断面図D",
-"mock_hash": "f2736000",
-"hidden": true
+"mock_hash": "f2736000"
 },
 {
 "id": "p3.dwg.D.level.本館屋根の最高+3,970.l",
@@ -14439,8 +14422,7 @@
 "group": "dwg.D.level.本館屋根の最高+3,970",
 "group_name": "高さ　本館 屋根の最高　+3,970",
 "dwg": "断面図D",
-"mock_hash": "d7f423da",
-"hidden": true
+"mock_hash": "d7f423da"
 },
 {
 "id": "p3.dwg.D.level.本館屋根の最高+3,970.t",
@@ -14457,8 +14439,7 @@
 "group": "dwg.D.level.本館屋根の最高+3,970",
 "group_name": "高さ　本館 屋根の最高　+3,970",
 "dwg": "断面図D",
-"mock_hash": "2d4b05ed",
-"hidden": true
+"mock_hash": "2d4b05ed"
 },
 {
 "id": "p3.dwg.D.dim.1,398軒の出.l",
@@ -14673,8 +14654,7 @@
 "group": "dwg.D.level.2FL+3,250",
 "group_name": "高さ　2FL　+3,250",
 "dwg": "断面図D",
-"mock_hash": "d7f423da",
-"hidden": true
+"mock_hash": "d7f423da"
 },
 {
 "id": "p3.dwg.D.level.2FL+3,250.t",
@@ -14691,8 +14671,7 @@
 "group": "dwg.D.level.2FL+3,250",
 "group_name": "高さ　2FL　+3,250",
 "dwg": "断面図D",
-"mock_hash": "50b631ea",
-"hidden": true
+"mock_hash": "50b631ea"
 },
 {
 "id": "p3.dwg.D.dim.3,072垂木の下.l",
@@ -14849,8 +14828,7 @@
 "group": "dwg.D.dim.3,072垂木の下",
 "group_name": "寸法　3,072　垂木の下",
 "dwg": "断面図D",
-"mock_hash": "887ea74",
-"hidden": true
+"mock_hash": "887ea74"
 },
 {
 "id": "p3.dwg.D.dim.3,072垂木の下.t",
@@ -14868,8 +14846,7 @@
 "group": "dwg.D.dim.3,072垂木の下",
 "group_name": "寸法　3,072　垂木の下",
 "dwg": "断面図D",
-"mock_hash": "ea3ae9c0",
-"hidden": true
+"mock_hash": "ea3ae9c0"
 },
 {
 "id": "p3.dwg.D.dim.2,817梁の下端.l",
@@ -15007,8 +14984,7 @@
 "group": "dwg.D.dim.2,817梁の下端",
 "group_name": "寸法　2,817　梁の下端",
 "dwg": "断面図D",
-"mock_hash": "c0d7044a",
-"hidden": true
+"mock_hash": "c0d7044a"
 },
 {
 "id": "p3.dwg.D.dim.2,817梁の下端.t",
@@ -15026,8 +15002,7 @@
 "group": "dwg.D.dim.2,817梁の下端",
 "group_name": "寸法　2,817　梁の下端",
 "dwg": "断面図D",
-"mock_hash": "8e7873cc",
-"hidden": true
+"mock_hash": "8e7873cc"
 },
 {
 "id": "p3.dwg.D.dim.3,171軒の高さ.l",
@@ -15342,8 +15317,7 @@
 "group": "dwg.D.note.300GL〜FL",
 "group_name": "注　300　GL〜FL",
 "dwg": "断面図D",
-"mock_hash": "f25ef2c8",
-"hidden": true
+"mock_hash": "f25ef2c8"
 },
 {
 "id": "p3.dwg.D.note.300GL〜FL.t",
@@ -15361,8 +15335,7 @@
 "group": "dwg.D.note.300GL〜FL",
 "group_name": "注　300　GL〜FL",
 "dwg": "断面図D",
-"mock_hash": "dfc3b539",
-"hidden": true
+"mock_hash": "dfc3b539"
 },
 {
 "id": "p3.dwg.D.level.FL±0GL−300.l",
@@ -15532,8 +15505,7 @@
 }
 ],
 "dwg": "断面図D",
-"mock_hash": "559d882e",
-"hidden": true
+"mock_hash": "559d882e"
 },
 {
 "id": "p3.dwg.D.dim.13,306.l",
@@ -15644,8 +15616,7 @@
 "group": "dwg.D.dim.13,306",
 "group_name": "寸法　13,306",
 "dwg": "断面図D",
-"mock_hash": "b6db2463",
-"hidden": true
+"mock_hash": "b6db2463"
 },
 {
 "id": "p3.dwg.D.dim.13,306.t",
@@ -15662,8 +15633,7 @@
 "group": "dwg.D.dim.13,306",
 "group_name": "寸法　13,306",
 "dwg": "断面図D",
-"mock_hash": "7ddfad4e",
-"hidden": true
+"mock_hash": "7ddfad4e"
 },
 {
 "id": "p3.dwg.D.dim.900.l",
@@ -16328,8 +16298,7 @@
 "color": "#595959",
 "align": "center",
 "dwg": "断面図D",
-"mock_hash": "cde8c6d6",
-"hidden": true
+"mock_hash": "cde8c6d6"
 },
 {
 "id": "p3.dwg.D.scale.05m.l",
@@ -26211,12 +26180,12 @@
 "layer": "説明",
 "x": 786.27,
 "y": 491.49,
-"s": "計画\n120.5\n60.0\n181.2\n266.1\n17.2\n\n982.2\n69.8\n60.4\n30.1\n65.7\n13.9\n30.0\n36.2\n○\n○\n1,310.9",
+"s": "計画\n120.5\n60.0\n181.2\n266.1\n17.2\nなし\n982.2\n69.8\n60.4\n30.1\n65.7\n13.9\n30.0\n36.2\n5台（南3・北2、うち搬入1）\n21台（保護者12・職員9）\n1,310.9",
 "size_pt": 9.45,
 "font": "W6",
 "color": "#222222",
 "align": "right",
-"mock_hash": "955e680",
+"mock_hash": "470d3ca5",
 "para_styles": [
 {
 "size_pt": 9.44822373393802,
@@ -53181,15 +53150,15 @@
 "name": "こどもたちの育ち舎　3dm（sodachiya.",
 "kind": "text",
 "layer": "図",
-"x": 56.74,
+"x": 56.68,
 "y": 584.63,
-"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-30 08:36（atelier e8d0d16 の次の版の 3dm）",
+"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-30 09:18（atelier ed26961 の次の版の 3dm）",
 "size_pt": 4.5,
 "font": "W3",
 "color": "#737373",
 "align": "center",
 "dwg": "平面図",
-"mock_hash": "fc4e3674"
+"mock_hash": "7521e14a"
 },
 {
 "id": "p4.pagetitle",

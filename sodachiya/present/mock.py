@@ -2373,7 +2373,7 @@ IA_W = 133                                      # 囲みの幅（mm）。inspire
 IA_PAD = 6
 IA_FS = 2.4                                     # 面積表の字
 IA_ROW = IA_FS + 1.9                            # 面積表の行送り（mm、10-29 15:16：2.2→1.9）
-_ia_rows = [r_ for r_ in AJ["rooms"] if not (r_["planned"] is None and not r_["judge"])]
+_ia_rows = [r_ for r_ in AJ["rooms"] if not (r_["planned"] is None and not r_["judge"]) or r_["room"] == "食堂"]
 
 
 def _mpart(id_, x, y, paras, group, name, ha="left"):
@@ -2430,7 +2430,14 @@ _cols = {"room": ["室"], "req": ["要求"], "plan": ["計画"]}
 for r_ in _ia_rows:
     _cols["room"].append(r_["room"].replace(" ", ""))
     _cols["req"].append(r_["required"].replace(" ", ""))
-    _cols["plan"].append(f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"])
+    # 食堂は「なし」、駐車・駐輪は台数（サービス車・職員の分も、ユーザー 10-30）。台数は areas.json の parts（決定事項_外構・外構の図の counts）から
+    _pl = {"食堂": "なし", "駐車場": "5台（南3・北2、うち搬入1）",
+           "駐輪スペース": "21台（保護者12・職員9）"}.get(r_["room"].replace(" ", ""))
+    if r_["room"].replace(" ", "") == "駐車場" and "南 3" not in r_.get("parts", ""):
+        _pl = None; print("面積表：駐車場の台数が変わった。mock.py の台数を直す：", r_.get("parts"))
+    if r_["room"].replace(" ", "") == "駐輪スペース" and "計 21" not in r_.get("parts", ""):
+        _pl = None; print("面積表：駐輪の台数が変わった。mock.py の台数を直す：", r_.get("parts"))
+    _cols["plan"].append(_pl or (f"{r_['planned']:.1f}" if r_["planned"] else r_["judge"]))
 _cols["room"].append("延床（2,000以内）"); _cols["req"].append(""); _cols["plan"].append(f"{AJ['floor']['total']:,.1f}")
 _cx = {"room": _ix, "req": _ix + 44, "plan": _ix + _iw}       # 要求は左揃え、計画は右揃え（小数点がそろう）
 _nm = {"room": "室", "req": "要求", "plan": "計画"}
