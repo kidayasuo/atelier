@@ -276,14 +276,19 @@ def band(pts, w, fc, ec, z=7):
     g = SL(Q(pts)).buffer(w, cap_style=2, join_style=2)
     poly(g, fc=fc, ec=ec, lw=0.4, z=z)
 SB = STAFF_BIKE; PS0, PS1, PD0, PD = SB["pocket"]; G0, G1 = SB["gate"]
-HEDGE = [[(22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D)]]
-for h in HEDGE:
-    band(h, HW, C["hedge"], C["green"])
-    line(Q(h), lw=0.35, c="#3f5a2a", ls=(0, (1.2, 1.2)), z=7.2)
-    g = SL(Q(h))
+def _a_at(d): return float((d - TIP[1]) / EE[1])                         # 公園の塀の線（E(a, 0)）が局所の d に来る a
+# 見送りの小径の生垣は南へまっすぐ公園の塀の線まで延ばし、端は塀の線で斜めに切る（ユーザー 10-31：折れてとげになっていた）
+KA = _a_at(HEDGE_D); KP = tuple(float(v) for v in inv(E(KA, 0)))          # 生垣の芯（メッシュ柵）が塀の線に会う点
+HEDGE = [[(22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), KP]]
+_HEDGE_DRAW = [[(22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (KP[0] - 1.2, HEDGE_D)]]
+def hedge_poly(h):                                                      # 生垣の帯（芯の両側 HW）、公園の側は塀の線で切る
+    return SL(Q(h)).buffer(HW, cap_style=2, join_style=2).difference(SP(PARK))
+for h in _HEDGE_DRAW:
+    poly(hedge_poly(h), fc=C["hedge"], ec=C["green"], lw=0.4, z=7)
+    line(Q(HEDGE[0]), lw=0.35, c="#3f5a2a", ls=(0, (1.2, 1.2)), z=7.2)
+    g = SL(Q(HEDGE[0]))
     for t in np.arange(0.3, g.length, 0.7):
         q = g.interpolate(t); ax.add_patch(Circle((q.x, q.y), 0.22, fc="none", ec=C["green"], lw=0.3, zorder=7.1))
-line([P(S_PATH0, HEDGE_D), P(*TIP)], lw=1.0, c=C["green"], z=7)
 # board fence h1.8 on the road side of the plaza
 fence = SL(Q([(25.0, FENCE_D), (32.0, FENCE_D)]))
 fx = fence.intersection(WB.exterior)
@@ -294,14 +299,14 @@ yamato.plan(line, P(22.7, PD), P(G0, PD), C["wood"])                   # 職員�
 yamato.plan(line, P(G1, PD), P(SX, PD), C["wood"])
 line([P(G0, PD), P(G0, PD + (G1 - G0))], lw=0.4, c="#555555", z=7.6)    # staff gate leaf (opens into the plaza)
 ax.add_patch(Circle(P((G0 + G1) / 2, PD), 0.16, fc="#555555", ec="white", lw=0.4, zorder=14))
-# park gate (kido) 1.2 wide just SE of the park tip; lattice h1.8 from the gate to the infant fence
-GA0, GA1 = 0.3, 1.5
-yamato.plan(line, E(0, 0), E(GA0, 0), C["wood"])
+# park gate (kido) 1.2 wide: its north post where the inner face of the hedge meets the park fence line (10-31); fence h1.8 from the gate to the infant fence
+GA0 = round(_a_at(HEDGE_D + HW) + 0.06, 2); GA1 = GA0 + 1.2
+yamato.plan(line, E(KA, 0), E(GA0, 0), C["wood"])                       # 生垣の芯から木戸の柱まで（塀の線の上、生垣の端の陰）
 lat_end = np.array(inv(FENCE_END)); La = float((lat_end - TIP) @ EE)
 yamato.plan(line, E(GA1, 0), FENCE_END, C["wood"])                    # 公園側の塀＝スギの大和張り（外壁と同じ、ユーザー 10-27）
 ax.add_patch(Arc(E(GA0, 0), 2.4, 2.4, angle=math.degrees(math.atan2(*(np.array(E(1, 0)) - np.array(E(0, 0)))[::-1])),
                  theta1=0, theta2=90, lw=0.35, color="#555555", zorder=7.6))
-LINE = Q([(SX, PD), (22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), (S_PATH0, HEDGE_D), tuple(TIP)]) + [FENCE_END]
+LINE = Q([(SX, PD), (22.7, PD), (22.7, NHEDGE_D), (17.7, NHEDGE_D), (17.7, HEDGE_D), KP]) + [FENCE_END]
 line(LINE, lw=0.5, c=C["red"], ls=(0, (6, 2)), z=13)
 ax.add_patch(Circle(E((GA0 + GA1) / 2, 0), 0.32, fc=C["red"], ec="white", lw=0.5, zorder=14))
 
@@ -314,26 +319,31 @@ EAVE_S = SP([W(0, -1.0), W(0, 15), W(-1.8, 15), W(-4.2, -1.0)])        # 南の�
 # 覆う範囲（ユーザー 10-24：待ち受けも含めてムベで。南側なので育つ、育たない所は上に屋根がある）＝木戸の内側の三角＋南の軒の下のポーチ
 _sw = inv(W(-0.1, -0.35)); _eN = W(-0.1, 1.62); _gab = inv(_eN)          # 本館の南西の角、東の縁＝一本の線の柵（v1.6）の上（柵の柱が桁を受ける）
 _fe = inv(FENCE_END)
-TRI = SP(Q([tuple(TIP), (S_PATH0, HEDGE_D + HW), (_sa, _PGD), (_sa, WALL_D), _sw, _gab, (_fe[0], _fe[1])]))
+TRI = SP(Q([tuple(inv(E(_a_at(HEDGE_D + HW), 0))), (_sa, HEDGE_D + HW), (_sa, _PGD), (_sa, WALL_D), _sw, _gab, (_fe[0], _fe[1])]))
 TRI = TRI.difference(SP(rect(-0.1, 57.34, -0.35, 13.5, 48)))
 TRI = max(getattr(TRI, "geoms", [TRI]), key=lambda q: q.area)
 poly(TRI, fc="#EFE8DA", ec="none", z=2.4)
 _e0 = W(-0.1, -1.05); _ec = W(-4.25, -1.05)                           # 軒の縁の桁（ポーチの西の縁、ベビーカーの外）
 TRI_END = FENCE_END
 # 軒の縁の桁の北の端は柱を立てず、本館の南西の角の柱に金物で留めた梁で受ける（ユーザー 10-27：小径の口の柱をやめる。小径の棚が梁を本館の壁へ留めるのと同じ構成）
-_wb = SL([W(-0.1, -0.35), W(-0.1, -6.0)]).intersection(SL([P(_sa, _PGD), P(*TIP)]))
-_wb = (_wb.x, _wb.y) if not _wb.is_empty else P(*TIP)
+_PGA = _a_at(_PGD); _PGE = E(_PGA, 0)                                  # 小径の続きの桁は折らずに南へ、公園の塀の線の桁（木戸の上）に載る（10-31）
+_wb = SL([W(-0.1, -0.35), W(-0.1, -6.0)]).intersection(SL([P(_sa, _PGD), _PGE]))
+_wb = (_wb.x, _wb.y) if not _wb.is_empty else _PGE
 TRI_WALLBEAM = [W(-0.1, -0.35), _wb]                                   # 本館の角の柱 → 小径の続きの桁（その上を軒の縁の桁の北の端が受ける）
-TRI_GIRDERS = [[P(_sa, _PGD), P(*TIP)], [P(*TIP), FENCE_END], [_e0, _ec], [_eN, FENCE_END], TRI_WALLBEAM]   # 桁：小径の続き・格子の線・軒の縁・東の縁（一本の線の柵の上、腰掛けを避けて柱）
+TRI_GIRDERS = [[P(_sa, _PGD), _PGE], [E(GA0, 0), FENCE_END], [_e0, _ec], [_eN, FENCE_END], TRI_WALLBEAM]   # 桁：小径の続き・格子の線・軒の縁・東の縁（一本の線の柵の上、腰掛けを避けて柱）
 TRI_BEAMS = []
 for sb in (_sa - 1.5, _sa - 3.0, _sa - 4.5, _sa - 6.0, _sa - 7.5):     # 梁は 1.5 ごと（小径と同じ）、格子から東の縁まで
     seg = SL([P(*_lat(sb)), P(sb, 18.0)]).intersection(TRI.buffer(0.06))
     seg = max(getattr(seg, "geoms", [seg]), key=lambda q: q.length) if not seg.is_empty else seg
-    if not seg.is_empty and seg.length > 0.6: TRI_BEAMS.append((seg.coords[0], seg.coords[-1]))
+    if not seg.is_empty and seg.length > 0.6:
+        b0 = P(sb, _PGD) if sb > inv(_PGE)[0] else seg.coords[0]                # 小径の続きの桁より北は桁に載る
+        TRI_BEAMS.append((b0, seg.coords[-1]))
+def _on_fence_a(p):
+    q = np.array(inv(p)) - TIP; return float(q @ EE), float(q @ EN)
 _east = SL([_eN, FENCE_END])
-TRI_POSTS = [P(*TIP), _ec, SL([_e0, _ec]).interpolate(0.5, normalized=True).coords[0]] \
+TRI_POSTS = [E(GA0, 0), _ec, SL([_e0, _ec]).interpolate(0.5, normalized=True).coords[0]] \
     + [_east.interpolate(_east.project(SPt(P(sx, 15.1)))).coords[0] for sx in (3.6, 1.2)] \
-    + [b0 for b0, _ in TRI_BEAMS if SPt(b0).distance(SPt(P(*TIP))) > 0.5]          # 西の門の柱（FENCE_END）は門の柱が受ける
+    + [b0 for b0, _ in TRI_BEAMS if abs(_on_fence_a(b0)[1]) < 0.05 and not (GA0 - 0.5 < _on_fence_a(b0)[0] < GA1 + 0.3)]   # 塀の線の上だけ、木戸の口は塀の線の桁が受ける。西の門の柱（FENCE_END）は門の柱が受ける
 for g in TRI_GIRDERS: line(g, lw=0.6, c=C["wood"], ls=(0, (3, 1.5)), z=10.5)           # 頭上（h2.25）なので破線
 for b0, b1 in TRI_BEAMS: line([b0, b1], lw=0.4, c=C["wood"], ls=(0, (2, 1.5)), z=10.5)
 for p in TRI_POSTS:
@@ -449,13 +459,14 @@ WALKS = []
 def walk(pts, c=C["path"], lw=0.9):
     line(pts, lw=lw, c=c, ls=(0, (3, 2)), z=15)
     WALKS.append([tuple(map(float, q)) for q in pts])
-walk([E(0.9, -1.6), E(0.9, 1.0), P(8.0, 11.6), P(17.0, 11.7), P(19.35, 12.3), P(25.0, 12.9), W(20.6, -1.85), W(21.3, -1.85)])
-walk([E(0.9, 1.0), W(-0.6, -0.4), W(-0.6, 0.8), W(0.0, 0.8)], c="#b08a5b", lw=0.7)
-walk([P(15.0, 3.0), P(12.6, 9.45), P(7.4, 9.45), E(0.9, -1.0)], c="#b08a5b", lw=0.7)          # visitors from the car
-walk([P(4.3, 1.0), P(4.3, 6.0), E(1.4, -2.2), E(0.9, -1.6)], c="#b08a5b", lw=0.7)            # from the bikes
+GK = (GA0 + GA1) / 2                                                    # 木戸の真ん中（道すじの通る所）
+walk([E(GK, -1.6), E(GK, 1.0), P(8.0, 11.6), P(17.0, 11.7), P(19.35, 12.3), P(25.0, 12.9), W(20.6, -1.85), W(21.3, -1.85)])
+walk([E(GK, 1.0), W(-0.6, -0.4), W(-0.6, 0.8), W(0.0, 0.8)], c="#b08a5b", lw=0.7)
+walk([P(15.0, 3.0), P(12.6, 9.45), P(7.4, 9.45), E(GK, -1.0)], c="#b08a5b", lw=0.7)          # visitors from the car
+walk([P(4.3, 1.0), P(4.3, 6.0), E(GK + 0.5, -2.2), E(GK, -1.6)], c="#b08a5b", lw=0.7)            # from the bikes
 
 # ---------------------------------------------------------------- numbers
-N = [(E(0.9, -2.6), 1), (W(-2.2, -0.3), 2), (PK(10.6, 3.5), 3), (W(3.0, 3.0), 4), (P(9.6, 11.7), 5), (W(7.5, 1.0), 6),
+N = [(E((GA0 + GA1) / 2, -2.6), 1), (W(-2.2, -0.3), 2), (PK(10.6, 3.5), 3), (W(3.0, 3.0), 4), (P(9.6, 11.7), 5), (W(7.5, 1.0), 6),
      (P(21.6, 11.7), 7), (P(20.0, 5.6), 8), (W(20.1, -10.9), 9), (P(25.0, 8.1), 10), (P(24.4, 9.6), 11),
      (W(19.6, -2.0), 12), (W(19.4, -3.95), 13), (W(19.6, -7.0), 14), (P(31.2, 0.2), 15), (P(14.95, -1.4), 16),
      (P(10.0, 9.45), 17), (P(3.6, -1.2), 18), (P(26.2, 0.6), 19),

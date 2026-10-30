@@ -20,11 +20,11 @@ def _reserve(g):
     from shapely.ops import unary_union
     P, Q = g["P"], g["Q"]
     SB = g["STAFF_BIKE"]; PD = SB["pocket"][3]; SX = g["SX"]; TIP = tuple(map(float, g["TIP"]))
-    out = SP(Q([(SX, PD), (22.7, PD), (22.7, g["NHEDGE_D"]), (17.7, g["NHEDGE_D"]), (17.7, g["HEDGE_D"]), (g["S_PATH0"], g["HEDGE_D"]), TIP,
+    out = SP(Q([(SX, PD), (22.7, PD), (22.7, g["NHEDGE_D"]), (17.7, g["NHEDGE_D"]), (17.7, g["HEDGE_D"]), tuple(g["KP"]), TIP,
                 (-5, TIP[1]), (-5, -5), (SX, -5)]))                         # セキュリティの線の外（西）
     z = SP(g["SITE"]).intersection(out).intersection(SP(Q([(-5, g["SIDEWALK"]["d"][1]), (SX + 0.01, g["SIDEWALK"]["d"][1]), (SX + 0.01, 20), (-5, 20)])))
     cut = unary_union([SP(g["PARK"]), g["WB"], g["LEAN_ROOF"], g["TRI"],
-                       SL(Q(g["HEDGE"][0])).buffer(g["HW"], cap_style=2, join_style=2),
+                       g["hedge_poly"](g["_HEDGE_DRAW"][0]),
                        SP(g["srect"](g["STAFF_BIKE"]["road_gap"][1], 29.4, 0.15, g["STALL_D0"] - 0.1))])   # 納品場より北の道路側の植栽帯
     z = z.difference(cut.buffer(0.005))
     gs = [q for q in getattr(z, "geoms", [z]) if q.geom_type == "Polygon" and q.area > 1.0]

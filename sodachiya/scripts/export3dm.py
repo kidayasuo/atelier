@@ -108,7 +108,6 @@ P, Q, srect, E, W = A.P, A.Q, A.srect, A.E, A.W
 
 # 70 hedges (h1.2), board fence (h1.8), lattice (h1.8)
 for h in A.HEDGE: wall(Q(h), 1.2, "70h_外構_生垣（葉）")
-wall([P(A.S_PATH0, A.HEDGE_D), P(*A.TIP)], 1.2, "70h_外構_生垣（葉）")
 _pd0, _pd = A.STAFF_BIKE["pocket"][2], A.STAFF_BIKE["pocket"][3]; _g0, _g1 = A.STAFF_BIKE["gate"]
 import yamato
 _Y.to3dm(slab, P(22.7, _pd), P(_g0, _pd), "70_外構_生垣・塀・格子")          # board fence: east side of the staff bike pocket
@@ -121,7 +120,7 @@ slab(srect(*A.WOOD), 0, 1.2, "75_外構_ひろばの家具")                    
 import yamato                                                                            # 塀と木戸はすべてスギの大和張り（ユーザー 10-27）
 L70 = "70_外構_生垣・塀・格子"
 _Y.to3dm(slab, E(A.GA1, 0), A.FENCE_END, L70)                                         # 公園側の塀
-_Y.to3dm(slab, E(0, 0), E(A.GA0, 0), L70)
+_Y.to3dm(slab, E(A.KA, 0), E(A.GA0, 0), L70)                                         # 生垣の芯から木戸の柱まで（10-31）
 _Y.to3dm(slab, E(A.GA0 + 0.02, 0), E(A.GA1 - 0.02, 0), "72_外構_柱")                   # 公園の木戸の扉（閉じた位置）
 # 71 roofs (flat placeholders, 100 thick): kido 2.6, lean-to 2.6, back-door canopy 2.6
 # 手水の屋根は無し（ユーザー 10-30）
@@ -265,7 +264,7 @@ for g, k in ((NC.HEDGE, "HEDGE"), (NC.MID, "MID"), (NC.LOW, "LOW")):            
 for q in polys(NC.GAPRON): add_curve(list(q.exterior.coords)[:-1], "76_外構_舗装の区分", close=True)
 slab(list(NC.READ.simplify(0.02).exterior.coords)[:-1], 0, 0.03, "77c_外構_樹冠・植え込み・苔（葉）")        # 読書の庭の苔
 # 公園の木戸と職員の通用口の柱（10-27：扉と塀の板を柱で受ける）
-for q in (E(A.GA0, 0), E(A.GA1, 0)): post(q, 1.9)          # E(0,0) は棚の柱（TIP）が兼ねる
+post(E(A.GA1, 0), 1.9)                                      # 木戸の北の柱（E(GA0, 0)）は棚の柱が兼ねる（10-31）
 for q in (P(_g0, _pd), P(_g1, _pd)): post(q, 1.9)
 for (p0, p1, lay, h, foot) in FENCES: yamato.to3dm(slab, p0, p1, lay, h=h, foot=foot, posts=POSTS)
 # 公園の中身（ユーザー 10-29、data/approachA.jsonのPARK_PLAN、局所座標はapproachA.PK）。どれも閉じた立体、z＝0（GL）から上
