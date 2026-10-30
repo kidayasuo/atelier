@@ -6,8 +6,8 @@
 - 見本 `sodachiya/presentation.pdf`（5枚）、壁の並び `present/out/sodachiya_present_overview.pdf`（上の段 1・3・5、下の段 2・4）。
 - 素材 `present/sozai/`（一覧と更新日は `sozai/README.md`、変わった素材だけ日時が進む `state.json`）。
 - Illustrator の部品 `present/ai/layout.json`（`ai_layout.py` が書く）と ExtendScript（使い方は `present/ai/README.md`）：
-  - `build_sodachiya.jsx`：layout.json から .ai を組む（前の .ai の木田さんの物＝印の無い物を写す、配置図が動いたら上に描いた物も動かす `anchors`、前の .ai は `old/` へ）。
-  - `update_texts.jsx`：開いている .ai の文字とリンクを更新し、新しい部品を足す（位置は動かさない）。**素材の大きさが変わったときは build**、それ以外は update。
+  - **.ai は木田さんの .ai が正本**（10-31 0:22）。**ふだんは `update_texts.jsx`**：前からある物には触れず、文の差し替え（書き換えていない物だけ、書式は保つ）・リンクのファイルの差し替え・新しい部品・形の変わった線は「更新（新しい線）」に新しい版・無くなった部品は「外した物」へ。
+  - **大きな配置換えだけ `build_sodachiya.jsx`**：既定は「組み替え」（前の .ai からレイヤーのすぐ下の物を複製して平行移動、`SDY.carry`）。「予備」は記録から当て直す前の作り方。前の .ai は `old/` へ。使い分けは `ai/README.md` の「使い分け（10-31）」。
   - `export_layout.jsx`：木田さんの割付（動かした部品・書き換えた文字・消した部品・足した物 `user_items`・配置図の切り抜き `siteclip`・目印 `anchors`）を `ai/layout_user.json` へ。mock.py はこれを基に次を作る。
   - 部品の印は `item.note = "sdy:kind|id|hash"`。箱の id は鍵で固定（`p1.ibox.nat.yousui` など）。
 - 文字は Type42（`make_ttf.py` で TTF にして埋め込む。matplotlib は CFF で字が欠ける）。Illustrator ではヒラギノ（W3/W6）、太陽の線の時刻と N は Apple Chancery（見本では TeX Gyre Chorus）。

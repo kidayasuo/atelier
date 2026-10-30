@@ -44,38 +44,9 @@
         var oid = t.id; t.id = rid(t.id);                 // oid：組んだときの名前（layout_built.json）
         if (found[t.id]) { continue; }
         found[t.id] = true;
-        rec = {};
-        if (t.kind === "text" && it.typename === "TextFrame" && it.kind === TextType.POINTTEXT) {
-            b = it.geometricBounds; ai = SDY.abOf(doc, b);
-            if (ai < 0) { continue; }
-            r = SDY.ab(doc, ai);
-            rec.x = (it.anchor[0] - r[0]) / K; rec.y = (r[1] - it.anchor[1]) / K;
-        } else if (t.kind === "area" && it.typename === "TextFrame") {
-            b = null; try { b = it.textPath.geometricBounds; } catch (e) {} if (!b) { b = it.geometricBounds; } ai = SDY.abOf(doc, b);
-            if (ai < 0) { continue; }
-            r = SDY.ab(doc, ai);
-            rec.x = (b[0] - r[0]) / K; rec.y = (r[1] - b[1]) / K; rec.w = (b[2] - b[0]) / K; rec.h = (b[1] - b[3]) / K;
-        } else if (t.kind === "line") {
-            b = it.geometricBounds; ai = SDY.abOf(doc, b);
-            if (ai < 0) { continue; }
-            r = SDY.ab(doc, ai);
-            var pi = (it.typename === "GroupItem") ? it.pathItems[it.pathItems.length - 1] : it;   // 線（点の丸ではない方）
-            for (k = 0; k < it.pathItems.length; k++) { if (it.pathItems[k].pathPoints.length > 2 || !it.pathItems[k].closed) { pi = it.pathItems[k]; } }
-            rec.pts = [];
-            for (k = 0; k < pi.pathPoints.length; k++) {
-                var a = pi.pathPoints[k].anchor;
-                rec.pts.push([(a[0] - r[0]) / K, (r[1] - a[1]) / K]);
-            }
-        } else {                                       // link（切り抜きのグループは切り抜きの四角）・box
-            b = it.geometricBounds;
-            if (it.typename === "GroupItem" && it.clipped) {
-                for (k = 0; k < it.pathItems.length; k++) { if (it.pathItems[k].clipping) { b = it.pathItems[k].geometricBounds; } }
-            }
-            ai = SDY.abOf(doc, b);
-            if (ai < 0) { continue; }
-            r = SDY.ab(doc, ai);
-            rec.x = (b[0] - r[0]) / K; rec.y = (r[1] - b[1]) / K; rec.w = (b[2] - b[0]) / K; rec.h = (b[1] - b[3]) / K;
-        }
+        rec = SDY.measure(doc, it, t.kind);            // 位置（sdy_lib の SDY.measure、組み替えと同じ測り方、10-31）
+        if (!rec) { continue; }
+        ai = rec.ab; delete rec.ab;
         rec.artboard = rab(ai + 1);
         if (t.kind === "lines") {                      // 線の部品の塗り（ゾーニングの区分に木田さんが付けた色、10-31）。build・update_texts が戻す
             var fl = SDY.fillOf(it), bpf = BUILT[oid];
@@ -85,7 +56,7 @@
             delete rec.x; delete rec.y; delete rec.w; delete rec.h; delete rec.pts;
             var mp = /^p(\d+)\./.exec(t.id); if (mp) { rec.artboard = parseInt(mp[1], 10); }
         }
-        try { var lyn = it.layer.name, bp = BUILT[oid]; if (bp && bp.layer && lyn !== bp.layer && lyn !== "編集モード" && lyn !== "Isolation Mode") { rec.layer = lyn; } } catch (e7) {}   // レイヤーを移した部品（10-29）
+        try { var lyn = it.layer.name, bp = BUILT[oid]; if (bp && bp.layer && lyn !== bp.layer && lyn !== "編集モード" && lyn !== "Isolation Mode" && lyn !== SDY.NEW_LAYER && lyn !== SDY.OUT_LAYER) { rec.layer = lyn; } } catch (e7) {}   // レイヤーを移した部品（10-29）。「更新（新しい線）」に置いたままの新しい線は、元のレイヤーのまま（10-31）
         if ((t.kind === "text" || t.kind === "area") && it.typename === "TextFrame") {
             // 書き換えた文字だけ。そのときの mock の文の印（s_base）も：mock の文が後で変わったら、記録の文は使わない（10-29）。
             // 設計趣旨（p1.concept）は concept.txt が正本なので文は記録しない（位置・大きさだけ、10-29）
