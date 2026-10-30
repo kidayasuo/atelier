@@ -148,6 +148,10 @@ band = WN.buffer(-cw['inset'] * 1000, join_style=1).difference(WN.buffer(-(cw['i
 CAT = band.intersection(unary_union([RWw(cw['u_start'], 60, -0.5, 1.6), RWw(cw['north_u'], 60, -0.5, cw['west_w'])]))
 HIGH = CAT.intersection(unary_union([RWw(cw['u_start'], cw['north_u'] + 0.01, -0.5, 1.6), RWw(cw['north_u'], 60, -0.5, sp['w0'])]))
 LOW = CAT.intersection(RWw(cw['north_u'], 60, sp['w1'], cw['west_w']))
+# 10-30（ユーザー）：北西の斜めの壁の終わり（u50.06）に鼻母屋の受けの柱 120×120（西館の構造、fix_details.py の「鼻母屋の受けの柱と腕木」、外壁の内面にそろえる）。
+#   柱は動かさず、踊り場・通路の床を柱のまわりで欠く（すき間 10）。柱の四隅は作り直した 3dm から写した（u, v）
+COL_NW = Polygon([xy(50.0588, -7.4805), xy(50.1376, -7.3926), xy(50.0529, -7.3109), xy(49.9740, -7.3987)]).buffer(10.0, join_style=2)
+LOW = LOW.difference(COL_NW)
 H2 = sp['to_h'] * 1000
 K.prism(HIGH, H - TH, H, L_CW, WOOD)
 K.prism(LOW, H2 - TH, H2, L_CW, WOOD)
@@ -160,6 +164,7 @@ RING = Point(c_net).buffer(rg['outer_r'] * 1000, resolution=48).difference(ring_
 K.prism(RING.difference(HIGH), H - TH, H, L_CW, WOOD)
 ld = P['landing']; c_ld = X(ld['u'], ld['w']); LAND = Point(c_ld).buffer(ld['r'] * 1000, resolution=3)
 LAND = LAND.intersection(WN.buffer(-cw['inset'] * 1000, join_style=1))   # 壁から0.1手前で止める（キャットウォークと同じ線。設計監修10-23：北西の斜めの壁を突き抜けていた）
+LAND = LAND.difference(COL_NW)                                       # 鼻母屋の受けの柱のまわり（10-30）
 K.prism(LAND.difference(LOW), ld['h'] * 1000 - TH, ld['h'] * 1000, L_CW, WOOD)
 # 手すり（縦格子 h1.1 の面として、厚さ 30）：通路の縁のうち壁に沿わない所
 def rail(walk, z, skip=None):
@@ -170,7 +175,7 @@ def rail(walk, z, skip=None):
 dbr = (c_ld - c_net) / np.linalg.norm(c_ld - c_net)
 BR_ZONE = LineString([c_net, c_ld]).buffer(P['bridge']['width'] * 500, cap_style=2)
 rail(HIGH.union(RING), H, ring_in.buffer(5).union(BR_ZONE).union(LOW.buffer(5)))
-rail(LOW.union(LAND), H2, BR_ZONE.union(HIGH.buffer(300)))
+rail(LOW.union(LAND), H2, BR_ZONE.union(HIGH.buffer(300)).union(COL_NW.buffer(40, join_style=2)))   # 柱の欠きの縁には柵を立てない（柱が囲う）
 # 北の段（10-28、監修の項 20261028-0015 の 3）：段ごとの西の開いた縁にも柵（前は段だけ柵が無く、西へ落ちると 1.9〜2.8 m）
 for k in range(sp['n']):
     wa = sp['w0'] + (sp['w1'] - sp['w0']) * k / sp['n']; wb = sp['w0'] + (sp['w1'] - sp['w0']) * (k + 1) / sp['n']
