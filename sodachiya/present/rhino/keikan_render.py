@@ -51,7 +51,11 @@ BANK_COLOR = System.Drawing.Color.FromArgb(0xB4, 0xB4, 0x9C)
 PASSES = 400                            # レイトレースの回数（多いほどざらつきが減る）
 DAY = datetime.datetime(2026, 11, 5, 10, 0)
 LAT, LON, TZ = 35.049106, 135.785095, 9.0
-LED_LAYERS = ("50b_越屋根_LED", "29_西館_越屋根_LED")   # 本館・西館の越屋根
+LED_LAYERS = ("50b_", "29_")   # 本館の越屋根の LED・西館の棟のガラスの帯の LED（10-30 に名前が変わった。頭と「LED」で見分ける）
+
+
+def _is_led(name):
+    return name.startswith(LED_LAYERS) and "LED" in name
 NIGHT = datetime.datetime(2026, 11, 5, 21, 0)   # 夜は太陽を地平の下にも置く（消すのが効かない Rhino があった）
 FRONT_CUT = CAM_D - 300.0              # カメラより手前（後ろ）の物だけ隠す（川・橋・向こう岸の道は写す）
 LED_COLOR = System.Drawing.Color.FromArgb(255, 217, 138)
@@ -461,7 +465,7 @@ except Exception as e:
 # 3）夜の LED（光る材料）
 led_objs = []
 for lay in doc.Layers:
-    if lay.Name in LED_LAYERS:
+    if _is_led(lay.Name):
         led_objs += list(doc.Objects.FindByLayer(lay) or [])
 say(u"LED：", len(led_objs))
 mat = Rhino.DocObjects.Material()
