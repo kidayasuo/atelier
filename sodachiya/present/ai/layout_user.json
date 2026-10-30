@@ -2,113 +2,113 @@
  "note": "Illustratorから export_layout.jsx が書き出した。ユーザーの割付（位置・大きさ・書き換えた文字・消した部品）。",
  "parts": {
   "p3.hairyo.7.text": {
-   "x": 172.31,
-   "y": 528.61,
+   "x": 162.56,
+   "y": 544.96,
    "w": 282,
    "h": 12.5,
    "artboard": 3
   },
   "p3.hairyo.7.name": {
-   "x": 119.31,
-   "y": 532.28,
+   "x": 109.56,
+   "y": 548.63,
    "artboard": 3
   },
   "p3.hairyo.6.text": {
-   "x": 172.31,
-   "y": 521.6,
+   "x": 162.56,
+   "y": 537.95,
    "w": 282,
    "h": 12.5,
    "artboard": 3
   },
   "p3.hairyo.6.name": {
-   "x": 119.31,
-   "y": 525.26,
+   "x": 109.56,
+   "y": 541.61,
    "artboard": 3
   },
   "p3.hairyo.5.text": {
-   "x": 172.31,
-   "y": 514.58,
+   "x": 162.56,
+   "y": 530.93,
    "w": 282,
    "h": 12.5,
    "artboard": 3
   },
   "p3.hairyo.5.name": {
-   "x": 119.31,
-   "y": 518.25,
+   "x": 109.56,
+   "y": 534.6,
    "artboard": 3
   },
   "p3.hairyo.4.text": {
-   "x": 172.31,
-   "y": 502.15,
+   "x": 162.56,
+   "y": 518.5,
    "w": 282,
    "h": 16,
    "artboard": 3
   },
   "p3.hairyo.4.name": {
-   "x": 119.31,
-   "y": 505.81,
+   "x": 109.56,
+   "y": 522.16,
    "artboard": 3
   },
   "p3.hairyo.3.text": {
-   "x": 172.31,
-   "y": 495.13,
+   "x": 162.56,
+   "y": 511.48,
    "w": 282,
    "h": 12.5,
    "artboard": 3
   },
   "p3.hairyo.3.name": {
-   "x": 119.31,
-   "y": 498.8,
+   "x": 109.56,
+   "y": 515.15,
    "artboard": 3
   },
   "p3.hairyo.2.text": {
-   "x": 172.31,
-   "y": 488.11,
+   "x": 162.56,
+   "y": 504.46,
    "w": 282,
    "h": 12.5,
    "artboard": 3
   },
   "p3.hairyo.2.name": {
-   "x": 119.31,
-   "y": 491.78,
+   "x": 109.56,
+   "y": 508.13,
    "artboard": 3
   },
   "p3.hairyo.1.text": {
-   "x": 172.31,
-   "y": 481.1,
+   "x": 162.56,
+   "y": 497.45,
    "w": 282,
    "h": 12.5,
    "artboard": 3
   },
   "p3.hairyo.1.name": {
-   "x": 119.31,
-   "y": 484.76,
+   "x": 109.56,
+   "y": 501.11,
    "artboard": 3
   },
   "p3.hairyo.0.text": {
-   "x": 172.31,
-   "y": 468.66,
+   "x": 162.56,
+   "y": 485.01,
    "w": 282,
    "h": 16,
    "artboard": 3
   },
   "p3.hairyo.0.name": {
-   "x": 119.31,
-   "y": 472.33,
+   "x": 109.56,
+   "y": 488.68,
    "artboard": 3
   },
   "p3.hairyo.rule": {
-   "pts": [[119.31, 466.91], [454.31, 466.91]],
+   "pts": [[109.56, 483.26], [444.56, 483.26]],
    "artboard": 3
   },
   "p3.hairyo.url": {
-   "x": 454.31,
-   "y": 463.91,
+   "x": 444.56,
+   "y": 480.26,
    "artboard": 3
   },
   "p3.hairyo.head": {
-   "x": 119.31,
-   "y": 463.91,
+   "x": 109.56,
+   "y": 480.26,
    "artboard": 3
   },
   "p3.t.断面図D本館の横断（光の筋で": {
@@ -117,198 +117,198 @@
    "artboard": 3
   },
   "p3.reibou.text": {
-   "x": 120.63,
+   "x": 113.56,
    "y": 441.37,
    "w": 331,
    "h": 16,
    "artboard": 3
   },
   "p3.reibou.head": {
-   "x": 120.63,
+   "x": 113.56,
    "y": 439.54,
    "artboard": 3
   },
   "p3.reibou.bar": {
-   "pts": [[117.23, 435.54], [117.23, 453.37]],
+   "pts": [[110.16, 435.54], [110.16, 453.37]],
    "artboard": 3
   },
   "p3.unten.rule.c3": {
-   "pts": [[269.13, 431.54], [269.13, 377.21]],
+   "pts": [[262.06, 431.54], [262.06, 377.21]],
    "artboard": 3
   },
   "p3.unten.rule.c2": {
-   "pts": [[199.13, 431.54], [199.13, 377.21]],
+   "pts": [[192.06, 431.54], [192.06, 377.21]],
    "artboard": 3
   },
   "p3.unten.rule.c1": {
-   "pts": [[132.13, 431.54], [132.13, 377.21]],
+   "pts": [[125.06, 431.54], [125.06, 377.21]],
    "artboard": 3
   },
   "p3.unten.rule.r3": {
-   "pts": [[116.63, 431.54], [451.63, 431.54]],
+   "pts": [[109.56, 431.54], [444.56, 431.54]],
    "artboard": 3
   },
   "p3.unten.r3.c3": {
-   "x": 270.63,
+   "x": 263.56,
    "y": 420.46,
    "w": 180,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r3.c2": {
-   "x": 200.63,
+   "x": 193.56,
    "y": 420.46,
    "w": 68,
    "h": 16,
    "artboard": 3
   },
   "p3.unten.r3.c1": {
-   "x": 133.63,
+   "x": 126.56,
    "y": 420.46,
    "w": 65,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r3.c0": {
-   "x": 117.63,
+   "x": 110.56,
    "y": 420.46,
    "w": 14,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.rule.r2": {
-   "pts": [[116.63, 418.31], [451.63, 418.31]],
+   "pts": [[109.56, 418.31], [444.56, 418.31]],
    "artboard": 3
   },
   "p3.unten.r2.c3": {
-   "x": 270.63,
+   "x": 263.56,
    "y": 412.64,
    "w": 180,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r2.c2": {
-   "x": 200.63,
+   "x": 193.56,
    "y": 412.64,
    "w": 68,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r2.c1": {
-   "x": 133.63,
+   "x": 126.56,
    "y": 412.64,
    "w": 65,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r2.c0": {
-   "x": 117.63,
+   "x": 110.56,
    "y": 412.64,
    "w": 14,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.rule.r1": {
-   "pts": [[116.63, 410.49], [451.63, 410.49]],
+   "pts": [[109.56, 410.49], [444.56, 410.49]],
    "artboard": 3
   },
   "p3.unten.r1.c3": {
-   "x": 270.63,
+   "x": 263.56,
    "y": 399.41,
    "w": 180,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r1.c2": {
-   "x": 200.63,
+   "x": 193.56,
    "y": 399.41,
    "w": 68,
    "h": 16,
    "artboard": 3
   },
   "p3.unten.r1.c1": {
-   "x": 133.63,
+   "x": 126.56,
    "y": 399.41,
    "w": 65,
    "h": 16,
    "artboard": 3
   },
   "p3.unten.r1.c0": {
-   "x": 117.63,
+   "x": 110.56,
    "y": 399.41,
    "w": 14,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.rule.r0": {
-   "pts": [[116.63, 397.26], [451.63, 397.26]],
+   "pts": [[109.56, 397.26], [444.56, 397.26]],
    "artboard": 3
   },
   "p3.unten.r0.c3": {
-   "x": 270.63,
+   "x": 263.56,
    "y": 386.17,
    "w": 180,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r0.c2": {
-   "x": 200.63,
+   "x": 193.56,
    "y": 386.17,
    "w": 68,
    "h": 16,
    "artboard": 3
   },
   "p3.unten.r0.c1": {
-   "x": 133.63,
+   "x": 126.56,
    "y": 386.17,
    "w": 65,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.r0.c0": {
-   "x": 117.63,
+   "x": 110.56,
    "y": 386.17,
    "w": 14,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.rule.head": {
-   "pts": [[116.63, 384.02], [451.63, 384.02]],
+   "pts": [[109.56, 384.02], [444.56, 384.02]],
    "artboard": 3
   },
   "p3.unten.h.c3": {
-   "x": 270.63,
+   "x": 263.56,
    "y": 382.62,
    "artboard": 3
   },
   "p3.unten.h.c2": {
-   "x": 200.63,
+   "x": 193.56,
    "y": 382.62,
    "artboard": 3
   },
   "p3.unten.h.c1": {
-   "x": 133.63,
+   "x": 126.56,
    "y": 382.62,
    "artboard": 3
   },
   "p3.unten.h.c0": {
-   "x": 117.63,
+   "x": 110.56,
    "y": 382.62,
    "artboard": 3
   },
   "p3.unten.rule.top": {
-   "pts": [[116.63, 377.21], [451.63, 377.21]],
+   "pts": [[109.56, 377.21], [444.56, 377.21]],
    "artboard": 3
   },
   "p3.unten.sum": {
-   "x": 116.63,
+   "x": 109.56,
    "y": 367.12,
    "w": 335,
    "h": 12.5,
    "artboard": 3
   },
   "p3.unten.head": {
-   "x": 116.63,
+   "x": 109.56,
    "y": 364.79,
    "artboard": 3
   },
@@ -1023,7 +1023,7 @@
    "artboard": 1
   },
   "p1.site.l.ムベのアーチ": {
-   "pts": [[346.8, 359.54]],
+   "pts": [[346.55, 359.54], [346.8, 359.29], [347.05, 359.54], [346.8, 359.79]],
    "artboard": 1
   },
   "p1.site.t.公園からの入口（木戸）": {
@@ -1032,7 +1032,7 @@
    "artboard": 1
   },
   "p1.site.l.公園からの入口木戸": {
-   "pts": [[332.31, 381.85]],
+   "pts": [[332.06, 381.85], [332.31, 381.6], [332.56, 381.85], [332.31, 382.1]],
    "artboard": 1
   },
   "p1.site.t.駐車場": {
@@ -1715,6 +1715,99 @@
   "p2.t.敷地が高野川の右岸にあるとい": {
    "hidden": true
   },
+  "p3.dwg.D.level.西館最高+8,717.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.level.西館最高+8,717.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.9,049西館の最高（10m以下.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.9,049西館の最高（10m以下.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.line.245_310.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.729軒の出.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.729軒の出.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,858垂木の下.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,858垂木の下.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.level.本館越屋根の蓋+4,563.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.level.本館越屋根の蓋+4,563.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,907軒の高さ.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,907軒の高さ.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,440梁の下端.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,440梁の下端.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,863本館の最高.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.4,863本館の最高.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.level.本館屋根の最高+3,970.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.level.本館屋根の最高+3,970.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.level.2FL+3,250.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.level.2FL+3,250.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.3,072垂木の下.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.3,072垂木の下.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.2,817梁の下端.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.2,817梁の下端.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.note.300GL〜FL.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.note.300GL〜FL.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.line.400_340.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.13,306.l": {
+   "hidden": true
+  },
+  "p3.dwg.D.dim.13,306.t": {
+   "hidden": true
+  },
+  "p3.dwg.D.note.道路境界.t": {
+   "hidden": true
+  },
   "p3.ia.box": {
    "hidden": true
   },
@@ -1731,7 +1824,7 @@
  },
  "stacking": {
   "注記": ["t:p5.t.（図はアプローチ係に依頼）", "t:p5.t.入口の前の菜園とひろばのかま", "t:p5.t.表の畑と火のオーブン", "d:p5.box.表の畑と火のオーブン", "t:p5.t.（図は本館係に依頼）", "t:p5.t.廊下の本棚と読む場所", "d:p5.box.廊下の本棚と読む場所", "t:p5.t.一日の帯：上は1600の小さ", "t:p5.note.footer", "t:p3.note.footer", "t:p4.note.footer"],
-  "説明": ["t:p5.t.3歳の保育室", "t:p5.t.教室", "t:p5.t.ホールの北山杉の林", "t:p5.t.遊戯室", "t:p5.t.だいさんかく・しずかのもり約", "t:p5.t.園庭", "t:p5.t.こどもたちの環境", "t:p5.pagetitle", "d:p3.hairyo.7.text", "t:p3.t.断面図D本館の横断（光の筋で", "d:p3.reibou.text", "t:p3.t.1100空気の環境：本館と西", "t:p3.t.断面図C東西に切る（4歳・遊", "t:p3.t.1100保育室の中ほどの弧で", "t:p3.t.縦断面図A", "t:p3.pagetitle", "d:p2.ibox.景観の約束.body", "t:p2.t.高野川の向こう岸の歩道から、~2", "t:p2.t.沿川の景観夜", "t:p2.t.高野川の向こう岸の歩道から、", "t:p2.t.沿川の景観昼", "t:p2.t.目の高さ1.5m、左に向かい", "t:p2.t.透視図（A4）公園の角から西", "t:p2.t.杉の大和張りの静かな板の壁。", "t:p2.t.まちに溶け込み、やさしく守る", "t:p2.t.1100西の道路から", "t:p2.t.道路の側の立面図", "t:p2.t.縁側と深い軒が57m続き、3", "t:p2.t.園庭にひらく", "t:p2.t.1100円弧の中心の方向から", "t:p2.t.園庭の側の立面図", "t:p2.pagetitle", "d:p1.ibox.nat.mizu.mark.num", "d:p1.ibox.nat.mitate.mark.num", "d:p1.ibox.nat.kaze.mark.num", "d:p1.ibox.com.east.mark.num", "d:p1.ibox.nat.compost.mark.num", "d:p1.ibox.com.park.mark.num", "d:p1.ibox.com.traffic.mark.num", "d:p1.ibox.nat.rin.mark.num", "d:p1.ibox.com.mukai.mark.num", "d:p1.ibox.com.saigai.mark.num", "d:p1.ibox.nat.yousui.mark.num", "t:p1.concept", "t:p1.t.地に足をつけて育つ", "t:p1.pagetitle", "u:u20261029174520_0", "t:p4.pagetitle", "d:p3.area.rule.bottom"],
+  "説明": ["t:p5.t.3歳の保育室", "t:p5.t.教室", "t:p5.t.ホールの北山杉の林", "t:p5.t.遊戯室", "t:p5.t.だいさんかく・しずかのもり約", "t:p5.t.園庭", "t:p5.t.こどもたちの環境", "t:p5.pagetitle", "d:p3.hairyo.7.text", "t:p3.t.断面図D本館の横断（光の筋で", "d:p3.reibou.text", "t:p3.t.1100空気の環境：本館と西", "t:p3.t.断面図C東西に切る（4歳・遊", "t:p3.t.1100保育室の中ほどの弧で", "t:p3.t.縦断面図A", "t:p3.pagetitle", "d:p2.ibox.景観の約束.body", "t:p2.t.高野川の向こう岸の歩道から、~2", "t:p2.t.沿川の景観夜", "t:p2.t.高野川の向こう岸の歩道から、", "t:p2.t.沿川の景観昼", "t:p2.t.目の高さ1.5m、左に向かい", "t:p2.t.透視図（A4）公園の角から西", "t:p2.t.杉の大和張りの静かな板の壁。", "t:p2.t.まちに溶け込み、やさしく守る", "t:p2.t.1100西の道路から", "t:p2.t.道路の側の立面図", "t:p2.t.縁側と深い軒が57m続き、3", "t:p2.t.園庭にひらく", "t:p2.t.1100円弧の中心の方向から", "t:p2.t.園庭の側の立面図", "t:p2.pagetitle", "d:p1.ibox.nat.mizu.mark.num", "d:p1.ibox.nat.mitate.mark.num", "d:p1.ibox.nat.kaze.mark.num", "d:p1.ibox.com.east.mark.num", "d:p1.ibox.nat.compost.mark.num", "d:p1.ibox.com.park.mark.num", "d:p1.ibox.com.traffic.mark.num", "d:p1.ibox.nat.rin.mark.num", "d:p1.ibox.com.mukai.mark.num", "d:p1.ibox.com.saigai.mark.num", "d:p1.ibox.nat.yousui.mark.num", "t:p1.concept", "t:p1.t.地に足をつけて育つ", "t:p1.pagetitle", "d:p3.area.rule.bottom", "t:p4.pagetitle"],
   "配置図": ["d:p1.mark.com.saigai.1.num"],
   "図": ["d:p1.link.14_地域のなかの敷地_1-10000", "d:p4.dwg.plan.note.こどもたちの育ち舎3dm（sod.t", "d:p3.saikou.note.darkband.1", "d:p3.dwg.C.note.東→.t", "d:p3.dwg.SA.note.敷地の境.t", "d:p2.dwg.E2.dim.67,431建物の全長.t", "d:p2.dwg.E1.dim.67,431建物の全長.t", "t:p5.link.sodachiya_room3_1-50", "t:p5.link.sodachiya_forest_02", "t:p5.link.sodachiya_play_present", "t:p5.link.sodachiya_garden_01", "t:p5.sozai.11", "t:p5.sozai.10", "t:p5.sozai.09", "t:p5.sozai.08", "t:p5.sozai.07", "t:p5.sozai.06", "t:p5.other", "t:p2.sozai.05", "t:p2.sozai.04", "t:p2.sozai.03", "t:p2.sozai.16", "d:p1.sozai.02"]
  },
@@ -1755,39 +1848,11 @@
    "h": 221.4,
    "opacity": 100,
    "closed": true,
-   "fill": "#ffffff",
+   "fill": null,
    "stroke": "#000000",
    "stroke_pt": 1,
    "pts": [[[680.27, 570.59], [680.27, 570.59], [680.27, 570.59]], [[680.27, 349.19], [680.27, 349.19], [680.27, 349.19]], [[792.27, 349.19], [792.27, 349.19], [792.27, 349.19]], [[792.27, 570.59], [792.27, 570.59], [792.27, 570.59]]],
    "key": "u20261029174520_0"
-  }, {
-   "type": "TextFrame",
-   "name": "",
-   "layer": "配置図",
-   "artboard": 1,
-   "x": 609.02,
-   "y": 169.08,
-   "w": 0,
-   "h": 5.16,
-   "opacity": 100,
-   "s": "",
-   "key": "u20261030091827_1",
-   "group": "配置図（まとめ）",
-   "plan": true
-  }, {
-   "type": "TextFrame",
-   "name": "",
-   "layer": "配置図",
-   "artboard": 1,
-   "x": 599.16,
-   "y": 383.23,
-   "w": 0,
-   "h": 5.16,
-   "opacity": 100,
-   "s": "",
-   "key": "u20261030091827_2",
-   "group": "配置図（まとめ）",
-   "plan": true
   }, {
    "type": "GroupItem",
    "name": "風の矢印",
@@ -1897,5 +1962,33 @@
    "key": "u20261030081045_2",
    "group": "用水のネットワーク"
   }],
- "deleted_user": []
+ "deleted_user": [{
+   "type": "TextFrame",
+   "name": "",
+   "layer": "配置図",
+   "artboard": 1,
+   "x": 609.02,
+   "y": 169.08,
+   "w": 0,
+   "h": 5.16,
+   "opacity": 100,
+   "s": "",
+   "key": "u20261030091827_1",
+   "group": "配置図（まとめ）",
+   "plan": true
+  }, {
+   "type": "TextFrame",
+   "name": "",
+   "layer": "配置図",
+   "artboard": 1,
+   "x": 599.16,
+   "y": 383.23,
+   "w": 0,
+   "h": 5.16,
+   "opacity": 100,
+   "s": "",
+   "key": "u20261030091827_2",
+   "group": "配置図（まとめ）",
+   "plan": true
+  }]
 }
