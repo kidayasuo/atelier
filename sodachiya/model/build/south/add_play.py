@@ -226,11 +226,11 @@ rb = P['round_bench']
 K.prism(WNi.difference(WNi.buffer(-rb['depth'] * 1000, join_style=1)).intersection(RW(rb['u0'], rb['u1'], 6.5, 20)), 0.0, 350.0, L_HD)
 nw = P['north_window']
 K.prism(RW(51.0 - 0.15 - nw['seat_d'], 51.0 - 0.15, nw['w0'], nw['w1']).intersection(WNi), 0.0, nw['seat_h'] * 1000, L_HD)
-# ---------------------------------------------------------------- 天井扇 φ1.1（越屋根の吹き抜けの下、h6.0）
+# ---------------------------------------------------------------- 天井扇 φ1.1（棟のガラスの帯の下、h6.0。10-30 越屋根をやめた）
 fn = P['fans']
 for u in fn['u']:
     c = np.array(xy(u, -0.9 - fn['w']))
     K.prism(Point(c).buffer(fn['d'] * 500, resolution=16), fn['h'] * 1000 - 40, fn['h'] * 1000, L_FAN)
-    K.tube([*c, fn['h'] * 1000], [*c, under_roof(*c)], 15, 15, L_FAN, n=6)
+    K.tube([*c, fn['h'] * 1000], [*c, under_roof(*c) + 300.0 - 156.0], 15, 15, L_FAN, n=6)   # 10-30：棟のガラスの帯をまたぐ鋼の平板（合板の上面＝屋根の面の 150 下）の下面へ
 
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))

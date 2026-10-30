@@ -42,30 +42,10 @@ def strip_mesh(d0,d1,zf0,zf1,li):
         q=[(i,d0),(i+1,d0),(i+1,d1),(i,d1)]
         bot=[(*Pw(a,b),zf0(a,b)) for a,b in q]; top=[(*Pw(a,b),zf1(a,b)) for a,b in q]
         m.Objects.AddMesh(mesh_prism(bot,top),attr(li))
-L_mon=layer('70_西館_越屋根_立ち上がり',(150,120,190)); L_lid=layer('70a_西館_越屋根_ガラスの蓋',(127,179,213))
-L_led=layer('70b_西館_越屋根_LED',(255,211,77)); L_lv=layer('70c_西館_越屋根_木のルーバー（白の艶消し）',(236,232,222))
-# 立ち上がり（東の縁 d=0 と d=VOID）
-# 長手方向は水平、屋根の流れ方向は屋根の主な部分の勾配 S で一定（2026-10-19 改）
-_out=V[V[:,2]<V[:,2].min()+20][:,:2]          # 屋根の西の縁（軒）
-_ss=[]
-for p,u in edge[1:-1]:
-    rel=_out-p; along=rel@u; lat=np.abs(rel@np.array([-u[1],u[0]]))
-    ok=lat<400
-    if ok.any(): _ss.append((ZTOP-V[:,2].min())/along[ok].max())
-S=float(np.median(_ss))                       # 屋根の主な部分の勾配（棟 8.15 → 軒 4.65 を各断面の奥行きで割った中央値）
-ZC=ZTOP+CURB                                   # 立ち上がりの天端（東の縁）
-ne=len(edge)
-for d in (0.0,VOID):
-    for i in range(1,ne-2):                     # 延長した端の区間には立ち上がりを付けない
-        q=[(i,d-60),(i+1,d-60),(i+1,d+60),(i,d+60)]
-        bot=[(*Pw(a,b),zw(a,b)-250-RT) for a,b in q]; top=[(*Pw(a,b),ZC-S*b) for a,b in q]
-        m.Objects.AddMesh(mesh_prism(bot,top),attr(L_mon))
-L_end=layer('70e_西館_越屋根_妻（壁と同じ材で閉じる）',(215,200,175))
-for i in (1,ne-2):                              # 南北の端は屋根から蓋の下まで壁で閉じる
-    for dd0,dd1 in zip(np.linspace(-60,VOID+60,6),np.linspace(-60,VOID+60,6)[1:]):
-        p0,p1=Pw(i,dd0),Pw(i,dd1); t_=(Pw(i+1 if i==1 else i-1,0)-Pw(i,0)); t_=t_/np.linalg.norm(t_)*60
-        q=[p0+t_/60,p1+t_/60,p1+2*t_,p0+2*t_]                # 10-28：外の面は外壁の外面の 1 内（同じ面にあると、外壁と足したとき厚さ0の膜が残った、監修の項 2346）                # 10-27夜：外の面を外壁の外面（棟の端＝妻の外面）にそろえ、内へ 120（前は端を中心に ±60 で、北の妻から 59 出て段に見えた）
-        m.Objects.AddMesh(mesh_prism([(*x,zroof_at(x)-250-RT) for x in q],[(*x,ZC+GAP-S*float(np.dot(x-edge[i][0],edge[i][1]))) for x in q]),attr(L_end))
+# 10-30（ユーザー 22:20、監修の項 20261030-1431 の追記）：西館の越屋根（立ち上がり・妻・ガラスの蓋・LED・木のルーバー）はやめた。
+# 棟から屋根の面に沿う幅 1.6 m のガラスの帯と排気窓・雨よけのルーバー・LED は fix_details.py の西館の節で作る。ここでは本館と西館のすき間の蓋と
+# 本館の西吹き抜けのシーリングファンだけ（棟の点 edge・半径 R0 はすき間の蓋が使う）。
+S=0.0; ZC=ZTOP+CURB
 # 蓋（屋根と平行）
 lidtop=lambda i,d: ZTOP+CURB+GAP+GT-S*d
 # 棟（東の縁）は弧の中心 C のまわりの円（半径 R0、ずれ 2 mm 以内）で、蓋・LED・ルーバーの高さは d（棟からの距離）だけで決まる
@@ -93,16 +73,6 @@ def sector_mesh(r0,r1,zf0,zf1,li,a0=None,a1=None,n=80):
     T_=_tm.Trimesh(V_,[f[:3] for f in F]+[(f[0],f[2],f[3]) for f in F],process=False); _tm.repair.fix_normals(T_)
     for a_,b_,c_ in T_.faces: M.Faces.AddFace(int(a_),int(b_),int(c_))
     M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M,attr(li))
-sector_mesh(R0-OVH,R0+VOID+OVH,lambda rr:lidtop(0,rr-R0)-GT,lambda rr:lidtop(0,rr-R0),L_lid)
-sector_mesh(R0-OVH+20,R0-OVH+60,lambda rr:lidtop(0,rr-R0)-GT-40,lambda rr:lidtop(0,rr-R0)-GT,L_led)
-# ルーバー（水平に対して 30°、東＝本館側が高い。両面白の艶消し、蓋は透明ガラス＝本館と同じ、10-24 ユーザー）
-# 西日は高さによらず羽根に当たって入らない。東の朝日（高さ約7〜53°）は羽根のあいだを抜けて吹き抜けに直接差す。
-dw=VOID+OVH-20
-while dw-W_*math.cos(ANG)>-OVH:
-    de=dw-W_*math.cos(ANG)
-    zt=lambda i,d,dw=dw: lidtop(i,dw)+28+(dw-d)*math.tan(ANG)      # 羽根の下の縁を蓋の 10 上に（前は +10 で 8 食い込み、削る段で切られていた。本館と同じ、10-25）
-    sector_mesh(R0+de,R0+dw,lambda rr,zt=zt:zt(0,rr-R0)-18,lambda rr,zt=zt:zt(0,rr-R0),L_lv)   # 弧に沿う一本の羽根（回転体）
-    dw-=PITCH
 # --- 本館と西館のすき間の蓋（本館の蓋を西館の壁まで延ばす） ---
 L_gap=layer('50d_本館_すき間の蓋（西館まで）',(127,179,213))
 def zlid_main(x,y): return ztop(rr_of(x,y))+CURB+GAP+GT
@@ -124,4 +94,4 @@ for k in range(19):
     rod=r.Circle(r.Point3d(float(c[0]),float(c[1]),2840.0),25.0).ToNurbsCurve()
     m.Objects.AddExtrusion(r.Extrusion.Create(rod,float(z0-2840.0),True),attr(L_fan))
 m.Write(OUT,8)
-print('west ridge pts',len(edge),'ZTOP',ZTOP,'gap area m2',round(gp.area/1e6,1),'S',round(S,4),'west curb h min/max',round(min(ZC-S*VOID-zw(i,VOID) for i in range(1,ne-1))),round(max(ZC-S*VOID-zw(i,VOID) for i in range(1,ne-1))))
+print('west ridge pts',len(edge),'ZTOP',ZTOP,'gap area m2',round(gp.area/1e6,1),'（西館の越屋根はやめた、10-30）')
