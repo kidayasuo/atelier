@@ -198,6 +198,7 @@ if _fl:
     _holes.append(Polygon([(_pc["c"][0] + _pc["r"] * math.cos(q), _pc["c"][1] + _pc["r"] * math.sin(q)) for q in np.linspace(0, 2 * math.pi, 33)[:-1]]))
 if G.get("AMANIWA"):
     _holes.append(Polygon(_aw_ring()).buffer(0))
+_holes.append(Polygon(G["SAND"]["poly"]).buffer(0.15, join_style=1))      # 10-31：掘り込んだ砂場（砂・縁・土留めの外まで）
 HOLES = _uu0(_holes)
 gpoly = Polygon([gc.AD(*p) for p in gc.garden_poly().exterior.coords])
 S = 0.5
@@ -541,20 +542,81 @@ for a, d, kind, _, note in G["TREES"]:
     m.Objects.AddBrep(sph.ToBrep(), at("94c", note))
 
 # ---- 95 遊び場 ----
-# 10-30：砂・粒は薄い板（上面は範囲のいちばん高い地面 +0.02、厚さ 0.1）、縁は幅 0.15・h0.25 の輪（95r、木）
+# 10-30：粒は薄い板（上面は範囲のいちばん高い地面 +0.02、厚さ 0.1）、縁は幅 0.15 の輪（95r、木、10-31 から h0.10）
 def _ring_out(pts_ad, w):
     pg = Polygon(pts_ad).buffer(w, join_style=1)
     return list(pg.exterior.coords)[:-1]
-_sd = G["SAND"]["poly"]; _sz = gmax(_sd) + 0.02
-slab(_sd, _sz - 0.1, _sz, 95, "砂場の砂（約12 m²）")
-slab(_ring_out(_sd, 0.15), gmin(_sd) - 0.1, _sz + 0.23, "95r", "砂場の縁（丸太の腰掛け、幅 0.15・h0.25）", hole_ad=_sd)
+# 10-31（ユーザー、項 20261031-2054-kanshu）：掘り込んだ砂場。砂の面は水平で、縁のいちばん低い所の地面と同じ高さ。
+# 縁の上端も水平で砂の面+0.15（腰掛け）。外の地面が縁の上端より高い所（坂の上）は、丸太φ0.15を横に積んだ土留め（上端を地面にそろえる）。
+# 地形（90）は砂場と縁の外の線まで切り欠く（上の _holes）
+import sys as _sys1
+_sys1.path.insert(0, os.path.join(gc.ROOT, "model", "build", "south"))
+import katachi as _K1
+from shapely.geometry import MultiPolygon as _MP1
+_sd = G["SAND"]["poly"]; _SPG = Polygon(_sd).buffer(0)
+_ob = list(_SPG.exterior.coords)[:-1]; _ol = []
+for (a0_, d0_), (a1_, d1_) in zip(_ob, _ob[1:] + _ob[:1]):
+    n_ = max(1, int(math.ceil(math.hypot(a1_ - a0_, d1_ - d0_) / 0.1)))
+    _ol += [(a0_ + (a1_ - a0_) * t / n_, d0_ + (d1_ - d0_) * t / n_) for t in range(n_)]
+_RW = 0.15                                              # 縁・丸太の幅（φ0.15）
+_sz = min(H(*q) for q in _ol)                           # 砂の面＝縁のいちばん低い所の地面
+_st = _sz + 0.15                                        # 縁の上端（腰掛け）
+_segs = []                                              # (始め, 終わり, 外向きの法線, 段の数)
+for i_, q0 in enumerate(_ol):
+    q1 = _ol[(i_ + 1) % len(_ol)]; ta, td = q1[0] - q0[0], q1[1] - q0[1]; ln = math.hypot(ta, td) or 1
+    na, nd = -td / ln, ta / ln
+    mid = ((q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2)
+    if _SPG.contains(Point(mid[0] + na * 0.05, mid[1] + nd * 0.05)):
+        na, nd = -na, -nd
+    ho = H(mid[0] + na * _RW, mid[1] + nd * _RW)        # 縁の外の地面
+    _segs.append((q0, q1, (na, nd), 1 if ho <= _st else max(1, int(round((ho - _sz) / _RW)))))
+slab(_sd, _sz - 0.3, _sz, 95, f"砂場の砂（約12 m²、砂の面は水平 GL{_sz:+.2f}、掘り込み）")
+_RING = _SPG.buffer(_RW, join_style=1).difference(_SPG)
+def _wedge(q0, q1, nv, ext=0.02):
+    ta, td = q1[0] - q0[0], q1[1] - q0[1]; ln = math.hypot(ta, td) or 1; ea, ed = ta / ln * ext, td / ln * ext
+    a0, a1 = (q0[0] - ea, q0[1] - ed), (q1[0] + ea, q1[1] + ed)
+    return Polygon([(a0[0] - nv[0] * 0.05, a0[1] - nv[1] * 0.05), (a1[0] - nv[0] * 0.05, a1[1] - nv[1] * 0.05),
+                    (a1[0] + nv[0] * 0.3, a1[1] + nv[1] * 0.3), (a0[0] + nv[0] * 0.3, a0[1] + nv[1] * 0.3)])
+from shapely.ops import unary_union as _uu1
+_seat = _uu1([_wedge(q0, q1, nv) for q0, q1, nv, k_ in _segs if k_ == 1]).intersection(_RING)
+def _w_mm(pg):
+    def _r(cs): return [tuple(v * 1000 for v in gc.X(a, d)) for a, d in cs]
+    out = [Polygon(_r(g.exterior.coords), [_r(h.coords) for h in g.interiors]) for g in getattr(pg, "geoms", [pg]) if g.geom_type == "Polygon"]
+    return _MP1(out) if len(out) > 1 else out[0]
+def _w3s(a, d, z):
+    q = P3(a, d, z); return (q.X, q.Y, q.Z)
+_K1.add(m, _K1.ita(_w_mm(_seat), (_sz - 0.15) * 1000 + GL, _st * 1000 + GL, simplify=2), LAY["95r"],
+        name=f"砂場の縁（丸太の腰掛け、幅 0.15、上端は水平 GL{_st:+.2f}＝砂の面+0.15）")
+# 坂の上の土留め：同じ段の数の続きごとに、0.6 m ほどの弦に分けて丸太（円柱φ0.15）を横に積む（いちばん下の一本は砂の下に埋める）
+_runs = []
+for q0, q1, nv, k_ in _segs:
+    if k_ >= 2 and _runs and _runs[-1][0] == k_ and _runs[-1][1][-1] == q0:
+        _runs[-1][1].append(q1); _runs[-1][2].append(nv)
+    elif k_ >= 2:
+        _runs.append([k_, [q0, q1], [nv]])
+if len(_runs) > 1 and _runs[0][1][0] == _runs[-1][1][-1] and _runs[0][0] == _runs[-1][0]:
+    _runs[0] = [_runs[0][0], _runs[-1][1] + _runs[0][1][1:], _runs[-1][2] + _runs[0][2]]; _runs.pop()
+_nlog = 0
+for k_, qs, nvs in _runs:
+    step = max(1, int(round(0.6 / 0.1)))
+    for i0 in range(0, len(qs) - 1, step):
+        i1 = min(i0 + step, len(qs) - 1)
+        nv = np.mean(nvs[i0:i1], axis=0); nv = nv / (np.linalg.norm(nv) or 1)
+        q0, q1 = np.array(qs[i0]), np.array(qs[i1]); tv = (q1 - q0) / (np.linalg.norm(q1 - q0) or 1)
+        e0 = q0 + nv * _RW / 2 - tv * 0.04; e1 = q1 + nv * _RW / 2 + tv * 0.04
+        for c_ in range(k_ + 1):
+            zc = _sz - _RW / 2 + c_ * _RW
+            _K1.add(m, _K1.enchu(_w3s(*e0, zc), _w3s(*e1, zc), _RW / 2 * 1000), LAY["95r"],
+                    name=f"砂場の土留め（丸太φ0.15を横に{k_}段、上端は地面にそろえる GL{_sz + k_ * _RW:+.2f}）"); _nlog += 1
+print(f"砂場：砂の面 GL{_sz:+.3f}、縁の上端 GL{_st:+.3f}、縁の外の地面 {min(H(q0[0] + nv[0] * _RW, q0[1] + nv[1] * _RW) for q0, q1, nv, k_ in _segs):+.3f}〜"
+      f"{max(H(q0[0] + nv[0] * _RW, q0[1] + nv[1] * _RW) for q0, q1, nv, k_ in _segs):+.3f}、土留めの丸太 {_nlog} 本（段の数 {sorted(set(k_ for k_, _, _ in _runs))}）")
 GR = G["GRAIN"]; ca, sa = math.cos(math.radians(GR["rot"])), math.sin(math.radians(GR["rot"]))
 gr = lambda u, v: (GR["c"][0] + u * ca - v * sa, GR["c"][1] + u * sa + v * ca)
 hl, hw = GR["l"] / 2, GR["w"] / 2
 _gp = [gr(-hl, -hw), gr(hl, -hw), gr(hl, hw), gr(-hl, hw)]; _gz = gmax(_gp) + 0.02
 slab(_gp, _gz - 0.1, _gz, 95, "粒の遊び場の粒（1〜2 mm、2.4×3.0）")
 _go = [gr(-hl - 0.15, -hw - 0.15), gr(hl + 0.15, -hw - 0.15), gr(hl + 0.15, hw + 0.15), gr(-hl - 0.15, hw + 0.15)]
-slab(_go, gmin(_gp) - 0.1, _gz + 0.23, "95r", "粒の遊び場の木の縁（幅 0.15・h0.25）", hole_ad=_gp)
+slab(_go, gmin(_gp) - 0.1, gmax(_gp) + 0.10, "95r", "粒の遊び場の木の縁（幅 0.15・h0.10、2歳がまたいで入れる）", hole_ad=_gp)   # 10-31 ユーザー：h0.25→0.10
 _r0, _r1 = gr(-hl, hw + 0.35), gr(hl, hw + 0.35); _rz = max(H(*_r0), H(*_r1)) + 0.1
 tube_ad(_r0, _r1, _rz, 0.1, "95r", "帆布を巻いた棒（φ0.2、長さ 3.0）")
 B = G["BOWL"]; curve_ad(ell(B["c"], (B["r"], B["r"])), "90l", "すりばち（輪郭、お話の輪、大雨の日は雨の池）", close=True)   # くぼみは地形（90）
