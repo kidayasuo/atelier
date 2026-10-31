@@ -98,7 +98,7 @@ if 'soft' in dk:                                        # デッキの下のや�
     sf = dk['soft']; _st = lambda k: RW(ds['u0'] + (ds['u1'] - ds['u0']) * k / n_, ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_, ds['w0'], ds['w1'])
     DK_ALL = unary_union([RW(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [_st(k) for k in range(n_)])
     DK_HI = unary_union([RW(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [_st(k) for k, h in enumerate(ds['hs']) if h > sf['from_h']])
-    K.prism(DK_HI.buffer(sf['margin'] * 1000, resolution=16).intersection(WNi).difference(DK_ALL.buffer(5)).difference(pit).difference(SOFT_ST).difference(STAIR_BOX),
+    K.prism(DK_HI.buffer(sf['margin'] * 1000, join_style=3).intersection(WNi).difference(DK_ALL.buffer(5)).difference(pit).difference(SOFT_ST).difference(STAIR_BOX),
             0.0, sf['t'] * 1000, L_FL, (239, 226, 200))
 # 北の口のついたて（L 字、吸音、h2.4）
 if 'screen' in P:

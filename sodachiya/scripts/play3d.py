@@ -130,11 +130,11 @@ ds = P['deck_steps']; n_ = len(ds['hs'])
 for k, h in enumerate(ds['hs']):
     ua = ds['u0'] + (ds['u1'] - ds['u0']) * k / n_; ub = ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_
     K.prism(RWw(ua, ub, ds['w0'], ds['w1']), 0.0, h * 1000, L_DK)
-# デッキの下のやわらかい床（10-28、監修の項 0015 の 4：柵は付けず、落ちうる縁から外へ 1.5 m＝JPFA-SP-S の幼児用の安全領域。0.6 を超える台＝デッキと 900 の段から）
+# デッキの下のやわらかい床（10-31：角は面取り（丸めない）で 30 面以下の押し出しに。10-28、監修の項 0015 の 4：柵は付けず、落ちうる縁から外へ 1.5 m＝JPFA-SP-S の幼児用の安全領域。0.6 を超える台＝デッキと 900 の段から）
 sf = dk['soft']
 DK_ALL = unary_union([RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [RWw(ds['u0'] + (ds['u1'] - ds['u0']) * k / n_, ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_, ds['w0'], ds['w1']) for k in range(n_)])
 DK_HI = unary_union([RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [RWw(ds['u0'] + (ds['u1'] - ds['u0']) * k / n_, ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_, ds['w0'], ds['w1']) for k, h in enumerate(ds['hs']) if h > sf['from_h']])
-SOFT_DK = (DK_HI.buffer(sf['margin'] * 1000, resolution=16).intersection(WNi).difference(DK_ALL.buffer(5)).difference(pit)
+SOFT_DK = (DK_HI.buffer(sf['margin'] * 1000, join_style=3).intersection(WNi).difference(DK_ALL.buffer(5)).difference(pit)
            .difference(SOFT_ST).difference(STAIR_BOX))
 ext_prism(SOFT_DK, 0.0, sf['t'] * 1000, L_FL, (239, 226, 200))
 print('やわらかい床：切り株のまわり %.1f m²、デッキの下 %.1f m²' % (SOFT_ST.area / 1e6, SOFT_DK.area / 1e6))

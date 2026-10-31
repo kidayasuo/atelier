@@ -2962,16 +2962,28 @@ if slits:
         return [x for x in getattr(g_, 'geoms', [g_]) if x.geom_type == 'Polygon' and x.area > 1e4]
     a_sh = r.ObjectAttributes(); a_sh.LayerIndex = L20; a_sh.Name = '野地 t24（梁の上、通気垂木の上、軒は通気垂木の先から 150 持ち出し）'
     a_up.Name = '屋根材 40（金属、野地の上、軒先の見付けは野地と合わせて 64）'
-    for k, p_ in _by_bay(RP20.difference(SL20)):                        # 野地と屋根材は別の板（太陽光の範囲は平面で分けてから板に。立体の引き算はしない）
-        M_ = _bplate(p_, k, BAT_T, VENT_TOP)
-        if M_ is None: log.append(f'  !! 西館の屋根の板が閉じない：ベイ {k}、{p_.area / 1e6:.2f} m²'); continue
-        new_objs.append((_m2r(M_), a_sh)); _n_up += 1
-        for q_, at_ in [(x, a_pv2) for x in _parts(p_.intersection(pv20))] + [(x, a_up) for x in _parts(p_.difference(pv20))]:
-            # 10-29 昼（監修の項 20261029-0928 の 3）：太陽光（20p）は屋根材（20）と同じ板の押し出し。下の面を野地の上面の 3 上に（ねじれた面を
-            # 三角形で近似した野地と 0.1〜1.9 mm 重なり、削る段で 20 に削られて、網目版で閉じない片・退化した三角形になっていた）
-            M_ = _bplate(q_, k, VENT_TOP + (3.0 if at_ is a_pv2 else 0.0), RT_W)
-            if M_ is None: log.append(f'  !! 西館の屋根材が閉じない：ベイ {k}'); continue
-            new_objs.append((_m2r(M_), at_)); _npv += at_ is a_pv2
+    def _nsplit(pg_, nmax=24, depth=0):
+        """10-31（形が素直でない物の点検：30 面を超える板）：輪郭の点（穴も）が nmax を超える平面形を、u の真ん中の放射の線で二つに分ける"""
+        pgs_ = [q for q in getattr(pg_, 'geoms', [pg_]) if q.geom_type == 'Polygon' and q.area > 1e3]
+        out_ = []
+        for q in pgs_:
+            nv_ = len(q.exterior.coords) - 1 + sum(len(h.coords) - 1 for h in q.interiors)
+            if nv_ <= nmax or depth > 6: out_.append(q); continue
+            us_ = [uv(*c_)[0] for c_ in np.asarray(q.exterior.coords)]; um_ = (min(us_) + max(us_)) / 2
+            for a_, b_ in ((min(us_) - 1.0, um_), (um_, max(us_) + 1.0)):
+                out_ += _nsplit(q.intersection(R(a_, b_, -40.0, 4.0, 0.05)), nmax, depth + 1)
+        return out_
+    for k, p0_ in _by_bay(RP20.difference(SL20)):                        # 野地と屋根材は別の板（太陽光の範囲は平面で分けてから板に。立体の引き算はしない）
+      for p_ in _nsplit(p0_):
+          M_ = _bplate(p_, k, BAT_T, VENT_TOP)
+          if M_ is None: log.append(f'  !! 西館の屋根の板が閉じない：ベイ {k}、{p_.area / 1e6:.2f} m²'); continue
+          new_objs.append((_m2r(M_), a_sh)); _n_up += 1
+          for q_, at_ in [(x, a_pv2) for x0 in _parts(p_.intersection(pv20)) for x in _nsplit(x0)] + [(x, a_up) for x0 in _parts(p_.difference(pv20)) for x in _nsplit(x0)]:
+              # 10-29 昼（監修の項 20261029-0928 の 3）：太陽光（20p）は屋根材（20）と同じ板の押し出し。下の面を野地の上面の 3 上に（ねじれた面を
+              # 三角形で近似した野地と 0.1〜1.9 mm 重なり、削る段で 20 に削られて、網目版で閉じない片・退化した三角形になっていた）
+              M_ = _bplate(q_, k, VENT_TOP + (3.0 if at_ is a_pv2 else 0.0), RT_W)
+              if M_ is None: log.append(f'  !! 西館の屋根材が閉じない：ベイ {k}'); continue
+              new_objs.append((_m2r(M_), at_)); _npv += at_ is a_pv2
     # 通気垂木（20b）：梁と断熱の上、軒先（とけらば）の 150 手前まで、光の筋（±0.09 と立ち上がり ±0.15）で切る
     VREG = RP20.buffer(-BAT_IN, join_style=2).union(RP20.intersection(Polygon([xy(u_, 2.0) for u_ in np.arange(21.2, 50.81, 0.2)] + [xy(u_, -3.5) for u_ in np.arange(50.8, 21.19, -0.2)])))
     VREG = VREG.difference(unary_union([strip(cc, ax, nrm, t0 - 100, t1 + 100, -150, 150) for cc, ax, nrm, t0, t1 in slits])).buffer(0)
