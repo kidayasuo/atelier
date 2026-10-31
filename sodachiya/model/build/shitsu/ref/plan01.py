@@ -158,7 +158,7 @@ for vc in [8.5, 9.7]:
 line([(3.0, 7.9), (3.0, 10.5)], lw=0.25, ls=(0, (6, 2, 1, 2)))
 # crawling mound
 ax.add_patch(Ellipse(P(1.25, 9.6), 1.8, 2.4, fc="#DCE7B0", ec="black", lw=0.4, zorder=3))
-ax.add_patch(Ellipse(P(1.25, 9.6), 0.9, 1.2, fc="none", ec="black", lw=0.25, zorder=3))
+for _k in (0.75, 0.5, 0.25): ax.add_patch(Ellipse(P(1.25, 9.6), 1.8 * _k, 2.4 * _k, fc="none", ec="#7a8a50", lw=0.25, zorder=3))   # 10-31：滑らかな丘の等高線（3dm は add_shitsurae の mound01）
 # movable low shelves on boundary
 for v0, v1 in [(3.5, 5.0), (6.4, 8.2), (9.0, 10.8)]:
     box(5.8, 6.2, v0, v1, fc="white")
@@ -198,7 +198,7 @@ line([(12.0, 13.0), (12.8, 13.0)], lw=0.4)
 box(7.4, 9.9, 9.2, 10.8, fc="white")
 for uu in [7.9, 8.4, 8.9]:
     line([(uu, 9.2), (uu, 10.8)], lw=0.25)
-box(6.8, 7.4, 9.7, 10.3, lw=0.3, fc="white")
+box(7.2, 9.05, 9.745, 10.255, lw=0.4, fc="#F1E4CC", z=3.5)        # 10-31：段々の真ん中のすべり台（3dm は add_shitsurae の slide01）
 # milk nook (separate from diapers)
 fill(10.3, 11.94, 8.5, 10.0, "#EAF4F6", z=1)
 box(11.3, 11.94, 8.55, 9.95, fc="white")                      # counter h850

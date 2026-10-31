@@ -7,6 +7,8 @@
 python3 -I add_shitsurae.py SCRIPTS_DIR IN.3dm OUT.3dm"""
 import sys, math, numpy as np, rhino3dm as r
 sys.path.insert(0, '/tmp/claude-0/t/shitsu')
+import os as _os0
+sys.path.insert(0, _os0.path.join(_os0.path.dirname(_os0.path.dirname(_os0.path.abspath(__file__))), 'south'))
 from capture import capture, prep
 from shapely.geometry import Polygon as SP, box as sbox, LineString
 from shapely.ops import unary_union
@@ -99,6 +101,10 @@ L_WW = layer('97_本館_外壁（西・南北の妻）', (196, 160, 118))   # �
 L_TR = layer('98_外構_読書の庭（モミジ）', (90, 122, 58))
 L_TRc = layer('98c_外構_読書の庭（モミジ）_樹冠（葉）', (120, 160, 80))   # 一つのレイヤーには一つの素材（10-27、樹冠は 67c へ）
 L_HI = layer('99_しつらえ_頭上（天蓋・物干し・天袋）', (180, 160, 200))
+L_CORK = layer('40k_しつらえ_コルク（あつまりの鉢・ほふくの丘）', (196, 160, 118))   # 10-31：コルク（やわらかい床）
+CORK = (0.77, 0.63, 0.46, 1)
+L_RAT = layer('40r_しつらえ_吊りかご（籐・綱）', (190, 150, 95))                  # 10-31：籐の吊りかごと綱
+RATTAN = (0.75, 0.59, 0.37, 1); RAT_C = (191, 150, 94)
 L_HW = layer('51w_しつらえ_頭上（天袋・物干しの竿・吊り桟、木）', (196, 160, 118))   # 10-27（監修の項 20261027-1704）：一つのレイヤーには一つの素材。布の天蓋は 99（→ 51）のまま
 
 def fc(rec):
@@ -193,9 +199,11 @@ def hang_bar(rec):                   # 吊り桟 30×40 を h2.0 に（梁と梁
 def steps01(rec):                    # 0・1歳の上り下りの段々（150×3）
     pts = rec['pts']; g = SP(pts); u0, v0, u1, v1 = g.bounds
     cuts = [u0, 7.9, 8.4, 8.9, u1]; hs = [150, 300, 450, 450]
+    g = g.difference(sbox(SLIDE_U[0], SLIDE_V[0], SLIDE_U[1], SLIDE_V[1]))   # 10-31：真ん中はすべり台（slide01）、段々は両側に
     for (a, b), h in zip(zip(cuts, cuts[1:]), hs):
         piece = g.intersection(sbox(a, v0, b, v1))
-        if not piece.is_empty: solid_uv(list(piece.exterior.coords)[:-1], 0, h, L_PL, (0.96, 0.95, 0.9, 1))
+        for pc in getattr(piece, 'geoms', [piece]):
+            if not pc.is_empty and pc.area > 1e-4: solid_uv(list(pc.exterior.coords)[:-1], 0, h, L_PL, (0.96, 0.95, 0.9, 1))
 def hill(rec):                       # 2歳の山：等高線 k=1/0.66/0.33 を 0–300／300–600／600–900
     pts = clean(rec['pts']); g = SP(pts); A = g.area
     h0 = 0 if A > 6 else (300 if A > 2.5 else 600)
@@ -238,7 +246,89 @@ def hut_roof(rec):                  # 2歳の小屋の屋根（10-28、監修の
 def kubomi(rec):                    # 2歳の落ち着くくぼみ：囲い h1000、南に開口
     ring_uv([tuple(p) for p in rec['pts']], 0, 1000, 0.04, L_PL, fc(rec), gap=(16.85, 16.95, 3.55, 4.35))
 def mamagoto_posts(rec): solid_uv([tuple(p) for p in rec['pts']], 0, 1400, L_F, (0.3, 0.25, 0.2, 1))
-def basket(rec):  solid_uv([tuple(p) for p in rec['pts']], 400, 700, L_T, (1, 1, 1, 1))
+# ---- 0・1歳のしつらえの形（ユーザー 10-31 14:41、決定事項（本館）の0・1歳の「吊りかご×2、ほふくの丘」と段々のすべり台） ----
+import katachi as K
+def _frame(uc, vc):
+    """(u, v) の点の世界座標 [mm] と、そこでの u・v の向き（水平の単位ベクトル、3 次元）"""
+    c = W(uc, vc); tv = W(uc + 0.001, vc) - c; rv = W(uc, vc + 0.001) - c
+    tv = np.r_[tv / np.linalg.norm(tv), 0.0]; rv = np.r_[rv / np.linalg.norm(rv), 0.0]
+    return np.r_[c, 0.0], tv, rv
+def _ellipse(au, av):
+    """面の 2 次元の楕円（x の半径 au、y の半径 av、mm）の閉じた NURBS 曲線"""
+    c = r.NurbsCurve.CreateFromCircle(r.Circle(1.0)); c.Transform(r.Transform.Scale(r.Plane.WorldXY(), float(au), float(av), 1.0)); return c
+def _place(b, c, tv, z):
+    """局所（x＝u の向き、y＝v の向き、z 上）で作った Brep を、点 c・高さ z へ（z まわりに回して動かす。楕円は y の向きの裏返しに関わらない）"""
+    b.Transform(r.Transform.Rotation(math.atan2(tv[1], tv[0]), r.Vector3d(0, 0, 1), r.Point3d(0, 0, 0)))
+    b.Transform(r.Transform.Translation(r.Vector3d(float(c[0]), float(c[1]), float(z)))); return b
+def _scaled_rev(prof, sx, sy, sz):
+    """z 軸まわりに一周させた面（prof は xz の面の曲線）の制御点を軸ごとに縮めた、一枚の閉じた面の Brep（K.tama と同じやり方）"""
+    ns = r.RevSurface.Create(prof, r.Line(r.Point3d(0, 0, 0), r.Point3d(0, 0, 1)), 0.0, 2 * math.pi).ToNurbsSurface(); P = ns.Points
+    for i in range(P.CountU):
+        for j in range(P.CountV):
+            p = P[i, j]; P[i, j] = r.Point4d(p.X * sx, p.Y * sy, p.Z * sz, p.W)
+    b = r.Brep.CreateFromSurface(ns)
+    if b is None or not b.IsSolid: raise ValueError('回転の面が閉じた立体にならない')
+    return b
+def _beam_bot(v):    # 架構2（u3）の2枚組の梁の下端 [mm]（s4 で測った：v8.5 で 2690、勾配 1/12 で東へ下がる）
+    return 2690.0 - (v - 8.5) * 1000.0 / 12.0
+def basket(rec):
+    # 吊りかご（寝かしつけ用）：籐で編んだ楕円のかご。外 0.50（u）×0.85（v）、底は床から 450、深さ約 0.22（縁の上 675）。
+    # 底は二段の板（内へ 35・12 入れて丸みに見せる）、側は厚さ 12 の楕円の筒（外形の押し出し−内形）、縁は丸い太めの輪（管 約φ30、楕円の円環）。
+    # 綱 φ12 を縁の四隅（楕円の 45° おき）から上の一点へ4本、そこから一本で梁の下の吊り木（杉 45 角、2枚組の梁の下にまたがる）へ
+    uc, vc = (float(x) for x in np.mean(rec['pts'], axis=0)); c, tv, rv = _frame(uc, vc)
+    au, av, t = 250.0, 425.0, 12.0
+    Yu = rv if np.cross(tv, rv)[2] > 0 else -rv                         # 押し出しは上へ（X×Y が上向き。楕円は y の裏返しに関わらない）
+    nm = '吊りかご（籐、外 500×850・深さ 220、底 h450）'
+    K.add(m, K.oshidashi(_ellipse(au - 35, av - 35), (), c + np.r_[0, 0, 450.0], tv, Yu, 15.0), L_RAT, RAT_C, nm)
+    K.add(m, K.oshidashi(_ellipse(au - t, av - t), (), c + np.r_[0, 0, 465.0], tv, Yu, 15.0), L_RAT, RAT_C, nm)
+    K.add(m, K.oshidashi(_ellipse(au, av), (_ellipse(au - t, av - t),), c + np.r_[0, 0, 480.0], tv, Yu, 180.0), L_RAT, RAT_C, nm)
+    k_ = 16.0 / ((au - t / 2 + av - t / 2) / 2)                         # 円環の管の半径（単位の円環で）。管の幅は u の端で約12・v の端で約20
+    sec = r.NurbsCurve.CreateFromCircle(r.Circle(r.Point3d(0, 0, 0), k_))
+    sec.Transform(r.Transform.Rotation(math.pi / 2, r.Vector3d(1, 0, 0), r.Point3d(0, 0, 0))); sec.Transform(r.Transform.Translation(r.Vector3d(1, 0, 0)))
+    ring = _place(_scaled_rev(sec, au - t / 2, av - t / 2, 15.0 / k_), c, tv, 660.0)
+    K.add(m, ring, L_RAT, RAT_C, '吊りかごの縁（籐の太い輪 約φ30）')
+    zt = _beam_bot(vc + 0.0225) - 1.0                                   # 吊り木の上（梁の下端の低い側から 1 mm）
+    Y = rv if np.cross(tv, rv)[2] < 0 else -rv                          # 吊り木は下へ（X×Y が下向き）
+    o = c - 210.0 * tv - 22.5 * Y
+    K.add(m, K.hako(o + np.r_[0, 0, zt], tv, Y, 420.0, 45.0, 45.0), L_HW, (196, 160, 118), '吊りかごの吊り木（杉 45 角、2枚組の梁の下にまたがる）')
+    apex = c + np.r_[0, 0, zt - 45.0 - 220.0]
+    K.add(m, K.enchu(apex, c + np.r_[0, 0, zt - 45.0], 6.0), L_RAT, RAT_C, '吊りかごの綱 φ12')
+    for a_ in (45, 135, 225, 315):
+        q = c + (au - t / 2) * math.cos(math.radians(a_)) * tv + (av - t / 2) * math.sin(math.radians(a_)) * rv + np.r_[0, 0, 670.0]
+        K.add(m, K.enchu(q, apex, 6.0), L_RAT, RAT_C, '吊りかごの綱 φ12')
+def mound01(rec):
+    # ほふくの丘：plan01 の楕円（u 1.8×v 2.4）の中に高さ 200 の滑らかな丘。縁から真ん中へ cos のゆるい曲線、縁は床に接して溶ける（接線が水平）、
+    # 頂も水平。xz の面の輪郭（上の曲線＋底の線）を一周させ、制御点を u・v の半径に縮めた一枚の閉じた面の Brep。コルク（やわらかい床）
+    pts = np.asarray(rec['pts']); uc, vc = (float(x) for x in pts.mean(axis=0))
+    ru = (pts[:, 0].max() - pts[:, 0].min()) / 2 * 1000.0; rvv = (pts[:, 1].max() - pts[:, 1].min()) / 2 * 1000.0
+    c, tv, rv = _frame(uc, vc)
+    ts = np.linspace(0, 1, 9); zs = 100.0 * (1 + np.cos(np.pi * ts)); zs[1] = 200.0; zs[-2] = 0.0
+    top = r.NurbsCurve.Create(False, 3, [r.Point3d(float(t_), 0.0, float(z_)) for t_, z_ in zip(ts, zs)])
+    prof = r.PolyCurve(); prof.Append(top); prof.Append(r.LineCurve(r.Point3d(1, 0, 0), r.Point3d(0, 0, 0)))
+    K.add(m, _place(_scaled_rev(prof, ru, rvv, 1.0), c, tv, 0.0), L_CORK, tuple(int(255 * x) for x in CORK[:3]), 'ほふくの丘 h200（コルク、やわらかい床）')
+SLIDE_V = (9.745, 10.255)            # 段々の真ん中のすべり台（縁を含む、すべる面の幅 0.45）
+SLIDE_U = (7.2, 9.05)                # 床の手前の水平 u7.2〜7.5、斜面 u7.5〜8.9、上の平ら u8.9〜9.05（段々の上 h450）
+def _slide_z(u):
+    if u <= 7.5: return 40.0
+    if u >= 8.9: return 450.0
+    return 40.0 + 205.0 * (1 - math.cos(math.pi * (u - 7.5) / 1.4))
+def slide01():
+    # すべり台：段々（h450）の上から床へ、すべる面は上で少し平ら → cos のゆるい斜面（最大約25°、長さ1.4）→ 床の手前で水平（h40）。
+    # 杉の板の押し出し（u・z の面の輪郭を v の向きに）。両側に立ち上がりの縁（厚さ 30、すべる面から +100、角を丸める）
+    um, vm = 0.5 * sum(SLIDE_U), 0.5 * sum(SLIDE_V); c, tv, rv = _frame(um, vm)
+    sc = (205.0 - vm) / 205.0                                             # 背骨の弧の長さ → その v の所の長さ
+    us = np.r_[np.linspace(SLIDE_U[0], 7.5, 3), np.linspace(7.5, 8.9, 23)[1:], SLIDE_U[1]]
+    ez = np.r_[0, 0, 1.0]
+    def piece(v0, v1, dz, name):
+        prof = [((u - um) * 1000.0 * sc, _slide_z(u) + dz) for u in us] + [((SLIDE_U[1] - um) * 1000.0 * sc, 0.0), ((SLIDE_U[0] - um) * 1000.0 * sc, 0.0)]
+        prof = prof[::-1]
+        d = 1.0 if np.cross(tv, ez) @ rv > 0 else -1.0
+        o = c + (v0 - vm) * 1000.0 * rv
+        K.add(m, K.oshidashi(prof, (), o, tv, ez, d * (v1 - v0) * 1000.0), L_PL, (222, 196, 150), name)
+    piece(SLIDE_V[0] + 0.03, SLIDE_V[1] - 0.03, 0.0, 'すべり台（杉、幅 450、h450 から床へ）')
+    piece(SLIDE_V[0], SLIDE_V[0] + 0.03, 100.0, 'すべり台の縁（杉 30、すべる面から +100、角を丸める）')
+    piece(SLIDE_V[1] - 0.03, SLIDE_V[1], 100.0, 'すべり台の縁（杉 30、すべる面から +100、角を丸める）')
+slide01()
 
 T01 = {   # plan01（0・1歳、u ≤ 12）
     98: ('solid', -300, 3900, L_WW), 99: ('solid', -300, 3900, L_WW),
@@ -255,12 +345,12 @@ T01 = {   # plan01（0・1歳、u ≤ 12）
     140: ('table', 500, L_F), 141: ('solid', 0, 300, L_F),       # 先生の腰掛ける机（天板 500・座 300）
     144: ('table', 700, L_F), 145: ('solid', 0, 700, L_F),
     149: nedoko, 153: ('solid', 0, 250, L_F), 155: ('solid', 2100, 2115, L_HI),   # ねどこの天蓋（10-28、監修の項 20261028-0015 の 15：h1800 → h2100、大人の頭に当たらない、梁の下）
-    158: basket, 162: ('solid', 0, 120, L_PL), 163: ('solid', 120, 200, L_PL),
+    158: basket, 162: mound01,                            # 163（丘の上の段 h120〜200）：10-31 から mound01 の一つの滑らかな丘
     166: ('solid', 0, 600, L_F), 171: ('table', 350, L_F), 173: ('solid', 0, 200, L_F), 174: ('solid', 0, 200, L_F),
     178: cot, 180: ('solid', 0, 800, L_F), 183: ('solid', 0, 900, L_F),
     187: ('solid', 0, 850, L_WC), 189: ('solid', 0, 850, L_WC), 190: ('solid', 0, 850, L_F),
     193: ('panel', 2600, 2630, 0.03, L_HW), 195: ('solid', 2400, 2700, L_HW),
-    200: steps01, 203: ('solid', 0, 150, L_PL),
+    200: steps01,                                         # 203（段々の南の低い台）：10-31 から真ん中のすべり台（slide01）
     205: ('solid', 0, 12, L_WC), 206: ('solid', 0, 850, L_WC),
     209: ('panel', 0, 900, 0.03, L_P), 211: ('panel', 0, 900, 0.03, L_P), 212: ('panel', 0, 900, 0.03, L_P),
 }
@@ -496,8 +586,6 @@ for _a, _b, _mir in ((33, 39, False), (42, 48, False), (51, 57, True)):
 # 楕円の敷物（plan04 の Ellipse）の代わり。部屋の真ん中 u（3歳 36・4歳 45・5歳 54）、v7.5（腰の壁の東の端 v6.2 と食卓の椅子 v8.8 のあいだ、両側に約0.16）。
 # 外径 φ2.4（正十角形の外接円、一辺 0.74＝こども2人）。縁は幅 0.35 の平らな輪 h250、そこから円錐の斜面で真ん中の平らな所 φ1.0（h12、コルク）へ下がる。
 # 平らな面だけの閉じた立体（側面10・縁1・斜面10・真ん中1・底1＝23面。12角より少なくして段10で回転体・楕円にしない）。コルクのレイヤー 40k
-L_CORK = layer('40k_しつらえ_あつまりの鉢（コルク）', (196, 160, 118))
-CORK = (0.77, 0.63, 0.46, 1)
 def atsumari_hachi(uc, vc, R=1.2, Ri=0.85, Rc=0.5, h=250, hc=12, n=10):
     c = W(uc, vc); ex = W(uc + 0.01, vc) - c; ey = W(uc, vc + 0.01) - c
     ex /= np.linalg.norm(ex); ey /= np.linalg.norm(ey)
