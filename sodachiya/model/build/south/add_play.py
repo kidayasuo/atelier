@@ -215,15 +215,14 @@ def face_w(u):
     ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WN.exterior)
     pts = [x] if x.geom_type == 'Point' else list(getattr(x, 'geoms', []))
     return max(-0.9 - uv(p.x, p.y)[1] for p in pts) - 0.15      # 内側の面（壁の厚さ 150）
-N_ = P['niche']; b_ = N_['board']
+# 10-31：壁の面に平行・直角（hida.py、play3d.py と同じ形。80〜88 は段 7p で取り込み用ファイルに置き換わる）
+import hida
+N_ = P['niche']
 for ua, ub in P['niches']:
-    wa = min(face_w(ua), face_w(ub)); w0 = wa - P['niche_depth']
-    K.prism(RW(ua, ub, wa - N_['seat_d'], wa), 0.0, N_['seat_h'] * 1000, L_HD)                     # 座（下は引き出し）
-    K.prism(RW(ua - b_, ub + b_, w0, wa), N_['top_h'] * 1000, (N_['top_h'] + b_) * 1000, L_HD)    # 天板（飾り棚）
-    for uu in (ua - b_, ub):
-        K.prism(RW(uu, uu + b_, w0, wa, 0.02), 0.0, N_['top_h'] * 1000, L_HD)                    # 側板
+    for g, z0, z1 in hida.niche_parts(WN, ua, ub, N_, P['niche_depth']):                        # 座・天板・袖板
+        K.prism(g.intersection(WNi), z0, z1, L_HD)
 rb = P['round_bench']
-K.prism(WNi.difference(WNi.buffer(-rb['depth'] * 1000, join_style=1)).intersection(RW(rb['u0'], rb['u1'], 6.5, 20)), 0.0, 350.0, L_HD)
+K.prism(hida.round_bench(WNi, rb['u0'], rb['u1'], rb['depth'] * 1000, RW(40.0, 46.0, 6.5, 20))[0], 0.0, 350.0, L_HD)
 nw = P['north_window']
 K.prism(RW(51.0 - 0.15 - nw['seat_d'], 51.0 - 0.15, nw['w0'], nw['w1']).intersection(WNi), 0.0, nw['seat_h'] * 1000, L_HD)
 # ---------------------------------------------------------------- 天井扇 φ1.1（棟のガラスの帯の下、h6.0。10-30 越屋根をやめた）

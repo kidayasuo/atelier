@@ -8,7 +8,7 @@
 import os, sys, math, json, pickle, numpy as np, rhino3dm as r
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, 'model', 'build', 'south'))
-from shapely.geometry import Point, LineString, Polygon
+from shapely.geometry import Point, LineString, Polygon, MultiPoint as MultiPoint_
 from shapely.ops import unary_union
 from uv import xy, uv
 from meshkit import Kit, RW
@@ -186,17 +186,7 @@ ext_circle(c_net, rg['inner_r'] * 1000 + 40, H - 150, H, L_NET, STEEL, hole=rg['
 # ---------------------------------------------------------------- 網の吊り橋（輪 h3.0 → 踊り場 h2.0、真ん中が垂れる）
 bw = P['bridge']['width'] * 1000; sag = P['bridge']['sag'] * 1000
 pa = c_net + dbr * rg['outer_r'] * 1000; pb = c_ld - dbr * ld['r'] * 1000 * 0.9
-nrm = np.array([-dbr[1], dbr[0]]); G = []
-for i in range(13):
-    t = i / 12; z = H + (ld['h'] * 1000 - H) * t - 4 * sag * t * (1 - t); c = pa + (pb - pa) * t
-    G.append([[*(c + nrm * s), z] for s in np.linspace(-bw / 2, bw / 2, 5)])
-K.surface(G, L_NET, (122, 90, 54))
-for s in (-1, 1):                                               # 両脇の網の壁（上の綱 h1.1）
-    G = []
-    for i in range(13):
-        t = i / 12; z = H + (ld['h'] * 1000 - H) * t - 4 * sag * t * (1 - t); c = pa + (pb - pa) * t + nrm * s * bw / 2
-        G.append([[*c, z], [*c, z + RAIL]])                     # 10-28（監修の項 0015 の 7）：900 → 1,100（キャットウォークの柵と同じ）
-    K.surface(G, L_NET, (122, 90, 54))
+nrm = np.array([-dbr[1], dbr[0]])
 # ---------------------------------------------------------------- 丸い材は円の押し出し（10-28、監修の項 2346：前は 6〜8 角の網目）
 def rod(p0, p1, rad, li, col):
     p0 = np.asarray(p0, float); p1 = np.asarray(p1, float); d = p1 - p0; L_ = float(np.linalg.norm(d))
@@ -210,6 +200,27 @@ def rod(p0, p1, rad, li, col):
         dm = np.linalg.norm(mid - (p0 + p1) / 2)
         if best is None or dm < best[0]: best = (dm, ex)
     if best is not None: out.Objects.AddExtrusion(best[1], K.attr(li, col))
+# 網の吊り橋はロープで（10-31、ユーザー：ロープの部分をそれらしく）。前は足もと・両脇とも一枚の面。
+#   縁と手すりは太いロープ φ30、足もとと両脇は細いロープ φ14 の網目（約 0.18 角）。垂れは区間ごとのまっすぐな押し出しでつなぐ
+_rp = P['bridge'].get('rope', {'edge_d': 0.030, 'net_d': 0.014, 'mesh': 0.18})
+R_E, R_N = _rp['edge_d'] * 500, _rp['net_d'] * 500
+_NS = 12                                                          # 垂れの区間の数
+def bz(t): return H + (ld['h'] * 1000 - H) * t - 4 * sag * t * (1 - t)
+def bp(t, s, dz=0.0): c = pa + (pb - pa) * t + nrm * s; return [*c, bz(t) + dz]
+def along(s, dz, rad):
+    for i in range(_NS): rod(bp(i / _NS, s, dz), bp((i + 1) / _NS, s, dz), rad, L_NET, (122, 90, 54))
+_n_w = max(2, int(round(bw / (_rp['mesh'] * 1000))))
+_n_l = max(2, int(round(np.linalg.norm(pb - pa) / (_rp['mesh'] * 1000))))
+_n_h = max(2, int(round(RAIL / (_rp['mesh'] * 1000))))
+for sg in (-1, 1):
+    along(sg * bw / 2, 0.0, R_E)                                  # 足もとの縁のロープ
+    along(sg * bw / 2, RAIL, R_E)                                 # 手すりのロープ（h1.1、キャットウォークの柵と同じ）
+    for k in range(1, _n_h): along(sg * bw / 2, RAIL * k / _n_h, R_N)   # 両脇の網の横のロープ
+for k in range(1, _n_w): along(-bw / 2 + bw * k / _n_w, 0.0, R_N)       # 足もとの網の縦のロープ
+for j in range(1, _n_l):                                          # 足もとの網の横のロープと、両脇の網の縦のロープ
+    t = j / _n_l
+    rod(bp(t, -bw / 2), bp(t, bw / 2), R_N, L_NET, (122, 90, 54))
+    for sg in (-1, 1): rod(bp(t, sg * bw / 2), bp(t, sg * bw / 2, RAIL), R_N, L_NET, (122, 90, 54))
 # ---------------------------------------------------------------- 摺鉢ネット
 # ユーザー 10-29：下ほど急、上ほど寝る漏斗（この式のまま）。出口の輪は穴の底のマットの上から 0.5（bottom_h 0.15）
 # 10-28（監修の項 2346）：鉢は一つの回転体（断面＝厚さ 20 の帯を中心の軸のまわりに一周、閉じた立体）。前は 17×49 の四角形の面で 770 面
@@ -274,15 +285,23 @@ def face_w(u):
     ln = LineString([xy(u, -0.9), xy(u, -30)]); x = ln.intersection(WS.exterior)
     pts = [x] if x.geom_type == 'Point' else list(getattr(x, 'geoms', []))
     return max(-0.9 - uv(p.x, p.y)[1] for p in pts) - 0.15
-N_ = P['niche']; b_ = N_['board']
+# 10-31（ユーザー：居場所が斜めっている）：くぼみ・丸いベンチは壁の面に平行・直角（hida.py）。前は u・w の長方形で、
+#   まっすぐな西の壁に対して約6.5°回っていた。押し出し（Extrusion）で
+import hida
+N_ = P['niche']
 for ua, ub in P['niches']:
-    wa = min(face_w(ua), face_w(ub)); w0 = wa - P['niche_depth']
-    K.prism(RWw(ua, ub, wa - N_['seat_d'], wa), 0.0, N_['seat_h'] * 1000, L_HD)
-    K.prism(RWw(ua - b_, ub + b_, w0, wa), N_['top_h'] * 1000, (N_['top_h'] + b_) * 1000, L_HD)
-    for uu in (ua - b_, ub):
-        K.prism(RWw(uu, uu + b_, w0, wa), 0.0, N_['top_h'] * 1000, L_HD)
+    for g, z0, z1 in hida.niche_parts(WS, ua, ub, N_, P['niche_depth']):
+        ext_prism(g.intersection(WSi), z0, z1, L_HD)     # u40.55 から北は壁が丸い角へ曲がり始める（くぼみ 3 の北の端で 18 mm）ので内面で切る
 rb = P['round_bench']
-K.prism(WSi.difference(WSi.buffer(-rb['depth'] * 1000, join_style=1)).intersection(RWw(rb['u0'], rb['u1'], 6.5, 20)), 0.0, 350.0, L_HD)
+COL42 = None                                   # u42 の柱（ベンチの南の端をこれから 20 離す）
+for o in src.Objects:
+    if SLN[o.Attributes.LayerIndex].startswith('22a') and isinstance(o.Geometry, r.Extrusion):
+        bb = o.Geometry.GetBoundingBox(); cu, cv_ = uv((bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2)
+        if abs(cu - 42.0) < 0.2 and cv_ < -13.5 and bb.Min.Z < 100:
+            vf_ = _gvf(o.Geometry); COL42 = MultiPoint_(np.asarray(vf_[0])[:, :2]).convex_hull
+RB, rb_u0 = hida.round_bench(WSi, rb['u0'], rb['u1'], rb['depth'] * 1000, RWw(40.0, 46.0, 6.5, 20), COL42)
+ext_prism(RB, 0.0, 350.0, L_HD)
+print('丸いベンチ：南の端 u%.2f（柱から %.0f）' % (rb_u0, RB.distance(COL42) if COL42 is not None else -1))
 nw = P['north_window']
 K.prism(RWw(51.0 - 0.15 - nw['seat_d'], 51.0 - 0.15, nw['w0'], nw['w1']).intersection(WNi), 0.0, nw['seat_h'] * 1000, L_HD)
 # ---------------------------------------------------------------- 天井扇（中心は東から1.2：羽根の先と壁の内面のあいだ約0.45。設計監修10-23）
