@@ -48,7 +48,15 @@ TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする
 #   「散乱光」：太陽を消し、部屋の真上の高い所に大きな下向きの面の光源（曇り空の代わり、柔らかい影）とスカイライト
 #   「窓の光」：太陽を消し、東は縁側の外に立てた面（ほぼ水平、窓から入る）、西は西吹き抜けの上の高い所の下向きの面、
 #     光の筋は架構の線ごとの細い下向きの面（ユーザー 10-31）。弱いスカイライトを足す。
-ROOM_LIGHTS = [u"散乱光（曇りの日の柔らかい光、影がほとんど出ない）", u"窓の光（東の窓からほぼ水平・西吹き抜けの上から・光の筋から、弱い散乱光を足す）"]
+ROOM_LIGHTS = [u"散乱光（曇りの日の柔らかい光、影がほとんど出ない）", u"窓の光（東の窓からほぼ水平・西吹き抜けの上から・光の筋から、弱い散乱光を足す）",
+               u"室内（屋根のあるまま、ビューだけのとき）：散乱光＋天井の下の弱い面の光"]
+# 室内（屋根や2階の床を残した目の高さの絵、room_view の「ビューだけ」）：上の散乱光は屋根で止まるので、天井の下に下向きの弱い面の光を足す
+# （天井・ガラスの帯からの柔らかい明るさの代わり。10-31、キャットウォークと切り株が暗かった）
+ROOM_FILL_POWER = 0.6                           # 暗ければ 1〜2、白っぽく平らになれば 0.3
+ROOM_FILL_Z = {u"room_kirikabu": 2900.0,        # 2階の床の下（3.1）のすぐ下
+               u"room_catwalk": 6500.0,         # 西館の屋根の下（棟 約8.15）、キャットウォークの柵 4.1 より上
+               u"room_hayashi": 3000.0}         # 無い部屋は 2300
+
 ROOM_SKY = 1.0                                  # 散乱光のスカイライトの強さ（暗ければ 1.5〜2、白く飛べば 0.6）
 ROOM_DOME_POWER = 2.0                           # 散乱光：部屋の真上の高い所に置く大きな下向きの面の光源（曇り空の代わり。スカイライトが効かず真っ暗だった 10-31）。暗ければ 2〜5
 ROOM_DOME_Z = 12000.0                           # その高さ（FL からの mm）
@@ -133,7 +141,7 @@ def ask(mode="hiru"):
         light = rss.ListBox(ROOM_LIGHTS, u"部屋の光（昼）", u"レンダリング", ROOM_LIGHTS[0])
         if light is None:
             return None
-        light = 0 if light == ROOM_LIGHTS[0] else 1
+        light = ROOM_LIGHTS.index(light)
     return name, size, light
 
 
@@ -447,6 +455,20 @@ def run(mode):
                             G_.Vector3d(0, 0, -1.0), STRIP_POWER, WIN_COLOR_W):
                     n_ += 1
         say(u"光の筋の光源：", n_, u"本（強さ", STRIP_POWER, u"）")
+
+    def add_fill():
+        """室内：部屋の外形の天井の下（ROOM_FILL_Z）に、下向きの弱い面の光源を1枚"""
+        if name not in ROOM_UV:
+            say(u"室内の光：部屋の範囲が分からない")
+            return
+        G_ = Rhino.Geometry
+        (u0, u1), (v0, v1) = ROOM_UV[name]
+        z_ = ROOM_FILL_Z.get(name, 2300.0)
+        a_, b_, c_ = _uv_xy(u0, v0), _uv_xy(u1, v0), _uv_xy(u0, v1)
+        o_ = G_.Point3d(a_[0], a_[1], z_)
+        if add_rect(u"天井の下", o_, G_.Point3d(b_[0], b_[1], z_) - o_, G_.Point3d(c_[0], c_[1], z_) - o_,
+                    G_.Vector3d(0, 0, -1.0), ROOM_FILL_POWER, System.Drawing.Color.FromArgb(250, 246, 238)):
+            say(u"室内の光（天井の下 z", int(z_), u"）を置いた：強さ", ROOM_FILL_POWER)
 
     def add_dome():
         """散乱光：部屋の真上の高い所に、部屋より四方に ROOM_DOME_PAD 広い下向きの面の光源を1枚（曇り空の代わり）"""
@@ -767,6 +789,8 @@ def run(mode):
                 add_window_lights()
             else:
                 add_dome()
+            if room_light == 2:
+                add_fill()
             sky(SKY_TOP, SKY_BOTTOM, "Gradient")
             say(u"部屋を描く前：スカイライト", sky_get(), u"／光源", doc.Lights.Count)
             view.Redraw()
