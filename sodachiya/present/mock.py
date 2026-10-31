@@ -3916,6 +3916,8 @@ def _months(sp_):
         v_ = sorted(v_)
         s_ = f"{v_[0]}月" if len(v_) == 1 else (f"{v_[0]}〜{v_[-1]}月" if v_[-1] - v_[0] == len(v_) - 1 else "・".join(map(str, v_)) + "月")
         out_.append(h_ + s_)
+    if GSP.get(sp_, {}).get("note"):
+        out_.append(GSP[sp_]["note"])
     return "・".join(dict.fromkeys(out_))
 
 
