@@ -44,16 +44,20 @@ TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする
 
 # 教室・居場所（room_）の昼の光（ユーザー 10-31：太陽が屋根の無い上から差して、本来ない影ができる）
 #   「散乱光」：太陽を消し、スカイライトだけ（曇りの日の柔らかい光、影はほとんど出ない）
-#   「窓の光」：太陽を消し、部屋の東の外（窓）と西の外（吹き抜けの側）に面の光源を立て、弱いスカイライトを足す。
-#     光源は壁の外にあるので、光は窓・開口から入る（壁で止まる）。
-ROOM_LIGHTS = [u"散乱光（曇りの日の柔らかい光、影がほとんど出ない）", u"窓の光（東の窓と西の吹き抜けから、弱い散乱光を足す）"]
+#   「窓の光」：太陽を消し、東は縁側の外に立てた面（ほぼ水平、窓から入る）、西は西吹き抜けの上の高い所の下向きの面、
+#     光の筋は架構の線ごとの細い下向きの面（ユーザー 10-31）。弱いスカイライトを足す。
+ROOM_LIGHTS = [u"散乱光（曇りの日の柔らかい光、影がほとんど出ない）", u"窓の光（東の窓からほぼ水平・西吹き抜けの上から・光の筋から、弱い散乱光を足す）"]
 ROOM_SKY = 1.0                                  # 散乱光のスカイライトの強さ（暗ければ 1.5〜2、白く飛べば 0.6）
 ROOM_SKY_WIN = 0.25                             # 窓の光のときの散乱光（陰が真っ黒なら 0.4、窓の光が目立たなければ 0.1）
-WIN_E_POWER = 1.0                               # 東の窓の面の光源の強さ（暗ければ 2〜5、白く飛べば 0.3〜0.5）
-WIN_W_POWER = 0.5                               # 西の吹き抜けの側の面の光源の強さ
-WIN_OUT = 1000.0                                # 光源を部屋の辺からどれだけ外に立てるか（mm）
+WIN_E_POWER = 1.0                               # 東の窓（ほぼ水平）の面の光源の強さ（暗ければ 2〜5、白く飛べば 0.3〜0.5）
+WIN_W_POWER = 1.0                               # 西吹き抜けの上（高い所から）の面の光源の強さ
+STRIP_POWER = 2.0                               # 光の筋（架構の線ごとの細い面、下向き）の強さ。筋が目立たなければ 5〜10
+WIN_E_OUT = 3500.0                              # 東の光源を部屋の東の辺からどれだけ外に立てるか（mm、縁側の外）
+WIN_E_Z = (300.0, 2400.0)                       # 東の光源の下端・上端（FL からの mm）
+WIN_W_V = (-0.4, 1.6)                           # 西の光源の v の範囲（西吹き抜けの上、m）
+WIN_W_Z = 4500.0                                # 西の光源の高さ（越屋根の高さ、FL からの mm）
+STRIP_Z = 2380.0                                # 光の筋の光源の高さ（溝の下端の代わり。上の切断 2400 のすぐ下）
 WIN_U_IN = (1.5, 0.3)                           # 光源の南の端・北の端を部屋の辺から内へ（m）。南の壁は取り去っているので、そこから直接差さないように（10-31、布の下が明るかった）
-WIN_Z = (200.0, 2400.0)                         # 光源の下端・上端（FL からの mm、上は room_view.py の CUT）
 WIN_COLOR_E = System.Drawing.Color.FromArgb(255, 246, 232)    # 東：朝のやや暖かい白
 WIN_COLOR_W = System.Drawing.Color.FromArgb(236, 242, 255)    # 西：吹き抜けの上からの、やや青い白
 # 部屋の (u, v) の範囲と本館の (u, v) → (x, y)：room_view.py の ROOMS・xy と同じ（直したら両方）
@@ -357,52 +361,83 @@ def run(mode):
         except Exception as e:
             say(u"月明かり：効かなかった", e)
 
+    def add_rect(name_, corner, length, width, inward, power, col):
+        """面の光源（corner から length・width の長方形、inward の側へ光る）を1枚。led_lights に入れ、終わったら消す"""
+        G_ = Rhino.Geometry
+        try:
+            if G_.Vector3d.CrossProduct(length, width) * inward < 0:     # 面の表（光る向き）を照らす側に
+                corner = corner + length
+                length = -length
+            lt = G_.Light()
+            lt.LightStyle = G_.LightStyle.WorldRectangular
+            lt.Location = corner
+            lt.Length = length
+            lt.Width = width
+            lt.Direction = inward
+            lt.Diffuse = col
+            lt.Intensity = power
+            try:
+                lt.IsEnabled = True
+            except Exception:
+                pass
+            try:
+                lt.Name = u"作業_レンダ_窓の光_" + name_
+            except Exception:
+                pass
+            k_ = doc.Lights.Add(lt)
+            if k_ >= 0:
+                led_lights.append(doc.Lights[k_].Id)
+                return True
+            say(u"窓の光（", name_, u"）：足せなかった")
+        except Exception as e:
+            say(u"窓の光（", name_, u"）：効かなかった", e)
+        return False
+
     def add_window_lights():
-        """部屋の東の外と西の外に、部屋の中を向く面の光源（led_lights に入れ、終わったら一緒に消す）"""
+        """部屋の窓の光（ユーザー 10-31）：東はほぼ水平（縁側の外に立てた面）、西は高い所から（西吹き抜けの越屋根の高さに、
+        下向きの面）、光の筋（架構の線ごとに、2枚の梁のあいだの溝の下端の細い面、下向き）"""
         if name not in ROOM_UV:
             say(u"窓の光：部屋の範囲が分からない（ROOM_UV に無い）。散乱光だけで描く")
             return
-        (u0, u1), (v0, v1) = ROOM_UV[name]
-        um, vm = (u0 + u1) / 2.0, (v0 + v1) / 2.0
         G_ = Rhino.Geometry
-        z0, z1 = WIN_Z
-        for side, vv, power, col in ((u"東", v1 + WIN_OUT / 1000.0, WIN_E_POWER, WIN_COLOR_E),
-                                     (u"西", v0 - WIN_OUT / 1000.0, WIN_W_POWER, WIN_COLOR_W)):
-            try:
-                pa, pb = _uv_xy(u0 + WIN_U_IN[0], vv), _uv_xy(u1 - WIN_U_IN[1], vv)
-                c_ = _uv_xy(um, vv)
-                m_ = _uv_xy(um, vm)
-                inward = G_.Vector3d(m_[0] - c_[0], m_[1] - c_[1], 0.0)
-                inward.Unitize()
-                length = G_.Vector3d(pb[0] - pa[0], pb[1] - pa[1], 0.0)
-                width = G_.Vector3d(0.0, 0.0, z1 - z0)
-                if G_.Vector3d.CrossProduct(length, width) * inward < 0:     # 面の表（光る向き）を部屋の側に
-                    pa, pb = pb, pa
-                    length = -length
-                lt = G_.Light()
-                lt.LightStyle = G_.LightStyle.WorldRectangular
-                lt.Location = G_.Point3d(pa[0], pa[1], z0)
-                lt.Length = length
-                lt.Width = width
-                lt.Direction = inward
-                lt.Diffuse = col
-                lt.Intensity = power
-                try:
-                    lt.IsEnabled = True
-                except Exception:
-                    pass
-                try:
-                    lt.Name = u"作業_レンダ_窓の光_" + side
-                except Exception:
-                    pass
-                k_ = doc.Lights.Add(lt)
-                if k_ >= 0:
-                    led_lights.append(doc.Lights[k_].Id)
-                    say(u"窓の光（", side, u"）を置いた：幅", int(length.Length), u"mm、強さ", power)
-                else:
-                    say(u"窓の光（", side, u"）：足せなかった")
-            except Exception as e:
-                say(u"窓の光（", side, u"）：効かなかった", e)
+        (u0, u1), (v0, v1) = ROOM_UV[name]
+        ua, ub = u0 + WIN_U_IN[0], u1 - WIN_U_IN[1]
+        um, vm = (u0 + u1) / 2.0, (v0 + v1) / 2.0
+        mid = _uv_xy(um, vm)
+
+        def P(u, v, z):
+            x_, y_ = _uv_xy(u, v)
+            return G_.Point3d(x_, y_, z)
+
+        # 東：縁側の外（部屋の東の辺から WIN_E_OUT）に立てた面、部屋の方へ水平に
+        ve = v1 + WIN_E_OUT / 1000.0
+        a_, b_ = P(ua, ve, WIN_E_Z[0]), P(ub, ve, WIN_E_Z[0])
+        c_ = P(um, ve, 0.0)
+        inward = G_.Vector3d(mid[0] - c_.X, mid[1] - c_.Y, 0.0)
+        inward.Unitize()
+        if add_rect(u"東", a_, b_ - a_, G_.Vector3d(0, 0, WIN_E_Z[1] - WIN_E_Z[0]), inward, WIN_E_POWER, WIN_COLOR_E):
+            say(u"窓の光（東、ほぼ水平）を置いた：強さ", WIN_E_POWER)
+        # 西：西吹き抜けの上（v WIN_W_V）の高い所に、下向きの面
+        if v0 >= -1.0:
+            w0, w1 = WIN_W_V
+            a_ = P(ua, w0, WIN_W_Z)
+            if add_rect(u"西", a_, P(ub, w0, WIN_W_Z) - a_, P(ua, w1, WIN_W_Z) - a_, G_.Vector3d(0, 0, -1.0), WIN_W_POWER, WIN_COLOR_W):
+                say(u"窓の光（西、吹き抜けの上から）を置いた：強さ", WIN_W_POWER)
+        # 光の筋：架構 k（u ＝ 3(k−1)、k＝2〜19）のうち、部屋の中の線。溝の幅 0.18、v 1.76〜13.6（部屋の東の辺まで）
+        n_ = 0
+        if v0 >= -1.0:
+            for k in range(2, 20):
+                uk = 3.0 * (k - 1)
+                if not (ua <= uk <= u1):
+                    continue
+                s0, s1 = max(1.76, v0), min(13.6, v1)
+                if s1 <= s0:
+                    continue
+                a_ = P(uk - 0.09, s0, STRIP_Z)
+                if add_rect(u"光の筋%d" % k, a_, P(uk + 0.09, s0, STRIP_Z) - a_, P(uk - 0.09, s1, STRIP_Z) - a_,
+                            G_.Vector3d(0, 0, -1.0), STRIP_POWER, WIN_COLOR_W):
+                    n_ += 1
+        say(u"光の筋の光源：", n_, u"本（強さ", STRIP_POWER, u"）")
 
     def add_stopper():
         """既定の照明を止める：光源が一つも無いと Rhino が既定の照明（くっきりした影）を点けるので、
