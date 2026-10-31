@@ -52,6 +52,7 @@ ROOM_SKY_WIN = 0.25                             # 窓の光のときの散乱光
 WIN_E_POWER = 1.0                               # 東の窓の面の光源の強さ（暗ければ 2〜5、白く飛べば 0.3〜0.5）
 WIN_W_POWER = 0.5                               # 西の吹き抜けの側の面の光源の強さ
 WIN_OUT = 1000.0                                # 光源を部屋の辺からどれだけ外に立てるか（mm）
+WIN_U_IN = (1.5, 0.3)                           # 光源の南の端・北の端を部屋の辺から内へ（m）。南の壁は取り去っているので、そこから直接差さないように（10-31、布の下が明るかった）
 WIN_Z = (200.0, 2400.0)                         # 光源の下端・上端（FL からの mm、上は room_view.py の CUT）
 WIN_COLOR_E = System.Drawing.Color.FromArgb(255, 246, 232)    # 東：朝のやや暖かい白
 WIN_COLOR_W = System.Drawing.Color.FromArgb(236, 242, 255)    # 西：吹き抜けの上からの、やや青い白
@@ -368,7 +369,7 @@ def run(mode):
         for side, vv, power, col in ((u"東", v1 + WIN_OUT / 1000.0, WIN_E_POWER, WIN_COLOR_E),
                                      (u"西", v0 - WIN_OUT / 1000.0, WIN_W_POWER, WIN_COLOR_W)):
             try:
-                pa, pb = _uv_xy(u0, vv), _uv_xy(u1, vv)
+                pa, pb = _uv_xy(u0 + WIN_U_IN[0], vv), _uv_xy(u1 - WIN_U_IN[1], vv)
                 c_ = _uv_xy(um, vv)
                 m_ = _uv_xy(um, vm)
                 inward = G_.Vector3d(m_[0] - c_[0], m_[1] - c_[1], 0.0)
@@ -402,6 +403,30 @@ def run(mode):
                     say(u"窓の光（", side, u"）：足せなかった")
             except Exception as e:
                 say(u"窓の光（", side, u"）：効かなかった", e)
+
+    def add_stopper():
+        """既定の照明を止める：光源が一つも無いと Rhino が既定の照明（くっきりした影）を点けるので、
+        地面の下から真上へ向けた、ごく弱い平行光を1本置く（何も照らさない。led_lights に入れ、終わったら消す）"""
+        try:
+            lt = Rhino.Geometry.Light()
+            lt.LightStyle = Rhino.Geometry.LightStyle.WorldDirectional
+            lt.Location = Rhino.Geometry.Point3d(0.0, 0.0, -100000.0)
+            lt.Direction = Rhino.Geometry.Vector3d(0.0, 0.0, 1.0)
+            lt.Intensity = 0.01
+            try:
+                lt.IsEnabled = True
+            except Exception:
+                pass
+            try:
+                lt.Name = u"作業_レンダ_既定の照明止め"
+            except Exception:
+                pass
+            k_ = doc.Lights.Add(lt)
+            if k_ >= 0:
+                led_lights.append(doc.Lights[k_].Id)
+                say(u"既定の照明止めの光源を置いた")
+        except Exception as e:
+            say(u"既定の照明止め：効かなかった", e)
 
     BG_KEYS = ("BackgroundStyle", "BackgroundColorTop", "BackgroundColorBottom")
     bg_old = {}
@@ -646,6 +671,8 @@ def run(mode):
             dim_skylight(ROOM_SKY if room_light == 0 else ROOM_SKY_WIN)
             if room_light == 1:
                 add_window_lights()
+            else:
+                add_stopper()
             sky(SKY_TOP, SKY_BOTTOM, "Gradient")
             say(u"部屋を描く前：スカイライト", sky_get(), u"／光源", doc.Lights.Count)
             view.Redraw()
