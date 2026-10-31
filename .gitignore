@@ -3,4 +3,3 @@
 *.aibak
 __pycache__/
 *.pyc
-sodachiya/drawings_rhino/*.svg

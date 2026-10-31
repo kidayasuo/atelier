@@ -5,7 +5,7 @@
 使い方（Rhino 8、Mac）：
   1. sodachiya/sodachiya.3dm を開く（drawings/ の …_views.json と同じ版の 3dm で。git pull したあとに）。
   2. コマンド RunPythonScript で、このファイル（sodachiya/rhino/zumen.py）を選ぶ。数分〜十数分かかる（コマンドの行に進み具合）。
-  3. sodachiya/drawings_rhino/ に、図ごと（紙ごと）に <図の名前>.pdf（文字のまま、レイヤーはPDFのレイヤー（OCG））と .ai（10-31から .svg は書かない：EXPORT_SVG）ができる。
+  3. sodachiya/drawings_rhino/ に、図ごと（紙ごと）に <図の名前>.pdf（文字のまま、レイヤーはPDFのレイヤー（OCG））と .svg（Illustrator で開くのはこれ。レイヤーの組が残る）ができる。PDF は見る用・プレゼンの見本の重ね用（Illustrator で開くとレイヤーが消える）。.ai は書かない（EXPORT_AI）。
      Illustrator で開き、同じ名前の drawings/<図の名前>_文字.pdf（文字と寸法だけの層）を上に重ねる。紙の大きさ（A1 841×594 mm）と
      位置は同じなので、左上をそろえて置けばぴったり重なる。彩色は Illustrator で手で。
   4. できたら drawings_rhino/ を git add して commit・push する（git add drawings_rhino && git commit && git push）。
@@ -50,8 +50,8 @@ except ImportError:
 VIS_MM = 0.13            # 見えがかりの線の太さ（紙の mm）。切断・想像線の太さは json（draw100 の LW_CUT・LW_THIN）から
 DASH_MM = (1.6, 0.5, 0.3, 0.5)   # 想像線の破線（紙の mm：線・すき・点・すき）
 CURVE_TOL = 2.0          # 曲線を折れ線にするときの許し（モデルの mm、紙では 0.02 mm）
-EXPORT_SVG = False       # .svg も書き出すか（10-31、ユーザー：使わないのでやめた。PDFとaiで足りる）
-EXPORT_AI = True         # .ai も書き出す（Rhino の _-Export。書き出しの設定は Rhino の既定のまま）
+EXPORT_SVG = True        # .svg も書き出す（10-31 昼、ユーザー：Illustrator で開くとレイヤーの組がそのまま残るのは SVG だけ。PDF はパスの羅列、.ai は字化けして組が平たくなる）
+EXPORT_AI = False        # .ai は書かない（10-31 昼：Rhino の _-Export の .ai はレイヤーの名前が字化けし、組が平たくなる。Illustrator には SVG を）
 KEEP_IN_DOC = False      # True：線を 3dm のレイヤー「図_…」に残す（.ai 用に足した線を消さない）
 AI_ORIGIN = (0.0, 300000.0)      # .ai 用に線を置く所（モデルの mm。建物から離れた空き地。紙の左下がここ）
 ONLY = ''                # '断面B' などにすると、その名前を含む図だけ（試すとき）
