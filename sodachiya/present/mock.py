@@ -3523,6 +3523,21 @@ try:                                             # 外構の木（77、アプロ
 except Exception as e_:
     print("外構の木：", e_)
 _trees = [(SP_READ.get(sp_, sp_), p_, g_) for sp_, p_, g_ in _trees]
+# 読書の庭（ユーザー 11-01、決定事項_園庭・本館）：木はベニシダレ（u54.4 v−2.3）とロウバイ（u52.3 v−1.3）。3dm の 67c に二つの樹冠があるので近い方をロウバイに。
+# 77c の低い物（刈り込み・苔）のうち読書の庭の中の物は木として描かない（前はギンモクセイに読んでいた）
+ROUBAI_UV, DOKUSHO_UV = (52.3, -1.3), (54.0, -1.4)
+_rbp = rot(_gs(Point(gc.UV(*ROUBAI_UV))))
+_dkp = rot(_gs(Point(gc.UV(*DOKUSHO_UV))))
+_ri = min((i_ for i_, t_ in enumerate(_trees) if t_[0] == "ベニシダレ"), key=lambda i_: _trees[i_][2].centroid.distance(_rbp), default=None)
+if _ri is not None and _trees[_ri][2].centroid.distance(_rbp) < 1.0:
+    _trees[_ri] = ("ロウバイ",) + tuple(_trees[_ri][1:])
+    print("読書の庭：67c の樹冠（%.2f m 先）をロウバイに" % _trees[_ri][2].centroid.distance(_rbp))
+else:
+    _trees.append(("ロウバイ", np.array(_rbp.coords[0]), _rbp.buffer(0.9, 24)))
+    print("読書の庭：3dm にロウバイの樹冠が無い→決定事項の位置に φ1.8")
+_n0 = len(_trees)
+_trees = [t_ for t_ in _trees if not (t_[0] == "ギンモクセイ" and t_[2].centroid.distance(_dkp) < 3.2)]
+print("読書の庭：刈り込み・苔（77c）を木から外した", _n0 - len(_trees))
 _kp = rot(_gs(Point(gc.XS([KUSU_AT])[0])))
 _ki = min((i_ for i_, t_ in enumerate(_trees) if t_[0] == "シラカシ"), key=lambda i_: _trees[i_][2].centroid.distance(_kp), default=None)
 if _ki is not None:
@@ -3650,9 +3665,10 @@ for sp_, c_, r_, g_ in _tl:
     ev_, tr_ = TRAIT.get(s0_, (None, ""))
     shp_ = g_ if g_ is not None else _circ(c_, r_)
     fc_ = GSP.get(s0_, {}).get("fill")
-    if "香" in tr_:                                   # 香り：一回り外のふわふわ（輪郭なし、薄い円を重ねる）
+    if "香" in tr_:                                   # 香り：一回り外のふわふわ（輪郭なし、薄い円を重ねる）。色はその木と同じ（ユーザー 11-01）
+        hc_ = fc_ or (GS_["ever"]["fill"] if ev_ == "E" else GS_["deci"]["fill"])
         for k_ in _HOP["steps"]:
-            _ha += _gpp(shp_.buffer(r_ * (k_ - 1)) if g_ is not None else _circ(c_, r_ * k_), fill=_HOP["fill"], op=_HOP["op"], name="香り　" + s0_)
+            _ha += _gpp(shp_.buffer(r_ * (k_ - 1)) if g_ is not None else _circ(c_, r_ * k_), fill=hc_, op=_HOP["op"], name="香り　" + s0_)
     if fc_:
         _co += _gpp(shp_, fill=fc_, op=GS_["color"]["op"], stroke=GS_["ever"]["edge"] if ev_ == "E" else None, lw=GS_["ever"]["lw"] if ev_ == "E" else 0, name=s0_)
     elif ev_ == "E":
@@ -3660,8 +3676,9 @@ for sp_, c_, r_, g_ in _tl:
     else:
         _de += _gpp(shp_, fill=GS_["deci"]["fill"] if ev_ == "D" else "#D6D6D6", op=GS_["deci"]["op"], name=s0_)
     if "痛" in tr_ and s0_ != "ユズ":                  # トゲ（ヒイラギ・クリのイガ。ユズは多田錦でとげが少ないので付けない）
-        n_ = 28
-        st_ = Polygon([(c_[0] + r_ * (1.0 if i_ % 2 else 1.12) * np.cos(np.pi * i_ / n_ * 2 / 2), c_[1] + r_ * (1.0 if i_ % 2 else 1.12) * np.sin(np.pi * i_ / n_ * 2 / 2)) for i_ in range(2 * n_)])
+        n_ = max(10, int(2 * np.pi * r_ / (GS_["thorn"]["pitch_mm"] * _gk)))      # とげの数と高さは紙の上で一定（小さなヒイラギでも見える）
+        ro_ = r_ + GS_["thorn"]["depth_mm"] * _gk
+        st_ = Polygon([(c_[0] + (r_ if i_ % 2 else ro_) * np.cos(np.pi * i_ / n_), c_[1] + (r_ if i_ % 2 else ro_) * np.sin(np.pi * i_ / n_)) for i_ in range(2 * n_)])
         _th += _gpp(st_.exterior, stroke=GS_["thorn"]["stroke"], lw=GS_["thorn"]["lw"], name="トゲ　" + s0_)
     if s0_ == "エノキ" and _climb and min(np.hypot(*(c_ - q_)) for q_ in _climb) < 2.0:   # 木登りの木：幹から太い枝（上から見た形）
         for k_, a_ in enumerate(np.radians([15, 85, 160, 225, 300])):
@@ -3719,6 +3736,156 @@ for t_ in GJ["TEACHERS"]["pts"]:
     _tps += _gpp(_circ(q_, _TE["r_mm"], 32).exterior, stroke=_TE["stroke"], lw=_TE["lw"], paper=True, name="先生　" + t_[2])
     _tps += _gpp(_circ(q_, 0.4, 16), fill=_TE["stroke"], paper=True, name="先生　" + t_[2])
 _gpart("gx.teacher", _TE["name"], _tps)
+# ---- 園庭の設備（ユーザー 11-01 01:50：樹木の説明でなく園庭説明。園庭の物は全部、形と名前）。形は garden.json・minami.json（園庭係・アプローチ係）と 3dm の 95・96 から
+MJ = json.load(open(os.path.join(ROOT, "data", "minami.json"), encoding="utf-8"))
+GF_ = GFJ.get("facility", {})
+_UVr = lambda u_, v_: np.array(rot(_gs(Point(gc.UV(u_, v_)))).coords[0])     # minami.json の (u, v) → 回した座標
+_mapP = lambda pts_, f_: Polygon([tuple(f_(*q_)) for q_ in pts_])
+_FACB = []                                         # 設備の名前の札（木の名前がよける）
+_NOB = [Point(gxf(np.array([_PAD(n_[0], n_[1])]))[0]).buffer(1.9) for n_ in GJ["NICHES"]]       # ニッチの番号の丸（設備の名前がよける）
+
+
+def _flab(q_, s_, size=1.35, col="#3A3A3A", bold=False, dy=0.0):
+    """設備の名前（紙の mm の点 q_ の中心に）"""
+    w_ = fitz.Font(fontfile=FONTB if bold else FONT).text_length(s_, size / 0.72)
+    bx_ = lambda x_, y_: Polygon([(x_ - w_ / 2, y_ - size * 0.7), (x_ + w_ / 2, y_ - size * 0.7), (x_ + w_ / 2, y_ + size * 0.7), (x_ - w_ / 2, y_ + size * 0.7)])
+    best_ = None
+    for ox_, oy_ in ((0, 0), (0, 2.2), (0, -2.2), (1, 0), (-1, 0), (0, 4.0), (0, -4.0), (1, 2.2), (-1, 2.2), (1, -2.2), (-1, -2.2)):
+        x_, y_ = q_[0] + ox_ * (w_ / 2 + 1.2), q_[1] + dy + oy_
+        ov_ = sum(bx_(x_, y_).intersection(o_).area for o_ in _NOB + _FACB)
+        if best_ is None or ov_ < best_[0] - 1e-6:
+            best_ = (ov_, x_, y_)
+        if ov_ < 1e-6:
+            break
+    _, x_, y_ = best_
+    T(ax, x_, y_, s_, size, col, bold=bold, ha="center", va="center")
+    _FACB.append(bx_(x_, y_))
+
+
+def _ell(c_, a_, b_, f_, n_=48):
+    return _mapP([(c_[0] + a_ * np.cos(t_), c_[1] + b_ * np.sin(t_)) for t_ in np.linspace(0, 2 * np.pi, n_, endpoint=False)], f_)
+
+
+_pq = lambda p_: gxf(np.array([p_]))[0]            # 回した座標 → 紙
+# みなみのさんかく（0〜2歳の庭、決定事項_外構・data/minami.json）
+_mi = []
+_mo = MJ["MOUND"]
+_mi += _gpp(_ell(_mo["c"], _mo["a"], _mo["b"], _UVr), fill=GF_["mound"]["fill"], stroke=GF_["mound"]["stroke"], lw=0.25, name="ころころの丘")
+_lp = MJ["LOOP"]
+_t0 = 0.0
+for nm_, fr_ in _lp["parts"]:                      # はだしの小径：一周を材料ごとの弧に
+    ts_ = np.linspace(_t0, _t0 + fr_ * 2 * np.pi, 16)
+    out_ = [(_lp["c"][0] + (_lp["a"] + _lp["w"] / 2) * np.cos(t_), _lp["c"][1] + (_lp["b"] + _lp["w"] / 2) * np.sin(t_)) for t_ in ts_]
+    in_ = [(_lp["c"][0] + (_lp["a"] - _lp["w"] / 2) * np.cos(t_), _lp["c"][1] + (_lp["b"] - _lp["w"] / 2) * np.sin(t_)) for t_ in ts_[::-1]]
+    _mi += _gpp(_mapP(out_ + in_, _UVr), fill=GF_["loop"].get(nm_.split("（")[0], "#DDD6C6"), stroke="#8C8677", lw=0.1, name="はだしの小径　" + nm_)
+    _t0 += fr_ * 2 * np.pi
+_rc = lambda u0_, u1_, v0_, v1_: _mapP([(u0_, v0_), (u1_, v0_), (u1_, v1_), (u0_, v1_)], _UVr)
+_sd = MJ["SAND"]
+_mi += _gpp(_rc(_sd["c"][0] - _sd["l"] / 2, _sd["c"][0] + _sd["l"] / 2, _sd["c"][1] - _sd["w"] / 2, _sd["c"][1] + _sd["w"] / 2), fill=GS_["sand"]["fill"], stroke=GS_["sand"]["stroke"], lw=0.2, name="砂場（おやすみの布）")
+_wt = MJ["WATER"]
+_mi += _gpp(_rc(_wt["c"][0] - _wt["l"] / 2, _wt["c"][0] + _wt["l"] / 2, _wt["c"][1] - _wt["w"] / 2, _wt["c"][1] + _wt["w"] / 2), fill=GS_["water"]["fill"], stroke=GS_["water"]["stroke"], lw=0.2, name="水のテーブル")
+_hb = MJ["HERB"]
+_mi += _gpp(_rc(_hb["u"][0], _hb["u"][1], _hb["v"][0], _hb["v"][1]), fill=GF_["herb"]["fill"], stroke=GF_["herb"]["stroke"], lw=0.15, name="ハーブの帯")
+_sh_ = MJ["SHED"]
+_mi += _gpp(_rc(_sh_["u"][0], _sh_["u"][1], _sh_["v"][0], _sh_["v"][1]), fill=GS_["hut"]["fill"], stroke=GS_["hut"]["stroke"], lw=GS_["hut"]["lw"], name="外の物置")
+# 芝の川と足あとの石（避難の帯、川の縁から c の所を波打つ帯）
+_re = np.array(MJ["RIVER_EDGE"], float)
+_ep = MJ["EVAC_PLAY"]
+_L = np.hypot(*(_re[1] - _re[0])); _t = (_re[1] - _re[0]) / _L; _nrm = np.array([-_t[1], _t[0]])
+_c_in = np.array(MJ["MOUND"]["c"]) - _re[0]
+if _c_in @ _nrm < 0:
+    _nrm = -_nrm                                   # 帯の内へ
+_ss = np.linspace(0.3, _L - 0.3, 120)
+_ctr = [_re[0] + s_ * _t + (_ep["c"] + _ep["amp"] * np.sin(2 * np.pi * s_ / _ep["wave"])) * _nrm for s_ in _ss]
+_band = [tuple(p_ + _ep["w"] / 2 * _nrm) for p_ in _ctr] + [tuple(p_ - _ep["w"] / 2 * _nrm) for p_ in _ctr[::-1]]
+_mi += _gpp(_mapP(_band, _UVr), fill=GF_["shiba_river"]["fill"], name="芝の川")
+_fp = []
+for s_ in np.arange(0.6, _L - 0.6, _ep["pitch"]):
+    p_ = _re[0] + s_ * _t + (_ep["c"] + _ep["amp"] * np.sin(2 * np.pi * s_ / _ep["wave"]) + _ep["w"] / 2 + 0.2) * _nrm
+    _fp += _gpp(_circ(_UVr(*p_), _ep["d"] / 2, 16), fill=GF_["stone"]["fill"], stroke=GF_["stone"]["stroke"], lw=0.1, name="足あとの石")
+_mi += _fp
+# 木戸と門
+_gt = MJ["GATES"]
+_mi += _gpp(LineString([tuple(_UVr(_gt["EAST"]["posts_u"][0], 15.0)), tuple(_UVr(_gt["EAST"]["posts_u"][1], 15.0))]), stroke=GF_["gate"]["stroke"], lw=GF_["gate"]["lw"], name="東の木戸")
+_pe = np.array(MJ["PARK_EDGE"], float); _pt = (_pe[0] - _pe[1]) / np.hypot(*(_pe[0] - _pe[1]))
+_mi += _gpp(LineString([tuple(_UVr(*(_pe[1] + _gt["WEST"]["d_post"][0] * _pt))), tuple(_UVr(*(_pe[1] + _gt["WEST"]["d_post"][1] * _pt)))]), stroke=GF_["gate"]["stroke"], lw=GF_["gate"]["lw"], name="西の門（非常用）")
+_gpart("gx.minami", "みなみのさんかく（0〜2歳の庭の設備）", _mi)
+_flab(_pq(_UVr(*_mo["c"])), "ころころの丘", dy=0.0)
+_flab(_pq(_UVr(_lp["c"][0] + _lp["a"] + 0.9, _lp["c"][1])), "はだしの小径")
+_flab(_pq(_UVr(*_sd["c"])), "砂場", dy=-2.0)
+_flab(_pq(_UVr(*_wt["c"])), "水のテーブル", dy=-1.6, col="#2F6E95")
+_flab(_pq(_UVr(np.mean(_hb["u"]), np.mean(_hb["v"]))), "ハーブの帯", dy=1.6)
+_flab(_pq(_UVr(np.mean(_sh_["u"]), np.mean(_sh_["v"]))), "物置", dy=-1.6)
+_flab(_pq(_UVr(*(_re[0] + _L * 0.55 * _t + (_ep["c"] + 1.3) * _nrm))), "芝の川と足あとの石（避難の帯）")
+_flab(_pq(_UVr(np.mean(_gt["EAST"]["posts_u"]), 15.0)), "東の木戸", dy=1.6, col="#6B5A3A")
+_flab(_pq(_UVr(*(_pe[1] + 1.5 * _pt))), "西の門（非常用）", dy=1.8, col="#6B5A3A")
+# だいさんかく・しずかのもりの設備：石（橋・飛び石・景石・滝の石・噴水の石張りの縁）、丸太（橋・砂場の縁）、輪のシャワー、鉄棒の位置（雲梯に替える、検討中）、雨水タンク、暗渠
+_st96, _wd = [], []
+for o in objs:
+    nm_ = o["name"] or ""
+    if o["layer"].startswith("96_"):
+        g_ = _sh(o)
+        if g_ is None or g_.is_empty:
+            continue
+        if "噴水の石張り" in nm_:                    # 噴水の石張りは水の色の上に縁の線だけ（3dm の外形は箱なので garden.json の円で）
+            f_ = GJ["SPLASH"] if nm_.startswith("乳児") else GJ["FOUNTAIN"]
+            _st96 += _gpp(_circ(_PAD(*f_["c"]), f_["r"][0], 64).exterior, stroke=GF_["stone"]["stroke"], lw=0.3, name=nm_.split("（")[0])
+        else:
+            _st96 += _gpp(g_, fill=GF_["stone"]["fill"], stroke=GF_["stone"]["stroke"], lw=0.15, name=nm_.split("（")[0])
+    elif o["layer"].startswith("95r_") and "帆布" not in nm_ and "粒の遊び場" not in nm_:
+        g_ = _sh(o)
+        if g_ is not None and not g_.is_empty:
+            _wd += _gpp(g_.boundary if g_.geom_type.endswith("Polygon") else g_, stroke=GF_["log"]["stroke"], lw=0.5, name=nm_.split("（")[0])   # 縁と丸太は線（立体の外形は箱になるので塗らない）
+_gr_ = GJ["GRAIN"]                                 # 粒の遊び場（2.4×3.0 の長方形、3dm の箱の外形は向きが合わないので garden.json から）
+_ga_ = np.radians(_gr_["rot"]); _gu_ = np.array([np.cos(_ga_), np.sin(_ga_)]); _gv_ = np.array([-_gu_[1], _gu_[0]])
+_gpoly_ = _mapP([tuple(np.array(_gr_["c"]) + sx_ * _gr_["l"] / 2 * _gu_ + sy_ * _gr_["w"] / 2 * _gv_) for sx_, sy_ in ((-1, -1), (1, -1), (1, 1), (-1, 1))], _PAD)
+_wd += _gpp(_gpoly_, fill=GS_["sand"]["fill"], stroke=GF_["log"]["stroke"], lw=0.5, name="粒の遊び場（木の縁）")
+_gpart("gx.stone", GF_["stone"]["name"], _st96)
+_gpart("gx.log", GF_["log"]["name"], _wd)
+_rg = GJ["SHOWER"]["ring"]; _ms = GJ["SPLASH"]["mist"]
+_rings = _gpp(_circ(_PAD(*_rg["c"]), _rg["r"], 48).exterior, stroke=GF_["ring"]["stroke"], lw=GF_["ring"]["lw"], name="あめのわ（輪のシャワー φ2.4）")
+_rings += _gpp(_circ(_PAD(*GJ["SPLASH"]["c"]), _ms["r"], 48).exterior, stroke=GF_["ring"]["stroke"], lw=GF_["ring"]["lw"], name="霧のわ（φ1.8）")
+for p_ in _rg["posts"] + _ms["posts"]:
+    q_ = _PAD(*p_)
+    _rings += _gpp(Polygon([(q_[0] - 0.06, q_[1] - 0.06), (q_[0] + 0.06, q_[1] - 0.06), (q_[0] + 0.06, q_[1] + 0.06), (q_[0] - 0.06, q_[1] + 0.06)]), fill=GF_["log"]["stroke"], name="柱")
+_gpart("gx.ring", GF_["ring"]["name"], _rings)
+_bar = []                                          # 鉄棒の位置（garden.json の BAR：中心・向き・一段の幅・段の数）。雲梯に替える（決定事項_園庭、場所と寸法は検討中）
+_bj = GJ["BAR"]
+_bd = np.array([np.cos(np.radians(_bj["rot"])), np.sin(np.radians(_bj["rot"]))])
+_bn = len(_bj["bars"])
+_bpts = [np.array(_bj["c"]) + (k_ - _bn / 2) * _bj["span"] * _bd for k_ in range(_bn + 1)]
+_bar += _gpp(LineString([tuple(_PAD(*p_)) for p_ in (_bpts[0], _bpts[-1])]), stroke=GF_["bar"]["stroke"], lw=0.5, name="棒")
+for p_ in _bpts:
+    _bar += _gpp(_circ(_PAD(*p_), _bj["post_d"] / 2 + 0.05, 16), fill=GF_["bar"]["stroke"], name="柱")
+_gpart("gx.bar", GF_["bar"]["name"], _bar)
+_tk = GJ["TANK"]
+_gpart("gx.tank", GF_["tank"]["name"], _gpp(_mapP([(_tk["c"][0] + _tk["r"][0] * np.cos(t_), _tk["c"][1] + _tk["r"][1] * np.sin(t_)) for t_ in np.linspace(0, 2 * np.pi, 32, endpoint=False)], _PAD).exterior,
+                                              stroke=GF_["tank"]["stroke"], lw=0.25, name="雨水タンク"))
+_gpart("gx.culvert", GF_["culvert"]["name"], _gpp(LineString([tuple(_PAD(*p_)) for p_ in GJ["STREAM"]["culvert"]]), stroke=GF_["culvert"]["stroke"], lw=0.6, name="暗渠"))
+_hu = GJ["HUT"]
+_gpart("gx.eave", "小屋の軒の下（足洗い・ベンチ）", _gpp(_mapP([(_hu["a"][0], _hu["d"][1]), (_hu["closed_a"], _hu["d"][1]), (_hu["closed_a"], _hu["d"][1] + _hu["eave"]), (_hu["a"][0], _hu["d"][1] + _hu["eave"])], _PAD).exterior,
+                                                       stroke=GS_["hut"]["stroke"], lw=0.2, name="軒の下"))
+# 名前（園庭の場所と設備）。位置は garden01.py の文字の位置（園庭の枠 a, d）
+for a_, d_, s_, sz_, col_, b_ in [(39.4, 13.6, "原っぱ", 1.9, "#6B5E3A", True), (16.0, 7.2, "おくのもり", 1.8, "#56704A", True), (51.8, 8.6, "かぜのもり", 1.8, "#56704A", True),
+                                   (40.6, 1.7, "てんぐのたに（入らない）", 1.4, "#56704A", False), (23.6, 11.6, "みずべ", 1.8, "#4C7A99", True),
+                                   (GJ["MOUND"]["top"][0] + 1.6, GJ["MOUND"]["top"][1] - 0.4, f"築山 +{GJ['MOUND']['h']}", 1.5, "#6B5E3A", True),
+                                   (47.0, 21.9, "土手 +1.0", 1.3, "#6B5E3A", False), (GJ["BOWL"]["c"][0], GJ["BOWL"]["c"][1], "すりばち（大雨で雨の池）", 1.3, "#2F6E95", False),
+                                   (GJ["FOUNTAIN"]["c"][0] - 0.2, GJ["FOUNTAIN"]["c"][1] - 3.0, "床の噴水・あめのわ", 1.4, "#2F6E95", True),
+                                   (GJ["SPLASH"]["c"][0] - 2.6, GJ["SPLASH"]["c"][1] + 0.4, "乳児の床の噴水・霧のわ", 1.3, "#2F6E95", True),
+                                   (54.7, 28.2, "雨庭（洲浜）", 1.4, "#4A4438", True), (GJ["GRAIN"]["c"][0], GJ["GRAIN"]["c"][1] - 2.4, "粒の遊び場", 1.3, "#6B5A3A", False),
+                                   (29.2, 9.9, "砂場", 1.4, "#6B5A3A", True), (GJ["BAR"]["c"][0], GJ["BAR"]["c"][1] + 1.6, "雲梯（検討中、今は鉄棒の位置）", 1.25, "#5A4630", False),
+                                   (_tk["c"][0] + 0.4, _hu["d"][0] + 0.8, "雨水タンク（床下）", 1.05, "#4C8DB8", False), (8.0, 0.9, "暗渠（用水路から）", 1.15, "#4C8DB8", False),
+                                   (np.mean([_hu["a"][0], _hu["split_a"]]), np.mean(_hu["d"]), "便所", 1.3, "#5A564E", False),
+                                   (np.mean([_hu["split_a"], _hu["closed_a"]]), _hu["d"][0] + 2.6, "倉庫", 1.3, "#5A564E", False),
+                                   (np.mean([_hu["closed_a"], _hu["a"][1]]), np.mean(_hu["d"]), "コンポスト", 1.3, "#5A564E", False),
+                                   (np.mean([_hu["a"][0], _hu["closed_a"]]), _hu["d"][1] + _hu["eave"] / 2, "軒の下：足洗い・ベンチ", 1.1, "#5A564E", False),
+                                   (GJ["BRIDGES"][0]["c"][0] - 1.2, GJ["BRIDGES"][0]["c"][1] + 1.6, "石の橋", 1.2, "#5A564E", False),
+                                   (GJ["BRIDGES"][1]["c"][0], GJ["BRIDGES"][1]["c"][1] + 1.3, "丸太の橋", 1.2, "#5A564E", False),
+                                   (34.6, 15.6, "雨の川（雨落ちの溝）", 1.2, "#5E7A8C", False)]:
+    q_ = _pq(_PAD(a_, d_))
+    if _GWP.contains(Point(q_)):
+        _flab(q_, s_, sz_, col_, bold=b_)
+print("園庭の設備：みなみのさんかく %d、石 %d・丸太 %d・輪 %d・鉄棒 %d、名前 %d" % (len(_mi), len(_st96), len(_wd), len(_rings), len(_bar), len(_FACB)))
 # 名前：部屋・園庭・木（花・紅葉・実の木は見どころの月）
 _RLAB.clear()
 for ln_, gs_ in _lab.items():
@@ -3735,12 +3902,16 @@ _MK = {"花": "花", "香": "香", "紅": "紅", "黄": "黄", "実": "実", "�
 
 
 def _months(sp_):
+    """見どころの月：図に描いた見どころだけ（花・紅葉は色の付いた木、実はさくらんぼの印の木、香りは香りの木。ユーザー 11-01）"""
     m_ = dict(GJ["SPECIES"].get(sp_, {}).get("m", {}))
     m_.update(GSP.get(sp_, {}).get("months", {}))
+    tr_ = TRAIT.get(sp_, (None, ""))[1]
+    col_, fru_ = bool(GSP.get(sp_, {}).get("fill")), bool(GSP.get(sp_, {}).get("fruit"))
+    ok_ = {"花": col_ or "香" in tr_, "紅": col_, "黄": col_, "香": "香" in tr_, "実": fru_}
     out_ = []
     for k_, v_ in m_.items():
         h_ = next((_MK[c_] for c_ in k_ if c_ in _MK), None)
-        if h_ is None or len(v_) > 6:
+        if h_ is None or len(v_) > 6 or not ok_.get(h_):
             continue
         v_ = sorted(v_)
         s_ = f"{v_[0]}月" if len(v_) == 1 else (f"{v_[0]}〜{v_[-1]}月" if v_[-1] - v_[0] == len(v_) - 1 else "・".join(map(str, v_)) + "月")
@@ -3758,7 +3929,8 @@ for nm_, g_ in (("だいさんかく", GD["north"]), ("しずかのもり", GD["
     if g_ is not None and not g_.is_empty and _GW.contains(g_.representative_point()):
         q_ = gxf(np.array([g_.representative_point().coords[0]]))[0]
         w_ = _FTG.text_length(nm_, 2.6 / 0.72) / 2
-        _obst.append(_bx(q_[0] - w_, q_[1] + 6 - 2.1, q_[0] + w_, q_[1] + 6 + 2.1))
+        _obst.append(_bx(q_[0] - w_, q_[1] + 6 - 2.5, q_[0] + w_, q_[1] + 6 + 2.5))
+_obst += _FACB
 _placed = []
 _OFFS = [(0, 0), (0, 2.6), (0, -2.6), (1, 0), (-1, 0), (1, 2.6), (-1, 2.6), (1, -2.6), (-1, -2.6), (0, 5.0), (0, -5.0)]
 for sp_, c_, r_, g_ in _tl:
@@ -3790,55 +3962,159 @@ for sp_, c_, r_, g_ in _tl:
     T(ax, x_, y_ + 0.4, s0_, 1.45, "#1F2A1A", ha="center", va="baseline")
     if mo_:
         T(ax, x_, y_ - 1.5, mo_, 1.15, "#5A3A1A", ha="center", va="baseline")
-# 凡例（右）：記号の見本は同じ表の色（凡例も部品）
+# 凡例（右）：記号の見本は同じ表の色（凡例も部品）。説明の文は園庭係の図 sodachiya_garden_01（out/sodachiya_garden_01.pdf、garden01.py が描く）から（ユーザー 11-01：すべて復活）
 _lx, _ly0 = gox + gw_ + 6, goy + gh_ - 5
 _GCLIP[0] = False
 _yy = _ly0
-_LS = []                                           # (見本の部品の id, 名前, パス, 説明)
+_LTX = _lx + 9                                     # 説明の文の左
+_LSZ, _LLH = 1.8, 2.55                             # 説明の文の高さ（mm）と行の送り
+_ZTY = zoy + zh + TITLE_GAP + 1                    # ゾーニングの題の基準線
+_LWC = (_RX - 7 - _LTX) / (_LSZ / 0.72)            # 一行の字数（全角）
+_CJK = r"[　-ヿ㐀-鿿＀-￯]"
+
+
+def _jn(t_):
+    """garden01 の文 → この紙の書き方（和文と数字・欧文のあいだの空白を詰める、数字と単位のあいだは空白）"""
+    t_ = re.sub(rf"(?<={_CJK})[ ]+(?=[0-9A-Za-zφ+−\-])", "", t_)
+    t_ = re.sub(rf"(?<=[0-9])[ ]+(?={_CJK})", "", t_)
+    t_ = re.sub(r"(?<=[0-9.])(?=(mm|cm|km|m²|m³|m/s|L/s|m)(?![a-zA-Z]))", " ", t_)
+    return re.sub(r"[ ]{2,}", " ", t_).strip()
+
+
+def _g01_texts():
+    """園庭係の図の説明の文（凡例の行・数字・約束）。行の折り返しは継ぎ直す（欧文・数字のあいだだけ空白）"""
+    out_ = {"rows": [], "nums": [], "keep": [], "keep_head": ""}
+    try:
+        d_ = fitz.open(os.path.join(ROOT, "out", "sodachiya_garden_01.pdf"))
+    except Exception as e_:
+        print("園庭係の図が読めない：", e_)
+        return out_
+    pg_ = d_[0]
+    W_ = pg_.rect.width
+    bs_ = sorted([b_ for b_ in pg_.get_text("blocks") if b_[4].strip()], key=lambda b_: (b_[1], b_[0]))
+
+    def j_(t_):
+        ls_ = [l_.strip() for l_ in t_.strip().split("\n")]
+        r_ = ls_[0]
+        for l_ in ls_[1:]:
+            r_ += (" " if re.match(r"[0-9A-Za-z.]", r_[-1:]) and re.match(r"[0-9A-Za-zm²]", l_[:1]) else "") + l_
+        return _jn(r_)
+    y_ = {k_: next((b_[1] for b_ in bs_ if b_[4].strip().startswith(k_) and b_[0] > W_ * 0.5), None) for k_ in ("凡例", "ニッチ", "数字")}
+    x_num = next((b_[0] for b_ in bs_ if b_[4].strip().startswith("数字") and b_[0] > W_ * 0.5), 0)
+    if None in y_.values():
+        print("園庭係の図の見出しが見つからない：", y_)
+        return out_
+    for b_ in bs_:
+        if b_[0] > W_ * 0.5 and y_["凡例"] < b_[1] < y_["ニッチ"]:
+            out_["rows"].append(j_(b_[4]))
+        elif abs(b_[0] - x_num) < 15 and y_["数字"] < b_[1] < y_["数字"] + 260 and len(b_[4].strip()) > 12:   # 数字の欄の段落だけ（断面の注は外す）
+            out_["nums"].append(j_(b_[4]))
+        elif b_[0] < W_ * 0.5 and b_[4].strip().startswith("保母さん"):
+            out_["keep_head"] = j_(b_[4])
+        elif b_[0] < W_ * 0.5 and b_[4].strip().startswith("・") and b_[1] > pg_.rect.height * 0.8:
+            out_["keep"].append(j_(b_[4]))
+    print("園庭係の図の文：凡例 %d 行・数字 %d・約束 %d" % (len(out_["rows"]), len(out_["nums"]), len(out_["keep"])))
+    return out_
+
+
+G01 = _g01_texts()
+_g01 = lambda k_: next((r_ for r_ in G01["rows"] if r_.startswith(k_)), None)
+
+
+def _para(t_, x_=None, size=_LSZ, col="#222222", bold=False, wc=None):
+    """折り返して書く（_yy は文の頭の行の基準線）。行の数を返し、_yy を進める"""
+    global _yy
+    ls_ = jwrap(t_, wc or _LWC)
+    for l_ in ls_:
+        if _ZTY - 4.2 < _yy < _ZTY + 4.0:          # ゾーニングの題の行（右へ長い）はよける
+            _yy = _ZTY - 3.8
+        T(ax, _LTX if x_ is None else x_, _yy, l_, size, col, bold=bold)
+        _yy -= _LLH
+    return len(ls_)
 
 
 def _leg(id_, nm_, paths_, txt_):
+    """見本（_yy の高さが中心）と説明の文（一つか、段落のリスト）"""
     global _yy
     _gpart("gx.leg." + id_, "凡例の見本：" + nm_, paths_)
-    T(ax, _lx + 9, _yy - 0.9, txt_, 2.1)
-    _yy -= 5.2
+    y0_ = _yy
+    _yy += 0.65                                    # 一行目の基準線を見本の中心に合わせる
+    for t_ in ([txt_] if isinstance(txt_, str) else [t_ for t_ in txt_ if t_]):
+        _para(t_)
+    _yy = min(_yy + 0.65, y0_ - 2.6) - 2.0
 
 
 _ci = lambda r_: _circ(np.array([_lx + 3.5, _yy]), r_, 32)
 T(ax, _lx, _yy + 2, "凡例", 2.6, bold=True); _yy -= 4
 _leg("ever", "常緑", _gpp(_ci(2.0), fill=GS_["ever"]["fill"], op=GS_["ever"]["op"], stroke=GS_["ever"]["edge"], lw=GS_["ever"]["lw"], paper=True), "常緑の木（濃い緑、縁取り）")
 _leg("deci", "落葉", _gpp(_ci(2.0), fill=GS_["deci"]["fill"], op=GS_["deci"]["op"], paper=True), "落葉の木（薄い緑）")
-_cc = [("ヤマザクラ", "桜"), ("ヤマブキ", "山吹"), ("イロハモミジ", "モミジ"), ("カツラ", "黄葉"), ("キンモクセイ", "金木犀")]
+_cc = ["ヤマザクラ", "ヤマブキ", "イロハモミジ", "キンモクセイ", "ギンモクセイ"]
 _pp = []
-for k_, (s_, _) in enumerate(_cc):
-    _pp += _gpp(_circ(np.array([_lx + 1.6 + k_ * 3.0, _yy]), 1.4, 24), fill=GSP[s_]["fill"], op=GS_["color"]["op"], paper=True)
-_gpart("gx.leg.color", "凡例の見本：花・紅葉の色", _pp)
-T(ax, _lx + 17, _yy - 0.9, "花・紅葉が見どころの木はその色（桜・山吹・モミジ・黄葉・金木犀…）", 2.1); _yy -= 5.2
-_leg("halo", "香り", sum([_gpp(_ci(2.0 * k_), fill=_HOP["fill"], op=_HOP["op"], paper=True) for k_ in [1.0] + _HOP["steps"]], []) + _gpp(_ci(1.6), fill=GS_["deci"]["fill"], op=GS_["deci"]["op"], paper=True), "香り（ふわふわの円、常緑なら縁取りも）")
+for k_, s_ in enumerate(_cc):
+    _pp += _gpp(_circ(np.array([_lx + 0.9 + k_ * 1.75, _yy]), 0.95, 24), fill=GSP[s_]["fill"], op=GS_["color"]["op"] + 0.2, paper=True)
+_leg("color", "花・紅葉の色", _pp, "花・紅葉が見どころの木だけ、その色（桜・山吹・モミジ・金木犀・銀木犀…）。名前の下に見どころの月（花・香＝香り・紅＝紅葉・実）")
+_leg("halo", "香り", sum([_gpp(_ci(1.6 * k_), fill=GS_["deci"]["fill"], op=_HOP["op"] * 2, paper=True) for k_ in _HOP["steps"]], []) + _gpp(_ci(1.6), fill=GS_["deci"]["fill"], op=GS_["deci"]["op"], paper=True), "香り（樹冠の外のふわふわの円、その木と同じ色）")
 _q = np.array([_lx + 3.5, _yy])
 _leg("fruit", "実", sum([_gpp(_circ(_q + np.array([d_, -0.5]), GS_["fruit"]["r_mm"] * 1.4, 16), fill="#D62A2A", stroke="#FFFFFF", lw=0.15, paper=True) for d_ in (-0.8, 0.8)], [])
      + _gpp(LineString([tuple(_q + np.array([-0.8, 0.1])), tuple(_q + np.array([0.2, 1.9])), tuple(_q + np.array([0.8, 0.1]))]), stroke=GS_["fruit"]["stem"], lw=0.3, paper=True), "実（さくらんぼの印、実の色）")
-_st = Polygon([(_lx + 3.5 + 2.0 * (1.0 if i_ % 2 else 1.14) * np.cos(np.pi * i_ / 20), _yy + 2.0 * (1.0 if i_ % 2 else 1.14) * np.sin(np.pi * i_ / 20)) for i_ in range(40)])
-_leg("thorn", "トゲ", _gpp(_st.exterior, stroke=GS_["thorn"]["stroke"], lw=GS_["thorn"]["lw"], paper=True), "トゲ（ヒイラギの葉・クリのイガ）")
+_n = 14
+_st = Polygon([(_lx + 3.5 + (1.6 if i_ % 2 else 2.15) * np.cos(np.pi * i_ / _n), _yy + (1.6 if i_ % 2 else 2.15) * np.sin(np.pi * i_ / _n)) for i_ in range(2 * _n)])
+_leg("thorn", "トゲ", _gpp(_st.exterior, stroke=GS_["thorn"]["stroke"], lw=GS_["thorn"]["lw"], paper=True), "トゲ（縁がトゲトゲの円：ヒイラギの葉・クリのイガ）")
 _c0 = np.array([_lx + 3.5, _yy])
-_leg("climb", "木登りの木", _gpp(_ci(2.0), fill=GS_["deci"]["fill"], op=GS_["deci"]["op"], paper=True) + sum([_gpp(LineString([tuple(_c0), tuple(_c0 + 1.7 * np.array([np.cos(a_), np.sin(a_)]))]), stroke=GS_["climb"]["stroke"], lw=GS_["climb"]["lw"], paper=True) for a_ in np.radians([15, 85, 160, 225, 300])], []), "木登りの木（エノキ、枝）")
-_leg("grass", "草", sum([_gpp(_circ(np.array([_lx + 1.5 + i_ * 0.8 + (j_ % 2) * 0.4, _yy - 1.2 + j_ * 0.8]), _GRS["dot_mm"] / 2, 6), fill=_GRS["fill"], paper=True) for i_ in range(6) for j_ in range(4)], []), "草（行事の草・シャガ、点の集まり）")
+_leg("climb", "木登りの木", _gpp(_ci(2.0), fill=GS_["deci"]["fill"], op=GS_["deci"]["op"], paper=True) + sum([_gpp(LineString([tuple(_c0), tuple(_c0 + 1.7 * np.array([np.cos(a_), np.sin(a_)]))]), stroke=GS_["climb"]["stroke"], lw=GS_["climb"]["lw"], paper=True) for a_ in np.radians([15, 85, 160, 225, 300])], []),
+     (_g01("木登りの木") or "木登りの木（エノキ）") + "。上から見た枝")
+_leg("grass", "草", sum([_gpp(_circ(np.array([_lx + 1.5 + i_ * 0.8 + (j_ % 2) * 0.4, _yy - 1.2 + j_ * 0.8]), _GRS["dot_mm"] / 2, 6), fill=_GRS["fill"], paper=True) for i_ in range(6) for j_ in range(4)], []),
+     ["草（点の集まり）。" + (_g01("行事の草") or "行事の草"), _g01("てんぐのたに")])
+_leg("stone", "飛び石", [], _g01("飛び石"))
 _rb = lambda: Polygon([(_lx + 0.5, _yy - 1.5), (_lx + 6.5, _yy - 1.5), (_lx + 6.5, _yy + 1.5), (_lx + 0.5, _yy + 1.5)])
-_leg("water", "水", _gpp(_rb(), fill=GS_["water"]["fill"], stroke=GS_["water"]["stroke"], lw=0.2, paper=True), "小川・床の噴水（二つ）・雨庭")
-_leg("rainriver", "雨の川", _gpp(_rb(), fill=GS_["rainriver"]["fill"], stroke=GS_["rainriver"]["stroke"], lw=0.2, paper=True), "雨の川（雨落ちの玉石の溝）")
-_leg("sand", "砂場", _gpp(_rb(), fill=GS_["sand"]["fill"], stroke=GS_["sand"]["stroke"], lw=0.2, paper=True), "砂場・粒の遊び場")
-_leg("willow", "柳の家", _gpp(_ci(2.0).exterior, stroke=GS_["willow"]["stroke"], lw=GS_["willow"]["lw"], paper=True), "柳の家（生きたヤナギのドーム）")
-_leg("teacher", "先生", _gpp(_ci(_TE["r_mm"]).exterior, stroke=_TE["stroke"], lw=_TE["lw"], paper=True) + _gpp(_ci(0.4), fill=_TE["stroke"], paper=True), "先生のいる所（縁側の外の縁・小屋の軒、目の高さ1.35 m）")
-_leg("contour", "等高線", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=GS_["contour"]["stroke"], lw=GS_["contour"]["lw_1m"], paper=True), "等高線 0.2 m（1.0 mごとに太く）")
+_leg("water", "水", _gpp(_rb(), fill=GS_["water"]["fill"], stroke=GS_["water"]["stroke"], lw=0.2, paper=True), [_g01("小川") or "小川", _g01("床の噴水") or "床の噴水", _g01("雨庭") or "雨庭"])
+_leg("rainriver", "雨の川", _gpp(_rb(), fill=GS_["rainriver"]["fill"], stroke=GS_["rainriver"]["stroke"], lw=0.2, paper=True), _g01("雨の川") or "雨の川")
+_leg("sand", "砂場", _gpp(_rb(), fill=GS_["sand"]["fill"], stroke=GS_["sand"]["stroke"], lw=0.2, paper=True), _g01("砂場") or "砂場・粒の遊び場")
+_leg("willow", "柳の家", _gpp(_ci(2.0).exterior, stroke=GS_["willow"]["stroke"], lw=GS_["willow"]["lw"], paper=True), "柳の家（生きたヤナギのドーム、しずかのもりの入口）")
+_leg("teacher", "先生", _gpp(_ci(_TE["r_mm"]).exterior, stroke=_TE["stroke"], lw=_TE["lw"], paper=True) + _gpp(_ci(0.4), fill=_TE["stroke"], paper=True), _g01("先生のいる所") or "先生のいる所")
+_leg("contour", "等高線", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=GS_["contour"]["stroke"], lw=GS_["contour"]["lw_1m"], paper=True), _g01("等高線") or "等高線 0.2 m（1.0 mごとに太く）")
 _leg("bld", "建物", _gpp(_rb(), fill=GS_["bld"]["fill"], stroke=GS_["bld"]["stroke"], lw=GS_["bld"]["lw"], paper=True), "建物（部屋の名前）")
-_leg("hut", "小屋", _gpp(_rb(), fill=GS_["hut"]["fill"], stroke=GS_["hut"]["stroke"], lw=GS_["hut"]["lw"], paper=True), "小屋（便所・倉庫・コンポスト）")
+_leg("hut", "小屋", _gpp(_rb(), fill=GS_["hut"]["fill"], stroke=GS_["hut"]["stroke"], lw=GS_["hut"]["lw"], paper=True),
+     "園庭の小屋（ひとつの屋根）：便所6.8 m²（座る便器2・手洗い）｜倉庫12.9 m²｜コンポストの間（壁なし、木枠4つ）。南西の軒1.5の下に足洗い場とベンチ。屋根の雨は床下のタンク約1 m³にためて便所の洗浄に（青い楕円の線）")
+_FC = GF_
+_leg("stone", "石", _gpp(_rb(), fill=_FC["stone"]["fill"], stroke=_FC["stone"]["stroke"], lw=0.15, paper=True), "石：平らな石の橋（車も渡れる、幅2.6）・飛び石（縁側の前の道・小川の中）・滝の落ち口の石・雨庭の景石・噴水の石張りの縁")
+_leg("log", "丸太", _gpp(_rb(), fill=_FC["log"]["fill"], stroke=_FC["log"]["stroke"], lw=0.1, paper=True), "丸太：丸太の橋・砂場の縁（丸太の腰掛け）と土留め・粒の遊び場の木の縁")
+_leg("ring", "輪のシャワー", _gpp(_ci(1.9).exterior, stroke=_FC["ring"]["stroke"], lw=_FC["ring"]["lw"], paper=True),
+     "輪のシャワー：あめのわ φ2.4・h2.3（床の噴水の上、輪の下に雨のカーテンが丸く降る）、霧のわ φ1.8・h2.0（乳児の床の噴水の上）")
+_leg("bar", "雲梯", _gpp(Polygon([(_lx + 1, _yy - 0.4), (_lx + 6, _yy - 0.4), (_lx + 6, _yy + 0.4), (_lx + 1, _yy + 0.4)]), fill=_FC["bar"]["stroke"], paper=True),
+     "雲梯（鉄棒の代わり、体を確かめる道具：ぶら下がる・渡る）。場所と寸法は丘の形が決まってから（検討中）、図は今の鉄棒の位置。下は芝と土のまま")
+_leg("culvert", "暗渠", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=_FC["culvert"]["stroke"], lw=0.6, paper=True), "暗渠：用水路から北の角のみなもとへ（口に水門、大雨は閉じる）")
+_lpp = []
+for k_, (nm_, c_) in enumerate(_FC["loop"].items()):
+    _lpp += _gpp(Polygon([(_lx + 0.5 + k_, _yy - 1.2), (_lx + 1.5 + k_, _yy - 1.2), (_lx + 1.5 + k_, _yy + 1.2), (_lx + 0.5 + k_, _yy + 1.2)]), fill=c_, paper=True)
+_leg("minami", "みなみのさんかく", _lpp, ["みなみのさんかく（0〜2歳の庭、約80 m²）：ころころの丘h0.3、はだしの小径（幅0.6・一周約11 m：芝・土・洗い出し・丸太の輪切り・すのこ・砂、面一）、砂場1.6×1.4（布の覆い、縁はほぼ面一で浅い）、水のテーブル（石の水盤h0.45）、柵の内側にハーブの帯（レモンバーム・タイム・ラムズイヤー・ミント・ローズマリー）、外の物置。木のほかは膝より低く、先生は縁側の縁から全体を見る",
+     "避難の帯（平らで固い芝、動かせない物を置かない）で遊ぶ：芝の川（刈り分けた幅0.7の流れ、高野川の写し）、足あとの石（面一の洗い出しの丸い板、サギ・カモ・タヌキ）、はしる道（約14 mの直線）"])
+_leg("gate", "木戸・門", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=_FC["gate"]["stroke"], lw=_FC["gate"]["lw"], paper=True), "東の木戸（しずかのもりと分ける、親子の両開き、h1.2の木の縦格子）・西の門（非常用、公園の側、h1.8、内からは鍵なし、開くと事務に知らせる）")
 _leg("hedge", "生垣", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=GS_["hedge"]["stroke"], lw=GS_["hedge"]["lw"], paper=True), "生垣（線）")
-_leg("niche", "ニッチ", _gpp(_ci(_NI["r_mm"]), fill=_NI["fill"], stroke=_NI["stroke"], lw=_NI["lw"], paper=True), "ニッチ（静かに遊べる・ひとりになれる所）")
+# 木の種類と本数（園庭係の分け方：香り・花・紅葉・実・常緑・木陰、garden.json の園庭の木）
+_yy -= 1.5
+T(ax, _lx, _yy, "園庭の木（園庭係の分け方と本数）", 2.3, bold=True); _yy -= 3.6
+for t_ in [r_ for r_ in G01["rows"] if re.match(r"(香り|花|紅葉|実|常緑|木陰)：", r_)]:
+    _para(t_, x_=_lx + 2, wc=(_RX - 7 - _lx - 2) / (_LSZ / 0.72))
+_yy -= 2.5
+T(ax, _lx, _yy, "ニッチ（静かに遊べる・ひとりになれる所）", 2.3, bold=True); _yy -= 3.6
 for i_, n_ in enumerate(GJ["NICHES"]):
-    T(ax, _lx + 2, _yy, f"{i_ + 1}　{n_[2]}", 1.9)
-    _yy -= 3.4
-_yy -= 2
-T(ax, _lx, _yy, "月は見どころ（花・香＝香り・紅＝紅葉・黄＝黄葉・実）", 1.9, "#5A3A1A")
+    q_ = np.array([_lx + 3.5, _yy + 0.65])
+    _gpart(f"gx.leg.niche{i_ + 1}", f"凡例の見本：ニッチ {i_ + 1}", _gpp(_circ(q_, _NI["r_mm"] * 0.8, 32), fill=_NI["fill"], stroke=_NI["stroke"], lw=_NI["lw"], paper=True))
+    T(ax, q_[0], q_[1], str(i_ + 1), 1.5, "#222222", bold=True, ha="center", va="center")
+    _para(_jn(n_[2]))
+    _yy -= 0.9
+_yy -= 2.5
+T(ax, _lx, _yy, "数字（園庭係の図から）", 2.3, bold=True); _yy -= 3.6
+for t_ in G01["nums"]:
+    _para(t_, x_=_lx + 2, wc=(_RX - 7 - _lx - 2) / (_LSZ / 0.72))
+    _yy -= 0.9
+if G01["keep"]:
+    _yy -= 2.5
+    T(ax, _lx, _yy, G01["keep_head"] or "保母さんが困らないように（木と地形の約束）", 2.3, bold=True); _yy -= 3.6
+    for t_ in G01["keep"]:
+        _para(t_, x_=_lx + 2, wc=(_RX - 7 - _lx - 2) / (_LSZ / 0.72))
+        _yy -= 0.6
 sozai("22", f"園庭説明図（1/{GSC}、木と遊び場・建物の案内）", 2, gox, goy, gw_, gh_, note=".ai は部品（グループ「園庭説明図」、記号の種類ごとのサブグループ）。色の表は present/garden_fig.json")
 print("園庭説明図：1/%d、木 %d（名前 %d）、香り %d・実 %d・トゲ %d・草の点 %d、凡例の下 %.0f mm" % (GSC, len(_tl), len(_named), len(_ha) // len(_HOP["steps"]), len(_fr) // 3, len(_th), len(_gr), _yy))
 _live(None, 2, None, None)
