@@ -169,6 +169,37 @@ def tama(c, rx, ry, rz, rot=0.0):
     return b
 
 
+def kaiten(sec, c, a0, a1):
+    """回転体（10-31、越屋根の曲げ木のルーバーなど）：鉛直の軸（中心 c=(x,y)）まわりに、r–z の閉じた折れ線 sec=[(r,z),...] を角度 a0〜a1（度）回した閉じた立体（一枚の面の Brep）。
+    両端の蓋は同じ面を断面の中心へ平らに畳んで作る（球の極と同じ）。"""
+    if abs(sec[0][0]-sec[-1][0])<1e-9 and abs(sec[0][1]-sec[-1][1])<1e-9: sec=sec[:-1]
+    # 向き：断面を時計回り（r–z）にすると面の表が外を向く
+    A=sum(sec[i][0]*sec[(i+1)%len(sec)][1]-sec[(i+1)%len(sec)][0]*sec[i][1] for i in range(len(sec)))
+    if A>0: sec=sec[::-1]
+    cr=sum(p[0] for p in sec)/len(sec); cz=sum(p[1] for p in sec)/len(sec)
+    ring=sec+[sec[0]]; nu=len(ring)
+    t0,t1=math.radians(a0),math.radians(a1); n=max(1,math.ceil(abs(t1-t0)/(math.pi/2)))
+    rows=[]  # (list of (r,z), angle, weight, scale)
+    def row(pts,t,w,s=1.0): rows.append(([(p[0]*s,p[1]) for p in pts],t,w,s))
+    cen=[(cr,cz)]*nu; mid=[((p[0]+cr)/2,(p[1]+cz)/2) for p in ring]
+    row(cen,t0,1); row(mid,t0,1); row(ring,t0,1)
+    for k in range(n):
+        ta=t0+(t1-t0)*k/n; tb=t0+(t1-t0)*(k+1)/n; h=(tb-ta)/2
+        row(ring,ta+h,math.cos(h),1/math.cos(h)); row(ring,tb,1)
+    row(mid,t1,1); row(cen,t1,1)
+    nv=len(rows)
+    s=r.NurbsSurface.Create(3,True,2,3,nu,nv)
+    for j,(pts,t,w,_) in enumerate(rows):
+        for i,(rr,zz) in enumerate(pts):
+            x=c[0]+rr*math.cos(t); y=c[1]+rr*math.sin(t)
+            s.Points[i,j]=r.Point4d(x*w,y*w,zz*w,w)
+    for i in range(nu): s.KnotsU[i]=float(i)
+    kv=[]; npieces=(nv-1)//2
+    for k in range(npieces+1): kv+= [float(k),float(k)]
+    for i,v in enumerate(kv): s.KnotsV[i]=v
+    return r.Brep.CreateFromSurface(s)
+
+
 def mesh(g):
     """押し出し→閉じた三角形の網（頂点を動かす段・manifold で削る段のため）。段10で同じ押し出しに戻る"""
     import solids
