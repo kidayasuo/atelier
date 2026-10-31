@@ -3254,65 +3254,8 @@ if slits:
             bb_ = ex_.GetBoundingBox(); dm = np.linalg.norm(np.array([(bb_.Min.X + bb_.Max.X) / 2, (bb_.Min.Y + bb_.Max.Y) / 2, (bb_.Min.Z + bb_.Max.Z) / 2]) - tgt_)
             if best is None or dm < best[0]: best = (dm, ex_)
         return None if best is None else best[1]
-    for rec_ in _PREC:
-        if '軒の下' in rec_['name']: continue
-        T_ = rec_['T']; d3 = rec_['d3']; s3 = rec_['s3']; N_ = rec_['N']
-        for end_ in (0, 1):
-            Ec_ = (T_[0] + T_[1]) / 2 if end_ == 0 else (T_[2] + T_[3]) / 2           # 上の面の端の真ん中
-            o_ = -d3 if end_ == 0 else d3; o2_ = o_[:2] / np.linalg.norm(o_[:2])
-            far_ = None
-            for t_ in np.arange(50.0, 2400.0, 25.0):
-                q_ = Ec_[:2] + o2_ * t_
-                if not _CLm.contains(Point(*q_)): far_ = t_ - 25.0; break
-            if far_ is None or far_ < 150.0: continue
-            qf_ = Ec_[:2] + o2_ * far_; uf_ = uv(*qf_)[0]
-            # 10-30（監修の項 0552）：南西の角（u21.15〜24）で外壁で止まる母屋も、外壁を貫いて鼻母屋の下まで延ばし、鼻母屋を飼木（母屋の上の面から
-            #   鼻母屋の下の面まで）に載せる（鼻母屋の継手が突き当たりだけ・母屋が片持ちだった）
-            _eave_ = 21.15 <= uf_ <= 24.0 and not WS_W.contains(Point(*qf_))          # 南西の角（u21.33〜24）
-            # 10-31（ユーザー：母屋は本館のように梁と梁のあいだに渡し、梁の外形から飛び出さない）：妻の軒の出へは延ばさない（本館と同じく妻の軒の出は屋根の板が持ち出す）
-            #   南西の角の西の軒で、端の架構の板・出し梁を横切らずに軒の出へ出る母屋（鼻母屋の下まで）だけは延ばす
-            if not (_eave_ or (uf_ < 21.15 and not _BCX0.intersects(LineString([Ec_[:2] + o2_ * 30.0, qf_]).buffer(30.0)))): continue
-            _stop_ = False
-            if _eave_ and _BCX0.intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)):     # 途中の出し梁の横の面で止める（出し梁が受ける、飼木なし）
-                hit_ = None
-                for t_ in np.arange(300.0, far_, 5.0):
-                    if _BCX0.intersects(LineString([Ec_[:2] + o2_ * t_ + np.array([-o2_[1], o2_[0]]) * 30.0, Ec_[:2] + o2_ * t_ - np.array([-o2_[1], o2_[0]]) * 30.0])): hit_ = t_; break
-                if hit_ is None: continue
-                far_ = hit_ - 2.0; qf_ = Ec_[:2] + o2_ * far_; _stop_ = True
-            elif WS_W.contains(Point(*qf_)) or (_BCX0N if uf_ > 48.3 else _BCX0).intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)) and (uf_ > 48.3 or _eave_): continue
-            tt_ = far_ / float(np.linalg.norm(o_[:2]))                                # 3 次元の d3 に沿う長さ
-            En_ = Ec_ + o_ * tt_
-            T2_ = list(T_)
-            if end_ == 0: T2_[0], T2_[1] = En_ + s3 * 30.0, En_ - s3 * 30.0
-            else: T2_[2], T2_[3] = En_ - s3 * 30.0, En_ + s3 * 30.0
-            e_ = _box_top(T2_, N_, PUR_T, False)
-            if e_ is None: continue
-            M_ = _tm_mf(_ext_tm(e_))
-            if M_ is None or any((M_ ^ Mc_).volume() > 1.0 for _w, Mc_ in _colM): _n_gskip += 1; continue
-            _XNEW[rec_['i']] = (e_, _XNEW[rec_['i']][1]); _XNEW[rec_['i']][1].Name = rec_['name'] + '（妻の軒の出へ片持ちで延ばす）'
-            rec_['T'] = T2_; T_ = T2_; _n_gx += 1; rec_['gx'] = rec_.get('gx', ()) + (end_,)
-            _GX_TM.append(_ext_tm(e_)); _GX_M.append(M_)
-            if _stop_: continue
-            if _eave_:
-                # 鼻母屋（軒先から 100〜160）の下：母屋の先から、鼻母屋の内の面（160）を 10 越えた所まで。高さは鼻母屋の下の面（屋根の面の 150 下）まで
-                t160_ = far_
-                for t_ in np.arange(far_, 0.0, -5.0):
-                    if WSL.buffer(-160.0, join_style=2).contains(Point(*(Ec_[:2] + o2_ * t_))): t160_ = t_; break
-                Lk_ = min(max(far_ - t160_ + 10.0, 60.0), 400.0)
-                Pm_ = En_ - o_ * (Lk_ / 2) / float(np.linalg.norm(o_[:2]))
-                h_ = (float(_RWf['roof_f'](*Pm_[:2])) - PUR_T - float(Pm_[2])) * float(N_[2])
-                nm2_ = '飼木 杉 60×{h:.0f}×{L:.0f}（母屋の先の上、鼻母屋を受ける）'
-            else:
-                # 飼木：先の 150、上の面から野地の下面（屋根の面の 45 上）まで
-                Lk_ = 150.0; Pm_ = En_ - o_ * 75.0 / float(np.linalg.norm(o_[:2]))
-                h_ = (float(_RWf['roof_f'](*Pm_[:2])) + BAT_T - float(Pm_[2])) * float(N_[2])
-                nm2_ = '飼木 杉 60×{h:.0f}×{L:.0f}（母屋の先の上、妻の軒の出の野地を受ける）'
-            if h_ < 3.0: continue
-            Ti_ = En_ - o_ * Lk_ / float(np.linalg.norm(o_[:2]))
-            e2_ = _box_top([En_ + s3 * 30.0, En_ - s3 * 30.0, Ti_ - s3 * 30.0, Ti_ + s3 * 30.0], N_, h_, True)
-            if e2_ is not None:
-                at2_ = r.ObjectAttributes(); at2_.LayerIndex = L20V; at2_.Name = nm2_.format(h=h_, L=Lk_)
-                _XNEW.append((e2_, at2_)); rec_.setdefault('kg', {})[end_] = len(_XNEW) - 1
+    # 10-31（ユーザー：母屋は本館のように梁と梁のあいだだけ、梁から飛び出さない）：妻の軒の出・南西の角の母屋の延長と飼木はやめた
+    #   （南西の鼻母屋は壁の中の柱と腕木が受ける、7271768）。延ばす母屋が無いので、端の架構の板の穴・外壁の欠きも作らない
     # 10-30（ユーザー 15:06）：桁に重なるので作らなかった母屋の代わりに、桁の上に飼木（幅 60、長さ 150、455 おき）。上の面は母屋の上の面（合板の下面）、
     #   下の面は桁の上の頂（屋根の面に直角な向き N の、いちばん高い所）にちょうど触れる。横の位置は桁の頂の真上にそろえる
     _n_kk = 0
@@ -3715,11 +3658,22 @@ if slits:
         for rec_ in list(_PREC):
             k_ = rec_['i']
             if _XNEW[k_][0] is None or not rec_['name'].startswith('母屋'): continue
-            Mp_ = _tm_mf(_ext_tm(_XNEW[k_][0]))
-            if Mp_ is None or not any((Mp_ ^ Ma_).volume() > 1e4 for Ma_ in _ARM_M): continue
             T_ = rec_['T']; d3 = rec_['d3']; s3 = rec_['s3']
             A2_ = ((T_[0] + T_[1]) / 2)[:2]; B2_ = ((T_[2] + T_[3]) / 2)[:2]; zt_ = float(np.mean([c_[2] for c_ in T_]))
-            dd2_ = (B2_ - A2_) / np.linalg.norm(B2_ - A2_); L2_ = float(np.linalg.norm(B2_ - A2_)); sp2_ = np.array([-dd2_[1], dd2_[0]])
+            dd2_ = (B2_ - A2_) / np.linalg.norm(B2_ - A2_)
+            # 10-31（ユーザー：母屋は梁のあいだだけ）：外壁の内で止まる端（梁の帯に触れない端）の 400 先に腕木があれば、その端を腕木の横の面まで
+            #   延ばして腕木で受ける（南西の丸い壁の母屋が壁の際で片持ちになっていた。延ばした先の腕木の外の片は下で除く）
+            Mp_ = _tm_mf(_ext_tm(_XNEW[k_][0]))
+            _hit_arm = Mp_ is not None and any((Mp_ ^ Ma_).volume() > 1e4 for Ma_ in _ARM_M)
+            for end_, P_, o_ in ((0, A2_, -dd2_), (1, B2_, dd2_)):
+                if _hit_arm or _BCX1.distance(Point(*(P_ + o_ * 40.0))) < 1.0: continue
+                seg_ = LineString([P_, P_ + o_ * 400.0]).buffer(30.0, cap_style=2)
+                if not any(seg_.intersects(f_) for f_, t_ in _ARM_FP): continue
+                if end_ == 0: A2_ = A2_ - dd2_ * 400.0
+                else: B2_ = B2_ + dd2_ * 400.0
+                rec_['gx'] = rec_.get('gx', ()) + (end_,); _hit_arm = True
+            if not _hit_arm: continue
+            L2_ = float(np.linalg.norm(B2_ - A2_)); sp2_ = np.array([-dd2_[1], dd2_[0]])
             rect_ = Polygon([A2_ + sp2_ * 32.0, B2_ + sp2_ * 32.0, B2_ - sp2_ * 32.0, A2_ - sp2_ * 32.0])
             blk_ = []
             for f_, t_ in _ARM_FP:
