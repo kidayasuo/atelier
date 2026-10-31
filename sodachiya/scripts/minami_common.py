@@ -71,6 +71,9 @@ def check():
     for a, b, na in ((SAND, LOOP, "砂場と小径"), (SAND, MOUND, "砂場と丘"), (HERB, LOOP, "ハーブと小径"), (WATER, LOOP, "水と小径"), (SHED, SAND, "物置と砂場"), (SHED, HERB, "物置とハーブ"), (SHED, LOOP, "物置と小径")):
         if a.intersects(b): msgs.append(na + "が重なる")
     if not LOOP.within(AREA): msgs.append("小径がはみ出す")
+    _nc = band(LAT_IN + 0.045 + NO_CLIMB)                    # 川の柵ぎわ約1 m（面一の芝の川・足あとの石は除く）
+    for n, g in (("丘", MOUND), ("砂場", SAND), ("水のテーブル", WATER), ("ハーブ", HERB), ("物置", SHED), ("木", Point(xy(T["c"])).buffer(0.15))):
+        if g.intersects(_nc): msgs.append(f"{n} が川の柵ぎわ 1 m に入る（踏み台になる）")
     return msgs
 
 def mound_rings(N=48, fs=(1.0, 0.75, 0.5, 0.25, 0.0)):   # same N points per ring, outer -> top
@@ -107,16 +110,10 @@ GATE_POST_W = park_pt(D["GATES"]["WEST"]["d_post"][1])        # corner post: lat
 def clear_width(p, q):                                       # opening measured across the vehicle direction (DIR)
     v = np.array(q) - np.array(p); return abs(v[0] * DIR[1] - v[1] * DIR[0])
 
-# ---- 川の柵の緑の目隠し（RIVER_SCREEN、10-25）：柵の内側 inset の線、h まで常緑のムベ、ところどころアケビ
-RS = D["RIVER_SCREEN"]
-_sl = LineString([tuple(R0 - DIR * BIG + NRM * RS["inset"]), tuple(R1 + DIR * BIG + NRM * RS["inset"])]).intersection(AREA.buffer(-0.02))
-SCREEN = max(getattr(_sl, "geoms", [_sl]), key=lambda q: q.length)
-def screen_plants():                                         # [(xy, 'ムベ'|'アケビ')]
-    n = max(1, int(SCREEN.length // RS["pitch"])); out = []
-    for i in range(n + 1):
-        q = SCREEN.interpolate(min(i * RS["pitch"] + 0.4, SCREEN.length - 0.2))
-        out.append(((q.x, q.y), "アケビ" if (i % RS["akebi_every"] == RS["akebi_every"] // 2) else "ムベ"))
-    return out
+# ---- 川の柵（10-31、ユーザー）：緑の目隠し（ワイヤー h1.5＋ムベ・アケビ）とのぞき窓はやめた。川沿いは木の縦格子 h1.2
+# （data/approachA.json の RIVER_LATTICE、scripts/koushi.py）。柵の芯は川の縁から LAT_IN 内側。柵ぎわ約1 mには踏み台になる物を置かない
+LAT_IN = json.load(open(os.path.join(os.path.dirname(HERE), "data", "approachA.json"), encoding="utf-8"))["RIVER_LATTICE"]["inset"]
+NO_CLIMB = 1.0                                               # 柵の内側の面からこの幅には、のぼれる物を置かない
 
 # ---- 避難の帯の遊び（EVAC_PLAY、10-25）：芝の川（刈り分け）、足あとの石（面一）、目隠しののぞき窓
 EP = D["EVAC_PLAY"]
@@ -128,9 +125,7 @@ def _wave(n=240):
     g = LineString(out).intersection(EVAC.buffer(-0.05))
     return max(getattr(g, "geoms", [g]), key=lambda q: q.length)
 WAVE = _wave()
-GRASS_RIVER = WAVE.buffer(EP["w"] / 2, cap_style=1).intersection(EVAC).difference(band(RS["inset"] + 0.15))
+GRASS_RIVER = WAVE.buffer(EP["w"] / 2, cap_style=1).intersection(EVAC).difference(band(LAT_IN + 0.15))
 def footprints():                                            # [(xy, animal)]：川上（西）から サギ → カモ → タヌキ
     n = int(WAVE.length // EP["pitch"]); k = len(EP["animals"])
     return [((lambda q: (q.x, q.y))(WAVE.interpolate(0.3 + i * EP["pitch"])), EP["animals"][min(k - 1, i * k // (n + 1))]) for i in range(n) if 0.3 + i * EP["pitch"] < WAVE.length - 0.2]
-def peeps():                                                 # のぞき窓の中心 (xy)
-    return [(lambda q: (q.x, q.y))(SCREEN.interpolate(f * SCREEN.length)) for f in EP["peep"]["at"]]

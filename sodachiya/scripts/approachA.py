@@ -159,7 +159,11 @@ poly(_mw(MN.SAND), fc="#EADBB0", ec="#8a7040", lw=0.4, z=2.3)
 poly(_mw(MN.HERB), fc="#A9C98A", ec="none", z=2.3)
 poly(_mw(MN.WATER), fc="#9CC9E6", ec="#3d7fb0", lw=0.4, z=2.3)
 tree(W(*MN.D["TREE"]["c"]), MN.D["TREE"]["r"])
-line([W(y, x) for x, y in MN.SCREEN.coords], lw=1.6, c="#5f8a4a", z=6.2)   # 川の柵の緑の目隠し h1.5（ムベ・アケビ）
+# 高野川沿いの柵：木の縦格子 h1.2（クリの心材、無塗装）。だいさんかく・しずかのもり・みなみのさんかくを一続きに（ユーザー 10-31、scripts/koushi.py）
+import koushi
+RIVER_LAT = koushi.layout()
+koushi.plan(RIVER_LAT, line, lambda pts, fc: poly(pts, fc=fc, ec="none", z=6.3), wood="#6b5a3a", lw=1.4, z=6.2)
+T(RIVER_LAT["P"](45.0, -1.3), "川沿いの柵：木の縦格子 h1.2（クリ）", 4.4, c="#6b5a3a", rot=math.degrees(math.atan2(-RIVER_LAT["t"][1], -RIVER_LAT["t"][0])))
 T(W(-8.3, 5.2), "みなみのさんかく", 6.0, c=C["green"], rot=-32)
 for _n, _h, _e, _hh, _deg in MN.gates():                          # 木戸（東 h0.9）・非常用の門（西 h1.8）
     _o = MN.leaf_at(_h, _e, _deg)

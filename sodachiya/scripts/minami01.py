@@ -55,27 +55,27 @@ rv = [tuple(G.R0 - G.DIR * 3), tuple(G.R1 + G.DIR * 3)]
 out = [rv[0], rv[1], tuple(np.array(rv[1]) - G.NRM * 1.6), tuple(np.array(rv[0]) - G.NRM * 1.6)]
 shp(G.Polygon(out), fc="#E7E3DA", ec="none", z=0.5)
 line(rv, lw=1.0, c="#6b5a3a", z=6)
-T(tuple((G.R0 + G.R1) / 2 - G.NRM * 0.8), "高野川の護岸の柵（金網、現況）　→ 崖 約 4〜5 m", 7, c="#6b5a3a", rot=G.ANG)
-# 川の柵の緑の目隠し（RIVER_SCREEN）：柵の内側のワイヤーにムベ、ところどころアケビ
-line(list(G.SCREEN.coords), lw=3.2, c="#5f8a4a", z=6.5)
-for (xy, k) in G.screen_plants():
-    ax.add_patch(Circle(xy, 0.16, fc="#c98bb0" if k == "アケビ" else "#3f6e35", ec="none", zorder=6.6))
-T(tuple(G.R0 + (G.R1 - G.R0) * 0.2 - G.NRM * 0.3), "緑の目隠し h1.5（ムベ、桃色はアケビ）", 6.5, c="#3f6e35", rot=G.ANG)
+T(tuple((G.R0 + G.R1) / 2 - G.NRM * 0.8), "高野川の崖の上（土と雑草）→崖約4〜5 m", 7, c="#6b5a3a", rot=G.ANG)
+# 川の柵：木の縦格子 h1.2（クリの心材、無塗装）。だいさんかく・しずかのもりと一続き（ユーザー 10-31、scripts/koushi.py）。緑の目隠し・のぞき窓はやめた
+import koushi
+_gc = koushi._gc()
+_LAT = koushi.layout()
+def _m(pts): return [(lambda u_v: (u_v[1], u_v[0]))(_gc.uv_of(*q)) for q in pts]
+koushi.plan(_LAT, lambda pts, lw=0.5, c="k", z=3: line(_m(pts), lw=lw, c=c, z=z), lambda pts, fc: shp(G.Polygon(_m(pts)), fc=fc, ec="none", z=6.6),
+            wood="#6b5a3a", lw=1.2, z=6.5, pickets_too=True)
+T(tuple(G.R0 + (G.R1 - G.R0) * 0.2 - G.NRM * 0.3), "木の縦格子の柵 h1.2（クリ、すき間 0.10、横材は上と下だけ）", 6.5, c="#6b5a3a", rot=G.ANG)
 
 # ground
 shp(G.AREA, fc=C["grass"], ec="#7a8a5a", lw=0.5, z=1.5)
 for h in (G.CLEAR.difference(G.EVAC),):
     shp(h, fc="none", ec=C["clear"], lw=0.0, z=1.8, hatch="//")
 shp(G.EVAC, fc="#D3E3B8", ec="#5c88b8", lw=0.4, z=1.9)                      # 避難の帯：平らで固い芝（遊び場の一部、10-25）
-# 避難の帯の遊び（EVAC_PLAY）：芝の川（刈り分け）・足あとの石（面一）・のぞき窓
+# 避難の帯の遊び（EVAC_PLAY）：芝の川（刈り分け）・足あとの石（面一）
 shp(G.GRASS_RIVER, fc="#B4D38E", ec="#86ab5e", lw=0.3, z=1.95)
 _AC = {"サギ": "#7d8a99", "カモ": "#8a6d3b", "タヌキ": "#6b4f3a"}
 for (xy_, a_) in G.footprints():
     ax.add_patch(Circle(xy_, G.EP["d"] / 2, fc="#E4DCCB", ec=_AC[a_], lw=0.5, zorder=2.05))
     ax.add_patch(Circle(xy_, 0.035, fc=_AC[a_], ec="none", zorder=2.06))
-for xy_ in G.peeps():
-    ax.add_patch(Circle(xy_, G.EP["peep"]["r"] + 0.05, fc="#F4EAD8", ec="#8a6a3a", lw=0.9, zorder=6.8))
-    T(tuple(np.array(xy_) + G.NRM * 0.45), "のぞき窓", 6.0, c="#6b5a3a", rot=G.ANG)
 _fp = G.footprints()
 T(tuple(np.array(_fp[4][0]) + G.NRM * 0.32), "サギ", 5.5, c=_AC["サギ"], rot=G.ANG)
 T(tuple(np.array(_fp[13][0]) + G.NRM * 0.32), "カモ", 5.5, c=_AC["カモ"], rot=G.ANG)
@@ -162,7 +162,7 @@ ax.add_patch(FancyArrow(15.6, -10.8, 1.0 * math.sin(nb) * -1, 1.0 * math.cos(nb)
 T((15.6, -11.25), "北", 7)
 
 fig.text(PL / PW, (PH - 14) / PH, "育ち舎　みなみのさんかく（乳児の園庭、0〜2 歳）　たたき台 1", fontsize=15, weight="medium", va="top")
-fig.text(PL / PW, (PH - 22) / PH, "平面 1/50・断面 1/50（A2）　2026-10-22　寸法 data/minami.json　図 scripts/minami01.py　3dm は外構の取り込み用ファイルのレイヤー 78・79", fontsize=8.5, color="#555", va="top")
+fig.text(PL / PW, (PH - 22) / PH, "平面 1/50・断面 1/50（A2）　2026-10-22　寸法 data/minami.json　図 scripts/minami01.py　3dm は外構の取り込み用ファイルのレイヤー 78・79c、川の柵は 70k・70m", fontsize=8.5, color="#555", va="top")
 
 # ------------------------------------------------------------------ section S-S 1/50
 sx0 = -0.3; sx1 = 9.0
@@ -226,18 +226,19 @@ T((G.xy(D["MOUND"]["c"]) and (np.linalg.norm(SC - sa)), D["MOUND"]["h"] + 0.35),
 fs = np.linalg.norm(sb - sa)
 d_end = G.dist_river(sb)
 t_r = fs + d_end
-axs.plot([t_r, t_r], [0, 1.2], color="#6b5a3a", lw=1.2)
-axs.plot([t_r, t_r + 0.5], [-0.3, -0.3], color="#6b5a3a", lw=0.8)
-axs.plot([t_r, t_r + 0.6], [0, -0.6], color="#6b5a3a", lw=0.8, ls=":")
-T((t_r + 0.08, 1.3), "護岸の柵", 6.5, a=axs, ha="left")
-_h = D["RIVER_SCREEN"]["h"]; _ti = t_r - D["RIVER_SCREEN"]["inset"]
-axs.add_patch(MP([(_ti - 0.12, 0), (_ti + 0.04, 0), (_ti + 0.04, _h), (_ti - 0.16, _h)], fc="#5f8a4a", ec="#3f6e35", lw=0.5, zorder=7))
-axs.plot([_ti, _ti], [0, _h + 0.05], color="#555", lw=0.5, zorder=7.5)
-_pz = G.EP["peep"]["z"]
-axs.add_patch(MP([(_ti - 0.17, _pz[0]), (_ti + 0.05, _pz[0]), (_ti + 0.05, _pz[1]), (_ti - 0.17, _pz[1])], fc="#F4EAD8", ec="#8a6a3a", lw=0.6, zorder=7.6))
-T((_ti - 0.3, (_pz[0] + _pz[1]) / 2), "のぞき窓 h0.3〜0.5", 6.0, a=axs, ha="right", c="#6b5a3a")
-T((_ti - 0.25, _h + 0.12), "緑の目隠し h%.1f（ムベ）" % _h, 6.5, a=axs, ha="right", c="#3f6e35")
-T((_ti - 0.25, _h + 0.35), "↑ ここから上は開く：南の妻の架構・軒が川から見える", 6.2, a=axs, ha="right", c="#555")
+# 木の縦格子 h1.2（柵の芯は崖の上の縁から inset 内側）：柱脚金物 GL+0.05、下の横材 0.10〜0.145、格子、笠木。外の崖の上は土と雑草
+_R = koushi.R; _ti = t_r - _R["inset"]; _hd = _R["picket"]["d"] / 2; _tw = _R["top"]["w"] / 2
+axs.add_patch(MP([(_ti - _hd, _R["bottom"]["z"]), (_ti + _hd, _R["bottom"]["z"]), (_ti + _hd, _R["h"] - _R["top"]["h"]), (_ti - _hd, _R["h"] - _R["top"]["h"])], fc="#C9A97E", ec="#6b5a3a", lw=0.5, zorder=7))
+axs.add_patch(MP([(_ti - _tw, _R["h"] - _R["top"]["h"]), (_ti + _tw, _R["h"] - _R["top"]["h"]), (_ti + _tw, _R["h"]), (_ti - _tw, _R["h"])], fc="#8a6a3a", ec="#6b5a3a", lw=0.5, zorder=7.2))
+axs.add_patch(MP([(_ti - _tw, _R["bottom"]["z"]), (_ti + _tw, _R["bottom"]["z"]), (_ti + _tw, _R["bottom"]["z"] + _R["bottom"]["h"]), (_ti - _tw, _R["bottom"]["z"] + _R["bottom"]["h"])], fc="#8a6a3a", ec="#6b5a3a", lw=0.5, zorder=7.2))
+axs.plot([t_r, t_r + 0.8], [0, 0], color="#6b5a3a", lw=0.8)
+axs.plot([t_r + 0.8, t_r + 1.1], [0, -1.0], color="#6b5a3a", lw=0.8, ls=":")
+for _k in range(9):                                                              # 崖の上の雑草（ばらばらの高さ）
+    _x = t_r + 0.05 + 0.08 * _k + 0.03 * math.sin(_k * 2.3); _hh = 0.12 + 0.28 * abs(math.sin(_k * 1.7 + 0.4))
+    axs.plot([_x, _x + 0.03 * math.sin(_k)], [0, _hh], color="#6E9A4E", lw=0.6, zorder=6)
+T((t_r + 0.1, _R["h"] + 0.1), "木の縦格子 h1.2（クリの心材、無塗装）", 6.5, a=axs, ha="left", c="#6b5a3a")
+T((t_r + 0.1, -0.25), "崖の上は土と雑草", 6.0, a=axs, ha="left", c="#4f6e35")
+T((_ti - 0.25, _R["h"] + 0.35), "↑上は開く：南の妻の架構・軒が川から見える", 6.2, a=axs, ha="right", c="#555")
 # children figures (1 yr ~0.8, 2 yr ~0.9, adult eye 1.55 sitting 1.1)
 def kid(t, h, lab):
     axs.add_patch(Circle((t, h - 0.08), 0.08, fc="none", ec="#444", lw=0.5, zorder=8))
@@ -265,9 +266,9 @@ notes = [
  ("軒の下", "縁側と軒の先のあいだ（約 1〜2 m）は夏の日陰。0 歳はここにござを敷いて寝ころぶ、外気浴。"),
  ("東の木戸", "しずかのもりとの境を木戸で分ける（ユーザー）。v 15 の線、本館の南東の角から川の柵まで 約 3.2 m。親子の両開き：子扉 0.9 をふだん使い（西へ開く）、車のときだけ親扉 2.2（足に戸車、落とし棒）も開けて、車の向きに直角に測って あき %.2f m（帯 2.5 より広い）。親扉は西へ約 120° 回して川の柵に沿わせて畳む。h0.9、スギの縦格子（すき間 80 以下、横桟なし）、掛け金は上の框の 2 段（h0.95 以上、2 歳の手が届かない）。すぐ東は雨の川（車は石の蓋で渡る）。" % G.clear_width((15, D["GATES"]["EAST"]["posts_u"][0] - 0.05), (15, D["GATES"]["EAST"]["posts_u"][1] + 0.05))),
  ("西の門", "非常用の門（避難の帯の出口）。公園の北東の辺（川に直交）の上で、川の柵から 約 2.85 m。親子の両開き：子扉 1.2（避難車が通る、外へ 90° で川の柵に沿う）＋親扉 1.55（外へ 180° で公園側の塀に沿う）、あき %.2f m。公園側の大和張りの塀と同じ h1.8。内側からは鍵なしで開く（取っ手 h1.3 以上、二段の掛け金）、開くと事務に知らせる、公園の側からは鍵（セキュリティの線）。柵 h1.2 は南の端を 約 0.35 m 縮めて門の柱へ折り返す。" % G.clear_width(G.park_pt(0.15), G.park_pt(2.8))),
- ("避難の帯で遊ぶ", "避難の帯もみなみのさんかくの大事な一部（ユーザー）。平らで固い・動かせない物を置かない、は守ったまま：①芝の川：帯の中を刈り分けた幅 0.7 の流れ（高野川の写し、刈り方で季節ごとに変えられる）。②足あとの石：芝の川に沿って面一の洗い出しの丸い板（径 0.24、0.55 ごと）、川上からサギ・カモ・タヌキの足あと。這って、歩いて、追いかける。避難車は上を通れる。③はしる道：園庭でいちばん長い平らな直線（約 14 m）、手押し車・足けりの車で（物置から出してしまう）。④のぞき窓：目隠しの h0.3〜0.5 に丸い窓 2 つ（杉の枠、奥は金網）、這う・座る子の目の高さで川の水と対岸が見え、水の音が聞こえる。"),
- ("川の緑の目隠し", "高野川の「河川に面する植栽帯」に答える（ユーザー）。金網の内側 0.15 に細い柱とワイヤーメッシュ h1.5、足もとは面一の植え穴。下は常緑のムベで密に：こどもと座った先生は川と対岸から見えない。上は何も無し：南の妻の 2 枚の梁・柱・深い軒・屋根が緑の台の上に見える（本館の架構を見せる場所）。上端は水平に刈る。約 4.5 m ごとに落葉のアケビ（春の花・秋の実）。テイカカズラ・スイカズラ・バラは使わない。"),
- ("模型", "丘は 3 mm（h0.3）の板 1 枚か、紙粘土。砂場・小径は彩色。木は園庭と同じ作り方。3dm のレイヤー 78（地形・遊び場）・79（植物）。"),
+ ("避難の帯で遊ぶ", "避難の帯もみなみのさんかくの大事な一部（ユーザー）。平らで固い・動かせない物を置かない、は守ったまま：①芝の川：帯の中を刈り分けた幅 0.7 の流れ（高野川の写し、刈り方で季節ごとに変えられる）。②足あとの石：芝の川に沿って面一の洗い出しの丸い板（径 0.24、0.55 ごと）、川上からサギ・カモ・タヌキの足あと。這って、歩いて、追いかける。避難車は上を通れる。③はしる道：園庭でいちばん長い平らな直線（約 14 m）、手押し車・足けりの車で（物置から出してしまう）。④川の柵は木の縦格子：這う・座る子も格子のすき間から川の水と対岸が見え、水の音が聞こえる。"),
+ ("川の柵", "木の縦格子 h1.2（ユーザー 10-31）。だいさんかく・しずかのもりと一続き。クリの心材、無塗装（保護材だけ）。格子 30×75 をすき間 0.10 で、横材は上の笠木と下だけ（途中に足をかける所なし）。柱 90 角はステンレスの柱脚金物で土から離す。格子はビスで一本ずつ留め、取り替えられる。対岸から 0〜2 歳の子と座った先生が見えにくい役は格子が果たす（斜めからは重なって見えない）。つるは絡めない。上は開く：南の妻の梁・柱・軒が川から見える。柵ぎわ約 1 m には踏み台になる物を置かない。柵の外の崖の上は土と雑草。"),
+ ("模型", "丘は 3 mm（h0.3）の板 1 枚か、紙粘土。砂場・小径は彩色。木は園庭と同じ作り方。3dm のレイヤー 78（地形・遊び場）・79c（ハーブ）、川の柵は 70k（木）・70m（柱脚金物）。"),
 ]
 y = PH - 40
 for h, t in notes:

@@ -2,6 +2,7 @@
 使い方: python3 add_site.py IN.3dm OUT.3dm
 決定事項「敷地の現況」（10-21 ユーザーの実測と写真）：高さ 5 m（土が積もって 4 m の所が多い）。
 上から 柵（金網）の土台のコンクリートの立ち上がり → 小段（コンクリートの天端）→ 谷積みの石積み（垂直に近い）→ 草の河川敷 → 川。
+10-31（アプローチ係）：育ち舎の川沿い（東の角〜公園の川の角）は柵が敷地の中の木の縦格子（外構の3dm 70k）に替わり、立ち上がりと小段は土と雑草（02_敷地_崖の上の…）。
 寸法は写真からの見立て（仮）：立ち上がり 幅 0.2・GL+0.3、小段 幅 0.6・GL−0.3、石積み 勾配 1:0.3 で GL−4.0 まで、
 河川敷 幅 8 m（GL−5.0 で一律、10-29）、川の水面 GL−5.5（水の板0.3、下に玉石の川底）・幅 18 m（10-26夜、配置図で向こう岸の手前まで）。z=0 は FL（GL = −300）。
 01s：敷地の土の受け皿（10-29）：敷地から建物・園庭の地形90・公園を引いた範囲に、土の閉じた板（上面GL、厚さ300）。地面の抜けを残さない。
@@ -43,8 +44,40 @@ a2, b2 = a - d * ext, b + d * ext
 GL = -300.0
 def band(o0, o1):
     return Polygon([a2 + n * o0, b2 + n * o0, b2 + n * o1, a2 + n * o1])
-K.prism(band(0, 200), GL - 300, GL + 300, L_RV, (190, 190, 185))                 # 柵の土台の立ち上がり
-K.prism(band(200, 800), GL - 400, GL, L_RV, (190, 190, 185))                     # 小段（コンクリートの天端）
+# 崖の上（10-31、アプローチ係。ユーザー：川沿いの柵を木の縦格子にし、柵の外の崖の上は土にして雑草を生やす。一律にそろえない）：
+# 育ち舎の川沿い（東の角 a から公園の川の角まで）は、金網の土台の立ち上がりと小段をやめて土（上面 GL−5、受け皿と同じ）と雑草のかたまり。
+# ほか（隣地・公園の前）は現況の立ち上がりと小段のまま
+_PK0 = [np.array([[o.Geometry.Point(i).X, o.Geometry.Point(i).Y] for i in range(o.Geometry.PointCount)]) for o in m.Objects
+        if m.Layers[o.Attributes.LayerIndex].Name.startswith('01_') and isinstance(o.Geometry, r.PolylineCurve)]
+_PK0 = min(_PK0, key=lambda P_: P_[:, 1].mean()) if _PK0 else None             # 01 の二つの外形のうち南が公園
+_on = [q for q in (_PK0 if _PK0 is not None else []) if abs(np.dot(q - a, n)) < 300 and np.linalg.norm(q - b) > 1000]
+pc = min(_on, key=lambda q: np.linalg.norm(q - b)) if _on else b                 # 公園の川の角（公園の北東の辺が崖の上の縁に会う所）
+s_a, s_b = float(np.dot(a - a2, d)), float(np.dot(pc - a2, d))                  # 土にする範囲（a2 からの距離 mm）
+def band_s(o0, o1, s0, s1):
+    return Polygon([a2 + d * s0 + n * o0, a2 + d * s1 + n * o0, a2 + d * s1 + n * o1, a2 + d * s0 + n * o1])
+for s0, s1 in ((0.0, s_a), (s_b, float(np.linalg.norm(b2 - a2)))):
+    K.prism(band_s(0, 200, s0, s1), GL - 300, GL + 300, L_RV, (190, 190, 185))  # 柵の土台の立ち上がり（現況）
+    K.prism(band_s(200, 800, s0, s1), GL - 400, GL, L_RV, (190, 190, 185))      # 小段（コンクリートの天端、現況）
+L_TS = layer('02_敷地_崖の上の土（川沿いの柵の外）', (140, 116, 88))
+L_TG = layer('02_敷地_崖の上の雑草（川沿いの柵の外）', (110, 140, 80))
+K.prism(band_s(0, 800, s_a, s_b), GL - 400, GL - 5, L_TS, (140, 116, 88))      # 土（石積みの上に載る、厚さ約0.4）
+_rng = np.random.default_rng(1031); _ng = 0
+_ph = _rng.uniform(0, 2 * np.pi, 3)
+def _dens(sv):                                                                  # 生え方の濃さ（場所でばらばら、ところどころ裸の土）
+    v = sum(np.sin(sv / w + p_) for w, p_ in zip((900.0, 2300.0, 5100.0), _ph)) / 3
+    return max(0.0, v + 0.25)
+for _sv in np.arange(s_a + 60, s_b - 60, 90.0):
+    if _rng.random() > _dens(_sv): continue
+    for _k in range(_rng.integers(1, 4)):
+        _o = _rng.uniform(80, 720); _sj = _sv + _rng.uniform(-45, 45)
+        _r0 = _rng.uniform(50, 190); _nv = int(_rng.integers(5, 9))
+        _ang = np.sort(_rng.uniform(0, 2 * np.pi, _nv))
+        _c = a2 + d * _sj + n * _o
+        _pts = [_c + _r0 * _rng.uniform(0.6, 1.0) * np.array([np.cos(t_), np.sin(t_)]) for t_ in _ang]
+        _g = Polygon(_pts).buffer(0).intersection(band_s(20, 790, s_a, s_b))
+        if _g.is_empty or _g.area < 2000: continue
+        K.prism(_g, GL - 5, GL - 5 + _rng.uniform(80, 550), L_TG, (110, 140, 80)); _ng += 1
+print('cliff top: soil %.1f m（公園の角まで）、雑草 %d かたまり' % ((s_b - s_a) / 1000, _ng))
 # 谷積みの石積み（勾配 1:0.3）と河川敷・川。河川敷の土の高さは場所で 4〜5 m（ユーザー）：
 # 公園の角（南の角）の階段のあたりは GL−5.0、そこから北東へ 20 m で GL−4.0 に（あいだは直線で）
 top = GL - 400

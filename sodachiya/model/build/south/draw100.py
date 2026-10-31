@@ -2692,6 +2692,8 @@ def make_siteplan():
         sil = silhouette(ob['T'][:, :, :2])
         if sil is None or sil.is_empty: continue
         z0, z1 = ob['T'][:, :, 2].min(), ob['T'][:, :, 2].max()
+        if '崖の上' in ob['layer']:                     # 柵の外の崖の上の土と雑草（10-31、アプローチ係）
+            A.fill(sil, '30_敷地・外構', fc='#B9CF98' if '雑草' in ob['layer'] else '#DCCFB6', z=0.86 if '雑草' in ob['layer'] else 0.85); continue
         if z1 <= -5700: A.fill(sil, '30_敷地・外構', fc='#CFE3EF', z=0.8)
         elif z1 - z0 < 800 and z1 < -4000: A.fill(sil, '30_敷地・外構', fc='#DDE8D0', z=0.8)
         elif z1 - z0 >= 800: A.fill(sil, '30_敷地・外構', fc='#BDB6AA', z=0.85, hatch='////')

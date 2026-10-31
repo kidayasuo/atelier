@@ -618,7 +618,7 @@ def section(key, y_mm, title, beyond=None, zmin=-5.6, zmax=6.0):
     z = np.where(inside & ~bld, ground, 0.0)
     # 崖（現況、寸法は仮）：川沿いの辺からの距離 e
     e = adv[:, 0] - 56.0
-    cliff = np.select([e < 0.25, e < 1.0, e < 2.3, e < 11.0], [0.3, -0.3, -0.3 - (e - 1.0) / 1.3 * 3.9, -4.2], -4.6)
+    cliff = np.select([e < 0.8, e < 1.0, e < 2.3, e < 11.0], [0.0, -0.3, -0.3 - (e - 1.0) / 1.3 * 3.9, -4.2], -4.6)   # 10-31 アプローチ係：崖の上 0.8 は土と雑草（金網の土台はやめた）
     z = np.where(river, cliff, z)
     tt = t
     sax.fill_between(tt, zmin, z, where=~bld | True, color="#EDE7DA", lw=0, zorder=1)
@@ -653,8 +653,8 @@ def section(key, y_mm, title, beyond=None, zmin=-5.6, zmax=6.0):
     # 川・崖
     if river.any():
         i0 = np.where(river)[0][0]; x0 = tt[i0]
-        sax.plot([x0 + 0.12, x0 + 0.12], [0.3, 1.5], c="#777777", lw=0.8, zorder=5)
-        sax.text(x0 + 0.35, 1.6, "柵 h1.2（のぞきの所は格子）", fontsize=5, color=C["gray"])
+        sax.plot([x0 - 0.1, x0 - 0.1], [0.0, 1.2], c="#6b5a3a", lw=0.8, zorder=5)   # 川沿いの柵：木の縦格子 h1.2（アプローチ係 10-31）
+        sax.text(x0 + 0.15, 1.35, "木の縦格子の柵 h1.2（クリ）・外は土と雑草", fontsize=5, color=C["gray"])
         iw = np.where(e > 11.0)[0]
         if len(iw):
             sax.fill_between(tt[iw], zmin, -4.6, color=C["water"], alpha=0.7, lw=0, zorder=2)
