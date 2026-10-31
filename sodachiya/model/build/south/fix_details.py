@@ -4480,6 +4480,11 @@ for o in m.Objects:
         _nr += _raise(o.Geometry, LN[o.Attributes.LayerIndex])
 for mm, at in new_objs:
     if at.LayerIndex in _LUP: _nr += _raise(mm, LN[at.LayerIndex])
+# 11-01（本館係）：越屋根の木のルーバー（50c）は曲げ木の回転体（Brep、add_south.py）。どれも屋根の面より上なので、蓋と同じだけ丸ごと動かす
+_L50C = lidx('50c')
+for o in m.Objects:
+    if o.Attributes.LayerIndex == _L50C and isinstance(o.Geometry, r.Brep) and str(o.Attributes.Id) not in drop:
+        o.Geometry.Translate(r.Vector3d(0.0, 0.0, float(RT_TOP))); _nr += 1
 log.append(f'本館：屋根の上面（梁の上端から {RT_TOP - RT_BOT:.0f}、元の面の {RT_TOP:+.0f}）に合わせて {_nr} 物の上端を上げた・北の妻の上端を屋根の下面へ')
 # ================================================================ 本館：壁・ガラス・建具を平らな板に（本館係、10-27夜）
 # ユーザー（10-27夜）：曲線が見られるのは架構のみ。壁やガラスは必ず平面で、長方形（妻は三角形もある）の形を面に直角に押し出したもの。
@@ -4553,6 +4558,9 @@ def _square(g):
         prof = profs[0].intersection(profs[1])
         if prof.area < 0.97 * max(profs[0].area, profs[1].area): prof = profs[0].union(profs[1])
     if prof.is_empty or prof.area < 100.0: return None
+    # 11-01（本館係、設計監修の項 20261101-0202 の③）：西の外壁の遊戯室の口②（u45.6〜47.6）の下（−300〜0）は切り、敷居の床（12、add_floor.py）に
+    if along_u and _SQ_LN[0].startswith('17_') and v1 < -0.1 and u0 < 45.6 and u1 > 47.6:
+        prof = prof.difference(Polygon([(45600.0, -2000.0), (47600.0, -2000.0), (47600.0, 0.0), (45600.0, 0.0)]))
     out_ = []
     if along_u:
         t0, t1 = _SQ_T.get(_sq_key(g, U), (v0, v1)) if _SQ_LN[0].startswith('17_') else (v0, v1)

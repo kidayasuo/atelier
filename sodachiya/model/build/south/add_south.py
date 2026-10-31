@@ -68,6 +68,11 @@ def tex_tag(n0,along='v'):
         d=math.degrees(mid+math.pi)+(90.0 if along=='u' else 0.0)
         o.Attributes.SetUserString('tex_angle',f'{(d+90.0)%180.0-90.0:.2f}')
 K0=13
+# 11-01（設計監修の項 20261031-2145、ユーザー 10-31 21:44）：機械室の屋根の上の室外機置場（26、凍結した元のスクリプトから引き継いだ物）はやめる。
+# ヒートポンプは地下水を熱源にした水冷で、機械室の中（室外機は無し、決定事項（共通））。レイヤーは残し、物だけ消す
+_d26=[o.Attributes.Id for o in m.Objects if m.Layers[o.Attributes.LayerIndex].Name.startswith('26_')]
+for _id in _d26: m.Objects.Delete(_id)
+print(f'室外機置場（26）の物 {len(_d26)} を消した')
 # ---------- 室（床の塗り、z=10） ----------
 L_doma=layer('52_1F_受け取り土間',hexc('E3D3B5')); L_01=layer('53_1F_0・1歳',hexc('E6EFC2')); L_2=layer('54_1F_2歳',hexc('C5DE9A'))
 L_wet=layer('55_1F_水まわり（沐浴・2歳トイレ）',hexc('D5EBEE')); L_strip=layer('56_1F_西吹き抜け（窓辺）',hexc('F4EBDD'))
@@ -150,15 +155,35 @@ W_=120.0; PITCH=104.0; ANG=math.radians(30)
 # 前は本体（RW+OVH−20 から東）だけで、西の出 350 の帯と東の縁・南北の端の 20 外にガラスだけの所があった。
 # 並びは蓋の西の縁（RW+OVH+350）の 20 内から東へ間隔 104 のまま、羽根の外形は蓋の外形の 20 内で切る
 # （すき間の蓋の所 aG0〜aG1 は西の出が無いので、そこを渡る羽根は本体の縁の 20 内まで）。
-lid_in=lid.buffer(-20,join_style=2)
-rw=RW+OVH+350-20
-while rw>RK-OVH+20:
-    re_=rw-W_*math.cos(ANG)
-    def zs(x,y,rw=rw): return zlid(x,y)+28+(rw-rr_of(x,y))*math.tan(ANG)   # 羽根の下の縁が蓋の 10 上（厚み 18、10-25 ソリッド係）
-    g_=quad(re_,rw,aN-0.001,aS+0.001,60).intersection(lid_in)
-    for p_ in getattr(g_,'geoms',[g_]):
-        if p_.geom_type=='Polygon' and p_.area>2000: sloped(p_.simplify(0.2),18,L_lv,zs)
+# 11-01（設計監修の項 20261031-1841 の追記、ユーザー：ルーバーは木を曲げて作れる）：羽根は曲げ木の回転体（katachi.kaiten）。
+# 断面（r–z）＝幅 120 を東へ 30° 傾けた平行四辺形（鉛直の厚さ 18、前の羽根と同じ）を、弧の中心 C（蓋と同じ中心）のまわりに回す。
+# 蓋の上面 zlid は r だけの一次の関数なので、断面の上下の辺を r の両端で zlid に合わせれば、どの角度でも羽根の下の縁は蓋のちょうど 10 上。
+# 範囲は蓋の外形の 20 内：本体 r ≤ RW+OVH−20、西の出の帯（aN〜aG0・aG1〜aS）は r ≤ RW+OVH+330、東の縁 r ≥ RK−OVH+20、南北の端は 20 内。
+# すき間の蓋の所（aG0〜aG1）を渡る羽根は本体の縁の 20 内で切る（その羽根だけ 3 つの回転体に分かれる）。
+import os as _os
+sys.path.insert(0,_os.path.dirname(_os.path.abspath(__file__)))
+import katachi as _K
+def zl_r(rr): return ztop(rr)+CURB+GAP+GT
+R_E=RK-OVH+20; R_M=RW+OVH-20; R_W=RW+OVH+350-20
+def _ins(a,rr,s): return a+s*20.0/rr                                     # 角度 a を 20 内へ（s=+1 で増える向き）
+def _lv(rw,ra,rb,a0,a1):
+    """羽根（西の縁 rw）の r∈[ra, rb] の分を角度 a0〜a1（ラジアン）に回す"""
+    zt=lambda rr: zl_r(rr)+28+(rw-rr)*math.tan(ANG)
+    sec=[(rb,zt(rb)),(ra,zt(ra)),(ra,zt(ra)-18),(rb,zt(rb)-18)]
+    _K.add(m,_K.kaiten(sec,(float(C[0]),float(C[1])),math.degrees(a0),math.degrees(a1)),L_lv)
+rw=R_W; _nlv=0
+while rw>R_E:
+    re_=rw-W_*math.cos(ANG); ra=max(re_,R_E); rm=(ra+rw)/2
+    if rw-ra>1.0:
+        if re_>=R_M-1e-6 or rw<=R_M+1e-6:                                   # 西の出の帯だけ（すき間の所は無し）か、本体だけ
+            if rw<=R_M+1e-6: _lv(rw,ra,rw,_ins(aN,rm,1),_ins(aS,rm,-1)); _nlv+=1
+            else:
+                _lv(rw,ra,rw,_ins(aN,rm,1),_ins(aG0,rm,-1)); _lv(rw,ra,rw,_ins(aG1,rm,1),_ins(aS,rm,-1)); _nlv+=2
+        else:                                                               # 本体の縁 R_M をまたぐ：帯の所は全幅、すき間の所は R_M まで
+            ag0=_ins(aG0,R_M,-1); ag1=_ins(aG1,R_M,1)
+            _lv(rw,ra,rw,_ins(aN,rm,1),ag0); _lv(rw,ra,R_M,ag0,ag1); _lv(rw,ra,rw,ag1,_ins(aS,rm,-1)); _nlv+=3
     rw-=PITCH
+print(f'越屋根の木のルーバー：曲げ木の回転体 {_nlv}（羽根 {int((R_W-R_E)//PITCH)+1} 枚）')
 # ---------- 南の軒（屋根面の延長、東 1.8 m → 西 4.2 m） ----------
 # (10-21) 南の軒は 10_本館_屋根 へ（下で作る）
 def eave_pt(rr): return P(rr,th19)+t*(1800+(4200-1800)*(rr-RE)/(RO-RE))

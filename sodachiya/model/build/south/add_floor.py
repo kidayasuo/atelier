@@ -69,6 +69,12 @@ _n0=len(m.Objects)                                              # 10-31：杉の
 _uvslab(inner,-450,-10,L_fl)                                    # 床組（上面 −10、色付きの室の板 0〜10 の下）
 _uvslab(_hon_uv(HON_U0,HON_US,HON_V1-HON_K),-450,-160,L_fl)   # 本の奥の溝の南の段（−150）
 _uvslab(_hon_uv(HON_US,HON_U1,HON_V1-HON_K),-450,-310,L_fl)   # 本の奥の溝の底（−300）
+# 11-01（設計監修の項 20261101-0202 の④）：北西の隅の柱 u57（_HON_COLS の2本目）の足もとの島は北の妻の内面 u57.0 で切ると
+# 0.09×0.48＝0.043 m² で、_uvslab の小さな片の足切り（0.05 m²）で消えていた。ここだけ足す
+slab(Polygon([tuple(_chord(u,v)) for u,v in _dense(_box(56.91,-0.199,57.0,0.28).exterior)]),-450,-10,L_fl)
+# 11-01（同じ項の③）：遊戯室の口②（u45.6〜47.6）の前の本館の西の外壁の下（v−0.35〜−0.2）に敷居の床（上面は本館の床と同じ −10）。
+# 外壁は口の所で下端まで切る（fix_details.py の外壁の立面の形）。西のすき間の床（西館係）と継ぐ
+_uvslab(_box(45.6,-0.35,47.6,-0.199),-450,-10,L_fl)
 tex_tag(_n0,'v'); _n0=len(m.Objects)
 _uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kaiK).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
 tex_tag(_n0,'u')
