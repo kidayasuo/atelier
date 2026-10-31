@@ -58,6 +58,27 @@ def _dwg_ok(dw, PARTS):
     return False
 
 
+def _thin(pts, tol=0.1, cap=3000):
+    """Illustrator の setEntirePath が「Illegal Argument」で止まらないよう、同じ点の続きを除き、細かすぎる線を間引く
+    （10-31：ゾーニングの外壁の線が 7461 点で入らなかった）。tol は pt、点が cap を超えれば tol を倍にしていく"""
+    q = [pts[0]] if pts else []
+    for v in pts[1:]:
+        if v != q[-1]:
+            q.append(v)
+    if len(q) <= 200:
+        return q
+    try:
+        from shapely.geometry import LineString
+        t = tol
+        while True:
+            r = [[round(a, 2), round(b, 2)] for a, b in LineString(q).simplify(t, preserve_topology=False).coords]
+            if len(r) <= cap or t > 5:
+                return r
+            t *= 2
+    except Exception:
+        return q
+
+
 def write(c):
     figs, rec, W, H, MM = c["figs"], c["rec"], c["W"], c["H"], c["MM"]
     NOTE, ROOT, HERE = c["NOTE"], c["ROOT"], c["HERE"]
@@ -247,7 +268,7 @@ def write(c):
                         q["rings"] = [[[round(a, 2), round(H - b, 2)] for a, b in rg] for rg in q["rings"]]
                         P_ += [v for rg in q["rings"] for v in rg]
                     else:
-                        q["pts"] = [[round(a, 2), round(H - b, 2)] for a, b in q["pts"]]
+                        q["pts"] = _thin([[round(a, 2), round(H - b, 2)] for a, b in q["pts"]])
                         P_ += q["pts"]
                     r.setdefault("_paths", []).append(q)
                 xs_, ys_ = [v[0] for v in P_], [v[1] for v in P_]
