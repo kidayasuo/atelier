@@ -77,6 +77,52 @@ def ext_prism(poly, z0, z1, li, col=None):
         if best is None: continue
         for hh in p.interiors: _add_hole(best, crv(hh.coords))
         out.Objects.AddExtrusion(best, K.attr(li, col))
+def arc_ring(coords, z0, circles, tol=3.0):
+    """輪郭の点の並びを、円（circles：[(中心, 半径)]）の上に続く点を本物の円弧に、ほかを線分にした閉じた曲線に（10-31：形が素直でない物の点検）"""
+    P = [tuple(map(float, q[:2])) for q in coords]
+    if math.dist(P[0], P[-1]) < 1e-6: P = P[:-1]
+    n = len(P)
+    def on(q):
+        for k, (c, rr) in enumerate(circles):
+            if abs(math.dist(q, c) - rr) < tol: return k
+        return -1
+    lab = [on(q) for q in P]
+    # 円の上の点の続きが途中で切れないように、始まりを円の上でない点にそろえる
+    st = next((i for i in range(n) if lab[i] < 0), 0)
+    P = P[st:] + P[:st]; lab = lab[st:] + lab[:st]
+    pc = r.PolyCurve(); i = 0
+    pt = lambda q: r.Point3d(q[0], q[1], float(z0))
+    while i < n:
+        j = i
+        if lab[i] >= 0:
+            while j + 1 < n and lab[j + 1] == lab[i]: j += 1
+        a_ = P[i]; b_ = P[(j + 1) % n]
+        if lab[i] >= 0 and j - i >= 2:                    # 円弧：i〜j（＋次の点は線分の始まり）
+            m_ = P[(i + j) // 2]
+            pc.Append(r.Arc(pt(P[i]), pt(m_), pt(P[j])).ToNurbsCurve())
+            pc.Append(r.LineCurve(pt(P[j]), pt(b_)))
+            i = j + 1
+        else:
+            pc.Append(r.LineCurve(pt(P[i]), pt(P[(i + 1) % n]))); i += 1
+    return pc
+def ext_prism_arc(poly, z0, z1, li, col, circles):
+    """平面形を、円の部分は本物の円弧にした輪郭で z0〜z1 の押し出しに（上向きに押し出す：下向きだと穴の輪郭が鏡に写って入らない）"""
+    for p in ([poly] if poly.geom_type == 'Polygon' else [g for g in getattr(poly, 'geoms', []) if g.geom_type == 'Polygon']):
+        if p.area < 100: continue
+        p = p.simplify(1.0)
+        best = None
+        for rev in (False, True):
+            oc = arc_ring(p.exterior.coords, z0, circles).ToNurbsCurve()
+            if rev: oc.Reverse()
+            ex = r.Extrusion.Create(oc, float(z1 - z0), True)
+            if ex is None: continue
+            bb = ex.GetBoundingBox()
+            if abs(bb.Min.Z - z0) < 0.5 and abs(bb.Max.Z - z1) < 0.5: best = ex; break
+        if best is None: ext_prism(p, z0, z1, li, col); continue
+        for hh in p.interiors:
+            if not _add_hole(best, arc_ring(hh.coords, z0, circles).ToNurbsCurve()):
+                raise ValueError('やわらかい床の穴を入れられない')
+        out.Objects.AddExtrusion(best, K.attr(li, col))
 def ext_circle(c, rad, z0, z1, li, col=None, hole=None):
     """円（穴の円 hole）の押し出し"""
     ex = r.Extrusion.Create(r.Circle(r.Point3d(float(c[0]), float(c[1]), float(z0)), float(rad)).ToNurbsCurve(), float(z1 - z0), True)
@@ -111,9 +157,13 @@ def uw2xy(g):
     return unary_union([Polygon([X(*c) for c in gg.exterior.coords], [[X(*c) for c in h.coords] for h in gg.interiors]).buffer(0) for gg in gs])
 TRUNK = uw2xy(floor_shape(0.0)).buffer(20)
 STAIR_BOX = RWw(29.9, 34.02, -1.0, 4.16)
+# 10-31（形が素直でない物の点検）：幹のまわりの穴は幹の足もとを囲む円（幹の自由な形の輪郭に沿わせると輪郭の点が 180 を超えた）
+_tc = np.asarray(TRUNK.centroid.coords[0]); _tr = max(math.dist(_tc, q) for g_ in getattr(TRUNK, 'geoms', [TRUNK]) for q in np.asarray(g_.exterior.coords)) + 20.0
+TRUNK_C = Point(_tc).buffer(_tr, resolution=48)
 SOFT_ST = (Point(c_st).buffer(st['soft_r'] * 1000, resolution=48).intersection(WNi).intersection(RWw(30.07, 60.0, -1.0, 20.0))
-           .difference(STAIR_BOX).difference(TRUNK))
-ext_prism(SOFT_ST, 0.0, 30.0, L_FL, (239, 226, 200))
+           .difference(STAIR_BOX).difference(TRUNK_C))
+_CIRC = [(tuple(c_st), st['soft_r'] * 1000), (tuple(c_net), pt['r'] * 1000), (tuple(_tc), _tr)]
+ext_prism_arc(SOFT_ST, 0.0, 30.0, L_FL, (239, 226, 200), _CIRC)
 # 木は骨格（stump.tree）から play_tree.py で滑らかな閉じた網目に（10-24、本物のライブオークを参考に）
 from play_tree import tree_mesh
 TV, TF = tree_mesh(0.025, 20000)          # 約2万面（Rhino版・3dmを軽く、10-24 本館係の知らせ）
@@ -136,7 +186,14 @@ DK_ALL = unary_union([RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [RWw(ds['u0
 DK_HI = unary_union([RWw(dk['u0'], dk['u1'], dk['w0'], dk['w1'])] + [RWw(ds['u0'] + (ds['u1'] - ds['u0']) * k / n_, ds['u0'] + (ds['u1'] - ds['u0']) * (k + 1) / n_, ds['w0'], ds['w1']) for k, h in enumerate(ds['hs']) if h > sf['from_h']])
 SOFT_DK = (DK_HI.buffer(sf['margin'] * 1000, join_style=3).intersection(WNi).difference(DK_ALL.buffer(5)).difference(pit)
            .difference(SOFT_ST).difference(STAIR_BOX))
-ext_prism(SOFT_DK, 0.0, sf['t'] * 1000, L_FL, (239, 226, 200))
+# 10-31：西館の柱（22a）の足もと（床から 200 まで）をすき間 10 で欠く（柱にかかると監修の切る段で側面が斜めに切られ、押し出しでなくなる）
+_COLF = []
+for o in src.Objects:
+    if SLN[o.Attributes.LayerIndex].startswith('22a') and o.Geometry.GetBoundingBox().Min.Z < 100:
+        _v = np.asarray(_gvf(o.Geometry)[0]); _v = _v[_v[:, 2] < 200]
+        if len(_v) >= 3: _COLF.append(MultiPoint_(_v[:, :2]).convex_hull)
+SOFT_DK = SOFT_DK.difference(unary_union(_COLF).buffer(10.0, join_style=2))
+ext_prism_arc(SOFT_DK, 0.0, sf['t'] * 1000, L_FL, (239, 226, 200), _CIRC)   # 10-31：穴と切り株のまわりの円は本物の円弧
 print('やわらかい床：切り株のまわり %.1f m²、デッキの下 %.1f m²' % (SOFT_ST.area / 1e6, SOFT_DK.area / 1e6))
 # ---------------------------------------------------------------- 北の口のついたて（L 字、h2.4、吸音）
 sc = P['screen']
