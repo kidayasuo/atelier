@@ -407,8 +407,8 @@ box(52.2, 56.6, 0.08, 0.5, fc="#D9E6CF", lw=0.6, z=4)                # foot well
 for a_, b_ in [(52.6, 53.85), (54.15, 56.4)]: line([(a_, -0.02), (b_, -0.02)], lw=2.0, c="#3d7fb0", z=7)      # low windows down to GL（柱 u54 で二つ、10-26）
 import random as _r
 _r.seed(3)
-for k in range(14):
-    uu = 51.9 + 4.8 * _r.random(); vv = 0.75 + 0.7 * _r.random()
+for k in range(9):                                               # クッション（10-31：西の畳の座の上、柱 u54 をよける）
+    uu = [52.0, 52.5, 53.0, 53.45, 54.55, 55.0, 55.5, 56.0, 56.45][k]; vv = 0.12 + 0.06 * _r.random()
     ax.add_patch(Circle(P(uu, vv), 0.16 + 0.08 * _r.random(), fc=["#E8D7E6", "#F3E1C7", "#D9E6CF"][k % 3], ec="#9b6f8c", lw=0.3, zorder=6))
 line([(56.95, 0.3), (56.95, 1.3)], lw=0.6, z=7)                   # exit door (north)
 ax.add_patch(Circle(P(54.4, -2.3), 1.3, fc="none", ec="#5a7a3a", lw=0.5, zorder=3))

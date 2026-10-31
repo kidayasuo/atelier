@@ -57,7 +57,14 @@ _walls=unary_union([_box(3.0*s_-1.5,V_WALL,3.0*s_,V_RG) for s_ in range(1,20)])
 # 西の端は外壁の内面（v −0.1997、弦）の 1 mm 内、西の外壁の足もとの小さな壁（u30.0〜30.1、南の妻 v1.40〜1.75）の所は欠く（削る段で高さの途中まで欠かれて押し出しでなくなっていた）
 _stubs=unary_union([_box(29.99,-0.2,30.11,0.085),_box(-0.08,1.395,0.08,1.755)])
 inner=_box(0.0,-0.199,57.0,V_RG).difference(_kaiK).difference(_box(0.0,-0.199,6.0,V_RK)).difference(_walls).difference(_stubs)
+# 本の奥（スパン18–19、西吹き抜けの北の行き止まり）の掘りごたつの溝（ユーザー 10-31、決定事項（本館）の「本の奥」）：畳の座（西 v−0.2〜0.45・東 v1.16〜1.54）の
+# あいだ v0.45〜1.16（両側の杉の框 30 を含む、内のり 0.65）を、南の口の段（u51.6〜51.9、−150）から北の妻（u57.0、本の奥の所の内面）まで下げる（溝の底 −300、木の床）。
+# 框は shitsu/add_shitsurae.py の hon_no_oku。床の塊は溝の所を抜き、底の塊（上面 −310／段 −160、框のあいだ v0.48〜1.13）を足す
+HON_U0, HON_US, HON_U1, HON_V0, HON_V1, HON_K = 51.6, 51.9, 57.0, 0.45, 1.16, 0.03
+inner=inner.difference(_box(HON_U0,HON_V0,HON_U1,HON_V1))
 _uvslab(inner,-450,-10,L_fl)                                    # 床組（上面 −10、色付きの室の板 0〜10 の下）
+_uvslab(_box(HON_U0,HON_V0+HON_K,HON_US,HON_V1-HON_K),-450,-160,L_fl)   # 本の奥の溝の南の段（−150）
+_uvslab(_box(HON_US,HON_V0+HON_K,HON_U1,HON_V1-HON_K),-450,-310,L_fl)   # 本の奥の溝の底（−300）
 _uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kaiK).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
 _uvslab(_kai,-450,-150,L_kai)
 # 框：曲線の杉（見付 60、−150〜0）。はだしの床と色・素材を変える（間仕切り・框のレイヤー 91 → 38、杉板）。輪郭の押し出し
@@ -186,9 +193,11 @@ for s0,s1,name,col in ROOMS:
     if name=='ホール': g=g.difference(kaiK)
     for gg in getattr(g,'geoms',[g]): slab(gg,0,10,li)
     areas[name]=areas.get(name,0)+g.area/1e6
-strip=quad(RK,RO,TH[0],span(5)[1],60).difference(kai)
+_hon=lambda u0_,u1_: Polygon([tuple(_chord(u,v)) for u,v in _dense(_box(u0_,HON_V0+HON_K,u1_,HON_V1-HON_K).exterior)])
+strip=quad(RK,RO,TH[0],span(5)[1],60).difference(kai).difference(_hon(HON_U0,HON_U1))
 for g in getattr(strip,'geoms',[strip]):
     if g.area>1e5: slab(g,0,10,L_cor)
+slab(_hon(HON_U0,HON_US),-150,-140,L_cor); slab(_hon(HON_US,HON_U1),-300,-290,L_cor)   # 本の奥の溝：室の板は溝の底へ（面積は同じ）
 m.Write(OUT,8)
 sp=lambda s: quad(RG,RC,*span(s)).area/1e6
 print({k:round(v,1) for k,v in areas.items()},'内縁側 1 スパン',round(sp(10),2),'m2','あまのがわ',round(kai.area/1e6,1),'框',round(_kam.area,2))
