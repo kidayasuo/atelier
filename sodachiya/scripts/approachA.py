@@ -419,7 +419,25 @@ _LX = LEAN_EXT
 _band = WB.buffer(_LX["depth"], resolution=32).difference(WB).intersection(SP(SITE).buffer(-_LX["margin"])).intersection(SP(srect(26.0, _LX["cut_s"], -1, 3.7)))
 _band = max(getattr(_band, "geoms", [_band]), key=lambda q: q.area)
 LEAN_ROOF = SP(rect(u0, u1, v0, v1)).difference(_HK).difference(WB).union(_band).buffer(0.01).buffer(-0.01)   # 下屋＋南西の丸みへの回り込み
+# 2階の避難の戸から下屋の屋根へ（西館係の項 20261030-1631、ユーザー 10-31）：歩み板の所（戸の下から東へ、塀を越えてひろばの側まで、壁から軒まで）
+LEAN_EVAC = _D["LEAN_EVAC"]
+EVAC_WALK = LEAN_ROOF.intersection(SP(rect(10.0, 30.0, LEAN_EVAC["walk_v"][0], LEAN_EVAC["walk_v"][1])))
+def _eave_pt(v):                                                          # 軒先（屋根の外の縁、本館から遠い側）の v の点と、軒に沿う向き・外向き
+    ln = SL([W(10.0, v), W(30.0, v)]); x = ln.intersection(LEAN_ROOF.exterior)
+    pts = [q for q in getattr(x, "geoms", [x]) if not q.is_empty]
+    c = min(pts, key=lambda q: inv((q.x, q.y))[0]); c = np.array([c.x, c.y])
+    tv = np.array(W(20.0, v + 0.5)) - np.array(W(20.0, v)); tv /= np.linalg.norm(tv)
+    nv = np.array(W(19.0, v)) - np.array(W(20.0, v)); nv /= np.linalg.norm(nv)
+    return c, (tv, nv)
+EVAC_HOOKS = [(tuple(_eave_pt(v)[0] - _eave_pt(v)[1][1] * 0.0), _eave_pt(v)[1]) for v in LEAN_EVAC["hook_v"]]
 roof(list(LEAN_ROOF.exterior.coords))
+for _q in getattr(EVAC_WALK, "geoms", [EVAC_WALK]):                      # 下屋の上の歩み板（避難、頭上なので破線）
+    line(list(_q.exterior.coords), lw=0.5, c="#8a5a2b", ls=(0, (2, 1)), z=11.2)
+for _hp, _ in EVAC_HOOKS: ax.add_patch(Circle(_hp, 0.07, fc="#555555", ec="none", zorder=11.3))
+_lv = LEAN_EVAC["landing_v"]; _h0, (_t0, _n0) = _eave_pt(_lv[0]); _h1, _ = _eave_pt(_lv[1]); _lo = LEAN_EVAC["landing_out"]
+EVAC_LANDING = [tuple(_h0), tuple(_h1), tuple(_h1 + _n0 * _lo), tuple(_h0 + _n0 * _lo)]
+poly(EVAC_LANDING, fc="none", ec="#c0392b", lw=0.4, z=11.1, ls=(0, (1.5, 1)))
+T(tuple(np.mean(EVAC_LANDING, axis=0) + _n0 * 0.25 + _t0 * 1.15), "はしごの\n下ろし場", 3.4, c="#c0392b", rot=ROT)
 LEAN_GUTTER = LEAN_ROOF.exterior.difference(WB.buffer(0.05)).difference(_HK.buffer(0.05))
 for _g in getattr(LEAN_GUTTER, "geoms", [LEAN_GUTTER]): line(list(_g.coords), lw=0.5, c="#3d7fb0", ls=(0, (1, 1)), z=10.5)
 ax.add_patch(Circle(P(*_LX["rain_head"]), 0.1, fc="#3d7fb0", ec="none", zorder=10.6))
@@ -620,7 +638,7 @@ T(P(11.0, 6.3), "A", 6.5, z=16, weight="bold"); T(P(11.0, 16.9), "A", 6.5, z=16,
 
 os.makedirs(OUT, exist_ok=True)
 fig.savefig(os.path.join(OUT, "sodachiya_site_A_1-200.pdf"))
-fig.savefig(os.path.join(OUT, "sodachiya_site_A_1-200.png"), dpi=200)
+os.makedirs("/tmp/claude-0", exist_ok=True); fig.savefig("/tmp/claude-0/sodachiya_site_A_1-200.png", dpi=200)   # 確かめ用の画像はリポジトリに置かない（karuku.md、10-31）
 print("plaza m2", round(plaza_area, 1), "fence s1", round(FENCE_S1, 2), "lattice len", round(La - GA1, 2))
 
 # ---------------------------------------------------------------- 配置図 1/200（更新係が 3dm から描く）に描く中身（設計監修 10-25：中身はアプローチ係が決めて渡す）

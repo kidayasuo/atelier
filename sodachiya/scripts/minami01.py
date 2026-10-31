@@ -280,5 +280,6 @@ for h, t in notes:
 print("notes end y", round(y, 1))
 os.makedirs(OUT, exist_ok=True)
 for ext in ("pdf", "png"):
-    fig.savefig(os.path.join(OUT, "sodachiya_minami_01." + ext), dpi=110 if ext == "png" else None)
+    os.makedirs("/tmp/claude-0", exist_ok=True)
+    fig.savefig(os.path.join("/tmp/claude-0" if ext == "png" else OUT, "sodachiya_minami_01." + ext), dpi=110 if ext == "png" else None)   # PNG は確かめ用で /tmp へ（karuku.md）
 print("check:", G.check() or "ok", "| loop %.1f m, area %.1f, clear %.1f, play %.1f" % (G.LOOP_C.length, G.AREA.area, G.CLEAR.area, G.PLAY.area))

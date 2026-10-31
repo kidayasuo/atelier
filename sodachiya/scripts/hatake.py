@@ -225,5 +225,5 @@ fig.text(PLx / FW, 1.5 / FH, "寸法は data/approachA.json（外構の図 appro
 
 os.makedirs(OUTD, exist_ok=True)
 fig.savefig(os.path.join(OUTD, "sodachiya_hatake.pdf"))
-fig.savefig(os.path.join(OUTD, "sodachiya_hatake.png"), dpi=200)
+os.makedirs("/tmp/claude-0", exist_ok=True); fig.savefig("/tmp/claude-0/sodachiya_hatake.png", dpi=200)   # 確かめ用（karuku.md）
 print("wrote", os.path.join(OUTD, "sodachiya_hatake.pdf"))
