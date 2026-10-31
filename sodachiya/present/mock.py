@@ -3078,7 +3078,7 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
     P(_PARK_R, Z_COL["park"], "out", z_=0.37)
     P(_OUT, Z_COL["out"], "out", z_=0.4)
     P(_IN, Z_COL["in_ext"], "in_ext", z_=0.41)
-    P(_APPR, Z_COL["in_ext"], "approach", z_=0.42)
+    P(_APPR, Z_COL["park"], "approach", z_=0.42)
     P(_fill(GD["garden"]), Z_COL["g35"], "g35", z_=0.5)
     P(GD["shizu"], Z_COL["gboth"], "gboth", z_=0.55)
     P(_fill(_MINAMI) if _MINAMI is not None else None, Z_COL["g02"], "g02", z_=0.55)
@@ -3173,19 +3173,19 @@ for (pr_, ln_), gs_ in sorted(_rooms.items(), key=lambda kv: -kv[0][0]):
         _za(nm_, u_.difference(_STRIP02), c_)
     elif ln_.startswith("14_"):
         _s_ = [p_ for p_ in getattr(u_, "geoms", [u_]) if _unrot(p_).centroid.x < _u0_south]
-        _za("外縁側（0・1歳の南）", unary_union(_s_) if _s_ else None, "shoe", True)
+        _za("外縁側（0・1歳の南、はだしの縁側）", unary_union(_s_) if _s_ else None, "z02")   # 土足ではない（ユーザー 10-31 23:04）
         _za(nm_, u_.difference(unary_union(_s_)) if _s_ else u_, c_, True)
     else:
         _za(nm_, u_, c_, net_)
 _PORCH = _zg("64_")
-_za("ポーチ", _PORCH.difference(_BLD) if _PORCH is not None else None, "shoe", True)
+_za("ポーチ", _PORCH.difference(_BLD) if _PORCH is not None else None, "park")   # 屋外の送り迎えの場は公園と同じ色（大人がいっしょ、10-31 23:04）
 _za("建物（壁・すき間）", _BLD, "wall")
 _za("小屋の便所", _HUT_WC, "wc"); _za("小屋の倉庫", _HUT_ST, "store"); _za("コンポスト", GD["compost"], "store")
 _za("水遊び場・雨庭", _WATER, "water"); _za("小川", _STREAM_W, "stream")
 _za("みなみのさんかく", _fill(_MINAMI) if _MINAMI is not None else None, "g02"); _za("しずかのもり", GD["shizu"], "gboth"); _za("だいさんかく", _fill(GD["garden"]), "g35")
 _za("職員の駐輪場", _BIKE_ST, "parking"); _za("駐車場", _PARKING, "parking")
-_za("歩道", _swS3, "walk"); _za("ひろば", _hb_, "none")
-_za("木戸の内（小径・ムベの下）", _APPR, "none"); _za("線の内の外構（坪庭・読書の庭・機械室まわり）", _IN, "none"); _za("線の外の外構（道ぞいの歩く所・搬入路）", _OUT, "walk")
+_za("歩道", _swS3, "walk"); _za("ひろば", _hb_, "park")
+_za("木戸の内（見送りの小径・ムベの下）", _APPR, "park"); _za("線の内の外構（坪庭・読書の庭・機械室まわり）", _IN, "none"); _za("線の外の外構（道ぞいの歩く所・搬入路）", _OUT, "walk")
 _za("公園", _PARK_R, "park"); _za("敷地（そのほか）", _SITEP, "none"); _za("道路", _ROADS_R, "road"); _za("周り", _WIN, "none")
 _taken = None
 _ZP = []                                          # (名前, 形, 分類, 網)
@@ -3196,6 +3196,20 @@ for nm_, g_, c_, n_ in _ZL:
     if g_.area > 0.02:
         _ZP.append((nm_, g_, c_, n_))
     _taken = g_ if _taken is None else _taken.union(g_)
+# 本館と西館のすき間（室内、決定事項_本館）の床：倉庫でない所は遊戯室の北の口への通り（はだし）→共用の色（ユーザー 10-31 23:04 の問い）。
+# 3dm にはすき間の床の物が無く、壁の残り（白）になっていた。本館の外壁と西館の外壁の両方に接する幅 0.5 m 以上の所だけを取る
+_W17 = unary_union([g_ for ln_, k_, g_ in plan_items if ln_.startswith("17_") and g_ is not None])
+_W21 = unary_union([g_ for ln_, k_, g_ in plan_items if ln_.startswith("21_") and g_ is not None])
+for i_, (nm_, g_, c_, n_) in enumerate(_ZP):
+    if nm_ == "建物（壁・すき間）":
+        w_ = g_.buffer(-0.25, join_style=2).buffer(0.25, join_style=2).intersection(g_)
+        gap_ = unary_union([p_ for p_ in getattr(w_, "geoms", [w_]) if p_.geom_type == "Polygon" and p_.area > 0.3
+                            and p_.distance(_W17) < 0.3 and p_.distance(_W21) < 0.3])
+        if not gap_.is_empty:
+            _ZP[i_] = (nm_, g_.difference(gap_), c_, n_)
+            _ZP.append(("すき間（本館と西館のあいだ、遊戯室の北の口へ）", gap_, "share", False))
+            print("すき間の床（共用の色）：%.1f m²" % gap_.area)
+        break
 
 
 def _rings(g_, xf_):
@@ -3340,7 +3354,7 @@ def _zleg_box(id_, x_, y_, c_):
 
 _ZLEG = [("建物の中", ["z02", "z35", "share", "adult", "store", "kitchen", "wc"]),
          ("園庭", ["g02", "gboth", "g35", "water", "stream"]),
-         ("線の外", ["park", "walk", "parking"]),
+         ("屋外", ["park", "walk", "parking"]),
          ("土足", ["shoe"])]
 for hd_, cs_ in _ZLEG:
     T(ax, M + 6, _ly, hd_, 2.5, bold=True)
