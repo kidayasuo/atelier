@@ -280,20 +280,38 @@ for j in range(1, _n_l):                                          # 足もとの
     for sg in (-1, 1): rod(bp(t, sg * bw / 2), bp(t, sg * bw / 2, RAIL), R_N, L_NET, (122, 90, 54))
 # ---------------------------------------------------------------- 摺鉢ネット
 # ユーザー 10-29：下ほど急、上ほど寝る漏斗（この式のまま）。出口の輪は穴の底のマットの上から 0.5（bottom_h 0.15）
-# 10-28（監修の項 2346）：鉢は一つの回転体（断面＝厚さ 20 の帯を中心の軸のまわりに一周、閉じた立体）。前は 17×49 の四角形の面で 770 面
-_pr = []
-for i in range(17):
-    t = i / 16; rr = (nt['bottom_r'] + (nt['ring_r'] - nt['bottom_r']) * t ** 1.6) * 1000
-    z = (nt['bottom_h'] + (cw['h'] - nt['bottom_h']) * t) * 1000
-    _pr.append((rr, z))
-_pr = np.array(_pr); _d = np.gradient(_pr, axis=0); _n = np.c_[_d[:, 1], -_d[:, 0]]; _n /= np.linalg.norm(_n, axis=1)[:, None]
-_sec = list(_pr + _n * 10.0) + list((_pr - _n * 10.0)[::-1])
-_crv = r.Curve.CreateControlPointCurve([r.Point3d(c_net[0] + q[0], c_net[1], q[1]) for q in _sec] + [r.Point3d(c_net[0] + _sec[0][0], c_net[1], _sec[0][1])], 1)
-_axis = r.Line(r.Point3d(c_net[0], c_net[1], 0.0), r.Point3d(c_net[0], c_net[1], 1000.0))
-_rev = r.RevSurface.Create(_crv, _axis, 0.0, 2 * math.pi)
-_bw = r.Brep.CreateFromRevSurface(_rev, False, False)
-out.Objects.AddBrep(_bw, K.attr(L_NET, (122, 90, 54)))
-print('net bowl: revolution solid', _bw.IsSolid, len(_bw.Faces))
+# 10-31（ユーザー：蟻地獄ネットもロープで）：前は一つの回転体（厚さ 20 の面）。吊り橋と同じ表し方に：
+#   上の縁は φ30 のロープ（鋼の輪の下に沿う）、網は放射のロープと輪のロープ（φ14）。輪は漏斗の面に沿って下ほど密（面に沿った間隔 約0.19×√(r/R)、0.09 以上）、
+#   放射は上で 64 本、輪の上の間隔が 0.12 を切る所で半分に（32・16 本）。輪のロープは小さな円を軸のまわりに回した一つの輪、放射は区間ごとのまっすぐな押し出し
+def _prof(t): return np.array([(nt['bottom_r'] + (nt['ring_r'] - nt['bottom_r']) * t ** 1.6) * 1000, (nt['bottom_h'] + (cw['h'] - nt['bottom_h']) * t) * 1000])
+_RIM = np.array([nt['ring_r'] * 1000 - 15.0, H - 150.0 - 15.0])      # 上の縁のロープ φ30（鋼の輪の下面・内面に沿う）
+_ROPE = (122, 90, 54)
+def _torus(rr, z, rad, col=_ROPE):
+    """水平な輪のロープ：半径 rad の円を中心の軸のまわりに一周（一つの閉じた面）"""
+    pl = r.Plane(r.Point3d(c_net[0] + rr, c_net[1], z), r.Vector3d(1, 0, 0), r.Vector3d(0, 0, 1))
+    cc = r.Circle(float(rad)).ToNurbsCurve(); cc.Transform(r.Transform.PlaneToPlane(r.Plane.WorldXY(), pl))
+    rv = r.RevSurface.Create(cc, r.Line(r.Point3d(c_net[0], c_net[1], 0.0), r.Point3d(c_net[0], c_net[1], 1000.0)), 0.0, 2 * math.pi)
+    out.Objects.AddBrep(r.Brep.CreateFromRevSurface(rv, False, False), K.attr(L_NET, col))
+_ts = np.linspace(0, 1, 2001); _P = np.array([_prof(t) for t in _ts]); _sl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(_P, axis=0), axis=1))]
+_RN = nt.get('rope', {'mesh': 0.19, 'min': 0.09, 'net_d': 0.014, 'rim_d': 0.030})
+_rings = [0.0]                                                       # 輪の位置（面に沿った長さ、出口から）
+while True:
+    i_ = np.searchsorted(_sl, _rings[-1]); rr_ = _P[min(i_, len(_P) - 1), 0]
+    st = max(_RN['min'], _RN['mesh'] * math.sqrt(rr_ / (nt['ring_r'] * 1000))) * 1000
+    if _rings[-1] + st > _sl[-1] - 0.6 * st: break
+    _rings.append(_rings[-1] + st)
+_RP = [np.array([np.interp(x, _sl, _P[:, 0]), np.interp(x, _sl, _P[:, 1])]) for x in _rings[1:]] + [_RIM]
+for q in _RP[:-1]: _torus(q[0], q[1], _RN['net_d'] * 500)
+_torus(_RIM[0], _RIM[1], _RN['rim_d'] * 500)
+_pts = [_prof(0.0)] + _RP                                            # 放射のロープの節（出口の輪 → 各輪 → 上の縁）
+def _nrad(rr): return 64 if 2 * math.pi * rr / 64 >= 120 else (32 if 2 * math.pi * rr / 32 >= 120 else 16)
+_n_rad = 0
+for k in range(64):
+    a = 2 * math.pi * k / 64; e = np.array([math.cos(a), math.sin(a)])
+    for q0, q1 in zip(_pts, _pts[1:]):
+        if k % (64 // _nrad(q0[0])): continue                        # その輪の間で放射の本数が足りていれば省く
+        rod([*(c_net + e * q0[0]), q0[1]], [*(c_net + e * q1[0]), q1[1]], _RN['net_d'] * 500, L_NET, _ROPE); _n_rad += 1
+print('net bowl: ropes rings %d radial segments %d' % (len(_RP), _n_rad))
 rod([*c_net, nt['bottom_h'] * 1000 - 20], [*c_net, nt['bottom_h'] * 1000 + 20], nt['bottom_r'] * 1000 + 40, L_NET, STEEL)
 # ---------------------------------------------------------------- 吊り材 M20（φ20、10-27：M16 では揺れ・跳びの衝撃に余裕が無い。重さは西館の梁へ。梁の位置 u 36〜48、3.0 ごと）
 beams_u = [36.0, 39.0, 42.0, 45.0, 48.0]
