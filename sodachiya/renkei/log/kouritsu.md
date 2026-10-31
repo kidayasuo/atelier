@@ -7,3 +7,4 @@
 - 10-28 00:42（効率化委員会）模型作成を Claude Code で試す：決定事項_模型を kettei/mokei.md へ写し本文に、CLAUDE.md に main へ直接 push
 - 10-31 11:28（効率化委員会）西館係の提案8つ（20261031-1116）：karuku.md に作り直しは最後に1回・push は区切り・worktree・報告をファイルに、tools/hakaru.py・kuraberu.py（a37613c）、.gitignore。ユーザー：直すたびに作り直すのは無駄
 - 10-31 12:07（効率化委員会）役割分担の終わったチャットの行を archive へ（09d9d1e）、karuku.md に知らせ・モデル・分冊2万字、プロジェクトの決定事項の写しを10-31の本文で上書き、分冊の整理を本館・西館・監修に依頼
+- 10-31 12:42（効率化委員会）katachi.py と形の数え（81404bb）、pdfmiru.py（4e038fc）、karuku.md に図の確かめは構造で・部材は katachi.py で。ユーザー：毎回直方体と言い直している／PDFの構造を見る方が良い
