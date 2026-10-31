@@ -805,6 +805,9 @@ def _fukinuke_x(pg_, d_, lw=0.18, others=()):
     e_ = np.array([-n_[1], n_[0]])                                     # 東：北から時計回りに 90°（紙の右下）
     V_ = np.asarray(pl_.exterior.coords)[:-1]
     pE_, pW_ = V_[np.argmax(V_ @ e_)], V_[np.argmin(V_ @ e_)]
+    # 10-31 11:03（ユーザー）：西の角は調理師の入口（勝手口、西館の南西）に近い角＝会議室の北西の角のあたり。その紙の上の位置（4枚目、pt）にいちばん近い外形の角
+    KATTE_PT = np.array([1074.0, 351.0])          # 2階平面（plan2F）の紙の上。紙の位置が変われば直す
+    pW_ = V_[np.argmin(np.hypot(*(V_ - KATTE_PT).T))]
     pS_ = V_[np.argmin(V_ @ n_)]
     Q_ = [np.array(_af.rotate(_Pt(q_), th_, origin=c_, use_radians=True).coords[0]) for q_ in ((ax_, ay_), (bx_, by_), (bx_, ay_), (ax_, by_))]
     dg_ = [(Q_[1] - Q_[0]), (Q_[3] - Q_[2])]
