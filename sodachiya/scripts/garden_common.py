@@ -162,6 +162,44 @@ def tilt_h(A, D):
     return t["h"] * fa * fd
 
 
+def daichi_h(A, D):
+    """大地（10-31 ユーザー）：小川の東の岸（GL±0）から隣家との境へ 1:15 で上る一枚の斜面。小川の東だけ、
+    北側（a_n）と川沿いの辺の際（a_s）では上げない。height は今の地形とこれの高い方"""
+    dc = G.get("DAICHI")
+    A = np.asarray(A, float); D = np.asarray(D, float)
+    if not dc:
+        return np.zeros_like(A)
+    import shapely
+    s = G["STREAM"]; L = LineString(s["line"])
+    sa = np.array([p[0] for p in s["line"]]); sd = np.array([p[1] for p in s["line"]])
+    east = D < np.interp(A, sa, sd, left=-1e9, right=-1e9)          # 小川の東（隣家の側）
+    dist = shapely.distance(L, shapely.points(A.ravel(), D.ravel())).reshape(A.shape)
+    h = np.clip(dist - dc["bank_off"], 0, None) * dc["slope"]
+    n0, n1 = dc["a_n"]; h = h * _ss((A - n0) / (n1 - n0))           # 北側は上げない
+    h = np.minimum(h, np.clip(dc["a_s"] - A, 0, None) / dc["s_ramp"])   # 川沿いの辺（柵）の際は今の高さ、1:s_ramp で上る
+    if dc.get("h_max"):
+        h = np.minimum(h, dc["h_max"])                              # 頭打ち
+    v = dc.get("valley")
+    if v:                                                           # てんぐのたに：境の際の谷の底（GL±0）へ 1:bank で下りる
+        e0, e1 = v["a_end"]; w = 1 - _ss((A - e0) / (e1 - e0))      # 南東の口から先は石積みの上の大地へ
+        hb = (1 - w) * dc.get("h_max", 9.0)                         # 境の際の高さ（谷の底0→石積みの上h_max）
+        h = np.minimum(h, hb + np.clip(D - v["floor_d"] * w, 0, None) * w / v["bank"])
+    return np.where(east, h, 0.0)
+
+
+def pass_h(A, D):
+    """てんぐのたにの峠（11-01 ユーザー）：両端の口 GL±0 から真ん中へ cos でなだらかに +h"""
+    v = G.get("DAICHI", {}).get("valley", {}).get("pass")
+    A = np.asarray(A, float); D = np.asarray(D, float)
+    if not v:
+        return np.zeros_like(A)
+    a0, ac, a1 = v["a"]
+    t = np.where(A < ac, (A - a0) / (ac - a0), (a1 - A) / (a1 - ac))
+    fa = 0.5 - 0.5 * np.cos(np.pi * np.clip(t, 0, 1))
+    fd = 1 - _ss((D - v["d_full"]) / v["d_fade"])
+    return v["h"] * fa * fd
+
+
 def height(A, D):
     A = np.asarray(A, float); D = np.asarray(D, float)
     h = mound_h(A, D)
@@ -172,7 +210,8 @@ def height(A, D):
         else:
             h = np.maximum(h, bump_h(A, D, b))
     h = np.maximum(h, bank_h(A, D))
-    return h + add + bowl_h(A, D) + tilt_h(A, D)
+    h = h + add + bowl_h(A, D) + tilt_h(A, D)
+    return np.maximum(np.maximum(h, daichi_h(A, D)), pass_h(A, D))   # 10-31：今の地形と大地の高い方、11-01：てんぐのたにの峠
 
 
 # ---------------- 3dm から ----------------

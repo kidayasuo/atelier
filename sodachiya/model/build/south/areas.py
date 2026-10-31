@@ -47,13 +47,17 @@ for o in m.Objects:
     FP.setdefault(ln, []).append(footprint(T)); FZ[ln] = max(FZ.get(ln, -1e9), float(T[:, :, 2].max()))
 A0 = {k: unary_union(v) for k, v in FP.items()}          # 床の板そのもの
 # 園庭の輪郭（10-31、園庭の係）：地形 90 は溝・小川・滝壺・洲浜で切り欠いてある（溝が地形に隠れていた）。園庭の面積は切り欠きに
-# 左右されないよう、地形に水・雨の川・洲浜の玉石（92・92s・99 の園庭のレイヤー）の投影を足した外形で数える（切り欠く前の地形と同じ範囲）
+# 左右されないよう、地形に水・雨の川・洲浜の玉石（92・92s・99 の園庭のレイヤー）の投影と、掘り込んだ砂場（data/garden.json の SAND、縁の外まで 0.15、11-01）を足した外形で数える（切り欠く前の地形と同じ範囲）
 GW = []
 for o in m.Objects:
     ln = LAY[o.Attributes.LayerIndex].Name
     if re.match(r'^(92|92b|92s|99)_園庭', ln):
         T = tris(o.Geometry)
         if len(T): GW.append(unary_union([Polygon(t[:, :2]).buffer(0) for t in T]))
+_gj = json.load(open(os.path.join(DATA, 'garden.json'), encoding='utf-8'))
+if _gj.get('SAND'):
+    _ue, _nb = np.array(_gj['UE']), np.array(_gj['NB'])
+    GW.append(Polygon([tuple((a * _ue - d * _nb) * 1000) for a, d in _gj['SAND']['poly']]).buffer(150, join_style=1))
 # 壁（上から見た形）：外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38
 # 壁は、その階の人のいる高さ（床から 2.4 m まで）にあるものだけ（2 階の間仕切りや、すき間の蓋より上の外壁が 1 階の部屋を削らないように）
 WL = []           # (三角形の網, 下端, 上端, 外壁か)

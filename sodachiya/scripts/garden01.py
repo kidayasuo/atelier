@@ -392,6 +392,22 @@ for a_, d_, r_ in TG.get("yamabuki", []) + G.get("KATA", {}).get("yamabuki", [])
 if TG.get("yamabuki"):
     T(ax, X(39.0, 0.9), "ヤマブキ・シャガ", 3.0, c="#3F5A2E", rot=-38, z=11.2)
 
+# 境の溝（11-01、仮定・モデル化しない）：てんぐのたには谷の底（GL±0）に沿い、峠（a38）が分水嶺で両端の口へ。
+# その南東は境の石積み（96w）の上に沿い、川沿いの柵の際へ（隣家に流さない）
+_vl = G.get("DAICHI", {}).get("valley")
+if _vl:
+    _pa = _vl["pass"]["a"]; _wa = np.arange(_vl["a_end"][0], 56.0, 0.25)
+    _wh = gc.height(_wa, np.zeros_like(_wa)); _wa = _wa[_wh > G["DAICHI"]["WALL"]["h_min"]]
+    poly(ax, P([(_wa[0], 0.0), (_wa[-1], 0.0), (_wa[-1], G["DAICHI"]["WALL"]["t"]), (_wa[0], G["DAICHI"]["WALL"]["t"])]), fc="#8C8476", ec="#5E574C", lw=0.3, z=6.5)
+    def _arrow(p0, p1):
+        ax.annotate("", xy=X(*p1), xytext=X(*p0), arrowprops=dict(arrowstyle="->", color=C["water"], lw=0.6), zorder=6)
+    line(ax, XS([(_pa[0] - 1.5, 0.35), (_pa[2] + 0.4, 0.35)]), lw=0.7, c=C["water"], ls=(0, (2, 1.2)), z=6)
+    _arrow((_pa[0] - 0.7, 0.35), (_pa[0] - 1.5, 0.35)); _arrow((_pa[2] - 0.4, 0.35), (_pa[2] + 0.4, 0.35))
+    line(ax, XS([(_wa[0] + 0.5, 0.7), (_wa[-1], 0.7)]), lw=0.7, c=C["water"], ls=(0, (2, 1.2)), z=6)
+    _arrow((_wa[-1] - 0.8, 0.7), (_wa[-1] + 0.4, 0.7))
+    T(ax, X(_pa[1], -0.5), f"峠 +{_vl['pass']['h']:.1f}（境の溝は両端の口へ）", 3.2, c="#4C7A99", rot=128.5, z=11.2)
+    T(ax, X((_wa[0] + _wa[-1]) / 2, -0.5), f"境の石積み（最大 +{_wh.max():.1f}）、上に境の溝（川沿いへ、隣家に流さない）", 3.2, c="#4C7A99", rot=128.5, z=11.2)
+
 # 年中行事の草（セリ・ショウブ・摘み草・ススキ）
 for a_, d_, r_, nm_, _n in G.get("GYOJI", {}).get("items", []):
     ax.add_patch(Circle(X(a_, d_), r_, fc="#C9D99A", ec="#6F8F57", lw=0.4, ls=(0, (1.2, 0.8)), alpha=0.85, zorder=10.9))
@@ -573,7 +589,7 @@ CALC = json.load(open(os.path.join(gc.ROOT, "out", "garden_calc.json"), encoding
 lax.text(0, y, "数字（この図から）", fontsize=8, fontweight="bold", va="center"); y += 7
 _hut_all = NUM["hut"] + NUM["cbay"]
 for t in [f"だいさんかく（しずかのもりを含む）約 {ga:.0f} m²。屋外遊戯場として数えるのは小屋（便所・倉庫・コンポストの間 約 {_hut_all:.0f} m²）を除いた 約 {ga - _hut_all:.0f} m²（2 歳以上 70 人で 1 人 約 {(ga - _hut_all) / 70:.1f} m²、基準は 3.3）。うち しずかのもり 約 {sa:.0f} m²",
-          f"築山：頂 +{G['MOUND']['h']} m、裾の広さ 約 {mfoot:.0f} m²、土 約 {mvol:.0f} m³。起伏・土手を足すと盛る土は 約 {NUM['fill']:.0f} m³",
+          f"築山：頂 +{G['MOUND']['h']} m、裾 約 {mfoot:.0f} m²、土 約 {mvol:.0f} m³。大地：小川の東の岸 GL±0 から境へ 1:{1 / G['DAICHI']['slope']:.0f}（+{G['DAICHI']['h_max']:.1f} で頭打ち、北側は上げない）、てんぐのたには谷の底 GL±0（谷へ 1:{G['DAICHI']['valley']['bank']:.0f}、真ん中に峠 +{G['DAICHI']['valley']['pass']['h']}）、その南東は境に石積み。境の溝（破線、仮定）は谷の両端の口と川沿いへ。起伏・土手・大地を足して盛る土 約 {CALC['soil']['fill_m3']} m³",
           f"　→ おくのもりへの上り（最大 +0.7）・かぜのもりの林床・土手 +1.0 も含めて締め固め 約 {CALC['soil']['fill_m3']} m³。運び込まない。本館の床は床下空間（根切り GL−0.6、ユーザー）で、掘る土は 約 {CALC['soil']['total_cut_m3']} m³（本館 約 {CALC['soil']['honkan_cut_m3']}、西館ほか 約 {CALC['soil']['west_cut_m3']}、園庭 約 {CALC['soil']['garden_cut_m3']}）",
           f"小川：地上の長さ 約 {s_len:.0f} m、みなもとの小さな滝（落差 約0.45）から、川床は滝壺 +0.05 → −0.40（地面から0.15以上下げる）。水深 3〜5 cm で 約 {CALC['stream']['rows'][0]['Q_Ls']:.0f}〜{CALC['stream']['rows'][1]['Q_Ls']:.0f} L/s（流れ 0.3〜0.4 m/s）。用水路の口の堰板で加減、大雨は水門を閉じる",
           f"木 {len(G['TREES'])} 本（{len(_cnt)} 種）。噴水の夏の日陰（7 月下旬）：9 時 {CALC['fountain_shade_jul'][0]['shaded']:.0%}、10〜13 時 約 {sum(r['shaded'] for r in CALC['fountain_shade_jul'][1:5]) / 4:.0%}（南東のケヤキ）、15 時 {CALC['fountain_shade_jul'][6]['shaded']:.0%}、16 時 {CALC['fountain_shade_jul'][7]['shaded']:.0%}（本館の影）。休むのは縁側の庇の下",
