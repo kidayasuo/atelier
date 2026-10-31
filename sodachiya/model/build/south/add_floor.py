@@ -65,10 +65,13 @@ HON_U0, HON_US, HON_U1, HON_V0, HON_V1, HON_K = 51.6, 51.9, 57.0, -0.2, 0.75, 0.
 _HON_COLS=unary_union([_box(53.91,-0.3,54.09,0.28),_box(56.91,-0.3,57.09,0.28)])
 _hon_uv=lambda u0_,u1_,v1_,v0_=-0.199: _box(u0_,v0_,u1_,v1_).difference(_HON_COLS)
 inner=inner.difference(_hon_uv(HON_U0,HON_U1,HON_V1))
+_n0=len(m.Objects)                                              # 10-31：杉の床板の絵の向き（add_south.py の tex_tag）。床組は v、内縁側は u
 _uvslab(inner,-450,-10,L_fl)                                    # 床組（上面 −10、色付きの室の板 0〜10 の下）
 _uvslab(_hon_uv(HON_U0,HON_US,HON_V1-HON_K),-450,-160,L_fl)   # 本の奥の溝の南の段（−150）
 _uvslab(_hon_uv(HON_US,HON_U1,HON_V1-HON_K),-450,-310,L_fl)   # 本の奥の溝の底（−300）
+tex_tag(_n0,'v'); _n0=len(m.Objects)
 _uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kaiK).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
+tex_tag(_n0,'u')
 _uvslab(_kai,-450,-150,L_kai)
 # 框：曲線の杉（見付 60、−150〜0）。はだしの床と色・素材を変える（間仕切り・框のレイヤー 91 → 38、杉板）。輪郭の押し出し
 L_kmc=layer('91_しつらえ_間仕切り・框・腰壁',(200,185,160))
@@ -194,13 +197,17 @@ for s0,s1,name,col in ROOMS:
     an,_=span(s1); _,as_=span(s0)
     g=quad(RC,RK,an,as_,20)
     if name=='ホール': g=g.difference(kaiK)
+    _n0=len(m.Objects)
     for gg in getattr(g,'geoms',[g]): slab(gg,0,10,li)
+    if not name.startswith('便所'): tex_tag(_n0,'v')            # 杉の床板は v（便所・倉庫は磁器タイル）
     areas[name]=areas.get(name,0)+g.area/1e6
 _hon=lambda u0_,u1_,v0_=HON_V0: Polygon([tuple(_chord(u,v)) for u,v in _dense(_hon_uv(u0_,u1_,HON_V1-HON_K,v0_).exterior)])
+_n0=len(m.Objects)
 strip=quad(RK,RO,TH[0],span(5)[1],60).difference(kai).difference(_hon(HON_U0,HON_U1,-0.25))   # 西の端は外壁の内面（RO）の外まで抜く（細い残りを作らない）
 for g in getattr(strip,'geoms',[strip]):
     if g.area>1e5: slab(g,0,10,L_cor)
 slab(_hon(HON_U0,HON_US),-150,-140,L_cor); slab(_hon(HON_US,HON_U1),-300,-290,L_cor)   # 本の奥の溝：室の板は溝の底へ（面積は同じ）
+tex_tag(_n0,'u')                                                 # 西吹き抜け（南北に長い通り）は u
 m.Write(OUT,8)
 sp=lambda s: quad(RG,RC,*span(s)).area/1e6
 print({k:round(v,1) for k,v in areas.items()},'内縁側 1 スパン',round(sp(10),2),'m2','あまのがわ',round(kai.area/1e6,1),'框',round(_kam.area,2))
