@@ -21,7 +21,8 @@ LAY = {}
 # ほかの物はみな閉じた立体（91 等高線・98 等高線の板は線のまま、90 地形・92 水・99 雨の川はメッシュのまま）
 NAMES = {90: ("90_園庭_地形（GL からの起伏、メッシュ）", (196, 186, 150)), 91: ("91_園庭_等高線（0.2 m、名前に高さ）", (138, 122, 92)),
          "90l": ("90l_園庭_線（中心線・輪郭・道すじ。開いたときは消す）", (120, 120, 120)),
-         92: ("92_園庭_水（小川の溝と水面・滝壺の水面）", (76, 141, 184)), "92s": ("92s_園庭_雨庭の玉石（洲浜、白）", (222, 218, 206)), 93: ("93_園庭_小屋（便所・倉庫・コンポストの間）", (155, 118, 83)),
+         92: ("92_園庭_水（小川の水・滝壺の水）", (76, 141, 184)), "92s": ("92s_園庭_雨庭の玉石（洲浜、白）", (222, 218, 206)),
+         "92b": ("92b_園庭_小川の川床（溝の底と岸・滝壺の器、玉石）", (140, 136, 126)), 93: ("93_園庭_小屋（便所・倉庫・コンポストの間）", (155, 118, 83)),
          94: ("94_園庭_木の幹（円柱、名前＝種類）", (111, 100, 80)), "94c": ("94c_園庭_樹冠（葉、名前＝種類、柳の家）", (111, 143, 87)), "94g": ("94g_園庭_草（年中行事の草・てんぐのたにのシャガ、h0.3の塊、葉）", (150, 175, 100)),
          "94b": ("94b_園庭_低木（葉、ヤマブキの株、扁平な半球）", (170, 160, 80)),
          95: ("95_園庭_遊び場（砂場の砂・粒の遊び場の粒）", (168, 142, 88)),
@@ -317,9 +318,41 @@ def trough(cl, half, k, name, water=None, top=None):
         wm.Normals.ComputeNormals(); m.Objects.AddMesh(wm, at(92, name + "の水面"))
 
 
+def water_body(cl, half, top, bot, name):
+    """小川の水（10-31 ユーザー：レイトレースで水に見えるように）：溝に沿う閉じた薄い立体（メッシュ）。
+    上面は川床+top、下面は川床+bot、幅は溝の岸から 3 mm 内（岸・川床の面と重ねない）。法線は外向き"""
+    V = []
+    for i, (a, d, zb) in enumerate(cl):
+        j = min(i + 1, len(cl) - 1); h = max(i - 1, 0)
+        ta, td = cl[j][0] - cl[h][0], cl[j][1] - cl[h][1]; ln = math.hypot(ta, td) or 1
+        na, nd = -td / ln, ta / ln
+        for sa, zz in ((-half, top), (half, top), (half, bot), (-half, bot)):
+            q = P3(a + na * sa, d + nd * sa, zb + zz); V.append((q.X, q.Y, q.Z))
+    F = []
+    for i in range(len(cl) - 1):
+        for c in range(4):
+            c1 = (c + 1) % 4; F.append((4 * i + c, 4 * i + c1, 4 * (i + 1) + c1, 4 * (i + 1) + c))
+    n = len(cl) - 1
+    F.append((3, 2, 1, 0)); F.append((4 * n, 4 * n + 1, 4 * n + 2, 4 * n + 3))
+    P_ = np.array(V); vol = 0.0
+    for f in F:
+        for t in ((f[0], f[1], f[2]), (f[0], f[2], f[3])):
+            vol += np.dot(P_[t[0]], np.cross(P_[t[1]], P_[t[2]])) / 6
+    if vol < 0:
+        F = [f[::-1] for f in F]
+    wm = r.Mesh()
+    for v in V:
+        wm.Vertices.Add(*v)
+    for f in F:
+        wm.Faces.AddFace(*f)
+    wm.Normals.ComputeNormals(); wm.Compact(); m.Objects.AddMesh(wm, at(92, name))
+
+
 s = G["STREAM"]
 bed = gc.stream_bed(240)
-trough(bed, 0.25, 92, "小川（幅 0.5、底は平ら、岸は急）", water=0.04)
+# 10-31（ユーザー：小川が茶色い）：溝（川床と岸）は 92b（玉石）、水は 92 に溝の幅いっぱいの閉じた薄い立体（水深 0.04）
+trough(bed, 0.25, "92b", "小川の溝（幅 0.5、底は平ら、岸は急。川床と岸）")
+water_body(bed, 0.25 - 0.003, 0.04, 0.003, "小川の水（幅 0.5、水深 0.04、閉じた薄い立体）")
 m.Objects.AddPolyline(r.Polyline([P3(a, d, z) for a, d, z in bed]), at("90l", "小川の川床（中心線）"))
 FL = s.get("fall")
 if FL:
@@ -327,12 +360,13 @@ if FL:
     pa, pd = pc["c"]
     for k_, (fa, fd, fz) in enumerate([(la, ld, lz), (la + (pa - la) * 0.45, ld + (pd - ld) * 0.45, lz - 0.25)]):
         box(fa - 0.35, fa + 0.35, fd - 0.2, fd + 0.2, fz - 0.15, fz, 96, f"滝の落ち口の平たい石 {k_ + 1}（落差約0.45）")
-    disk = r.Mesh(); cpt = P3(pa, pd, pc["bed"] + 0.12); disk.Vertices.Add(cpt.X, cpt.Y, cpt.Z)
-    for q in np.linspace(0, 2 * math.pi, 33):
-        v = P3(pa + pc["r"] * math.cos(q), pd + pc["r"] * math.sin(q), pc["bed"] + 0.12); disk.Vertices.Add(v.X, v.Y, v.Z)
-    for i in range(1, 33):
-        disk.Faces.AddFace(0, i, i + 1)
-    disk.Normals.ComputeNormals(); m.Objects.AddMesh(disk, at(92, "滝壺の水面（φ1.0、深さ 0.15）"))
+    # 10-31：滝壺の水は閉じた円柱（底から 3 mm 上〜底+0.12、器の壁から 3 mm 内）
+    import sys as _sys0
+    _sys0.path.insert(0, os.path.join(gc.ROOT, "model", "build", "south"))
+    import katachi as _KT0
+    _x, _y = gc.X(pa, pd)
+    _KT0.add(m, _KT0.enchu((_x * 1000, _y * 1000, (pc["bed"] + 0.003) * 1000 + GL), (_x * 1000, _y * 1000, (pc["bed"] + 0.12) * 1000 + GL),
+                           (pc["r"] - 0.003) * 1000), LAY[92], name="滝壺の水面（φ1.0、深さ 0.15、水は閉じた円柱）")
     # 10-31：地形を切り欠いたので、滝壺の器（地面の縁から底まで の壁と、底）を足す
     bas = r.Mesh(); _n = 32
     for q in np.linspace(0, 2 * math.pi, _n + 1)[:-1]:
@@ -342,7 +376,7 @@ if FL:
     for k_ in range(_n):
         k1 = (k_ + 1) % _n
         bas.Faces.AddFace(2 * k_, 2 * k1, 2 * k1 + 1, 2 * k_ + 1); bas.Faces.AddFace(2 * k_ + 1, 2 * k1 + 1, ic)
-    bas.Normals.ComputeNormals(); m.Objects.AddMesh(bas, at(92, "滝壺（φ1.0、石組みの器）"))
+    bas.Normals.ComputeNormals(); m.Objects.AddMesh(bas, at("92b", "滝壺（φ1.0、石組みの器）"))
     curve_ad(ell((pa, pd), (pc["r"], pc["r"])), "90l", "滝壺（輪郭）", close=True)
 curve_ad(s["culvert"], "90l", "暗渠（用水路→みなもと、道すじ）", z=-0.6, drape=False)
 am = G["AMAOCHI"]

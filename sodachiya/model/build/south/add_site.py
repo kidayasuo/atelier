@@ -144,6 +144,10 @@ FP = _uu([f for f in FP if f is not None and not f.is_empty]).buffer(30, join_st
 FP = _uu([_Pg(g.exterior, [h for h in g.interiors if _Pg(h).area >= 5e5]) for g in getattr(FP, 'geoms', [FP]) if g.geom_type == 'Polygon'])
 GT = [_plan(o.Geometry) for o in m.Objects if _code(o) == '90']
 GT = _uu([f for f in GT if f is not None and not f.is_empty]) if GT else _Pg()
+# 10-31（園庭、ユーザー：小川が茶色い）：地形90は小川・雨の川の溝・滝壺・雨庭・砂場を切り欠いたので、その穴に受け皿の土が入って
+# 水面と溝を覆っていた。地形の穴は埋めた外形で、溝の端（護岸の溝へ）は水・溝・雨の川（92・92b・92s・99）の平面の写しも足して引く
+GT = _uu([_Pg(g.exterior) for g in getattr(GT, 'geoms', [GT]) if g.geom_type == 'Polygon'] +
+         [f for f in (_plan(o.Geometry) for o in m.Objects if _code(o) in ('92', '92b', '92s', '99')) if f is not None and not f.is_empty])
 PK = [_Pg([[o.Geometry.Point(i).X, o.Geometry.Point(i).Y] for i in range(o.Geometry.PointCount)]).buffer(0)
       for o in m.Objects if _code(o) == '01' and isinstance(o.Geometry, r.PolylineCurve)]
 PK = min(PK, key=lambda q: q.centroid.y) if PK else _Pg()          # 01の二つの外形のうち南が公園（北は駐車場）

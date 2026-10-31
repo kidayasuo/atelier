@@ -51,7 +51,7 @@ A0 = {k: unary_union(v) for k, v in FP.items()}          # 床の板そのもの
 GW = []
 for o in m.Objects:
     ln = LAY[o.Attributes.LayerIndex].Name
-    if re.match(r'^(92|92s|99)_園庭', ln):
+    if re.match(r'^(92|92b|92s|99)_園庭', ln):
         T = tris(o.Geometry)
         if len(T): GW.append(unary_union([Polygon(t[:, :2]).buffer(0) for t in T]))
 # 壁（上から見た形）：外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38
