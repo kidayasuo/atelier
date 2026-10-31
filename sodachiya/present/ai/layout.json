@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-31 09:54",
+"generated": "2026-10-31 10:11",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -53049,6 +53049,20 @@
 "frame": "top",
 "parts": [
 {
+"id": "p3.link.27a_平面図_1階_部屋の色",
+"name": "図 27a_平面図_1階_部屋の色.pdf",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/27a_平面図_1階_部屋の色.pdf",
+"x": 0,
+"y": -0.0,
+"w": 841.0,
+"h": 594.0,
+"clip": null,
+"scale": 1.0,
+"page": 1
+},
+{
 "id": "p3.link.sodachiya_plan1F_1-100",
 "name": "図 平面図　1階（線）",
 "kind": "link",
@@ -78619,6 +78633,20 @@
 "no": 4,
 "frame": "top",
 "parts": [
+{
+"id": "p4.link.27b_平面図_2階_部屋の色",
+"name": "図 27b_平面図_2階_部屋の色.pdf",
+"kind": "link",
+"layer": "図",
+"file": "present/sozai/27b_平面図_2階_部屋の色.pdf",
+"x": 0,
+"y": -0.0,
+"w": 841.0,
+"h": 594.0,
+"clip": null,
+"scale": 1.0,
+"page": 1
+},
 {
 "id": "p4.link.sodachiya_plan2F_1-100",
 "name": "図 平面図　2階（線）",

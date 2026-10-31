@@ -22,6 +22,8 @@
 | 09 | `09_一日の帯_延長保育.pdf` | 一日の帯　延長保育（小さな配置1/700） | 2枚目 | 109×150 | 2026-10-31 09:49 |  |
 | 16 | `16_透視図.pdf` | 透視図（A4） | 5枚目 | 297×210 | 2026-10-30 01:01 | Rhino のレンダリング（rhino/out/me.png） |
 | 22 | `22_樹木.pdf` | 樹木（1/400） | 2枚目 | 170×153 | 2026-10-31 09:49 |  |
+| 27a | `27a_平面図_1階_部屋の色.pdf` | 平面図　1階　1/100　部屋の色（塗りだけ、ベクター） | 3枚目 | 841×594 | 2026-10-31 10:10 | Rhinoの線（drawings_rhino/sodachiya_plan1F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan1F_1-100.pdfから |
+| 27b | `27b_平面図_2階_部屋の色.pdf` | 平面図　2階　1/100　部屋の色（塗りだけ、ベクター） | 4枚目 | 841×594 | 2026-10-31 10:10 | Rhinoの線（drawings_rhino/sodachiya_plan2F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan2F_1-100.pdfから |
 
 ## ほかの係の図（元のPDFをそのまま使う）
 
@@ -39,7 +41,9 @@
 | 2枚目 | `present/sozai/21a_居場所_読書.pdf` | 全体 | 1.45 倍 |
 | 2枚目 | `present/sozai/21b_居場所_遊戯室の箱.pdf` | 全体 | 1.37 倍 |
 | 2枚目 | `present/sozai/26_遊戯室_平面_文字なし.pdf` | 全体 | 0.63 倍 |
+| 3枚目 | `present/sozai/27a_平面図_1階_部屋の色.pdf` | 全体 | 1.00 倍 |
 | 3枚目 | `drawings_rhino/sodachiya_plan1F_1-100.pdf`＋`drawings/sodachiya_plan1F_1-100_文字.pdf`（上に重ねる） | 全体 | 1.00 倍 |
+| 4枚目 | `present/sozai/27b_平面図_2階_部屋の色.pdf` | 全体 | 1.00 倍 |
 | 4枚目 | `drawings_rhino/sodachiya_plan2F_1-100.pdf`＋`drawings/sodachiya_plan2F_1-100_文字.pdf`（上に重ねる） | 全体 | 1.00 倍 |
 | 5枚目 | `drawings_rhino/sodachiya_elevations_1-100.pdf`＋`drawings/sodachiya_elevations_1-100_文字.pdf`（上に重ねる） | 切り抜き (25, 36)–(788, 143) mm | 1.00 倍 |
 | 5枚目 | `drawings_rhino/sodachiya_elevations_1-100.pdf`＋`drawings/sodachiya_elevations_1-100_文字.pdf`（上に重ねる） | 切り抜き (25, 200)–(788, 309) mm | 1.00 倍 |

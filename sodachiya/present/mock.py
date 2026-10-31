@@ -730,6 +730,79 @@ def _rhino_of(src, pageno, clip):
     return rp_, tp_
 
 
+RHINO_TXT_MIE = {}  # (枚, embeds の番号) → 見本で重ねる文字の層（表題・注・枠を抜いた写し、present/out/）。.ai の部品は元の文字の層のまま
+SOZAI_PDF = []      # 素材のうち、mock.py が元のPDFから取り出して直に書く物：(番号, 中身, ファイル名, 枚, 注)
+
+
+def _heya_nuri(auto, moji, out):
+    """更新係の自動の平面図 auto から、部屋の塗り（ROOM の色の面）だけをベクターのまま取り出して out に（10-31、ユーザー）。
+    Rhino の線には塗りが無いので、線の下に敷く。文字の層 moji の凡例の色見本（同じ色・同じ場所）は除く。同じ紙・同じ位置"""
+    hx_ = lambda c_: tuple(int(c_[k:k + 2], 16) / 255 for k in (1, 3, 5))
+    cols_ = {tuple(round(v, 3) for v in hx_(c_)) for c_ in ROOM.values()}
+    key_ = lambda d_: tuple(round(v, 3) for v in d_["fill"])
+    leg_ = [(key_(d_), d_["rect"]) for d_ in fitz.open(moji)[0].get_drawings() if d_.get("fill") and key_(d_) in cols_]
+    sp_ = fitz.open(auto)[0]
+    nd_ = fitz.open()
+    pg_ = nd_.new_page(width=sp_.rect.width, height=sp_.rect.height)
+    n_, used_ = 0, set()
+    for d_ in sp_.get_drawings():
+        if d_["type"] != "f" or not d_.get("fill") or key_(d_) not in cols_:
+            continue
+        if any(k_ == key_(d_) and abs(r_.x0 - d_["rect"].x0) < 0.5 and abs(r_.y0 - d_["rect"].y0) < 0.5 and abs(r_.x1 - d_["rect"].x1) < 0.5 for k_, r_ in leg_):
+            continue                                   # 凡例の色見本
+        sh_ = pg_.new_shape()
+        for it_ in d_["items"]:
+            if it_[0] == "l":
+                sh_.draw_line(it_[1], it_[2])
+            elif it_[0] == "c":
+                sh_.draw_bezier(it_[1], it_[2], it_[3], it_[4])
+            elif it_[0] == "re":
+                sh_.draw_rect(it_[1])
+            elif it_[0] == "qu":
+                sh_.draw_quad(it_[1])
+        sh_.finish(fill=d_["fill"], color=None, width=0, even_odd=bool(d_.get("even_odd")), closePath=bool(d_.get("closePath", True)),
+                   fill_opacity=d_.get("fill_opacity") or 1.0)
+        sh_.commit()
+        n_ += 1
+        used_.add(key_(d_))
+    nd_.save(out, garbage=3, deflate=True)
+    miss_ = used_ - {k_ for k_, _ in leg_}
+    print("部屋の塗り", os.path.basename(out), n_, "面", len(used_), "色", "凡例に無い色 " + str(sorted(miss_)) if miss_ else "（色はすべて凡例にある）")
+    return out
+
+
+def _moji_mie(moji, out, x_max=280.0, top=31.0, bottom=580.0):
+    """文字の層の写しから、左上の表題・注（上から top mm より上）と左下の作図の注（bottom mm より下）と、紙の縁の枠（6 mm）を抜く。
+    見本の上の帯（表題）と枠に重ならないように（10-31、ユーザー）。drawings/ の元は書き換えない"""
+    import re as _re
+    d_ = fitz.open(moji)
+    pg_ = d_[0]
+    ph_ = pg_.rect.height
+    xr_ = pg_.get_contents()
+    s_ = b"".join(d_.xref_stream(x_) for x_ in xr_).decode("latin1")
+    n0_ = len(s_)
+
+    def _t(m_):
+        x_, y_ = float(m_.group(1)) / MM, (ph_ - float(m_.group(2))) / MM
+        return "" if x_ < x_max and (y_ < top or y_ > bottom) else m_.group(0)
+    s_ = _re.sub(r"q\n1 0 -0 1 ([-\d.]+) ([-\d.]+) cm\nBT\n.*?ET\nQ\n", _t, s_, flags=_re.S)
+    nf_ = []
+
+    def _f(m_):
+        if abs(float(m_.group(1)) / MM - 6) < 0.3 and abs(float(m_.group(2)) / MM - 6) < 0.3:
+            nf_.append(1)
+            return "\n"
+        return m_.group(0)
+    s_ = _re.sub(r"\n([-\d.]+) ([-\d.]+) m\n([-\d.]+) \2 l\n\3 ([-\d.]+) l\n\1 \4 l\n\1 \2 l\nh\n\nS\n", _f, s_)
+    nf_ = len(nf_)
+    d_.update_stream(xr_[0], s_.encode("latin1"))
+    for x_ in xr_[1:]:
+        d_.update_stream(x_, b"")
+    d_.save(out, garbage=3, deflate=True)
+    print("見本の文字の層", os.path.basename(out), "抜いた字数", n0_ - len(s_), "枠", nf_)
+    return out
+
+
 DWG = {}            # (枚, embeds の番号) → 課題の要求の図面（文字と寸法をIllustratorの部品にする、ユーザー 10-29 0:16）
 
 
@@ -2614,7 +2687,12 @@ PLAN1F = os.path.join(DRW, "sodachiya_plan1F_1-100.pdf")
 PLAN2F = os.path.join(DRW, "sodachiya_plan2F_1-100.pdf")
 PLAN_RHINO_SHEETS = os.path.exists(PLAN1F) and os.path.exists(PLAN2F)
 if PLAN_RHINO_SHEETS:
+    # 部屋の色（10-31、ユーザー）：Rhino の線には塗りが無いので、更新係の自動の図（同じ紙・同じ位置）から部屋の塗りだけを素材 27a に取り出し、線の下に敷く
+    HEYA1 = _heya_nuri(PLAN1F, PLAN1F[:-4] + "_文字.pdf", os.path.join(HERE, "sozai", "27a_平面図_1階_部屋の色.pdf"))
+    SOZAI_PDF.append(("27a", "平面図　1階　1/100　部屋の色（塗りだけ、ベクター）", HEYA1, 3, "Rhinoの線（drawings_rhino/sodachiya_plan1F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan1F_1-100.pdfから"))
+    embed(3, HEYA1, None, 0, 0, 1.0)
     embed(3, PLAN1F, None, 0, 0, 1.0, dwg=("plan", "平面図　1階"))
+    RHINO_TXT_MIE[(3, len(embeds[3]) - 1)] = _moji_mie(PLAN1F[:-4] + "_文字.pdf", os.path.join(OUT, "_plan1F_文字_見本.pdf"))
 else:
     MAWARI3 = _mawari(os.path.join(HERE, "sozai", "24_平面図の周り_1階.pdf"))
     embed(3, MAWARI3, None, 0, 0, 1.0)                # 平面図の下（先に置いた物が下）
@@ -3333,7 +3411,11 @@ CLIP_2F = (12, 20, 394, 298)
 CLIP_2F_ST = [(12, 20, 394, 90), (12, 90, 378, 150), (12, 150, 323, 220), (12, 220, 258, 298)]
 _EX2 = [(c_[2], c_[1], CLIP_2F[2], c_[3]) for c_ in CLIP_2F_ST[1:]]
 if PLAN_RHINO_SHEETS:                             # Rhino の2階の図を紙いっぱいに（3枚目と同じ位置・同じ大きさ）
+    HEYA2 = _heya_nuri(PLAN2F, PLAN2F[:-4] + "_文字.pdf", os.path.join(HERE, "sozai", "27b_平面図_2階_部屋の色.pdf"))   # 部屋の色（3枚目と同じ）
+    SOZAI_PDF.append(("27b", "平面図　2階　1/100　部屋の色（塗りだけ、ベクター）", HEYA2, 4, "Rhinoの線（drawings_rhino/sodachiya_plan2F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan2F_1-100.pdfから"))
+    embed(4, HEYA2, None, 0, 0, 1.0)
     embed(4, PLAN2F, None, 0, 0, 1.0, dwg=("plan2", "平面図　2階"))
+    RHINO_TXT_MIE[(4, len(embeds[4]) - 1)] = _moji_mie(PLAN2F[:-4] + "_文字.pdf", os.path.join(OUT, "_plan2F_文字_見本.pdf"))
 else:
     for _i2, _c2 in enumerate(CLIP_2F_ST):
         embed(4, PLAN3, _c2, _c2[0] + P2_DX, H - (_c2[3] + P2_DY), 1.0, dwg=("plan2", "平面図　2階"),
@@ -3375,7 +3457,7 @@ for si in range(1, 7):
         dr = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
         pg.show_pdf_page(dr, sd, pno, clip=cr)
         if (si, k_e) in RHINO_TXT:                     # Rhino の線の上に文字と寸法
-            pg.show_pdf_page(dr, fitz.open(RHINO_TXT[(si, k_e)]), pno, clip=cr)
+            pg.show_pdf_page(dr, fitz.open(RHINO_TXT_MIE.get((si, k_e), RHINO_TXT[(si, k_e)])), pno, clip=cr)   # 3・4枚目は表題・注・枠を抜いた写し
     if si in FRAME_TOP:                                # 紙いっぱいの図（4枚目の平面図、白い地）の上に枠を重ねる（.ai も枠をその図の上のレイヤーに、10-29）
         pg.draw_rect(fitz.Rect(M * MM, M * MM, (W - M) * MM, (H - M) * MM), color=(0.133, 0.133, 0.133), width=0.6)
         pg.draw_line(fitz.Point(M * MM, (M + HDR) * MM), fitz.Point((W - M) * MM, (M + HDR) * MM), color=(0.133, 0.133, 0.133), width=0.4)
@@ -3485,6 +3567,14 @@ for key, name, gr_nm, note in SOZAI_FILES:                    # 配置図の三�
     old = _st.get(fn, {})
     _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
     _rows.insert(len([r_ for r_ in _rows if r_.startswith("| 01")]), f"| {key} | `{fn}` | {name} | 1枚目 | {bsw:.0f}×{bsh:.0f}（見本は{sw:.0f}×{sh:.0f}で切り抜き） | {_st[fn]['updated']} | {note} |")
+for key, name, fp_, sh_, note in SOZAI_PDF:                   # 元のPDFから取り出して直に書いた素材（27a・27b 部屋の色）
+    fn = os.path.basename(fp_)
+    SOZFN[key] = fn
+    _pr = fitz.open(fp_)[0].rect
+    hs = hashlib.md5(fitz.open(fp_)[0].get_pixmap(dpi=40).samples).hexdigest()
+    old = _st.get(fn, {})
+    _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
+    _rows.append(f"| {key} | `{fn}` | {name} | {sh_}枚目 | {_pr.width / MM:.0f}×{_pr.height / MM:.0f} | {_st[fn]['updated']} | {note} |")
 for _old in ("01_配置図_1-200.pdf", "01e_配置図_1-200_太陽.pdf"):          # 太陽の素材（空）は外す（ユーザー、10-26夕）
     if os.path.exists(os.path.join(SZ, _old)):
         os.remove(os.path.join(SZ, _old))
