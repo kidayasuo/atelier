@@ -42,6 +42,33 @@ CONTEXT_COLOR = System.Drawing.Color.FromArgb(0xD9, 0xD6, 0xCF)  # 周りの建�
 CONTEXT_LAYER = u"04_周辺_建物"
 TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする名前（mock.py が空を塗る）。ほかは淡い空で不透明
 
+# 教室・居場所（room_）の昼の光（ユーザー 10-31：太陽が屋根の無い上から差して、本来ない影ができる）
+#   「散乱光」：太陽を消し、スカイライトだけ（曇りの日の柔らかい光、影はほとんど出ない）
+#   「窓の光」：太陽を消し、部屋の東の外（窓）と西の外（吹き抜けの側）に面の光源を立て、弱いスカイライトを足す。
+#     光源は壁の外にあるので、光は窓・開口から入る（壁で止まる）。
+ROOM_LIGHTS = [u"散乱光（曇りの日の柔らかい光、影がほとんど出ない）", u"窓の光（東の窓と西の吹き抜けから、弱い散乱光を足す）"]
+ROOM_SKY = 1.0                                  # 散乱光のスカイライトの強さ（暗ければ 1.5〜2、白く飛べば 0.6）
+ROOM_SKY_WIN = 0.25                             # 窓の光のときの散乱光（陰が真っ黒なら 0.4、窓の光が目立たなければ 0.1）
+WIN_E_POWER = 1.0                               # 東の窓の面の光源の強さ（暗ければ 2〜5、白く飛べば 0.3〜0.5）
+WIN_W_POWER = 0.5                               # 西の吹き抜けの側の面の光源の強さ
+WIN_OUT = 1000.0                                # 光源を部屋の辺からどれだけ外に立てるか（mm）
+WIN_Z = (200.0, 2400.0)                         # 光源の下端・上端（FL からの mm、上は room_view.py の CUT）
+WIN_COLOR_E = System.Drawing.Color.FromArgb(255, 246, 232)    # 東：朝のやや暖かい白
+WIN_COLOR_W = System.Drawing.Color.FromArgb(236, 242, 255)    # 西：吹き抜けの上からの、やや青い白
+# 部屋の (u, v) の範囲と本館の (u, v) → (x, y)：room_view.py の ROOMS・xy と同じ（直したら両方）
+_CX, _CY, _RW = 194662.93237, -41348.26335, 205017.7
+_TH_S = math.atan2(-65173.47495 - _CY, -8965.4788 - _CX) % (2 * math.pi)
+ROOM_UV = {u"room_3to5": ((42.0, 48.0), (1.6, 12.0)), u"room_01": ((0.0, 12.0), (1.6, 12.0)),
+           u"room_2": ((11.6, 18.0), (1.6, 12.0)), u"room_dokusho": ((45.0, 57.34), (-0.4, 1.6)),
+           u"room_hako": ((33.3, 44.6), (-15.4, -11.0))}
+
+
+def _uv_xy(u, v):
+    th = _TH_S - u * 1000.0 / _RW
+    r = _RW - v * 1000.0
+    return (_CX + r * math.cos(th), _CY + r * math.sin(th))
+
+
 NAMES = [(u"keikan", u"keikan＝沿川の景観"), (u"me", u"me＝透視図（公園の角）"), (u"choukan", u"choukan＝鳥瞰"),
          (u"room_3to5", u"room_3to5＝4歳の保育室（room_view.py で準備）"), (u"room_01", u"room_01＝0・1歳の保育室"),
          (u"room_2", u"room_2＝2歳の保育室"), (u"room_dokusho", u"room_dokusho＝絵本の通りと本の奥"),
@@ -69,7 +96,7 @@ def stage(*a):
         pass
 
 
-def ask():
+def ask(mode="hiru"):
     """名前と大きさを聞く。やめたら None"""
     import rhinoscriptsyntax as rss
     labels = [l for _, l in NAMES]
@@ -87,7 +114,13 @@ def ask():
     if got is None:
         return None
     size = [s for s, l in SIZES if l == got][0]
-    return name, size
+    light = None
+    if name.startswith(u"room_") and mode == "hiru":
+        light = rss.ListBox(ROOM_LIGHTS, u"部屋の光（昼）", u"レンダリング", ROOM_LIGHTS[0])
+        if light is None:
+            return None
+        light = 0 if light == ROOM_LIGHTS[0] else 1
+    return name, size, light
 
 
 def out_name(name, mode):
@@ -101,11 +134,11 @@ def run(mode):
     doc = sc.doc
     if not os.path.isdir(OUT):
         os.makedirs(OUT)
-    a_ = ask()
+    a_ = ask(mode)
     if a_ is None:
         say(u"やめた")
         return
-    name, size = a_
+    name, size, room_light = a_
     view = doc.Views.ActiveView
     vp = view.ActiveViewport
     cw, ch = vp.Size.Width, vp.Size.Height
@@ -322,6 +355,53 @@ def run(mode):
                 say(u"月明かり：足せなかった")
         except Exception as e:
             say(u"月明かり：効かなかった", e)
+
+    def add_window_lights():
+        """部屋の東の外と西の外に、部屋の中を向く面の光源（led_lights に入れ、終わったら一緒に消す）"""
+        if name not in ROOM_UV:
+            say(u"窓の光：部屋の範囲が分からない（ROOM_UV に無い）。散乱光だけで描く")
+            return
+        (u0, u1), (v0, v1) = ROOM_UV[name]
+        um, vm = (u0 + u1) / 2.0, (v0 + v1) / 2.0
+        G_ = Rhino.Geometry
+        z0, z1 = WIN_Z
+        for side, vv, power, col in ((u"東", v1 + WIN_OUT / 1000.0, WIN_E_POWER, WIN_COLOR_E),
+                                     (u"西", v0 - WIN_OUT / 1000.0, WIN_W_POWER, WIN_COLOR_W)):
+            try:
+                pa, pb = _uv_xy(u0, vv), _uv_xy(u1, vv)
+                c_ = _uv_xy(um, vv)
+                m_ = _uv_xy(um, vm)
+                inward = G_.Vector3d(m_[0] - c_[0], m_[1] - c_[1], 0.0)
+                inward.Unitize()
+                length = G_.Vector3d(pb[0] - pa[0], pb[1] - pa[1], 0.0)
+                width = G_.Vector3d(0.0, 0.0, z1 - z0)
+                if G_.Vector3d.CrossProduct(length, width) * inward < 0:     # 面の表（光る向き）を部屋の側に
+                    pa, pb = pb, pa
+                    length = -length
+                lt = G_.Light()
+                lt.LightStyle = G_.LightStyle.WorldRectangular
+                lt.Location = G_.Point3d(pa[0], pa[1], z0)
+                lt.Length = length
+                lt.Width = width
+                lt.Direction = inward
+                lt.Diffuse = col
+                lt.Intensity = power
+                try:
+                    lt.IsEnabled = True
+                except Exception:
+                    pass
+                try:
+                    lt.Name = u"作業_レンダ_窓の光_" + side
+                except Exception:
+                    pass
+                k_ = doc.Lights.Add(lt)
+                if k_ >= 0:
+                    led_lights.append(doc.Lights[k_].Id)
+                    say(u"窓の光（", side, u"）を置いた：幅", int(length.Length), u"mm、強さ", power)
+                else:
+                    say(u"窓の光（", side, u"）：足せなかった")
+            except Exception as e:
+                say(u"窓の光（", side, u"）：効かなかった", e)
 
     BG_KEYS = ("BackgroundStyle", "BackgroundColorTop", "BackgroundColorBottom")
     bg_old = {}
@@ -560,7 +640,17 @@ def run(mode):
 
     fname = out_name(name, mode)
     try:
-        if mode == "hiru":
+        if mode == "hiru" and room_light is not None:
+            stage(u"部屋の光：", ROOM_LIGHTS[room_light])
+            set_sun(False, DAY)                          # 屋根を隠して切るので、太陽は上から差して本来ない影を作る
+            dim_skylight(ROOM_SKY if room_light == 0 else ROOM_SKY_WIN)
+            if room_light == 1:
+                add_window_lights()
+            sky(SKY_TOP, SKY_BOTTOM, "Gradient")
+            say(u"部屋を描く前：スカイライト", sky_get(), u"／光源", doc.Lights.Count)
+            view.Redraw()
+            capture(fname, False)
+        elif mode == "hiru":
             set_sun(True, DAY)
             transparent = name in TRANSPARENT_DAY
             if not transparent:

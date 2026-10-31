@@ -17,7 +17,7 @@
   4. 書き出し：out/ に、昼の絵と、カメラを書いた <名前>_view.json。名前付きビュー <名前> も残る（同じ視点で昼夜をそろえられる）。
      昼の絵の名前は mock.py が読む名前に合わせる：keikan→keikan_hiru.png（背景は透明、空は mock.py）、
      me→me.png、choukan→choukan.png、その他→<名前>_hiru.png（me・choukan・その他は淡い空で不透明）。
-     11/5 10:00 の太陽、周りの建物（04）を淡い暖かい灰で一時表示。終わったら全部戻す（3dm は保存しなくてよい）。
+     11/5 10:00 の太陽、周りの建物（04）を淡い暖かい灰で一時表示。room_ は太陽を使わず、③部屋の光（散乱光／窓の光）を聞く。終わったら全部戻す（3dm は保存しなくてよい）。
   5. 続けて夜：同じビューのまま（名前付きビューで戻してもよい）render_yoru.py を走らせる。
   6. できたら push：git add sodachiya/present/rhino/out && git commit -m "[プレゼン] レンダリング" && git push
 中身は render_common.py。
