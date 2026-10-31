@@ -12,7 +12,7 @@ from shapely.geometry import Point
 D = pickle.load(open(os.path.join(HERE, '..', 'data', 'wnew.pkl'), 'rb'))
 WS = D.get('WS', D['WN']); ring = WS.exterior
 m = r.File3dm.Read(sys.argv[1]); lay = [l.Name for l in m.Layers]
-COL = {'21_': '#c8a979', '19_': '#7fb3d5', '19b': '#8a6a45', '27_': '#7fb3d5', '19c': '#7fb3d5', '19d': '#7fb3d5'}
+COL = {'21_': '#c8a979', '19_': '#7fb3d5', '19b': '#8a6a45', '27_': '#7fb3d5', '19c': '#7fb3d5', '19d': '#7fb3d5', '19g': '#c9d6de'}
 polys = {k: [] for k in COL}
 def tris(g):
     if isinstance(g, r.Extrusion): g = g.GetMesh(r.MeshType.Any) or None
