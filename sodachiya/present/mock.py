@@ -3514,7 +3514,36 @@ for sp_ in _spans:
     _np += 1
 _live(None, 2, None, None)
 print("遊戯室の平面：文字 %d を部品に" % _np)
-_AXO_TOP = _gy0 + 2 * _cell_h + 10 + 8           # 軸測図のますの上端（題を含む）
+# 娘さんの小さい頃の写真2枚（ユーザー 10-31 14:14：遊戯室の切り株とKAPLAのアイディアはこの写真から。公開してよい）。
+# 切り株は遊戯室の平面の下、KAPLAは教室3〜5歳（KAPLAの箱はデンの前）の軸測図の下の空き。説明は1行（仮の文、木田さんが .ai で直す）。
+# 素材は写真を長辺2000 px以下に縮めたJPEGを貼ったPDF（画質を保つ）。元の写真は sozai/photo/
+PHOTOS2 = [("28a", "写真_切り株のはじまり", "kirikabu_musume.jpg", 5, 70.0, 8.0, "遊戯室の切り株のはじまり：木の幹を組んだ遊具に、はだしで登る"),
+           ("28b", "写真_KAPLAの筒", "kapla_musume.jpg", 0, 62.0, 3.5, "KAPLAの板で自分を囲む。教室のデンの前にKAPLAの箱を")]
+for key_, nm_, src_, ci_, pw_, dy_, cap_ in PHOTOS2:      # dy_：ますの下端から説明の基準線まで（切り株は右下の名前を避けて上へ）
+    sp_ = os.path.join(HERE, "sozai", "photo", src_)
+    if not os.path.exists(sp_):
+        continue
+    from PIL import Image as _PI, ImageOps as _PIO
+    _im = _PIO.exif_transpose(_PI.open(sp_))
+    _icc = _im.info.get("icc_profile")
+    _im = _im.convert("RGB")
+    _im.thumbnail((2000, 2000), _PI.LANCZOS)
+    ph_ = pw_ * _im.size[1] / _im.size[0]
+    fp_ = os.path.join(HERE, "sozai", f"{key_}_{nm_}.pdf")
+    if not os.path.exists(fp_) or os.path.getmtime(fp_) < os.path.getmtime(sp_):
+        import io as _io
+        _bf = _io.BytesIO()
+        _im.save(_bf, "JPEG", quality=92, subsampling=0, **({"icc_profile": _icc} if _icc else {}))
+        _nd = fitz.open()
+        _pg = _nd.new_page(width=pw_ * MM, height=ph_ * MM)
+        _pg.insert_image(_pg.rect, stream=_bf.getvalue())
+        _nd.save(fp_, garbage=3, deflate=True)
+        _nd.close()
+    cx_, cy_ = _cells[ci_]
+    T(ax, cx_, cy_ + dy_, cap_, 2.6)
+    embed(2, fp_, None, cx_, cy_ + dy_ + 5.0, fit=(pw_, ph_))
+    SOZAI_PDF.append((key_, nm_.replace("_", "　") + "（娘さんの小さい頃）", fp_, 2, f"元の写真 sozai/photo/{src_}（長辺2000 px以下のJPEG）。横{pw_:.0f} mm、下に説明1行"))
+_AXO_TOP =_gy0 + 2 * _cell_h + 10 + 8           # 軸測図のますの上端（題を含む）
 
 FIGS[2] = fig
 
