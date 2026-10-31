@@ -51,7 +51,17 @@ ROOMS = [
     (u"room_2", u"room_2＝2歳の保育室", (11.6, 18.0), (1.6, 15.0), u"S"),
     (u"room_dokusho", u"room_dokusho＝絵本の通りと本の奥", (45.0, 57.34), (-0.4, 1.6), u"SE"),
     (u"room_hako", u"room_hako＝遊戯室の西の壁のひだ（箱）", (33.3, 44.6), (-15.4, -11.0), u""),
+    # 10-31（ユーザー）：遊戯室・ホール・水遊び場も。遊戯室の v は −0.9−w（w は東の壁から、data/play.json）
+    (u"room_kirikabu", u"room_kirikabu＝遊戯室の切り株（やわらかい床・洞）", (29.6, 35.8), (-12.0, -4.6), u"SE"),
+    (u"room_catwalk", u"room_catwalk＝遊戯室のキャットウォークと摺鉢ネット", (35.8, 48.2), (-8.3, -0.9), u"SE"),
+    (u"room_hayashi", u"room_hayashi＝ホールの北山杉の林", (21.0, 30.0), (1.6, 15.0), u"S"),
+    (u"room_funsui", u"room_funsui＝水遊び場（床の噴水、3歳の外縁側の前）", (30.8, 37.2), (13.0, 21.2), u""),
 ]
+# 部屋ごとの上の切断の高さ（床から mm）。無ければ CUT
+ROOM_CUT = {u"room_kirikabu": 3300.0,            # 切り株の高さ3.1、2階の床（隠す）の下まで
+            u"room_catwalk": 4500.0,             # キャットウォーク h3.0＋柵1.1
+            u"room_hayashi": 3900.0,             # 林の高い木は梁の下まで（梁は切らない）
+            u"room_funsui": 2400.0}
 CUT = 2400.0            # 水平の切断（床から mm）
 OUT_PAD = 300.0         # 奥の辺は壁の外まで含める（mm）
 IN_PAD = 120.0          # 手前の辺は壁より内側に置いて壁を取り去る（mm）
@@ -221,7 +231,7 @@ def add_clips(doc, vp, name, U, V, near, flip):
     vplane(us, vw, un, vw, um, vm)        # 西
     vplane(us, ve, un, ve, um, vm)        # 東
     c = xy(um, vm)
-    pl = G.Plane(G.Point3d(c[0], c[1], CUT), G.Vector3d(0, 0, -1.0 * s))
+    pl = G.Plane(G.Point3d(c[0], c[1], ROOM_CUT.get(name, CUT)), G.Vector3d(0, 0, -1.0 * s))
     top = doc.Objects.AddClippingPlane(pl, 20000.0, 20000.0, ids, attr)
     made.append(top)
     return [m for m in made if m != System.Guid.Empty], top
@@ -287,7 +297,7 @@ def main():
     st = hide_layers(doc, prefixes, st)
     if how.startswith(u"クリッピング"):
         clips, top = add_clips(doc, vp, name, U, V, near, st.get("flip", False))
-        say(u"クリッピング平面：", len(clips), u"枚（", CLIP_PREFIX + name, u"、上は床から", int(CUT), u"mm）")
+        say(u"クリッピング平面：", len(clips), u"枚（", CLIP_PREFIX + name, u"、上は床から", int(ROOM_CUT.get(name, CUT)), u"mm）")
         st = keep_frames(doc, clips, top, st)
     st["room"] = name
     save_state(st)

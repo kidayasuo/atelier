@@ -68,7 +68,9 @@ _CX, _CY, _RW = 194662.93237, -41348.26335, 205017.7
 _TH_S = math.atan2(-65173.47495 - _CY, -8965.4788 - _CX) % (2 * math.pi)
 ROOM_UV = {u"room_3to5": ((42.0, 48.0), (1.6, 15.0)), u"room_01": ((0.0, 12.0), (1.6, 15.0)),
            u"room_2": ((11.6, 18.0), (1.6, 15.0)), u"room_dokusho": ((45.0, 57.34), (-0.4, 1.6)),
-           u"room_hako": ((33.3, 44.6), (-15.4, -11.0))}
+           u"room_hako": ((33.3, 44.6), (-15.4, -11.0)),
+           u"room_kirikabu": ((29.6, 35.8), (-12.0, -4.6)), u"room_catwalk": ((35.8, 48.2), (-8.3, -0.9)),
+           u"room_hayashi": ((21.0, 30.0), (1.6, 15.0)), u"room_funsui": ((30.8, 37.2), (13.0, 21.2))}
 
 
 def _uv_xy(u, v):
@@ -81,6 +83,8 @@ NAMES = [(u"keikan", u"keikan＝沿川の景観"), (u"me", u"me＝透視図（�
          (u"room_3to5", u"room_3to5＝4歳の保育室（room_view.py で準備）"), (u"room_01", u"room_01＝0・1歳の保育室"),
          (u"room_2", u"room_2＝2歳の保育室"), (u"room_dokusho", u"room_dokusho＝絵本の通りと本の奥"),
          (u"room_hako", u"room_hako＝遊戯室の西の壁のひだ"),
+         (u"room_kirikabu", u"room_kirikabu＝遊戯室の切り株"), (u"room_catwalk", u"room_catwalk＝遊戯室のキャットウォークと摺鉢ネット"),
+         (u"room_hayashi", u"room_hayashi＝ホールの北山杉の林"), (u"room_funsui", u"room_funsui＝水遊び場（床の噴水）"),
          (u"*", u"その他（名前を文字で入れる。例 naibu_4sai）")]
 SIZES = [((3508, 2480), u"A4横 3508×2480"), ((1600, 1200), u"1600×1200（教室・居場所、room_）"), ((4252, 1701), u"横長 2.5:1 4252×1701"),
          (None, u"今のビューの縦横比で長辺4252")]
