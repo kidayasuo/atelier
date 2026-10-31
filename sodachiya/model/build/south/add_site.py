@@ -158,4 +158,9 @@ for g in getattr(SOIL, 'geoms', [SOIL]):
     ns += len(m.Objects) - n0
 print('soil: 建物の外形%.1f m2、園庭の地形%.1f m2、公園%.1f m2 → 受け皿%.1f m2（%d枚）'
       % (FP.area / 1e6, GT.area / 1e6, PK.area / 1e6, SOIL.area / 1e6, ns))
+# 01（公園・駐車場の古い外形の線、最初の敷地のファイルから）は、公園の川の角を探すのに使ったので、ここで消す（10-31 アプローチ係、ユーザー：要る？）。
+# 公園と駐車場は外構の取り込み（70〜79）に形があるので、古い線は重なって紛らわしいだけ
+_del01 = [o.Attributes.Id for o in m.Objects if m.Layers[o.Attributes.LayerIndex].Name.startswith('01_')]
+for _id in _del01: m.Objects.Delete(_id)
+print('removed 01 outlines', len(_del01))
 m.Write(OUT, 8); print('written', OUT, 'river edge from', np.round(uv(*a), 1), 'to', np.round(uv(*b), 1))

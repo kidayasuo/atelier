@@ -94,6 +94,18 @@ def smooth_outline(pts, z=0.0, tol=0.001, corner=15.0):        # 細かい折れ
 def slab_smooth(pts, z0, t, lay):                              # slab() の、輪郭を直線と円弧にした版
     e = up(smooth_outline(pts, z0), t, True)
     if e: m.Objects.AddExtrusion(e, attr(lay))
+def slab_holes(outer, holes, z0, t, lay):                        # 穴のある板：外の輪郭＋内側の輪郭（穴）の押し出し、上へ t（10-31）
+    ox, oy = outer[0]
+    def ring(c):
+        q = [r.Point3d((x - ox) * MM, (y - oy) * MM, 0) for x, y in c]
+        if q[0].DistanceTo(q[-1]) > 1e-6: q.append(q[0])
+        return r.PolylineCurve(q)
+    e = r.Extrusion()
+    ok = e.SetPathAndUp(r.Point3d(ox * MM, oy * MM, z0 * MM), r.Point3d(ox * MM, oy * MM, (z0 + t) * MM), r.Vector3d(0, 1, 0))
+    ok = ok and e.SetOuterProfile(ring(outer), True)
+    for h in holes: ok = ok and e.AddInnerProfile(ring(h))
+    if ok: m.Objects.AddExtrusion(e, attr(lay))
+    else: print("slab_holes failed", lay)
 POSTS = []                                                       # 柱の中心と半径（塀の板を柱の間に納めるため、10-27）
 def post(p, h, s=0.12, lay="72_外構_柱"):
     x, y = p; q = [(x - s / 2, y - s / 2), (x + s / 2, y - s / 2), (x + s / 2, y + s / 2), (x - s / 2, y + s / 2)]
@@ -379,25 +391,8 @@ for _ln, _g in _zones:
         _q = _q.simplify(0.005)
         if not list(_q.interiors):
             slab_smooth(list(_q.exterior.coords)[:-1], 0.0, 0.01, _ln)
-        else:                                                            # 穴のある板は、穴を切る線で分けて穴なしにする
-            from shapely.ops import split as _split
-            from shapely.geometry import LineString as _GL
-            # 切る線は道路に直交する向き（局所の d）で、その穴を持つ一片だけを切る（10-30：世界の x で全部を切ると斜めの細い切れ端ができた）
-            _o = np.array(P(0, 0)); _dd = np.array(P(0, 1)) - _o
-            _pcs = [_q]
-            for _h in _q.interiors:
-                _c = np.array(_GP(_h).representative_point().coords[0])
-                _cut = _GL([tuple(_c - 80 * _dd), tuple(_c + 80 * _dd)])
-                _hp = _GP(_h)
-                _new = []
-                for pc in _pcs:
-                    if any(_GP(i).equals(_hp) or _GP(i).contains(_hp.representative_point()) for i in pc.interiors):
-                        _new += list(_split(pc, _cut).geoms)
-                    else: _new.append(pc)
-                _pcs = _new
-            for _pc in _pcs:
-                for _pp in polys(_pc):
-                    if _pp.area >= 0.05 and not list(_pp.interiors): slab_smooth(list(_pp.simplify(0.005).exterior.coords)[:-1], 0.0, 0.01, _ln)
+        else:                                                            # 穴のある板は、穴を内側の輪郭にした一枚の押し出し（10-31 ユーザー：切った線が図に出る）
+            slab_holes(list(_q.exterior.coords)[:-1], [list(_h.coords)[:-1] for _h in _q.interiors], 0.0, 0.01, _ln)
         GROUND_AREA[_ln] += _q.area
 # 駐車の白線（幅0.1、舗装の上に+0.002）：車室の境の線（車室の長い向き＝道路に沿う向き）
 for (_s0, _s1, _n) in ((7.2, 12.2, 3), (17.7, 22.7, 2)):
