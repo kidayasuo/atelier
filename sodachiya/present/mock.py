@@ -699,6 +699,8 @@ CLIP_C = (430, 244, 812, 377)
 RHINO_DIR = os.path.join(ROOT, "drawings_rhino")
 RHINO_MAP = {   # drawings/ の自動の図 → drawings_rhino/ の名前（zumen.py は drawings/<名前>_views.json の <名前> で書く）
     "sodachiya_plan_1-100.pdf": "sodachiya_plan_1-100.pdf",
+    "sodachiya_plan1F_1-100.pdf": "sodachiya_plan1F_1-100.pdf",          # 3枚目（10-30）
+    "sodachiya_plan2F_1-100.pdf": "sodachiya_plan2F_1-100.pdf",          # 4枚目（10-30）
     "sodachiya_elevations_1-100.pdf": "sodachiya_elevations_1-100.pdf",
     "sodachiya_elevations2_1-100.pdf": "sodachiya_elevations2_1-100.pdf",
     "sodachiya_sections_1-100.pdf": "sodachiya_sections_1-100.pdf",
@@ -1634,6 +1636,12 @@ if SITE_FROM_UPD:
     if np.abs(_dv).max() > 0.3:
         print("配置図：更新係の配置図と向き・縮尺が合わない（", np.round(_dv, 2), "mm）。こちらの描き方のまま")
         SITE_FROM_UPD = False
+# 線は Rhino の配置図 drawings_rhino/sodachiya_siteplan_1-200.pdf（ユーザー 10-30）を _線.pdf の代わりに。紙・位置・向きは _線.pdf と同じ（同じ _xform）。無ければ _線.pdf
+SITE_RHINO = os.path.join(RHINO_DIR, "sodachiya_siteplan_1-200.pdf")
+SITE_RHINO = SITE_RHINO if (SITE_FROM_UPD and os.path.exists(SITE_RHINO)
+                            and tuple(round(v_) for v_ in fitz.open(SITE_RHINO)[0].rect) == tuple(round(v_) for v_ in fitz.open(_SPB + "_線.pdf")[0].rect)) else None
+if SITE_RHINO:
+    RHINO_USED.append("1枚目 sodachiya_siteplan_1-200.pdf（線）")
 if SITE_FROM_UPD:
     _off = _our(_P1) - _thr(_P1)                                  # 向こうの紙をこちらの紙のどこに置くか（左上から mm）
     _pw, _ph = _XJ["paper_mm"]
@@ -1756,7 +1764,7 @@ if SITE_FROM_UPD:
             _fillg(_pg, _BRIDGE, _hx("#F7F7F7"))
             _fillg(_pg, _PARK_R, _hx("#D9E8C6"))                                        # 公園を緑に（ユーザー、10-26夜）
             if _g73a: _fillg(_pg, _ARCH, _hx("#C9DFB0"))                                  # ムベのアーチの範囲を緑に
-        _src = fitz.open(_SPB + suf)
+        _src = fitz.open(SITE_RHINO if (gr == "l" and SITE_RHINO) else _SPB + suf)   # 線は Rhino の図（10-30）、色は更新係の _色.pdf
         _cl = fitz.Rect((_ia[0] - _off[0] + 0.35) * MM, (_ia[1] - _off[1] + 0.35) * MM, (_ia[2] - _off[0] - 0.35) * MM, (_ia[3] - _off[1] - 0.35) * MM)
         _pg.show_pdf_page(fitz.Rect((_iP[0] + 0.35) * MM, (_iP[1] + 0.35) * MM, (_iP[2] - 0.35) * MM, (_iP[3] - 0.35) * MM), _src, 0, clip=_cl)   # 枠の線は入れない
         if gr == "c":
@@ -1879,7 +1887,7 @@ def scalebar_parts(x, y, scale, meters, grp):
 scalebar_parts(sx + 6, sy - 22, 200, 20, "縮尺")
 # 沿川の景観立面　昼・夜 1/300 は2枚目（景観）の下の段へ（ユーザー、10-27夜）
 _lw1 = (LE_T1 - LE_T0) * 1000 / LE_SC; _lh1 = (LE_Z1 - LE_Z0) * 1000 / LE_SC
-SOZAI_FILES = [("01a", "配置図　1/200　線（屋根伏せ・外構・園庭・道・敷地の境）", "線", "色の上、文字の下に置く"),
+SOZAI_FILES = [("01a", "配置図　1/200　線（屋根伏せ・外構・園庭・道・敷地の境）", "線", "色の上、文字の下に置く" + ("。線はRhino（drawings_rhino/sodachiya_siteplan_1-200.pdf）" if SITE_RHINO else "")),
                ("01b", "配置図　1/200　色（屋根・太陽光・光の筋・園庭・水・木）", "色", "いちばん下に置く"),
                ("01c", "配置図　1/200　文字（建物と園庭の名前・道の注・方位のN）", "文字", "いちばん上に置く"),
                ("01d", "配置図　1/200　夏の夜の風と比叡への視線（重ねる層、地は透明）", "風と視線", "文字の上に重ねる"),
@@ -2599,11 +2607,20 @@ def _mawari(path, extra=None, cut=None):
     return path
 
 
-MAWARI3 = _mawari(os.path.join(HERE, "sozai", "24_平面図の周り_1階.pdf"))
-embed(3, MAWARI3, None, 0, 0, 1.0)                # 平面図の下（先に置いた物が下）
-for _i1, _c1 in enumerate(PLAN_1F_CLIPS):
-    embed(3, PLAN3, _c1, _c1[0] + PLAN_SX, H - _c1[3], 1.0, dwg=("plan", "平面図　1階"),
-          dwg_opt=dict(parts_clip=(0, 0, W, H), exclude=PLAN_2F_EX) if _i1 == 0 else dict(noparts=True))
+# 10-30（ユーザー）：3・4枚目は Rhino で生成した図にする。drawings_rhino/sodachiya_plan1F_1-100.pdf（3枚目）・plan2F（4枚目）を紙いっぱいに、
+# 上に drawings/<同名>_文字.pdf（RHINO_MAP と embed が重ねる）。更新係の plan1F・plan2F は 200 pt 左へずらした位置（PLAN_SX）で描いてあり、1階と2階は同じ紙の写し。
+# 周りの描き足し（sozai/24・25）と、一枚の平面図（plan_1-100）の切り抜きは、このフラグで止める（False にすると前のやり方）
+PLAN1F = os.path.join(DRW, "sodachiya_plan1F_1-100.pdf")
+PLAN2F = os.path.join(DRW, "sodachiya_plan2F_1-100.pdf")
+PLAN_RHINO_SHEETS = os.path.exists(PLAN1F) and os.path.exists(PLAN2F)
+if PLAN_RHINO_SHEETS:
+    embed(3, PLAN1F, None, 0, 0, 1.0, dwg=("plan", "平面図　1階"))
+else:
+    MAWARI3 = _mawari(os.path.join(HERE, "sozai", "24_平面図の周り_1階.pdf"))
+    embed(3, MAWARI3, None, 0, 0, 1.0)                # 平面図の下（先に置いた物が下）
+    for _i1, _c1 in enumerate(PLAN_1F_CLIPS):
+        embed(3, PLAN3, _c1, _c1[0] + PLAN_SX, H - _c1[3], 1.0, dwg=("plan", "平面図　1階"),
+              dwg_opt=dict(parts_clip=(0, 0, W, H), exclude=PLAN_2F_EX) if _i1 == 0 else dict(noparts=True))
 FIGS[3] = fig
 
 # ================================================================ 2　ゾーニングと動線・環境（10-30：6枚の2枚目。先生のエスキス 10-30）
@@ -3315,9 +3332,12 @@ P2_DX, P2_DY = _m1["c"] - _m2["c"] + PLAN_SX, _m1["f"] - _m2["f"]
 CLIP_2F = (12, 20, 394, 298)
 CLIP_2F_ST = [(12, 20, 394, 90), (12, 90, 378, 150), (12, 150, 323, 220), (12, 220, 258, 298)]
 _EX2 = [(c_[2], c_[1], CLIP_2F[2], c_[3]) for c_ in CLIP_2F_ST[1:]]
-for _i2, _c2 in enumerate(CLIP_2F_ST):
-    embed(4, PLAN3, _c2, _c2[0] + P2_DX, H - (_c2[3] + P2_DY), 1.0, dwg=("plan2", "平面図　2階"),
-          dwg_opt=dict(parts_clip=CLIP_2F, exclude=_EX2) if _i2 == 0 else dict(noparts=True))
+if PLAN_RHINO_SHEETS:                             # Rhino の2階の図を紙いっぱいに（3枚目と同じ位置・同じ大きさ）
+    embed(4, PLAN2F, None, 0, 0, 1.0, dwg=("plan2", "平面図　2階"))
+else:
+    for _i2, _c2 in enumerate(CLIP_2F_ST):
+        embed(4, PLAN3, _c2, _c2[0] + P2_DX, H - (_c2[3] + P2_DY), 1.0, dwg=("plan2", "平面図　2階"),
+              dwg_opt=dict(parts_clip=CLIP_2F, exclude=_EX2) if _i2 == 0 else dict(noparts=True))
 # 2階で切った平面なので、下に見える本館の屋根伏せ（屋根・太陽光・光の筋・越屋根）と園庭、周り（3枚目と同じ）を薄く（10-30 18:05、ユーザー）。
 # 2階の図（白い地）の上に重ねる一枚の素材（sozai/25）。西館の屋根の範囲には描かない（2階の図のまま）
 _CUT4 = TRP(R20.buffer(0.6)) if R20 is not None else None
@@ -3333,9 +3353,10 @@ def _shita(a_, cl_):
     draw_shape(a_, cl_(TRP(unary_union([x for x in (R10, R35) if x is not None]))), _XID, fc="none", ec="#555555", lw=0.35, z=5.5)
 
 
-MAWARI4 = _mawari(os.path.join(HERE, "sozai", "25_平面図の周り_2階と屋根伏せ.pdf"), extra=_shita, cut=_CUT4)
-embed(4, MAWARI4, None, 0, 0, 1.0)                # 2階の図の上（2階の範囲は抜いてある）
-print("2階の平面図：1階と同じ位置へ %.1f・%.1f mm" % (P2_DX, P2_DY))
+if not PLAN_RHINO_SHEETS:                         # Rhino の2階の図（本館の屋根伏せも線で入っている）だけにして、描き足さない（10-30）
+    MAWARI4 = _mawari(os.path.join(HERE, "sozai", "25_平面図の周り_2階と屋根伏せ.pdf"), extra=_shita, cut=_CUT4)
+    embed(4, MAWARI4, None, 0, 0, 1.0)            # 2階の図の上（2階の範囲は抜いてある）
+print("2階の平面図：Rhino の plan2F を紙いっぱいに" if PLAN_RHINO_SHEETS else "2階の平面図：1階と同じ位置へ %.1f・%.1f mm" % (P2_DX, P2_DY))
 FIGS[4] = fig
 figs[:] = [FIGS[i_] for i_ in range(1, 7)]      # 枚の番号の順（ai_layout は figs の順で p1〜p6）
 
@@ -3487,8 +3508,8 @@ _rows.sort(key=lambda r_: r_.split("|")[1].strip())
 _ext = []
 for sh_ in range(1, 7):
     for k_e, (src, pno, clip, (x, y, w, h)) in enumerate(embeds[sh_]):
-        rel = os.path.relpath(src, ROOT) + (f"`＋`{os.path.relpath(RHINO_TXT[(sh_, k_e)], ROOT)}`（上に重ねる）" if (sh_, k_e) in RHINO_TXT else "")
-        _ext.append(f"| {sh_}枚目 | `{rel}` | {'全体' if clip[0] == 0 and clip[1] == 0 else '切り抜き (%.0f, %.0f)–(%.0f, %.0f) mm' % tuple(clip)} | {w / (clip[2] - clip[0]):.2f} 倍 |")
+        rel = f"`{os.path.relpath(src, ROOT)}`" + (f"＋`{os.path.relpath(RHINO_TXT[(sh_, k_e)], ROOT)}`（上に重ねる）" if (sh_, k_e) in RHINO_TXT else "")
+        _ext.append(f"| {sh_}枚目 | {rel} | {'全体' if clip[0] == 0 and clip[1] == 0 else '切り抜き (%.0f, %.0f)–(%.0f, %.0f) mm' % tuple(clip)} | {w / (clip[2] - clip[0]):.2f} 倍 |")
 json.dump(_st, open(_stp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 open(os.path.join(SZ, "README.md"), "w", encoding="utf-8").write("\n".join([
     "# プレゼンの素材（`present/mock.py`が書き出す）", "",
