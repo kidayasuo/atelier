@@ -90,7 +90,7 @@ def write(g):
     for name, h, e, hh, deg in MN.gates(): _gs.setdefault(name.split("・")[0], []).extend([h, e])
     for name, pts in _gs.items():
         c = np.mean(np.array(pts), axis=0)
-        L("非常用の門 h1.8" if "西" in name else "東の木戸 h0.9", _mw(tuple(c + MN.NRM * 0.9)), "small")
+        L("非常用の門 h1.8" if "西" in name else "東の木戸 h1.2", _mw(tuple(c + MN.NRM * 0.9)), "small")
     # --- 周り（PLATEAU の名前は無いので、課題の所要：道路・河川）
     L("西の道路（歩道なし）", P(55.0, -2.5), "context", along=ROAD)
     L("北西の道路", NC.T(20.0, -2.5), "context", along=_r(NC.t2))

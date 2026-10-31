@@ -165,7 +165,7 @@ RIVER_LAT = koushi.layout()
 koushi.plan(RIVER_LAT, line, lambda pts, fc: poly(pts, fc=fc, ec="none", z=6.3), wood="#6b5a3a", lw=1.4, z=6.2)
 T(RIVER_LAT["P"](45.0, -1.3), "川沿いの柵：木の縦格子 h1.2（クリ）", 4.4, c="#6b5a3a", rot=math.degrees(math.atan2(-RIVER_LAT["t"][1], -RIVER_LAT["t"][0])))
 T(W(-8.3, 5.2), "みなみのさんかく", 6.0, c=C["green"], rot=-32)
-for _n, _h, _e, _hh, _deg in MN.gates():                          # 木戸（東 h0.9）・非常用の門（西 h1.8）
+for _n, _h, _e, _hh, _deg in MN.gates():                          # 木戸（東 h1.2）・非常用の門（西 h1.8）
     _o = MN.leaf_at(_h, _e, _deg)
     line([W(_h[1], _h[0]), W(_e[1], _e[0])], lw=1.4, c=C["wood"], z=7.6)
     line([W(_h[1], _h[0]), W(_o[1], _o[0])], lw=0.3, c=C["wood"], ls=(0, (2, 1.5)), z=7.6)

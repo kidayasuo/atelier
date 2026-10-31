@@ -231,7 +231,21 @@ m.Objects.AddCurve(r.Polyline([P3(W(y, x), 0.005) for x, y in MN.GRASS_RIVER.ext
 for (xy, _a) in MN.footprints():
     m.Objects.AddCurve(r.Circle(P3(W(xy[1], xy[0]), 0.005), MN.EP["d"] / 2 * MM).ToNurbsCurve(), attr(L78))
 # 78 木戸（閉じた位置の扉の板、厚さ 40 の帯として壁で）と柱 120 角
+import math
+L70K = "70k_外構_川沿いの木の縦格子（クリ心材、無塗装）"
+def lattice_leaf(a, b, hh, lay):                                  # 東の木戸の扉：川沿いの柵と同じ木の縦格子（ユーザー 10-31）。上と下の框だけ、格子30×75・すき間0.10以下
+    a = np.array(a, float); b = np.array(b, float); L = float(np.linalg.norm(b - a)); t = (b - a) / L; nn = np.array([-t[1], t[0]])
+    def R(s0, s1, w):
+        return [tuple(a + t * s0 - nn * w / 2), tuple(a + t * s1 - nn * w / 2), tuple(a + t * s1 + nn * w / 2), tuple(a + t * s0 + nn * w / 2)]
+    PK_ = A._D["RIVER_LATTICE"]["picket"]; z0 = A._D["RIVER_LATTICE"]["bottom"]["z"]; rh = A._D["RIVER_LATTICE"]["top"]["h"]
+    slab(R(0, L, 0.09), z0, rh, lay); slab(R(0, L, 0.09), hh - rh, rh, lay)
+    n = max(2, math.ceil((L - PK_["w"]) / (PK_["w"] + PK_["gap"])) + 1); step = (L - PK_["w"]) / (n - 1)
+    for k in range(n): slab(R(k * step, k * step + PK_["w"], PK_["d"]), z0 + rh, hh - 2 * rh - z0, lay)
 for name, h, e, hh, deg in MN.gates():
+    if name.startswith("東"):
+        lattice_leaf(W(h[1], h[0]), W(e[1], e[0]), hh, L70K)
+        hp = W(h[1], h[0]); post(hp, hh + 0.05, 0.12, L70K)
+        continue
     wall([W(h[1], h[0]), W(e[1], e[0])], hh, L78, 0.05)
     hp = W(h[1], h[0]); post(hp, hh + 0.1, 0.12, L78)
 # 79 ハーブの帯（h0.3 の塊）、木（幹と樹冠の円）
