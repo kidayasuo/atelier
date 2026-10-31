@@ -3614,6 +3614,130 @@ for si in range(1, 7):
         pg.insert_text(fitz.Point((M + 4) * MM, (M + HDR_BL) * MM), SCHOOL, fontsize=NAME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
         pg.insert_text(fitz.Point((M + THEME_X) * MM, (M + HDR_BL) * MM), PAGE_TITLES.get(si, ""), fontsize=THEME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
 doc_clean = fitz.open("pdf", doc.tobytes())          # 素材は引き出し線・重ねた文字を入れる前から切り抜く（ユーザー、10-25）
+
+
+def _own_resources(d):
+    """紙ごとに、その紙の中身が使う物だけの Resources を持たせる（10-31、効率化委員会）。
+    matplotlib の PdfPages は全部の紙で一つの Resources を共有するので、素材を切り抜くと6枚分の図・写真・フォントが
+    ファイルごとに入っていた（1つ20〜30 MB）。見え方は変わらない（使わない物を持たないだけ）。"""
+    import re as _re
+    _cats = ("Font", "XObject", "ExtGState", "Pattern", "Shading", "ColorSpace", "Properties")
+    for p in d:
+        cont = b"".join(d.xref_stream(c) or b"" for c in p.get_contents())
+        used = {m.decode("latin-1") for m in _re.findall(rb"/([^\s/\[\]()<>{}%]+)", cont)}
+        t, v = d.xref_get_key(p.xref, "Resources")
+        if t == "xref":
+            rx = int(v.split()[0])
+        elif t == "dict":
+            rx = d.get_new_xref(); d.update_object(rx, v)
+        else:
+            continue
+        parts = []
+        for k in d.xref_get_keys(rx):
+            tk, vk = d.xref_get_key(rx, k)
+            if k not in _cats:
+                parts.append(f"/{k} {vk}")
+                continue
+            if tk == "xref":
+                sx = int(vk.split()[0])
+            elif tk == "dict":
+                sx = d.get_new_xref(); d.update_object(sx, vk)
+            else:
+                parts.append(f"/{k} {vk}")
+                continue
+            keep = [f"/{n} {d.xref_get_key(sx, n)[1]}" for n in d.xref_get_keys(sx) if n in used]
+            parts.append(f"/{k} << {' '.join(keep)} >>")
+        d.xref_set_key(p.xref, "Resources", "<< " + " ".join(parts) + " >>")
+
+
+_own_resources(doc_clean)
+
+_XO_TOK = re.compile(rb"\((?:\\.|[^\\()])*\)|<<|>>|<[0-9A-Fa-f\s]*>|\[|\]|/[^\s/\[\]()<>{}%]+|[^\s/\[\]()<>{}%]+")
+
+
+def _xo_boxes(d, p):
+    """紙の中身にじかに置いた図・写真（XObject）の名前ごとに、紙の上の範囲（fitz の座標）。測れない物は入れない（＝残す）"""
+    t, v = d.xref_get_key(p.xref, "Resources/XObject")
+    if t not in ("dict", "xref"):
+        return {}
+    if t == "xref":
+        sx = int(v.split()[0])
+    else:
+        sx = d.get_new_xref(); d.update_object(sx, v)
+    xref_of = {}
+    for n in d.xref_get_keys(sx):
+        tn, vn = d.xref_get_key(sx, n)
+        if tn == "xref":
+            xref_of[n] = int(vn.split()[0])
+    boxes, bad = {}, set()
+    ctm, stack, ops = fitz.Matrix(1, 0, 0, 1, 0, 0), [], []
+    for c in p.get_contents():
+        for tok in _XO_TOK.findall(d.xref_stream(c) or b""):
+            if tok[:1] == b"/":
+                ops.append(tok[1:].decode("latin-1")); continue
+            try:
+                ops.append(float(tok)); continue
+            except ValueError:
+                pass
+            if tok[:1] in b"(<[]>":
+                ops.append(None); continue
+            if tok == b"q":
+                stack.append(ctm)
+            elif tok == b"Q":
+                ctm = stack.pop() if stack else ctm
+            elif tok == b"cm" and len(ops) >= 6 and all(isinstance(o, float) for o in ops[-6:]):
+                ctm = fitz.Matrix(*ops[-6:]) * ctm
+            elif tok == b"Do" and ops and isinstance(ops[-1], str):
+                n = ops[-1]
+                x = xref_of.get(n)
+                st = d.xref_get_key(x, "Subtype")[1] if x else ""
+                if st == "/Image":
+                    r = fitz.Rect(0, 0, 1, 1)
+                elif st == "/Form":
+                    try:
+                        r = fitz.Rect([float(a) for a in d.xref_get_key(x, "BBox")[1].strip("[] ").split()])
+                        tm, vm = d.xref_get_key(x, "Matrix")
+                        if tm == "array":
+                            r = r * fitz.Matrix(*[float(a) for a in vm.strip("[] ").split()])
+                    except Exception:
+                        bad.add(n); r = None
+                else:
+                    bad.add(n); r = None
+                if r is not None:
+                    r = (r * ctm) * p.transformation_matrix
+                    boxes[n] = boxes[n] | r if n in boxes else r
+            ops = []
+    for n in bad:
+        boxes.pop(n, None)
+    return boxes
+
+
+_XO_BOX = {}
+
+
+def _sheet_for_clip(sh_, clip):
+    """切り抜く範囲に掛からない図・写真を外した、その紙の写し（10-31、効率化委員会：見えない所の物を素材に持たない）"""
+    p0 = doc_clean[sh_ - 1]
+    if sh_ not in _XO_BOX:
+        _XO_BOX[sh_] = _xo_boxes(doc_clean, p0)
+    out_ = [n for n, r in _XO_BOX[sh_].items() if not (r + (-2, -2, 2, 2)).intersects(clip)]
+    tmp = fitz.open()
+    tmp.insert_pdf(doc_clean, from_page=sh_ - 1, to_page=sh_ - 1)
+    if out_:
+        pg = tmp[0]
+        t, v = tmp.xref_get_key(pg.xref, "Resources/XObject")
+        sx = int(v.split()[0]) if t == "xref" else None
+        if sx is None:
+            sx = tmp.get_new_xref(); tmp.update_object(sx, v)
+        keep = [f"/{n} {tmp.xref_get_key(sx, n)[1]}" for n in tmp.xref_get_keys(sx) if n not in out_]
+        tmp.xref_set_key(pg.xref, "Resources/XObject", "<< " + " ".join(keep) + " >>")
+        _pat = re.compile(rb"/(?:" + b"|".join(re.escape(n.encode("latin-1")) for n in out_) + rb")\s+Do(?![^\s/\[\]()<>{}%])")
+        for c in pg.get_contents():
+            s_ = tmp.xref_stream(c) or b""
+            s2 = _pat.sub(b"", s_)
+            if s2 != s_:
+                tmp.update_stream(c, s2)
+    return tmp
 for si in range(1, 7):
     pg = doc[si - 1]
     for (pts, col, *_k) in TOPL[si]:                     # 引き出し線は貼った図の上に（箱 → 折れ点 → 配置図の点）
@@ -3697,7 +3821,8 @@ for key, name, sh_, (x, y, w, h), note in SOZAI:
     SOZFN[key] = fn
     nd = fitz.open()
     pg_ = nd.new_page(width=w * MM, height=h * MM)
-    pg_.show_pdf_page(pg_.rect, doc_clean, sh_ - 1, clip=fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM))
+    _clip = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
+    pg_.show_pdf_page(pg_.rect, _sheet_for_clip(sh_, _clip), 0, clip=_clip)
     hs = hashlib.md5(pg_.get_pixmap(dpi=40).samples).hexdigest()
     nd.save(os.path.join(SZ, fn), garbage=3, deflate=True)
     nd.close()
