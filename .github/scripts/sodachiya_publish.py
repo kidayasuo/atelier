@@ -13,7 +13,8 @@ S = os.path.join(ROOT, 'sodachiya')
 INBOX = [sys.executable, os.path.join(S, 'renkei/inbox.py')]
 OUTS = ['sodachiya/sodachiya.3dm', 'sodachiya/drawings', 'sodachiya/model/sodachiya_exact_mesh.3dm',
         'sodachiya/model/drawings', 'sodachiya/model/build/stages.md',
-        'sodachiya/logo/sodachiya_logo_etch.png', 'sodachiya/logo/sodachiya_logo_etch_mask.png']   # ガラスのロゴの絵（materials.py が SVG から作る、10-28）
+        'sodachiya/logo/sodachiya_logo_etch.png', 'sodachiya/logo/sodachiya_logo_etch_mask.png',   # ガラスのロゴの絵（materials.py が SVG から作る、10-28）
+        'sodachiya/textures']   # 床の絵（materials.py が south/textures.py で作る、10-31）
 HEADS = {'本館': '本館係', '西館': '西館係', 'アプローチ': 'アプローチ係', '園庭': '園庭', '3dm': '更新係',
          '監修': '設計監修', 'ソリッド': 'ソリッド係', '遊戯室': '西館係'}
 ME = '自動の作り直し'
@@ -66,7 +67,8 @@ if code == '0':
     msg = f'[3dm] 自動の作り直し（{head}まで）\n\n{check}\n{url}'
 else:
     # できたものを捨てる
-    run('git', 'checkout', '--', *[os.path.join(ROOT, o) for o in OUTS])
+    for o in OUTS:                                                 # 一つずつ（まだ commit されていない場所があっても、ほかを戻せるように、10-31）
+        run('git', 'checkout', '--', os.path.join(ROOT, o))
     run('git', 'clean', '-fdq', '--', *[os.path.join(ROOT, o) for o in OUTS])
     who = committers() or ['更新係']
     tail = '\n'.join(txt.splitlines()[-25:])

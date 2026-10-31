@@ -13,6 +13,16 @@
   （白＝エッチング、透明＝ガラスのまま）。Rhino の「デカール」は rhino3dm では足せないので、絵を貼った板にした。
   Rhino 版（clean_wire.py は物のユーザー文字列を写さない）では 'src'（メッシュの版の何番目の物か）でメッシュの版の 'etch' を引く。
   PNG は Rhino 版のある所の logo/ に書き、3dm にも埋め込む（Rhino は 3dm からの相対の場所か、埋め込んだ写しで見つける）。
+- 床の絵（テクスチャ、10-31。本館係の項 20261031-1430、ユーザー：床を床に見せる）：素材の表で texture の付いた素材（杉の床板・洗い出し）は、
+  south/textures.py で絵を毎回作り（決まった種で同じ絵、継ぎ目なしで敷ける）、Rhino 版のある所の textures/ に書いて 3dm に埋め込み、
+  素材の絵（旧来の Bitmap ＝物理ベースの Base color の枠）にする。絵の大きさは本当の寸法（杉 2,160×7,280、洗い出し 600 角）。
+  * メッシュの版：床のメッシュの頂点にテクスチャ座標を書く。本館の (u, v)（uv.py）で、板の向き v＝放射（架構・梁と平行、庭へ）、
+    u＝弧に沿う（texture_dir でレイヤーごとに）。板は放射の線に沿って扇に並ぶので、幅 135 は物の真ん中の半径で合わせ、端で数 % 違う。
+    西館・外構も同じ (u, v) で。
+  * Rhino 版：ポリサーフェス・押し出しにはテクスチャ座標を持たせられず、rhino3dm 8.35 では物にマッピング（平面・WCS）も付けられない
+    （ObjectAttributes にマッピングの口が無い・File3dm にマッピングの表が無い・デカールは足せない）。そこでロゴと同じく、
+    メッシュの版の床の上向きの面を写した「絵を貼った板」（テクスチャ座標つきのメッシュ、床の上 1 mm）をレイヤー「床の絵」（錠）に足す。
+    床のポリサーフェスには絵なしの同じ色の素材（「〇〇（絵なし）」）を付ける（面の大きさに引き伸ばされた絵が縁に出ないように）。
 """
 import json, os, re, sys
 import numpy as np
@@ -80,6 +90,7 @@ def make(name, spec, layer_color):
         e = spec['emission']; k = spec.get('emission_strength', 1.0)
         a.EmissionColor = (*e, 255)
         pb.EmissionColor = (e[0] / 255 * k, e[1] / 255 * k, e[2] / 255 * k, 1.0)
+    set_texture(a, spec)
     a.SetUserString('sodachiya', 'data/materials.json')
     return a
 
@@ -121,6 +132,138 @@ def logo_images():
     rgba = np.dstack([np.full_like(al, 250), np.full_like(al, 250), np.full_like(al, 248), al])
     Image.fromarray(rgba, 'RGBA').save(IMG, optimize=True)
     Image.fromarray((al.astype(float) * 0.85).astype(np.uint8), 'L').save(MASK, optimize=True)   # すりガラス：白の所も少し透ける
+
+
+# ---------------------------------------------------------------- 床の絵（テクスチャ）
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import textures as TX
+from uv import uv as _uv, RW as _RW
+TEX_DIR = os.path.join(os.path.dirname(IMG_DIR), 'textures')      # Rhino 版のある所の textures/
+TEX = {}                                                           # 種類 → (絵の場所, 幅の向きの mm, 長さの向きの mm)
+TEX_DIRS = SPEC.get('texture_dir', [])
+SKIN_LAYER = '床の絵（テクスチャを貼った板、materials.py が作り直しのたびに）'
+SKIN_OFF = 1.0                                                     # 床の上面から
+SKINS = []                                                         # メッシュの版から写す板：(メッシュ, 素材の名前, もとのレイヤー)
+PLAIN = '（絵なし）'
+
+
+def texture_images():
+    os.makedirs(TEX_DIR, exist_ok=True)
+    for kind in sorted({v['texture'] for v in MATS.values() if v.get('texture')}):
+        p = os.path.join(TEX_DIR, TX.FILES[kind]); w, l = TX.MAKERS[kind](p); TEX[kind] = (p, w, l)
+
+
+def set_texture(a, spec):
+    if spec.get('texture'):
+        a.SetBitmapTexture(TEX[spec['texture']][0])                # 旧来の Bitmap ＝物理ベースの Base color（返り値は成り立っても False）
+
+
+def tex_dir(layer_name, spec):
+    for pre, d in TEX_DIRS:
+        if layer_name.startswith(pre):
+            return d
+    return spec.get('dir', 'v')
+
+
+def tex_mapper(P, kind, d):
+    """物の頂点 P（mm）から、点 → テクスチャ座標の関数を作る。絵の横＝板の幅の向き、縦＝板の長さの向き。
+    本当の寸法（1 枚の絵＝TEX の mm）。弧の長さは物の真ん中の半径で測る（板の幅は物の真ん中で 135）"""
+    vmid = np.median([_uv(x, y)[1] for x, y in P[:, :2]]) * 1000.0
+    k = (_RW - vmid) / _RW
+    _, w, l = TEX[kind]
+
+    def f(Q):
+        U = np.array([_uv(x, y) for x, y in np.asarray(Q)[:, :2]]) * 1000.0
+        along_arc = U[:, 0] * k
+        across, along = (along_arc, U[:, 1]) if d == 'v' else (U[:, 1], along_arc)
+        return np.stack([across / w, along / l], 1)
+    return f
+
+
+def set_uv(g, T):
+    tc = g.TextureCoordinates
+    n0 = len(tc)
+    for i, (a, b) in enumerate(T):
+        if i < n0: tc[i] = r.Point2f(float(a), float(b))
+        else: tc.__add__(float(a), float(b))
+
+
+SKIN_EDGE = 3000.0                                                 # 板の三角形の辺の長さの上限（弧の (u, v) をなめらかに追うため、長い三角形を割る）
+
+
+def top_skin(g, T, fmap):
+    """メッシュの上の面（水平な面のうち、真上に同じ物の水平な面が無いもの）だけを写した板。
+    面の向き（巻き）は物によって内向きのことがあるので使わない。SKIN_OFF 上げ、上を向くように巻き直す。テクスチャ座標つき"""
+    P = np.array([[p.X, p.Y, p.Z] for p in g.Vertices])
+    tris = []
+    for fi in range(len(g.Faces)):
+        q = list(dict.fromkeys(tuple(g.Faces[fi])[:4]))
+        if len(q) < 3: continue
+        for t in ([q] if len(q) == 3 else [[q[0], q[1], q[2]], [q[0], q[2], q[3]]]):
+            A = P[t]; nrm = np.cross(A[1] - A[0], A[2] - A[0]); ln = np.linalg.norm(nrm)
+            if ln > 0 and abs(nrm[2]) / ln > 0.95:
+                tris.append(t if nrm[2] > 0 else [t[0], t[2], t[1]])
+    if not tris: return None
+    Tr = np.array(tris); A, B, C = P[Tr[:, 0]], P[Tr[:, 1]], P[Tr[:, 2]]
+    cen = (A + B + C) / 3
+    d = (B[:, 0] - A[:, 0]) * (C[:, 1] - A[:, 1]) - (B[:, 1] - A[:, 1]) * (C[:, 0] - A[:, 0])
+    keep = []
+    for i, c in enumerate(cen):
+        # 重心の真上に、同じ物のほかの水平な三角形があるか（重心座標で中に入るか）。あれば下の面
+        up = cen[:, 2] > c[2] + 0.5
+        if up.any():
+            j = np.where(up)[0]
+            l1 = ((B[j, 0] - c[0]) * (C[j, 1] - c[1]) - (B[j, 1] - c[1]) * (C[j, 0] - c[0])) / d[j]
+            l2 = ((C[j, 0] - c[0]) * (A[j, 1] - c[1]) - (C[j, 1] - c[1]) * (A[j, 0] - c[0])) / d[j]
+            if ((l1 >= -1e-6) & (l2 >= -1e-6) & (l1 + l2 <= 1 + 1e-6)).any(): continue
+        keep.append(i)
+    # 長い三角形は辺の中点で四つに割る（メッシュの版の細長い三角形のままだと、弧に沿う板が三角形の中でゆがむ）
+    pts = [tuple(p) for p in P]; key = {}
+    def mid(a, b):
+        k_ = (min(a, b), max(a, b))
+        if k_ not in key:
+            key[k_] = len(pts); pts.append(tuple((np.array(pts[a]) + np.array(pts[b])) / 2))
+        return key[k_]
+    out, stack = [], [list(map(int, Tr[i])) for i in keep]
+    while stack:
+        a, b, c = stack.pop()
+        A, B, C = (np.array(pts[i]) for i in (a, b, c))
+        if max(np.linalg.norm(A - B), np.linalg.norm(B - C), np.linalg.norm(C - A)) <= SKIN_EDGE:
+            out.append((a, b, c)); continue
+        ab, bc, ca = mid(a, b), mid(b, c), mid(c, a)
+        stack += [[a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]]
+    PP = np.array(pts)
+    TT = np.vstack([T, fmap(PP[len(P):])]) if len(PP) > len(P) else T
+    S = r.Mesh(); vmap = {}
+    for tri in out:
+        ids = []
+        for vi in tri:
+            if vi not in vmap:
+                vmap[vi] = len(vmap); S.Vertices.Add(float(PP[vi, 0]), float(PP[vi, 1]), float(PP[vi, 2] + SKIN_OFF))
+                S.TextureCoordinates.__add__(float(TT[vi, 0]), float(TT[vi, 1]))
+            ids.append(vmap[vi])
+        S.Faces.AddFace(ids[0], ids[1], ids[2])
+    if not len(S.Faces): return None
+    S.Normals.ComputeNormals()
+    return S
+
+
+def add_skins(m, mat_index):
+    """Rhino 版に、メッシュの版から写した絵の板を足す（前の板は消してから）→ 板の数"""
+    for o in [o for o in m.Objects if o.Attributes.GetUserString('tex_of')]:
+        m.Objects.Delete(o.Attributes.Id)
+    if not SKINS: return 0
+    li = next((i for i, L in enumerate(m.Layers) if L.Name == SKIN_LAYER), None)
+    if li is None:
+        L = r.Layer(); L.Name = SKIN_LAYER; L.Color = (212, 178, 132, 255); li = m.Layers.Add(L)
+    m.Layers[li].Locked = True                                    # 選ぶときは下の床のポリサーフェスが取れるように
+    n = 0
+    for S, name, src_layer in SKINS:
+        a = r.ObjectAttributes(); a.LayerIndex = li; a.Name = f'床の絵：{src_layer}'
+        a.MaterialSource = r.ObjectMaterialSource.MaterialFromObject; a.MaterialIndex = mat_index(name, (212, 178, 132))
+        a.SetUserString('tex_of', src_layer)
+        m.Objects.AddMesh(S, a); n += 1
+    return n
 
 
 ETCH = {}            # メッシュの版の物の番号 → (レイヤーの名前, 'etch' の JSON)
@@ -225,13 +368,20 @@ def apply(path):
     have = {mt.Name: i for i, mt in enumerate(m.Materials)}
     idx = {}
 
-    def mat_index(name, layer_color):
+    def mat_index(name, layer_color, plain=False):
+        if plain:                                                    # Rhino 版の床のポリサーフェス：同じ色で絵なし
+            label = name + PLAIN
+            if label not in idx:
+                sp = {k: v for k, v in MATS[name].items() if k != 'texture'}
+                idx[label] = have[label] if label in have else m.Materials.Add(make(label, sp, layer_color))
+            return idx[label]
         if name not in MATS:                                         # 表に無い素材の名前（10-28：17k で作り直しが止まった）は止めずに知らせ、レイヤーの色の素材で
             print(f'! materials: 素材の表に無い名前「{name}」（data/materials.json の materials に足す）')
             MATS[name] = {'base': 'layer', 'roughness': 0.7}
         label = name if MATS[name]['base'] != 'layer' else f'{name}：{layer_color[0]},{layer_color[1]},{layer_color[2]}'
         if label not in idx:
             idx[label] = have[label] if label in have else m.Materials.Add(make(label, MATS[name], layer_color))
+            if label in have: set_texture(m.Materials[idx[label]], MATS[name])   # 前の作り直しの素材にも絵を
         return idx[label]
 
     layers = list(m.Layers)
@@ -245,14 +395,16 @@ def apply(path):
             m.Layers[i].RenderMaterialIndex = mat_index(rule, L.Color)
         elif isinstance(rule, dict):
             m.Layers[i].RenderMaterialIndex = mat_index(rule['else'], L.Color)
-        elif used.get(i):
+        elif used.get(i) and L.Name != SKIN_LAYER:
             missing.append(L.Name)
     count = {}
+    ntex = nplain = 0
     for o in m.Objects:
         a = o.Attributes
+        if a.GetUserString('tex_of'): continue                     # 前に足した床の絵の板（下の add_skins で作り直す）
         if a.GetUserString('etch_of'): continue                    # 前に足したロゴの板（下の add_etch で作り直す）
         L = layers[a.LayerIndex]
-        rule = rule_for(L.Name)
+        rule = rule_for(L.Name) if L.Name != SKIN_LAYER else None
         name = next((mt for word, mt in NAMES if word in (a.Name or '')), None)
         if name is None and isinstance(rule, dict):
             name = rule['thin'] if thickness(o.Geometry) <= rule['split'] else rule['else']
@@ -263,14 +415,32 @@ def apply(path):
             a.MaterialSource = r.ObjectMaterialSource.MaterialFromLayer
             name = rule if isinstance(rule, str) else '（素材なし）'
         count[name] = count.get(name, 0) + 1
+        sp = MATS.get(name, {})
+        if sp.get('texture'):
+            g = o.Geometry
+            if isinstance(g, r.Mesh):                                # メッシュの版：頂点にテクスチャ座標
+                P = np.array([[p.X, p.Y, p.Z] for p in g.Vertices])
+                fmap = tex_mapper(P, sp['texture'], tex_dir(L.Name, sp)); T = fmap(P)
+                set_uv(g, T); ntex += 1
+                S = top_skin(g, T, fmap)
+                if S is not None: SKINS.append((S, name, L.Name))
+            elif isinstance(g, (r.Brep, r.Extrusion)):               # Rhino 版：絵なしの同じ色に（絵は上に足す板で）
+                a.MaterialSource = r.ObjectMaterialSource.MaterialFromObject
+                a.MaterialIndex = mat_index(name, L.Color, plain=True); nplain += 1
+    emb = set(m.EmbeddedFilePaths())
+    for p, _, _ in TEX.values():
+        if p not in emb: m.EmbeddedFiles.Add(r.EmbeddedFile.Read(p))
+    nskin = add_skins(m, mat_index) if nplain else 0
     ne = add_etch(m, layers, mat_index)
     stamp(m)
     m.Write(os.path.abspath(path), 8)                              # 絶対の場所で書く（絵の場所を 3dm からの相対でも残すため）
     print(f'materials: {path.split("/")[-1]}：素材 {len(idx)}・物 {len(m.Objects)}・ガラスのロゴの板 {ne}'
+          + (f'・床の絵：座標 {ntex}' if ntex else '') + (f'・床の絵の板 {nskin}（絵なしにした床 {nplain}）' if nplain else '')
           + (f'・素材なし {len(missing)}（{"、".join(missing[:8])}）' if missing else ''))
     return count
 
 
 logo_images()
+texture_images()
 for p in sys.argv[2:]:
     apply(p)
