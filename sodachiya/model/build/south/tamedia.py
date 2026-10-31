@@ -5,6 +5,8 @@
 模型では桁は一本の竹ひごなので、一本の桁が通る穴はみな一直線の上（芯のずれ 10 mm 以内）。桁の線が折れる所
 （西館の斜めの間 u42→45→48、u21→24、本館の弧の架構ごと）は、架構の線の柱の頭の穴の中で折れる（二本の桁の端が 10 以内で会う）。
 
+数える部材（11-01 ユーザー）：架構だけ。柱（階段の箱の柱・床梁の下の骨格の柱を除く）と梁（板二枚で一本）。西館＝柱22・梁17（22b の屋根の梁 12＝枠 u21.33…u50.57 の 11 組＋u43.5 の一枚、22c の2階の床梁 5 組）、本館＝柱40・梁20。
+
 読むもの：Rhino版（押し出しのまま。メッシュの版は本館の桁 11c がメッシュ）。穴＝押し出しの輪郭の内側の輪。
 部材：
   桁：11c、22d（窓台・まぐさを除く）。芯＝輪郭の外の輪の重心から押し出しの向きへ
@@ -161,29 +163,51 @@ def run(path):
     for d in other:
         rows.append(dict(bld=d['bld'], kind=d['kind'], layer=d['layer'], name=d['name'], id=d['id'], u=d['u'], v=d['v'], z=d['z'],
                          ends={'形': '押し出しでない'}, holes=0))
+    # 架構（ユーザー 11-01）：Tamedia は構造の架構だけ＝柱（11a・22a）と梁（11b・22b・22c、板二枚で一本）。
+    # 階段の箱の柱・骨格の柱（床梁の下の 180×400）は架構でない。西館：柱 22・梁 17（屋根の梁 12＝22b の枠ごと＋43.5、2 階の床梁 5＝22c の枠ごと）
+    FR_SKIP = re.compile(r'階段の箱|骨格の柱')
+    frows = [x for x in rows if not (x['kind'] == 'post' and FR_SKIP.search(x['name'])) and x['kind'] in ('post', 'ply')]
+    fid = {x['id'] for x in frows}
+    units = [dict(bld=x['bld'], kind='post', ms=[x]) for x in frows if x['kind'] == 'post']
+    for lay in sorted({x['layer'] for x in frows if x['kind'] == 'ply'}):
+        P = [x for x in frows if x['kind'] == 'ply' and x['layer'] == lay]
+        pr = sorted(((np.hypot(a['u'] - b['u'], a['v'] - b['v']), i, j) for i, a in enumerate(P) for j, b in enumerate(P)
+                     if i < j and abs(a['z'] - b['z']) < 300 and np.hypot(a['u'] - b['u'], a['v'] - b['v']) < 0.6), key=lambda t: t[0])
+        used = set()
+        for dd, i, j in pr:
+            if i in used or j in used: continue
+            used |= {i, j}; units.append(dict(bld=P[i]['bld'], kind='beam', ms=[P[i], P[j]]))
+        units += [dict(bld=P[i]['bld'], kind='beam', ms=[P[i]]) for i in range(len(P)) if i not in used]
+    for un in units:
+        un['ok'] = all(v == 'ok' for m in un['ms'] for v in m['ends'].values())
+        un['nohole'] = any(v in ('穴なし', '穴だけ') for m in un['ms'] for v in m['ends'].values())
+        un['off'] = any(v.startswith('ずれ') for m in un['ms'] for v in m['ends'].values())
+        un['x'] = un['ms'][0]
+    for k in ('stops', 'solid'):
+        pass
     loc = lambda d: f"u{d['u']:.2f} v{d['v']:.2f} z{d['z']:.0f}"
     gloc = lambda g, e: (lambda p: f"u{uv(p[0], p[1])[0]:.2f} v{uv(p[0], p[1])[1]:.2f} z{p[2]:.0f}")(g['a'] if e == 0 else g['b'])
     out = dict(members=rows,
-               stops=[dict(bld=g['bld'], at=gloc(g, e), text=f"桁{g['layer']}（{g['id']}）の端が{m['layer']}（{m['id']}{('、' + m['name'][:20]) if m['name'] else ''}）の中で止まる（向こうの面まで{sh:.0f} mm）") for g, e, m, sh in stops],
+               stops=[dict(bld=g['bld'], mid=m['id'], at=gloc(g, e), text=f"桁{g['layer']}（{g['id']}）の端が{m['layer']}（{m['id']}{('、' + m['name'][:20]) if m['name'] else ''}）の中で止まる（向こうの面まで{sh:.0f} mm）") for g, e, m, sh in stops],
                bend_out=[dict(bld=g['bld'], at=gloc(g, e), text=f"桁{g['layer']}（{g['id']}）の端がほかの桁と会うが、柱の穴の中でない") for g, e in bend_out],
-               solid=[dict(bld=m['bld'], at=loc(m), text=f"桁{g['layer']}（{g['id']}、{loc(g)}）の芯が{m['layer']}（{m['id']}{('、' + m['name'][:20]) if m['name'] else ''}）を穴の無い所で通る") for g, m in solid],
+               solid=[dict(bld=m['bld'], mid=m['id'], at=loc(m), text=f"桁{g['layer']}（{g['id']}、{loc(g)}）の芯が{m['layer']}（{m['id']}{('、' + m['name'][:20]) if m['name'] else ''}）を穴の無い所で通る") for g, m in solid],
                idle=[dict(bld=g['bld'], at=loc(g), text=f"桁{g['layer']}（{g['id']}{('、' + g['name'][:20]) if g['name'] else ''}）") for g in G if g['through'] == 0])
-    # 数
+    # 数（架構の部材＝柱・梁一本ごと。梁は板二枚で一本）
     S = {}
+    fs = lambda key, b: sum(1 for x in out[key] if x['bld'] == b and (key not in ('stops', 'solid') or x['mid'] in fid))
+    out['stops'] = [x for x in out['stops'] if x['mid'] in fid]; out['solid'] = [x for x in out['solid'] if x['mid'] in fid]
     for b in ('本館', '西館'):
-        R = [x for x in rows if x['bld'] == b]
-        ok = [x for x in R if all(v == 'ok' for v in x['ends'].values())]
-        nohole = [x for x in R if any(v in ('穴なし', '穴だけ', '押し出しでない') for v in x['ends'].values())]
-        off = [x for x in R if any(v.startswith('ずれ') for v in x['ends'].values())]
-        S[b] = dict(members=len(R), ok=len(ok), nohole=len(nohole), off=len(off),
-                    stops=sum(1 for x in out['stops'] if x['bld'] == b), bend_out=sum(1 for x in out['bend_out'] if x['bld'] == b),
-                    solid=sum(1 for x in out['solid'] if x['bld'] == b), idle=sum(1 for x in out['idle'] if x['bld'] == b),
+        R = [u for u in units if u['bld'] == b]
+        S[b] = dict(members=len(R), posts=sum(u['kind'] == 'post' for u in R), beams=sum(u['kind'] == 'beam' for u in R),
+                    ok=sum(u['ok'] for u in R), nohole=sum(u['nohole'] for u in R), off=sum(u['off'] and not u['nohole'] for u in R),
+                    stops=fs('stops', b), bend_out=fs('bend_out', b), solid=fs('solid', b), idle=fs('idle', b),
                     girders=sum(1 for g in G if g['bld'] == b))
+    rows = frows; out['members'] = frows
     out['summary'] = S
     out['n_none'] = sum(S[b]['nohole'] for b in S); out['n_off'] = sum(S[b]['off'] for b in S)
     out['n_stop'] = sum(S[b]['stops'] + S[b]['bend_out'] + S[b]['solid'] for b in S)
     # 文
-    sm = lambda b: (f"{b}：留まる{S[b]['ok']}/{S[b]['members']}・無い{S[b]['nohole']}・ずれ{S[b]['off']}・止まる{S[b]['stops']}"
+    sm = lambda b: (f"{b}：柱{S[b]['posts']}梁{S[b]['beams']}で留まる{S[b]['ok']}・無い{S[b]['nohole']}・ずれ{S[b]['off']}・止まる{S[b]['stops']}"
                     f"・折れが外{S[b]['bend_out']}・材を貫く{S[b]['solid']}・何も通らない桁{S[b]['idle']}（桁{S[b]['girders']}）")
     T = [f"Tamediaの留め：{sm('本館')}、{sm('西館')}　（{time.time() - T0:.1f}秒。知らせだけ、止めない）"]
     KN = {'post': '柱', 'ply': '梁の板', 'girder': '桁'}
