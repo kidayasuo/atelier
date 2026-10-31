@@ -90,7 +90,7 @@ if os.path.exists(lp_json) and os.path.exists(lp_txt):
 # 形が素直でない物（10-31 効率化委員会、ユーザー：新しい部材が毎回三角形の網や妙な片になる。kettei/kanshu.md の点検の7）：
 # Rhino版の、自由な形のレイヤー（KATACHI_FREE）でない所のメッシュ・面が KATACHI_FACES より多いポリサーフェス・閉じていない物を
 # レイヤーごとに数え、sodachiya_katachi.txt に書く。前の版（HEAD）より増えたレイヤーを知らせる（止めない）。前の版が無ければ書くだけ
-KATACHI_FREE = ('85', '90', '92', '99', '78')     # クスノキ・地形・水・雨の川・みなみのさんかくの丘（clean_wire.py の FREEFORM と 85・78）
+KATACHI_FREE = ('85', '90', '92', '92s', '99', '78')     # クスノキ・地形・水・雨庭の玉石の層（くぼみに沿う、ユーザー 10-31）・雨の川・みなみのさんかくの丘（clean_wire.py の FREEFORM と 85・78）
 KATACHI_FACES = 30
 k3dm = os.path.join(NEW, '..', '..', 'sodachiya.3dm')
 if os.path.exists(k3dm):
