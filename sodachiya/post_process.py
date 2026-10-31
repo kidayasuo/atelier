@@ -1,6 +1,9 @@
 #! python 3
 # -*- coding: utf-8 -*-
-"""育ち舎　床の絵を床の立体に直接貼る（後処理、設計監修 10-31、ユーザー：重ねた板でなく立体にマッピング）
+"""育ち舎　後処理（Rhino で sodachiya.3dm を開いたあと、手で一度走らせる。設計監修 10-31）
+
+今していること（段を足すときはこの一覧と main() に足す）：
+  1. 床の絵を床の立体に直接貼る（ユーザー 10-31：重ねた板でなく立体にマッピング）
 
 自動の作り直しは Rhino でなく rhino3dm で 3dm を作るので、立体にテクスチャマッピングを付けられない。
 そこで作り直しは「床の絵の板」を床の上 1 mm に重ねている（materials.py）。このスクリプトは Rhino の中で、
@@ -8,7 +11,7 @@
 
 使い方（Rhino 8、Mac）：
   1. sodachiya/sodachiya.3dm を開く（git pull の後に）。
-  2. コマンド RunPythonScript で、このファイル（sodachiya/rhino/yuka_mapping.py）を選ぶ。数秒〜数十秒。
+  2. コマンド RunPythonScript で、このファイル（sodachiya/post_process.py、sodachiya.3dm の隣）を選ぶ。数秒〜数十秒。
   3. 保存するなら別名で（sodachiya.3dm は作り直しのたびに上書きされるので、開き直したらもう一度走らせる）。
 何度走らせてもよい（同じ結果になる）。
 
@@ -33,11 +36,20 @@ SKIN_LAYER = '床の絵（テクスチャを貼った板、materials.py が作�
 TILE = {'sugi': (2160.0, 7280.0), 'arai': (600.0, 600.0)}  # 種類 → (絵の横＝板の幅の向き, 縦＝板の長さの向き) mm
 
 
+# data/materials.json が見つからないとき（3dm をリポジトリの外で開いたときなど）の既定（materials.json と同じ値）
+DEFAULT_SPEC = {'materials': {'杉の床板 t30': {'texture': 'sugi', 'dir': 'v'},
+                              '洗い出し（土足の床・ポーチ）': {'texture': 'arai'}},
+                'texture_dir': [['13_', 'u']]}
+
+
 def load_spec():
-    p = os.path.join(os.path.dirname(sc.doc.Path or ''), 'data', 'materials.json')
-    if not os.path.exists(p):
-        p = rs.OpenFileName('data/materials.json を選んでください', 'JSON (*.json)|*.json||')
-    return json.load(io.open(p, encoding='utf-8'))
+    """このスクリプトの隣（sodachiya/data/）、3dm の隣の順に探す。無ければ既定で続ける（止めない）"""
+    here = os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else ''
+    for d in (here, os.path.dirname(sc.doc.Path or '')):
+        p = os.path.join(d, 'data', 'materials.json') if d else ''
+        if p and os.path.exists(p):
+            return json.load(io.open(p, encoding='utf-8')), p
+    return DEFAULT_SPEC, '（既定の値。data/materials.json が見つからなかった）'
 
 
 def tex_dir(layer_name, spec, rules):
@@ -47,8 +59,9 @@ def tex_dir(layer_name, spec, rules):
     return spec.get('dir', 'v')
 
 
-def main():
-    SPEC = load_spec()
+def floor_mapping():
+    SPEC, src = load_spec()
+    print('素材の表：' + src)
     mats, rules = SPEC['materials'], SPEC.get('texture_dir', [])
     doc = sc.doc
     names = {doc.Materials[i].Name: i for i in range(doc.Materials.Count)}
@@ -89,6 +102,10 @@ def main():
     doc.Views.Redraw()
     print('床の絵：立体 %d にマッピングを付けた。重ねた板のレイヤーを%s。%s' % (
         n, '隠した' if li >= 0 else '見つけられなかった', ('素材が見つからない：' + '・'.join(sorted(miss))) if miss else ''))
+
+
+def main():
+    floor_mapping()
 
 
 main()
