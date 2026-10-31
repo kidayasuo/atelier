@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-10-31 10:11",
+"generated": "2026-10-31 10:24",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -53353,47 +53353,6 @@
 "mock_hash": "c1384d37"
 },
 {
-"id": "p3.dwg.plan.line.420_295.l",
-"name": "線",
-"kind": "lines",
-"layer": "図",
-"x": 6.0,
-"y": 6.0,
-"w": 829.0,
-"h": 582.0,
-"paths": [
-{
-"pts": [
-[
-6.0,
-588.0
-],
-[
-6.0,
-6.0
-],
-[
-835.0,
-6.0
-],
-[
-835.0,
-588.0
-]
-],
-"closed": true,
-"stroke": "#000000",
-"fill": null,
-"lw": 0.709,
-"dash": null,
-"op": 1.0,
-"eo": false
-}
-],
-"dwg": "平面図　1階",
-"mock_hash": "e254d4a7"
-},
-{
 "id": "p3.dwg.plan.cut.CC.l",
 "name": "線　C　C",
 "kind": "lines",
@@ -53642,66 +53601,6 @@
 "group_name": "断面の位置　C　C",
 "dwg": "平面図　1階",
 "mock_hash": "2b5e8"
-},
-{
-"id": "p3.dwg.plan.title.平面図1階FL+1500で切断1.l",
-"name": "線　平面図　1階　FL+1500 で切断　1/100",
-"kind": "lines",
-"layer": "図",
-"x": 13.81,
-"y": 15.81,
-"w": 67.39,
-"h": 4.5,
-"paths": [
-{
-"pts": [
-[
-13.806,
-15.806
-],
-[
-81.194,
-15.806
-],
-[
-81.194,
-20.303
-],
-[
-13.806,
-20.303
-]
-],
-"closed": true,
-"stroke": null,
-"fill": "#ffffff",
-"lw": 0.0,
-"dash": null,
-"op": 0.85,
-"eo": false
-}
-],
-"group": "dwg.plan.title.平面図1階FL+1500で切断1",
-"group_name": "図名　平面図　1階　FL+1500 で切断　1/100",
-"dwg": "平面図　1階",
-"mock_hash": "8a70153b"
-},
-{
-"id": "p3.dwg.plan.title.平面図1階FL+1500で切断1.t",
-"name": "平面図　1階　FL+1500 で切断　1/100",
-"kind": "text",
-"layer": "図",
-"x": 47.5,
-"y": 19.42,
-"s": "平面図　1階　FL+1500 で切断　1/100",
-"size_pt": 11.0,
-"font": "W3",
-"color": "#000000",
-"align": "center",
-"group": "dwg.plan.title.平面図1階FL+1500で切断1",
-"group_name": "図名　平面図　1階　FL+1500 で切断　1/100",
-"dwg": "平面図　1階",
-"mock_hash": "e5adaa3b"
 },
 {
 "id": "p3.dwg.plan.grid.20.l",
@@ -54165,66 +54064,6 @@
 "group_name": "通り芯　20",
 "dwg": "平面図　1階",
 "mock_hash": "5970e7"
-},
-{
-"id": "p3.dwg.plan.note.高野川を下に（配置図と同じ向き）.l",
-"name": "線　高野川を下に（配置図と同じ向き）。一点鎖線は敷地の境。二",
-"kind": "lines",
-"layer": "図",
-"x": 13.82,
-"y": 25.82,
-"w": 181.87,
-"h": 2.86,
-"paths": [
-{
-"pts": [
-[
-13.825,
-25.825
-],
-[
-195.696,
-25.825
-],
-[
-195.696,
-28.68
-],
-[
-13.825,
-28.68
-]
-],
-"closed": true,
-"stroke": null,
-"fill": "#ffffff",
-"lw": 0.0,
-"dash": null,
-"op": 0.85,
-"eo": false
-}
-],
-"group": "dwg.plan.note.高野川を下に（配置図と同じ向き）",
-"group_name": "注　高野川を下に（配置図と同じ向き）。一点鎖線は敷地の境。二",
-"dwg": "平面図　1階",
-"mock_hash": "1fdc9289"
-},
-{
-"id": "p3.dwg.plan.note.高野川を下に（配置図と同じ向き）.t",
-"name": "高野川を下に（配置図と同じ向き）。一点鎖線は敷地",
-"kind": "text",
-"layer": "図",
-"x": 104.84,
-"y": 28.2,
-"s": "高野川を下に（配置図と同じ向き）。一点鎖線は敷地の境。二点鎖線は切断より上にある物（屋根の外形・越屋根・2階の床の縁など）。周りの道・建物は細い線",
-"size_pt": 7.1,
-"font": "W3",
-"color": "#000000",
-"align": "center",
-"group": "dwg.plan.note.高野川を下に（配置図と同じ向き）",
-"group_name": "注　高野川を下に（配置図と同じ向き）。一点鎖線は敷地の境。二",
-"dwg": "平面図　1階",
-"mock_hash": "6da5b74b"
 },
 {
 "id": "p3.dwg.plan.cut.W.l",
@@ -78585,21 +78424,6 @@
 "mock_hash": "b7185a57"
 },
 {
-"id": "p3.dwg.plan.note.こどもたちの育ち舎3dm（sod.t",
-"name": "こどもたちの育ち舎　3dm（sodachiya.",
-"kind": "text",
-"layer": "図",
-"x": 56.45,
-"y": 584.63,
-"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-31 08:42（atelier bfecc5d の次の版の 3dm）",
-"size_pt": 4.5,
-"font": "W3",
-"color": "#737373",
-"align": "center",
-"dwg": "平面図　1階",
-"mock_hash": "fa755582"
-},
-{
 "id": "p3.pagetitle",
 "name": "ページとサブタイトル",
 "kind": "text",
@@ -78661,107 +78485,6 @@
 "scale": 1.0,
 "page": 1,
 "dwg": "平面図　2階"
-},
-{
-"id": "p4.dwg.plan2.line.420_295.l",
-"name": "線",
-"kind": "lines",
-"layer": "図",
-"x": 6.0,
-"y": 6.0,
-"w": 829.0,
-"h": 582.0,
-"paths": [
-{
-"pts": [
-[
-6.0,
-588.0
-],
-[
-6.0,
-6.0
-],
-[
-835.0,
-6.0
-],
-[
-835.0,
-588.0
-]
-],
-"closed": true,
-"stroke": "#000000",
-"fill": null,
-"lw": 0.709,
-"dash": null,
-"op": 1.0,
-"eo": false
-}
-],
-"dwg": "平面図　2階",
-"mock_hash": "e254d4a7"
-},
-{
-"id": "p4.dwg.plan2.title.平面図2階（西館）2FL+100.l",
-"name": "線　平面図　2階（西館）　2FL+1000 で切断　1/10",
-"kind": "lines",
-"layer": "図",
-"x": 13.81,
-"y": 15.81,
-"w": 85.07,
-"h": 4.5,
-"paths": [
-{
-"pts": [
-[
-13.806,
-15.806
-],
-[
-98.872,
-15.806
-],
-[
-98.872,
-20.303
-],
-[
-13.806,
-20.303
-]
-],
-"closed": true,
-"stroke": null,
-"fill": "#ffffff",
-"lw": 0.0,
-"dash": null,
-"op": 0.85,
-"eo": false
-}
-],
-"group": "dwg.plan2.title.平面図2階（西館）2FL+100",
-"group_name": "図名　平面図　2階（西館）　2FL+1000 で切断　1/10",
-"dwg": "平面図　2階",
-"mock_hash": "2fc89e11"
-},
-{
-"id": "p4.dwg.plan2.title.平面図2階（西館）2FL+100.t",
-"name": "平面図　2階（西館）　2FL+1000 で切断　",
-"kind": "text",
-"layer": "図",
-"x": 56.34,
-"y": 19.42,
-"s": "平面図　2階（西館）　2FL+1000 で切断　1/100",
-"size_pt": 11.0,
-"font": "W3",
-"color": "#000000",
-"align": "center",
-"group": "dwg.plan2.title.平面図2階（西館）2FL+100",
-"group_name": "図名　平面図　2階（西館）　2FL+1000 で切断　1/10",
-"dwg": "平面図　2階",
-"mock_hash": "4d771d21"
 },
 {
 "id": "p4.dwg.plan2.grid.20.l",
@@ -79225,66 +78948,6 @@
 "group_name": "通り芯　20",
 "dwg": "平面図　2階",
 "mock_hash": "5970e7"
-},
-{
-"id": "p4.dwg.plan2.note.高野川を下に（配置図と同じ向き）.l",
-"name": "線　高野川を下に（配置図と同じ向き）。1階の平面図と同じ位置",
-"kind": "lines",
-"layer": "図",
-"x": 13.82,
-"y": 25.82,
-"w": 249.39,
-"h": 2.86,
-"paths": [
-{
-"pts": [
-[
-13.825,
-25.825
-],
-[
-263.214,
-25.825
-],
-[
-263.214,
-28.68
-],
-[
-13.825,
-28.68
-]
-],
-"closed": true,
-"stroke": null,
-"fill": "#ffffff",
-"lw": 0.0,
-"dash": null,
-"op": 0.85,
-"eo": false
-}
-],
-"group": "dwg.plan2.note.高野川を下に（配置図と同じ向き）",
-"group_name": "注　高野川を下に（配置図と同じ向き）。1階の平面図と同じ位置",
-"dwg": "平面図　2階",
-"mock_hash": "17f5878d"
-},
-{
-"id": "p4.dwg.plan2.note.高野川を下に（配置図と同じ向き）.t",
-"name": "高野川を下に（配置図と同じ向き）。1階の平面図と",
-"kind": "text",
-"layer": "図",
-"x": 138.63,
-"y": 28.2,
-"s": "高野川を下に（配置図と同じ向き）。1階の平面図と同じ位置・同じ縮尺（重ねると上下が合う）。西館の外（本館の屋根・園庭・周り）は上から見た見えがかり。二点鎖線は切断より上にある物（西館の屋根の外形など）",
-"size_pt": 7.1,
-"font": "W3",
-"color": "#000000",
-"align": "center",
-"group": "dwg.plan2.note.高野川を下に（配置図と同じ向き）",
-"group_name": "注　高野川を下に（配置図と同じ向き）。1階の平面図と同じ位置",
-"dwg": "平面図　2階",
-"mock_hash": "a339b1b"
 },
 {
 "id": "p4.dwg.plan2.cut.W.l",
@@ -92130,21 +91793,6 @@
 ],
 "dwg": "平面図　2階",
 "mock_hash": "217e8b31"
-},
-{
-"id": "p4.dwg.plan2.note.こどもたちの育ち舎3dm（sod.t",
-"name": "こどもたちの育ち舎　3dm（sodachiya.",
-"kind": "text",
-"layer": "図",
-"x": 56.45,
-"y": 584.63,
-"s": "こどもたちの育ち舎　3dm（sodachiya.3dm）から自動で作図　2026-10-31 08:42（atelier bfecc5d の次の版の 3dm）",
-"size_pt": 4.5,
-"font": "W3",
-"color": "#737373",
-"align": "center",
-"dwg": "平面図　2階",
-"mock_hash": "fa755582"
 },
 {
 "id": "p4.pagetitle",

@@ -734,7 +734,54 @@ RHINO_TXT_MIE = {}  # (枚, embeds の番号) → 見本で重ねる文字の層
 SOZAI_PDF = []      # 素材のうち、mock.py が元のPDFから取り出して直に書く物：(番号, 中身, ファイル名, 枚, 注)
 
 
-def _heya_nuri(auto, moji, out):
+def _fukinuke_x(pg_, d_, lw=0.18):
+    """吹抜の面 d_（get_drawings の一つ）の外形の内に収まる大きな四角（建物の向きにそろえる）の対角に、細い実線の×を2本（製図の決まり、ユーザー 10-31 10:15）"""
+    from shapely.geometry import Polygon as _Pg, Point as _Pt
+    rings_, cur_ = [], []
+    for it_ in d_["items"]:
+        if it_[0] != "l":
+            continue
+        a_, b_ = (it_[1].x, it_[1].y), (it_[2].x, it_[2].y)
+        if cur_ and (abs(cur_[-1][0] - a_[0]) > 0.01 or abs(cur_[-1][1] - a_[1]) > 0.01):
+            rings_.append(cur_); cur_ = []
+        if not cur_:
+            cur_.append(a_)
+        cur_.append(b_)
+    rings_.append(cur_)
+    rings_ = [r_ for r_ in rings_ if len(r_) >= 4]
+    ext_ = max(rings_, key=lambda r_: abs(_Pg(r_).area))
+    pl_ = _Pg(ext_).buffer(0)
+    # 建物の向き：外形を囲むいちばん小さい四角の辺の向き
+    E_ = np.asarray(pl_.minimum_rotated_rectangle.exterior.coords)
+    th_ = np.arctan2(E_[1, 1] - E_[0, 1], E_[1, 0] - E_[0, 0])
+    from shapely import affinity as _af
+    c_ = pl_.centroid
+    pr_ = _af.rotate(pl_, -th_, origin=c_, use_radians=True)     # 向きをそろえた外形
+    x0_, y0_, x1_, y1_ = pr_.bounds
+    best_ = None
+    xs_ = np.linspace(x0_, x1_, 25)
+    ys_ = np.linspace(y0_, y1_, 25)
+    inner_ = pr_.buffer(-1.0 * MM)                                # 外形の線から 1 mm 内
+    for i_ in range(len(xs_)):
+        for j_ in range(i_ + 1, len(xs_)):
+            for m_ in range(len(ys_)):
+                for n_ in range(m_ + 1, len(ys_)):
+                    ar_ = (xs_[j_] - xs_[i_]) * (ys_[n_] - ys_[m_])
+                    if best_ and ar_ <= best_[0]:
+                        continue
+                    if inner_.contains(_Pg([(xs_[i_], ys_[m_]), (xs_[j_], ys_[m_]), (xs_[j_], ys_[n_]), (xs_[i_], ys_[n_])])):
+                        best_ = (ar_, xs_[i_], ys_[m_], xs_[j_], ys_[n_])
+    _, ax_, ay_, bx_, by_ = best_
+    Q_ = [_af.rotate(_Pt(q_), th_, origin=c_, use_radians=True) for q_ in ((ax_, ay_), (bx_, by_), (bx_, ay_), (ax_, by_))]
+    sh_ = pg_.new_shape()
+    for u_, v_ in ((Q_[0], Q_[1]), (Q_[2], Q_[3])):
+        sh_.draw_line(fitz.Point(u_.x, u_.y), fitz.Point(v_.x, v_.y))
+    sh_.finish(color=(0.2, 0.2, 0.2), width=lw * MM, closePath=False)
+    sh_.commit()
+    print("吹抜の×：四角 %.0f×%.0f mm" % ((bx_ - ax_) / MM, (by_ - ay_) / MM))
+
+
+def _heya_nuri(auto, moji, out, fukinuke=None):
     """更新係の自動の平面図 auto から、部屋の塗り（ROOM の色の面）だけをベクターのまま取り出して out に（10-31、ユーザー）。
     Rhino の線には塗りが無いので、線の下に敷く。文字の層 moji の凡例の色見本（同じ色・同じ場所）は除く。同じ紙・同じ位置"""
     hx_ = lambda c_: tuple(int(c_[k:k + 2], 16) / 255 for k in (1, 3, 5))
@@ -750,6 +797,9 @@ def _heya_nuri(auto, moji, out):
             continue
         if any(k_ == key_(d_) and abs(r_.x0 - d_["rect"].x0) < 0.5 and abs(r_.y0 - d_["rect"].y0) < 0.5 and abs(r_.x1 - d_["rect"].x1) < 0.5 for k_, r_ in leg_):
             continue                                   # 凡例の色見本
+        if fukinuke and key_(d_) == tuple(round(v, 3) for v in hx_(fukinuke)):
+            _fukinuke_x(pg_, d_)                       # 吹抜は塗らず、×（ユーザー 10-31 10:15）
+            continue
         sh_ = pg_.new_shape()
         for it_ in d_["items"]:
             if it_[0] == "l":
@@ -788,12 +838,17 @@ def _moji_mie(moji, out, x_max=280.0, top=31.0, bottom=580.0):
     s_ = _re.sub(r"q\n1 0 -0 1 ([-\d.]+) ([-\d.]+) cm\nBT\n.*?ET\nQ\n", _t, s_, flags=_re.S)
     nf_ = []
 
-    def _f(m_):
-        if abs(float(m_.group(1)) / MM - 6) < 0.3 and abs(float(m_.group(2)) / MM - 6) < 0.3:
+    def _f(m_):                                    # 閉じた折れ線：紙の縁の枠（6 mm）と、抜いた表題・注の白い地
+        P_ = [tuple(map(float, l_.split()[:2])) for l_ in m_.group(1).strip().split("\n")]
+        xs_ = [q_[0] / MM for q_ in P_]
+        ys_ = [(ph_ - q_[1]) / MM for q_ in P_]
+        if abs(min(xs_) - 6) < 0.3 and abs(min(ys_) - 6) < 0.3 and max(xs_) > pg_.rect.width / MM - 6.3:
             nf_.append(1)
             return "\n"
+        if max(xs_) < x_max and (max(ys_) < top or min(ys_) > bottom):
+            return "\n"
         return m_.group(0)
-    s_ = _re.sub(r"\n([-\d.]+) ([-\d.]+) m\n([-\d.]+) \2 l\n\3 ([-\d.]+) l\n\1 \4 l\n\1 \2 l\nh\n\nS\n", _f, s_)
+    s_ = _re.sub(r"\n((?:[-\d.]+ [-\d.]+ [ml]\n)+)h\n\n([fSB]\*?)\n", _f, s_)
     nf_ = len(nf_)
     d_.update_stream(xr_[0], s_.encode("latin1"))
     for x_ in xr_[1:]:
@@ -2693,6 +2748,8 @@ if PLAN_RHINO_SHEETS:
     embed(3, HEYA1, None, 0, 0, 1.0)
     embed(3, PLAN1F, None, 0, 0, 1.0, dwg=("plan", "平面図　1階"))
     RHINO_TXT_MIE[(3, len(embeds[3]) - 1)] = _moji_mie(PLAN1F[:-4] + "_文字.pdf", os.path.join(OUT, "_plan1F_文字_見本.pdf"))
+    if (3, len(embeds[3]) - 1) in DWG:          # .ai の文字と寸法の部品も同じ写しから（表題・注・枠は部品にしない、ユーザー 10-31 10:17）
+        DWG[(3, len(embeds[3]) - 1)]["moji"] = RHINO_TXT_MIE[(3, len(embeds[3]) - 1)]
 else:
     MAWARI3 = _mawari(os.path.join(HERE, "sozai", "24_平面図の周り_1階.pdf"))
     embed(3, MAWARI3, None, 0, 0, 1.0)                # 平面図の下（先に置いた物が下）
@@ -3411,11 +3468,14 @@ CLIP_2F = (12, 20, 394, 298)
 CLIP_2F_ST = [(12, 20, 394, 90), (12, 90, 378, 150), (12, 150, 323, 220), (12, 220, 258, 298)]
 _EX2 = [(c_[2], c_[1], CLIP_2F[2], c_[3]) for c_ in CLIP_2F_ST[1:]]
 if PLAN_RHINO_SHEETS:                             # Rhino の2階の図を紙いっぱいに（3枚目と同じ位置・同じ大きさ）
-    HEYA2 = _heya_nuri(PLAN2F, PLAN2F[:-4] + "_文字.pdf", os.path.join(HERE, "sozai", "27b_平面図_2階_部屋の色.pdf"))   # 部屋の色（3枚目と同じ）
-    SOZAI_PDF.append(("27b", "平面図　2階　1/100　部屋の色（塗りだけ、ベクター）", HEYA2, 4, "Rhinoの線（drawings_rhino/sodachiya_plan2F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan2F_1-100.pdfから"))
+    HEYA2 = _heya_nuri(PLAN2F, PLAN2F[:-4] + "_文字.pdf", os.path.join(HERE, "sozai", "27b_平面図_2階_部屋の色.pdf"),
+                       fukinuke=C_SHARE)   # 部屋の色（3枚目と同じ）。2階の黄色は遊戯室の吹抜だけなので、塗らずに×（10-31 10:15）
+    SOZAI_PDF.append(("27b", "平面図　2階　1/100　部屋の色（塗りだけ、ベクター）と遊戯室の吹抜の×", HEYA2, 4, "Rhinoの線（drawings_rhino/sodachiya_plan2F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan2F_1-100.pdfから"))
     embed(4, HEYA2, None, 0, 0, 1.0)
     embed(4, PLAN2F, None, 0, 0, 1.0, dwg=("plan2", "平面図　2階"))
     RHINO_TXT_MIE[(4, len(embeds[4]) - 1)] = _moji_mie(PLAN2F[:-4] + "_文字.pdf", os.path.join(OUT, "_plan2F_文字_見本.pdf"))
+    if (4, len(embeds[4]) - 1) in DWG:          # .ai の文字と寸法の部品も同じ写しから（表題・注・枠は部品にしない、ユーザー 10-31 10:17）
+        DWG[(4, len(embeds[4]) - 1)]["moji"] = RHINO_TXT_MIE[(4, len(embeds[4]) - 1)]
 else:
     for _i2, _c2 in enumerate(CLIP_2F_ST):
         embed(4, PLAN3, _c2, _c2[0] + P2_DX, H - (_c2[3] + P2_DY), 1.0, dwg=("plan2", "平面図　2階"),
