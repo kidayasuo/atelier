@@ -258,6 +258,32 @@ for kind, a, b, _ in SEG:
             m.Objects.AddMesh(board_mesh(pg, f), att)
             nb += 1; area += pg.area; per[nm] = per.get(nm, 0) + 1
 
+# ---- 2 階の避難の戸の戸板（10-31、ユーザー：板塀の戸、外は戸の輪郭の線だけ）：add_west_south.py の戸板（名前に「避難の戸の戸板」、
+# 外の面は外壁の外面）の上に、外壁と同じ列（上の段の割り c）の上板を戸板の形で切って張る。まわりの 5 のすき間が外から見える細い線。
+ndoor = 0
+_doors = [o.Geometry for o in m.Objects if '避難の戸の戸板' in (o.Attributes.Name or '') and isinstance(o.Geometry, r.Mesh)]
+for g_door in _doors:
+    V_, F_ = mesh_vf(g_door)
+    sd_ = shapely.line_locate_point(RING, shapely.points(V_[:, :2]))
+    if sd_.max() - sd_.min() > SL / 2: continue
+    door_ = box(sd_.min(), V_[:, 2].min(), sd_.max(), V_[:, 2].max())
+    for kind, a, b, _ in SEG:
+        if b < door_.bounds[0] or a > door_.bounds[2]: continue
+        w = b - a; nn = max(1, round(w / PITCH)); p = w / nn
+        for i in range(nn):
+            c = a + p * (i + 0.5)
+            piece = door_.intersection(box(c - BW / 2, door_.bounds[1], c + BW / 2, door_.bounds[3]))
+            if piece.is_empty or piece.area < BW * 50: continue
+            n3, O3, h3, sg = board_frame(c)
+            loc = shapely.affinity.affine_transform(piece, [sg, 0, 0, 1, -sg * c, 0])
+            for pg in getattr(loc, 'geoms', [loc]):
+                if pg.geom_type != 'Polygon' or pg.is_empty: continue
+                if min(pg.bounds[2] - pg.bounds[0], pg.bounds[3] - pg.bounds[1]) < 20: ndrop += 1; continue
+                a_ = r.ObjectAttributes(); a_.LayerIndex = li; a_.Name = ONAME + '（避難の戸の戸板の上）'
+                m.Objects.AddMesh(board_mesh(pg, dict(n=n3, O=O3, h=h3)), a_)
+                nb += 1; ndoor += 1; area += pg.area; per['避難の戸'] = per.get('避難の戸', 0) + 1
+print('避難の戸の戸板の上板', ndoor)
+
 # ---- 越屋根の南の妻（10-28、ユーザー：越屋根の妻の板にも大和張り）：外皮の輪郭から約 30 内にあって上の展開に入らないので、その面の上に別に張る
 nsmon = 0
 for o in o21:
