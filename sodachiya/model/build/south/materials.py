@@ -24,7 +24,7 @@
     メッシュの版の床の上向きの面を写した「絵を貼った板」（テクスチャ座標つきのメッシュ、床の上 1 mm）をレイヤー「床の絵」（錠）に足す。
     床のポリサーフェスには絵なしの同じ色の素材（「〇〇（絵なし）」）を付ける（面の大きさに引き伸ばされた絵が縁に出ないように）。
 """
-import json, os, re, sys
+import json, math, os, re, sys
 import numpy as np
 import rhino3dm as r
 
@@ -163,6 +163,17 @@ def tex_dir(layer_name, spec):
         if layer_name.startswith(pre):
             return d
     return spec.get('dir', 'v')
+
+
+def tex_mapper_angle(kind, ang):
+    """本館係の tex_angle（度、ワールドの X から反時計回り＝板の長さの向き）があるとき：その向きの平面で本当の寸法に"""
+    _, w, l = TEX[kind]
+    t = math.radians(ang); al = np.array([math.cos(t), math.sin(t)]); ac = np.array([-al[1], al[0]])
+
+    def f(Q):
+        X = np.asarray(Q)[:, :2]
+        return np.stack([X @ ac / w, X @ al / l], 1)
+    return f
 
 
 def tex_mapper(P, kind, d):
@@ -420,7 +431,8 @@ def apply(path):
             g = o.Geometry
             if isinstance(g, r.Mesh):                                # メッシュの版：頂点にテクスチャ座標
                 P = np.array([[p.X, p.Y, p.Z] for p in g.Vertices])
-                fmap = tex_mapper(P, sp['texture'], tex_dir(L.Name, sp)); T = fmap(P)
+                ang = a.GetUserString('tex_angle')                   # 本館係の向き（10-31）があればそれ、無ければ場所から
+                fmap = (tex_mapper_angle(sp['texture'], float(ang)) if ang else tex_mapper(P, sp['texture'], tex_dir(L.Name, sp))); T = fmap(P)
                 set_uv(g, T); ntex += 1
                 S = top_skin(g, T, fmap)
                 if S is not None: SKINS.append((S, name, L.Name))

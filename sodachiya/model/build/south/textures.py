@@ -135,7 +135,18 @@ def arai(path, seed=1032):
     return ARAI_T, ARAI_T
 
 
-MAKERS = {'sugi': sugi, 'arai': arai}
+def sugi_a(path):
+    """10-31 ユーザー：杉の床板は本館係の絵（data/tex/sugi_floor.png、2400×2400 mm、板は絵の横向き、幅150の乱尺）を使う。
+    ここでの決まり（絵の横＝板の幅の向き、縦＝板の長さの向き）に合わせて90°回し、軽い JPEG にして書く"""
+    import os
+    from PIL import Image
+    src = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'data', 'tex', 'sugi_floor.png')
+    im = Image.open(src).convert('RGB').transpose(Image.Transpose.ROTATE_90)
+    im.save(path, quality=88, optimize=True)
+    return 2400.0, 2400.0
+
+
+MAKERS = {'sugi': sugi_a, 'sugi_gen': sugi, 'arai': arai}
 FILES = {'sugi': 'sugi_floor.jpg', 'arai': 'araidashi.jpg'}
 
 
