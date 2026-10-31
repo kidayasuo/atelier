@@ -100,8 +100,12 @@ if os.path.exists(k3dm):
         kl = [km.Layers[i].Name for i in range(len(km.Layers))]
         for o in km.Objects:
             g = o.Geometry; ln = kl[o.Attributes.LayerIndex]
-            if ln.split('_')[0] in KATACHI_FREE: continue
-            bad = isinstance(g, r3.Mesh) or (isinstance(g, r3.Brep) and (len(g.Faces) > KATACHI_FACES or not g.IsSolid)) \
+            if ln.split('_')[0] in KATACHI_FREE or ln.startswith('床の絵'): continue      # 床の絵の板は絵を貼るためのメッシュ（materials.py）
+            # 面が多くても、すべて平らな面の閉じた立体（開口を引いた外壁・丸い壁に沿う床の押し出し）は素直とする（10-31 監修、西館係の項 1620）
+            # 西館の外壁21（一つの閉じた立体＝外壁の輪の押し出し−開口＋水切り、角の丸みの円柱面）と2階床23（丸い壁に沿う輪郭の押し出し）は例外
+            many = isinstance(g, r3.Brep) and len(g.Faces) > KATACHI_FACES and ln.split('_')[0] not in ('21', '23') \
+                and not all(g.Faces[i].IsPlanar(0.5) for i in range(len(g.Faces)))
+            bad = isinstance(g, r3.Mesh) or (isinstance(g, r3.Brep) and (many or not g.IsSolid)) \
                 or (isinstance(g, r3.Extrusion) and not g.IsSolid)
             if bad: kn[ln] = kn.get(ln, 0) + 1
         ktxt = ''.join(f'{v}\t{k}\n' for k, v in sorted(kn.items()))
