@@ -59,6 +59,18 @@ SDY.rgb = function (hex) {
     c.red = parseInt(hex.substr(0, 2), 16); c.green = parseInt(hex.substr(2, 2), 16); c.blue = parseInt(hex.substr(4, 2), 16);
     return c;
 };
+// グローバルスウォッチ（ゾーニングの分類の色、10-31 22:23）：名前のスウォッチが無ければ作る。スウォッチの色を変えれば同じ分類の面がみな変わる。
+// 作れなければ RGB のまま（同じ値なので「同じ塗りを選択」で選べる）
+SDY.swatchColor = function (name, hex) {
+    if (!name) { return SDY.rgb(hex); }
+    try {
+        var doc = app.activeDocument, sp = null, k;
+        for (k = 0; k < doc.spots.length; k++) { if (doc.spots[k].name === name) { sp = doc.spots[k]; break; } }
+        if (!sp) { sp = doc.spots.add(); sp.name = name; sp.colorType = ColorModel.PROCESS; sp.color = SDY.rgb(hex); }
+        var sc = new SpotColor(); sc.spot = sp; sc.tint = 100;
+        return sc;
+    } catch (e) { return SDY.rgb(hex); }
+};
 SDY.fontCache = {};
 SDY.font = function (w) {
     if (SDY.fontCache[w] !== undefined) { return SDY.fontCache[w]; }
@@ -469,7 +481,7 @@ SDY.makeLines = function (doc, lay, i, p) {
                 pts = [];
                 for (j = 0; j < q.rings[r].length; j++) { pts.push(SDY.P(doc, i, q.rings[r][j][0], q.rings[r][j][1])); }
                 pi = cp.pathItems.add(); pi.setEntirePath(pts); pi.closed = true;
-                if (q.fill) { pi.filled = true; pi.fillColor = SDY.rgb(q.fill); } else { pi.filled = false; }
+                if (q.fill) { pi.filled = true; pi.fillColor = q.swatch ? SDY.swatchColor(q.swatch, q.fill) : SDY.rgb(q.fill); } else { pi.filled = false; }
                 if (q.stroke && q.lw > 0) { pi.stroked = true; pi.strokeColor = SDY.rgb(q.stroke); pi.strokeWidth = q.lw; } else { pi.stroked = false; }
                 try { pi.evenodd = true; } catch (e3) {}
             }
@@ -481,7 +493,7 @@ SDY.makeLines = function (doc, lay, i, p) {
         pi.setEntirePath(pts);
         if (q.name) { pi.name = q.name; }
         pi.closed = !!q.closed;
-        if (q.fill) { pi.filled = true; pi.fillColor = SDY.rgb(q.fill); } else { pi.filled = false; }
+        if (q.fill) { pi.filled = true; pi.fillColor = q.swatch ? SDY.swatchColor(q.swatch, q.fill) : SDY.rgb(q.fill); } else { pi.filled = false; }
         if (q.stroke && q.lw > 0) {
             pi.stroked = true; pi.strokeColor = SDY.rgb(q.stroke); pi.strokeWidth = q.lw;
             try { pi.strokeCap = StrokeCap.BUTTENDCAP; } catch (e1) {}
@@ -496,7 +508,7 @@ SDY.makeLines = function (doc, lay, i, p) {
 SDY.makeBox = function (doc, lay, i, p) {
     var tl = SDY.P(doc, i, p.x, p.y);
     var r = lay.pathItems.rectangle(tl[1], tl[0], p.w * SDY.K, p.h * SDY.K);
-    r.filled = !!p.fill; if (p.fill) { r.fillColor = SDY.rgb(p.fill); }
+    r.filled = !!p.fill; if (p.fill) { r.fillColor = p.swatch ? SDY.swatchColor(p.swatch, p.fill) : SDY.rgb(p.fill); }
     r.stroked = !!p.stroke; if (p.stroke) { r.strokeColor = SDY.rgb(p.stroke); r.strokeWidth = p.lw || 0.5; }
     if (p.dash) { r.strokeDashes = [p.dash[0] * (p.lw || 0.5), p.dash[1] * (p.lw || 0.5)]; }
     SDY.tag(r, p);

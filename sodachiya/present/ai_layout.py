@@ -237,7 +237,8 @@ def write(c):
                 if inside(r["x"] + r["w"] / 2, r["y"] + r["h"] / 2):
                     continue
                 add(dict(id=r["id"], name=r["name"], kind="box", layer=layer, x=round(r["x"], 2), y=round(H - r["y"] - r["h"], 2),
-                         w=round(r["w"], 2), h=round(r["h"], 2), fill=r["fill"], stroke=r["stroke"], lw=r["lw"], dash=r["dash"], **_grp(r)))
+                         w=round(r["w"], 2), h=round(r["h"], 2), fill=r["fill"], stroke=r["stroke"], lw=r["lw"], dash=r["dash"],
+                         **({"swatch": r["swatch"]} if r.get("swatch") else {}), **_grp(r)))   # 凡例の見本は面と同じスウォッチ（ゾーニング、10-31 22:23）
             elif k == "lines":                          # 閉じたパス・線の部品（ゾーニングの白地図、10-31）。paths の点は紙の mm（下原点）
                 P_ = []
                 for q in r["paths"]:

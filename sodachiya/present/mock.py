@@ -1233,7 +1233,7 @@ figS = plt.figure(figsize=(W / 25.4, HS / 25.4))
 ax = figS.add_axes([0, 0, 1, 1]); ax.set_xlim(0, W); ax.set_ylim(YB, YT); ax.axis("off")
 rp = clip_rect(ax, bsx, bsy, bsw, bsh)                          # 大きい方の窓で描く（見本には見せる窓だけ貼る）
 st = len(ax.patches); stl = len(ax.lines)
-SGRP = {"l": [], "c": [], "t": []}
+SGRP = {"l": [], "c": [], "t": [], "k": []}      # k：園庭の等高線（Rhino の線には無いので別の素材 29a、10-31 22:24）
 _snap = [0, 0, 0, 0]
 
 
@@ -1478,7 +1478,7 @@ for L_, fc_ in (("62_", "#E2ECD4"), ("63_", "#EEE9DF"), ("64_", "#E8E1D4"), ("67
 for o in _rp_("91_"):                                    # 等高線（0.2 mごと。築山がはっきり見えるように、0.4 mごとを太く。ユーザー 10-25夕）
     _zc = float(np.mean(o["V"][:, 2])) if len(o["V"]) else 0.0
     _ix = abs(((_zc - 0.1) / 0.4) - round((_zc - 0.1) / 0.4)) < 0.05
-    SL(_sh(o), "#5F8049" if _ix else "#7E9A68", 0.5 if _ix else 0.3, z=4.95)
+    SL(_sh(o), "#5F8049" if _ix else "#7E9A68", 0.5 if _ix else 0.3, z=4.95, grp="k")
 for o in _rp_("92_"):                                    # 水（小川・雨の川・噴水・水浴び場・溝）
     g_ = _sh(o)
     if g_ is not None:
@@ -1802,8 +1802,8 @@ _mk("t")
 SITE_LIVE[0] = None
 # 文字に入った引き出し線（lab の線と点）は文字の組に入れたまま（文字と一緒に動かす）
 _SITE_PDF = {}
-for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字"), ("o", "風と視線"), ("s", "太陽")):
-    allart = SGRP["l"] + SGRP["c"] + SGRP["t"] + SGRP["o"] + SGRP["s"]
+for gr, nm in (("l", "線"), ("c", "色"), ("t", "文字"), ("o", "風と視線"), ("s", "太陽"), ("k", "等高線")):
+    allart = SGRP["l"] + SGRP["c"] + SGRP["t"] + SGRP["o"] + SGRP["s"] + SGRP["k"]
     for a_ in allart:
         a_.set_visible(a_ in SGRP[gr])
     fn_ = os.path.join(OUT, f"_site_{gr}.pdf")
@@ -2018,7 +2018,7 @@ if SITE_FROM_UPD:
         _SITE_PDF[gr] = _fn
     print("配置図：線と色は更新係の配置図から（ずれ", np.round(_off, 1), "mm）")
 _SCLIP = (SCX0, M + SDY_, SCX1, H - M + SDY_)                                          # 元のPDFのmm（左上から）。上下は内枠いっぱい（ユーザー 10-28 18:01）
-for gr in ("c", "l", "t", "o"):                                               # 1枚目：色 → 線 → 文字 → 風と視線の順に重ねる（太陽は外した、ユーザー 10-26）
+for gr in ("c", "k", "l", "t", "o"):                                          # 1枚目：色 → 等高線 → 線 → 文字 → 風と視線の順に重ねる（太陽は外した、ユーザー 10-26）
     embed(1, _SITE_PDF[gr], _SCLIP, SCX0, M, 1.0)
 # 太陽の線（方位を兼ねる、ユーザー 10-26夜）：配置図の左上。線は素材の図、時刻とNは Apple Chancery の文字の部品
 sys.path.insert(0, os.path.join(HERE, "tools"))
@@ -2080,6 +2080,7 @@ SOZAI_FILES = [("01a", "配置図　1/200　線（屋根伏せ・外構・園庭
                ("01b", "配置図　1/200　色（屋根・太陽光・光の筋・園庭・水・木）", "色", "いちばん下に置く"),
                ("01c", "配置図　1/200　文字（建物と園庭の名前・道の注・方位のN）", "文字", "いちばん上に置く"),
                ("01d", "配置図　1/200　夏の夜の風と比叡への視線（重ねる層、地は透明）", "風と視線", "文字の上に重ねる"),
+               ("29a", "配置図　1/200　園庭の等高線（0.2 mごと、地は透明）", "等高線", "色の上、線の下に置く（Rhinoの線には等高線が無い、10-31 22:24）"),
 ]
 print(f"配置図：回転{ROT:.1f}°（3dmから{GJ['VIEW_ROT']['deg']}°）、枠{sw:.0f}×{sh:.0f} mm")
 
@@ -2799,6 +2800,35 @@ def _mawari(path, extra=None, cut=None):
 # 10-30（ユーザー）：3・4枚目は Rhino で生成した図にする。drawings_rhino/sodachiya_plan1F_1-100.pdf（3枚目）・plan2F（4枚目）を紙いっぱいに、
 # 上に drawings/<同名>_文字.pdf（RHINO_MAP と embed が重ねる）。更新係の plan1F・plan2F は 200 pt 左へずらした位置（PLAN_SX）で描いてあり、1階と2階は同じ紙の写し。
 # 周りの描き足し（sozai/24・25）と、一枚の平面図（plan_1-100）の切り抜きは、このフラグで止める（False にすると前のやり方）
+def _tokousen(path, thin=False):
+    """園庭の等高線（3dm の 91、0.2 mごと・1.0 mを太く）を平面図と同じ紙・同じ位置（plan1F・plan2F の model_to_paper）の透明な PDF に（10-31 22:24）。
+    Rhino の平面図には等高線が無い（91 は非表示）。建物の足もとは描かない。thin＝2階（下に見える園庭の見えがかりとして細く）"""
+    f_ = plt.figure(figsize=(W / 25.4, H / 25.4))
+    a_ = f_.add_axes([0, 0, 1, 1]); a_.set_xlim(0, W); a_.set_ylim(0, H); a_.axis("off")
+    bl_ = unary_union([g_.buffer(0.05) for ln_, k_, g_ in plan_items if g_ is not None and ln_[:1] in "12345" and g_.geom_type.endswith("Polygon")])
+    bl_ = unary_union([Polygon(p_.exterior) for p_ in getattr(bl_, "geoms", [bl_]) if p_.geom_type == "Polygon"])   # 穴を埋める
+    n_ = 0
+    for o in objs:
+        if not o["layer"].startswith("91_"):
+            continue
+        g_ = (_sh if callable(_sh) else _shp_)(o)        # _sh は配置図の途中で図形に上書きされることがある
+        if g_ is None or g_.is_empty:
+            continue
+        g_ = (g_.boundary if g_.geom_type.endswith("Polygon") else g_).difference(bl_)
+        try:
+            h_ = float(re.sub(r"[^0-9.+-]", "", o["name"] or ""))
+        except ValueError:
+            h_ = 0.1
+        thick_ = abs(h_ - round(h_)) < 0.01 and abs(h_) > 0.01                # 1.0 m・2.0 m は太く
+        lw_ = (0.35 if thick_ else 0.18) if thin else (0.6 if thick_ else 0.3)
+        draw_shape(a_, TRP(g_).intersection(_PAGE), _XID, ec="#9AAE8C" if thin else "#6F8C5A", lw=lw_, z=1)
+        n_ += 1
+    f_.savefig(path, transparent=True)
+    plt.close(f_)
+    print("平面図の等高線：", os.path.basename(path), n_, "本")
+    return path
+
+
 PLAN1F = os.path.join(DRW, "sodachiya_plan1F_1-100.pdf")
 PLAN2F = os.path.join(DRW, "sodachiya_plan2F_1-100.pdf")
 PLAN_RHINO_SHEETS = os.path.exists(PLAN1F) and os.path.exists(PLAN2F)
@@ -2807,6 +2837,9 @@ if PLAN_RHINO_SHEETS:
     HEYA1 = _heya_nuri(PLAN1F, PLAN1F[:-4] + "_文字.pdf", os.path.join(HERE, "sozai", "27a_平面図_1階_部屋の色.pdf"))
     SOZAI_PDF.append(("27a", "平面図　1階　1/100　部屋の色（塗りだけ、ベクター）", HEYA1, 3, "Rhinoの線（drawings_rhino/sodachiya_plan1F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan1F_1-100.pdfから"))
     embed(3, HEYA1, None, 0, 0, 1.0)
+    TOK1 = _tokousen(os.path.join(HERE, "sozai", "29b_平面図_1階_園庭の等高線.pdf"))
+    SOZAI_PDF.append(("29b", "平面図　1階　1/100　園庭の等高線（0.2 mごと・1.0 mを太く、地は透明）", TOK1, 3, "部屋の色の上、Rhinoの線の下に置く。紙いっぱい・同じ位置（10-31 22:24）"))
+    embed(3, TOK1, None, 0, 0, 1.0)
     embed(3, PLAN1F, None, 0, 0, 1.0, dwg=("plan", "平面図　1階"))
     RHINO_TXT_MIE[(3, len(embeds[3]) - 1)] = _moji_mie(PLAN1F[:-4] + "_文字.pdf", os.path.join(OUT, "_plan1F_文字_見本.pdf"))
     if (3, len(embeds[3]) - 1) in DWG:          # .ai の文字と寸法の部品も同じ写しから（表題・注・枠は部品にしない、ユーザー 10-31 10:17）
@@ -2864,17 +2897,10 @@ fy = Y(45) - fh
 import colorsys
 _HSB = lambda h_, s_, b_: matplotlib.colors.to_hex(colorsys.hsv_to_rgb(h_ / 360, s_, b_))
 F_H = 28                                          # 土足の一族の色相
-Z_COL = {"z02": "#C5DE9A", "z35": "#7FB872", "share": C_SHARE, "adult": C_ADULT, "kitchen": "#E8A6A6",
-         "wc": "#6FA8C6", "store": "#8E8E8E",                                     # 倉庫は無彩色の濃い灰（大人の紫と分ける、10-30 23:07）
-         # セキュリティ外は青みの灰の族、セキュリティ内（外構・土足・園庭）は土の色相の族（ユーザー 10-30 23:07：内と外をはっきり）
-         "out": _HSB(212, 0.07, 0.93), "in_ext": _HSB(F_H, 0.20, 0.90), "shoe": _HSB(F_H, 0.30, 0.88),
-         "g02": _HSB(F_H, 0.28, 0.80), "gboth": _HSB(F_H, 0.40, 0.71), "g35": _HSB(F_H, 0.52, 0.62),
-         "park_car": _HSB(212, 0.10, 0.70), "water": "#B8DDF2", "park": "#E3EDD8"}
-Z_LEG1 = [("z02", "0〜2歳"), ("z35", "3〜5歳"), ("share", "みんなの場所"), ("adult", "大人"), ("kitchen", "調理"), ("wc", "トイレ"), ("store", "倉庫")]
-Z_LEG2 = [("out", "セキュリティ外（歩道・ひろば・搬入路）"), ("in_ext", "セキュリティ内の外構（北の坪庭・読書の庭）"),
-          ("shoe", "土足（木戸の内の小径・ムベの下、受け取り土間・あまのがわ・外縁側）")]
-Z_LEG3 = [("g02", "乳児の園庭（みなみのさんかく）"), ("gboth", "しずかのもり（両方）"), ("g35", "だいさんかく（3〜5歳）"),
-          ("park_car", "駐車場・駐輪場"), ("water", "水遊び場・雨庭"), ("park", "公園")]
+ZCJ = json.load(open(os.path.join(HERE, "zoning_colors.json"), encoding="utf-8"))   # 色の表（名前つき、ユーザー 10-31 22:23 の分け方）
+ZCC = {k_: v_["hex"] for k_, v_ in ZCJ["colors"].items()}
+# 一日の帯（_zone_paint）も同じ表：内と外は色で分けない（線の内の外構は白）、土足の床は共用の色
+Z_COL = dict(ZCC, out=ZCC["walk"], in_ext="#FFFFFF", shoe=ZCC["share"], park_car=ZCC["parking"], none="#FFFFFF")
 ZONE = {"53_": "z02", "54_": "z02",
         "59_1F_3歳": "z35", "59_1F_4歳": "z35", "59_1F_5歳": "z35",
         "31_": "share", "33_": "share", "12_": "share", "13_": "share", "56_": "share",
@@ -2883,7 +2909,7 @@ ZONE = {"53_": "z02", "54_": "z02",
         "59_1F_便所": "wc", "59_1F_多目的便所": "wc", "57_": "wc",             # 調理の更衣・便所・前室は一つの形なのでトイレの色（10-30 22:14）
         "59_1F_倉庫": "store", "36b_": "store",
         "59_1F_事務": "adult", "59_1F_医務": "adult", "59_1F_静養室": "adult",
-        "35_": "adult", "36_": "adult",
+        "35_": "none", "36_": "adult",                     # 機械室は塗らない（10-31 22:23）
         "32_": "kitchen"}
 Z_BASE = ("12_", "13_", "56_", "59_1F_西吹き抜け", "59_1F_路地")       # 0〜2歳の教室の範囲では 0〜2歳の色（内廊下・西の窓際まで教室、ユーザー）
 Z2 = []                                        # 西館の2階（会議・更衣・休憩・便所・ホール）。plan_items は1階だけ（高さ2 m より下）なので3dmから
@@ -2991,8 +3017,8 @@ zox, zoy = M + 6, Y(55) - zh
 # ゾーニングの図は塗り・線・セキュリティの線・文字・凡例を一つのグループ（レイヤー「説明」のすぐ下、ユーザー 10-31 22:10）。
 # 前の部品（zone.・zone2.・zup.・zleg.・t.、三つのグループ）とは id を替え、update_texts.jsx で前の物は「外した物」へ、新しい物はこのグループで入る
 G_ZF = ("zoning_fig", "ゾーニングの図")
-_live(ax, 2, G_ZF[0], G_ZF[1], idp="zn.")
-title(ax, M + 6, Y(51), "ゾーニング", f"1/{ZSC}　使う人ごとの色、セキュリティの内と外、園庭と一体（配置図と同じ向き、高野川を下に）")
+_live(ax, 2, G_ZF[0], G_ZF[1], idp="zc.")
+title(ax, M + 6, Y(51), "ゾーニング", f"1/{ZSC}　色は機能、太い線がセキュリティの線、点の網は土足の床、園庭と一体（配置図と同じ向き、高野川を下に）")
 _GRAYL = lambda c_: (lambda r_: matplotlib.colors.to_hex([0.55 + 0.45 * (0.299 * r_[0] + 0.587 * r_[1] + 0.114 * r_[2])] * 3))(matplotlib.colors.to_rgb(c_))   # 使っていない所は無彩色（明るさだけ残す）
 # 0〜2歳の部屋の中のトイレ：3dm には部屋の形が無いので、更新係の平面図（drawings/sodachiya_plan_1-100.pdf）の「水まわり」の塗り（淡い水色）を紙→3dm→回した座標に戻して使う
 _wc02 = []
@@ -3052,7 +3078,7 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
     P(_PARK_R, Z_COL["park"], "out", z_=0.37)
     P(_OUT, Z_COL["out"], "out", z_=0.4)
     P(_IN, Z_COL["in_ext"], "in_ext", z_=0.41)
-    P(_APPR, Z_COL["shoe"], "approach", z_=0.42)
+    P(_APPR, Z_COL["in_ext"], "approach", z_=0.42)
     P(_fill(GD["garden"]), Z_COL["g35"], "g35", z_=0.5)
     P(GD["shizu"], Z_COL["gboth"], "gboth", z_=0.55)
     P(_fill(_MINAMI) if _MINAMI is not None else None, Z_COL["g02"], "g02", z_=0.55)
@@ -3119,50 +3145,56 @@ for ln_, g_ in Z2:
     draw_shape(_axZ, _fill(g_), z2xf, fc=Z_COL["wc"] if ln_.startswith("42_") else Z_COL["adult"], ec="#9A9A9A", lw=0.12, z=9.5)
 _figZ.savefig(os.path.join(HERE, "sozai", "19_ゾーニング_彩色（参考）.pdf"))
 plt.close(_figZ)
-# ゾーンの区分（回した座標、上の物が先）：重ならないよう、先に取った所を引いて境界を共有させる
+# ゾーンの区分（回した座標、上の物が先）：重ならないよう、先に取った所を引いて境界を共有させる。
+# 色は機能（ユーザー 10-31 22:23、zoning_colors.json）。内と外は色で分けず太いセキュリティの線だけ。土足の床（ポーチ・受け取り土間・あまのがわ・外縁側）は点の網を重ねる
 _ZL = []
 
 
-def _za(name_, g_):
+def _za(name_, g_, cat_, net_=False):
     if g_ is not None and not g_.is_empty:
-        _ZL.append((name_, g_))
+        _ZL.append((name_, g_, cat_, net_))
 
 
+_ZCAT = {"z02": "z02", "z35": "z35", "share": "share", "adult": "adult", "kitchen": "kitchen", "wc": "wc", "store": "store", "shoe": "share", "none": "none"}
 _rooms = {}
 for ln_, k_, g_ in plan_items:
     z_ = _zcol(ln_)
     if z_ and g_ is not None and g_.geom_type.endswith("Polygon"):
         pr_ = 3 if z_ in ("wc", "store") else (0 if ln_.startswith("12_") else (1 if ln_.startswith(Z_BASE) else 2))
         _rooms.setdefault((pr_, ln_), []).append(_fill(g_))
-_za("便所（0〜2歳）", _WC02)
+_za("便所（0〜2歳）", _WC02, "wc")
 for (pr_, ln_), gs_ in sorted(_rooms.items(), key=lambda kv: -kv[0][0]):
     u_ = unary_union(gs_)
     nm_ = "本館の床（廊下ほか）" if ln_.startswith("12_") else _zname(ln_)
+    c_ = _ZCAT[_zcol(ln_)]
+    net_ = _zcol(ln_) == "shoe"
     if ln_.startswith(Z_BASE):
-        _za(nm_ + "（0〜2歳の範囲）", u_.intersection(_STRIP02))
-        _za(nm_, u_.difference(_STRIP02))
+        _za(nm_ + "（0〜2歳の範囲）", u_.intersection(_STRIP02), "z02")
+        _za(nm_, u_.difference(_STRIP02), c_)
     elif ln_.startswith("14_"):
         _s_ = [p_ for p_ in getattr(u_, "geoms", [u_]) if _unrot(p_).centroid.x < _u0_south]
-        _za("外縁側（0・1歳の南）", unary_union(_s_) if _s_ else None)
-        _za(nm_, u_.difference(unary_union(_s_)) if _s_ else u_)
+        _za("外縁側（0・1歳の南）", unary_union(_s_) if _s_ else None, "z02", True)
+        _za(nm_, u_.difference(unary_union(_s_)) if _s_ else u_, c_, True)
     else:
-        _za(nm_, u_)
-_za("建物（壁・すき間）", _BLD)
-_za("小屋の便所", _HUT_WC); _za("小屋の倉庫", _HUT_ST); _za("コンポスト", GD["compost"])
-_za("水遊び場・雨庭", _WATER); _za("小川", _STREAM_W)
-_za("みなみのさんかく", _fill(_MINAMI) if _MINAMI is not None else None); _za("しずかのもり", GD["shizu"]); _za("だいさんかく", _fill(GD["garden"]))
-_za("職員の駐輪場", _BIKE_ST); _za("駐車場", _PARKING)
-_za("歩道", _swS3); _za("ひろば", _hb_)
-_za("木戸の内（小径・ムベの下）", _APPR); _za("セキュリティ内の外構", _IN); _za("セキュリティ外の外構", _OUT)
-_za("公園", _PARK_R); _za("敷地（そのほか）", _SITEP); _za("道路", _ROADS_R); _za("周り", _WIN)
+        _za(nm_, u_, c_, net_)
+_PORCH = _zg("64_")
+_za("ポーチ", _PORCH.difference(_BLD) if _PORCH is not None else None, "share", True)
+_za("建物（壁・すき間）", _BLD, "wall")
+_za("小屋の便所", _HUT_WC, "wc"); _za("小屋の倉庫", _HUT_ST, "store"); _za("コンポスト", GD["compost"], "store")
+_za("水遊び場・雨庭", _WATER, "water"); _za("小川", _STREAM_W, "stream")
+_za("みなみのさんかく", _fill(_MINAMI) if _MINAMI is not None else None, "g02"); _za("しずかのもり", GD["shizu"], "gboth"); _za("だいさんかく", _fill(GD["garden"]), "g35")
+_za("職員の駐輪場", _BIKE_ST, "parking"); _za("駐車場", _PARKING, "parking")
+_za("歩道", _swS3, "walk"); _za("ひろば", _hb_, "none")
+_za("木戸の内（小径・ムベの下）", _APPR, "none"); _za("線の内の外構（坪庭・読書の庭・機械室まわり）", _IN, "none"); _za("線の外の外構（道ぞいの歩く所・搬入路）", _OUT, "walk")
+_za("公園", _PARK_R, "park"); _za("敷地（そのほか）", _SITEP, "none"); _za("道路", _ROADS_R, "road"); _za("周り", _WIN, "none")
 _taken = None
-_ZP = []                                          # (名前, 形)
-for nm_, g_ in _ZL:
+_ZP = []                                          # (名前, 形, 分類, 網)
+for nm_, g_, c_, n_ in _ZL:
     g_ = g_.buffer(0).intersection(_WIN)
     if _taken is not None:
         g_ = g_.difference(_taken)
     if g_.area > 0.02:
-        _ZP.append((nm_, g_))
+        _ZP.append((nm_, g_, c_, n_))
     _taken = g_ if _taken is None else _taken.union(g_)
 
 
@@ -3185,10 +3217,13 @@ G_ZB = G_ZU = G_ZF
 _nz, _nzp = 0, 0
 
 
-def _zpart(id_, name_, paths_, layer_, group_, fill_=None, stroke_="#555555", lw_=0.2):
+def _zpart(id_, name_, paths_, layer_, group_, fill_=None, stroke_="#555555", lw_=0.2, swatch_=None):
+    """swatch_：.ai のグローバルスウォッチの名前（同じ分類の面を一度に色替え、10-31 22:23）。パスの名前は q_["name"] があればそれ"""
     global _nz, _nzp
     for q_ in paths_:
-        q_.update(fill=fill_, stroke=stroke_, lw=lw_, name=name_)
+        q_.update(fill=fill_, stroke=stroke_, lw=lw_, name=q_.get("name") or name_)
+        if swatch_ and fill_:
+            q_["swatch"] = swatch_
         if "rings" in q_:                           # 穴のある形（セキュリティの帯など）は一つの複合パスで（輪ごとに塗ると穴が埋まる）
             from matplotlib.patches import PathPatch
             from matplotlib.path import Path as MPath
@@ -3209,10 +3244,38 @@ def _zpart(id_, name_, paths_, layer_, group_, fill_=None, stroke_="#555555", lw
 
 
 _zs_ = lambda s_: re.sub(r"[\s　/\\|:（）()、。・]+", "", s_)[:14]
-for nm_, g_ in _ZP:
-    _zpart("zn." + _zs_(nm_), nm_, _rings(g_, zxf), "説明", G_ZB)
+_ZOL = ZCJ["outline"]
+_zsw = lambda c_: "ゾーン_" + re.split(r"[（(]", ZCJ["colors"][c_]["name"])[0]      # 分類の名前（サブグループ・スウォッチの名前）
+for c_ in ZCJ["colors"]:                           # 分類ごとに一つの部品（.ai では「ゾーン_共用」などのサブグループ、中の面の名前はゾーンの名前）
+    ps_ = []
+    for nm_, g_, cc_, n_ in _ZP:
+        if cc_ == c_:
+            for q_ in _rings(g_, zxf):
+                q_["name"] = nm_; ps_.append(q_)
+    _zpart("zc.zone." + c_, _zsw(c_), ps_, "説明", G_ZB, fill_=ZCC[c_], stroke_=_ZOL["hex"], lw_=_ZOL["lw"], swatch_=_zsw(c_) if ZCC[c_] else None)
+# 土足の網：点（小さな六角形）を紙の上の格子（互い違い）に置き、土足の床の形の中だけ残す。一つの複合パスにまとめて「土足の網」の部品に
+_NET = ZCJ["net"]
+_nsp, _nr = _NET["spacing_mm"], _NET["dot_mm"] / 2
+_hexo = [(_nr * np.cos(np.pi / 3 * k_ + np.pi / 6), _nr * np.sin(np.pi / 3 * k_ + np.pi / 6)) for k_ in range(6)]
+_netd = []
+from shapely.prepared import prep as _prep
+for nm_, g_, cc_, n_ in _ZP:
+    if not n_:
+        continue
+    gp_ = affinity.affine_transform(g_, [1000 / ZSC, 0, 0, 1000 / ZSC, zox - WX0 * 1000 / ZSC, zoy - WY0 * 1000 / ZSC])   # 紙の mm（zxf と同じ）
+    gq_ = _prep(gp_.buffer(-_nr * 1.2))
+    b_ = gp_.bounds
+    rs_ = []
+    for jy_, y_ in enumerate(np.arange(np.floor(b_[1] / _nsp) * _nsp, b_[3] + _nsp, _nsp * 0.866)):
+        for x_ in np.arange(np.floor(b_[0] / _nsp) * _nsp + (_nsp / 2 if jy_ % 2 else 0), b_[2] + _nsp, _nsp):
+            if gq_.contains(Point(x_, y_)):
+                rs_.append([[float(x_ + a_), float(y_ + c2_)] for a_, c2_ in _hexo])
+    if rs_:
+        _netd.append(dict(rings=rs_, name="網　" + nm_))
+_zpart("zc.net", _NET["name"], _netd, "説明", G_ZB, fill_=_NET["hex"], stroke_=None, lw_=0, swatch_=_NET["name"])
+print("土足の網：%d か所、点 %d" % (len(_netd), sum(len(d_["rings"]) for d_ in _netd)))
 _FENW = _SECB.intersection(_WIN)
-_zpart("zn.セキュリティの線", "セキュリティの線（一周）", _rings(_FENW, zxf), "説明", G_ZB, fill_="#1E1E1E", stroke_=None, lw_=0)
+_zpart("zc.セキュリティの線", "セキュリティの線（一周）", _rings(_FENW, zxf), "説明", G_ZB, fill_="#1E1E1E", stroke_=None, lw_=0)
 # 2階（西館）の差し込み：枠と部屋（同じ縮尺）
 _z2bg = Polygon([(_z2b[0] - 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[3] + 1 + 7 * ZSC / 1000), (_z2b[0] - 1, _z2b[3] + 1 + 7 * ZSC / 1000)])
 _t2 = None
@@ -3220,18 +3283,19 @@ for ln_, g_ in sorted(Z2, key=lambda t_: 0 if t_[0].startswith("42_") else 1):
     g_ = _fill(g_)
     if _t2 is not None:
         g_ = g_.difference(_t2)
-    _zpart("zn2." + _zs_(_zname(ln_)), "2階　" + _zname(ln_), _rings(g_, z2xf), "説明", G_ZB)
+    c2_ = "wc" if ln_.startswith("42_") else "adult"                 # 2階は職員の場所（便所はトイレ）
+    _zpart("zc.2f." + _zs_(_zname(ln_)), "2階　" + _zname(ln_), _rings(g_, z2xf), "説明", G_ZB, fill_=ZCC[c2_], stroke_=_ZOL["hex"], lw_=_ZOL["lw"], swatch_=_zsw(c2_))
     _t2 = g_ if _t2 is None else _t2.union(g_)
 if _t2 is not None:
-    _zpart("zn2.ホールほか", "2階　ホール・すき間", _rings(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2])).difference(_t2), z2xf), "説明", G_ZB)
-    _zpart("zn2.枠", "2階（西館）の枠", _rings(_z2bg.difference(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2]))), z2xf), "説明", G_ZB, fill_="#FFFFFF")
+    _zpart("zc.2f.ホールほか", "2階　ホール・すき間", _rings(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2])).difference(_t2), z2xf), "説明", G_ZB, fill_=ZCC["adult"], stroke_=_ZOL["hex"], lw_=_ZOL["lw"], swatch_=_zsw("adult"))
+    _zpart("zc.2f.枠", "2階（西館）の枠", _rings(_z2bg.difference(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2]))), z2xf), "説明", G_ZB, fill_="#FFFFFF")
 # 上の線
 _up = lambda gs_: [dict(pts=[list(map(float, q_)) for q_ in zxf(np.array(l_.coords))], closed=False) for g0_ in gs_ for l_ in
                    (lambda g1_: [b_ for b_ in getattr(g1_, "geoms", [g1_]) if b_.geom_type.endswith("LineString") and len(b_.coords) > 1])(
                        (g0_.boundary if g0_.geom_type.endswith("Polygon") else g0_).intersection(_WIN))]
-_zpart("znu.等高線", "等高線 0.2 m", _up(_CONT), "説明", G_ZU, stroke_="#8A8A8A", lw_=0.15)
-_zpart("znu.築山", "築山の輪郭", _up([GD["mound"]]), "説明", G_ZU, stroke_="#666666", lw_=0.3)
-_zpart("znu.車室", "車室・駐輪の区画・バンプ", _up([g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith(("74_", "74w"))) if g_ is not None]),
+_zpart("zc.up.等高線", "等高線 0.2 m", _up(_CONT), "説明", G_ZU, stroke_="#8A8A8A", lw_=0.15)
+_zpart("zc.up.築山", "築山の輪郭", _up([GD["mound"]]), "説明", G_ZU, stroke_="#666666", lw_=0.3)
+_zpart("zc.up.車室", "車室・駐輪の区画・バンプ", _up([g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith(("74_", "74w"))) if g_ is not None]),
        "説明", G_ZU, stroke_="#666666", lw_=0.15)
 print("ゾーニング（白地図）：区分 %d、部品 %d、閉じたパス・線 %d" % (len(_ZP), _nz, _nzp))
 _lab = {}
@@ -3252,23 +3316,54 @@ T(ax, z2ox + 1, z2oy + z2h + 2, "2階（西館）", 2.4, bold=True, zorder=10)
 for ln_, g_ in Z2:
     q_ = z2xf(np.array([g_.representative_point().coords[0]]))[0]
     T(ax, q_[0], q_[1], _zname(ln_), 1.8, "#333333", ha="center", va="center", zorder=10)
-# 凡例：色の見本は外し、項目の名前と塗りなしの四角（木田さんが色を付ける）
+# 読書：絵本の通り（西吹き抜け）の北の行き止まり「本の奥」（u51〜57）に名前を一つ（共用の色のまま、ユーザー 10-31 22:23）
+_wfb = unary_union([g_ for ln_, k_, g_ in plan_items if ln_.startswith("59_1F_西吹き抜け") and g_ is not None and g_.geom_type.endswith("Polygon")])
+if not _wfb.is_empty:
+    _wfr = _wfb.intersection(rot(Polygon([(51, -200), (57, -200), (57, 200), (51, 200)])))
+    if not _wfr.is_empty:
+        q_ = zxf(np.array([_wfr.representative_point().coords[0]]))[0]
+        T(ax, q_[0], q_[1] - 2.2, "読書", 1.8, "#333333", ha="center", va="center")
+# 凡例（この分け方に合わせて）：見本の四角は面と同じ色の値・同じスウォッチ。行の頭に見出し
+_FT = fitz.Font(fontfile=FONT)
 _ly = zoy - 6
-for row_ in (Z_LEG1, Z_LEG2, Z_LEG3):
-    _lx = M + 6
-    for k_, nm_ in row_:
-        ax.add_patch(Rectangle((_lx, _ly - 1.2), 6, 4, fc="none", ec="#777777", lw=0.2, gid="aipart"))
-        _airec(fig, kind="box", id=f"znleg.{k_}", name="凡例の四角：" + nm_, x=_lx, y=_ly - 1.2, w=6, h=4, fill=None, stroke="#777777", lw=0.2, dash=None,
-               group=G_ZF[0], group_name=G_ZF[1])
+
+
+def _zleg_box(id_, x_, y_, c_):
+    ax.add_patch(Rectangle((x_, y_ - 1.2), 6, 4, fc=ZCC[c_] or "none", ec="#777777", lw=0.2, gid="aipart"))
+    _airec(fig, kind="box", id=id_, name="凡例の見本：" + ZCJ["colors"][c_]["name"], x=x_, y=y_ - 1.2, w=6, h=4, fill=ZCC[c_], stroke="#777777", lw=0.2, dash=None,
+           swatch=_zsw(c_) if ZCC[c_] else None, group=G_ZF[0], group_name=G_ZF[1])
+
+
+_ZLEG = [("建物の中", ["z02", "z35", "share", "adult", "store", "kitchen", "wc"]),
+         ("園庭", ["g02", "gboth", "g35", "water", "stream"]),
+         ("線の外", ["park", "walk", "parking"])]
+for hd_, cs_ in _ZLEG:
+    T(ax, M + 6, _ly, hd_, 2.5, bold=True)
+    _lx = M + 6 + 15
+    for c_ in cs_:
+        nm_ = ZCJ["colors"][c_]["name"]
+        _zleg_box(f"zc.leg.{c_}", _lx, _ly, c_)
         T(ax, _lx + 7.5, _ly, nm_, 2.5)
-        _lx += 7.5 + fitz.Font(fontfile=FONT).text_length(nm_, 2.5 / 0.72) + 5
+        _lx += 7.5 + _FT.text_length(nm_, 2.5 / 0.72) + 4
+    if hd_ == "線の外":                                # 土足の網の見本（同じ行の右）
+        _lx += 6
+        ax.add_patch(Rectangle((_lx, _ly - 1.2), 6, 4, fc="none", ec="#777777", lw=0.2, gid="aipart"))
+        _airec(fig, kind="box", id="zc.leg.netbox", name="凡例の見本：土足の網（枠）", x=_lx, y=_ly - 1.2, w=6, h=4, fill=None, stroke="#777777", lw=0.2, dash=None, group=G_ZF[0], group_name=G_ZF[1])
+        _nd_ = []
+        for jy_, y_ in enumerate(np.arange(_ly - 1.2 + 0.6, _ly + 2.8 - 0.3, _nsp * 0.866)):
+            for x_ in np.arange(_lx + 0.6 + (_nsp / 2 if jy_ % 2 else 0), _lx + 6 - 0.3, _nsp):
+                _nd_.append([[float(x_ + a_), float(y_ + c2_)] for a_, c2_ in _hexo])
+        _zpart("zc.leg.net", "凡例の見本：土足の網", [dict(rings=_nd_)], "説明", G_ZB, fill_=_NET["hex"], stroke_=None, lw_=0, swatch_=_NET["name"])
+        T(ax, _lx + 7.5, _ly, "土足の網（ポーチ・受け取り土間・あまのがわ・外縁側）", 2.5)
     _ly -= 6
-_rule("znleg.secline", [[M + 6, _ly + 0.6], [M + 13, _ly + 0.6]], "#2B2B2B", 1.1, G_ZF, "凡例の線：セキュリティの線")   # 凡例の線の見本も部品に（図のグループ）
-T(ax, M + 15, _ly, "セキュリティの線（塀・柵・木戸・生垣・建物の外壁で一周）", 2.5)
-_rule("znleg.contour", [[M + 105, _ly + 0.6], [M + 111, _ly + 0.6]], "#8A8A8A", 0.4, G_ZF, "凡例の線：等高線")
-T(ax, M + 113, _ly, "等高線 0.2 m（園庭の地形・築山）", 2.5)
+_rule("zc.leg.secline", [[M + 6, _ly + 0.6], [M + 13, _ly + 0.6]], "#1E1E1E", 1.1, G_ZF, "凡例の線：セキュリティの線")   # 凡例の線の見本も部品に（図のグループ）
+_st_ = "セキュリティの線（塀・柵・木戸・生垣・建物の外壁で一周。内と外は色で分けない）"
+T(ax, M + 15, _ly, _st_, 2.5)
+_cx_ = M + 15 + _FT.text_length(_st_, 2.5 / 0.72) + 8
+_rule("zc.leg.contour", [[_cx_, _ly + 0.6], [_cx_ + 6, _ly + 0.6]], "#8A8A8A", 0.4, G_ZF, "凡例の線：等高線")
+T(ax, _cx_ + 8, _ly, "等高線 0.2 m（園庭の地形・築山）", 2.5)
 _ly += 7                                         # 樹木図の題は _ly − 14
-print("ゾーニングの色：", {k_: Z_COL[k_] for k_ in ("out", "in_ext", "shoe", "g02", "gboth", "g35")})
+print("ゾーニングの色：", ZCC)
 
 # ---- 一日の帯（10-30 22:44、ユーザー：4コマ。朝（と帰り）／日中／食事／延長保育。動線の線は描かない。使われている所だけゾーニングの色、ほかは無彩色）
 _u_ama = _unrot(unary_union([g_ for ln_, k_, g_ in plan_items if ln_.startswith("15_")])).centroid.x    # あまのがわの位置（本館の軸の u）
@@ -3581,6 +3676,9 @@ if PLAN_RHINO_SHEETS:                             # Rhino の2階の図を紙い
                        fukinuke=C_SHARE)   # 部屋の色（3枚目と同じ）。2階の黄色は遊戯室の吹抜だけなので、塗らずに×（10-31 10:15）
     SOZAI_PDF.append(("27b", "平面図　2階　1/100　部屋の色（塗りだけ、ベクター）と遊戯室の吹抜の×", HEYA2, 4, "Rhinoの線（drawings_rhino/sodachiya_plan2F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan2F_1-100.pdfから"))
     embed(4, HEYA2, None, 0, 0, 1.0)
+    TOK2 = _tokousen(os.path.join(HERE, "sozai", "29c_平面図_2階_園庭の等高線.pdf"), thin=True)
+    SOZAI_PDF.append(("29c", "平面図　2階　1/100　園庭の等高線（下に見える園庭の見えがかり、細く。地は透明）", TOK2, 4, "部屋の色の上、Rhinoの線の下に置く。1階と同じ位置（10-31 22:24）"))
+    embed(4, TOK2, None, 0, 0, 1.0)
     embed(4, PLAN2F, None, 0, 0, 1.0, dwg=("plan2", "平面図　2階"))
     RHINO_TXT_MIE[(4, len(embeds[4]) - 1)] = _moji_mie(PLAN2F[:-4] + "_文字.pdf", os.path.join(OUT, "_plan2F_文字_見本.pdf"))
     if (4, len(embeds[4]) - 1) in DWG:          # .ai の文字と寸法の部品も同じ写しから（表題・注・枠は部品にしない、ユーザー 10-31 10:17）
@@ -3849,7 +3947,7 @@ for key, name, sh_, (x, y, w, h), note in SOZAI:
     _st[fn] = dict(hash=hs, updated=old.get("updated", _now) if old.get("hash") == hs else _now)
     _rows.append(f"| {key} | `{fn}` | {name} | {sh_}枚目 | {w:.0f}×{h:.0f} | {_st[fn]['updated']} | {note} |")
 for key, name, gr_nm, note in SOZAI_FILES:                    # 配置図の三つ（線・色・文字、同じ大きさ・同じ位置）
-    gr = {"線": "l", "色": "c", "文字": "t", "風と視線": "o", "太陽": "s"}[gr_nm]
+    gr = {"線": "l", "色": "c", "文字": "t", "風と視線": "o", "太陽": "s", "等高線": "k"}[gr_nm]
     fn = f"{key}_配置図_1-200_{gr_nm}.pdf"
     SITEMAP[_SITE_PDF[gr]] = fn
     nd = fitz.open()
