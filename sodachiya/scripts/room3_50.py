@@ -150,6 +150,8 @@ for u in (33.0, 36.0, 39.0):
 T(axP, 8.6, 36.35, '横木φ30＠450（梁の2枚のあいだ、光の筋の下の影）', 5.8, c=ACC)
 # ロフトの下の巣
 T(axP, 2.0, 37.1, 'ロフトの下の巣（h1.1、こどもだけ）', 6, c=ACC)
+T(axP, 9.3, 36.12, '糸の衝立h1.0（縦の糸φ3＠20、押し広げて通れる）', 5.6, c=ACC)   # 10-31
+T(axP, 3.7, 38.78, 'KAPLAの箱', 5.2, c=ACC)   # 10-31：デンの口の脇
 T(axP, 6.1, 34.0, '先生の席（巣Aの南の壁）', 6, c=ACC)
 # 区域の名前
 area = lambda g: g.area
@@ -213,7 +215,7 @@ for v in HV:
 vv = np.linspace(3.8, 7.4, 60)
 for sag, ls, lab, lx in ((0.15, '-', 'ふだん（約1.8〜1.95）', 6.55), (0.7, (0, (3, 2)), '午睡（低く下ろす）', 6.75)):
     # 10-30：ふだんは 3dm と同じく吊り桟ごとに 1.95 から 1.8 へたるむ（0.9ごと）。午睡は 1.95 から一つの弧で下ろす
-    zz = (HANG - 0.05 - sag * np.abs(np.sin(np.pi * (vv - 3.8) / 0.9))) if ls == '-' else (HANG - 0.05 - sag * np.sin(np.pi * (vv - 3.8) / 3.6) ** 0.8)
+    zz = (HANG - 0.05 - sag * np.abs(np.sin(np.pi * (vv - 3.8) / 0.9))) if ls == '-' else (HANG - 0.05 - sag * np.clip(np.sin(np.pi * (vv - 3.8) / 3.6), 0, None) ** 0.8)
     line(axA, np.c_[vv, zz], lw=1.1 if ls == '-' else 0.8, c=ACC, ls=ls, z=8)
     T(axA, lx, HANG - 0.05 - sag - 0.13, lab, 6, ha='center', c=ACC)
 # 吸音（垂木のあいだ、巣の上）

@@ -139,6 +139,13 @@ def loft(rec):
         for k in range(n + 1):
             t = 0.015 + (L - 0.03) * k / n; cu, cv = pa + du * t, qa + dv * t
             solid_uv([(cu - .015, cv - .015), (cu + .015, cv - .015), (cu + .015, cv + .015), (cu - .015, cv + .015)], 1200, 2260, L_LAT, WD)
+    # 10-31（ユーザー、項 20261031-1056-present の4）：クッション 0.5×0.5×厚0.25 を4つ。柵（u0・u1・v1 の辺）から0.6以上はなして西の壁寄り
+    # （クッションに乗っても柵の上端まで0.85以上）。2×2 にすき間0.1、u は真ん中、v は西の端（v0）から0.05
+    um = 0.5 * (u0 + u1)
+    for cu in (um - 0.3, um + 0.3):
+        for cv in (v0 + 0.30, v0 + 0.90):
+            solid_uv([(cu - .25, cv - .25), (cu + .25, cv - .25), (cu + .25, cv + .25), (cu - .25, cv + .25)], 1200, 1450, L_T, (0.80, 0.72, 0.62, 1),
+                     'ロフトのクッション 500×500×250')
 def loft_step(rec):                  # 家具階段 1段0.2×5（10-24）：ロフトに近い段から 1000・800・600・400・200
     pts = rec['pts']; v = np.mean(pts[:, 1])
     k = int(round((v - 3.725) / 0.25)); h = max(200, 1000 - 200 * k)
@@ -406,6 +413,83 @@ def maru_pods(b0, flip):
     sk = [(1.56, 1.65), (2.06, 1.65), (2.06, 2.10), (1.56, 2.10)] if not flip else [(2.44, 1.66), (2.94, 1.66), (2.94, 2.11), (2.44, 2.11)]
     _ext(poly_w(sk), 0.0, 800.0, L_WC, '掃除用の流し 500×450')
 maru_pods(39, False); maru_pods(48, True)
+
+# ---------------- 3〜5歳：糸の衝立・KAPLAの箱（10-31 ユーザー、項 20261031-1056-present の3・5、決定事項（本館）の3〜5歳） ----------------
+# 部屋は plan04 の room(a, b, …, mir) と同じ（3歳 u33〜39、4歳 u42〜48、5歳 u51〜57 は鏡像）。s は机の側の間仕切りからの距離
+def hexa(c8, li, col=None, name=None):          # 8点（下の4点・上の4点、同じ回り）の閉じた六面体
+    M = r.Mesh()
+    for q in c8: M.Vertices.Add(float(q[0]), float(q[1]), float(q[2]))
+    for f in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)): M.Faces.AddFace(*f)
+    M.Normals.ComputeNormals(); M.Compact()
+    a_ = attr(li, col)
+    if name: a_.Name = name
+    m.Objects.AddMesh(M, a_)
+def rod(u, v, z0, z1, rad, li, col=None, name=None):   # 縦の丸棒（閉じた押し出し）
+    x, y = W(u, v); _ext(r.Circle(r.Point3d(float(x), float(y), 0.0), rad * 1000.0).ToNurbsCurve(), z0, z1, li, name, col)
+def bx_uv(u0_, u1_, v0_, v1_, z0, z1, li, col=None, name=None):
+    u0_, u1_ = sorted([u0_, u1_]); v0_, v1_ = sorted([v0_, v1_])
+    solid_uv([(u0_, v0_), (u1_, v0_), (u1_, v1_), (u0_, v1_)], z0, z1, li, col, name)
+WOODC = (0.85, 0.75, 0.6, 1); BLACK = (0.08, 0.08, 0.08, 1); THREAD = (0.93, 0.90, 0.84, 1)
+# 糸の衝立（案A）：食卓の所の真ん中の梁（架構の線 s3）の下、v9.1〜11.5（食卓の2列の真ん中 v10.3 に、長さ2.4）。屏風形の木の枠 1.2×2枚（h1000、見付け30）、
+# 柱 30角、上の横木 h970〜1000・下の横木 h100〜130、脚（柱ごとに s±0.15 の足、h0〜30）。枠の中に縦の糸 φ3 を 20 おき（ぐっと押し広げれば通れる）。
+# 両端（南 v9.1 の手前・北 v11.5〜12）は食卓のあいだを通れるようにあける
+SCR_V0, SCR_P = 9.1, 1.2
+def ito_tsuitate(a, b, mir):
+    S = (lambda s_: b - s_) if mir else (lambda s_: a + s_)
+    us = S(3.0)
+    for k in range(2):
+        p0 = SCR_V0 + SCR_P * k + (0.0025 if k else 0.0); p1 = SCR_V0 + SCR_P * (k + 1) - (0.0025 if k == 0 else 0.0)
+        for pv in (p0 + 0.015, p1 - 0.015):
+            bx_uv(us - .015, us + .015, pv - .015, pv + .015, 0, 1000, L_F, WOODC, '糸の衝立の柱 30角 h1000')
+            bx_uv(us - .15, us - .015, pv - .015, pv + .015, 0, 30, L_F, WOODC, '糸の衝立の脚')
+            bx_uv(us + .015, us + .15, pv - .015, pv + .015, 0, 30, L_F, WOODC, '糸の衝立の脚')
+        bx_uv(us - .015, us + .015, p0 + .03, p1 - .03, 970, 1000, L_F, WOODC, '糸の衝立の上の横木 30角')
+        bx_uv(us - .015, us + .015, p0 + .03, p1 - .03, 100, 130, L_F, WOODC, '糸の衝立の下の横木 30角')
+        n = int((p1 - p0 - 0.06) / 0.02)
+        for i in range(n):
+            vv = p0 + 0.03 + (p1 - p0 - 0.06) * (i + 0.5) / n
+            rod(us, vv, 130, 970, 0.0015, L_T, THREAD, '糸の衝立の糸 φ3')
+# KAPLAの箱（KAPLA 1000の木の箱、ユーザーの写真）：0.42×0.42×h0.45（キャスター含む）。デン（ロフトの下）の口（v3.6、家具階段 s3.4〜4.2 の北）の脇、
+# s5.3〜5.72・v3.7〜4.12（家具階段・通り道をふさがない、個人棚 v5.2〜 の手前）。キャスター4つ φ50 h60、箱 h60〜430、ふた h430〜450、
+# 黒い帯2本（幅30、厚3、h130〜160・330〜360）、両脇（u の向きの面）に縄の取っ手、部屋の側の面（v の東）に「KAPLA」（プレゼンの準備の追記 10:59）
+def kapla_box(a, b, mir):
+    S = (lambda s_: b - s_) if mir else (lambda s_: a + s_)
+    U0, U1 = sorted([S(5.3), S(5.72)]); V0, V1 = 3.7, 4.12
+    for cu in (U0 + .045, U1 - .045):
+        for cv in (V0 + .045, V1 - .045): rod(cu, cv, 0, 60, 0.025, L_F, BLACK, 'KAPLAの箱のキャスター φ50')
+    bx_uv(U0, U1, V0, V1, 60, 430, L_F, WOODC, 'KAPLAの箱 420×420（KAPLA 1000）')
+    bx_uv(U0, U1, V0, V1, 430, 450, L_F, WOODC, 'KAPLAの箱のふた')
+    t = 0.003
+    for z0 in (130, 330):
+        z1 = z0 + 30
+        bx_uv(U0 - t, U1 + t, V0 - t, V0, z0, z1, L_T, BLACK, 'KAPLAの箱の黒い帯'); bx_uv(U0 - t, U1 + t, V1, V1 + t, z0, z1, L_T, BLACK, 'KAPLAの箱の黒い帯')
+        bx_uv(U0 - t, U0, V0, V1, z0, z1, L_T, BLACK, 'KAPLAの箱の黒い帯'); bx_uv(U1, U1 + t, V0, V1, z0, z1, L_T, BLACK, 'KAPLAの箱の黒い帯')
+    # 縄の取っ手：u の向きの両面の真ん中、h250〜290。面から出る2本と横の1本（12角の縄、コの字）
+    vm = 0.5 * (V0 + V1)
+    for uf, sg in ((U0, -1), (U1, 1)):
+        for vv in (vm - .07, vm + .07):
+            bx_uv(uf, uf + sg * .04, vv - .006, vv + .006, 264, 276, L_F, (0.72, 0.6, 0.4, 1), 'KAPLAの箱の縄の取っ手')
+        bx_uv(uf + sg * .028, uf + sg * .04, vm - .064, vm + .064, 264, 276, L_F, (0.72, 0.6, 0.4, 1), 'KAPLAの箱の縄の取っ手')
+    # 「KAPLA」：部屋の側の面（v = V1）に厚さ2の黒い字、高さ90（h195〜285）、字の幅50・字送り65、u の向きに左から右（東から見て北が右）
+    hs = 0.006; Z0, Z1 = 195.0, 285.0
+    def stroke(x0, z0, x1, z1):
+        dx, dz = x1 - x0, (z1 - z0) / 1000.0; L = math.hypot(dx, dz); nx, nz = -dz / L * hs, dx / L * hs
+        quad = [(x0 + nx, z0 + nz * 1000), (x1 + nx, z1 + nz * 1000), (x1 - nx, z1 - nz * 1000), (x0 - nx, z0 - nz * 1000)]
+        bot = [(*W(xu, V1), zz) for xu, zz in quad]; top = [(*W(xu, V1 + 0.002), zz) for xu, zz in quad]
+        hexa(bot + top, L_T, BLACK, 'KAPLAの箱の字')
+    xs0 = 0.5 * (U0 + U1) - (5 * 0.05 + 4 * 0.015) / 2
+    zm = 0.5 * (Z0 + Z1)
+    glyph = {
+        'K': [(0, Z0, 0, Z1), (0.012, zm, 0.05, Z1), (0.012, zm, 0.05, Z0)],
+        'A': [(0, Z0, 0.025, Z1), (0.025, Z1, 0.05, Z0), (0.012, zm - 10, 0.038, zm - 10)],
+        'P': [(0, Z0, 0, Z1), (0.006, Z1 - 6, 0.044, Z1 - 6), (0.044, Z1 - 6, 0.044, zm + 6), (0.044, zm + 6, 0.006, zm + 6)],
+        'L': [(0, Z0, 0, Z1), (0.006, Z0 + 6, 0.05, Z0 + 6)],
+    }
+    for i, ch in enumerate('KAPLA'):
+        x = xs0 + 0.065 * i
+        for x0, z0, x1, z1 in glyph[ch]: stroke(x + x0, z0, x + x1, z1)
+for _a, _b, _mir in ((33, 39, False), (42, 48, False), (51, 57, True)):
+    ito_tsuitate(_a, _b, _mir); kapla_box(_a, _b, _mir)
 
 # ---------------- 保育室と路地のあいだの引き戸（10-29 ユーザー、決定事項（本館）の「保育室と路地のあいだに戸」） ----------------
 # 口の幅いっぱい（1.2）＋両側 30 かかる、杉の框（縦框 60・上框 60・下框 90）と縦格子 30@120、h2000（床から 10）、厚さ 30。

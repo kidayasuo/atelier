@@ -386,6 +386,14 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
         for vc in [9.5, 11.1]:
             table(uc, vc, 1.2, 0.75, 3)
     t(a + 3.0, 9.2, f"食卓 h{tab_h}", size=4.3)
+    # 10-31（ユーザー、項 20261031-1056-present の3〜5。3dm は shitsu/add_shitsurae.py の ito_tsuitate・kapla_box・loft）
+    bx(2.985, 3.015, 9.1, 11.5, fc="#C9A26B", lw=0.4, z=6)                     # 糸の衝立 h1000（屏風形 1.2×2、縦の糸 φ3＠20、真ん中の梁の下）
+    xs, ys = pt(3.0, 11.75); ax.text(xs, ys, "糸の衝立", fontsize=3.8, ha="center", va="center", zorder=8, color="#333333")
+    for cs_ in (4.225, 4.825):                                                  # ロフトのクッション 0.5×0.5×厚0.25（柵から0.6以上、西の壁寄り）
+        for cv_ in (1.98, 2.58):
+            bx(cs_ - 0.25, cs_ + 0.25, cv_ - 0.25, cv_ + 0.25, fc="#E8DCCB", lw=0.3, z=4)
+    bx(5.3, 5.72, 3.7, 4.12, fc=WOOD, lw=0.4, z=4)                              # KAPLAの箱 0.42×0.42×h0.45（デンの口の脇）
+    xs, ys = pt(5.51, 4.35); ax.text(xs, ys, "KAPLA", fontsize=3.2, ha="center", va="center", zorder=8, color="#333333")
 room(33, 39, 20, 400, False, 2.1, 0.0, 0)
 room(42, 48, 20, 450, False, 2.6, 0.0, 0)
 room(51, 57, 10, 500, True, 2.6, 1.2, 2)
