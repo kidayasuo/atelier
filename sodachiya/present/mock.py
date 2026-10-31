@@ -734,7 +734,26 @@ RHINO_TXT_MIE = {}  # (枚, embeds の番号) → 見本で重ねる文字の層
 SOZAI_PDF = []      # 素材のうち、mock.py が元のPDFから取り出して直に書く物：(番号, 中身, ファイル名, 枚, 注)
 
 
-def _fukinuke_x(pg_, d_, lw=0.18):
+def _ring_polys(d_):
+    """get_drawings の一つの面の線（l だけ）を、輪ごとの Polygon に"""
+    from shapely.geometry import Polygon as _Pg
+    rings_, cur_ = [], []
+    for it_ in d_["items"]:
+        if it_[0] == "re":
+            r_ = it_[1]; rings_.append([(r_.x0, r_.y0), (r_.x1, r_.y0), (r_.x1, r_.y1), (r_.x0, r_.y1), (r_.x0, r_.y0)]); continue
+        if it_[0] != "l":
+            continue
+        a_, b_ = (it_[1].x, it_[1].y), (it_[2].x, it_[2].y)
+        if cur_ and (abs(cur_[-1][0] - a_[0]) > 0.01 or abs(cur_[-1][1] - a_[1]) > 0.01):
+            rings_.append(cur_); cur_ = []
+        if not cur_:
+            cur_.append(a_)
+        cur_.append(b_)
+    rings_.append(cur_)
+    return [_Pg(r_).buffer(0) for r_ in rings_ if len(r_) >= 4]
+
+
+def _fukinuke_x(pg_, d_, lw=0.18, others=()):
     """吹抜の面 d_（get_drawings の一つ）の外形の内に収まる大きな四角（建物の向きにそろえる）の対角に、細い実線の×を2本（製図の決まり、ユーザー 10-31 10:15）"""
     from shapely.geometry import Polygon as _Pg, Point as _Pt
     rings_, cur_ = [], []
@@ -751,6 +770,12 @@ def _fukinuke_x(pg_, d_, lw=0.18):
     rings_ = [r_ for r_ in rings_ if len(r_) >= 4]
     ext_ = max(rings_, key=lambda r_: abs(_Pg(r_).area))
     pl_ = _Pg(ext_).buffer(0)
+    from shapely.ops import unary_union as _uu
+    if others:                                     # 吹抜の面の上に塗ってある部屋（会議室など）を除いた所が吹抜
+        pl_ = pl_.difference(_uu([q_ for o_ in others for q_ in _ring_polys(o_)]).buffer(0.2 * MM))
+        if pl_.geom_type != "Polygon":
+            pl_ = max(pl_.geoms, key=lambda g_: g_.area)
+        pl_ = pl_.simplify(0.3 * MM)
     # 建物の向き：外形を囲むいちばん小さい四角の辺の向き
     E_ = np.asarray(pl_.minimum_rotated_rectangle.exterior.coords)
     th_ = np.arctan2(E_[1, 1] - E_[0, 1], E_[1, 0] - E_[0, 0])
@@ -772,13 +797,43 @@ def _fukinuke_x(pg_, d_, lw=0.18):
                     if inner_.contains(_Pg([(xs_[i_], ys_[m_]), (xs_[j_], ys_[m_]), (xs_[j_], ys_[n_]), (xs_[i_], ys_[n_])])):
                         best_ = (ar_, xs_[i_], ys_[m_], xs_[j_], ys_[n_])
     _, ax_, ay_, bx_, by_ = best_
-    Q_ = [_af.rotate(_Pt(q_), th_, origin=c_, use_radians=True) for q_ in ((ax_, ay_), (bx_, by_), (bx_, ay_), (ax_, by_))]
+    # 10-31 10:28（ユーザー）：東西の線は外形のいちばん東の角といちばん西の角を結ぶ（建物の向きで東西）。
+    # 南北の線は外形のいちばん南の角から、外形に収まる四角の対角のうち南北に近い方の向きで北へ、外形の縁まで
+    from shapely.geometry import LineString as _Ls
+    ax4_ = [np.array([np.cos(th_ + k_ * np.pi / 2), np.sin(th_ + k_ * np.pi / 2)]) for k_ in range(4)]
+    n_ = max(ax4_, key=lambda v_: v_ @ np.array([0.7071, -0.7071]))   # 北：紙の右上（方位の N、PDF は y が下向き）
+    e_ = np.array([-n_[1], n_[0]])                                     # 東：北から時計回りに 90°（紙の右下）
+    V_ = np.asarray(pl_.exterior.coords)[:-1]
+    pE_, pW_ = V_[np.argmax(V_ @ e_)], V_[np.argmin(V_ @ e_)]
+    pS_ = V_[np.argmin(V_ @ n_)]
+    Q_ = [np.array(_af.rotate(_Pt(q_), th_, origin=c_, use_radians=True).coords[0]) for q_ in ((ax_, ay_), (bx_, by_), (bx_, ay_), (ax_, by_))]
+    dg_ = [(Q_[1] - Q_[0]), (Q_[3] - Q_[2])]
+    dg_ = [v_ / np.linalg.norm(v_) for v_ in dg_]
+    dg_ = [v_ if v_ @ n_ > 0 else -v_ for v_ in dg_]                   # 北へ向く向きに
+    # 四角は北に対して約45°なので、二つの対角は北との角度がほぼ同じ。南北の線は今の縦の対角（紙の上下に近い方）とし、北（紙の上）へ向ける
+    d_ = max(dg_, key=lambda v_: abs(v_[1]))
+    d_ = d_ if d_[1] < 0 else -d_
+    # 南の角：その向きでいちばん南の角。階段の脇へ伸びる細い尾（幅 約20 mm）は吹抜の本体ではないので、開き（縮めて戻す）で落としてから探す
+    op_ = pl_.buffer(-13 * MM).buffer(13 * MM)
+    if op_.geom_type != "Polygon":
+        op_ = max(op_.geoms, key=lambda g_: g_.area)
+    o_ = np.asarray(op_.exterior.coords)[np.argmin(np.asarray(op_.exterior.coords) @ d_)]
+    pS_ = V_[np.argmin(np.hypot(*(V_ - o_).T))]                         # 開いた形の南の端にいちばん近い外形の角
+    ray_ = _Ls([pS_ + d_ * 0.5, pS_ + d_ * 1e4])
+    seg_ = ray_.intersection(pl_)
+    segs_ = list(getattr(seg_, "geoms", [seg_]))
+    segs_ = [g_ for g_ in segs_ if g_.geom_type == "LineString" and not g_.is_empty]
+    if not segs_:
+        print("吹抜の×：南の角から北へ外形の内を通れない")
+        return
+    sg_ = min(segs_, key=lambda g_: _Pt(pS_).distance(g_))
+    pN_ = max((np.array(q_) for q_ in sg_.coords), key=lambda q_: q_ @ d_)
     sh_ = pg_.new_shape()
-    for u_, v_ in ((Q_[0], Q_[1]), (Q_[2], Q_[3])):
-        sh_.draw_line(fitz.Point(u_.x, u_.y), fitz.Point(v_.x, v_.y))
+    for u_, v_ in ((pW_, pE_), (pS_, pN_)):
+        sh_.draw_line(fitz.Point(*u_), fitz.Point(*v_))
     sh_.finish(color=(0.2, 0.2, 0.2), width=lw * MM, closePath=False)
     sh_.commit()
-    print("吹抜の×：四角 %.0f×%.0f mm" % ((bx_ - ax_) / MM, (by_ - ay_) / MM))
+    print("吹抜の×：東西 %.0f mm、南北 %.0f mm（四角 %.0f×%.0f mm の対角の向き）" % (np.linalg.norm(pE_ - pW_) / MM, np.linalg.norm(pN_ - pS_) / MM, (bx_ - ax_) / MM, (by_ - ay_) / MM))
 
 
 def _heya_nuri(auto, moji, out, fukinuke=None):
@@ -791,14 +846,14 @@ def _heya_nuri(auto, moji, out, fukinuke=None):
     sp_ = fitz.open(auto)[0]
     nd_ = fitz.open()
     pg_ = nd_.new_page(width=sp_.rect.width, height=sp_.rect.height)
-    n_, used_ = 0, set()
+    n_, used_, fk_, rooms_ = 0, set(), [], []
     for d_ in sp_.get_drawings():
         if d_["type"] != "f" or not d_.get("fill") or key_(d_) not in cols_:
             continue
         if any(k_ == key_(d_) and abs(r_.x0 - d_["rect"].x0) < 0.5 and abs(r_.y0 - d_["rect"].y0) < 0.5 and abs(r_.x1 - d_["rect"].x1) < 0.5 for k_, r_ in leg_):
             continue                                   # 凡例の色見本
         if fukinuke and key_(d_) == tuple(round(v, 3) for v in hx_(fukinuke)):
-            _fukinuke_x(pg_, d_)                       # 吹抜は塗らず、×（ユーザー 10-31 10:15）
+            fk_.append(d_)                             # 吹抜は塗らず、×（ユーザー 10-31 10:15）。×は最後に、ほかの部屋を除いた外形で
             continue
         sh_ = pg_.new_shape()
         for it_ in d_["items"]:
@@ -815,6 +870,9 @@ def _heya_nuri(auto, moji, out, fukinuke=None):
         sh_.commit()
         n_ += 1
         used_.add(key_(d_))
+        rooms_.append(d_)
+    for f_ in fk_:
+        _fukinuke_x(pg_, f_, others=rooms_)
     nd_.save(out, garbage=3, deflate=True)
     miss_ = used_ - {k_ for k_, _ in leg_}
     print("部屋の塗り", os.path.basename(out), n_, "面", len(used_), "色", "凡例に無い色 " + str(sorted(miss_)) if miss_ else "（色はすべて凡例にある）")
