@@ -12,6 +12,7 @@
   - 面積が0.5 m²より大きく変わった部屋（触っていない部屋が変わっていたら、古い写しや取り違えを疑う）
   - 種類をまたぐ食い込みが増えた
   - 力の道（10-29、段14 load_path.py の sodachiya_loadpath.json・.txt があれば）：check の行に数、下に節
+  - 形が素直でない物（10-31）：Rhino版（NEWDIR/../../sodachiya.3dm）のレイヤーごとの数が前の版より増えた。数は NEWDIR/sodachiya_katachi.txt
 """
 import sys, os, json, subprocess
 
@@ -86,7 +87,41 @@ if os.path.exists(lp_json) and os.path.exists(lp_txt):
     except Exception as e:
         warn.append(f'力の道の点検が読めない（{e}）')
 
-L = ['check: ' + ('止める（直してから作り直す）' if stop else '通った') + '　' + '・'.join(info)]
+# 形が素直でない物（10-31 効率化委員会、ユーザー：新しい部材が毎回三角形の網や妙な片になる。kettei/kanshu.md の点検の7）：
+# Rhino版の、自由な形のレイヤー（KATACHI_FREE）でない所のメッシュ・面が KATACHI_FACES より多いポリサーフェス・閉じていない物を
+# レイヤーごとに数え、sodachiya_katachi.txt に書く。前の版（HEAD）より増えたレイヤーを知らせる（止めない）。前の版が無ければ書くだけ
+KATACHI_FREE = ('85', '90', '92', '99', '78')     # クスノキ・地形・水・雨の川・みなみのさんかくの丘（clean_wire.py の FREEFORM と 85・78）
+KATACHI_FACES = 30
+k3dm = os.path.join(NEW, '..', '..', 'sodachiya.3dm')
+if os.path.exists(k3dm):
+    try:
+        import rhino3dm as r3
+        km = r3.File3dm.Read(k3dm); kn = {}
+        kl = [km.Layers[i].Name for i in range(len(km.Layers))]
+        for o in km.Objects:
+            g = o.Geometry; ln = kl[o.Attributes.LayerIndex]
+            if ln.split('_')[0] in KATACHI_FREE: continue
+            bad = isinstance(g, r3.Mesh) or (isinstance(g, r3.Brep) and (len(g.Faces) > KATACHI_FACES or not g.IsSolid)) \
+                or (isinstance(g, r3.Extrusion) and not g.IsSolid)
+            if bad: kn[ln] = kn.get(ln, 0) + 1
+        ktxt = ''.join(f'{v}\t{k}\n' for k, v in sorted(kn.items()))
+        open(os.path.join(NEW, 'sodachiya_katachi.txt'), 'w').write(
+            f'# 形が素直でない物（メッシュ・{KATACHI_FACES}面より多いポリサーフェス・閉じていない物）のレイヤーごとの数。check_build.py が書く\n' + ktxt)
+        top = subprocess.run(['git', '-C', REPO, 'rev-parse', '--show-toplevel'], capture_output=True, text=True).stdout.strip()
+        rel = os.path.relpath(os.path.join(REPO, 'model/drawings', 'sodachiya_katachi.txt'), top)
+        ro = subprocess.run(['git', '-C', top, 'show', 'HEAD:' + rel], capture_output=True, text=True)
+        info.append(f'形が素直でない物 {sum(kn.values())}')
+        if ro.returncode == 0:
+            ko = {}
+            for l in ro.stdout.splitlines():
+                if l and not l.startswith('#') and '\t' in l:
+                    v, k = l.split('\t', 1); ko[k] = int(v)
+            up = [f'{k.split("（")[0]} {ko.get(k, 0)}→{v}' for k, v in sorted(kn.items()) if v > ko.get(k, 0)]
+            if up: warn.append('形が素直でない物が増えた（直方体・押し出しで作る、katachi.py）：' + '、'.join(up))
+    except Exception as e:
+        warn.append(f'形の数えができない（{e}）')
+
+L = ['check: ' +('止める（直してから作り直す）' if stop else '通った') + '　' + '・'.join(info)]
 L += ['  ✗ ' + s for s in stop] + ['  ! ' + s for s in warn] + lp_sec
 txt = '\n'.join(L)
 print(txt)
