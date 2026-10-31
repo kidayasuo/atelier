@@ -202,7 +202,7 @@ def silhouette(T2):
     try:
         u = unary_union(ps)
     except Exception:                                   # 11-01 監修：重なった三角形の継ぎ目で GEOS の TopologyException（作り直しが止まった）。0.5 mm の格子にそろえて足す
-        u = unary_union(ps, grid_size=0.5)
+        import shapely as _shp; u = _shp.union_all(ps, grid_size=0.5)
     return u.buffer(0.5, join_style=2).buffer(-0.5, join_style=2)
 
 # ================================================================ ここから描画（draw100_core.py の後に続く）
