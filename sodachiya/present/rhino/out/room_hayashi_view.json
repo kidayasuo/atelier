@@ -1,0 +1,33 @@
+{
+ "named_view": "room_hayashi", 
+ "camera_mm": [
+  -13625.0, 
+  -43112.0, 
+  1943.0
+ ], 
+ "up": [
+  0.053900000000000003, 
+  0.0104, 
+  0.99850000000000005
+ ], 
+ "px": [
+  1600, 
+  1200
+ ], 
+ "lens_mm": 50.0, 
+ "viewport_px": [
+  2042, 
+  1356
+ ], 
+ "target_mm": [
+  -554.0, 
+  -40580.0, 
+  1210.0
+ ], 
+ "made": "2026-10-31 19:58", 
+ "projection": "perspective", 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "hfov_deg": 39.600000000000001, 
+ "name": "room_hayashi", 
+ "two_point": false
+}

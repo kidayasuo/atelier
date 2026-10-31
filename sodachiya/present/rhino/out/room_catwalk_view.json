@@ -1,0 +1,33 @@
+{
+ "named_view": "room_catwalk", 
+ "camera_mm": [
+  -19891.0, 
+  -31313.0, 
+  3204.0
+ ], 
+ "up": [
+  0.0683, 
+  0.11990000000000001, 
+  0.99039999999999995
+ ], 
+ "px": [
+  1600, 
+  1200
+ ], 
+ "lens_mm": 39.829999999999998, 
+ "viewport_px": [
+  2042, 
+  1356
+ ], 
+ "target_mm": [
+  -14462.0, 
+  -21787.0, 
+  1677.0
+ ], 
+ "made": "2026-10-31 19:51", 
+ "projection": "perspective", 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "hfov_deg": 48.600000000000001, 
+ "name": "room_catwalk", 
+ "two_point": false
+}

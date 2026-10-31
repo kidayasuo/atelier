@@ -1,0 +1,33 @@
+{
+ "camera_mm": [
+  10094.0, 
+  -65057.0, 
+  16883.0
+ ], 
+ "made": "2026-10-31 19:20", 
+ "named_view": "room_2", 
+ "viewport_px": [
+  2042, 
+  1356
+ ], 
+ "px": [
+  1600, 
+  1200
+ ], 
+ "projection": "perspective", 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "up": [
+  -0.40010000000000001, 
+  0.50309999999999999, 
+  0.76600000000000001
+ ], 
+ "name": "room_2", 
+ "two_point": false, 
+ "target_mm": [
+  -1838.0, 
+  -50056.0, 
+  800.0
+ ], 
+ "lens_mm": 50.0, 
+ "hfov_deg": 39.600000000000001
+}

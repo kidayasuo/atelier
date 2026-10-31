@@ -1,0 +1,33 @@
+{
+ "camera_mm": [
+  -8009.0, 
+  -27798.0, 
+  3750.0
+ ], 
+ "made": "2026-10-31 19:23", 
+ "named_view": "room_dokusho", 
+ "viewport_px": [
+  2042, 
+  1356
+ ], 
+ "px": [
+  1600, 
+  1200
+ ], 
+ "projection": "perspective", 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "up": [
+  0.0058999999999999999, 
+  0.21429999999999999, 
+  0.97670000000000001
+ ], 
+ "name": "room_dokusho", 
+ "two_point": false, 
+ "target_mm": [
+  -7622.0, 
+  -13855.0, 
+  688.0
+ ], 
+ "lens_mm": 50.0, 
+ "hfov_deg": 39.600000000000001
+}
