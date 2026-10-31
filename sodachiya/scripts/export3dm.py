@@ -235,12 +235,11 @@ o = m.Objects.AddMesh(mesh, attr(L78))
 # はだしの小径（面一、厚さ 0.02 の板で区分ごとに）
 for name, g in MN.loop_parts():
     for q in ([g] if g.geom_type == "Polygon" else list(g.geoms)):
-        if q.geom_type == "Polygon": slab(mw(q.simplify(0.01)), 0, 0.02, L78)
-# 砂場：縁 h0.15（幅 0.1）と砂の面
-sb = MN.SAND
-wall(mw(sb) + [mw(sb)[0]], MN.D["SAND"]["h_rim"], L78)
-wall(mw(sb.buffer(-0.1)) + [mw(sb.buffer(-0.1))[0]], MN.D["SAND"]["h_rim"], L78)
-slab(mw(sb.buffer(-0.1)), 0, 0.02, L78)
+        if q.geom_type == "Polygon": slab_smooth(mw(q), 0, 0.02, L78)            # 輪郭は直線と円弧に（監修の項 20261031-2038：細かい折れ線で網に見えた）
+# 砂場（ユーザー 10-31夜、監修の項 2054）：縁は地面とほぼ面一（h_rim）、浅い。縁は外の輪郭から内の輪郭を抜いた輪の立体一つ、砂は穴の中の板（上面は縁より少し下）
+sb = MN.SAND; _rim = MN.D["SAND"]["h_rim"]; _sb_in = sb.buffer(-0.1)
+slab_holes(mw(sb), [mw(_sb_in)], 0, _rim, L78)
+slab_smooth(mw(_sb_in.buffer(-0.002)), 0, max(0.005, _rim - 0.02), L78)
 # 水のテーブル（石の水盤 h0.45）
 slab(mw(MN.WATER), 0, MN.D["WATER"]["h"], L78)
 # 避難の帯の遊び：芝の川の輪郭、足あとの石（面一の円）
