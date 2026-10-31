@@ -2584,9 +2584,12 @@ for i, (c1, a1, _r1) in enumerate(lines_):
     off = np.dot(c2 - c1, np.array([-ax[1], ax[0]])) / 2.0
     cc = c1 + np.array([-ax[1], ax[0]]) * off
     pairs.append((cc, ax))
+PLYFP = unary_union([q_[2] for q_ in lines_])                    # 10-31：梁の板 1 枚ずつの平面形（軸に沿って 3 m 延ばした長方形、排気のスリットの中の物を板の所で切る）
 _fp20 = [foot(o.Geometry) for o in m.Objects if o.Attributes.LayerIndex == L20 and isinstance(o.Geometry, r.Mesh)]
 WSL = unary_union([f for f in _fp20 if f is not None]).buffer(-1.0)   # 10-24（ユーザー、本館と同じ）：越屋根から軒先まで。軒先＝屋根の面の先（10-24昼：西の軒の出 0.9、軒樋の手前）
-EASTV = -2.56                          # 越屋根の西の立ち上がりの外面（10-25：越屋根の幅 1.0 → 1.6）
+EASTV = -2.56                          # 棟のガラスの帯の西の縁（前の越屋根の西の立ち上がりの外面、幅 1.6）
+SLIT_W = EASTV - 0.21                  # 10-31：排気のスリット（幅 150）の西の縁の材の西の面（屋根の板・光の筋はここまで）
+VRIDGE_W = -0.9                        # 棟（西館の東の縁）
 WSi_W = WS_W.buffer(-150.0, join_style=2)   # 外壁の内面（外皮の線の固定ガラス）
 slits = []
 for cc, ax in pairs:
@@ -2595,7 +2598,7 @@ for cc, ax in pairs:
     nrm = np.array([-ax[1], ax[0]])
     p0 = cc - ax * 20000; p1 = cc + ax * 20000
     band = Polygon([p0 - nrm * 90, p1 - nrm * 90, p1 + nrm * 90, p0 + nrm * 90])
-    zone = WSL.intersection(Polygon([xy(uc - 3, EASTV), xy(uc + 3, EASTV), xy(uc + 3, -30), xy(uc - 3, -30)]))
+    zone = WSL.intersection(Polygon([xy(uc - 3, SLIT_W), xy(uc + 3, SLIT_W), xy(uc + 3, -30), xy(uc - 3, -30)]))     # 10-31：東の端は排気のスリットの西の縁
     s_ = band.intersection(zone)
     if s_.geom_type != 'Polygon' or s_.area < 1e5: continue
     # 筋の長さの両端（t0：西の端、t1：東の端）
@@ -2857,8 +2860,11 @@ if slits:
     RP20 = unary_union(roofs20)
     # 10-30（ユーザー 22:20、監修の項 20261030-1431 の追記）：越屋根をやめ、棟から屋根の面に沿う幅 1.6 m（v −0.9〜EASTV、南北の妻の壁の内面のあいだ）を
     #   ガラスの帯に。屋根の板・断熱・合板・通気垂木は帯の所を除く（妻の壁の上と妻の軒の出は屋根のまま棟まで）。帯は下の「棟のガラスの帯」で作る
-    BAND_U = (21.15, 50.75)
-    BAND_HOLE = R(BAND_U[0], BAND_U[1], EASTV, 0.5, 0.1)
+    BAND_U = (21.15, 50.75)                                                         # 南北の妻の壁の内面（排気のスリット）
+    _rpu = [uv(*q_)[0] for g_ in getattr(RP20, 'geoms', [RP20]) for q_ in np.asarray(g_.exterior.coords) if uv(*q_)[1] > EASTV - 0.3]
+    BAND_UL, BAND_UH = min(_rpu), max(_rpu)                                         # 10-31：ガラスの帯は屋根の南の端から北の端まで（妻の軒の出の上も）
+    BAND_VE = VRIDGE_W + 0.35                                                       # 10-31：東へ同じ面のまま 350 の軒（前の水平な水切りはやめた）
+    BAND_HOLE = unary_union([R(BAND_UL - 0.05, BAND_UH + 0.05, EASTV, 0.5, 0.1), R(BAND_U[0], BAND_U[1], SLIT_W, EASTV + 0.01, 0.1)])
     RP20 = RP20.difference(BAND_HOLE).buffer(0)
     INT = RP20.intersection(WSi_W).difference(BANDS)                                   # 梁のあいだ（室内）
     # 太陽光（20p）の範囲：軒先の水切り 150 を残す（10-24、本館と同じ）、越屋根の蓋の西の縁（10-25：−2.85）、光の筋の周り ±0.25
@@ -2942,7 +2948,7 @@ if slits:
     _purl = []; _eave = []
     # 10-29 夜：軒の下の母屋は軒先の 190 手前まで（木口は上の _BCX で鼻母屋の横の面まで延ばす）。10-29 昼（監修の項 20261029-0928 の 4）：軒の下の母屋は軒先の 100 手前まで（母屋の断面は屋根の面に直角で、北西の軒先の折れの所で軒樋に 0.8〜1.5 L 入っていた）
     EAVEZ = RP20.buffer(-190.0, join_style=2).difference(WS_W).difference(BANDS).intersection(Polygon([xy(u_, -1.0) for u_ in np.arange(21.2, 48.31, 0.25)] + [xy(u_, -30.0) for u_ in np.arange(48.3, 21.19, -0.25)]))
-    _vr = -2.56 - 0.03
+    _vr = SLIT_W - 0.03                                                 # 10-31：いちばん上の母屋はスリットの西の縁の材の脇
     while _vr > -16.5:
         _us = np.arange(18.0, 54.01, 0.25)
         _rp = Polygon([xy(u_, _vr + 0.03) for u_ in _us] + [xy(u_, _vr - 0.03) for u_ in _us[::-1]])
@@ -3102,6 +3108,7 @@ if slits:
                     x_ = ln2.intersection(reg_)
                     for sg_ in getattr(x_, 'geoms', [x_]):
                         if sg_.geom_type != 'LineString' or sg_.length < 300.0: continue
+                        if reg_ is INT and max(uv(*c_)[1] for c_ in (sg_.coords[0], sg_.coords[-1])) > SLIT_W - 0.04: continue   # 10-31：排気のスリットで切れて梁に届かない母屋は置かない
                         A2_, B2_ = np.array(sg_.coords[0]), np.array(sg_.coords[-1])
                         for q_ in (A2_, B2_, (A2_ + B2_) / 2): _dpur = max(_dpur, abs(_RWf['roof_f'](*q_) - z_))
                         n_ = _purl_x(A2_, B2_, float(z_) + off_, f'母屋 杉 60×150（水平、スパン{int(round((ua_ - 21) / 3)) + 8}の平面の等高線、高さ {z_ / 1000:.2f}、{nm_}）')
@@ -3120,6 +3127,7 @@ if slits:
                 x_ = ln2.intersection(reg_)
                 for sg_ in getattr(x_, 'geoms', [x_]):
                     if sg_.geom_type != 'LineString' or sg_.length < 300.0: continue
+                    if reg_ is INT and max(uv(*c_)[1] for c_ in (sg_.coords[0], sg_.coords[-1])) > SLIT_W - 0.04: continue   # 10-31：排気のスリットで切れて梁に届かない母屋は置かない
                     for q_ in (np.array(sg_.coords[0]), np.array(sg_.coords[-1]), np.array(sg_.interpolate(0.5, normalized=True).coords[0])):
                         _dpur = max(_dpur, abs(_RWf['roof_f'](*q_) - float(Pa[2])))
                     _npur += _purl_x(np.array(sg_.coords[0]), np.array(sg_.coords[-1]), float(Pa[2]) + off_,
@@ -3159,7 +3167,9 @@ if slits:
             # 10-30（監修の項 0552）：南西の角（u21.15〜24）で外壁で止まる母屋も、外壁を貫いて鼻母屋の下まで延ばし、鼻母屋を飼木（母屋の上の面から
             #   鼻母屋の下の面まで）に載せる（鼻母屋の継手が突き当たりだけ・母屋が片持ちだった）
             _eave_ = 21.15 <= uf_ <= 24.0 and not WS_W.contains(Point(*qf_))          # 南西の角（u21.33〜24）
-            if not ((uf_ < 21.15) or (uf_ > 48.3 and not WS_W.contains(Point(*qf_))) or _eave_): continue     # 妻の軒の出・西の軒の外壁の外だけ
+            # 10-31（ユーザー：母屋は本館のように梁と梁のあいだに渡し、梁の外形から飛び出さない）：妻の軒の出へは延ばさない（本館と同じく妻の軒の出は屋根の板が持ち出す）
+            #   南西の角の西の軒で、端の架構の板・出し梁を横切らずに軒の出へ出る母屋（鼻母屋の下まで）だけは延ばす
+            if not (_eave_ or (uf_ < 21.15 and not _BCX0.intersects(LineString([Ec_[:2] + o2_ * 30.0, qf_]).buffer(30.0)))): continue
             _stop_ = False
             if _eave_ and _BCX0.intersects(LineString([Ec_[:2] + o2_ * 300.0, qf_]).buffer(30.0)):     # 途中の出し梁の横の面で止める（出し梁が受ける、飼木なし）
                 hit_ = None
@@ -3836,7 +3846,8 @@ if slits:
         _gplate20(_slit_band(cc, ax, nrm, t0, t1, -150, 150))
         # 立ち上がり 60（両側と西の端）も平らな板の押し出し（10-29 昼：前は 500 の格子ごとの角柱の網目で、端に 3 mm の離れた片ができていた）
         for pu_ in (_slit_band(cc, ax, nrm, t0, t1, -150, -90).intersection(_WIN60), _slit_band(cc, ax, nrm, t0, t1, 90, 150).intersection(_WIN60),
-                    _slit_band(cc, ax, nrm, t0, t1, -150, 150).difference(_WIN60)):
+                    _slit_band(cc, ax, nrm, t0, t1, -150, 150).difference(_WIN60),
+                    strip(cc, ax, nrm, min(tE, tE - 60.0 * e), max(tE, tE - 60.0 * e), -150, 150)):     # 10-31：東の端（排気のスリットの西の縁）にも立ち上がり 60
             _gplate20(pu_, RT_W, 60.0, a20)
         _pts = [True]; tS = tW                                                   # 筋の西の端＝外壁の内面の線（外皮の線の固定ガラスは要らなくなった）
         for a_, b_ in ((-90, -88), (88, 90)):                                                    # 筋の内側：ガラスの下から梁の下端まで鏡面のアルミ t2
@@ -3887,30 +3898,31 @@ if slits:
             a_k = r.ObjectAttributes(); a_k.LayerIndex = L22T; a_k.Name = f'光の筋をまたぐ鋼の平板 6×60×340（架構 u{uc_:.0f}）'
             _plate_x(t_, a_k); _nk1 += 1
         _n22t += _nk1
-        for ta_, tb_, nm_ in ((tW, tW + 60.0 * e, '外壁の側'),):                    # 10-30：東の端（棟のガラスの帯の側）は縁の材なし、筋は帯へ開く
+        for ta_, tb_, nm_ in ((tW, tW + 60.0 * e, '外壁の側'),):                    # 10-31：東の端はスリットの西の縁の材がふさぐ
             a_e = r.ObjectAttributes(); a_e.LayerIndex = L20V; a_e.Name = f'光の筋の端の縁の材（杉、通気垂木の高さ、{nm_}、架構 u{uc_:.0f}）'   # 杉は垂木の層（一つのレイヤーには一つの素材、10-27夕）
             a_e.ColorSource = r.ObjectColorSource.ColorFromObject; a_e.ObjectColor = (196, 160, 118, 255)
             _span_box(min(ta_, tb_), max(ta_, tb_), -87.0, 87.0, 0.0, VENT_TOP, a_e)
-    # ================================================================ 棟のガラスの帯（10-30、ユーザー 22:20、監修の項 20261030-1431 の追記 18:30・19:54・21:23）
-    # 越屋根をやめ、「越屋根を屋根の面に沈める」：棟（東の縁 v −0.9、8150）から屋根の面に沿う幅 1.6 m（v −0.9〜EASTV、今の越屋根の幅、東の帯の
-    # 吹き抜け 1.45 に重なる）を、光の筋と同じ複層ガラス（外に Low-E、内に型板、20t）の帯に。南北の妻の壁の内面（u21.15〜50.75）のあいだ。
-    # - ガラスは屋根の上面＋60（光の筋のガラスと同じ高さ、t12、平らな板の押し出し）。西の縁は帯の縁の材（杉 60、合板の下から立ち上がりの上まで、外は金属で
-    #   包む）、棟の側は棟の立ち上がりと水切り（東の外壁の上、金属）、南北の端は屋根の上の立ち上がり 60 に載る。光の筋はガラスが帯につながり、筋の溝は帯へ開く。
-    # - 排気：帯の中の棟に近い所（v −1.05〜−1.55）に閉じられる窓（帯と同じ複層、自動の開け閉め：外気が涼しいとき・タイマー・雨と強い風で閉じる）を
-    #   架構のあいだごとに一つ、その外に雨よけのルーバー（羽根は西へ下がる向き、窓を開けても雨が入らない。奥＝棟の側に水切り）。窓とルーバーは吹き上げに
-    #   耐える留め方（決定事項_西館）。緩い屋根（約14°）の棟の近くは風向きによらず負圧なので、越屋根と同じく吸い出す。
-    # - 構面：帯で途切れる合板は、2 枚の梁（3 mおき）に加え、光の筋と同じ鋼の平板 6×60（22t）で帯をまたいで東の外壁の上までつなぐ（約 0.9 mおき、
-    #   天井扇の吊り棒もこの平板から）。
-    # - 夜の LED（29、発光）は帯の西の縁と棟の側の縁のガラスの下（帯が光の線になる）。
+    # ================================================================ 棟のガラスの帯（10-30 ユーザー 22:20、10-31 08:00 の直し）
+    # 越屋根をやめ、「越屋根を屋根の面に沈める」。10-31（ユーザー）：棟の所の屋根の外形は外から見て一枚の板。
+    # - ガラスの帯：棟（東の縁 v −0.9、8150）から屋根の面に沿う幅 1.6 m（v −0.9〜EASTV）を、屋根の面と同じ勾配・同じ厚み（通気垂木の上から屋根の上面まで
+    #   64、上面は屋根の上面と一つの面）の複層ガラス（外に Low-E、内に型板、20t）の板に。東へは同じ面のまま 350 伸ばして軒（本館とのすき間の上、前の水平な
+    #   水切りはやめた）。南北は屋根の端から端まで（妻の軒の出の上も）。下は帯の西の縁の材と東の外壁（削る段で外壁の上端をガラスの下面に合わせる）が受ける。
+    # - 排気のスリット：帯の西の縁と太陽光の屋根のあいだ（v EASTV −0.15〜EASTV、南北の妻の壁の内面のあいだ）に幅 150 のすき間だけを見せる。中に閉じられる窓
+    #   （合板の高さ、複層、自動の開け閉め：外気が涼しいとき・タイマー・雨と強い風で閉じる）と、その上に雨受けの樋（両脇 30 のすき間を空気が通る）を隠す。
+    #   緩い屋根（約14°）の棟の近くは風向きによらず負圧なので吸い出す。
+    # - 日よけ：本館の越屋根と同じ薄いルーバー（幅 120・ピッチ 104・水平に 30° で東が高い・両面白の艶消し、羽根の下の縁はガラスの上 10）を帯の上に南の端から
+    #   北の端まで連続で（30）。
+    # - 構面：帯で途切れる合板は、2 枚の梁（3 mおき）に加え、光の筋と同じ鋼の平板 6×60（22t）で帯をまたいで東の外壁の上へ（天井扇の吊り棒もこの平板から）。
+    # - 夜の LED（29、発光）は帯の西の縁と棟の側の縁のガラスの下。
     _FRL = [21.33] + [24.0 + 3.0 * k for k in range(7)] + [43.5, 45.0, 48.0, U_F18]     # 架構の線（梁の芯）
     _rf = lambda u_, v_: float(_RWf['roof_f'](*np.ravel(xy(u_, v_))))
-    _ZG0 = RT_W + 60.0; _GT = 12.0                                                 # ガラスの下の面（屋根の面から）・厚さ
-    BV_E, BV_W = -1.0, EASTV                                                      # ガラスの東（棟の側）・西の縁
+    _ZG0 = BAT_T; _GT = RT_W - BAT_T                                              # ガラスの下の面（屋根の面から）・厚さ（屋根の板と同じ 64）
+    BV_E, BV_W = BAND_VE, EASTV                                                   # ガラスの東（軒先）・西の縁
     L29 = new_layer('29_西館_棟のガラスの帯_LED（帯の縁、発光）', (255, 211, 77))
-    L30 = new_layer('30_西館_棟のガラスの帯_排気窓の雨よけルーバー（白の艶消し）', (236, 232, 222))
-    _n_bg = _n_bw = _n_lv = _n_led = _n_bp = 0
+    L30 = new_layer('30_西館_棟のガラスの帯_日よけのルーバー（白の艶消し）', (236, 232, 222))
+    _n_bg = _n_lv = _n_led = _n_bp = _n_sw = 0
     def _plane_plate(pg_, dz_, th_, at_, depth_=0):
-        """平面形 pg_ を屋根の面＋dz_ に当てはめた平面の上の板（厚さ th_、上へ）。面との差が 3 を超えれば u の向きに二つに分ける"""
+        """平面形 pg_ を屋根の面＋dz_ に当てはめた平面の上の板（厚さ th_、上へ）。面との差が 2 を超えれば u の向きに二つに分ける"""
         pgs_ = [q for q in getattr(pg_, 'geoms', [pg_]) if q.geom_type == 'Polygon' and q.area > 500.0]
         if len(pgs_) != 1:
             return sum(_plane_plate(q, dz_, th_, at_, depth_) for q in pgs_)
@@ -3918,7 +3930,7 @@ if slits:
         Gs_ = np.array([np.asarray(pg_.representative_point().coords[0])] + [np.asarray(pg_.exterior.interpolate(f_, normalized=True).coords[0]) for f_ in np.linspace(0, 1, 80, endpoint=False)])
         Gz_ = np.array([_RWf['roof_f'](*q_) for q_ in Gs_]) + dz_
         A_ = np.c_[np.ones(len(Gs_)), Gs_ - Gs_[0]]; cf_, *_ = np.linalg.lstsq(A_, Gz_, rcond=None)
-        if float(np.abs(A_ @ cf_ - Gz_).max()) > 3.0 and depth_ < 6:
+        if float(np.abs(A_ @ cf_ - Gz_).max()) > 2.0 and depth_ < 7:
             us_ = [uv(*q_)[0] for q_ in np.asarray(pg_.exterior.coords)]; um_ = (min(us_) + max(us_)) / 2
             return (_plane_plate(pg_.intersection(R(min(us_) - 0.1, um_, -20.0, 2.0, 0.05)), dz_, th_, at_, depth_ + 1)
                     + _plane_plate(pg_.intersection(R(um_, max(us_) + 0.1, -20.0, 2.0, 0.05)), dz_, th_, at_, depth_ + 1))
@@ -3943,64 +3955,71 @@ if slits:
         return best_ is not None
     def _att(li_, nm_):
         a_ = r.ObjectAttributes(); a_.LayerIndex = li_; a_.Name = nm_; return a_
-    # 排気窓（架構のあいだごとに一つ、真ん中、長さ 1.8 まで・梁から 0.4 離す）
-    _WIN = []
-    for fa_, fb_ in zip(_FRL, _FRL[1:]):
-        L_ = min(1.8, (fb_ - fa_) - 0.8)
-        if L_ < 0.6: continue
-        um_ = (fa_ + fb_) / 2; _WIN.append((um_ - L_ / 2, um_ + L_ / 2))
-    WV_E, WV_W = -1.05, -1.55                                                     # 窓の東・西の縁（v）
-    _winpg = unary_union([R(a_, b_, WV_W, WV_E, 0.05) for a_, b_ in _WIN])
-    _strip_g = unary_union([_slit_band(cc, ax, nrm, t0, t1, -150, 150) for cc, ax, nrm, t0, t1 in slits])
-    # ガラスの帯（南北の端は妻の壁の内面の外 60 の立ち上がりまで）
-    _bandpg = R(BAND_U[0] - 0.06, BAND_U[1] + 0.06, BV_W, BV_E, 0.05).difference(_strip_g).difference(_winpg)
-    for a_, b_ in zip(np.arange(BAND_U[0] - 0.06, BAND_U[1] + 0.06, 1.5), list(np.arange(BAND_U[0] - 0.06, BAND_U[1] + 0.06, 1.5))[1:] + [BAND_U[1] + 0.06]):
-        _n_bg += _plane_plate(_bandpg.intersection(R(a_, b_, -20.0, 2.0, 0.05)), _ZG0, _GT, _att(L20T, '棟のガラスの帯（複層：外に Low-E、内に型板、t12、帯の縁の材・棟の立ち上がり・端の立ち上がりに載る）'))
-    for a_, b_ in _WIN:
-        _n_bw += _plane_plate(R(a_, b_, WV_W, WV_E, 0.05), _ZG0, _GT, _att(L20T, '排気窓（棟のガラスの帯の中、帯と同じ複層、自動の開け閉め：外気が涼しいとき・タイマー・雨と強い風で閉じる、吹き上げに耐える留め方）'))
-    # 帯の縁の材（西の縁、v EASTV〜+0.06）：合板の下から立ち上がりの上（ガラスの下）まで、梁の帯（2 枚組）は除く
-    _edge = R(BAND_U[0], BAND_U[1], BV_W, BV_W + 0.06, 0.05).difference(BANDS)
-    for k, p_ in _by_bay(_edge):
-        for dz0_, dz1_, li_, nm_ in ((-INS_T - PLY_T, RT_W, L20V, '帯の縁の材（杉 60、合板の下から屋根の上面まで、棟のガラスの帯の西の縁）'),
-                                     (RT_W, _ZG0, L20, '帯の縁の立ち上がり 60（金属で包む、ガラスを受ける、棟のガラスの帯の西の縁）')):
-            M_ = _bplate(p_, k, dz0_, dz1_, vert=True)
-            if M_ is not None: new_objs.append((_m2r(M_), _att(li_, nm_)))
-    # 南北の端の立ち上がり 60（妻の壁の上の屋根の上、u の外 60）
-    for a_, b_ in ((BAND_U[0] - 0.06, BAND_U[0]), (BAND_U[1], BAND_U[1] + 0.06)):
-        for k, p_ in _by_bay(R(a_, b_, BV_W, BV_E, 0.02)):
-            M_ = _bplate(p_, k, RT_W, _ZG0)
-            if M_ is not None: new_objs.append((_m2r(M_), _att(L20, '棟のガラスの帯の端の立ち上がり 60（屋根の上、金属）')))
-    # 棟の立ち上がりと水切り（東の外壁の上、u 1 m ごとの弦）：下の段は外壁の上端 8150 から帯のガラスの下まで（v −1.06〜−0.9）、
-    #   上の段はガラスの上 30 まで、東へ 350 出す水切り（v −1.0〜−0.55、すき間の上の庇。前の越屋根の蓋の出と同じ）
-    for a_, b_ in zip(np.arange(BAND_U[0] - 0.06, BAND_U[1] + 0.06 - 1e-6, 1.0), list(np.arange(BAND_U[0] - 0.06, BAND_U[1] + 0.06 - 1e-6, 1.0))[1:] + [BAND_U[1] + 0.06]):
-        z1_ = min(_rf(u_, -1.06) for u_ in (a_, b_)) + _ZG0 - 1.0
-        z2_ = max(_rf(u_, -0.9) for u_ in (a_, b_)) + _ZG0 + _GT + 30.0
-        _xbox(a_, b_, -1.06, -0.9, 8150.0, z1_, L20, '棟の立ち上がり（杉、外は金属、東の外壁の上、帯のガラスを受ける）')
-        _xbox(a_, b_, -1.0, -0.55, z1_, z2_, L20, '棟の水切り（金属、立ち上がりを包んで東へ 350 出す、本館とのすき間の上の庇、前の越屋根の蓋の出と同じ）')
+    def _chunks(a_, b_, d_):
+        xs_ = list(np.arange(a_, b_ - 1e-6, d_)) + [b_]; return list(zip(xs_, xs_[1:]))
+    # ガラスの帯（屋根の板と同じ面・同じ厚み、1.5 m ごと）
+    _bandpg = R(BAND_UL, BAND_UH, BV_W, BV_E, 0.05)
+    for a_, b_ in _chunks(BAND_UL, BAND_UH, 1.5):
+        _n_bg += _plane_plate(_bandpg.intersection(R(a_, b_, -20.0, 2.0, 0.05)), _ZG0, _GT, _att(L20T, '棟のガラスの帯（複層：外に Low-E、内に型板、屋根の板と同じ面・同じ厚み 64、東へ 350 の軒）'))
+    PLYFP = unary_union([PLYFP] + [Polygon(extedit.samples(g_, 200)[:, :2]).convex_hull.buffer(1.0) for g_ in _raf()])   # u43.5 の 2 枚も
+    # 帯の東の縁の材（帯の西の縁、v EASTV〜+0.06）：合板の下からガラスの下まで。スリットの西の縁の材（v SW〜+0.06）：合板の下から屋根の上面まで（上は金属で包む）
+    for v0_, v1_, dz1_, nm_ in ((BV_W, BV_W + 0.06, _ZG0, '帯の縁の材（杉 60、合板の下からガラスの下まで、排気のスリットの東の縁）'),
+                                (SLIT_W, SLIT_W + 0.06, RT_W, 'スリットの縁の材（杉 60、合板の下から屋根の上面まで、上は金属で包む、排気のスリットの西の縁）')):
+        for k, p_ in _by_bay(R(BAND_U[0], BAND_U[1], v0_, v1_, 0.05).difference(PLYFP)):
+            M_ = _bplate(p_, k, -INS_T - PLY_T, dz1_, vert=True)
+            if M_ is not None: new_objs.append((_m2r(M_), _att(L20V, nm_)))
+    # スリットの中：閉じられる窓（合板の高さ、19：屋根の覆いの層に入れない＝スリットは開いた所）と雨受けの樋（窓の上、両脇 30 あける、21g）。板（梁）の所は除く
+    PLYFP = unary_union([PLYFP] + [Polygon(extedit.samples(g_, 200)[:, :2]).convex_hull.buffer(1.0) for g_ in _raf()])   # u43.5 の 2 枚も
+    _slit_in = R(BAND_U[0], BAND_U[1], SLIT_W + 0.06, BV_W, 0.05).difference(PLYFP)
+    for k, p_ in _by_bay(_slit_in):
+        M_ = _bplate(p_, k, -INS_T - PLY_T, -INS_T, vert=True)
+        if M_ is not None: new_objs.append((_m2r(M_), _att(new_layer('19_西館_建具・ガラス（南の入口・窓）', (127, 179, 213)), '排気のスリットの窓（閉じられる、複層、自動の開け閉め：外気が涼しいとき・タイマー・雨と強い風で閉じる、吹き上げに耐える留め方）'))); _n_sw += 1
+    for k, p_ in _by_bay(R(BAND_U[0], BAND_U[1], SLIT_W + 0.09, BV_W - 0.03, 0.05).difference(PLYFP.buffer(30.0))):
+        M_ = _bplate(p_, k, -110.0, -50.0, vert=True)
+        if M_ is not None: new_objs.append((_m2r(M_), _att(new_layer('21g_西館_軒樋・鎖樋（道路の側）', (150, 150, 150)), '排気のスリットの中の雨受けの樋（金属、窓の上、両脇 30 のすき間を空気が通る、両端で外へ）')))
+    # スリットの上の防虫網（ステンレスの細かい網、屋根の上面の 15 下、t5、外からはすき間に見える。屋根の覆いの層 20：スリットの下の梁も屋根の下に入る）
+    for k, p_ in _by_bay(R(BAND_U[0], BAND_U[1], SLIT_W + 0.06, BV_W, 0.05)):
+        M_ = _bplate(p_, k, RT_W - 20.0, RT_W - 15.0, vert=True)
+        if M_ is not None: new_objs.append((_m2r(M_), _att(L20, '排気のスリットの防虫網（ステンレスの細かい網、屋根の上面の 15 下、外からはすき間に見える）')))
     # LED（帯の西の縁と棟の側の縁、ガラスの下 20×20、u 1 m ごとの弦）
-    for a_, b_ in zip(np.arange(BAND_U[0], BAND_U[1] - 1e-6, 1.0), list(np.arange(BAND_U[0], BAND_U[1] - 1e-6, 1.0))[1:] + [BAND_U[1]]):
+    for a_, b_ in _chunks(BAND_U[0], BAND_U[1], 1.0):
         for v0_, v1_ in ((BV_W + 0.06, BV_W + 0.08), (-1.08, -1.06)):
             zb_ = min(_rf(u_, v_) for u_ in (a_, b_) for v_ in (v0_, v1_)) + _ZG0
             _xbox(a_, b_, v0_, v1_, zb_ - 21.0, zb_ - 1.0, L29, 'LED 20×20（棟のガラスの帯の縁、ガラスの下、夜に帯が光の線になる）'); _n_led += 1
-    # 雨よけのルーバー（窓の上）：羽根 4 枚（西へ下がる 40°、幅 0.12、厚さ 12、0.15 おき）、両端の側板、奥（棟の側）に水切り
-    for a_, b_ in _WIN:
-        ua_, ub_ = a_ - 0.05, b_ + 0.05; um_ = (ua_ + ub_) / 2
-        zt_ = lambda v_: _rf(um_, v_) + _ZG0 + _GT                                  # ガラスの上の面
-        for vb_ in (-1.10, -1.25, -1.40, -1.55):
-            h_ = zt_(vb_) + 210.0
-            _rprof(ua_, ub_ - ua_, [(vb_, h_), (vb_ - 0.092, h_ - 77.0), (vb_ - 0.092, h_ - 89.0), (vb_, h_ - 12.0)], _att(L30, '雨よけのルーバーの羽根（アルミ、白の艶消し、西へ下がる 40°、排気窓の上）')); _n_lv += 1
-        for uc_ in (ua_ - 0.01, ub_):
-            _rprof(uc_, 0.01, [(-1.015, zt_(-1.015)), (-1.66, zt_(-1.66)), (-1.66, zt_(-1.66) + 230.0), (-1.015, zt_(-1.015) + 230.0)], _att(L30, '雨よけのルーバーの側板（アルミ t10、吹き上げに耐えるよう棟の立ち上がりと帯の受けにボルト）'))
-        _rprof(ua_ - 0.01, ub_ - ua_ + 0.02, [(-1.0, zt_(-1.0)), (-1.015, zt_(-1.015)), (-1.015, zt_(-1.015) + 230.0), (-1.0, zt_(-1.0) + 230.0)], _att(L20, '雨よけのルーバーの奥の水切り（金属、棟の側）'))
-    # 帯をまたぐ鋼の平板 6×60（合板の上面の高さ、合板の 0.3 内から東の外壁の内面 v −1.05 まで）：約 0.9 mおき＋天井扇の所
+    # 日よけのルーバー（本館の越屋根と同じ：幅 120・ピッチ 104・水平に 30° で東が高い・厚さ 18、羽根の下の縁はガラスの上 10）、南の端から北の端まで連続。
+    #   屋根の高さが u で変わるので、羽根は u 0.25 ごとの点を結ぶ閉じた網目
+    _us_l = np.arange(BAND_UL + 0.02, BAND_UH - 0.02 + 1e-6, 0.25); _us_l[-1] = BAND_UH - 0.02
+    _WL, _ANG = 120.0, math.radians(30.0); _dh, _rise = _WL * math.cos(_ANG) / 1000.0, _WL * math.sin(_ANG)
+    vw_ = BV_W + 0.02
+    while vw_ + _dh <= BV_E - 0.01:
+        ve_ = vw_ + _dh; V_ = []
+        for u_ in _us_l:
+            zw_ = _rf(u_, vw_) + RT_W + 10.0; ze_ = zw_ + _rise
+            pw_, pe_ = np.ravel(xy(u_, vw_)), np.ravel(xy(u_, ve_))
+            V_ += [(*pw_, zw_), (*pe_, ze_), (*pe_, ze_ + 18.0), (*pw_, zw_ + 18.0)]
+        n_ = len(_us_l); F_ = []
+        for i in range(n_ - 1):
+            for j in range(4):
+                a0, a1, b0, b1 = 4 * i + j, 4 * i + (j + 1) % 4, 4 * (i + 1) + j, 4 * (i + 1) + (j + 1) % 4
+                F_ += [(a0, b0, b1), (a0, b1, a1)]
+        F_ += [(0, 1, 2), (0, 2, 3), (4 * (n_ - 1), 4 * (n_ - 1) + 2, 4 * (n_ - 1) + 1), (4 * (n_ - 1), 4 * (n_ - 1) + 3, 4 * (n_ - 1) + 2)]
+        tmb_ = trimesh.Trimesh(np.array(V_), np.array(F_), process=False)
+        if tmb_.volume < 0: tmb_.invert()
+        mm_ = r.Mesh()
+        for x_, y_, z_ in tmb_.vertices: mm_.Vertices.Add(float(x_), float(y_), float(z_))
+        for f_ in tmb_.faces: mm_.Faces.AddFace(int(f_[0]), int(f_[1]), int(f_[2]))
+        mm_.Normals.ComputeNormals(); mm_.Compact()
+        new_objs.append((mm_, _att(L30, '日よけのルーバー（本館の越屋根と同じ、幅 120・ピッチ 104・水平に 30° で東が高い、両面白の艶消し、棟のガラスの帯の上、南の端から北の端まで）'))); _n_lv += 1
+        vw_ += 0.104
+    # 帯をまたぐ鋼の平板 6×60（合板の上面の高さ、スリットの西の 0.3 内から東の外壁の内面 v −1.05 まで）：約 0.9 mおき＋天井扇の所
     _FANU = [22.5, 25.5, 28.5, 31.5, 34.5, 37.5, 40.5, 43.5, 46.5, 49.5]
     _pu = [u_ for u_ in np.arange(BAND_U[0] + 0.45, BAND_U[1] - 0.2, 0.9) if min(abs(u_ - f_) for f_ in _FRL) > 0.3 and min(abs(u_ - f_) for f_ in _FANU) > 0.45]
     for u_ in sorted(_pu + _FANU):
-        vs_ = np.linspace(BV_W - 0.3, -1.05, 2)
-        prof_ = [(vs_[0], _rf(u_, vs_[0]) - INS_T - 6.0), (vs_[1], _rf(u_, vs_[1]) - INS_T - 6.0), (vs_[1], _rf(u_, vs_[1]) - INS_T), (vs_[0], _rf(u_, vs_[0]) - INS_T)]
+        vs_ = (SLIT_W - 0.3, -1.05)
+        prof_ = [(vs_[0], _rf(u_, vs_[0]) - INS_T), (vs_[1], _rf(u_, vs_[1]) - INS_T), (vs_[1], _rf(u_, vs_[1]) - INS_T + 6.0), (vs_[0], _rf(u_, vs_[0]) - INS_T + 6.0)]
         _n_bp += _rprof(u_ - 0.03, 0.06, prof_, _att(L22T, f'棟のガラスの帯をまたぐ鋼の平板 6×60（合板から東の外壁の上へ、u{u_:.1f}）'))
-    log.append(f'西館：棟のガラスの帯（越屋根をやめた、10-30）：ガラス {_n_bg} 枚（u{BAND_U[0]}〜{BAND_U[1]}、v{BV_E}〜{BV_W}、20t）、排気窓 {_n_bw}・雨よけのルーバーの羽根 {_n_lv}、'
-               f'LED {_n_led}（29）、帯をまたぐ鋼の平板 {_n_bp}（22t）、棟の立ち上がりと水切り')
+    log.append(f'西館：棟のガラスの帯（10-30 越屋根をやめた、10-31 屋根と一つの面）：ガラス {_n_bg} 枚（u{BAND_UL:.2f}〜{BAND_UH:.2f}、v{BV_E}〜{BV_W}、20t、東へ 350 の軒）、'
+               f'排気のスリット（幅 150、窓 {_n_sw}・雨受けの樋）、日よけのルーバー {_n_lv} 枚（30）、LED {_n_led}（29）、帯をまたぐ鋼の平板 {_n_bp}（22t）')
     log.append(f'西館：光の筋の乳白ガラス {len(slits)} 本・{_n20t} 枚（平らな板 t12 の押し出し、西の端は外壁の内面の線、屋根の面に当てはめた平面との差 最大 {_gdev:.1f} mm、超える所は筋の向きに分けた）')
     log.append(f'西館：光の筋をまたぐつなぎ（22t）：鋼の平板 {_n22t} 枚（{len(slits)} 本の筋、約 0.9 mおき）と筋の西の端の縁の材 {len(slits)}')
     log.append(f'西館：光の筋 {len(slits)} 本（u ' + '・'.join(f'{uv(*s[0])[0]:.0f}' for s in slits) +
@@ -4388,7 +4407,7 @@ for _uf in (22.5, 25.5, 28.5, 31.5):
     _c = xy(_uf, -1.8)
     K.prism(_Pt(*_c).buffer(550, resolution=24), 5980.0, 6000.0, _LFAN)          # 羽根の回る範囲
     K.prism(_Pt(*_c).buffer(110, resolution=16), 5960.0, 6080.0, _LFAN)          # モーター
-    K.prism(_Pt(*_c).buffer(15, resolution=8), 6080.0, float(_RWf['roof_f'](*np.ravel(_c))) - 156.0, _LFAN)   # 吊り棒（10-30：棟のガラスの帯をまたぐ鋼の平板の下面へ。前は越屋根の立ち上がりの受け）
+    K.prism(_Pt(*_c).buffer(15, resolution=8), 6080.0, float(_RWf['roof_f'](*np.ravel(_c))) - 150.0, _LFAN)   # 吊り棒（10-30：棟のガラスの帯をまたぐ鋼の平板の下面へ。前は越屋根の立ち上がりの受け）
 log.append('西館：東の帯の吹き抜け（スパン 8〜11）に天井扇 4 台（φ1.1、h6.0、58b）')
 # 部屋の天井扇（10-28、ユーザー 23:41：シーリングファンが一部にしか無い。無理・無駄でない限り全スパンに）。天井の低い部屋は羽根 φ0.9：
 # いちばん下（モーター）を床から 2.4 以上、羽根の回る範囲の外 0.3 までの真上（屋根の下面の合板 20r・梁・母屋・2 階の床の裏）と羽根の上のあき

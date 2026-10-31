@@ -231,6 +231,6 @@ fn = P['fans']
 for u in fn['u']:
     c = np.array(xy(u, -0.9 - fn['w']))
     K.prism(Point(c).buffer(fn['d'] * 500, resolution=16), fn['h'] * 1000 - 40, fn['h'] * 1000, L_FAN)
-    K.tube([*c, fn['h'] * 1000], [*c, under_roof(*c) + 300.0 - 156.0], 15, 15, L_FAN, n=6)   # 10-30：棟のガラスの帯をまたぐ鋼の平板（合板の上面＝屋根の面の 150 下）の下面へ
+    K.tube([*c, fn['h'] * 1000], [*c, under_roof(*c) + 300.0 - 150.0], 15, 15, L_FAN, n=6)   # 10-30：棟のガラスの帯をまたぐ鋼の平板（合板の上面＝屋根の面の 150 下）の下面へ
 
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))
