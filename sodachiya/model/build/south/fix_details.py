@@ -478,6 +478,19 @@ _n_stair = 0
 STAIR_U0, STAIR_FOOT, STAIR_U1 = 30.0, 0.9, 33.9
 def stair_u(u): return STAIR_U0 + (u - STAIR_U0) * (STAIR_U1 - STAIR_U0) / 3.0 if STAIR_U0 - 0.1 <= u <= 33.1 else u   # 箱の壁・床を北へ伸ばす
 STAIR_STG = (30.06, STAIR_U1 - 0.06, -4.94, round(stair_v25(-3.45), 3)); STAIR_DOOR = (30.30, 31.50)
+# 11-01（ユーザー 02:06、図 kaidan_span11_east）：階段はスパン11（u30・u33 の床梁の内の板の面 u30.18〜32.82）の中で、東の帯（v−3.0）から
+#   北の列を西へ上り、西の踊り場（奥行き 1.2）で折り返し、南の列を東へ上って v−2.5〜−3.0 の 2 階の床（ホール）へ。18段・蹴上 180.6・踏面 260・幅各 1.2。
+#   箱の壁は芯 u30・u33（床梁の 2 枚のあいだ）と v−6.34（西、2 階は会議室の東の壁）。u33 の床梁は切らない（ユーザー：架構の梁は途中で切らない）
+NEWST = True
+PIN_OUT = 50.0                                                        # u33 の床の桁（ピン）の出（スパン12の側）
+NS_UA, NS_UB, NS_W, NS_VE, NS_T, NS_N = 30.18, 32.82, 1.2, -3.0, 0.26, 18
+NS_US, NS_UN = (NS_UA, NS_UA + NS_W), (NS_UB - NS_W, NS_UB)          # 南の列（二つ目、東へ上る）・北の列（一つ目、西へ上る）
+NS_UD = (NS_US[1] + NS_UN[0]) / 2                                     # 二つの列のあいだ（柵）
+NS_VL = NS_VE - (NS_N // 2 - 1) * NS_T                                # 踊り場の東の縁 −5.08
+NS_VW = NS_VL - NS_W                                                  # 踊り場の西の縁 −6.28（箱の西の壁の内の面）
+NS_VWC = NS_VW - 0.06                                                 # 箱の西の壁の芯 −6.34
+NS_STG = (30.06, NS_UD - 0.015, -4.30, -2.72)                         # 階段の下の倉庫（南の列の高い東の端の下）u0, u1, v 西, v 東
+NS_DOOR = (30.35, 31.15)                                              # 倉庫の戸（東の面 v−2.66、東の帯の側）
 STAIR_DOOR_H = 2100.0   # 10-28（監修の項 20261028-0015 の 15）：戸の高さ 1750 → 2100（ほかの室内の戸と同じ。上の段の裏 u31.6 で約 z2.67 なので納まる）
 
 def _plates(T, thk, stair=False):
@@ -594,6 +607,27 @@ def _plates(T, thk, stair=False):
             if not M.is_empty(): out.append(M)
     return out
 
+def _stair_tris_new():
+    """11-01：スパン11の中で東西に折り返す階段（NEWST）の踏み板・蹴込み板の面（このあと _plates で板に）"""
+    RS = 3250.0 / NS_N; quads = []
+    def tread(v0, v1, u0, u1, z): quads.append([(u0, v0, z), (u1, v0, z), (u1, v1, z), (u0, v1, z)])
+    def riser(v, u0, u1, z0, z1): quads.append([(u0, v, z0), (u1, v, z0), (u1, v, z1), (u0, v, z1)])
+    n1 = NS_N // 2
+    for k in range(1, n1):                                  # 北の列：東の帯（v−3.0）から西へ
+        v_ = NS_VE - (k - 1) * NS_T
+        riser(v_, *NS_UN, (k - 1) * RS, k * RS); tread(v_, v_ - NS_T, *NS_UN, k * RS)
+    riser(NS_VL, *NS_UN, (n1 - 1) * RS, n1 * RS)
+    tread(NS_VL, NS_VW, NS_UA, NS_UB, n1 * RS)              # 踊り場（二つの列の幅いっぱい）
+    for k in range(1, NS_N - n1):                           # 南の列：踊り場から東へ
+        v_ = NS_VL + (k - 1) * NS_T
+        riser(v_, *NS_US, (n1 + k - 1) * RS, (n1 + k) * RS); tread(v_, v_ + NS_T, *NS_US, (n1 + k) * RS)
+    riser(NS_VE, *NS_US, (NS_N - 1) * RS, NS_N * RS)        # いちばん上の蹴上げ（2 階の床の縁 v−3.0）
+    T_ = []
+    for q in quads:
+        P = [np.r_[np.ravel(xy(u, v)).astype(float), z] for u, v, z in q]
+        T_ += [[P[0], P[1], P[2]], [P[0], P[2], P[3]]]
+    return np.array(T_)
+
 def _stair_tris():
     """西館の階段（25）を描き直す（10-25夜、ソリッド係の指摘：踏み板が一段おきに無い）。
     元の面は一折れ 9 段の蹴上げ（1F 0 → 踊り場 1625 → 2F 3250、1 段 180.6）に踏み板が 5 枚（踏面 0.375）しか無く、
@@ -656,8 +690,11 @@ for o in m.Objects:
     U = to_uv_arr(T.reshape(-1, 3))
     if (U[:, 1] > -0.9).any(): continue                                  # 西館だけ
     if li_ in (lidx('24_'), lidx('25_')) and U[:, 0].min() > 29.9 and U[:, 0].max() < 33.1 and U[:, 1].min() > -5.05 and U[:, 1].max() < -2.15:
-        if li_ == lidx('25_'): T = _stair_tris(); _log_stair = True   # 段を描き直す（元は一折れ 9 段の蹴上げに踏み板が 5 枚しか無かった）
-        T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None, su=(li_ == lidx('24_'))); U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
+        if li_ == lidx('25_') and NEWST: T = _stair_tris_new(); _log_stair = True    # 11-01：スパン11の中で東西に折り返す
+        elif li_ == lidx('25_'): T = _stair_tris(); _log_stair = True   # 段を描き直す（元は一折れ 9 段の蹴上げに踏み板が 5 枚しか無かった）
+        if not (NEWST and li_ == lidx('25_')):
+            T = stair_narrow(T, stair_v25 if li_ == lidx('25_') else None, su=(li_ == lidx('24_')))
+        U = to_uv_arr(T.reshape(-1, 3)); _n_stair += 1   # 階段と階段の箱を細く（10-25）
     tm_ = trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)); tm_.merge_vertices(digits_vertex=1)
     if tm_.is_watertight: continue
     if trimesh.Trimesh(T.reshape(-1, 3), np.arange(len(T) * 3).reshape(-1, 3)).is_watertight: continue   # 10-28：もう閉じた立体（add_west_south.py の壁ごとの立体）は触らない（0.1 mm に丸めて溶かすと閉じなくなる）
@@ -695,13 +732,23 @@ for o in m.Objects:
         for a_, b_, c_ in np.asarray(g_.tri_verts): mm.Faces.AddFace(int(a_) + o_, int(b_) + o_, int(c_) + o_)
     mm.Normals.ComputeNormals()
     at_ = o.Attributes
+    if NEWST and li_ == lidx('27_') and U[:, 0].min() > 32.9 and U[:, 0].max() < 33.1:    # 11-01：箱の北の壁（v−6.40 まで）の所を除く
+        _tb = trimesh.creation.extrude_polygon(R(32.5, 33.5, NS_VWC - 0.06, -2.0, 0.05), 9000.0)
+        _cut = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(_tb.vertices, np.float32), tri_verts=np.asarray(_tb.faces, np.uint32)))
+        mm = r.Mesh()
+        for M_ in [M_ - _cut for M_ in ms_]:
+            if M_.is_empty(): continue
+            g_ = M_.to_mesh(); o_ = len(mm.Vertices)
+            for x_, y_, z_ in np.asarray(g_.vert_properties)[:, :3]: mm.Vertices.Add(float(x_), float(y_), float(z_))
+            for a_, b_, c_ in np.asarray(g_.tri_verts): mm.Faces.AddFace(int(a_) + o_, int(b_) + o_, int(c_) + o_)
+        mm.Normals.ComputeNormals()
     if li_ == lidx('27_') and U[:, 0].min() > 32.9 and U[:, 0].max() < 33.1:
         # 10-28（ユーザー、監修の項 20261028-0015 の 9）：会議室から遊戯室を見る室内窓（腰 850、下は遊戯室へ約 4.1 m）ははめ殺し。柵は付けない（見えは変えない）
         at_.Name = '室内窓（2階の会議室から遊戯室を見る、はめ殺し、腰 850、10-28 監修の項 0015 の 9）'; _log_win27 = True
     beam_new.append((mm, at_)); beam_drop.add(str(o.Attributes.Id)); _n_thk += 1
 log.append(f'西館：面だけの間仕切り・階段・室内窓 {_n_thk} 個に厚みを付けて閉じた')
 if globals().get('_log_win27'): log.append('西館：会議室から遊戯室を見る室内窓（u33）をはめ殺しに（名前、監修の項 0015 の 9）')
-log.append(f'西館：階段と階段の箱 {_n_stair} 個を細くした（東の面 v−2.2 → −2.99、一本 0.9、南の口のあき 柱の所 約1.30・柱のあいだ 約1.88）')
+log.append('西館：階段を描き直した（11-01、スパン11の中、東の帯から北の列を西へ・南の列を東へ、18段 蹴上 180.6・踏面 260・幅 各 1.2）') if NEWST else log.append(f'西館：階段と階段の箱 {_n_stair} 個を細くした（東の面 v−2.2 → −2.99、一本 0.9、南の口のあき 柱の所 約1.30・柱のあいだ 約1.88）')
 
 # 3d) 外壁ぎわの柱の外の面を、足もとから頭まで外壁の内面にそろえる（10-25、ユーザーの問い・監修）。
 # 柱（22a）は縦の断面が先細り（頭が桁を抱いて膨らむ）で、頭だけが壁の内面に届き、足もとでは壁から約0.14離れて
@@ -1016,10 +1063,15 @@ for u0_, u1_ in _segs:
 log.append(f'西館：骨格の柱 2 本（u24・u27、v −3.4、180×400）、東の高窓の帯の窓台・まぐさ {2 * len(_segs)} 本')
 # 5) 階段の箱の柱とまぐさ（壁の芯 v −2.99・−5.0、u30・33（床梁の下）・33.9、開口の両脇）
 _BOXC = [(30.0, -2.99), (30.0, -5.0), (30.96, -2.99), (30.24, -5.0), (31.56, -5.0), (33.0, -2.99), (33.0, -5.0), (33.9, -2.99), (33.9, -5.0)]
+if NEWST:                                                                # 11-01：箱の角（芯 u30・u33・v−6.34）と東の端
+    _BOXC = [(30.0, -2.66), (30.0, NS_VWC), (33.0, NS_VE - 0.06), (33.0, NS_VWC), (31.5, NS_VWC), (NS_DOOR[0] - 0.06, -2.66), (NS_DOOR[1] + 0.06, -2.66)]   # 倉庫の戸の両脇（まぐさを受ける）
 for uc, vc in _BOXC:
     _xbox(uc - 0.06, uc + 0.06, vc - 0.06, vc + 0.06, 0.0, 3170.0, L22A, f'階段の箱の柱 120×120（骨格の耐力壁、u{uc:.2f}）')
-_xbox(STAIR_DOOR[0] + 0.001, STAIR_DOOR[1] - 0.001, -4.94, -5.06,     # 10-29：柱（u30.24・31.56）のあいだに（前は柱に 60 ずつ食い込んだ）
-       STAIR_DOOR_H, STAIR_DOOR_H + 180.0, L22D, '階段の箱の倉庫の戸のまぐさ（120×180）')
+if NEWST:
+    _xbox(NS_DOOR[0] + 0.001, NS_DOOR[1] - 0.001, -2.60, -2.72, STAIR_DOOR_H, STAIR_DOOR_H + 180.0, L22D, '階段の下の倉庫の戸のまぐさ（120×180、東の帯の側）')
+else:
+    _xbox(STAIR_DOOR[0] + 0.001, STAIR_DOOR[1] - 0.001, -4.94, -5.06,     # 10-29：柱（u30.24・31.56）のあいだに（前は柱に 60 ずつ食い込んだ）
+           STAIR_DOOR_H, STAIR_DOOR_H + 180.0, L22D, '階段の箱の倉庫の戸のまぐさ（120×180）')
 log.append(f'西館：階段の箱を骨格の耐力壁に（柱 {len(_BOXC)} 本 120×120、倉庫の戸のまぐさ、u30・u33 の床梁を受ける）')
 # 6) 階段の上の頭のあき（10-28、監修の項 20261028-0015 の 1）：u33 の 2 階の床梁（2 枚組 u32.82〜33.18、下端 z2400）が
 #    階段（1 本目の上の段・踊り場・2 本目の下の段）の上を横切り、踊り場の上のあきが 0.78 m だった。梁を階段の箱の東西の壁の内面
@@ -1055,7 +1107,7 @@ def _cut_beam(g, keep_east):
         if not e.AddInnerProfile(c2): return None
     return e
 _n_cut = 0
-for o in list(m.Objects):
+for o in ([] if NEWST else list(m.Objects)):                                 # 11-01（ユーザー：架構の梁は途中で切らない）：u33 の床梁は一本のまま
     if o.Attributes.LayerIndex != L22C: continue
     k_ = str(o.Attributes.Id); g = cur_g(o)
     if not isinstance(g, r.Extrusion) or k_ in beam_drop: continue
@@ -1067,7 +1119,7 @@ for o in list(m.Objects):
     at_ = r.ObjectAttributes(); at_.LayerIndex = o.Attributes.LayerIndex
     at_.Name = (o.Attributes.Name or '2 階の床梁') + '（階段の上で切った西の片、10-28）'
     _XNEW.append((eW, at_)); _n_cut += 1
-log.append(f'西館：u33 の 2 階の床梁 {_n_cut} 枚を階段の上（v{STAIR_CUT_V[0]}〜{STAIR_CUT_V[1]}、箱の東西の壁の内面のあいだ）で切った（端は箱の壁と柱が受ける）')
+if not NEWST: log.append(f'西館：u33 の 2 階の床梁 {_n_cut} 枚を階段の上（v{STAIR_CUT_V[0]}〜{STAIR_CUT_V[1]}、箱の東西の壁の内面のあいだ）で切った（端は箱の壁と柱が受ける）')
 
 # 3f) 架構の仕上げ（10-29、西館係。監修の項 20261028-2355、renkei/files/20261028-kanshu-west-frame）：上の段で別々に動かした柱・梁・桁を
 #     最後にそろえる。押し出しのまま。
@@ -1282,6 +1334,8 @@ for gi in (_GIR if TAMEDIA else []):
                     tf_ = float((Pf_ - E) @ pdp_) / float(-ed @ pdp_)
                     Q_ = E - ed * tf_
                     if 0.0 < tf_ < 900.0 and opp_.buffer(300.0).contains(Point(float(_w2s(Fp_, Q_[None, :2])[0]), Q_[2])): t_new = max(t_new, tf_)
+            if NEWST and abs(uE - 33.0) < 0.3 and E[2] < 3200.0:              # 11-01（ユーザー）：u33 の床梁を留める 2 階の床の桁（ピン）は、スパン12の側に少し出す
+                t_new += PIN_OUT
         if abs(t_new) < 0.5: continue
         lam = -t_new                                                         # 正は縮める
         e = extedit.edit(g, None, (lambda A_, B_: (A_ + ed * lam, B_)) if end == 0 else (lambda A_, B_: (A_, B_ + ed * lam)))
@@ -4304,11 +4358,19 @@ for _o in m.Objects:
             _f = Polygon([xy(stair_u(_uu), stair_v(_vv)) for _uu, _vv in (uv(*c_) for c_ in _f.segmentize(200).exterior.coords)]).buffer(0)   # 階段を細くした分（10-25）・北へ延ばした分（10-27）
             _F36.append((_f, _o.Attributes.LayerIndex)); drop.add(str(_o.Attributes.Id))
 _STX = R(33.0, STAIR_U1 + 0.06, -2.93, -5.06, 0.02); _F31 = []                # 箱を北へ延ばした分を遊戯室の床（31）から除く（10-27）
+NS_BOX = R(29.94, 33.06, NS_VWC - 0.06, -2.60, 0.02)                         # 11-01：新しい階段の箱（壁の外の面まで）
+NS_STGP = R(NS_STG[0], NS_STG[1], NS_STG[2], NS_STG[3], 0.02)
+if NEWST:
+    _F36 = [(R(30.06, 32.94, NS_VW, -2.60, 0.02).difference(NS_STGP), _li) for _f, _li in _F36[:1]]   # 階段の床（箱の内）
+    _STX = R(29.0, 34.5, -7.0, -2.0, 0.02)
 for _o in m.Objects:
     if LN[_o.Attributes.LayerIndex].startswith('31_') and isinstance(_o.Geometry, r.Mesh):
         _f = foot(_o.Geometry)
         if _f is not None and _f.intersection(_STX).area > 1e4:
             _F31.append((_f, _o.Attributes.LayerIndex, _o.Geometry.GetBoundingBox().Max.Z)); drop.add(str(_o.Attributes.Id))
+if NEWST and _F31:                                                            # 遊戯室の床：前の箱（u30〜33.9）と南の口の通路の分を戻し、新しい箱を除く
+    _F31 = [(unary_union([f_ for f_, l_, z_ in _F31] + [R(30.0, 33.96, -5.06, -2.20, 0.02)]).difference(NS_BOX).buffer(0), _F31[0][1], _F31[0][2])]
+    _STX = Polygon()
 # 2 階の東の縁を v −1.9 → −2.5 へ（10-25、ユーザー：東の帯の吹き抜けを 1.0 → 1.6、越屋根と同じ幅）と、2 階の部屋の割り直し
 # （ユーザー：更衣室を客が通らないように戸、休憩室へは会議室への通路から、ホールの西の戸と休憩室の中の壁はやめる、便所と湯沸を分ける）
 EDGE2 = -2.5
@@ -4608,11 +4670,14 @@ def _first(k): return _F2[k][0] if _F2.get(k) else None
 _toilet = R(25.0, 27.0, -3.9, -5.3, 0.05)                          # 便所（湯沸と分けた、吹き抜けの縁から奥へ、10-25 ユーザー）
 _yuwak = unary_union([R(24.0, 27.0, EDGE2, -3.9, 0.05), R(24.0, 25.0, -3.9, -5.0, 0.05)])   # 湯沸（吹き抜けの縁の開いた窪み）と食器棚の窪み
 _corr = R(27.75, 29.69, -5.0, -7.0, 0.05)                          # 会議室と休憩室への通路（更衣室の手前）
+NS_V_LOCK = -7.4                                                       # 11-01（ユーザー）：通路を広げ、会議室の戸を通路の北の壁 v−6.5〜−7.3 に（更衣の壁 v−7.0 → −7.4）
+if NEWST: _corr = unary_union([R(27.75, 29.69, -5.0, NS_V_LOCK, 0.05), R(29.69, 29.94, -5.0, NS_VWC - 0.06, 0.02)])   # 箱の南の壁の前まで
 for k, geom_fn in (('23_', lambda g: g.difference(_cutE)),
-                   ('41_', lambda g: unary_union([g.difference(_cutE).difference(_toilet), _yuwak, _corr, R(STAIR_U0, STAIR_U0 + STAIR_FOOT, -2.99, -5.0, 0.05)])),   # 階段の着き口（10-27）
+                   ('41_', (lambda g: unary_union([g.difference(_cutE).difference(_toilet), _yuwak, _corr, R(30.0, 33.0, EDGE2, NS_VE, 0.02)]).difference(R(29.94, 33.2, NS_VE, -14.0, 0.02))) if NEWST else
+                           (lambda g: unary_union([g.difference(_cutE).difference(_toilet), _yuwak, _corr, R(STAIR_U0, STAIR_U0 + STAIR_FOOT, -2.99, -5.0, 0.05)]))),   # 階段の着き口（10-27・11-01）
                    ('42_', lambda g: _toilet),
                    ('44_', lambda g: unary_union([g, _uni('45_') or g]).difference(_cutE).difference(R(24.0, 27.75, EDGE2, -5.0, 0.05)).difference(_toilet)),
-                   ('43b', lambda g: g.difference(_corr).difference(R(27.7, 29.75, -2.0, -7.0, 0.05)))):
+                   ('43b', lambda g: g.difference(_corr).difference(R(27.7, 29.75, -2.0, NS_V_LOCK if NEWST else -7.0, 0.05)))):
     if not _F2.get(k): continue
     g0 = _uni(k); f0, a0, z0, z1 = _first(k)
     gn = geom_fn(g0).buffer(1).buffer(-1)
@@ -4620,6 +4685,8 @@ for k, geom_fn in (('23_', lambda g: g.difference(_cutE)),
         # 10-28（監修の項 2346）：2 階の床は一つの平面形（片を足し、吹き抜けを除き、外壁の内面で切る）を 2FL−80 から 2FL まで押し出した一つの立体
         # （前は片ごとの面を後で厚み付けし、縁の点を外壁の内面へ寄せていたので、Rhino 版で 117 面・曲面の片になった）
         _f23 = unary_union([f_ for f_, a_, za, zb in _F2[k]]).buffer(1).buffer(-1).difference(_cutE).intersection(WNi)
+        if NEWST:                                                              # 11-01：前の階段の開口を床にし、新しい開口（箱の壁の外の面まで、着き口 v−2.5〜−3.0 は床）
+            _f23 = unary_union([_f23, R(30.0, 33.02, EDGE2, -5.06, 0.02)]).difference(R(29.94, 33.06, NS_VE, NS_VWC - 0.06, 0.02)).buffer(0)
         # 10-28（監修の項 20261028-0843）：平面形の点を減らす（片の継ぎ目・弧の細かい点で 123 面になっていた）。直線は直線に、弧は 2 mm のずれまで少ない点に
         _f23 = _f23.buffer(0).simplify(2.0, preserve_topology=True)
         if _STUD_FP: _f23 = _f23.difference(unary_union(_STUD_FP)).buffer(0)          # 10-30：鼻母屋の受けの柱の所を欠く
@@ -4632,26 +4699,17 @@ log.append('西館：2 階の東の縁を v −2.5 へ（東の帯の吹き抜�
 # 階段の下の倉庫（10-25）：床の板 36b、階段の床（36）からその分を除く、戸（遊戯室の側の片引き、h1.75）
 _L36B = out.Layers.Add(r.Layer()); out.Layers[_L36B].Name = '36b_1F_倉庫（階段の下）'; out.Layers[_L36B].Color = (217, 211, 236, 255)
 _stg = R(STAIR_STG[0], STAIR_STG[1], STAIR_STG[2], STAIR_STG[3], 0.05)
+if NEWST: _stg = NS_STGP
 K.flat(_stg, 10.0, _L36B)
 for _f, _li in _F36: K.flat(_f.difference(_stg.buffer(1)), 10.0, _li)
 _L19C_ = [i for i, l in enumerate(out.Layers) if l.Name.startswith('19c_')]
-if _L19C_: K.prism(R(STAIR_DOOR[0] - 0.05, STAIR_DOOR[1] + 0.05, -5.12, -5.09, 0.05), 10.0, STAIR_DOOR_H, _L19C_[0])
-log.append('西館：階段の下の倉庫 %.1f m²（36b、戸は階段の箱の西の面 u%.2f〜%.2f）' % (_stg.area / 1e6, *STAIR_DOOR))
+if _L19C_ and NEWST: K.prism(R(NS_DOOR[0] - 0.05, NS_DOOR[1] + 0.05, -2.57, -2.54, 0.05), 10.0, STAIR_DOOR_H, _L19C_[0])     # 11-01：東の帯の側の片引き
+elif _L19C_: K.prism(R(STAIR_DOOR[0] - 0.05, STAIR_DOOR[1] + 0.05, -5.12, -5.09, 0.05), 10.0, STAIR_DOOR_H, _L19C_[0])
+log.append('西館：階段の下の倉庫 %.1f m²（36b、戸は %s u%.2f〜%.2f）' % (_stg.area / 1e6, '箱の東の面（東の帯の側）' if NEWST else '階段の箱の西の面', *(NS_DOOR if NEWST else STAIR_DOOR)))
 K.prism(R(21.16, 32.95, -2.56, -2.50, 0.1), ZF2, ZF2 + 1100.0, L38)       # 2 階の東の縁（東の帯への吹き抜け、10-25：1.0 → 1.6）
-K.prism(R(32.97, 33.03, -2.93, -2.56, 0.02), ZF2, ZF2 + 1100.0, L38)      # 2 階の北の口（遊戯室の吹き抜け、10-27：箱の東の外まで）
-# 階段の柵と手すり（10-28、監修の項 20261028-0015 の 2。決定事項_遊戯室の柵の決まり：縦格子・すき間 90・横桟なし・h1,100、ここでは厚さ 30 の面で表す）
-# 段の位置は _stair_tris と同じ（蹴上 3250/18、踏面 0.2625、東の一折れ u30.9→33 を上る、西の一折れ u33→30.9 を上る）。
-_RS, _G = 3250.0 / 18, 0.2625
-_SU0, _SUL = STAIR_U0 + STAIR_FOOT, STAIR_U0 + STAIR_FOOT + 8 * _G
-_VW1, _VE0 = round(stair_v25(-3.45), 3), round(stair_v25(-3.35), 3)            # 2 本の階段のあいだのすき間（西の一折れの東の縁・東の一折れの西の縁）
-def _z_west(x_, y_):                                                            # 西の一折れの段鼻の線（u30.9 で 2FL、u33 で踊り場）
-    u_ = min(max(uv(x_, y_)[0], _SU0), _SUL); return 9 * _RS + (_SUL - u_) / (_SUL - _SU0) * 9 * _RS
-_vm = (_VW1 + _VE0) / 2
-# 1. 2 本の階段のあいだ：すき間の真ん中に柵（床から、高いほうの西の一折れの段鼻の 1,100 上まで。下は倉庫との仕切りを兼ねる）
-K.prism(R(_SU0, _SUL, _vm - 0.015, _vm + 0.015, 0.05), 0.0, lambda x_, y_: _z_west(x_, y_) + 1100.0, L38)
-# 2. 2 階の着き口の北の縁（u30.9）の東の半分：下は東の一折れの登り口（落ちると 3.25 m）
-K.prism(R(_SU0 - 0.03, _SU0, _vm - 0.015, -3.05, 0.02), ZF2, ZF2 + 1100.0, L38)
-# 3. 手すり（令25条）：両方の一折れの壁の側に φ35、段鼻から 800（箱の壁の内面から 0.06 離して、受け金物で壁に）
+K.prism(R(32.97, 33.03, NS_VE + 0.06 if NEWST else -2.93, -2.56, 0.02), ZF2, ZF2 + 1100.0, L38)      # 2 階の北の口（遊戯室の吹き抜け、10-27：箱の東の外まで、11-01：箱の北の壁まで）
+# 11-01：新しい階段（スパン11の中、東西に折り返す）の柵・手すり・側桁（決定事項_遊戯室の柵の決まり：縦格子・すき間 90・横桟なし・h1,100、
+#   子どもが乗り越えにくい形＝足掛かりになる横の部材を付けない。ここでは厚さ 30 の面で表す）
 def _rod(p0, p1, rad, li):
     p0 = np.asarray(p0, float); p1 = np.asarray(p1, float); d_ = p1 - p0; L_ = float(np.linalg.norm(d_))
     pl_ = r.Plane(r.Point3d(*map(float, p0)), r.Vector3d(*map(float, d_ / L_)))
@@ -4664,10 +4722,55 @@ def _rod(p0, p1, rad, li):
         if best is None or dm < best[0]: best = (dm, ex)
     if best is not None:
         at_ = r.ObjectAttributes(); at_.LayerIndex = li; at_.Name = '階段の手すり φ35（段鼻から 800）'; out.Objects.AddExtrusion(best[1], at_)
-_vhE, _vhW = -3.05 - 0.06, -4.94 + 0.06
-_rod([*np.ravel(xy(_SU0, _vhE)), 800.0], [*np.ravel(xy(_SUL, _vhE)), 9 * _RS + 800.0], 17.5, L38)          # 東の一折れ（東の壁）
-_rod([*np.ravel(xy(_SUL, _vhW)), 9 * _RS + 800.0], [*np.ravel(xy(_SU0, _vhW)), 18 * _RS + 800.0], 17.5, L38)   # 西の一折れ（西の壁）
-log.append(f'西館：階段の柵（2 本のあいだ v{_vm:.3f}、高いほうの段鼻 +1,100）・2 階の着き口の北の縁の柵（u{_SU0}、h1,100）・手すり 2 本（φ35、h800）')
+if NEWST:
+    _RS = 3250.0 / NS_N; _n1 = NS_N // 2
+    def _z_south(x_, y_):                                                       # 南の列（高いほう）の段鼻の線：踊り場の縁 9R → v−3.0 で 18R
+        v_ = min(max(uv(x_, y_)[1], NS_VL), NS_VE); return _n1 * _RS + (v_ - NS_VL) / (NS_VE - NS_VL) * (NS_N - _n1) * _RS
+    def _z_north(x_, y_):                                                       # 北の列の段鼻の線：v−3.0 で 0 → 踊り場の縁で 9R
+        v_ = min(max(uv(x_, y_)[1], NS_VL), NS_VE); return (NS_VE - v_) / (NS_VE - NS_VL) * _n1 * _RS
+    # 1. 二つの列のあいだ（u NS_UD）：床から高いほうの段鼻の 1,100 上まで。倉庫の北の仕切りを兼ねる。東の端（倉庫の所 v−2.72〜−3.0）は 2 階の床の下まで
+    K.prism(R(NS_UD - 0.015, NS_UD + 0.015, NS_VL, NS_VE, 0.02), 0.0, lambda x_, y_: _z_south(x_, y_) + 1100.0, L38)
+    K.prism(R(NS_UD - 0.015, NS_UD + 0.015, NS_VE, NS_STG[3], 0.02), 0.0, 3170.0, L38)
+    # 2. 2 階の床の縁（北の列の上り口の上、v−3.0）：落ちると 3.25 m
+    K.prism(R(NS_UD + 0.015, NS_UB, NS_VE - 0.03, NS_VE, 0.02), ZF2, ZF2 + 1100.0, L38)
+    # 3. 側桁（箱の壁と段のあいだ、u30.06〜30.18・u32.82〜32.94＝床梁の内の板の下）：床から段鼻の 100 上まで（床梁の下端 2400 より上は板が埋める）
+    K.prism(R(30.06, NS_UA, NS_VW, NS_VE, 0.02), 0.0, lambda x_, y_: min(_z_south(x_, y_) + 100.0, 2390.0), lidx('25_'))
+    K.prism(R(NS_UB, 32.94, NS_VW, NS_VE, 0.02), 0.0, lambda x_, y_: _z_north(x_, y_) + 100.0, lidx('25_'))
+    # 4. 手すり（令25条）：両方の列の壁の側に φ35、段鼻から 800（箱の壁の内面から 0.06）
+    _uS, _uN = NS_UA + 0.06, NS_UB - 0.06
+    _rod([*np.ravel(xy(_uN, NS_VE)), 800.0], [*np.ravel(xy(_uN, NS_VL)), _n1 * _RS + 800.0], 17.5, L38)                 # 北の列（北の壁）
+    _rod([*np.ravel(xy(_uS, NS_VL)), _n1 * _RS + 800.0], [*np.ravel(xy(_uS, NS_VE)), NS_N * _RS + 800.0], 17.5, L38)    # 南の列（南の壁）
+    log.append(f'西館：階段（11-01、スパン11の中で東西に折り返す）の柵（二つの列のあいだ u{NS_UD:.3f}、高いほうの段鼻 +1,100）・2 階の床の縁の柵（v{NS_VE}）・側桁 2・手すり 2（φ35、h800）')
+else:
+    # 階段の柵と手すり（10-28、監修の項 20261028-0015 の 2。決定事項_遊戯室の柵の決まり：縦格子・すき間 90・横桟なし・h1,100、ここでは厚さ 30 の面で表す）
+    # 段の位置は _stair_tris と同じ（蹴上 3250/18、踏面 0.2625、東の一折れ u30.9→33 を上る、西の一折れ u33→30.9 を上る）。
+    _RS, _G = 3250.0 / 18, 0.2625
+    _SU0, _SUL = STAIR_U0 + STAIR_FOOT, STAIR_U0 + STAIR_FOOT + 8 * _G
+    _VW1, _VE0 = round(stair_v25(-3.45), 3), round(stair_v25(-3.35), 3)            # 2 本の階段のあいだのすき間（西の一折れの東の縁・東の一折れの西の縁）
+    def _z_west(x_, y_):                                                            # 西の一折れの段鼻の線（u30.9 で 2FL、u33 で踊り場）
+        u_ = min(max(uv(x_, y_)[0], _SU0), _SUL); return 9 * _RS + (_SUL - u_) / (_SUL - _SU0) * 9 * _RS
+    _vm = (_VW1 + _VE0) / 2
+    # 1. 2 本の階段のあいだ：すき間の真ん中に柵（床から、高いほうの西の一折れの段鼻の 1,100 上まで。下は倉庫との仕切りを兼ねる）
+    K.prism(R(_SU0, _SUL, _vm - 0.015, _vm + 0.015, 0.05), 0.0, lambda x_, y_: _z_west(x_, y_) + 1100.0, L38)
+    # 2. 2 階の着き口の北の縁（u30.9）の東の半分：下は東の一折れの登り口（落ちると 3.25 m）
+    K.prism(R(_SU0 - 0.03, _SU0, _vm - 0.015, -3.05, 0.02), ZF2, ZF2 + 1100.0, L38)
+    # 3. 手すり（令25条）：両方の一折れの壁の側に φ35、段鼻から 800（箱の壁の内面から 0.06 離して、受け金物で壁に）
+    def _rod(p0, p1, rad, li):
+        p0 = np.asarray(p0, float); p1 = np.asarray(p1, float); d_ = p1 - p0; L_ = float(np.linalg.norm(d_))
+        pl_ = r.Plane(r.Point3d(*map(float, p0)), r.Vector3d(*map(float, d_ / L_)))
+        c_ = r.Circle(float(rad)).ToNurbsCurve(); c_.Transform(r.Transform.PlaneToPlane(r.Plane.WorldXY(), pl_))
+        best = None
+        for ex in (r.Extrusion.Create(c_, L_, True), r.Extrusion.Create(c_, -L_, True)):
+            if ex is None: continue
+            bb = ex.GetBoundingBox(); mid = np.array([(bb.Min.X + bb.Max.X) / 2, (bb.Min.Y + bb.Max.Y) / 2, (bb.Min.Z + bb.Max.Z) / 2])
+            dm = np.linalg.norm(mid - (p0 + p1) / 2)
+            if best is None or dm < best[0]: best = (dm, ex)
+        if best is not None:
+            at_ = r.ObjectAttributes(); at_.LayerIndex = li; at_.Name = '階段の手すり φ35（段鼻から 800）'; out.Objects.AddExtrusion(best[1], at_)
+    _vhE, _vhW = -3.05 - 0.06, -4.94 + 0.06
+    _rod([*np.ravel(xy(_SU0, _vhE)), 800.0], [*np.ravel(xy(_SUL, _vhE)), 9 * _RS + 800.0], 17.5, L38)          # 東の一折れ（東の壁）
+    _rod([*np.ravel(xy(_SUL, _vhW)), 9 * _RS + 800.0], [*np.ravel(xy(_SU0, _vhW)), 18 * _RS + 800.0], 17.5, L38)   # 西の一折れ（西の壁）
+    log.append(f'西館：階段の柵（2 本のあいだ v{_vm:.3f}、高いほうの段鼻 +1,100）・2 階の着き口の北の縁の柵（u{_SU0}、h1,100）・手すり 2 本（φ35、h800）')
 for _f, _li, _z in _F31: K.flat(_f.difference(_STX), _z, _li)
 # 東の帯の吹き抜け（スパン 8〜11、u 21〜33）に天井扇（10-25、ユーザー：設置は可能？ → 吹き抜けを 1.6 にして入る）。
 # 遊戯室の天井扇（スパン 12〜17）と同じ φ1.1・h6.0、吹き抜けの真ん中（v −1.8、西館の東の壁の内面から 0.75）。
@@ -4687,14 +4790,15 @@ _ZF2 = 3260.0
 for _uf, _vf, _zfl, _zc, _nm in ((22.5, -5.0, _ZF2, 6743.0, '2 階の休憩室（スパン 8、あき 0.85）'),
                                   (25.6, -6.3, _ZF2, 6394.0, '2 階の休憩室（スパン 9、あき 0.51）'),
                                   (28.6, -7.0, 0.0, 3170.0, '1 階の遊戯室の入り口（スパン 10、10-29 夜まではれのま）'),
-                                  (31.4, -6.3, _ZF2, 6468.0, '2 階の会議室（スパン 11、あき 0.59）')):
+                                  ((31.4, -6.95, _ZF2, float(_RWf['roof_f'](*np.ravel(xy(31.4, -6.95)))) - 174.0, '2 階の会議室（スパン 11、11-01 箱が西へ延びたので v−6.95 へ、羽根の外の母屋の下まで 0.35）') if NEWST else
+                                  (31.4, -6.3, _ZF2, 6468.0, '2 階の会議室（スパン 11、あき 0.59）'))):
     _c = xy(_uf, _vf); _zb = _zfl + 2420.0                                       # 羽根の下端（モーターの下端 = 床 + 2.40）
     K.prism(_Pt(*_c).buffer(450, resolution=24), _zb, _zb + 20.0, _LFAN)         # 羽根の回る範囲 φ0.9
     K.prism(_Pt(*_c).buffer(110, resolution=16), _zb - 20.0, _zb + 100.0, _LFAN)  # モーター
     K.prism(_Pt(*_c).buffer(15, resolution=8), _zb + 100.0, _zc - 5.0, _LFAN)   # 吊り棒（天井まで）
 log.append('西館：部屋に天井扇 4 台（φ0.9、床から 2.4、休憩室 2・はれのま 1・会議室 1、58b）')
 _L31 = [i for i, l in enumerate(out.Layers) if l.Name.startswith('31_')]
-if _L31: K.flat(R(30.0, 33.0, -2.20, -2.93, 0.05), 10.0, _L31[0])          # 遊戯室の南の口の通路：階段の箱を細くした分の床の板（面積に入れる）
+if _L31 and not NEWST: K.flat(R(30.0, 33.0, -2.20, -2.93, 0.05), 10.0, _L31[0])          # 遊戯室の南の口の通路：階段の箱を細くした分の床の板（面積に入れる）
 _L37 = [i for i, l in enumerate(out.Layers) if l.Name.startswith('37_')]
 _L39 = [i for i, l in enumerate(out.Layers) if l.Name.startswith('39_')]
 _L40 = [i for i, l in enumerate(out.Layers) if l.Name.startswith('40_')]
@@ -4728,10 +4832,11 @@ if _L37 and _L39 and _L40:
     for _vc in (-7.6, -8.4, -9.2, -10.0, -10.4):
         _bx(30.15, 30.55, _vc - 0.2, _vc + 0.2, 0, 450, FU); _bx(32.05, 32.45, _vc - 0.2, _vc + 0.2, 0, 450, FU)
     _bx(30.95, 31.65, -6.55, -6.95, 0, 450, FU); _bx(30.95, 31.65, -11.05, -11.45, 0, 450, FU)
-    _bx(29.85, 31.6, -5.1, -5.7, 0, 850, WA)                      # お茶の台（流し・湯沸かし）
+    if NEWST: _bx(29.85, 30.45, -11.0, -11.9, 0, 850, WA)         # お茶の台（11-01：会議室の東の端が箱になったので、南の壁ぎわの西寄りへ）
+    else: _bx(29.85, 31.6, -5.1, -5.7, 0, 850, WA)                # お茶の台（流し・湯沸かし）
     _bx(29.85, 32.9, -12.2, -12.6, 0, 350, FU)                    # 低い棚（天井の低い西の端、10-26：西の横一文字の窓 2FL+0.4 の下に収める）
     # 更衣・ロッカー（u27.75〜29.69・v−7.0〜−13.3）：ロッカー2段（幅0.4）を両側に、あいだ0.9、奥にベンチ
-    _bx(29.15, 29.63, -7.2, -11.6, 0, 1800, FU)                   # 11列×2段＝22
+    _bx(29.15, 29.63, -7.6 if NEWST else -7.2, -11.6, 0, 1800, FU)   # 11列×2段＝22（11-01：更衣の壁 v−7.4 で 10列×2段＝20）
     _bx(27.81, 28.25, -7.6, -10.4, 0, 1800, FU)                   # 7列×2段＝14
     _bx(27.9, 29.5, -11.85, -12.25, 0, 420, FU)                   # ベンチ
     log.append('西館：2 階の内装（便所の器具、休憩室のお茶の台所・食卓・ソファ・小上がり、会議室の机と椅子とお茶の台、ロッカー36、見下ろしの立ち机）')
@@ -4755,7 +4860,7 @@ log.append('西館：遊戯室の北の口（口②、u45.6–47.6）に上吊�
 # 2 階の着き口・階段の下の倉庫の戸）を引いた一つの立体（manifold3d、原点を近くへ移す）。上端は間仕切りの構法（決定事項）のとおり：
 # 架構の線（u30）に立つ南の壁は 2 枚の梁の下端（A）、ほかは屋根の下面（母屋・合板・断熱の下、梁は除く＝梁は削る段で欠く）（B）。
 # どちらも、壁の厚さの中の 5 本の線に沿って 50 ごとに真上の面を測り、その下に収まるいちばん高い平らな面（壁の上端が一つの平らな面になる）。
-if _BOX_ATTR is not None:
+if _BOX_ATTR is not None and not NEWST:          # 11-01：新しい箱の壁は段 7i（west_walls.py）が表から作る
     from solids import geom_vf as _gvf
     from scipy.optimize import linprog as _lp
     _TR, _TB = [], []

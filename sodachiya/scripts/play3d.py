@@ -156,7 +156,7 @@ def uw2xy(g):
     gs = [g] if g.geom_type == 'Polygon' else list(g.geoms)
     return unary_union([Polygon([X(*c) for c in gg.exterior.coords], [[X(*c) for c in h.coords] for h in gg.interiors]).buffer(0) for gg in gs])
 TRUNK = uw2xy(floor_shape(0.0)).buffer(20)
-STAIR_BOX = RWw(29.9, 34.02, -1.0, 4.16)
+STAIR_BOX = RWw(29.9, 33.1, -1.0, 5.52)          # 11-01：階段の箱はスパン11の中、西の壁の外の面 v−6.40（w5.50）まで
 # 10-31（形が素直でない物の点検）：幹のまわりの穴は幹の足もとを囲む円（幹の自由な形の輪郭に沿わせると輪郭の点が 180 を超えた）
 _tc = np.asarray(TRUNK.centroid.coords[0]); _tr = max(math.dist(_tc, q) for g_ in getattr(TRUNK, 'geoms', [TRUNK]) for q in np.asarray(g_.exterior.coords)) + 20.0
 TRUNK_C = Point(_tc).buffer(_tr, resolution=48)

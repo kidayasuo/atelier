@@ -221,10 +221,13 @@ if kaigi:
         a = K2.intersection(R(20, mid, -20, 0)).area / 1e6
         lo, hi = (mid, hi) if a < 17.0 else (lo, mid)
     uc = round((lo + hi) / 2, 2)
+    # 11-01（ユーザー）：階段の箱がスパン11の中で西へ v−6.40 まで延びたので、会議室の東の端（v−5.0〜−6.40）を除く。戸は広げた通路の北の壁 v−6.5〜−7.3
+    K2 = K2.difference(R(29.6, 33.3, -2.0, -6.40)).buffer(0)
+    K2 = max(getattr(K2, 'geoms', [K2]), key=lambda q: q.area)
     K.flat(K2.intersection(R(20, uc, -20, 0)), zf, L_LOCK)
     K.flat(K2.difference(R(20, uc, -20, 0)), zf, L_KAIGI)
     vmin = min(uv(*p)[1] for p in K2.exterior.coords); vmax = max(uv(*p)[1] for p in K2.exterior.coords)
-    cuts = [(vmax - 1.6, vmax - 0.8)]                                 # 戸（東寄り、2 階のホールの側）
+    cuts = [(-7.30, -6.50)]                                           # 戸（通路から、11-01）
     for a, b in zip(sorted([vmin, vmax] + [c for cc in cuts for c in cc])[:-1], sorted([vmin, vmax] + [c for cc in cuts for c in cc])[1:]):
         mid = (a + b) / 2; door = any(c0 <= mid <= c1 for c0, c1 in cuts)
         piece = R(uc - 0.05, uc + 0.05, a, b, 0.02).intersection(K2)

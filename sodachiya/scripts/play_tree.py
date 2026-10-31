@@ -172,7 +172,7 @@ def draw_skeleton(path):
     # 平面（上が北＝u、右が西＝w）
     a = axs[0]
     def box(ax, x0, x1, y0, y1, **k): ax.add_patch(plt.Rectangle((x0, y0), x1 - x0, y1 - y0, **k))
-    box(a, 1.19, 4.21, 29.92, 33.12, fc='#ddd', ec='0.4'); a.text(2.7, 31.5, '階段', ha='center', fontsize=9)
+    box(a, 1.70, 5.50, 29.94, 33.06, fc='#ddd', ec='0.4'); a.text(3.6, 31.5, '階段', ha='center', fontsize=9)     # 11-01：箱はスパン11の中、西の壁の外の面 w5.50
     box(a, 2.44, 13.0, 29.67, 30.0, fc='#999', ec='none'); a.text(8, 29.75, 'はれのまとの壁', fontsize=8, va='center', color='w')
     for u0, u1 in ((29.82, 30.18), (32.82, 33.18)):
         box(a, 0, 13.0, u0, u1, fc='#b55', ec='none', alpha=0.25)
