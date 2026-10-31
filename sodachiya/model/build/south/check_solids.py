@@ -1,5 +1,6 @@
 """Rhino 版の確かめ（ソリッド係、10-25）：python3 check_solids.py MESH.3dm RHINO.3dm
 - すべての押し出し・ポリサーフェスが IsValid かつ IsSolid、メッシュが閉じているか。
+- 表示できない面の見当（check_faces.py の数：平らな面の輪郭がつまむ・自分と交わる・輪郭どうしが触れる）。
 - 形のずれ：ポリサーフェス・押し出しの辺の上の点が、もとのメッシュの面から何 mm 離れているか（物ごとの最大）。
   もとが閉じていない面（厚みをつけた物）は除く。
   曲面に戻した所は、細かく分けた面（弦）との差（数 mm 以下）が出る。
@@ -24,6 +25,10 @@ for o in m1.Objects:
     if s and isinstance(g, (r.Brep, r.Extrusion)): src[int(s)].append(g)
 print('物の数:', dict(kinds))
 print('閉じたソリッドでない物:', bad or 'なし')
+import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from check_faces import bad_faces
+nbf = collections.Counter(L1[o.Attributes.LayerIndex].split('_')[0] for o in m1.Objects if isinstance(o.Geometry, r.Brep) for _ in bad_faces(o.Geometry))
+print('表示できない面の見当（check_faces.py）:', sum(nbf.values()), dict(sorted(nbf.items())) if nbf else '')
 dev = []
 for i, gs in src.items():
     g0 = m0.Objects[i].Geometry

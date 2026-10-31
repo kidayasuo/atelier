@@ -22,6 +22,7 @@ MAX_R = 50000.0          # これより大きい半径は曲面にしない
 SPLIT = math.radians(170.0)
 EPS_LINE = 0.02          # 頂点が線・円にのっているとみなすずれ (mm)
 EPS8 = 8.0 * 1.4901161193847656e-08
+_SHARP = [0]               # _build が鋭い折れ目を角に足した回数（solid_from_mesh が、足したときだけ表示できない面を数え直す）
 MESH_ONLY = False         # True のとき、閉じた立体は Brep にせず閉じたメッシュのまま（clean_wire.py が自由な形のレイヤーで）
 
 
@@ -971,7 +972,13 @@ def solid_from_mesh(W, T, curved=True, graph=None, ruled=None):
     why = []
     for cv, sn in (((True, True), (False, True), (False, False)) if curved else ((False, True), (False, False))):
         try:
+            _SHARP[0] = 0
             b = _build(W, T, cv, sn, graph=graph if cv else None, ruled=ruled if cv else None)
+            if _SHARP[0]:        # 鋭い折れ目で鎖を切った物は、表示できない面が増えていないか確かめる（増えるなら切らずに作り直す）
+                from check_faces import bad_faces
+                if bad_faces(b):
+                    b2 = _build(W, T, cv, sn, graph=graph if cv else None, ruled=ruled if cv else None, sharp=False)
+                    if len(bad_faces(b2)) < len(bad_faces(b)): b = b2
             return b, ('curved' if cv else 'planar') + ('' if not why else '(' + why[0] + ')')
         except Fail as e:
             why.append(str(e))
@@ -2084,7 +2091,95 @@ def split_pinched(W, T):
     return (W, T) if Wl is None else (np.array(Wl), T2)
 
 
-def _build(W, T, curved, snap=True, graph=None, ruled=None):
+def _rings_bad(W, s, tris, fold=True):
+    """平らな面（平面 s・三角形 tris）の輪郭を Rhino が表示できないか：頂点を二度通る（つまみ）・輪郭が自分と交わる・
+    輪郭どうしが 0.3 mm より近い（check_faces.py と同じ見方）。→ (悪いか, 境の半辺 {a: [b]})"""
+    from shapely.geometry import Polygon as _PG, LineString as _LS
+    hs = set()
+    for a, b, c in tris: hs.update(((a, b), (b, c), (c, a)))
+    nxt = {}
+    for a, b in hs:
+        if (b, a) not in hs: nxt.setdefault(a, []).append(b)
+    if any(len(bs) > 1 for bs in nxt.values()): return True, nxt
+    if not fold:                                       # 折り返りが無ければ、輪郭が一つなら単純（多角形を見るのは折り返り・穴があるときだけ、速さのため）
+        nl, left = 0, {a: bs[0] for a, bs in nxt.items()}
+        while left:
+            a0 = next(iter(left)); a = left.pop(a0); nl += 1
+            while a != a0: a = left.pop(a, a0)
+        if nl <= 1: return False, nxt
+    rings, left = [], {a: bs[0] for a, bs in nxt.items()}
+    while left:
+        a0 = next(iter(left)); lp = [a0]; a = left.pop(a0)
+        while a != a0:
+            lp.append(a); a = left.pop(a, a0)
+        rings.append([s.uv(W[v]) for v in lp])
+    if any(len(x) >= 3 and not _PG(x).is_valid for x in rings): return True, nxt
+    R = [_LS(x + x[:1]) for x in rings if len(x) >= 2]
+    return any(R[i].distance(R[j]) < 0.3 for i in range(len(R)) for j in range(i + 1, len(R))), nxt
+
+
+def split_bad_planes(W, T, fot, faces, he):
+    """平らな面の輪郭がつまむ・自分と交わる・輪郭どうしが触れるとき（Rhino が表示用のメッシュを作れない、check_faces.py）、
+    その面の三角形を、輪郭が一つの単純な多角形になる組（円板）に分けて別の面にする（形は変わらない。分けた線は二つの面が
+    共有する内側の辺になる）。折り返った三角形（面の法線と逆向き、削った残りの細い片）は、逆向きの平面の面の組に（10-28、ソリッド係）。
+    → (fot, faces)"""
+    from shapely.geometry import Polygon as _PG
+    import copy as _copy
+    nf0 = len(faces); fot = fot.copy(); faces = list(faces)
+    tri_of = {}
+    for t in range(len(T)): tri_of.setdefault(int(fot[t]), []).append(t)
+    for f in range(nf0):
+        s = faces[f][0]
+        pl_ = s if s.kind == 'plane' else (s.pl if getattr(s, 'planar', False) else None)      # 平面か、平らなスパンの面（Ruled）
+        if pl_ is None or f not in tri_of: continue
+        ts = tri_of[f]
+        def sa(t):                                     # 面の平面での符号つきの面積
+            q = [pl_.uv(W[v]) for v in T[t]]
+            return 0.5 * ((q[1][0] - q[0][0]) * (q[2][1] - q[0][1]) - (q[2][0] - q[0][0]) * (q[1][1] - q[0][1]))
+        Q_ = (W[T[ts]] - pl_.o) @ np.c_[pl_.x, pl_.y]                # (n, 3, 2)
+        A2 = (Q_[:, 1, 0] - Q_[:, 0, 0]) * (Q_[:, 2, 1] - Q_[:, 0, 1]) - (Q_[:, 2, 0] - Q_[:, 0, 0]) * (Q_[:, 1, 1] - Q_[:, 0, 1])
+        bad, _ = _rings_bad(W, pl_, [tuple(int(x) for x in T[t]) for t in ts], fold=bool((A2 < 0).any()))
+        if not bad: continue
+        # 向き（符号つきの面積）で二組に
+        sgn = {t: (1 if sa(t) >= 0 else -1) for t in ts}
+        tset = set(ts); done = set(); pieces = []
+        nbr = {t: [he[(int(T[t][(k + 1) % 3]), int(T[t][k]))] for k in range(3)] for t in ts}
+        for seed in sorted(ts, key=lambda t: -abs(sa(t))):
+            if seed in done: continue
+            sg = sgn[seed]; mem = [seed]; done.add(seed)
+            bnd = {}                                   # 円板の境の半辺 a → b
+            for k in range(3): bnd[int(T[seed][k])] = int(T[seed][(k + 1) % 3])
+            grew = True
+            while grew:
+                grew = False
+                front = {u for t in mem for u in nbr[t] if u in tset and u not in done and sgn[u] == sg}
+                for u in sorted(front, key=lambda t: -abs(sa(t))):
+                    tri = [int(x) for x in T[u]]; es = [(tri[k], tri[(k + 1) % 3]) for k in range(3)]
+                    nb = dict(bnd)
+                    for a, b in es:
+                        if nb.get(b) == a: del nb[b]
+                        elif a in nb: nb = None; break          # 頂点を二度通る（つまみ）
+                        else: nb[a] = b
+                    if nb is None or not nb: continue
+                    a0 = next(iter(nb)); a = nb[a0]; n_ = 1
+                    while a != a0 and n_ <= len(nb): a = nb.get(a, a0); n_ += 1
+                    if n_ != len(nb): continue                  # 一周でない（穴ができる）
+                    ring = [a0]; a = nb[a0]
+                    while a != a0: ring.append(a); a = nb[a]
+                    q = [pl_.uv(W[v]) for v in ring]
+                    if len(q) >= 3 and not _PG(q).is_valid: continue
+                    bnd = nb; mem.append(u); done.add(u); grew = True
+            pieces.append((sg, mem))
+        if len(pieces) < 2 or (s.kind != 'plane' and any(sg < 0 for sg, _ in pieces)): continue
+        for k, (sg, mem) in enumerate(pieces):
+            s2 = (_copy.copy(s) if k else s) if sg > 0 else Plane(-s.n, s.o)
+            if k == 0: faces[f] = (s2, faces[f][1]); fi = f
+            else: faces.append((s2, faces[f][1])); fi = len(faces) - 1
+            for t in mem: fot[t] = fi
+    return fot, faces
+
+
+def _build(W, T, curved, snap=True, graph=None, ruled=None, sharp=True):
     multi_ok = ruled is not None
     T = orient(T)
     W, T = split_pinched(np.asarray(W, float), T)
@@ -2233,6 +2328,7 @@ def _build(W, T, curved, snap=True, graph=None, ruled=None):
                 for g in comp: face_of_reg[g] = len(faces)
                 faces.append((s2, comp))
     fot = np.array([face_of_reg[reg[t]] for t in range(len(T))])
+    fot, faces = split_bad_planes(W, T, fot, faces, he)
     nf = len(faces)
     # ---- 境のループと辺
     bnd = {}   # 面 → {a: [(a,b)]}
@@ -2284,6 +2380,11 @@ def _build(W, T, curved, snap=True, graph=None, ruled=None):
                 a_, b_ = lp[i], lp[(i + 1) % n]; c_ = lp[(i + 2) % n]
                 fa = fot[he[(b_, a_)]]; fb = fot[he[(c_, b_)]]
                 if fa != fb: corner.add(b_)
+                # 鋭く折れる所（60° より）も角：折れた鎖を一本の曲線（弧・スプライン）にすると、曲線がはみ出して面の輪郭が自分と交わる（10-28）
+                d0_, d1_ = W[b_] - W[a_], W[c_] - W[b_]; l0_, l1_ = np.linalg.norm(d0_), np.linalg.norm(d1_)
+                if sharp and l0_ > 1e-9 and l1_ > 1e-9 and d0_ @ d1_ < 0.5 * l0_ * l1_:
+                    if b_ not in corner: _SHARP[0] += 1
+                    corner.add(b_)
     # ---- 頂点を面に合わせる
     P = {}
     for v, fs in vfaces.items():
