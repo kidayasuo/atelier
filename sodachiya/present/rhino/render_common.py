@@ -43,11 +43,14 @@ CONTEXT_LAYER = u"04_周辺_建物"
 TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする名前（mock.py が空を塗る）。ほかは淡い空で不透明
 
 # 教室・居場所（room_）の昼の光（ユーザー 10-31：太陽が屋根の無い上から差して、本来ない影ができる）
-#   「散乱光」：太陽を消し、スカイライトだけ（曇りの日の柔らかい光、影はほとんど出ない）
+#   「散乱光」：太陽を消し、部屋の真上の高い所に大きな下向きの面の光源（曇り空の代わり、柔らかい影）とスカイライト
 #   「窓の光」：太陽を消し、東は縁側の外に立てた面（ほぼ水平、窓から入る）、西は西吹き抜けの上の高い所の下向きの面、
 #     光の筋は架構の線ごとの細い下向きの面（ユーザー 10-31）。弱いスカイライトを足す。
 ROOM_LIGHTS = [u"散乱光（曇りの日の柔らかい光、影がほとんど出ない）", u"窓の光（東の窓からほぼ水平・西吹き抜けの上から・光の筋から、弱い散乱光を足す）"]
 ROOM_SKY = 1.0                                  # 散乱光のスカイライトの強さ（暗ければ 1.5〜2、白く飛べば 0.6）
+ROOM_DOME_POWER = 1.0                           # 散乱光：部屋の真上の高い所に置く大きな下向きの面の光源（曇り空の代わり。スカイライトが効かず真っ暗だった 10-31）。暗ければ 2〜5
+ROOM_DOME_Z = 12000.0                           # その高さ（FL からの mm）
+ROOM_DOME_PAD = 15.0                            # 部屋の外形より四方にどれだけ広げるか（m。広いほど影が柔らかい）
 ROOM_SKY_WIN = 0.25                             # 窓の光のときの散乱光（陰が真っ黒なら 0.4、窓の光が目立たなければ 0.1）
 WIN_E_POWER = 1.0                               # 東の窓（ほぼ水平）の面の光源の強さ（暗ければ 2〜5、白く飛べば 0.3〜0.5）
 WIN_W_POWER = 1.0                               # 西吹き抜けの上（高い所から）の面の光源の強さ
@@ -439,6 +442,23 @@ def run(mode):
                     n_ += 1
         say(u"光の筋の光源：", n_, u"本（強さ", STRIP_POWER, u"）")
 
+    def add_dome():
+        """散乱光：部屋の真上の高い所に、部屋より四方に ROOM_DOME_PAD 広い下向きの面の光源を1枚（曇り空の代わり）"""
+        if name not in ROOM_UV:
+            say(u"散乱光：部屋の範囲が分からない。既定の照明止めだけ")
+            add_stopper()
+            return
+        G_ = Rhino.Geometry
+        (u0, u1), (v0, v1) = ROOM_UV[name]
+        d = ROOM_DOME_PAD
+        a_, b_, c_ = _uv_xy(u0 - d, v0 - d), _uv_xy(u1 + d, v0 - d), _uv_xy(u0 - d, v1 + d)
+        o_ = G_.Point3d(a_[0], a_[1], ROOM_DOME_Z)
+        if add_rect(u"空", o_, G_.Point3d(b_[0], b_[1], ROOM_DOME_Z) - o_, G_.Point3d(c_[0], c_[1], ROOM_DOME_Z) - o_,
+                    G_.Vector3d(0, 0, -1.0), ROOM_DOME_POWER, System.Drawing.Color.FromArgb(244, 246, 250)):
+            say(u"散乱光（空の面の光源）を置いた：強さ", ROOM_DOME_POWER)
+        else:
+            add_stopper()
+
     def add_stopper():
         """既定の照明を止める：光源が一つも無いと Rhino が既定の照明（くっきりした影）を点けるので、
         地面の下から真上へ向けた、ごく弱い平行光を1本置く（何も照らさない。led_lights に入れ、終わったら消す）"""
@@ -707,7 +727,7 @@ def run(mode):
             if room_light == 1:
                 add_window_lights()
             else:
-                add_stopper()
+                add_dome()
             sky(SKY_TOP, SKY_BOTTOM, "Gradient")
             say(u"部屋を描く前：スカイライト", sky_get(), u"／光源", doc.Lights.Count)
             view.Redraw()
