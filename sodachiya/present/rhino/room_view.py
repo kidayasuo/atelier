@@ -314,6 +314,14 @@ def main():
                      u"切り方", u"部屋の切断", u"クリッピング平面で切る（ふつう）")
     if how is None:
         return
+    setup(doc, name, how, st)
+
+
+def setup(doc, name, how, st=None):
+    """部屋 name を how（切り方の文字の頭：クリッピング／壁／ビュー／目の高さ）で準備する（render_mono.py からも使う）"""
+    if st is None:
+        st = load_state()
+    name, _, U, V, near = [r_ for r_ in ROOMS if r_[0] == name][0]
     st = restore(doc, st)                               # 前の部屋の分は戻してから
     view = doc.Views.ActiveView
     vp = view.ActiveViewport
@@ -347,4 +355,5 @@ def main():
     say(u"次に render_hiru.py を走らせ、名前", name, u"・大きさ 1600×1200 を選ぶ。終わったらこのファイルで「元に戻す」")
 
 
-main()
+if __name__ == "__main__":                              # render_mono.py が読み込むときは走らせない
+    main()
