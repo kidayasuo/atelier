@@ -40,6 +40,8 @@ SKY_TOP = System.Drawing.Color.FromArgb(0xC9, 0xDC, 0xEC)       # 昼の空：�
 SKY_BOTTOM = System.Drawing.Color.FromArgb(0xEE, 0xF2, 0xF4)    # 地平の近く：ほぼ白
 CONTEXT_COLOR = System.Drawing.Color.FromArgb(0xD9, 0xD6, 0xCF)  # 周りの建物（PLATEAU）：淡い暖かい灰
 CONTEXT_LAYER = u"04_周辺_建物"
+WATER_KEY = u"噴水の水"                        # 床の噴水の水のレイヤー（名前にこの語、ふだん非表示、園庭係）。昼の絵で表示する
+WATER_ALWAYS = (u"room_funsui",)              # 夜でも表示する名前
 TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする名前（mock.py が空を塗る）。ほかは淡い空で不透明
 
 # 教室・居場所（room_）の昼の光（ユーザー 10-31：太陽が屋根の無い上から差して、本来ない影ができる）
@@ -605,6 +607,39 @@ def run(mode):
                 l_.Color = CONTEXT_COLOR
             doc.Layers.Modify(l_, l_.Index, True)
     say(u"周りの建物のレイヤー：", len(ctx_idx))
+
+    # 0b）床の噴水の水（3dm ではふだん非表示、園庭係のレイヤー。名前に WATER_KEY）を昼の絵で一時的に表示（10-31 ユーザー）
+    n_w = 0
+    if mode == "hiru" or name in WATER_ALWAYS:
+        for lay in list(doc.Layers):
+            if WATER_KEY not in lay.Name:
+                continue
+            chain = [lay]
+            pid = lay.ParentLayerId
+            while pid != System.Guid.Empty:
+                pl = doc.Layers.FindId(pid)
+                if pl is None:
+                    break
+                chain.append(pl)
+                pid = pl.ParentLayerId
+            for l_ in chain:
+                if any(i_ == l_.Index for i_, _, _, _ in ctx_old):
+                    continue
+                try:
+                    pv = l_.GetPersistentVisibility()
+                except Exception:
+                    pv = None
+                ctx_old.append((l_.Index, l_.IsVisible, l_.Color, pv))
+            for l_ in reversed(chain):
+                l_ = doc.Layers[l_.Index]
+                try:
+                    l_.SetPersistentVisibility(True)
+                except Exception:
+                    pass
+                l_.IsVisible = True
+                doc.Layers.Modify(l_, l_.Index, True)
+            n_w += 1
+    say(u"噴水の水のレイヤー：", n_w)
 
     # 1）材料の無いレイヤーに、レイヤーの色の材料を当てる（周りの建物は淡い灰）
     added_mats, layer_old = [], []

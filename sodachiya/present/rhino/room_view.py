@@ -10,7 +10,8 @@
        壁より内側に置き、手前の壁を取り去って中を見せる。本館の柱・梁・桁は、水平の面では切らない（Rhino 8 のクリッピングの
        参加の設定。効かなければ梁も2.4 mで切れる、コマンド行に出る）。
      ・壁のレイヤーを隠す（クリッピング平面がレンダリングに出ないとき）：壁・間仕切り・建具・ガラスのレイヤーを隠す。隣の部屋は残る。
-     どちらでも、屋根・越屋根・母屋・垂木・光の筋のガラスと鏡・2階の床と部屋・午睡のコット・天井扇のレイヤーを隠す。
+     ・ビューだけ（切らない・隠さない）：ビュー（と名前付きビュー）を合わせるだけ（10-31）。
+     上の二つでは、屋根・越屋根・母屋・垂木・光の筋のガラスと鏡・2階の床と部屋・午睡のコット・天井扇のレイヤーを隠す。
      ビューは南東の上から覗き込む透視（レンズ50 mm、配置図と同じ向き＝紙の下の高野川の側から、見下ろす角40°）になり、
      同じ名前の名前付きビューもできる。
   3. render_hiru.py（夜なら render_yoru.py）を走らせ、同じ名前（room_…）と大きさ「1600×1200」を選ぶ → out/<名前>_hiru.png。
@@ -285,7 +286,8 @@ def main():
         say(u"クリッピング平面の向き：", u"逆" if st["flip"] else u"ふつう", u"（もう一度部屋を選ぶ）")
         return
     name, _, U, V, near = [r_ for r_ in ROOMS if r_[1] == got][0]
-    how = rs.ListBox([u"クリッピング平面で切る（ふつう）", u"壁のレイヤーを隠す（クリッピング平面がレンダリングに出ないとき）"],
+    how = rs.ListBox([u"クリッピング平面で切る（ふつう）", u"壁のレイヤーを隠す（クリッピング平面がレンダリングに出ないとき）",
+                      u"ビューだけ（切らない・隠さない）"],
                      u"切り方", u"部屋の切断", u"クリッピング平面で切る（ふつう）")
     if how is None:
         return
@@ -293,8 +295,9 @@ def main():
     view = doc.Views.ActiveView
     vp = view.ActiveViewport
     tgt, cam = set_view(vp, U, V)
-    prefixes = HIDE + (HIDE_WALLS if how.startswith(u"壁") else ())
-    st = hide_layers(doc, prefixes, st)
+    if not how.startswith(u"ビュー"):                     # 10-31（ユーザー）：ビューだけのときは隠さず切らない
+        prefixes = HIDE + (HIDE_WALLS if how.startswith(u"壁") else ())
+        st = hide_layers(doc, prefixes, st)
     if how.startswith(u"クリッピング"):
         clips, top = add_clips(doc, vp, name, U, V, near, st.get("flip", False))
         say(u"クリッピング平面：", len(clips), u"枚（", CLIP_PREFIX + name, u"、上は床から", int(ROOM_CUT.get(name, CUT)), u"mm）")
