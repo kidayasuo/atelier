@@ -2900,7 +2900,7 @@ F_H = 28                                          # 土足の一族の色相
 ZCJ = json.load(open(os.path.join(HERE, "zoning_colors.json"), encoding="utf-8"))   # 色の表（名前つき、ユーザー 10-31 22:23 の分け方）
 ZCC = {k_: v_["hex"] for k_, v_ in ZCJ["colors"].items()}
 # 一日の帯（_zone_paint）も同じ表：内と外は色で分けない（線の内の外構は白）、土足の床は共用の色
-Z_COL = dict(ZCC, out=ZCC["walk"], in_ext="#FFFFFF", shoe=ZCC["share"], park_car=ZCC["parking"], none="#FFFFFF")
+Z_COL = dict(ZCC, out=ZCC["walk"], in_ext="#FFFFFF", park_car=ZCC["parking"], none="#FFFFFF")
 ZONE = {"53_": "z02", "54_": "z02",
         "59_1F_3歳": "z35", "59_1F_4歳": "z35", "59_1F_5歳": "z35",
         "31_": "share", "33_": "share", "12_": "share", "13_": "share", "56_": "share",
@@ -3117,7 +3117,7 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
     draw_plan(ax, ox, oy, sc, WX0, WY0, w_, h_, thin=True, outdoor=False)
     ROOM.clear(); ROOM.update(rs_)
     l2_ = len(ax.lines)
-    draw_shape(ax, _SECB.intersection(_WIN), xf_, fc="#1E1E1E", ec="#1E1E1E", lw=lw_fen, z=6)   # セキュリティの線（一周）
+    draw_shape(ax, _SECB.intersection(_WIN), xf_, fc=ZCJ["secline"]["hex"], ec=ZCJ["secline"]["hex"], lw=lw_fen, z=6)   # セキュリティの線（一周）
     if R35 is not None:                              # 機械室の外の壁（draw_plan では部屋の扱いなので線が出ない）
         draw_shape(ax, R35.exterior if R35.geom_type == "Polygon" else R35.boundary, xf_, ec="#333333", lw=0.5 * lw_fen / 0.3, z=5.5)
     for a_ in ax.patches[s0_:] + ax.lines[l2_:]:
@@ -3155,7 +3155,7 @@ def _za(name_, g_, cat_, net_=False):
         _ZL.append((name_, g_, cat_, net_))
 
 
-_ZCAT = {"z02": "z02", "z35": "z35", "share": "share", "adult": "adult", "kitchen": "kitchen", "wc": "wc", "store": "store", "shoe": "share", "none": "none"}
+_ZCAT = {"z02": "z02", "z35": "z35", "share": "share", "adult": "adult", "kitchen": "kitchen", "wc": "wc", "store": "store", "shoe": "shoe", "none": "none"}   # 土足は「土足・送り迎え」の一色（10-31 22:43）
 _rooms = {}
 for ln_, k_, g_ in plan_items:
     z_ = _zcol(ln_)
@@ -3173,12 +3173,12 @@ for (pr_, ln_), gs_ in sorted(_rooms.items(), key=lambda kv: -kv[0][0]):
         _za(nm_, u_.difference(_STRIP02), c_)
     elif ln_.startswith("14_"):
         _s_ = [p_ for p_ in getattr(u_, "geoms", [u_]) if _unrot(p_).centroid.x < _u0_south]
-        _za("外縁側（0・1歳の南）", unary_union(_s_) if _s_ else None, "z02", True)
+        _za("外縁側（0・1歳の南）", unary_union(_s_) if _s_ else None, "shoe", True)
         _za(nm_, u_.difference(unary_union(_s_)) if _s_ else u_, c_, True)
     else:
         _za(nm_, u_, c_, net_)
 _PORCH = _zg("64_")
-_za("ポーチ", _PORCH.difference(_BLD) if _PORCH is not None else None, "share", True)
+_za("ポーチ", _PORCH.difference(_BLD) if _PORCH is not None else None, "shoe", True)
 _za("建物（壁・すき間）", _BLD, "wall")
 _za("小屋の便所", _HUT_WC, "wc"); _za("小屋の倉庫", _HUT_ST, "store"); _za("コンポスト", GD["compost"], "store")
 _za("水遊び場・雨庭", _WATER, "water"); _za("小川", _STREAM_W, "stream")
@@ -3275,7 +3275,11 @@ for nm_, g_, cc_, n_ in _ZP:
 _zpart("zc.net", _NET["name"], _netd, "説明", G_ZB, fill_=_NET["hex"], stroke_=None, lw_=0, swatch_=_NET["name"])
 print("土足の網：%d か所、点 %d" % (len(_netd), sum(len(d_["rings"]) for d_ in _netd)))
 _FENW = _SECB.intersection(_WIN)
-_zpart("zc.セキュリティの線", "セキュリティの線（一周）", _rings(_FENW, zxf), "説明", G_ZB, fill_="#1E1E1E", stroke_=None, lw_=0)
+# 建物の外壁（屋内と屋外の境、外縁側・あまのがわも屋内の土足として内）：セキュリティの線に倣ってはっきり、少し細く（10-31 22:43）
+_WALLJ = ZCJ["wall"]
+_zpart("zc.外壁", _WALLJ["name"], [dict(pts=[list(map(float, q_)) for q_ in zxf(np.array(p_.exterior.coords))], closed=True) for p_ in getattr(_BLD.intersection(_WIN), "geoms", [_BLD.intersection(_WIN)]) if p_.geom_type == "Polygon" and p_.area > 1.0],
+       "説明", G_ZB, fill_=None, stroke_=_WALLJ["hex"], lw_=_WALLJ["lw"])
+_zpart("zc.セキュリティの線", "セキュリティの線（一周）", _rings(_FENW, zxf), "説明", G_ZB, fill_=ZCJ["secline"]["hex"], stroke_=None, lw_=0, swatch_=ZCJ["secline"]["name"])
 # 2階（西館）の差し込み：枠と部屋（同じ縮尺）
 _z2bg = Polygon([(_z2b[0] - 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[3] + 1 + 7 * ZSC / 1000), (_z2b[0] - 1, _z2b[3] + 1 + 7 * ZSC / 1000)])
 _t2 = None
@@ -3336,7 +3340,8 @@ def _zleg_box(id_, x_, y_, c_):
 
 _ZLEG = [("建物の中", ["z02", "z35", "share", "adult", "store", "kitchen", "wc"]),
          ("園庭", ["g02", "gboth", "g35", "water", "stream"]),
-         ("線の外", ["park", "walk", "parking"])]
+         ("線の外", ["park", "walk", "parking"]),
+         ("土足", ["shoe"])]
 for hd_, cs_ in _ZLEG:
     T(ax, M + 6, _ly, hd_, 2.5, bold=True)
     _lx = M + 6 + 15
@@ -3345,7 +3350,7 @@ for hd_, cs_ in _ZLEG:
         _zleg_box(f"zc.leg.{c_}", _lx, _ly, c_)
         T(ax, _lx + 7.5, _ly, nm_, 2.5)
         _lx += 7.5 + _FT.text_length(nm_, 2.5 / 0.72) + 4
-    if hd_ == "線の外":                                # 土足の網の見本（同じ行の右）
+    if hd_ == "土足":                                  # 土足の網の見本（同じ行の右）
         _lx += 6
         ax.add_patch(Rectangle((_lx, _ly - 1.2), 6, 4, fc="none", ec="#777777", lw=0.2, gid="aipart"))
         _airec(fig, kind="box", id="zc.leg.netbox", name="凡例の見本：土足の網（枠）", x=_lx, y=_ly - 1.2, w=6, h=4, fill=None, stroke="#777777", lw=0.2, dash=None, group=G_ZF[0], group_name=G_ZF[1])
@@ -3354,12 +3359,15 @@ for hd_, cs_ in _ZLEG:
             for x_ in np.arange(_lx + 0.6 + (_nsp / 2 if jy_ % 2 else 0), _lx + 6 - 0.3, _nsp):
                 _nd_.append([[float(x_ + a_), float(y_ + c2_)] for a_, c2_ in _hexo])
         _zpart("zc.leg.net", "凡例の見本：土足の網", [dict(rings=_nd_)], "説明", G_ZB, fill_=_NET["hex"], stroke_=None, lw_=0, swatch_=_NET["name"])
-        T(ax, _lx + 7.5, _ly, "土足の網（ポーチ・受け取り土間・あまのがわ・外縁側）", 2.5)
+        T(ax, _lx + 7.5, _ly, "点の網＝土足の床の目印", 2.5)
     _ly -= 6
-_rule("zc.leg.secline", [[M + 6, _ly + 0.6], [M + 13, _ly + 0.6]], "#1E1E1E", 1.1, G_ZF, "凡例の線：セキュリティの線")   # 凡例の線の見本も部品に（図のグループ）
+_rule("zc.leg.secline", [[M + 6, _ly + 0.6], [M + 13, _ly + 0.6]], ZCJ["secline"]["hex"], 2.0, G_ZF, "凡例の線：セキュリティの線")   # 凡例の線の見本も部品に（図のグループ）
 _st_ = "セキュリティの線（塀・柵・木戸・生垣・建物の外壁で一周。内と外は色で分けない）"
 T(ax, M + 15, _ly, _st_, 2.5)
 _cx_ = M + 15 + _FT.text_length(_st_, 2.5 / 0.72) + 8
+_rule("zc.leg.wall", [[_cx_, _ly + 0.6], [_cx_ + 6, _ly + 0.6]], ZCJ["wall"]["hex"], ZCJ["wall"]["lw"] * 1.3, G_ZF, "凡例の線：建物の外壁")
+T(ax, _cx_ + 8, _ly, ZCJ["wall"]["name"], 2.5)
+_cx_ += 8 + _FT.text_length(ZCJ["wall"]["name"], 2.5 / 0.72) + 8
 _rule("zc.leg.contour", [[_cx_, _ly + 0.6], [_cx_ + 6, _ly + 0.6]], "#8A8A8A", 0.4, G_ZF, "凡例の線：等高線")
 T(ax, _cx_ + 8, _ly, "等高線 0.2 m（園庭の地形・築山）", 2.5)
 _ly += 7                                         # 樹木図の題は _ly − 14
