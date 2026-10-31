@@ -12,6 +12,7 @@
   - 面積が0.5 m²より大きく変わった部屋（触っていない部屋が変わっていたら、古い写しや取り違えを疑う）
   - 種類をまたぐ食い込みが増えた
   - 力の道（10-29、段14 load_path.py の sodachiya_loadpath.json・.txt があれば）：check の行に数、下に節
+  - Tamediaの留め（11-01、段15 south/tamedia.py の sodachiya_tamedia.json・.txt があれば）：check の行に数、下に節
   - 形が素直でない物（10-31）：Rhino版（NEWDIR/../../sodachiya.3dm）のレイヤーごとの数が前の版より増えた。数は NEWDIR/sodachiya_katachi.txt
 """
 import sys, os, json, subprocess
@@ -87,6 +88,17 @@ if os.path.exists(lp_json) and os.path.exists(lp_txt):
     except Exception as e:
         warn.append(f'力の道の点検が読めない（{e}）')
 
+# Tamediaの留め（11-01、段15 tamedia.py）：知らせだけ（止めない）。無い＝留まるべき端（梁の両端・柱の頭）に穴が無いか穴に桁が通らない、
+# ずれ＝桁の芯が穴の中心から 10 mm より離れる、止まる＝桁が板・柱の中で止まる・折れが柱の穴の外・穴の無い所を貫く
+tm_txt, tm_json = os.path.join(NEW, 'sodachiya_tamedia.txt'), os.path.join(NEW, 'sodachiya_tamedia.json')
+if os.path.exists(tm_json) and os.path.exists(tm_txt):
+    try:
+        tm = json.load(open(tm_json))
+        info.append(f'Tamediaの留めが無い{tm["n_none"]}・ずれ{tm["n_off"]}・止まる{tm["n_stop"]}')
+        lp_sec += [''] + open(tm_txt).read().rstrip('\n').split('\n')
+    except Exception as e:
+        warn.append(f'Tamediaの留めの点検が読めない（{e}）')
+
 # 形が素直でない物（10-31 効率化委員会、ユーザー：新しい部材が毎回三角形の網や妙な片になる。kettei/kanshu.md の点検の7）：
 # Rhino版の、自由な形のレイヤー（KATACHI_FREE）でない所のメッシュ・面が KATACHI_FACES より多いポリサーフェス・閉じていない物を
 # レイヤーごとに数え、sodachiya_katachi.txt に書く。前の版（HEAD）より増えたレイヤーを知らせる（止めない）。前の版が無ければ書くだけ
@@ -102,8 +114,8 @@ if os.path.exists(k3dm):
             g = o.Geometry; ln = kl[o.Attributes.LayerIndex]
             if ln.split('_')[0] in KATACHI_FREE or ln.startswith('床の絵') or o.Attributes.GetUserString('etch_of'): continue      # 床の絵の板は絵を貼るためのメッシュ（materials.py）
             # 例外（10-31 監修、西館係の項 1620）：西館の外壁21（一つの閉じた立体＝外壁の輪の押し出し−開口＋水切り、角の丸み）と
-            # 2階床23（丸い壁に沿う輪郭の押し出し）は面が多くてよい。平らな面だけでも面が多い物は例外にしない（曲線を細かい平面で近似した物を見逃すため、ユーザー）
-            many = isinstance(g, r3.Brep) and len(g.Faces) > KATACHI_FACES and ln.split('_')[0] not in ('21', '23')
+            # 2階床23（丸い壁に沿う輪郭の押し出し）は面が多くてよい。本館の外壁17も同じ（一つの閉じた外壁の立体＝輪郭の押し出し−開口、11-01 監修）。平らな面だけでも面が多い物は例外にしない（曲線を細かい平面で近似した物を見逃すため、ユーザー）
+            many = isinstance(g, r3.Brep) and len(g.Faces) > KATACHI_FACES and ln.split('_')[0] not in ('17', '21', '23')
             bad = isinstance(g, r3.Mesh) or (isinstance(g, r3.Brep) and (many or not g.IsSolid)) \
                 or (isinstance(g, r3.Extrusion) and not g.IsSolid)
             if bad: kn[ln] = kn.get(ln, 0) + 1

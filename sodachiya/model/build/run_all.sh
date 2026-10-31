@@ -70,6 +70,9 @@ stage 13 干渉の一覧             python3 clash.py $DM/sodachiya_exact_mesh.3
 # 力の道の点検（10-29 監修、ユーザー）：どの構造の部材の力も地面まで届くか。知らせだけで、止まっても作り直しは続ける（約1.5分、約0.5 GB）
 rm -f $DM/drawings/sodachiya_loadpath.json $DM/drawings/sodachiya_loadpath.txt
 stage 14 力の道               python3 load_path.py $DM/sodachiya_exact_mesh.3dm $DM/drawings/sodachiya_loadpath.json $DM/drawings/sodachiya_loadpath.txt > $OUT/log_14.txt && head -1 $OUT/log_14.txt >&3 || { CUR=""; echo "!! 力の道の点検が止まった（$OUT/err_14.txt、作り直しは続ける）" >&3; }
+# Tamediaの留めの点検（11-01 監修、ユーザー 10-31）：本館・西館の柱・梁の板が、桁（ピン）の通る穴で留まるか、桁が一直線か。知らせだけ（数秒）
+rm -f $DM/drawings/sodachiya_tamedia.json $DM/drawings/sodachiya_tamedia.txt
+stage 15 Tamediaの留め        python3 tamedia.py $DA/sodachiya.3dm $DM/drawings/sodachiya_tamedia.json $DM/drawings/sodachiya_tamedia.txt > $OUT/log_15.txt && head -1 $OUT/log_15.txt >&3 || { CUR=""; echo "!! Tamediaの留めの点検が止まった（$OUT/err_15.txt、作り直しは続ける）" >&3; }
 grep -h "imported\|play:\|join_walls:\|walls_spec: {\|add_inner\|clip_parts:\|context:\|written /" $OUT/log_5.txt $OUT/log_7p.txt $OUT/log_7c2.txt $OUT/log_7c3.txt $OUT/log_7d.txt $OUT/log_7e.txt $OUT/log_7f.txt $OUT/log_7g.txt $OUT/log_7h.txt $OUT/log_9.txt $OUT/log_10.txt 2>/dev/null | tail -7
 if [ $TRACE = 1 ]; then python3 $B/reads.py collect $OUT $A
   if [ $PUBLISH = 1 ]; then python3 $B/reads.py table $OUT $A $B/stages.md >&3; else python3 $B/reads.py table $OUT $A $OUT/stages.md >&3; fi; fi
