@@ -106,8 +106,8 @@ def floor_mapping():
     if li >= 0:
         L = doc.Layers[li]; L.IsVisible = False; L.IsLocked = True
     doc.Views.Redraw()
-    print('床の絵：立体 %d にマッピングを付けた。重ねた板のレイヤーを%s。%s' % (
-        n, '隠した' if li >= 0 else '見つけられなかった', ('素材が見つからない：' + '・'.join(sorted(miss))) if miss else ''))
+    print('床の絵：立体 %d にマッピングを付けた。重ねた板のレイヤーは%s。%s' % (
+        n, '隠した' if li >= 0 else '無い（10-31夜から作り直しで作らない、それでよい）', ('素材が見つからない：' + '・'.join(sorted(miss))) if miss else ''))
 
 
 def main():
