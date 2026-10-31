@@ -5,3 +5,4 @@
 - 10-28 00:21（効率化委員会）karuku.md・tools/tsukuru.sh・tools/yomu.py を作り、役割分担に行と読み方の0を足した。全チャットに知らせ（20261028-0020-kouritsu）。ユーザー：連携を劇的に改善
 - 10-28 00:36（効率化委員会）sodachiya/CLAUDE.md（Claude Code 用の始めの決まり）。監修に決定事項をリポジトリへ移す相談（20261028-0036-kouritsu）
 - 10-28 00:42（効率化委員会）模型作成を Claude Code で試す：決定事項_模型を kettei/mokei.md へ写し本文に、CLAUDE.md に main へ直接 push
+- 10-31 11:28（効率化委員会）西館係の提案8つ（20261031-1116）：karuku.md に作り直しは最後に1回・push は区切り・worktree・報告をファイルに、tools/hakaru.py・kuraberu.py（a37613c）、.gitignore。ユーザー：直すたびに作り直すのは無駄
