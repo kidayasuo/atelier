@@ -1,2 +1,2 @@
-_site/
-__pycache__/
+.Ulysses-*
+.DS_Store
