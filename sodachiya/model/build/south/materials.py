@@ -137,6 +137,7 @@ def logo_images():
 # ---------------------------------------------------------------- 床の絵（テクスチャ）
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import textures as TX
+TX.DATA_DIR = os.path.dirname(os.path.abspath(sys.argv[1]))          # data/（素材の表の隣に tex/）
 from uv import uv as _uv, RW as _RW
 TEX_DIR = os.path.join(os.path.dirname(IMG_DIR), 'textures')      # Rhino 版のある所の textures/
 TEX = {}                                                           # 種類 → (絵の場所, 幅の向きの mm, 長さの向きの mm)
