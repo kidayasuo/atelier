@@ -8,11 +8,11 @@
 | 0 | 架構・西館 | `data/wnew.pkl`・`model/build/ideas/roof_geo.py`・`model/build/south/run_exact_new.py`・`model/build/vendor/plans_rhino/sodachiya_frames_gh.py`・`archive/handoff_1018/t/`の10ファイル・`model/build/vendor/mock2/`の2ファイル |
 | 1 | 南端 | `model/build/south/add_south.py` |
 | 2 | 浮いた蓋 | `model/build/south/add_monitor_west.py`・`model/build/south/add_south.py` |
-| 3 | 床 | `data/amanogawa.json`・`model/build/south/add_floor.py`・`model/build/south/add_south.py`・`model/build/south/uv.py` |
+| 3 | 床 | `data/amanogawa.json`・`model/build/south/add_floor.py`・`model/build/south/add_south.py`・`model/build/south/katachi.py`・`model/build/south/uv.py` |
 | 4 | しつらえ | `model/build/shitsu/add_shitsurae.py`・`model/build/shitsu/capture.py`・`model/build/shitsu/ref/plan01.py`・`model/build/shitsu/ref/plan02.py`・`model/build/shitsu/ref/plan04.py`・`scripts/plan01.py`・`scripts/plan02.py`・`scripts/plan04.py` |
 | 5 | 外構の取り込み | `model/build/south/finish.py`・`model/sodachiya_approachA_layers.3dm` |
 | 6 | 西館の外壁と開口 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_west_south.py`・`model/build/south/meshkit.py`・`model/build/south/roofw.py` |
-| 7 | 遊戯室 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_play.py` |
+| 7 | 遊戯室 | `data/play.json`・`data/wnew.pkl`・`model/build/south/add_play.py`・`model/build/south/hida.py` |
 | 7p | 遊戯室の取り込み | `model/build/south/add_play_import.py`・`model/sodachiya_play_layers.3dm` |
 | 7b | ホールの林 | `data/forest.json`・`model/build/south/add_hall.py` |
 | 7c | 納まり | `data/approachA.json`・`data/wnew.pkl`・`model/build/south/extedit.py`・`model/build/south/fix_details.py`・`model/build/south/solids.py`・`archive/handoff_1018/t/`の1ファイル |
@@ -26,8 +26,8 @@
 | 7i | 西館の間仕切り | `data/wnew.pkl`・`model/build/south/add_inner.py`・`model/build/south/add_west_south.py`・`model/build/south/west_walls.py` |
 | 8 | 護岸と園庭の取り込み | `model/build/south/add_site.py`・`model/sodachiya_garden_layers.3dm` |
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
-| 10 | Rhino版 | `data/wnew.pkl`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
-| 10m | 素材 | `data/materials.json`・`logo/sodachiya_logo.svg`・`logo/sodachiya_logo_etch.png`・`logo/sodachiya_logo_etch_mask.png`・`model/build/south/materials.py`・`model/build/south/textures.py`・`model/sodachiya_exact_mesh.3dm`・`sodachiya.3dm`・`textures/araidashi.jpg`・`textures/sugi_floor.jpg` |
+| 10 | Rhino版 | `data/wnew.pkl`・`model/build/south/check_faces.py`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
+| 10m | 素材 | `data/materials.json`・`data/tex/sugi_floor.png`・`logo/sodachiya_logo.svg`・`logo/sodachiya_logo_etch.png`・`logo/sodachiya_logo_etch_mask.png`・`model/build/south/materials.py`・`model/build/south/textures.py`・`model/sodachiya_exact_mesh.3dm`・`sodachiya.3dm`・`textures/araidashi.jpg`・`textures/sugi_floor.jpg` |
 | 10n | 番号 | `model/build/south/marks.py`・`sodachiya.3dm` |
 | 12 | 面積表 | `data/garden.json`・`data/minami.json`・`data/siteplan_approach.json`・`model/build/south/areas.py`・`model/sodachiya_exact_mesh.3dm` |
 | 11 | 図（平面・断面・立面、部屋の面積は面積表から） | `data/garden.json`・`data/siteplan_approach.json`・`model/build/south/draw100.py`・`model/build/south/uv.py`・`model/drawings/sodachiya_areas.json`・`model/sodachiya_exact_mesh.3dm`・`scripts/garden_common.py` |
