@@ -698,14 +698,11 @@ _rng = np.random.default_rng(31)
 # 3〜5歳の床の噴水：噴き口ごとに細い水の柱（高さ 0.6〜1.2 m で揺らす。決まりの高さは無いので絵のため）
 _ca, _sa = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
 _rpost = G["SHOWER"].get("ring", {}).get("posts", [G["SHOWER"]["c"]])
+# 10-31（ユーザー：水が鉄の棒のよう、項 20261031-2111-present）：水の柱は半径 7 mm の水の筋、噴き口は円の全面（gc.fountain_jets）
 _nf = 0
-for i_ in np.arange(-F["r"][0], F["r"][0] + 0.01, F["jets"][0]):
-    for j_ in np.arange(-F["r"][1], F["r"][1] + 0.01, F["jets"][1]):
-        if (i_ / (F["r"][0] - 0.4)) ** 2 + (j_ / (F["r"][1] - 0.4)) ** 2 <= 1:
-            q = (F["c"][0] + i_ * _ca - j_ * _sa, F["c"][1] + i_ * _sa + j_ * _ca)
-            if min(math.hypot(q[0] - p_[0], q[1] - p_[1]) for p_ in _rpost) < 0.3: continue
-            hj = float(_rng.uniform(0.6, 1.2))
-            KT.add(m, KT.enchu(_w3(*q, _fz), _w3(*q, _fz + hj), 25.0), LAY["92f"], name=f"床の噴水の水の柱 h{hj:.2f}"); _nf += 1
+for q in gc.fountain_jets():
+    hj = float(_rng.uniform(0.6, 1.2))
+    KT.add(m, KT.enchu(_w3(*q, _fz), _w3(*q, _fz + hj), 7.0), LAY["92f"], name=f"床の噴水の水の柱 h{hj:.2f}"); _nf += 1
 # あめのわの雨のカーテン：輪の 48 の噴き口から床まで、細い線状の水の柱
 _rg = G["SHOWER"]["ring"]; _zr = H(*_rg["c"]) + _rg["h"]
 for k_ in range(_rg["n"]):

@@ -220,12 +220,8 @@ poly(ax, fpoly, fc="#E6E3DA", ec="#8C8677", lw=0.6, z=6)
 ca, sa_ = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
 nj = 0
 _rp = G["SHOWER"].get("ring", {}).get("posts", [G["SHOWER"]["c"]])   # あめのわの柱と重なる噴き口は外す
-for i in np.arange(-F["r"][0], F["r"][0] + 0.01, F["jets"][0]):
-    for j in np.arange(-F["r"][1], F["r"][1] + 0.01, F["jets"][1]):
-        if (i / (F["r"][0] - 0.4)) ** 2 + (j / (F["r"][1] - 0.4)) ** 2 <= 1:
-            q = (F["c"][0] + i * ca - j * sa_, F["c"][1] + i * sa_ + j * ca)
-            if min(math.hypot(q[0] - p_[0], q[1] - p_[1]) for p_ in _rp) < 0.3: continue
-            ax.add_patch(Circle(X(*q), 0.11, fc="#4C8DB8", ec="none", zorder=6.3)); nj += 1
+for q in gc.fountain_jets():                                       # 10-31：円の全面に（3dm の 92f と同じ点）
+    ax.add_patch(Circle(X(*q), 0.11, fc="#4C8DB8", ec="none", zorder=6.3)); nj += 1
 dr = F["drain"]; line(ax, XS([F["c"], dr]), lw=0.5, c="#4C8DB8", ls=(0, (1.5, 1.5)), z=6.2)
 ax.add_patch(Rectangle(np.array(X(*dr)) - 0.25, 0.5, 0.5, fc="#8C8677", ec="none", zorder=6.4))
 # 護岸の溝（小川はここを滑り落ちて高野川へ）

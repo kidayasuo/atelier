@@ -199,3 +199,28 @@ def read_mesh_layers(names):
         if ps:
             out.setdefault(L, []).append(unary_union(ps).buffer(-1e-4))
     return {k: unary_union(v) for k, v in out.items()}
+
+
+def fountain_jets():
+    """3〜5歳の床の噴水の噴き口 [(a, d)]（10-31 ユーザー：円の全面に）。間隔 jets（0.8 m）のずらした格子（rot の向き）を
+    中心から r−0.78 まで、外は縁から 0.18 内の輪に 0.8 m ほどごと。あめのわの雨のカーテン（輪の真下）から 0.15、
+    あめのわの柱・排水口から 0.3 は外す"""
+    F = G["FOUNTAIN"]; R = F["r"][0]; s = F["jets"][0]; c = F["c"]
+    ca, sa = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
+    rg = G["SHOWER"].get("ring", {}); posts = rg.get("posts", [G["SHOWER"]["c"]]) + [F["drain"]]
+    rc = rg.get("r", 0); re_ = R - 0.18
+    loc = []
+    h = s * math.sqrt(3) / 2; n = int(R / h) + 1
+    for j in range(-n, n + 1):
+        for i in range(-n - 1, n + 2):
+            u, v = (i + (0.5 if j % 2 else 0.0)) * s, j * h
+            if math.hypot(u, v) <= re_ - 0.6: loc.append((u, v))
+    k = max(6, int(round(2 * math.pi * re_ / s)))
+    loc += [(re_ * math.cos(2 * math.pi * t / k), re_ * math.sin(2 * math.pi * t / k)) for t in range(k)]
+    out = []
+    for u, v in loc:
+        if rc and abs(math.hypot(u, v) - rc) < 0.15: continue
+        q = (c[0] + u * ca - v * sa, c[1] + u * sa + v * ca)
+        if min(math.hypot(q[0] - p[0], q[1] - p[1]) for p in posts) < 0.3: continue
+        out.append(q)
+    return out
