@@ -133,11 +133,18 @@ led=[P(RK-OVH+60,a) for a in np.linspace(aN,aS,60)]
 wall_along(led,lambda x,y:zlid(x,y)-GT-40,lambda x,y:zlid(x,y)-GT,40,L_led)
 import math
 W_=120.0; PITCH=104.0; ANG=math.radians(30)
-rw=RW+OVH-20
-while rw-W_*math.cos(ANG)>RK-OVH:
+# 10-31（ユーザー：ガラスの上、必要のないところも、ルーバーを一面にかぶせる）：羽根はガラスの蓋の全面に。
+# 前は本体（RW+OVH−20 から東）だけで、西の出 350 の帯と東の縁・南北の端の 20 外にガラスだけの所があった。
+# 並びは蓋の西の縁（RW+OVH+350）の 20 内から東へ間隔 104 のまま、羽根の外形は蓋の外形の 20 内で切る
+# （すき間の蓋の所 aG0〜aG1 は西の出が無いので、そこを渡る羽根は本体の縁の 20 内まで）。
+lid_in=lid.buffer(-20,join_style=2)
+rw=RW+OVH+350-20
+while rw>RK-OVH+20:
     re_=rw-W_*math.cos(ANG)
     def zs(x,y,rw=rw): return zlid(x,y)+28+(rw-rr_of(x,y))*math.tan(ANG)   # 羽根の下の縁が蓋の 10 上（厚み 18、10-25 ソリッド係）
-    sloped(quad(re_,rw,aN,aS,60),18,L_lv,zs)
+    g_=quad(re_,rw,aN-0.001,aS+0.001,60).intersection(lid_in)
+    for p_ in getattr(g_,'geoms',[g_]):
+        if p_.geom_type=='Polygon' and p_.area>2000: sloped(p_.simplify(0.2),18,L_lv,zs)
     rw-=PITCH
 # ---------- 南の軒（屋根面の延長、東 1.8 m → 西 4.2 m） ----------
 # (10-21) 南の軒は 10_本館_屋根 へ（下で作る）
