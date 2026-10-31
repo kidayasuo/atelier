@@ -160,6 +160,7 @@ def loft_step(rec):                  # 家具階段 1段0.2×5（10-24）：ロ�
 
 # ---- 3〜5歳の保育室の分け方（10-24、ユーザー）：西の半分を架構の線で二つの巣に、東の半分は共有 ----
 L_LAT = layer('96b_しつらえ_格子・手すり（木）', (185, 150, 105))
+L_FG = layer('48f_しつらえ_すりガラス（2歳のトイレの西）', (220, 230, 236))   # 10-31：乳白ガラス（西館の 19g と同じ素材）
 BEAM_BOT = lambda v: 3335.0 - (v - 0.784) * 83.4        # 本館の梁（2枚）の下端 [mm]（架構の形から、v 0.8〜11.1）
 def koshi_wall(rec):                 # 腰の壁 h1100（架構の線の上）＋上は梁の下まで縦格子（30角＠150）
     pts = clean(rec['pts']); solid_uv(pts, 0, 1100, L_P)
@@ -330,6 +331,188 @@ def slide01():
     piece(SLIDE_V[1] - 0.03, SLIDE_V[1], 100.0, 'すべり台の縁（杉 30、すべる面から +100、角を丸める）')
 slide01()
 
+# ---- 2歳の部屋のしつらえ（ユーザー 10-31 15:04、決定事項（本館）の「2歳（スパン5–6）」） ----
+import trimesh as _tm, manifold3d as _mf
+def _tm_add(t, li, col, name):
+    """trimesh（頂点は世界の mm）を閉じたメッシュとして 3dm へ"""
+    M = r.Mesh()
+    for p_ in t.vertices: M.Vertices.Add(float(p_[0]), float(p_[1]), float(p_[2]))
+    for f in t.faces: M.Faces.AddFace(int(f[0]), int(f[1]), int(f[2]))
+    M.Normals.ComputeNormals(); M.Compact()
+    a_ = attr(li, col); a_.Name = name; m.Objects.AddMesh(M, a_)
+def _mf_of(V, F):
+    t = _tm.Trimesh(V, F, process=True); t.merge_vertices(); t.fix_normals()
+    if not (t.is_watertight and t.is_winding_consistent): raise ValueError('閉じていない形')
+    return _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(t.vertices, np.float32), tri_verts=np.asarray(t.faces, np.uint32)))
+def _prism_local(poly_xy, z0, z1):
+    """局所（mm）の平らな輪郭の押し出し（manifold）"""
+    return _mf.Manifold.extrude(_mf.CrossSection([np.asarray(poly_xy, float)]), z1 - z0).translate((0, 0, z0))
+YAMA = dict(uw=17.95, vc=9.6, ru=1.9, re=2.2, rw=1.3, H=900.0, kc=0.66, cliff=(0.58, 0.73), hc=350.0)
+def _yama_z(k, t):
+    """山の高さ [mm]：楕円の半径の割合 k（0＝頂、1＝裾）と角 t（0＝東、π＝西）。ドーム 1−k²（南 約1:2・東 約1:2.4）、
+    肩の崖（k0.66、t 0.58π〜0.73π、両端 0.05π で消える）の外は 350 低い（切り立つ面）"""
+    Y = YAMA; z = Y['H'] * (1 - k * k)
+    if k > Y['kc'] + 1e-9:
+        a, b = Y['cliff']; f = t / math.pi
+        w = 1.0 if a <= f <= b else max(0.0, 1 - min(abs(f - a), abs(f - b)) / 0.05)
+        z -= Y['hc'] * w * (1 - k) / (1 - Y['kc'])
+    return max(z, 0.0)
+def yama02(rec, _done=[]):
+    # 2歳の山（図の11）：plan02 の等高線（hill(k)、北の壁 u17.95 に背をつけた半楕円、南 1.9・東 2.2・西 1.3）の外形のまま、滑らかな山。
+    # 中は空洞のかくれ家（楕円 u0.84×v1.1、天井は山の面から 100 下で上限 h800：奥 0.8・手前 約0.6）、入口は西（幅0.5・高さ0.6、上は半円）、
+    # 東に覗き穴 φ130 を2つ（h450、先生が膝をついてのぞく）。自由な形の閉じたメッシュ（やわらかい床、L_PL）。等高線の3つの輪から一度だけ作る
+    if _done: return
+    _done.append(1)
+    Y = YAMA; uc, vc = Y['uw'], Y['vc']
+    ks = sorted(set(np.r_[np.linspace(0, Y['kc'], 8), np.linspace(Y['kc'], 1, 6)]))
+    ts = np.linspace(0, math.pi, 41)
+    def loc(k, t):   # 局所 mm（x＝u−uw、y＝v−vc）
+        rr = Y['re'] if math.cos(t) >= 0 else Y['rw']
+        return (-Y['ru'] * k * math.sin(t) * 1000.0, rr * k * math.cos(t) * 1000.0)
+    V = [(0.0, 0.0, Y['H'])]; idx = {}
+    for i, k in enumerate(ks[1:], 1):
+        for j, t in enumerate(ts):
+            x, y = loc(k, t)
+            if abs(k - Y['kc']) < 1e-9:      # 崖の輪：上（内）と下（外）の二つの点
+                idx[(i, j, 'in')] = len(V); V.append((x, y, Y['H'] * (1 - k * k)))
+                idx[(i, j, 'out')] = len(V); V.append((x, y, _yama_z(k + 1e-7, t)))
+            else:
+                idx[(i, j)] = len(V); V.append((x, y, _yama_z(k, t)))
+    def vid(i, j, side):
+        return idx.get((i, j, side), idx.get((i, j)))
+    F = []
+    n = len(ts); last = len(ks) - 1
+    for j in range(n - 1):
+        F.append((0, vid(1, j, 'in'), vid(1, j + 1, 'in')))
+    for i in range(1, last):
+        for j in range(n - 1):
+            a, b = vid(i, j, 'out'), vid(i, j + 1, 'out'); c, d = vid(i + 1, j + 1, 'in'), vid(i + 1, j, 'in')
+            F += [(a, d, c), (a, c, b)]
+        if abs(ks[i] - Y['kc']) < 1e-9:       # 崖の面（内の輪 → 外の輪）
+            for j in range(n - 1):
+                a, b = vid(i, j, 'in'), vid(i, j + 1, 'in'); c, d = vid(i, j + 1, 'out'), vid(i, j, 'out')
+                F += [(a, d, c), (a, c, b)]
+    # 底（z0）と背の面（壁 u17.95 の面、t＝0 と π の縁）
+    nb = len(V); 
+    for j in range(n): x, y, _ = V[vid(last, j, None)]; V.append((x, y, 0.0))
+    for j in range(1, n - 1): F.append((nb, nb + j + 1, nb + j))
+    back = [vid(i, n - 1, s_) for i in range(last, 0, -1) for s_ in (('out', 'in') if abs(ks[i] - Y['kc']) < 1e-9 else (None,))] + [0] + \
+           [vid(i, 0, s_) for i in range(1, last + 1) for s_ in (('in', 'out') if abs(ks[i] - Y['kc']) < 1e-9 else (None,))]
+    # 背の面：裾の両端は底の点と同じ（z0）なので、上の縁の点の並びを扇で閉じる
+    for q in range(1, len(back) - 1): F.append((back[0], back[q], back[q + 1]))
+    t_ = _tm.Trimesh(np.array(V), np.array(F), process=True); t_.merge_vertices(); t_.update_faces(t_.nondegenerate_faces()); t_.fix_normals()
+    if not t_.is_watertight: raise ValueError('山の網が閉じていない')
+    M = _mf.Manifold(_mf.Mesh(vert_properties=np.asarray(t_.vertices, np.float32), tri_verts=np.asarray(t_.faces, np.uint32)))
+    # かくれ家：楕円（中心 u17.50・v9.6、半径 u0.42・v0.55）、天井＝山の面−100（上限 800）
+    cu, au, av = 17.50, 0.42, 0.55
+    HV = [(( cu - uc) * 1000.0, 0.0, min(800.0, Y['H'] - 100.0))]; HF = []
+    hr, ht = np.linspace(0, 1, 6)[1:], np.linspace(0, 2 * math.pi, 33)[:-1]
+    def zin(x, y):
+        uu = x / 1000.0; vv = y / 1000.0
+        rr = Y['re'] if vv >= 0 else Y['rw']; kx = -uu / Y['ru']; ky = vv / rr
+        k = math.hypot(kx, ky); t = math.atan2(kx, ky)
+        return min(800.0, _yama_z(min(k, 1.0), t) - 100.0)
+    for a_ in hr:
+        for b_ in ht:
+            x = (cu - uc) * 1000.0 + au * 1000.0 * a_ * math.cos(b_); y = av * 1000.0 * a_ * math.sin(b_)
+            HV.append((x, y, zin(x, y)))
+    nt_ = len(ht)
+    for j in range(nt_): HF.append((0, 1 + j, 1 + (j + 1) % nt_))
+    for i in range(len(hr) - 1):
+        for j in range(nt_):
+            a, b = 1 + i * nt_ + j, 1 + i * nt_ + (j + 1) % nt_; c, d = a + nt_, b + nt_
+            HF += [(a, c, d), (a, d, b)]
+    o = len(HV); edge = list(range(1 + (len(hr) - 1) * nt_, 1 + len(hr) * nt_))
+    for e in edge: HV.append((HV[e][0], HV[e][1], -20.0))
+    for j in range(nt_):
+        a, b = edge[j], edge[(j + 1) % nt_]; c, d = o + j, o + (j + 1) % nt_
+        HF += [(a, c, d), (a, d, b)]
+    oc = len(HV); HV.append(((cu - uc) * 1000.0, 0.0, -20.0))
+    for j in range(nt_): HF.append((oc, o + (j + 1) % nt_, o + j))
+    M = M - _mf_of(np.array(HV), np.array(HF))
+    # 入口（西）：幅0.5（u17.25〜17.75）、高さ0.6（箱 h350＋半径250 の半円）、v7.9〜9.3
+    x0, x1 = (17.25 - uc) * 1000.0, (17.75 - uc) * 1000.0; y0, y1 = (7.9 - vc) * 1000.0, (9.3 - vc) * 1000.0
+    tun = _prism_local([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], -20.0, 350.0)
+    cyl = _mf.Manifold.cylinder(y1 - y0, 250.0, 250.0, 48).rotate((-90.0, 0.0, 0.0)).translate(((x0 + x1) / 2, y0, 350.0))
+    M = M - (tun + cyl)
+    # 覗き穴（東）：φ130 を2つ、h450、u17.35・17.68、v9.9〜12.2
+    for uh in (17.35, 17.68):
+        M = M - _mf.Manifold.cylinder(2300.0, 65.0, 65.0, 24).rotate((-90.0, 0.0, 0.0)).translate(((uh - uc) * 1000.0, (9.9 - vc) * 1000.0, 450.0))
+    mm_ = M.to_mesh(); VV = np.asarray(mm_.vert_properties[:, :3], float); FF = np.asarray(mm_.tri_verts, int)
+    W3 = np.array([(*W(uc + x / 1000.0, vc + y / 1000.0), z) for x, y, z in VV])
+    t2 = _tm.Trimesh(W3, FF, process=False)
+    print('山の網', len(FF), '面', '閉じている', t2.is_watertight)
+    _tm_add(t2, L_PL, (0.80, 0.86, 0.66, 1), '山（頂 h900、肩に崖 h350、中はかくれ家・入口は西・東に覗き穴、やわらかい床）')
+def _hk(c, tv, rv, x0, x1, y0, y1, z0, z1):
+    """局所（c から u の向き x・v の向き y、mm）の直方体。上下は z（mm）。v の向きの裏返しにかかわらず y は rv の向き"""
+    Yv = rv if np.cross(tv, rv)[2] > 0 else -rv; sg = 1.0 if Yv @ rv > 0 else -1.0
+    ya, yb = sorted((sg * y0, sg * y1))
+    return K.hako(c + x0 * tv + ya * Yv + np.r_[0, 0, z0], tv, Yv, x1 - x0, yb - ya, z1 - z0)
+def tipi02(rec):
+    # 落ち着くくぼみ（図の13、竪穴）の囲い h1000（kubomi）の上にティピ（ユーザー 10-31）：細い木の柱 φ30 を6本、囲いの上端の六角形の頂点から
+    # 円錐に立てて頂（u17.41・v3.95、h1900）で束ね、150 上に出す。布（生成りの帆布、厚さ 4）は六角錐の6枚の平らな板。
+    # 入口は南（先生の記録台・部屋から見える側）：囲いの開口（v3.55〜4.35、h1000）の上の布を三角にめくった形に開ける（h1000〜1300）
+    B = [(16.9, 3.5), (17.41, 3.3), (17.92, 3.5), (17.92, 4.4), (17.41, 4.6), (16.9, 4.4)]
+    A = np.r_[W(17.41, 3.95), 1900.0]; zb = 1000.0
+    P3 = [np.r_[W(u, v), zb] for u, v in B]; Cax = np.r_[W(17.41, 3.95), zb]
+    for i in range(6):
+        p0, p1 = P3[i], P3[(i + 1) % 6]
+        X = (p1 - p0) / np.linalg.norm(p1 - p0); Yr = A - p0; Yr = Yr - (Yr @ X) * X; Y = Yr / np.linalg.norm(Yr)
+        q = lambda p_: ((p_ - p0) @ X, (p_ - p0) @ Y)
+        poly = [q(p0), q(p1), q(A)]
+        if B[i][0] == 16.9 and B[(i + 1) % 6][0] == 16.9:            # 南の面：入口の上を三角にめくる
+            L_ = np.linalg.norm(p1 - p0); hA = q(A)[1]; hN = 300.0 / 900.0 * hA
+            poly = [q(p0), (L_ / 2 - 250.0, 0.0), (L_ / 2, hN), (L_ / 2 + 250.0, 0.0), q(p1), q(A)]
+        nrm = np.cross(X, Y); cen = (p0 + p1 + A) / 3
+        h = 4.0 if nrm @ (np.r_[Cax[:2], 1400.0] - cen) > 0 else -4.0
+        K.add(m, K.oshidashi(poly, (), p0, X, Y, h), L_T, (238, 232, 218), 'ティピの布（生成りの帆布）')
+    for p0 in P3:
+        d = A - p0; d /= np.linalg.norm(d); inw = Cax - p0; inw[2] = 0; inw /= np.linalg.norm(inw)
+        K.add(m, K.enchu(p0 + 22.0 * inw, A + 150.0 * d, 15.0), L_F, (196, 160, 118), 'ティピの柱（木 φ30）')
+def stool02():
+    # 先生の記録台（図の14、立ち机 h900、u17.3〜17.95・v1.75〜3.0）の前に高い腰掛け（ユーザー 10-31）：座 340角 h620〜650、脚 30角×4、
+    # 足掛け 20角 h300（四方）、低い背もたれ（南の辺、座から 200、h650〜850）。先生は記録台（北）を向いて座る。杉
+    c, tv, rv = _frame(17.02, 2.375); W_ = (196, 160, 118); nm = '先生の高い腰掛け（座 h650、背もたれ、足掛け）'
+    K.add(m, _hk(c, tv, rv, -170, 170, -170, 170, 620, 650), L_F, W_, nm)
+    for x_ in (-170, 140):
+        for y_ in (-170, 140):
+            K.add(m, _hk(c, tv, rv, x_, x_ + 30, y_, y_ + 30, 0, 620), L_F, W_, nm)
+    for y_ in (-170, 150): K.add(m, _hk(c, tv, rv, -140, 140, y_, y_ + 20, 290, 310), L_F, W_, nm)
+    for x_ in (-170, 150): K.add(m, _hk(c, tv, rv, x_, x_ + 20, -140, 140, 290, 310), L_F, W_, nm)
+    K.add(m, _hk(c, tv, rv, -170, -145, -150, 150, 650, 850), L_F, W_, nm)
+L_CL = layer('40w_しつらえ_干した布（白）', (244, 242, 236))
+def drying_poles():
+    # 0・1歳（スパン4）と2歳（スパン6）の西吹き抜けの物干し（ユーザー 10-31）：竹竿 φ35 を2本ずつ、架構の線の梁（2枚組の内の板）から
+    # 両端の昇降の綱 φ6 で h3100 に（越屋根の下、梁の下端 約3.3〜3.37 の下）。天井扇（羽根 h2800、各スパンの真ん中 φ1.1）をよけて、
+    # 竿の両端寄りに白い布（タオル・シーツ・おむつ布、厚さ 40 で竿を包んで垂れた形）。布の下端は h1900 より上
+    zp = 3100.0
+    for u0, u1, poles in ((9.14, 11.86, ((0.4, [(9.22, 9.57, 350), (9.62, 9.92, 600), (11.12, 11.47, 350), (11.5, 11.8, 600)]),
+                                          (1.2, [(9.2, 9.9, 700), (11.15, 11.8, 900)]))),
+                          (15.14, 17.86, ((0.4, [(15.22, 15.52, 600), (15.57, 15.92, 350), (17.12, 17.42, 600), (17.47, 17.8, 350)]),
+                                          (1.0, [(15.2, 15.9, 700), (17.12, 17.8, 900)])))):
+        for vp, cloths in poles:
+            a, b = np.r_[W(u0, vp), zp], np.r_[W(u1, vp), zp]
+            K.add(m, K.enchu(a, b, 17.5), L_HW, (196, 170, 120), '物干しの竹竿 φ35')
+            zt = 2690.0 - (vp - 8.5) * 1000.0 / 12.0 - 1.0
+            for ue in (u0 + 0.02, u1 - 0.02):
+                K.add(m, K.enchu(np.r_[W(ue, vp), zp + 17.5], np.r_[W(ue, vp), zt], 3.0), L_RAT, RAT_C, '物干しの昇降の綱 φ6')
+            for ua, ub, drop in cloths:
+                K.add(m, K.hako_uv(ua, ub, vp - 0.02, vp + 0.02, zp + 20.0 - drop, zp + 20.0), L_CL, (244, 242, 236), '干した布（タオル・シーツ・おむつ布）')
+def toilet_wall02(rec):
+    # 2歳のトイレの西の壁（西吹き抜けの側、v1.6〜1.72）：トイレの所（u12.06〜14.63）は h1200 から上をすりガラス＋木の縦格子に（ユーザー 10-31：
+    # 明るく、天袋はなし）。ガラスは壁の中ほど（t10）、格子 30角・すき間 90（芯 120）を西吹き抜けの側（壁の面から 5 はなす）、上下に横木 30角
+    g = SP(clean(rec['pts'])); u0, v0, u1, v1 = g.bounds
+    ta, tb = 12.06, 14.63
+    def bx_uv(a0, a1, b0, b1, z0, z1, li, col, name): solid_uv([(a0, b0), (a1, b0), (a1, b1), (a0, b1)], z0, z1, li, col, name)
+    for a, b in ((u0, ta), (tb, u1)):
+        if b - a > 0.01: solid_uv([(a, v0), (b, v0), (b, v1), (a, v1)], 0, 2400, L_P)
+    solid_uv([(ta, v0), (tb, v0), (tb, v1), (ta, v1)], 0, 1200, L_P)
+    bx_uv(ta, tb, 1.655, 1.665, 1200, 2400, L_FG, (0.92, 0.94, 0.95, 1), 'すりガラス（2歳のトイレの西、h1200〜2400）')
+    for z0, z1 in ((1200, 1230), (2370, 2400)):
+        bx_uv(ta, tb, 1.565, 1.595, z0, z1, L_LAT, (0.85, 0.75, 0.6, 1), 'トイレの西の格子の横木（杉 30角）')
+    for uu in np.arange(ta + 0.045, tb - 0.04, 0.12):
+        bx_uv(uu, uu + 0.03, 1.565, 1.595, 1230, 2370, L_LAT, (0.85, 0.75, 0.6, 1), 'トイレの西の縦格子（杉 30角、すき間 90）')
+
 T01 = {   # plan01（0・1歳、u ≤ 12）
     98: ('solid', -300, 3900, L_WW), 99: ('solid', -300, 3900, L_WW),
     # 100（南の妻のガラス戸）：10-26夜から south/fix_details.py の「乳児室の南の妻」で作る（ガラスの引き戸・鴨居・上の杉の壁・外の縦格子）
@@ -349,24 +532,23 @@ T01 = {   # plan01（0・1歳、u ≤ 12）
     166: ('solid', 0, 600, L_F), 171: ('table', 350, L_F), 173: ('solid', 0, 200, L_F), 174: ('solid', 0, 200, L_F),
     178: cot, 180: ('solid', 0, 800, L_F), 183: ('solid', 0, 900, L_F),
     187: ('solid', 0, 850, L_WC), 189: ('solid', 0, 850, L_WC), 190: ('solid', 0, 850, L_F),
-    193: ('panel', 2600, 2630, 0.03, L_HW), 195: ('solid', 2400, 2700, L_HW),
+    195: ('solid', 2400, 2700, L_HW),
     200: steps01,                                         # 203（段々の南の低い台）：10-31 から真ん中のすべり台（slide01）
     205: ('solid', 0, 12, L_WC), 206: ('solid', 0, 850, L_WC),
     209: ('panel', 0, 900, 0.03, L_P), 211: ('panel', 0, 900, 0.03, L_P), 212: ('panel', 0, 900, 0.03, L_P),
 }
 T02 = {   # plan02（2歳、12 ≤ u ≤ 18.07）
     80: ('solid', 0, 8, L_T),
-    89: ('solid', 0, 2400, L_P), 92: ('solid', 0, 2400, L_P), 93: ('solid', 0, 2400, L_P), 94: ('solid', 0, 2400, L_P),
+    89: ('solid', 0, 2400, L_P), 92: toilet_wall02, 93: ('solid', 0, 2400, L_P), 94: ('solid', 0, 2400, L_P),
     98: ('solid', 0, 2400, L_P),
     103: ('solid', 0, 100, L_WC), 106: ('solid', 0, 500, L_WC), 107: ('solid', 0, 260, L_WC),
     109: ('panel', 0, 900, 0.03, L_WC), 110: ('solid', 0, 300, L_F),
     113: ('solid', 0, 900, L_F), 116: ('solid', 0, 250, L_F), 118: ('solid', 0, 900, L_F),
-    120: kubomi, 123: hut_roof,                           # 小屋の屋根（10-28：急な切妻、登れない）
+    120: kubomi, 123: tipi02,                             # 10-31：くぼみ（竪穴）の上にティピ（前は 60°の切妻 hut_roof）
     125: ('solid', 0, 500, L_WC), 129: ('solid', 0, 600, L_F), 130: ('solid', 0, 15, L_T),
     133: ('table', 400, L_F), 135: ('solid', 0, 220, L_F), 136: ('solid', 0, 220, L_F),
     140: cot, 142: ('solid', 0, 15, L_T), 144: mamagoto_posts, 145: ('solid', 1400, 1430, L_F), 146: ('solid', 0, 550, L_F),
-    148: ('solid', 0, 1500, L_F), 161: hill,
-    166: ('panel', 300, 650, 0.06, L_PL),                 # 崖 h350
+    148: ('solid', 0, 1500, L_F), 161: yama02,            # 10-31：山は一つの滑らかな網（崖 h350・かくれ家・入口・覗き穴を含む）。166（崖の板）は yama02 の中
 }
 T04 = {   # plan04（3〜5歳、u ≥ 30）
     89: ('solid', 0, 3900, L_WW),                          # 北の妻
@@ -456,6 +638,7 @@ def build(name, table, umin, umax, skipclip=False):
 build('plan01.py', T01, -1, 12.0)
 build('plan02.py', T02, 12.0, 18.1)
 build('plan04.py', T04, 29.9, 57.4)
+stool02(); drying_poles()                                         # 10-31：2歳の先生の腰掛け・0〜2歳の西吹き抜けの物干し（plan01 の 193 の竿の板の代わり）
 
 # ---------------- こどもの便所の丸いポッド（10-28 ユーザー、決定事項（本館）の「便所・倉庫のスパン」、検討 maru_wc2） ----------------
 # スパン 14（plan04 の crank_block(39, False)、U(w) = 39 + w）と 17（crank_block(48, True)、U(w) = 51 − w）の便所の帯。局所座標 w（u の向き、
