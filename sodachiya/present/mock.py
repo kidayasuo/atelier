@@ -250,7 +250,7 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
         e_ = size / 0.72
         by_ = y + {"center": -0.35 * e_, "top": -0.88 * e_, "bottom": 0.12 * e_}.get(va, 0.0)
         TOPT[_lv["sheet"]].append((x, by_, s, size, bold, kw.get("font"), matplotlib.colors.to_hex(color),
-                                   dict(id="t." + re.sub(r"[\s　/\\|:]+", "", s)[:14], name=s[:24], align=ha if ha in ("left", "center", "right") else "left",
+                                   dict(id=_lv.get("idp", "") + "t." + re.sub(r"[\s　/\\|:]+", "", s)[:14], name=s[:24], align=ha if ha in ("left", "center", "right") else "left",
                                         group=_lv["group"], group_name=_lv["name"])))
         LIVE_N[0] += 1
         return
@@ -267,8 +267,8 @@ LIVE_TXT = [None]   # dict(ax, sheet, group, name)：このあいだの T は部
 LIVE_N = [0]
 
 
-def _live(ax_, sheet_, group_, name_):
-    LIVE_TXT[0] = dict(ax=ax_, sheet=sheet_, group=group_, name=name_) if group_ else None
+def _live(ax_, sheet_, group_, name_, idp=""):
+    LIVE_TXT[0] = dict(ax=ax_, sheet=sheet_, group=group_, name=name_, idp=idp) if group_ else None
 
 
 FRAME_TOP = {3, 4}   # 4枚目も周りの図の上に枠（10-30 18:05）。 枠を図の上に重ねる紙（3枚目は1階の平面図が紙いっぱいで白い地、ユーザー 10-29 18:01。10-30 の6枚で4枚目→3枚目）
@@ -2955,6 +2955,7 @@ for p_ in getattr(_EXT, "geoms", [_EXT]):
         _i_.append(p_)
 _cl = lambda L_: unary_union(L_).buffer(_SEAL + 0.05).intersection(_EXT0) if L_ else None
 _OUT, _APPR, _IN = _cl(_o_), _cl(_a_), _cl(_i_)
+_OUT0 = _OUT                                     # ひろばを足す前（セキュリティの線はひろばの西のジグザグ、ユーザー 10-31 22:10 の絵）
 _hb_ = _HIROBA.buffer(0.3).intersection(_SITEP).difference(_BLD) if not _HIROBA.is_empty else None
 if _hb_ is not None:
     _OUT = _OUT.union(_hb_) if _OUT is not None else _hb_
@@ -2970,6 +2971,14 @@ _AMANIWA = rot(_gs(Polygon(gc.XS([tuple(p_) for p_ in GJ["AMANIWA"]["poly"]])).b
 _WATER = unary_union([g_ for g_ in [GD["fountain"], _AMANIWA] + [(lambda q_: q_.centroid.buffer(np.sqrt(q_.area) / 2, 32) if q_ is not None else None)(_sh(o)) for o in objs if o["layer"].startswith("96_") and "噴水" in (o["name"] or "")] if g_ is not None and g_.geom_type.endswith("Polygon")])
 _HUT_WC = unary_union([g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith("93_") and (o["name"] or "").startswith("便所")) if g_ is not None and g_.geom_type.endswith("Polygon")])
 _HUT_ST = unary_union([g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith("93_") and (o["name"] or "").startswith("倉庫")) if g_ is not None and g_.geom_type.endswith("Polygon")])
+# セキュリティの線は一周（ユーザー 10-31 22:10、絵）：北の道の縁→東の辺→高野川の側→公園の東の縁をまっすぐ西館の南西の角まで→西館の西のジグザグ→北西の丸い角→北の道。
+# 塀の板（_FEN）をそのまま太くすると、内の柵（みなみのさんかくの斜めの柵 60 など）も太く出て、東の辺・川の側は描かれない。
+# だから、セキュリティ外（道に開いたかたまり・ひろば・歩道）と公園を敷地から引いた残り（内の外構・園庭・建物・塀）の外の輪郭を、内側へ 0.3 m の帯にする
+_SEC_IN = _SITEP.difference(unary_union([g_ for g_ in (_OUT0, _swS3, _PARK_R) if g_ is not None and not g_.is_empty]).buffer(0.05)).buffer(0.1).buffer(-0.1)
+_SEC_IN = max(getattr(_SEC_IN, "geoms", [_SEC_IN]), key=lambda p_: p_.area)
+_SEC_IN = Polygon(_SEC_IN.exterior)
+_SECB = _SEC_IN.difference(_SEC_IN.buffer(-0.3))                     # セキュリティの線（太い帯の閉じた輪）
+print("セキュリティの線（一周）：長さ %.1f m、囲む広さ %.0f m²" % (_SEC_IN.exterior.length, _SEC_IN.area))
 # 0〜2歳の教室の範囲（本館の軸に沿った u の範囲。回す前の座標の x）
 _unrot = lambda g_: affinity.rotate(g_, -ROT, origin=(0, 0))
 _g02 = unary_union([g_ for ln_, k_, g_ in plan_items if ln_.startswith(("53_", "54_")) and k_ == "mesh"])
@@ -2979,7 +2988,10 @@ _u0_south = _ub[0] + 1.0
 ZSC = 200
 zw, zh = (WX1 - WX0) * 1000 / ZSC, (WY1 - WY0) * 1000 / ZSC
 zox, zoy = M + 6, Y(55) - zh
-_live(ax, 2, "zoning", "ゾーニング（文字）")
+# ゾーニングの図は塗り・線・セキュリティの線・文字・凡例を一つのグループ（レイヤー「説明」のすぐ下、ユーザー 10-31 22:10）。
+# 前の部品（zone.・zone2.・zup.・zleg.・t.、三つのグループ）とは id を替え、update_texts.jsx で前の物は「外した物」へ、新しい物はこのグループで入る
+G_ZF = ("zoning_fig", "ゾーニングの図")
+_live(ax, 2, G_ZF[0], G_ZF[1], idp="zn.")
 title(ax, M + 6, Y(51), "ゾーニング", f"1/{ZSC}　使う人ごとの色、セキュリティの内と外、園庭と一体（配置図と同じ向き、高野川を下に）")
 _GRAYL = lambda c_: (lambda r_: matplotlib.colors.to_hex([0.55 + 0.45 * (0.299 * r_[0] + 0.587 * r_[1] + 0.114 * r_[2])] * 3))(matplotlib.colors.to_rgb(c_))   # 使っていない所は無彩色（明るさだけ残す）
 # 0〜2歳の部屋の中のトイレ：3dm には部屋の形が無いので、更新係の平面図（drawings/sodachiya_plan_1-100.pdf）の「水まわり」の塗り（淡い水色）を紙→3dm→回した座標に戻して使う
@@ -3079,7 +3091,7 @@ def _zone_paint(ax, ox, oy, sc, w_, h_, act=None, lw_room=0.12, lw_fen=0.3, cont
     draw_plan(ax, ox, oy, sc, WX0, WY0, w_, h_, thin=True, outdoor=False)
     ROOM.clear(); ROOM.update(rs_)
     l2_ = len(ax.lines)
-    draw_shape(ax, _FEN.intersection(_WIN), xf_, fc="#1E1E1E", ec="#1E1E1E", lw=lw_fen, z=6)   # セキュリティの線（塀・柵・木戸・南の生垣）
+    draw_shape(ax, _SECB.intersection(_WIN), xf_, fc="#1E1E1E", ec="#1E1E1E", lw=lw_fen, z=6)   # セキュリティの線（一周）
     if R35 is not None:                              # 機械室の外の壁（draw_plan では部屋の扱いなので線が出ない）
         draw_shape(ax, R35.exterior if R35.geom_type == "Polygon" else R35.boundary, xf_, ec="#333333", lw=0.5 * lw_fen / 0.3, z=5.5)
     for a_ in ax.patches[s0_:] + ax.lines[l2_:]:
@@ -3169,8 +3181,7 @@ def _rings(g_, xf_):
     return out_
 
 
-G_ZB = ("zoning_border", "ゾーニング　境界")
-G_ZU = ("zoning_upper", "ゾーニング　上の線")
+G_ZB = G_ZU = G_ZF
 _nz, _nzp = 0, 0
 
 
@@ -3178,7 +3189,15 @@ def _zpart(id_, name_, paths_, layer_, group_, fill_=None, stroke_="#555555", lw
     global _nz, _nzp
     for q_ in paths_:
         q_.update(fill=fill_, stroke=stroke_, lw=lw_, name=name_)
-        rs_ = q_.get("rings") or [q_["pts"]]
+        if "rings" in q_:                           # 穴のある形（セキュリティの帯など）は一つの複合パスで（輪ごとに塗ると穴が埋まる）
+            from matplotlib.patches import PathPatch
+            from matplotlib.path import Path as MPath
+            vs_, cs_ = [], []
+            for r_ in q_["rings"]:
+                vs_ += list(r_) + [r_[0]]; cs_ += [MPath.MOVETO] + [MPath.LINETO] * (len(r_) - 1) + [MPath.CLOSEPOLY]
+            ax.add_patch(PathPatch(MPath(vs_, cs_), fc=fill_ or "none", ec=stroke_ if lw_ else "none", lw=lw_ * 0.35 if lw_ else 0, zorder=7, gid="aipart"))
+            continue
+        rs_ = [q_["pts"]]
         for r_ in rs_:
             P_ = np.array(r_)
             ax.add_patch(MPoly(P_, closed=bool(q_.get("closed", True)) or "rings" in q_, fc=fill_ or "none", ec=stroke_ if lw_ else "none",
@@ -3191,9 +3210,9 @@ def _zpart(id_, name_, paths_, layer_, group_, fill_=None, stroke_="#555555", lw
 
 _zs_ = lambda s_: re.sub(r"[\s　/\\|:（）()、。・]+", "", s_)[:14]
 for nm_, g_ in _ZP:
-    _zpart("zone." + _zs_(nm_), nm_, _rings(g_, zxf), "ゾーニング　境界", G_ZB)
-_FENW = _FEN.intersection(_WIN)
-_zpart("zone.セキュリティの線", "セキュリティの線（塀・柵・木戸・南の生垣）", _rings(_FENW, zxf), "ゾーニング　境界", G_ZB, fill_="#1E1E1E", stroke_=None, lw_=0)
+    _zpart("zn." + _zs_(nm_), nm_, _rings(g_, zxf), "説明", G_ZB)
+_FENW = _SECB.intersection(_WIN)
+_zpart("zn.セキュリティの線", "セキュリティの線（一周）", _rings(_FENW, zxf), "説明", G_ZB, fill_="#1E1E1E", stroke_=None, lw_=0)
 # 2階（西館）の差し込み：枠と部屋（同じ縮尺）
 _z2bg = Polygon([(_z2b[0] - 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[1] - 1), (_z2b[2] + 1, _z2b[3] + 1 + 7 * ZSC / 1000), (_z2b[0] - 1, _z2b[3] + 1 + 7 * ZSC / 1000)])
 _t2 = None
@@ -3201,19 +3220,19 @@ for ln_, g_ in sorted(Z2, key=lambda t_: 0 if t_[0].startswith("42_") else 1):
     g_ = _fill(g_)
     if _t2 is not None:
         g_ = g_.difference(_t2)
-    _zpart("zone2." + _zs_(_zname(ln_)), "2階　" + _zname(ln_), _rings(g_, z2xf), "ゾーニング　境界", G_ZB)
+    _zpart("zn2." + _zs_(_zname(ln_)), "2階　" + _zname(ln_), _rings(g_, z2xf), "説明", G_ZB)
     _t2 = g_ if _t2 is None else _t2.union(g_)
 if _t2 is not None:
-    _zpart("zone2.ホールほか", "2階　ホール・すき間", _rings(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2])).difference(_t2), z2xf), "ゾーニング　境界", G_ZB)
-    _zpart("zone2.枠", "2階（西館）の枠", _rings(_z2bg.difference(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2]))), z2xf), "ゾーニング　境界", G_ZB, fill_="#FFFFFF")
+    _zpart("zn2.ホールほか", "2階　ホール・すき間", _rings(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2])).difference(_t2), z2xf), "説明", G_ZB)
+    _zpart("zn2.枠", "2階（西館）の枠", _rings(_z2bg.difference(_fill(unary_union([g_.buffer(0.08) for _, g_ in Z2]))), z2xf), "説明", G_ZB, fill_="#FFFFFF")
 # 上の線
 _up = lambda gs_: [dict(pts=[list(map(float, q_)) for q_ in zxf(np.array(l_.coords))], closed=False) for g0_ in gs_ for l_ in
                    (lambda g1_: [b_ for b_ in getattr(g1_, "geoms", [g1_]) if b_.geom_type.endswith("LineString") and len(b_.coords) > 1])(
                        (g0_.boundary if g0_.geom_type.endswith("Polygon") else g0_).intersection(_WIN))]
-_zpart("zup.等高線", "等高線 0.2 m", _up(_CONT), "ゾーニング　上の線", G_ZU, stroke_="#8A8A8A", lw_=0.15)
-_zpart("zup.築山", "築山の輪郭", _up([GD["mound"]]), "ゾーニング　上の線", G_ZU, stroke_="#666666", lw_=0.3)
-_zpart("zup.車室", "車室・駐輪の区画・バンプ", _up([g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith(("74_", "74w"))) if g_ is not None]),
-       "ゾーニング　上の線", G_ZU, stroke_="#666666", lw_=0.15)
+_zpart("znu.等高線", "等高線 0.2 m", _up(_CONT), "説明", G_ZU, stroke_="#8A8A8A", lw_=0.15)
+_zpart("znu.築山", "築山の輪郭", _up([GD["mound"]]), "説明", G_ZU, stroke_="#666666", lw_=0.3)
+_zpart("znu.車室", "車室・駐輪の区画・バンプ", _up([g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith(("74_", "74w"))) if g_ is not None]),
+       "説明", G_ZU, stroke_="#666666", lw_=0.15)
 print("ゾーニング（白地図）：区分 %d、部品 %d、閉じたパス・線 %d" % (len(_ZP), _nz, _nzp))
 _lab = {}
 for ln_, k_, g_ in plan_items:                 # 部屋の名前（小さく）
@@ -3239,14 +3258,14 @@ for row_ in (Z_LEG1, Z_LEG2, Z_LEG3):
     _lx = M + 6
     for k_, nm_ in row_:
         ax.add_patch(Rectangle((_lx, _ly - 1.2), 6, 4, fc="none", ec="#777777", lw=0.2, gid="aipart"))
-        _airec(fig, kind="box", id=f"zleg.{k_}", name="凡例の四角：" + nm_, x=_lx, y=_ly - 1.2, w=6, h=4, fill=None, stroke="#777777", lw=0.2, dash=None,
-               group="zoning", group_name="ゾーニング（文字）")
+        _airec(fig, kind="box", id=f"znleg.{k_}", name="凡例の四角：" + nm_, x=_lx, y=_ly - 1.2, w=6, h=4, fill=None, stroke="#777777", lw=0.2, dash=None,
+               group=G_ZF[0], group_name=G_ZF[1])
         T(ax, _lx + 7.5, _ly, nm_, 2.5)
         _lx += 7.5 + fitz.Font(fontfile=FONT).text_length(nm_, 2.5 / 0.72) + 5
     _ly -= 6
-ax.plot([M + 6, M + 13], [_ly + 0.6, _ly + 0.6], color="#2B2B2B", lw=1.1)
-T(ax, M + 15, _ly, "塀・柵・木戸・生垣（セキュリティの線）", 2.5)
-ax.plot([M + 105, M + 111], [_ly + 0.6, _ly + 0.6], color="#8A8A8A", lw=0.4)
+_rule("znleg.secline", [[M + 6, _ly + 0.6], [M + 13, _ly + 0.6]], "#2B2B2B", 1.1, G_ZF, "凡例の線：セキュリティの線")   # 凡例の線の見本も部品に（図のグループ）
+T(ax, M + 15, _ly, "セキュリティの線（塀・柵・木戸・生垣・建物の外壁で一周）", 2.5)
+_rule("znleg.contour", [[M + 105, _ly + 0.6], [M + 111, _ly + 0.6]], "#8A8A8A", 0.4, G_ZF, "凡例の線：等高線")
 T(ax, M + 113, _ly, "等高線 0.2 m（園庭の地形・築山）", 2.5)
 _ly += 7                                         # 樹木図の題は _ly − 14
 print("ゾーニングの色：", {k_: Z_COL[k_] for k_ in ("out", "in_ext", "shoe", "g02", "gboth", "g35")})
