@@ -52,7 +52,14 @@ TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする
 #   「窓の光」：太陽を消し、東は縁側の外に立てた面（ほぼ水平、窓から入る）、西は西吹き抜けの上の高い所の下向きの面、
 #     光の筋は架構の線ごとの細い下向きの面（ユーザー 10-31）。弱いスカイライトを足す。
 ROOM_LIGHTS = [u"散乱光（曇りの日の柔らかい光、影がほとんど出ない）", u"窓の光（東の窓からほぼ水平・西吹き抜けの上から・光の筋から、弱い散乱光を足す）",
-               u"室内（屋根のあるまま、ビューだけのとき）：散乱光＋天井の下の弱い面の光"]
+               u"室内（屋根のあるまま、ビューだけのとき）：散乱光＋天井の下の弱い面の光",
+               u"自然光（屋根のあるまま）：太陽と空の明るさだけ。窓・ガラスの帯・光の筋から入る光で描く"]
+# 自然光（ユーザー 10-31：人工の光源でなく、窓から自然に入る光で）：太陽（DAY）と、場面を包む大きな半球の「空」を一時的に置く。
+# 空は内向きの面で、淡い青白に光る材料（Cycles では光る物が周りを照らす）。屋根・2階の床は残すので、光は窓・ガラスの帯・光の筋からだけ入る。
+SKYDOME_R = 600000.0                            # 空の半球の半径（mm）。周りの建物（PLATEAU）より外
+SKYDOME_COLOR = System.Drawing.Color.FromArgb(214, 228, 245)   # 空の色（淡い青白）
+SKYDOME_STRENGTH = 1.0                          # 空の明るさ（光る強さ）。部屋が暗ければ 2〜4、外が白く飛べば 0.5
+
 # 室内（屋根や2階の床を残した目の高さの絵、room_view の「ビューだけ」）：上の散乱光は屋根で止まるので、天井の下に下向きの弱い面の光を足す
 # （天井・ガラスの帯からの柔らかい明るさの代わり。10-31、キャットウォークと切り株が暗かった）
 ROOM_FILL_POWER = 0.6                           # 暗ければ 1〜2、白っぽく平らになれば 0.3
@@ -473,6 +480,49 @@ def run(mode):
                     G_.Vector3d(0, 0, -1.0), ROOM_FILL_POWER, System.Drawing.Color.FromArgb(250, 246, 238)):
             say(u"室内の光（天井の下 z", int(z_), u"）を置いた：強さ", ROOM_FILL_POWER)
 
+    def add_skydome():
+        """自然光の空：場面の真ん中を中心に、内向きの大きな半球（メッシュ）を光る材料で一時的に足す（temp_objs、終わったら消す）"""
+        G_ = Rhino.Geometry
+        try:
+            bb = G_.BoundingBox.Empty
+            for o in doc.Objects:
+                if o.Attributes.Visible and doc.Layers[o.Attributes.LayerIndex].IsVisible:
+                    bb.Union(o.Geometry.GetBoundingBox(False))
+            c_ = bb.Center if bb.IsValid else G_.Point3d(0, 0, 0)
+            sp = G_.Sphere(G_.Point3d(c_.X, c_.Y, -300.0), SKYDOME_R)
+            ms = G_.Mesh.CreateFromSphere(sp, 64, 32)
+            ms.Flip(True, True, True)                     # 内向き
+            m_ = Rhino.DocObjects.Material()
+            m_.Name = u"作業_レンダ_空"
+            m_.DiffuseColor = SKYDOME_COLOR
+            m_.EmissionColor = SKYDOME_COLOR
+            try:
+                m_.ToPhysicallyBased()
+                k = SKYDOME_STRENGTH
+                m_.PhysicallyBased.BaseColor = Rhino.Display.Color4f(SKYDOME_COLOR)
+                m_.PhysicallyBased.Emission = Rhino.Display.Color4f(SKYDOME_COLOR.R / 255.0 * k, SKYDOME_COLOR.G / 255.0 * k,
+                                                                    SKYDOME_COLOR.B / 255.0 * k, 1.0)
+            except Exception as e:
+                say(u"  空の光る材料（PBR）：効かなかった、ふつうの発光で", e)
+            k_ = doc.Materials.Add(m_)
+            added_mats.append(k_)
+            at_ = Rhino.DocObjects.ObjectAttributes()
+            at_.Name = u"作業_レンダ_空"
+            at_.MaterialIndex = k_
+            at_.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromObject
+            try:
+                at_.CastsShadows = False
+            except Exception:
+                pass
+            oid = doc.Objects.AddMesh(ms, at_)
+            if oid != System.Guid.Empty:
+                temp_objs.append(oid)
+                say(u"空の半球を置いた：半径", int(SKYDOME_R / 1000), u"m、明るさ", SKYDOME_STRENGTH)
+            else:
+                say(u"空の半球：足せなかった")
+        except Exception as e:
+            say(u"空の半球：効かなかった", e)
+
     def add_dome():
         """散乱光：部屋の真上の高い所に、部屋より四方に ROOM_DOME_PAD 広い下向きの面の光源を1枚（曇り空の代わり）"""
         if name not in ROOM_UV:
@@ -721,6 +771,7 @@ def run(mode):
 
     # 2）夜の LED：光る材料（RenderMaterial）と、レイヤーごとに1本の線の光源
     led_objs, led_lights, led_rm, led_layers = [], [], None, []
+    temp_objs = []
     sky_old = sky_get()
     if mode == "yoru":
         led_layers = [lay for lay in doc.Layers if _is_led(lay.Name)]
@@ -813,15 +864,22 @@ def run(mode):
     try:
         if mode == "hiru" and room_light is not None:
             stage(u"部屋の光：", ROOM_LIGHTS[room_light])
-            set_sun(False, DAY)                          # 屋根を隠して切るので、太陽は上から差して本来ない影を作る
-            dim_skylight(ROOM_SKY if room_light == 0 else ROOM_SKY_WIN)
-            if room_light == 1:
+            if room_light == 3:
+                set_sun(True, DAY)                       # 屋根のあるままなので、太陽は窓・ガラスから入る（本来の影）
+                add_skydome()
+            else:
+                set_sun(False, DAY)                      # 屋根を隠して切るので、太陽は上から差して本来ない影を作る
+                dim_skylight(ROOM_SKY if room_light == 0 else ROOM_SKY_WIN)
+            if room_light == 3:
+                pass
+            elif room_light == 1:
                 add_window_lights()
             else:
                 add_dome()
             if room_light == 2:
                 add_fill()
-            sky(SKY_TOP, SKY_BOTTOM, "Gradient")
+            if room_light != 3:
+                sky(SKY_TOP, SKY_BOTTOM, "Gradient")
             say(u"部屋を描く前：スカイライト", sky_get(), u"／光源", doc.Lights.Count)
             view.Redraw()
             capture(fname, False)
@@ -871,6 +929,11 @@ def run(mode):
             capture(fname, False)
             stage(u"描き終わった。戻す")
     finally:
+        for oid in temp_objs:
+            try:
+                doc.Objects.Delete(oid, True)
+            except Exception as e:
+                say(u"  空の半球を消せなかった：", e)
         for lid in led_lights:
             try:
                 lt = doc.Lights.FindId(lid)
