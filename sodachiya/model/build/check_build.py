@@ -100,7 +100,7 @@ if os.path.exists(k3dm):
         kl = [km.Layers[i].Name for i in range(len(km.Layers))]
         for o in km.Objects:
             g = o.Geometry; ln = kl[o.Attributes.LayerIndex]
-            if ln.split('_')[0] in KATACHI_FREE or ln.startswith('床の絵'): continue      # 床の絵の板は絵を貼るためのメッシュ（materials.py）
+            if ln.split('_')[0] in KATACHI_FREE or ln.startswith('床の絵') or o.Attributes.GetUserString('etch_of'): continue      # 床の絵の板は絵を貼るためのメッシュ（materials.py）
             # 例外（10-31 監修、西館係の項 1620）：西館の外壁21（一つの閉じた立体＝外壁の輪の押し出し−開口＋水切り、角の丸み）と
             # 2階床23（丸い壁に沿う輪郭の押し出し）は面が多くてよい。平らな面だけでも面が多い物は例外にしない（曲線を細かい平面で近似した物を見逃すため、ユーザー）
             many = isinstance(g, r3.Brep) and len(g.Faces) > KATACHI_FACES and ln.split('_')[0] not in ('21', '23')
