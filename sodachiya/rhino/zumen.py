@@ -611,7 +611,24 @@ def outlines(objs, pl_world=None):
     except Exception as ex:
         say(u'  外形が取れない', ex)
         return []
-    return [[(pl[i].X, pl[i].Y) for i in range(pl.Count)] for pl in (pls or [])]
+    out = [[(pl[i].X, pl[i].Y) for i in range(pl.Count)] for pl in (pls or [])]
+    if len(out) > 1:
+        # 細かく分けた物（西館の棟のガラスの帯など）は片ごとの外形が細い縞になるので、平面の上で一つに足し合わせる（10-31）。
+        # 足し合わせられなければ片ごとのまま
+        try:
+            crvs = [G.PolylineCurve([G.Point3d(x, y, 0) for x, y in (Q + [Q[0]])]) for Q in out if len(Q) >= 3]
+            uni = G.Curve.CreateBooleanUnion(crvs, 1.0)
+            if uni and len(uni) > 0:
+                res = []
+                for c in uni:
+                    ok, pl = c.TryGetPolyline()
+                    if not ok:
+                        pl = c.ToPolyline(0, 0, 0.05, 0, 0, 1.0, 0, 0, True).ToPolyline()
+                    res.append([(pl[i].X, pl[i].Y) for i in range(pl.Count)])
+                return res
+        except Exception as ex:
+            say(u'  外形を一つにできない（片ごとのまま）', ex)
+    return out
 
 
 # ---------------------------------------------------------------- 平面
