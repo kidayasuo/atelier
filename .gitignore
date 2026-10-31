@@ -3,3 +3,4 @@
 *.aibak
 __pycache__/
 *.pyc
+sodachiya/renkei/files/report_*.md
