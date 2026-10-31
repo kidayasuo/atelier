@@ -258,8 +258,8 @@ def rod(p0, p1, rad, li, col):
         if best is None or dm < best[0]: best = (dm, ex)
     if best is not None: out.Objects.AddExtrusion(best[1], K.attr(li, col))
 # 網の吊り橋はロープで（10-31、ユーザー：ロープの部分をそれらしく）。前は足もと・両脇とも一枚の面。
-#   縁と手すりは太いロープ φ30、足もとと両脇は細いロープ φ14 の網目（約 0.18 角）。垂れは区間ごとのまっすぐな押し出しでつなぐ
-_rp = P['bridge'].get('rope', {'edge_d': 0.030, 'net_d': 0.014, 'mesh': 0.18})
+#   縁と手すりは太いロープ φ30、足もとと両脇は細いロープ φ18（決定事項どおり）の網目（約 0.18 角、3dm の表し方）。垂れは区間ごとのまっすぐな押し出しでつなぐ
+_rp = P['bridge'].get('rope', {'edge_d': 0.030, 'net_d': 0.018, 'mesh': 0.18})
 R_E, R_N = _rp['edge_d'] * 500, _rp['net_d'] * 500
 _NS = 12                                                          # 垂れの区間の数
 def bz(t): return H + (ld['h'] * 1000 - H) * t - 4 * sag * t * (1 - t)
@@ -281,7 +281,7 @@ for j in range(1, _n_l):                                          # 足もとの
 # ---------------------------------------------------------------- 摺鉢ネット
 # ユーザー 10-29：下ほど急、上ほど寝る漏斗（この式のまま）。出口の輪は穴の底のマットの上から 0.5（bottom_h 0.15）
 # 10-31（ユーザー：蟻地獄ネットもロープで）：前は一つの回転体（厚さ 20 の面）。吊り橋と同じ表し方に：
-#   上の縁は φ30 のロープ（鋼の輪の下に沿う）、網は放射のロープと輪のロープ（φ14）。輪は漏斗の面に沿って下ほど密（面に沿った間隔 約0.19×√(r/R)、0.09 以上）、
+#   上の縁は φ30 のロープ（鋼の輪の下に沿う）、網は放射のロープと輪のロープ（φ18、決定事項どおり）。輪は漏斗の面に沿って下ほど密（面に沿った間隔 約0.19×√(r/R)、0.09 以上）、
 #   放射は上で 64 本、輪の上の間隔が 0.12 を切る所で半分に（32・16 本）。輪のロープは小さな円を軸のまわりに回した一つの輪、放射は区間ごとのまっすぐな押し出し
 def _prof(t): return np.array([(nt['bottom_r'] + (nt['ring_r'] - nt['bottom_r']) * t ** 1.6) * 1000, (nt['bottom_h'] + (cw['h'] - nt['bottom_h']) * t) * 1000])
 _RIM = np.array([nt['ring_r'] * 1000 - 15.0, H - 150.0 - 15.0])      # 上の縁のロープ φ30（鋼の輪の下面・内面に沿う）
@@ -293,7 +293,7 @@ def _torus(rr, z, rad, col=_ROPE):
     rv = r.RevSurface.Create(cc, r.Line(r.Point3d(c_net[0], c_net[1], 0.0), r.Point3d(c_net[0], c_net[1], 1000.0)), 0.0, 2 * math.pi)
     out.Objects.AddBrep(r.Brep.CreateFromRevSurface(rv, False, False), K.attr(L_NET, col))
 _ts = np.linspace(0, 1, 2001); _P = np.array([_prof(t) for t in _ts]); _sl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(_P, axis=0), axis=1))]
-_RN = nt.get('rope', {'mesh': 0.19, 'min': 0.09, 'net_d': 0.014, 'rim_d': 0.030})
+_RN = nt.get('rope', {'mesh': 0.19, 'min': 0.09, 'net_d': 0.018, 'rim_d': 0.030})
 _rings = [0.0]                                                       # 輪の位置（面に沿った長さ、出口から）
 while True:
     i_ = np.searchsorted(_sl, _rings[-1]); rr_ = _P[min(i_, len(_P) - 1), 0]
