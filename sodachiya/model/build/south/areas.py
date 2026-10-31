@@ -46,6 +46,14 @@ for o in m.Objects:
     if not len(T): continue
     FP.setdefault(ln, []).append(footprint(T)); FZ[ln] = max(FZ.get(ln, -1e9), float(T[:, :, 2].max()))
 A0 = {k: unary_union(v) for k, v in FP.items()}          # 床の板そのもの
+# 園庭の輪郭（10-31、園庭の係）：地形 90 は溝・小川・滝壺・洲浜で切り欠いてある（溝が地形に隠れていた）。園庭の面積は切り欠きに
+# 左右されないよう、地形に水・雨の川・洲浜の玉石（92・92s・99 の園庭のレイヤー）の投影を足した外形で数える（切り欠く前の地形と同じ範囲）
+GW = []
+for o in m.Objects:
+    ln = LAY[o.Attributes.LayerIndex].Name
+    if re.match(r'^(92|92s|99)_園庭', ln):
+        T = tris(o.Geometry)
+        if len(T): GW.append(unary_union([Polygon(t[:, :2]).buffer(0) for t in T]))
 # 壁（上から見た形）：外壁 17・21、間仕切り 24、しつらえの間仕切りのうち高さ 2 m 以上の 38
 # 壁は、その階の人のいる高さ（床から 2.4 m まで）にあるものだけ（2 階の間仕切りや、すき間の蓋より上の外壁が 1 階の部屋を削らないように）
 WL = []           # (三角形の網, 下端, 上端, 外壁か)
@@ -144,7 +152,7 @@ row('保育', '遊戯室', '240 以上', 240, ('31_',), '2 階のキャットウ
 row('保育', '便所', '適宜', None, ('59_1F_便所（こども）', '59_1F_便所・倉庫'), '3・4 歳と 4・5 歳のあいだ（スパン 14・17）のこどもの便所。路地は廊下として延床だけに数える')
 row('保育', '食堂', '必要に応じて', None, ('34_',), 'ふだんは各保育室で食べる（はれのまは 10-29 に遊戯室の入り口へ、遊戯室に含める）')
 row('保育', '屋外プール', '適宜', None, (), '園庭の水浴び場（φ4.0）で代える（先生の了承）')
-a_g = area(A.get('90_園庭_地形（0.5 m 格子）', Polygon())) if '90_園庭_地形（0.5 m 格子）' in A else S('90_')[0]
+a_g = area(unary_union([g for k, g in A0.items() if k.startswith('90_')] + GW).buffer(1).buffer(-1))   # 1 mm で継ぎ目を閉じる
 mi = json.load(open(os.path.join(DATA, 'minami.json'), encoding='utf-8'))
 a_mi = Polygon(mi['AREA']).area
 ROWS.append(dict(group='保育', room='園庭', required='350 以上', planned=round(a_g + a_mi, 1),
