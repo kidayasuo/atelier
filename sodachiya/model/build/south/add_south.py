@@ -206,12 +206,8 @@ for g,li,z in ((garden.difference(seng),L_g,-300),(porch,L_po,-300)):
         if gg.geom_type=='Polygon': slab(gg.simplify(5),z-10,z,li)
 # 避難の帯（63）は地の板として重ねない（ユーザー 10-29：車の通る帯の青い筋が Rhino・平面図・配置図に残っていた）。帯は62の芝と一続きで、寸法は data/minami.json の EVAC
 slab(seng,-300,-150,L_se)                     # 南の縁側は外（土足）：FL −150
-# 外縁側の最後のスパンをスロープに（FL −150 → GL −300、南へ下がる）
-ramp=quad(RE,191500,TH[18],th19,8)
-def zr(x,y):
-    a=np.arctan2(y-C[1],x-C[0]); a=a if a>0 else a+2*np.pi
-    return -150-150*(a-TH[18])/(th19-TH[18])
-sloped(ramp,60,L_rp,zr)
+# 外縁側の最後のスパンのスロープ（65、FL −150 → GL −300）は 10-31 にやめた（ユーザー：0・1歳の東の縁側ははだし ±0。床は add_floor.py、
+# 南の端は格子の高欄で閉じる。外へは高欄の戸と沓脱ぎ石）。レイヤー 65 は空のまま残す
 # 入口：扉（受け取り土間の南の妻）と背くらべの柱（北山杉 φ200、h=3.0 m）
 d0,d1=P(RK+200,th19),P(RO-300,th19)
 # 10-26夜：受け取り土間の戸は杉の格子戸に（ユーザー）。fix_details.py の「乳児室の南の妻」で作る（ここでは作らない）

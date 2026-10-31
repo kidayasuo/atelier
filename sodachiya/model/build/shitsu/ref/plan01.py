@@ -192,7 +192,7 @@ for vp in [0.4, 1.2]:
 # attic storage above water core (overhead)
 box(9.05, 11.95, 1.65, 4.55, lw=0.5, ls=(0, (6, 2, 1, 2)), fc="none", ec="#8a5a2b", z=7)
 # engawa low gate at the 0-1 / 2 boundary
-box(11.97, 12.03, 12.2, 13.0, lw=0.3, fc="#bbbbbb", z=5); box(11.97, 12.03, 13.9, 14.6, lw=0.3, fc="#bbbbbb", z=5)
+box(11.97, 12.03, 12.2, 13.0, lw=0.3, fc="#bbbbbb", z=5); box(11.97, 12.03, 13.6, 14.9, lw=0.3, fc="#bbbbbb", z=5)   # 低い柵（外縁側は閉じる）
 line([(12.0, 13.0), (12.8, 13.0)], lw=0.4)
 # steps + slide
 box(7.4, 9.9, 9.2, 10.8, fc="white")
@@ -218,8 +218,8 @@ for a, b in railing:
     box(a, b, 14.9, 15.0, lw=0.3, fc="#bbbbbb", z=5)
 for g0, g1 in [(2.2, 3.2), (8.4, 9.4)]:
     line([(g0, 14.95), (g0, 15.95)], lw=0.4)   # gate leaf open
-    box(g0 - 0.2, g1 + 0.2, 15.0, 15.3, lw=0.35, fc="white")   # step 1
-    box(g0 - 0.2, g1 + 0.2, 15.3, 15.6, lw=0.35, fc="white")   # step 2
+    box(g0 - 0.2, g1 + 0.2, 15.0, 15.5, lw=0.35, fc="white")   # 沓脱ぎ石（一つ、上面 −150）
+box(0.0, 0.1, 13.5, 14.9, lw=0.3, fc="#bbbbbb", z=5)   # 外縁側の南の端の格子の高欄
     line([(g0 + 0.1, 15.08), (g1 - 0.1, 15.08)], lw=1.6, c="#7b5ea7", z=6)  # noren at eave edge
 # eave line (overhead)
 line([(0, 15.0), (12, 15.0)], lw=0.3, ls=(0, (6, 3)))
