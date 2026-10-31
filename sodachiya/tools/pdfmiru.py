@@ -10,9 +10,9 @@
                                                           その長方形だけを PNG に（既定 /tmp/claude-0/pdfmiru_*.png、長辺1600px以内）
 
 座標：すべて mm、シート（ページ）の左下が原点、x は右へ、y は上へ。ページ番号は 1 から（既定 1）。
-  moji は同じ行・同じフォント・同じ大きさで続く文字を一つにまとめる（字間が大きさの0.6倍を超えると別）。
+  moji は同じ行・同じフォント・同じ大きさで続く文字を一つにまとめる（PDF の描画順で続き、同じ行・同じ大きさで字間が大きさの0.6倍以内）。
   縦書き・回転した文字は一文字ずつ別になることがある。
-  kasanari は moji と同じまとまりの外接長方形どうしの重なり（0.2 mm 以上）。同じ文字の重ね打ちも出る。
+  kasanari は moji と同じまとまりの外接長方形どうしの重なり（0.2 mm 以上）。同じ位置の同じ文字列（重ね打ち）は数だけ、傾いた文字列は調べない。
 読むだけ。PDF は変わらない。
 """
 import os, subprocess, sys, tempfile
@@ -46,34 +46,36 @@ def parse_box(s):
 
 
 def blocks(page):
-    """文字をまとめて [(text, x0, y0, x1, y1, font, size)]（mm、左下原点）にする。"""
+    """文字をまとめて [(text, x0, y0, x1, y1, font, size, 傾き)]（mm、左下原点）にする。
+    matplotlib は一文字ずつ置くので、PDF に書かれた順で、直前の文字と同じ向き・同じ大きさ（25 %以内）で、\n    その向きの直線上（ずれが大きさの0.35倍以内）に続く（中心間が大きさの1.3倍以内）なら同じ文字列に束ねる。傾いた文字も束ねる。"""
     H = float(page.height)
-    rows = defaultdict(list)
-    for c in page.chars:
-        t = c['text']
-        if not t.strip():
-            continue
-        up = c.get('upright', True)
-        key = (up, c['fontname'], round(c['size'], 1), round(c['bottom'] if up else c['x0'], 0))
-        rows[key].append(c)
+    cs = [c for c in page.chars if c['text'].strip()]
+    groups, cur = [], None
+    for c in cs:
+        m = c.get('matrix') or (1, 0, 0, 1, 0, 0)
+        n = (m[0] ** 2 + m[1] ** 2) ** 0.5 or 1
+        c['_u'] = (m[0] / n, m[1] / n)
+        c['_t'] = abs(c['_u'][1]) > 0.02 or c['_u'][0] < 0
+        if not c.get('upright', True):
+            groups.append([c]); cur = None; continue
+        if cur is not None:
+            p = cur[-1]; sz = c['size']
+            u = c['_u']
+            vx = (c['x0'] + c['x1']) / 2 - (p['x0'] + p['x1']) / 2
+            vy = -((c['top'] + c['bottom']) / 2 - (p['top'] + p['bottom']) / 2)
+            along = vx * u[0] + vy * u[1]
+            perp = vx * u[1] - vy * u[0]
+            if (abs(p['_u'][0] - u[0]) < 0.02 and abs(p['_u'][1] - u[1]) < 0.02
+                    and abs(perp) <= 0.35 * sz and 0 < along <= 1.3 * sz
+                    and abs(p['size'] - sz) <= 0.25 * sz):
+                cur.append(c); continue
+        cur = [c]; groups.append(cur)
     out = []
-    for (up, fn, sz, _), cs in rows.items():
-        cs.sort(key=(lambda c: c['x0']) if up else (lambda c: -c['bottom']))
-        cur = [cs[0]]
-        groups = [cur]
-        for c in cs[1:]:
-            p = cur[-1]
-            gap = c['x0'] - p['x1'] if up else p['top'] - c['bottom']
-            if gap > 0.6 * sz or gap < -sz * 1.5:
-                cur = [c]; groups.append(cur)
-            else:
-                cur.append(c)
-        for g in groups:
-            x0 = min(c['x0'] for c in g); x1 = max(c['x1'] for c in g)
-            t0 = min(c['top'] for c in g); t1 = max(c['bottom'] for c in g)
-            out.append((''.join(c['text'] for c in g), mm(x0), mm(H - t1), mm(x1), mm(H - t0),
-                        fn.split('+')[-1], sz))
-    out.sort(key=lambda b: (-round(b[2]), b[1]))
+    for g in groups:
+        x0 = min(c['x0'] for c in g); x1 = max(c['x1'] for c in g)
+        t0 = min(c['top'] for c in g); t1 = max(c['bottom'] for c in g)
+        out.append((''.join(c['text'] for c in g), mm(x0), mm(H - t1), mm(x1), mm(H - t0),
+                    g[0]['fontname'].split('+')[-1], g[0]['size'], g[0]['_t'] or len(g) == 1 and not g[0].get('upright', True)))
     return out
 
 
@@ -81,12 +83,12 @@ def cmd_moji(pdf, a):
     box = parse_box(a['box']) if a.get('box') else None
     rows = []
     for pn, pg in pages_of(pdf, a):
-        for t, x0, y0, x1, y1, fn, sz in blocks(pg):
+        for t, x0, y0, x1, y1, fn, sz, tilt in blocks(pg):
             if a.get('grep') and a['grep'] not in t:
                 continue
             if box and not (x1 >= box[0] and x0 <= box[2] and y1 >= box[1] and y0 <= box[3]):
                 continue
-            rows.append(f"p{pn} ({x0:.1f},{y0:.1f})-({x1:.1f},{y1:.1f}) {fn} {sz:.1f}pt 「{t}」")
+            rows.append(f"p{pn} ({x0:.1f},{y0:.1f})-({x1:.1f},{y1:.1f}) {fn} {sz:.1f}pt{' 傾き' if tilt else ''} 「{t}」")
     print('\n'.join(rows[:CAP]))
     print(f"全部で {len(rows)} 件" + (f"（残り {len(rows) - CAP} 件は省略。--grep か --box で絞る）" if len(rows) > CAP else ''))
 
@@ -131,9 +133,11 @@ def cmd_font(pdf, a):
 
 
 def cmd_kasanari(pdf, a):
-    rows = []
+    rows = []; dup = tilt = 0
     for pn, pg in pages_of(pdf, a):
-        bs = blocks(pg)
+        allb = blocks(pg)
+        bs = [b for b in allb if not b[7]]
+        tilt += len(allb) - len(bs)
         bs.sort(key=lambda b: b[1])
         for i, p in enumerate(bs):
             for q in bs[i + 1:]:
@@ -141,11 +145,14 @@ def cmd_kasanari(pdf, a):
                     break
                 ox = min(p[3], q[3]) - max(p[1], q[1]); oy = min(p[4], q[4]) - max(p[2], q[2])
                 if ox > 0.2 and oy > 0.2:
+                    if p[0] == q[0] and abs(p[1] - q[1]) < 0.3 and abs(p[2] - q[2]) < 0.3:
+                        dup += 1; continue
                     rows.append((ox * oy, f"p{pn} 「{p[0][:20]}」({p[1]:.1f},{p[2]:.1f})-({p[3]:.1f},{p[4]:.1f}) × "
                                  f"「{q[0][:20]}」({q[1]:.1f},{q[2]:.1f})-({q[3]:.1f},{q[4]:.1f}) 重なり {ox:.1f}×{oy:.1f}mm"))
     rows.sort(key=lambda r: -r[0])
     print('\n'.join(r[1] for r in rows[:CAP]))
-    print(f"重なり {len(rows)} 組" + (f"（大きい順に {CAP} 組まで）" if len(rows) > CAP else ''))
+    print(f"重なり {len(rows)} 組" + (f"（大きい順に {CAP} 組まで）" if len(rows) > CAP else '')
+          + f"。ほかに同じ文字列の重ね打ち {dup} 組（除く）、傾いた文字列 {tilt} 個（箱が粗いので調べていない。moji で見る）")
 
 
 def cmd_kiri(pdf, a):
