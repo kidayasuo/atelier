@@ -154,20 +154,85 @@ def rect(c, l, w, rot):
 
 
 # ---- 90 地形（0.5 m の格子、園庭の中だけ） ----
+# 10-31（ユーザー：雨落ちがモデルにない）：溝・池・洲浜の上を地形が覆っていた。小川と雨の川の溝（岸の縁まで）・滝壺・雨庭（洲浜）の形で
+# 地形を切り欠く。切り欠きにかかる格子の目は、残りを三角形で埋める（縁の点は溝の岸・洲浜の縁と同じ点、高さは地面）
+from shapely import constrained_delaunay_triangles as _cdt0
+from shapely.ops import unary_union as _uu0
+from shapely.geometry import box as _box0
+
+
+def _lip_strip(cl, half):
+    """trough と同じ岸の縁（中心線から ±half）の点で、溝を囲む多角形"""
+    L_, R_ = [], []
+    for i, (a, d, _z) in enumerate(cl):
+        j = min(i + 1, len(cl) - 1); h = max(i - 1, 0)
+        ta, td = cl[j][0] - cl[h][0], cl[j][1] - cl[h][1]; ln = math.hypot(ta, td) or 1
+        na, nd = -td / ln, ta / ln
+        L_.append((a - na * half, d - nd * half)); R_.append((a + na * half, d + nd * half))
+    return Polygon(L_ + R_[::-1]).buffer(0)
+
+
+def _rain_cl():
+    am_ = G["AMAOCHI"]; out = []
+    for u in np.linspace(am_["u"][1], am_["u"][0], 140):
+        a, d = gc.AD(*gc.UV(u, G["EDGE_V"])); out.append((a, d, H(a, d) - am_["depth"]))
+    for (a0_, d0_), (a1_, d1_) in zip(am_["outlet"][:-1], am_["outlet"][1:]):
+        for t in np.linspace(0, 1, 8)[1:]:
+            a, d = a0_ + (a1_ - a0_) * t, d0_ + (d1_ - d0_) * t; out.append((a, d, H(a, d) - am_["depth"]))
+    return out
+
+
+def _aw_ring():
+    _pg = Polygon(G["AMANIWA"]["poly"]).buffer(0); _bd = list(_pg.exterior.coords)[:-1]; out = []
+    for (a0_, d0_), (a1_, d1_) in zip(_bd, _bd[1:] + _bd[:1]):
+        n_ = max(1, int(math.ceil(math.hypot(a1_ - a0_, d1_ - d0_) / 0.3)))
+        out += [(a0_ + (a1_ - a0_) * t / n_, d0_ + (d1_ - d0_) * t / n_) for t in range(n_)]
+    return out
+
+
+_holes = [_lip_strip(gc.stream_bed(240), 0.25 + 0.05), _lip_strip(_rain_cl(), G["AMAOCHI"]["w"] / 2 + 0.05)]
+_fl = G["STREAM"].get("fall")
+if _fl:
+    _pc = _fl["pool"]
+    _holes.append(Polygon([(_pc["c"][0] + _pc["r"] * math.cos(q), _pc["c"][1] + _pc["r"] * math.sin(q)) for q in np.linspace(0, 2 * math.pi, 33)[:-1]]))
+if G.get("AMANIWA"):
+    _holes.append(Polygon(_aw_ring()).buffer(0))
+HOLES = _uu0(_holes)
 gpoly = Polygon([gc.AD(*p) for p in gc.garden_poly().exterior.coords])
 S = 0.5
 A = np.arange(12.0, 56.01, S); D = np.arange(0.0, 36.01, S)
-mesh = r.Mesh(); idx = {}
+mesh = r.Mesh(); idx = {}; _vk = {}
+
+
+def _tv(a, d):
+    k_ = (round(a, 5), round(d, 5))
+    if k_ not in _vk:
+        p = P3(a, d); _vk[k_] = mesh.Vertices.Add(p.X, p.Y, p.Z)
+    return _vk[k_]
+
+
 for i, a in enumerate(A):
     for j, d in enumerate(D):
         if gpoly.buffer(0.6).contains(Point(a, d)):
-            p = P3(a, d); idx[(i, j)] = mesh.Vertices.Add(p.X, p.Y, p.Z)
+            idx[(i, j)] = _tv(a, d)
+_cut = []
 for (i, j), v in idx.items():
     q = [(i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1)]
     if all(k in idx for k in q):
-        mesh.Faces.AddFace(*[idx[k] for k in q])
+        cell = _box0(A[i], D[j], A[i] + S, D[j] + S)
+        if cell.intersects(HOLES):
+            _cut.append(cell)
+        else:
+            mesh.Faces.AddFace(*[idx[k] for k in q])
+_rest = _uu0(_cut).difference(HOLES)
+for _pp in getattr(_rest, "geoms", [_rest]):
+    if _pp.geom_type != "Polygon" or _pp.area < 1e-6:
+        continue
+    for t_ in _cdt0(_pp).geoms:
+        c3 = list(t_.exterior.coords)[:3]
+        mesh.Faces.AddFace(*[_tv(*c_) for c_ in c3])
 mesh.Normals.ComputeNormals(); mesh.Compact()
-m.Objects.AddMesh(mesh, at(90, "園庭の地形（GL からの起伏）"))
+m.Objects.AddMesh(mesh, at(90, "園庭の地形（GL からの起伏、溝・滝壺・洲浜は切り欠く）"))
 
 # ---- 91 等高線 ----
 STEP = 0.1
@@ -268,6 +333,16 @@ if FL:
     for i in range(1, 33):
         disk.Faces.AddFace(0, i, i + 1)
     disk.Normals.ComputeNormals(); m.Objects.AddMesh(disk, at(92, "滝壺の水面（φ1.0、深さ 0.15）"))
+    # 10-31：地形を切り欠いたので、滝壺の器（地面の縁から底まで の壁と、底）を足す
+    bas = r.Mesh(); _n = 32
+    for q in np.linspace(0, 2 * math.pi, _n + 1)[:-1]:
+        ea, ed = pa + pc["r"] * math.cos(q), pd + pc["r"] * math.sin(q)
+        v1 = P3(ea, ed); v2 = P3(ea, ed, pc["bed"]); bas.Vertices.Add(v1.X, v1.Y, v1.Z); bas.Vertices.Add(v2.X, v2.Y, v2.Z)
+    cb = P3(pa, pd, pc["bed"]); ic = bas.Vertices.Add(cb.X, cb.Y, cb.Z)
+    for k_ in range(_n):
+        k1 = (k_ + 1) % _n
+        bas.Faces.AddFace(2 * k_, 2 * k1, 2 * k1 + 1, 2 * k_ + 1); bas.Faces.AddFace(2 * k_ + 1, 2 * k1 + 1, ic)
+    bas.Normals.ComputeNormals(); m.Objects.AddMesh(bas, at(92, "滝壺（φ1.0、石組みの器）"))
     curve_ad(ell((pa, pd), (pc["r"], pc["r"])), "90l", "滝壺（輪郭）", close=True)
 curve_ad(s["culvert"], "90l", "暗渠（用水路→みなもと、道すじ）", z=-0.6, drape=False)
 am = G["AMAOCHI"]
