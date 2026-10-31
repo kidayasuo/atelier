@@ -74,7 +74,8 @@ def sector_mesh(r0,r1,zf0,zf1,li,a0=None,a1=None,n=80):
     for a_,b_,c_ in T_.faces: M.Faces.AddFace(int(a_),int(b_),int(c_))
     M.Normals.ComputeNormals(); M.Compact(); m.Objects.AddMesh(M,attr(li))
 # --- 本館と西館のすき間の蓋（本館の蓋を西館の壁まで延ばす） ---
-L_gap=layer('50d_本館_すき間の蓋（西館まで）',(127,179,213))
+# 10-31（本館係の項 20261031-1149、ユーザー）：すき間の蓋のガラスは型板ガラス（光の筋・棟の帯と同じ材＝20t）、上に本館の越屋根と同じルーバー
+L_gap=layer('20t_西館_光の筋（乳白ガラス、架構の線）',(225,236,242))
 def zlid_main(x,y): return ztop(rr_of(x,y))+CURB+GAP+GT
 a_e=[math.atan2(p[1]-C[1],p[0]-C[0])%(2*math.pi) for p,u in edge[1:-1]]
 r_e=[np.linalg.norm(p-C) for p,u in edge[1:-1]]
@@ -83,6 +84,16 @@ gp=Polygon(pts).buffer(0)
 # 弧に沿う帯で、上の面が本館の蓋の面にちょうど沿うように（前は外形を earcut で三角に分けて、長い弦の所で面が盛り上がっていた、10-25）
 _zl=lambda rr: ztop(rr)+CURB+GAP+GT
 if gp.area>0: sector_mesh(RW+OVH,R0+20,lambda rr:_zl(rr)-GT,_zl,L_gap,a0=min(a_e),a1=max(a_e))
+# ルーバー：本館の越屋根の羽根（add_south.py：幅 120・ピッチ 104・水平に 30° で東が高い・厚さ 18、羽根の下の縁は蓋の上 10）の並びを、
+#   同じ高さの式（蓋の上面 ztop(r)＋CURB＋GAP＋GT）・同じピッチのまま西へ続けて、すき間の蓋の上に（本館の越屋根 → すき間の蓋 → 西館の棟の帯の向きとピッチがそろう）
+L_glv=layer('30_西館_棟のガラスの帯_日よけのルーバー（白の艶消し）',(236,232,222))
+_rw=RW+OVH-20+PITCH; _nlv=0
+while _rw<=R0+20-1.0:
+    _re=_rw-W_*math.cos(ANG)
+    if _re>=RW+OVH-21.0:
+        sector_mesh(_re,_rw,lambda rr,rw=_rw:_zl(rr)+10+(rw-rr)*math.tan(ANG),lambda rr,rw=_rw:_zl(rr)+28+(rw-rr)*math.tan(ANG),L_glv,a0=min(a_e),a1=max(a_e)); _nlv+=1
+    _rw+=PITCH
+print('gap lid louvers',_nlv)
 # --- シーリングファン：西吹き抜けの各スパン中央に 1 台（羽根 φ1100、羽根の高さ 2.8 m） ---
 L_fan=layer('58_1F_西吹き抜け_シーリングファン',(90,90,90))
 rf=(RK+RW)/2
