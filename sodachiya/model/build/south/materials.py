@@ -144,6 +144,8 @@ TEX = {}                                                           # 種類 → 
 TEX_DIRS = SPEC.get('texture_dir', [])
 SKIN_LAYER = '床の絵（テクスチャを貼った板、materials.py が作り直しのたびに）'
 SKIN_OFF = 1.0                                                     # 床の上面から
+SKIN_ON = False                                                    # 10-31 ユーザー：重ねた板はやめる（三角形の線が見え、床が平らでないように見えた）。
+                                                                   # Rhino 版の床は絵なしの同じ色、絵は Rhino の後処理 post_process.py で立体に直接マッピング
 SKINS = []                                                         # メッシュの版から写す板：(メッシュ, 素材の名前, もとのレイヤー)
 PLAIN = '（絵なし）'
 
@@ -264,7 +266,7 @@ def add_skins(m, mat_index):
     """Rhino 版に、メッシュの版から写した絵の板を足す（前の板は消してから）→ 板の数"""
     for o in [o for o in m.Objects if o.Attributes.GetUserString('tex_of')]:
         m.Objects.Delete(o.Attributes.Id)
-    if not SKINS: return 0
+    if not SKINS or not SKIN_ON: return 0
     li = next((i for i, L in enumerate(m.Layers) if L.Name == SKIN_LAYER), None)
     if li is None:
         L = r.Layer(); L.Name = SKIN_LAYER; L.Color = (212, 178, 132, 255); li = m.Layers.Add(L)
