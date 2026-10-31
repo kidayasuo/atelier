@@ -1,6 +1,6 @@
 """園庭（だいさんかく・しずかのもり）のたたき台  配置 1/200＋断面 1/100（A2 縦）
 読むもの：data/garden.json（園庭の寸法）、model/sodachiya_exact_mesh.3dm（敷地・建物）
-出すもの：out/sodachiya_garden_01.pdf / .png（出力先は環境変数 OUT で変えられる）
+出すもの：out/sodachiya_garden_01.pdf（確かめ用の PNG は /tmp/claude-0/。出力先は環境変数 OUT で変えられる）
 """
 import math, os, json
 import numpy as np
@@ -761,6 +761,7 @@ for t in _KEEP:
     _yb += 0.6
 print("bottom_end_mm", round(_yb))
 fig.savefig(os.path.join(OUT, "sodachiya_garden_01.pdf"))
-fig.savefig(os.path.join(OUT, "sodachiya_garden_01.png"), dpi=110)
+os.makedirs("/tmp/claude-0", exist_ok=True)
+fig.savefig("/tmp/claude-0/sodachiya_garden_01.png", dpi=110)   # 確かめ用の PNG はリポジトリの外へ（10-31 karuku.md：図はPDFだけ）
 import json as _j
 print(_j.dumps({k: round(v, 1) if isinstance(v, float) else v for k, v in NUM.items()}, ensure_ascii=False))
