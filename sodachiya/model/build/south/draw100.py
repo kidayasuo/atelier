@@ -266,7 +266,7 @@ DL = {
 PT2MM = 0.3528   # 1 pt = 0.3528 mm（紙の上）
 # 文字の層（…_文字.pdf）に残すレイヤー（注記）。ほかのレイヤーの線と塗り（建物の線）は消す。字・通り芯の丸の白・縮尺の帯・凡例の色の四角
 # （ax.add_patch で直に足す物）はいつも残す。階段の矢印・破断線、GL の線は annot=True で残す
-ANNOT_LAYERS = {'40_通り芯', '41_通り芯の符号', '45_換気', '45_吹抜', '50_寸法', '51_高さ', '60_部屋名・面積', '70_断面の位置',
+ANNOT_LAYERS = {'40_通り芯', '41_通り芯の符号', '45_換気', '45_吹抜', '45_避難', '50_寸法', '51_高さ', '60_部屋名・面積', '70_断面の位置',
                 '80_図名・縮尺・方位', '81_注', '90_図枠'}
 
 # JIS の製図（JIS A 0150 建築製図通則、学生の課題の範囲、ユーザー 10-28）：
@@ -692,7 +692,7 @@ def draw_visible(A, items, occ):
     return occ
 
 # ---------------------------------------------------------------- 平面
-UP_DASH = r'^(23|28|30|50a|50c|51w|82|83)_'
+UP_DASH = r'^(23|27f|28|30|50a|50c|51w|82|83)_'
 UP_LIGHT = r'^(10t|20t)_'                     # 光の筋：切断より上なら想像線
 ROOM_RE = r'^(3[1-4]|36|4[1-5]|5[2-47]|59)[a-z]?_'     # 部屋の色の板（床の面積の板）
 CUT1, FL2 = 1500, 3250                        # 1 階は FL+1500 で切る（10-27 監修）、2 階の床の高さ
@@ -965,6 +965,15 @@ def plan(A, zcut, objs, overhead, level_z, rooms_also=(), void_shift=None):
         cd = (far - hp) / max(np.linalg.norm(far - hp), 1e-6)
         cd = cd - od * (cd @ od); cd = cd / max(np.linalg.norm(cd), 1e-6)
         swing_door(hp, cd, od, Wd - 10)
+        if '避難の戸' in ob['name']:             # 2階の避難の戸（休憩室の南の妻）と収納箱の注記（10-31、西館係の項 20261030-1631-2）：室内側に字と引き出し線
+            ctr = hp + cd * (Wd / 2); inn = -od
+            A.lines([[ctr, ctr + inn * 900]], '45_避難', lw=0.1, z=9, annot=True)
+            A.text(*(ctr + inn * 1150), '避難の戸', PT_NOTE, '45_避難', box=True)
+            for bx_ in objs:
+                if bx_['layer'].startswith('37') and '避難はしご' in bx_.get('name', ''):
+                    bc = ctr + (np.array(silhouette(bx_['T'][:, :, :2]).centroid.coords[0]) - np.array(silhouette(ob['T'][:, :, :2]).centroid.coords[0]))   # 戸の中心からの差（戸と箱は同じ座標系の物）
+                    A.lines([[bc, bc + inn * 1500]], '45_避難', lw=0.1, z=9, annot=True)
+                    A.text(*(bc + inn * 1750), '避難はしご', PT_NOTE, '45_避難', box=True)
     # 機械室の両開きの戸（外開き）：扉ごとに、外の端を吊元に、機械室の外へ 90° 開いた形と弧
     if swings2:
         mach = [silhouette(ob['T'][:, :, :2]) for ob in OBJ if re.match(r'^35_', ob['layer'])]
