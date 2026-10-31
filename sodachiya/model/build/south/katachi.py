@@ -15,6 +15,7 @@
   K.add(m, K.oshidashi(outer, holes, O, X, Y, h), li)       平らな輪郭（O・X・Y の面の 2 次元の点）を面に直角に h だけ
   K.add(m, K.enchu(p0, p1, rad), li)                        円柱（管は rin を付ける）
   K.add(m, K.enko(c, r0, r1, a0, a1, z0, z1), li)           円弧の帯（中心 c、半径 r0〜r1、角度 a0〜a1 度）を z0〜z1 に
+  K.add(m, K.tama(c, rx, ry, rz, rot), li)                  楕円体（玉石など。中心 c、半径 rx・ry・rz、z まわりに rot 度、一枚の閉じた面の Brep）
   メッシュが要る段（頂点を動かす・manifold で削る）には K.mesh(g)（閉じた網。段10で同じ押し出しに戻る）。
 作れないとき（輪郭が閉じない・長さ 0）は ValueError。黙って網にしない。
 """
@@ -154,6 +155,20 @@ def ita(poly, z0, z1, simplify=0.5):
     return out
 
 
+def tama(c, rx, ry, rz, rot=0.0):
+    """楕円体（一枚の閉じた面の Brep）。球の NURBS 面の制御点を軸ごとに縮める（rhino3dm の Brep.Transform は不等な縮尺が効かない）"""
+    if min(rx, ry, rz) <= 0: raise ValueError('半径が 0 以下')
+    ns = r.Sphere(r.Point3d(0, 0, 0), 1.0).ToNurbsSurface(); P = ns.Points
+    for i in range(P.CountU):
+        for j in range(P.CountV):
+            p = P[i, j]; P[i, j] = r.Point4d(p.X * rx, p.Y * ry, p.Z * rz, p.W)
+    ns.Transform(r.Transform.Rotation(math.radians(rot), r.Vector3d(0, 0, 1), r.Point3d(0, 0, 0)))
+    ns.Transform(r.Transform.Translation(_V(c)))
+    b = r.Brep.CreateFromSurface(ns)
+    if b is None: raise ValueError('楕円体を作れない')
+    return b
+
+
 def mesh(g):
     """押し出し→閉じた三角形の網（頂点を動かす段・manifold で削る段のため）。段10で同じ押し出しに戻る"""
     import solids
@@ -162,7 +177,7 @@ def mesh(g):
 
 
 def add(m, g, li, col=None, name=None):
-    """モデル m のレイヤー li に入れる（g は押し出し・その並び・メッシュ）。col は (r, g, b)"""
+    """モデル m のレイヤー li に入れる（g は押し出し・Brep・その並び・メッシュ）。col は (r, g, b)"""
     if isinstance(g, (list, tuple)):
         for x in g: add(m, x, li, col, name)
         return
@@ -172,4 +187,5 @@ def add(m, g, li, col=None, name=None):
     if name: a.Name = name
     if isinstance(g, r.Extrusion): m.Objects.AddExtrusion(g, a)
     elif isinstance(g, r.Mesh): g.Normals.ComputeNormals(); g.Compact(); m.Objects.AddMesh(g, a)
+    elif isinstance(g, r.Brep): m.Objects.AddBrep(g, a)
     else: m.Objects.Add(g, a)
