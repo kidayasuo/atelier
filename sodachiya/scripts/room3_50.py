@@ -156,7 +156,7 @@ T(axP, 3.7, 38.78, 'KAPLAの箱', 5.2, c=ACC)   # 10-31：デンの口の脇
 for _R, _ls in ((0.85, '-'), (0.5, (0, (2, 1.5)))):
     _a = np.linspace(0, 2 * np.pi, 11)
     line(axP, np.c_[7.5 + _R * np.sin(_a), 36.0 + _R * np.cos(_a)], lw=0.35, c=ACC, ls=_ls, z=7)
-T(axP, 7.5, 36.0, 'あつまりの浅い鉢\nφ2.4・縁h250・コルク', 5.2, ha='center', c=ACC)
+T(axP, 7.5, 36.5, 'あつまりの浅い鉢\nφ2.4・縁h250・コルク', 5.2, ha='center', c=ACC)
 T(axP, 6.1, 34.0, '先生の席（巣Aの南の壁）', 6, c=ACC)
 # 区域の名前
 area = lambda g: g.area
