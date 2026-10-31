@@ -1,3 +1,5 @@
 .Ulysses-*
 .DS_Store
 *.aibak
+__pycache__/
+*.pyc
