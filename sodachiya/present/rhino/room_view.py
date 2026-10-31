@@ -58,6 +58,11 @@ ROOMS = [
     (u"room_hayashi", u"room_hayashi＝ホールの北山杉の林", (21.0, 30.0), (1.6, 15.0), u"S"),
     (u"room_funsui", u"room_funsui＝水遊び場（床の噴水、3歳の外縁側の前）", (30.8, 37.2), (13.0, 21.2), u""),
 ]
+# 目の高さの視点（ユーザー 10-31：水遊び場と切り株は子どもの目、キャットウォークは2階の会議室から）。
+# (カメラ u, v, z ／ 見る点 u, v, z ／ レンズ mm)。z は FL からの mm（園庭は GL−300、子どもの目 約0.9 m）
+EYE = {u"room_funsui": ((34.0, 23.2, 600.0), (34.0, 17.8, 350.0), 28.0),       # 園庭の側から噴水と3歳の外縁側を見る
+       u"room_kirikabu": ((35.2, -11.6, 900.0), (32.0, -8.5, 1300.0), 24.0),   # やわらかい床の縁から切り株を見上げる
+       u"room_catwalk": ((31.9, -7.8, 4700.0), (41.8, -4.2, 2900.0), 24.0)}    # 2階の会議室の室内窓（u33、腰4.1）の手前から、立った大人の目
 # 部屋ごとの上の切断の高さ（床から mm）。無ければ CUT
 ROOM_CUT = {u"room_kirikabu": 3300.0,            # 切り株の高さ3.1、2階の床（隠す）の下まで
             u"room_catwalk": 4500.0,             # キャットウォーク h3.0＋柵1.1
@@ -197,6 +202,24 @@ def set_view(vp, U, V):
     return tgt, cam
 
 
+def set_eye(vp, name):
+    """EYE の目の高さの視点（2点透視にはしない）"""
+    (cu, cv, cz), (tu, tv, tz), lens = EYE[name]
+    c_, t_ = xy(cu, cv), xy(tu, tv)
+    cam, tgt = G.Point3d(c_[0], c_[1], cz), G.Point3d(t_[0], t_[1], tz)
+    vp.ChangeToPerspectiveProjection(True, lens)
+    vp.SetCameraLocations(tgt, cam)
+    try:
+        vp.CameraUp = G.Vector3d(0, 0, 1)
+    except Exception:
+        pass
+    try:
+        vp.Camera35mmLensLength = lens
+    except Exception:
+        pass
+    return tgt, cam
+
+
 def add_clips(doc, vp, name, U, V, near, flip):
     """四方の垂直の面（内向き）と上の水平の面。法線の側が見える（と見込む。逆なら flip）"""
     s = -1.0 if flip else 1.0
@@ -287,15 +310,22 @@ def main():
         return
     name, _, U, V, near = [r_ for r_ in ROOMS if r_[1] == got][0]
     how = rs.ListBox([u"クリッピング平面で切る（ふつう）", u"壁のレイヤーを隠す（クリッピング平面がレンダリングに出ないとき）",
-                      u"ビューだけ（切らない・隠さない）"],
+                      u"ビューだけ（切らない・隠さない）", u"目の高さの視点（切らない・隠さない。水遊び場・切り株・キャットウォーク）"],
                      u"切り方", u"部屋の切断", u"クリッピング平面で切る（ふつう）")
     if how is None:
         return
     st = restore(doc, st)                               # 前の部屋の分は戻してから
     view = doc.Views.ActiveView
     vp = view.ActiveViewport
-    tgt, cam = set_view(vp, U, V)
-    if not how.startswith(u"ビュー"):                     # 10-31（ユーザー）：ビューだけのときは隠さず切らない
+    if how.startswith(u"目の高さ"):
+        if name not in EYE:
+            say(u"この部屋には目の高さの視点が無い（EYE）。ビューだけにする")
+            tgt, cam = set_view(vp, U, V)
+        else:
+            tgt, cam = set_eye(vp, name)
+    else:
+        tgt, cam = set_view(vp, U, V)
+    if not (how.startswith(u"ビュー") or how.startswith(u"目の高さ")):                     # 10-31（ユーザー）：ビューだけのときは隠さず切らない
         prefixes = HIDE + (HIDE_WALLS if how.startswith(u"壁") else ())
         st = hide_layers(doc, prefixes, st)
     if how.startswith(u"クリッピング"):

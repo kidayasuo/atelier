@@ -42,6 +42,9 @@ CONTEXT_COLOR = System.Drawing.Color.FromArgb(0xD9, 0xD6, 0xCF)  # 周りの建�
 CONTEXT_LAYER = u"04_周辺_建物"
 WATER_KEY = u"噴水の水"                        # 床の噴水の水のレイヤー（名前にこの語、ふだん非表示、園庭係）。昼の絵で表示する
 WATER_ALWAYS = (u"room_funsui",)              # 夜でも表示する名前
+WATER_COLOR = System.Drawing.Color.FromArgb(236, 244, 248)    # 噴水の水の絵の材料：ほぼ白の淡い水色、透けて光る（10-31、鉄の棒のようだった）
+WATER_TRANSPARENCY = 0.85                       # 透け（0〜1）。見えなければ 0.7、濃ければ 0.92
+WATER_IOR = 1.33
 TRANSPARENT_DAY = ("keikan",)                   # 昼の背景を透明にする名前（mock.py が空を塗る）。ほかは淡い空で不透明
 
 # 教室・居場所（room_）の昼の光（ユーザー 10-31：太陽が屋根の無い上から差して、本来ない影ができる）
@@ -661,6 +664,7 @@ def run(mode):
                 l_.IsVisible = True
                 doc.Layers.Modify(l_, l_.Index, True)
             n_w += 1
+    water_layers = [l_.Index for l_ in doc.Layers if WATER_KEY in l_.Name]
     say(u"噴水の水のレイヤー：", n_w)
 
     # 1）材料の無いレイヤーに、レイヤーの色の材料を当てる（周りの建物は淡い灰）
@@ -687,10 +691,36 @@ def run(mode):
         layer_old.append((lay.Index, lay.RenderMaterialIndex))
         lay.RenderMaterialIndex = k_
         doc.Layers.Modify(lay, lay.Index, True)
+    old_attr = []
+    # 1b）噴水の水：透けて光る水の材料を一時的に（3dm の「水」は濃い色で不透明に見えた）
+    for li_ in water_layers:
+        try:
+            lay = doc.Layers[li_]
+            m_ = Rhino.DocObjects.Material()
+            m_.Name = u"作業_レンダ_噴水の水"
+            m_.DiffuseColor = WATER_COLOR
+            m_.Transparency = WATER_TRANSPARENCY
+            m_.IndexOfRefraction = WATER_IOR
+            m_.Reflectivity = 0.3
+            m_.Shine = Rhino.DocObjects.Material.MaxShine * 0.9
+            k_ = doc.Materials.Add(m_)
+            added_mats.append(k_)
+            if not any(i_ == lay.Index for i_, _ in layer_old):      # 1）で当てた物があれば、元の値は 1）の記録で戻る
+                layer_old.append((lay.Index, lay.RenderMaterialIndex))
+            lay.RenderMaterialIndex = k_
+            doc.Layers.Modify(lay, lay.Index, True)
+            for o in doc.Objects.FindByLayer(lay) or []:
+                if o.Attributes.MaterialSource != Rhino.DocObjects.ObjectMaterialSource.MaterialFromLayer:
+                    at_ = o.Attributes.Duplicate()
+                    old_attr.append((o.Id, o.Attributes.Duplicate()))
+                    at_.MaterialSource = Rhino.DocObjects.ObjectMaterialSource.MaterialFromLayer
+                    doc.Objects.ModifyAttributes(o.Id, at_, True)
+        except Exception as e:
+            say(u"  噴水の水の材料：効かなかった", e)
     say(u"材料を当てたレイヤー：", len(layer_old))
 
     # 2）夜の LED：光る材料（RenderMaterial）と、レイヤーごとに1本の線の光源
-    led_objs, old_attr, led_lights, led_rm, led_layers = [], [], [], None, []
+    led_objs, led_lights, led_rm, led_layers = [], [], None, []
     sky_old = sky_get()
     if mode == "yoru":
         led_layers = [lay for lay in doc.Layers if _is_led(lay.Name)]
