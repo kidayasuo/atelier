@@ -111,6 +111,7 @@ if GF and os.path.exists(GF):
     for i, l in enumerate(g3.Layers):
         nl = r.Layer(); nl.Name = l.Name; nl.Color = l.Color
         if l.Name.startswith('98_'): nl.Visible = False             # 模型の積層用の板はふだん隠す
+        if not l.Visible: nl.Visible = False                         # 園庭の取り込み用ファイルで非表示のレイヤー（92f 床の噴水の水、10-31 園庭）はそのまま隠す
         mp[i] = m.Layers.Add(nl)
     cnt = 0
     for o in g3.Objects:

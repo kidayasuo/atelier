@@ -584,6 +584,52 @@ if GN:
 curve_ad(G["VEHICLE"]["line"], "90l", "剪定・搬入の車の道（道すじ、芝の保護材、幅2.5）")
 # 10-31：のぞきの生垣はやめた（柵ぎわ約1 mには踏み台になる物を置かない）
 
+# ---- 92f 床の噴水の水（10-31、プレゼンの準備の項 20261031-1541-present：水遊び場の絵で噴き上がる水を見せる） ----
+# ふだんは非表示（コットと同じ：レイヤーを Visible=False で作る。図・配置図・模型は非表示のレイヤーを読まない）。
+# 名前に「噴水の水」（プレゼンの render_common.py がこの語で昼の絵だけ点ける）。形は katachi の円柱（押し出し）
+import sys as _sys
+_sys.path.insert(0, os.path.join(gc.ROOT, "model", "build", "south"))
+import katachi as KT
+_lw = r.Layer(); _lw.Name = "92f_園庭_床の噴水の水（噴き上がる水・雨のカーテン・泡・霧。ふだん非表示、絵のときだけ）"
+_lw.Color = (150, 200, 230, 255); _lw.Visible = False; LAY["92f"] = m.Layers.Add(_lw)
+
+
+def _w3(a, d, z):
+    q = P3(a, d, z); return (q.X, q.Y, q.Z)
+
+
+_rng = np.random.default_rng(31)
+# 3〜5歳の床の噴水：噴き口ごとに細い水の柱（高さ 0.6〜1.2 m で揺らす。決まりの高さは無いので絵のため）
+_ca, _sa = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
+_rpost = G["SHOWER"].get("ring", {}).get("posts", [G["SHOWER"]["c"]])
+_nf = 0
+for i_ in np.arange(-F["r"][0], F["r"][0] + 0.01, F["jets"][0]):
+    for j_ in np.arange(-F["r"][1], F["r"][1] + 0.01, F["jets"][1]):
+        if (i_ / (F["r"][0] - 0.4)) ** 2 + (j_ / (F["r"][1] - 0.4)) ** 2 <= 1:
+            q = (F["c"][0] + i_ * _ca - j_ * _sa, F["c"][1] + i_ * _sa + j_ * _ca)
+            if min(math.hypot(q[0] - p_[0], q[1] - p_[1]) for p_ in _rpost) < 0.3: continue
+            hj = float(_rng.uniform(0.6, 1.2))
+            KT.add(m, KT.enchu(_w3(*q, _fz), _w3(*q, _fz + hj), 25.0), LAY["92f"], name=f"床の噴水の水の柱 h{hj:.2f}"); _nf += 1
+# あめのわの雨のカーテン：輪の 48 の噴き口から床まで、細い線状の水の柱
+_rg = G["SHOWER"]["ring"]; _zr = H(*_rg["c"]) + _rg["h"]
+for k_ in range(_rg["n"]):
+    q_ = 2 * math.pi * k_ / _rg["n"]
+    a_, d_ = _rg["c"][0] + _rg["r"] * math.cos(q_), _rg["c"][1] + _rg["r"] * math.sin(q_)
+    KT.add(m, KT.enchu(_w3(a_, d_, _fz), _w3(a_, d_, _zr - 0.03), 8.0), LAY["92f"], name="あめのわの雨のカーテン（線状の水）")
+# 0〜2歳の床の噴水：噴き口ごとに低い泡（高さ 0.10〜0.20、低い円柱）と、霧のわの下の薄い円筒の霧
+_ns = 0
+if _js := SP.get("jets", 0):
+    for ja in np.arange(-SP["r"][0], SP["r"][0] + 0.01, _js):
+        for jd in np.arange(-SP["r"][0], SP["r"][0] + 0.01, _js):
+            if math.hypot(ja, jd) < SP["r"][0] - 0.3:
+                hb = float(_rng.uniform(0.10, 0.20)); a_, d_ = SP["c"][0] + ja, SP["c"][1] + jd
+                KT.add(m, KT.enchu(_w3(a_, d_, _sz), _w3(a_, d_, _sz + hb), 90.0), LAY["92f"], name=f"乳児の床の噴水の泡 h{hb:.2f}"); _ns += 1
+if SP.get("mist"):
+    _ms = SP["mist"]
+    KT.add(m, KT.enchu(_w3(*SP["c"], _sz), _w3(*SP["c"], H(*SP["c"]) + _ms["h"] - 0.03), _ms["r"] * 1000, _ms["r"] * 1000 - 30.0),
+           LAY["92f"], name="霧のわの霧（薄い円筒）")
+print("噴水の水", _nf, "本・雨のカーテン", _rg["n"], "本・泡", _ns)
+
 out = os.path.join(gc.ROOT, "model", "sodachiya_garden_layers.3dm")
 m.Write(out, 7)
 print("wrote", out, "contours", nc, "plates", npl, "trees", len(G["TREES"]))
