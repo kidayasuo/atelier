@@ -131,6 +131,76 @@ def quiet_desk(rec):
 def quiet_store(rec):
     u = np.mean(rec['pts'][:, 0]); h = 400 if u < 39 else (450 if u < 48 else 500)
     solid_uv(clean(rec['pts']), 0, h - 30, L_F, (0.91, 0.87, 0.78, 1))
+# ---- クッション（ユーザー 11-01 20:03：本読みスペース・ロフトのクッションをリアルな形に。形は shitsu/kusshon.py、閉じたメッシュ）----
+# 色は布の3色（3〜5歳のあつまりの皿のカーペット 苔色・藍・柿色と響き合う、生成り・藍・柿色）。一つのレイヤーには一つの素材
+import kusshon as _KS
+from shapely.geometry import Polygon as _SPg
+L_CU = [layer('40c_しつらえ_クッション（生成り）', (232, 222, 200)), layer('40d_しつらえ_クッション（藍）', (60, 80, 110)),
+        layer('40e_しつらえ_クッション（柿色）', (176, 104, 66))]
+def _fr(u, v):
+    p = W(u, v); eu = W(u + 0.01, v) - p; ev = W(u, v + 0.01) - p
+    return np.r_[p, 0.0], np.r_[eu / np.linalg.norm(eu), 0.0], np.r_[ev / np.linalg.norm(ev), 0.0]
+def _rot(a, b, deg):
+    t = math.radians(deg); return math.cos(t) * a + math.sin(t) * b
+def _to_uv(V, p, eu, ev, u, v):                      # 頂点 → (u, v) のおよそ（その所の接線の向きで）
+    d = V - p; return u + d @ eu / 1000.0, v + d @ ev / 1000.0
+def _ks_place(a, b, H, E1, E2, E3, p, eu, ev, u, v, zmin, vlim=None, vdir=0):
+    """中心 (u, v) の高さを、いちばん低い頂点が zmin に来るように。vlim があれば v の端（vdir=+1 は最大、−1 は最小）を壁の面から 10 はなす"""
+    O = p.copy()
+    _, Vn = _KS.cushion(O, E1, E2, E3, a, b, H)
+    O[2] += zmin - Vn[:, 2].min()
+    if vlim is not None:
+        vv = (Vn - p) @ ev / 1000.0 + v
+        ex = (vv.max() - vlim + 0.01) if vdir > 0 else (vv.min() - vlim - 0.01)
+        O -= ev * ex * 1000.0
+    return O
+def cushion_lean(u, vwall, side, z0, a, b, H, lean, turn, li, name):
+    """壁（v = vwall、side=+1 は v の大きい側の壁）に立てかけたクッション"""
+    p, eu, ev = _fr(u, vwall - side * 0.2)
+    U = _rot(eu, ev, turn); Vw = side * _rot(ev, -eu, turn)
+    E1, E2, E3 = _KS.frame_lean(U, Vw, lean)
+    O = _ks_place(a, b, H, E1, E2, E3, p, eu, ev, u, vwall - side * 0.2, z0 + 1.0, vwall, side)
+    msh, Vn = _KS.cushion(O, E1, E2, E3, a, b, H)
+    a_ = attr(li); a_.Name = f'{name} {2 * a:.0f}×{2 * b:.0f}・厚{H:.0f}（壁にもたれる）'; m.Objects.AddMesh(msh, a_)
+    return Vn, p, eu, ev
+def cushion_flat(u, v, z0, a, b, H, rot, li, name, tilt_on=None):
+    p, eu, ev = _fr(u, v)
+    E1, E2, E3 = _KS.frame_flat(rot, eu[:3], ev[:3])
+    O = _ks_place(a, b, H, E1, E2, E3, p, eu, ev, u, v, z0 + 1.0)
+    msh, Vn = _KS.cushion(O, E1, E2, E3, a, b, H)
+    a_ = attr(li); a_.Name = f'{name} {2 * a:.0f}×{2 * b:.0f}・厚{H:.0f}'; m.Objects.AddMesh(msh, a_)
+    return Vn, p, eu, ev
+def _foot(Vn, p, eu, ev, u, v):
+    U_, V_ = _to_uv(Vn, p, eu, ev, u, v)
+    from shapely.geometry import MultiPoint
+    return MultiPoint(list(zip(U_, V_))).convex_hull
+def loft_cushions(u0, u1, v0, v1):
+    import random as _random
+    rng = _random.Random(int(round(u0 * 100)) + 20261101)
+    ua, ub, va, vb = u0 + 0.6, u1 - 0.6, v0, v1 - 0.6                 # 柵から0.6以上（西の端 v0 は壁）
+    zone = _SPg([(ua, va), (ub, va), (ub, vb), (ua, vb)])
+    cols = rng.sample(range(3), 3) + [rng.randrange(3)]
+    for _try in range(400):
+        c1u = rng.uniform(ua + 0.27, ua + 0.55); c2 = (rng.uniform(ub - 0.5, ub - 0.32), rng.uniform(va + 0.35, va + 0.7), rng.uniform(0, 40))
+        c3 = (rng.uniform(ua + 0.4, ub - 0.4), rng.uniform(vb - 0.45, vb - 0.33), rng.uniform(0, 40))
+        lean, turn = rng.uniform(18, 28), rng.uniform(-8, 8)
+        # 足もとの形（重ねる前に、大きさ 500 の正方形を回して）で確かめる
+        def sq(cu, cv, rot, half=0.25):
+            t = math.radians(rot); c, s_ = math.cos(t), math.sin(t)
+            return _SPg([(cu + c * x - s_ * y, cv + s_ * x + c * y) for x, y in ((-half, -half), (half, -half), (half, half), (-half, half))])
+        f1 = sq(c1u, va + 0.17, turn).intersection(_SPg([(ua - 1, va), (ub + 1, va), (ub + 1, va + 0.35), (ua - 1, va + 0.35)]))
+        f2, f3 = sq(c2[0], c2[1], c2[2], 0.27), sq(c3[0], c3[1], c3[2], 0.31)
+        if not (zone.buffer(1e-6).contains(f2) and zone.buffer(1e-6).contains(f3) and zone.buffer(1e-6).contains(f1)): continue
+        if f1.intersection(f2).area > 0.01 or f2.intersection(f3).area > 0.025 or f1.intersection(f3).area > 0.01: continue
+        break
+    else: print('!! ロフトのクッション：置き場が見つからない', u0)
+    nm = 'ロフトのクッション'
+    cushion_lean(c1u, v0, -1, 1200.0, 250, 250, rng.uniform(190, 220), lean, turn, L_CU[cols[0]], nm)
+    cushion_flat(c2[0], c2[1], 1200.0, 250, 250, rng.uniform(190, 220), c2[2], L_CU[cols[1]], nm)
+    Vn3, p3, eu3, ev3 = cushion_flat(c3[0], c3[1], 1200.0, 250, 250, 200.0, c3[2], L_CU[cols[2]], nm)
+    zt = Vn3[:, 2].max()                                                          # 二つ重ね：上の一つは下の真ん中の上に
+    du, dv = rng.uniform(-0.05, 0.05), rng.uniform(-0.05, 0.05)
+    cushion_flat(c3[0] + du, c3[1] + dv, zt - 1.0, 240, 240, rng.uniform(180, 210), c3[2] + rng.uniform(15, 35), L_CU[cols[3]], nm + '（二つ重ね）')
 def loft(rec):
     pts = [tuple(p) for p in rec['pts']]
     solid_uv(pts, 1100, 1200, L_PL, (0.92, 0.86, 0.72, 1))
@@ -152,11 +222,9 @@ def loft(rec):
             solid_uv([(cu - .015, cv - .015), (cu + .015, cv - .015), (cu + .015, cv + .015), (cu - .015, cv + .015)], 1200, 2260, L_LAT, WD)
     # 10-31（ユーザー、項 20261031-1056-present の4）：クッション 0.5×0.5×厚0.25 を4つ。柵（u0・u1・v1 の辺）から0.6以上はなして西の壁寄り
     # （クッションに乗っても柵の上端まで0.85以上）。2×2 にすき間0.1、u は真ん中、v は西の端（v0）から0.05
-    um = 0.5 * (u0 + u1)
-    for cu in (um - 0.3, um + 0.3):
-        for cv in (v0 + 0.30, v0 + 0.90):
-            solid_uv([(cu - .25, cv - .25), (cu + .25, cv - .25), (cu + .25, cv + .25), (cu - .25, cv + .25)], 1200, 1450, L_T, (0.80, 0.72, 0.62, 1),
-                     'ロフトのクッション 500×500×250')
+    # 11-01 20:03・20:04（ユーザー）：クッションらしい形（shitsu/kusshon.py）に、こどもが使ったあとのようにばらばらに：
+    # 一つは西の壁にもたれ、一つは床に、二つは重ねる。向きは0〜40°、乱数の種は部屋ごとに固定。柵（u0・u1・v1）から0.6以上
+    loft_cushions(u0, u1, v0, v1)
 def loft_step(rec):                  # 家具階段 1段0.2×5（10-24）：ロフトに近い段から 1000・800・600・400・200
     pts = rec['pts']; v = np.mean(pts[:, 1])
     k = int(round((v - 3.725) / 0.25)); h = max(200, 1000 - 200 * k)
@@ -848,8 +916,10 @@ def hon_no_oku():
     bx_uv(51.6, 57.0, 0.75, 1.54, 0, 50, L_T, (0.86, 0.82, 0.62, 1), '本の奥の畳の座（部屋の壁の側）')
     bx_uv(51.6, 57.0, 0.72, 0.75, -450, 50, L_P, WOODC, '本の奥の座の縁の框（杉 30、角を丸める）')
     bx_uv(51.6, 51.63, -0.199, 0.72, -160, 0, L_P, WOODC, '本の奥の溝の南の段の鼻（杉 30）')
+    _rng = __import__('random').Random(20261101)                         # 11-01 20:03（ユーザー）：クッションらしい形、部屋の壁に立てかけて少し傾いた背もたれ
     for k, uc in enumerate((52.25, 53.1, 53.95, 54.8, 55.65, 56.5)):
-        bx_uv(uc - 0.25, uc + 0.25, 1.28, 1.53, 50, 550, L_T, HON_CUSH[k % 3], '本の奥の背のクッション 500×250×h500')
+        _a = _rng.uniform(220, 250)
+        cushion_lean(uc, 1.54, +1, 50.0, _a, _a, _rng.uniform(170, 200), _rng.uniform(12, 20), _rng.uniform(-6, 6), L_CU[[0, 1, 2, 0, 2, 1][k]], '本の奥の背のクッション')
     noren_hon()
 NOREN_U, NOREN_ZC, NOREN_V = 51.125, 2010.0, (-0.199, 1.539)
 def noren_panels(gap=0.012, n=4):
