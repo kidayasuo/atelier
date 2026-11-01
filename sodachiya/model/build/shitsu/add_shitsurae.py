@@ -582,8 +582,31 @@ def drying_poles():
             zt = 2690.0 - (vp - 8.5) * 1000.0 / 12.0 - 1.0
             for ue in (u0 + 0.02, u1 - 0.02):
                 K.add(m, K.enchu(np.r_[W(ue, vp), zp + 17.5], np.r_[W(ue, vp), zt], 3.0), L_RAT, RAT_C, '物干しの昇降の綱 φ6')
-            for ua, ub, drop in cloths:
-                K.add(m, K.hako_uv(ua, ub, vp - 0.02, vp + 0.02, zp + 20.0 - drop, zp + 20.0), L_CL, (244, 242, 236), '干した布（タオル・シーツ・おむつ布）')
+            # 11-01 21:27（ユーザー：物干しの布をリアルに）：布は data/hoshimono.json（cloths の並びは使わない）。下の hoshimono で
+            hoshimono(a, b, vp, u0, u1, zp)
+def hoshimono(a, b, vp, pu0, pu1, zp):
+    """竿（a→b、v＝vp）に二つ折りで掛けた布：竿の上の折り返し（半円の帯を竿に沿って押し出す）と前後の垂れ（浅い波の折れ線 t3 を下へ押し出す）"""
+    import json as _j
+    X = (b - a) / np.linalg.norm(b - a); Z = np.array([0, 0, 1.0]); Y = np.cross(Z, X)
+    fs = 1.0 if np.dot(Y[:2], W(0.5 * (pu0 + pu1), vp + 0.01) - W(0.5 * (pu0 + pu1), vp)) > 0 else -1.0   # Y が v の大きい側（前）なら +1
+    L_ = float(np.linalg.norm(b - a))
+    COL = {'白': (244, 242, 236), '生成り': (234, 224, 200)}
+    for c in _j.load(open(_os0.path.join(SCR, '..', 'data', 'hoshimono.json'), encoding='utf-8'))['cloths']:
+        if abs(c['v'] - vp) > 1e-6 or not (pu0 <= c['u0'] <= pu1): continue
+        s0 = L_ * (c['u0'] - pu0) / (pu1 - pu0); w = (c['u1'] - c['u0']) * 1000.0
+        O = a + X * s0; col = COL[c['color']]; nm = f"干した布（{c['kind']}、{c['color']}）"
+        ro, ri = 31.0, 28.0; rm = 0.5 * (ro + ri)
+        prof = [(ro * math.cos(math.pi * k / 12), ro * math.sin(math.pi * k / 12)) for k in range(13)] + \
+               [(ri * math.cos(math.pi * k / 12), ri * math.sin(math.pi * k / 12)) for k in range(12, -1, -1)]
+        K.add(m, K.oshidashi(prof, (), O, Y, Z, w), L_CL, col, nm + 'の折り返し')
+        n = max(8, int(w / 20))
+        for sgn, d in ((fs, c['front']), (-fs, c['back'])):
+            ys = [sgn * rm + 8.0 * math.sin(2 * math.pi * (w * k / n) / 140.0 + c['phase'] + (1.3 if sgn < 0 else 0)) for k in range(n + 1)]
+            pr = [(w * k / n, ys[k] + 1.5) for k in range(n + 1)] + [(w * k / n, ys[k] - 1.5) for k in range(n, -1, -1)]
+            K.add(m, K.oshidashi(pr, (), O, X, Y, -d * 1000.0), L_CL, col, nm)
+        if c['pin']:                                                      # 洗濯ばさみ（木、端から30）
+            for xp in ((30.0,) if w < 450 else (30.0, w - 42.0)):
+                K.add(m, K.hako(O + X * xp - Y * 36.0 + Z * 18.0, X, Y, 12.0, 72.0, 30.0), L_HW, (200, 170, 120), '洗濯ばさみ')
 def toilet_wall02(rec):
     # 2歳のトイレの西の壁（西吹き抜けの側、v1.6〜1.72）：トイレの所（u12.06〜14.63）は h1200 から上をすりガラス＋木の縦格子に（ユーザー 10-31：
     # 明るく、天袋はなし）。ガラスは壁の中ほど（t10）、格子 30角・すき間 90（芯 120）を西吹き抜けの側（壁の面から 5 はなす）、上下に横木 30角
@@ -902,6 +925,9 @@ for _e in _json.load(open(_os0.path.join(SCR, '..', 'data', 'kirikabu.json'), en
 
 # ---------------- 絵本の通りの本棚（ユーザー 11-01 20:03、決定事項（本館）の「絵本の通り」） ----------------
 # 棚は西の外壁の内面 v−0.20 に付け、柱の面で切れる。柱間ごとに背差し・面陳・背差しの区画。区画は data/hondana.json、形は shitsu/hondana.py
+# ---------------- 0〜2歳の吊り桟（ユーザー 11-01 21:27：0-2歳も3-5と同様に200cmのところに桟を）：3〜5歳と同じ hang_bar で、区間は data/tsurisan.json ----------------
+for _b in _json.load(open(_os0.path.join(SCR, '..', 'data', 'tsurisan.json'), encoding='utf-8'))['bars']:
+    hang_bar({'pts': np.array([(_b['u0'], _b['v']), (_b['u1'], _b['v'])])})
 import hondana as _HD
 L_BOOK = layer('40b_しつらえ_絵本', (196, 74, 58))
 print('絵本', _HD.build(m, W, _json.load(open(_os0.path.join(SCR, '..', 'data', 'hondana.json'), encoding='utf-8')), L_F, L_BOOK))

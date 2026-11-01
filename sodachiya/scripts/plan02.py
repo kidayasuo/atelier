@@ -205,8 +205,13 @@ box(10.85, 11.75, 1.0, 1.55, lw=0.3, fc="white", z=5)
 for (_u0, _u1, _vs) in ((9.14, 11.86, (0.4, 1.2)), (15.14, 17.86, (0.4, 1.0))):
     for vp in _vs:
         line([(max(_u0, U0), vp), (_u1, vp)], lw=0.6, ls=(0, (5, 1.5, 1, 1.5)), c="#3d6f8a", z=7)
-for _a, _b, _v in ((15.22, 15.92, 0.4), (17.12, 17.8, 0.4), (15.2, 15.9, 1.0), (17.12, 17.8, 1.0), (11.12, 11.8, 0.4), (11.15, 11.8, 1.2)):
-    if _a < _b: box(_a, _b, _v - 0.03, _v + 0.03, lw=0.25, fc="white", z=7.5)
+# 吊り桟h2.0（ユーザー 11-01 21:27：0-2歳も3-5と同様に。区間は data/tsurisan.json、3dm は shitsu/add_shitsurae.py の hang_bar）
+import json as _json_t
+for _b in _json_t.load(open(_os.path.join(ROOT, "data", "tsurisan.json"), encoding="utf-8"))["bars"]:
+    if _b["u1"] <= U0 or _b["u0"] >= U1: continue
+    line([(max(_b["u0"], U0), _b["v"]), (min(_b["u1"], U1), _b["v"])], lw=0.3, ls=(0, (2, 1.5)), c="#1f7a8c", z=6)
+for _c in _json_t.load(open(_os.path.join(ROOT, "data", "hoshimono.json"), encoding="utf-8"))["cloths"]:   # 11-01 21:27：二つ折りで掛けた布（data/hoshimono.json）
+    if _c["u1"] > U0: box(max(_c["u0"], U0), _c["u1"], _c["v"] - 0.035, _c["v"] + 0.035, lw=0.25, fc="white" if _c["color"] == "白" else "#F1E9D6", z=7.5)
 # トイレの西の壁の上（h1.2〜2.4）：すりガラス＋木の縦格子（西吹き抜けの側、10-31：天袋はなし、トイレを明るく）
 box(12.06, 14.63, 1.565, 1.6, lw=0.3, fc="#E3ECF1", z=7)
 for _u in [12.105 + 0.12 * _i for _i in range(21)]: line([(_u, 1.565), (_u, 1.6)], lw=0.2, c="#8a6a3a", z=7.2)
@@ -314,9 +319,10 @@ legend = [
     "21　トイレの西の壁の上：すりガラス＋格子（明るく、天袋はなし）",
     "22　洗濯（0・1歳の側、水まわりの配管壁沿い）",
     "○　切り株（腰掛け・台・積む。径0.3〜0.4・高さ0.2、一つは少し傾ける。年輪の線を一本）",
+    "―　吊り桟h2.0（脚立の2段目で目の高さで結べる。山・ティピ・ねどこの天蓋の上は除く）",
 ]
 col_x = [25 / 297, 160 / 297]
-y0, dy, half = 225 / 420, 4.4 / 420, 11
+y0, dy, half = 225 / 420, 4.4 / 420, 12
 for i, s in enumerate(legend):
     c, r = (0, i) if i < half else (1, i - half)
     fig.text(col_x[c], y0 - r * dy, s, fontsize=6.2, va="top")

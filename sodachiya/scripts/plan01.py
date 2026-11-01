@@ -211,7 +211,13 @@ box(10.85, 11.75, 1.0, 1.55, lw=0.3, fc="white", z=5)
 # drying poles (overhead, in the west void under the roof monitor)
 for vp in [0.4, 1.2]:   # 10-31：竹竿 φ35×2本（スパン4、h3.1、両端の綱で昇降）と白い布（天井扇をよけて竿の両端寄り）
     line([(9.14, vp), (11.86, vp)], lw=0.6, ls=(0, (5, 1.5, 1, 1.5)), c="#3d6f8a", z=7)
-for _a, _b, _v in ((9.22, 9.92, 0.4), (11.12, 11.8, 0.4), (9.2, 9.9, 1.2), (11.15, 11.8, 1.2)): box(_a, _b, _v - 0.03, _v + 0.03, lw=0.25, fc="white", z=7.5)
+# 吊り桟h2.0（ユーザー 11-01 21:27：0-2歳も3-5と同様に。区間は data/tsurisan.json、3dm は shitsu/add_shitsurae.py の hang_bar）
+import json as _json_t
+for _b in _json_t.load(open(_os.path.join(ROOT, "data", "tsurisan.json"), encoding="utf-8"))["bars"]:
+    if _b["u1"] <= -1 or _b["u0"] >= 12.0: continue
+    line([(max(_b["u0"], -1), _b["v"]), (min(_b["u1"], 12.0), _b["v"])], lw=0.3, ls=(0, (2, 1.5)), c="#1f7a8c", z=6)
+for _c in _json_t.load(open(_os.path.join(ROOT, "data", "hoshimono.json"), encoding="utf-8"))["cloths"]:   # 11-01 21:27：二つ折りで掛けた布（data/hoshimono.json）
+    if _c["u1"] > -1: box(max(_c["u0"], -1), _c["u1"], _c["v"] - 0.035, _c["v"] + 0.035, lw=0.25, fc="white" if _c["color"] == "白" else "#F1E9D6", z=7.5)
 # attic storage above water core (overhead)
 box(9.05, 11.95, 1.65, 4.55, lw=0.5, ls=(0, (6, 2, 1, 2)), fc="none", ec="#8a5a2b", z=7)
 # engawa low gate at the 0-1 / 2 boundary
@@ -398,6 +404,7 @@ legend = [
     "35　天袋（水まわりの上。季節のもの・おむつの在庫・予備の寝具）",
     "36　縁側の低い柵の戸（0・1歳／2歳の縁側の境。外縁側は柵で閉じる：2歳の側は土足 −150）",
     "37　南の妻：ガラスの引き戸（引き違い）の外に杉の縦格子 30×45@120。戸を開けても柵（上端は縁側の鴨居と一本）",
+    "―　吊り桟h2.0（脚立の2段目で目の高さで結べる。山・ティピ・ねどこの天蓋の上は除く）",
 ]
 col_x = [20 / 297, 158 / 297]
 y0 = 150 / 420
