@@ -404,6 +404,13 @@ def write(c):
             if w0 == w1 or not w0[2]:
                 continue
             k_ = u["w"] / w0[2]                         # 紙の mm／m
+            # 記録の外形がもう新しい PDF の縦横の比なら（11-01 14:48：.ai で「ファイルだけ替えた」後。左上は前の外形の左上のまま）、縮尺は新しい範囲から
+            if "h" in u and u["h"] and w1[3]:
+                r_, r0_, r1_ = u["w"] / u["h"], w0[2] / w0[3], w1[2] / w1[3]
+                if abs(r_ - r1_) < abs(r_ - r0_) and abs(r_ - r1_) <= 0.01 * r1_:
+                    k_ = u["w"] / w1[2]
+                elif abs(r_ - r0_) > 0.01 * r0_:         # どちらとも合わない（.ai で回した）：記録の外形のまま（回したリンクは update_texts が直す）
+                    continue
             p.update(x=round(u["x"] + (w1[0] - w0[0]) * k_, 2), y=round(u.get("y", p["y"]) - (w1[1] - w0[1]) * k_, 2),
                      w=round(w1[2] * k_, 2), h=round(w1[3] * k_, 2), u=1)
         # 木田さんが持つ部品（owner、mock.py の owner_rules、11-01）：update_texts・組み替えは消さない・直さない・足さない。一から作り直すときは layout_user.json の owned から描く

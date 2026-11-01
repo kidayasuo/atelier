@@ -4149,7 +4149,8 @@ if G01["keep"]:
 sozai("22", f"園庭説明図（1/{GSC}、木と遊び場・建物の案内）", 2, gox, goy, gw_, gh_, note="背景だけ（地面・等高線・水・建物・設備。木の記号・印・文字は入れない）。上の木と説明は .ai の木田さんの物（owner user）。色の表は present/garden_fig.json")
 # 背景のリンクが映す範囲（回した座標の m：西の端・北の端・幅・高さ）。.ai で範囲が変わっても、木田さんの木と説明に合うように付け替える（sdy_lib の relinkWorld）
 SOZAI_WORLD["22"] = dict(world=[round(GWX0, 3), round(WY1, 3), round(WX1 - GWX0, 3), round(WY1 - WY0, 3)],
-                         world_prev=[round(GWX0_PREV, 3), round(WY1, 3), round(WX1 - GWX0_PREV, 3), round(WY1 - WY0, 3)])
+                         world_prev=[round(GWX0_PREV, 3), round(WY1, 3), round(WX1 - GWX0_PREV, 3), round(WY1 - WY0, 3)],
+                         world_mm=round(1000 / GSC, 6))   # 素材の PDF の縮尺（紙の mm／m）：.ai で回した・拡大したリンクでも、PDF の元の大きさが分かるように
 _G_BARE[2] = list(_GSYM_ART)
 print("園庭説明図の背景（素材22）から外す記号：%d" % len(_GSYM_ART))
 print("園庭説明図：1/%d、木 %d（名前 %d）、香り %d・実 %d・トゲ %d・草の点 %d、凡例の下 %.0f mm（1段目の下 %.0f mm、2段目の下 %.0f mm・ゾーニングの図の下 %.0f mm）" % (GSC, len(_tl), len(_named), len(_ha) // len(_HOP["steps"]), len(_fr) // 3, len(_th), len(_gr), min(_yy, _LEG1_END), _LEG1_END, _yy, zoy))
