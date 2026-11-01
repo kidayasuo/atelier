@@ -167,5 +167,6 @@ fig.text(14 / 297, 112 / 420, notes, fontsize=6.0, va="top", color="#333333", li
 
 os.makedirs(OUT, exist_ok=True)
 for ext in ("pdf", "png"):
-    fig.savefig(os.path.join(OUT, "sodachiya_site_N_1-200." + ext), dpi=200 if ext == "png" else None)
+    os.makedirs("/tmp/claude-0", exist_ok=True)
+    fig.savefig(os.path.join("/tmp/claude-0" if ext == "png" else OUT, "sodachiya_site_N_1-200." + ext), dpi=200 if ext == "png" else None)   # PNG は確かめ用で /tmp へ（karuku.md）
 print("plants", round(N.PLANT.area, 1), "read", round(N.READ.area, 1))
