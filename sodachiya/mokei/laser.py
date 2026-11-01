@@ -1143,7 +1143,348 @@ def interior_sheets():
             pdf.savefig(fig); plt.close(fig)
     return len(parts), [len(l) for l in sh]
 
+# ================= 台の表面（シナ 3）：建物の穴・青の彫り・塀と柵の足の溝 =================
+# 10-31 の頼み（模型作成）：表面の彫りと溝は mokei/表面の彫り一覧.md のとおり。仮の出力（T7 の結果と、必須・重要の判断で直す）。
+#   python3 laser.py dai        … 01台_表面_シナ3.svg と 01台_溝の試し片_シナ3.svg だけを書く（ほかの部品は触らない）
+# 座標：3dm の xy（mm）。台は A1（841×594）に収めるため、DAI_ROT だけ回す（北が右上）。回して縮尺 S をかけ、左上に寄せる
+DAI_ROT = -38.5                                  # 度。川側の辺を水平に（63 m × 56 m、道路の窓を足して 68×56 m → 682×560 mm）
+DAI_ROAD_WIN = (-45000, -75000, -24000, -30000)  # 道路を見せる窓（3dm mm）：西の道路の、お向かいの張り出しと狭い所をふくむ所
+DAI_HOLE_SHRINK = 0.11                           # 建物の穴は、切り幅の分（シナ 3：0.22）だけ小さく描く＝片側 0.11（模型 mm）
+DAI_CLIFF = 800                                  # 川側の崖の上の小段・土（柵の外 0.8 m）まで台を広げる（3dm mm）
+DAI_SLOT_LEN = 4.0                               # 足の溝の長さ（塀に沿う向き、模型 mm）
+DAI_SLOT_W = 0.5                                 # 足の溝の幅（描く幅、仮。T7 試し片の結果で決める）
+DAI_SLOT_PITCH = 40.0                            # 足のおき：30〜40 mm（この値を超えない最少の本数に等分）
+DAI_SLOT_INSET = 3.0                             # 両端の足は端から 3 mm 内
+DAI_TREE_MARK = 1.2                              # 木の位置（手でドリル）の十字の長さ
+SITE_OUTER = [(0, 0), (34860, -43830), (-14440, -83040), (-21910, -73650), (-25830, -20540)]
+SITE_INNER = [(-160, -1405), (33455, -43670), (-14280, -81635), (-20935, -73269), (-24794, -20994)]
+
+def _pf(prefix):
+    idx = {i for n, i in LAY.items() if n.startswith(prefix)}
+    return [(o.Attributes.Name or '', o.Geometry) for o in m.Objects if o.Attributes.LayerIndex in idx]
+
+def _cxy(c, n=80):
+    if isinstance(c, r.PolylineCurve):
+        return [(c.Point(i).X, c.Point(i).Y) for i in range(c.PointCount)]
+    return [(p.X, p.Y) for p in sample_curve(c, n)]
+
+def _foot(g):
+    """立てた押し出しの、平面の輪郭"""
+    return Polygon(_cxy(g.Profile3d(0, 0))).buffer(0)
+
+def _mesh_poly(g, min_area=1.0):
+    V = g.Vertices; F = g.Faces
+    P = np.array([[V[i].X, V[i].Y] for i in range(len(V))])
+    ps = []
+    for fi in range(len(F)):
+        f = F[fi]
+        idx = [f[0], f[1], f[2]] if f[2] == f[3] else [f[0], f[1], f[2], f[3]]
+        pg = Polygon(P[idx])
+        if pg.area > min_area: ps.append(pg.buffer(1))
+    return unary_union(ps).buffer(-1)
+
+def _bb(g):
+    b = g.GetBoundingBox()
+    return b.Min.X, b.Min.Y, b.Min.Z, b.Max.X, b.Max.Y, b.Max.Z
+
+def _long_axis(poly):
+    """細長い輪郭の長い軸（中心線）を LineString で"""
+    from shapely.geometry import LineString
+    c = list(poly.minimum_rotated_rectangle.exterior.coords)[:4]
+    e = [(math.hypot(c[(i + 1) % 4][0] - c[i][0], c[(i + 1) % 4][1] - c[i][1]), i) for i in range(4)]
+    L = max(e)[1]                                    # 長い辺の一つ → その辺の向きで中点どうしを結ぶ
+    a, b = np.array(c[L]), np.array(c[(L + 1) % 4]); d = np.array(c[(L + 3) % 4]) - a
+    return LineString([tuple(a + d / 2), tuple(b + d / 2)])
+
+def dai_road():
+    from shapely.geometry import box as _box
+    win = _box(-70000, -110000, 20000, 20000)
+    ts = []
+    for nm, g in _pf('03_周辺_道路'):
+        V = [(v.X, v.Y) for v in g.Vertices]
+        for i in range(g.Faces.Count):
+            f = g.Faces[i]
+            pts = [V[j] for j in dict.fromkeys(f)]
+            if len(pts) < 3: continue
+            P = Polygon(pts)
+            if P.is_valid and P.area > 0 and P.intersects(win): ts.append(P)
+    return unary_union(ts)
+
+def dai_features():
+    """台の表面に載せるものを集める。戻り：dict（名前→{kind, prio, geom（3dm mm）, layer, note}）。
+    kind：hole（切る穴）／outline（外形を切る）／line（青の彫り）／slots（足の溝、runs＝中心線の列）／marks（木の位置、点）"""
+    from shapely.geometry import LineString, Point as _Pt, box as _box
+    F = {}
+    site = Polygon(SITE_OUTER)
+    # --- 建物の穴（表面＝GL に、ベタ基礎がはまる）
+    up, lo, found = floors()
+    close = lambda g: g.buffer(120, join_style=2).buffer(-120, join_style=2)
+    west = close(unary_union([plan('31_1F_遊戯室'), plan('32_1F_キッチン'), plan('33_1F_東の帯（はだし ±0、ホールと一続き）'), plan('36_1F_階段')]))
+    honkan = found
+    both = unary_union([honkan, west])
+    F['本館の穴'] = dict(kind='hole', prio='必須', layer='12〜15・52（床）', geom=honkan, note='05 のベタ基礎と同じ輪郭')
+    F['西館の穴'] = dict(kind='hole', prio='必須', layer='31〜33・36（床）', geom=west.difference(honkan.buffer(30)), note='西館のベタ基礎（表面から抜けた板）')
+    # --- 外形（台）
+    road = dai_road()
+    reg = road.intersection(_box(*DAI_ROAD_WIN))
+    river = LineString([SITE_OUTER[1], SITE_OUTER[2]])
+    nrm = np.array([-(river.coords[1][1] - river.coords[0][1]), river.coords[1][0] - river.coords[0][0]]); nrm = nrm / np.linalg.norm(nrm)
+    cen = np.array(site.centroid.coords[0]); mid = np.array(river.interpolate(0.5, normalized=True).coords[0])
+    if np.dot(nrm, mid - cen) < 0: nrm = -nrm
+    a, b = np.array(river.coords[0]), np.array(river.coords[1])
+    strip = Polygon([a, b, b + nrm * DAI_CLIFF, a + nrm * DAI_CLIFF])
+    outline = unary_union([site, reg.buffer(300, join_style=2), strip]).buffer(1).buffer(-1)       # 道路の縁の線の外に、木を 3 mm 残す（縁の線は彫りで、切る線と重ねない）
+    F['台の外形'] = dict(kind='outline', prio='必須', layer='00・03', geom=outline, note='敷地（外側の線）＋川側の崖の上の小段 0.8 m＋道路の窓')
+    # --- 築山：バルサの等高線の一番下の輪郭（位置決め）
+    mounds = []
+    for nm, g in _pf('98_園庭_等高線の板'):
+        z = _bb(g)[2]
+        if abs(z + 100) < 5:
+            P = Polygon(_cxy(g, 400)).buffer(0)
+            mounds.append(P)
+    mounds.sort(key=lambda p: -p.area)
+    F['築山の輪郭'] = dict(kind='line', prio='必須', layer='98', geom=mounds[0].exterior, note='主の築山（バルサ 12 段の裾）')
+    F['小さな丘の輪郭'] = dict(kind='line', prio='重要', layer='98', geom=unary_union([p.exterior for p in mounds[1:]]), note='おくのもりの丘・しずかのもりの土手・柳の家の脇の小丘（バルサの裾）')
+    F['_mound_polys'] = mounds
+    # --- 小川・滝壺・雨庭・雨の川
+    lns = [(_bb(g), g) for nm, g in _pf('90l_園庭_線') if isinstance(g, r.PolylineCurve)]
+    stream = min(lns, key=lambda t: abs(t[0][2] + 700))[1]   # 川床が -0.7 m まで下がる折れ線＝小川の中心線（-0.9 m は暗渠）
+    sl = LineString(_cxy(stream, 400))
+    F['小川'] = dict(kind='line', prio='必須', layer='90l・92', geom=sl.buffer(250, cap_style=2).exterior, note='幅 0.5 m の両岸の線（平刀で掘る）', len_center=sl.length)
+    pool = [g for nm, g in _pf('92_園庭_水') if isinstance(g, r.Extrusion)]
+    if pool: F['滝壺'] = dict(kind='line', prio='重要', layer='92', geom=_foot(pool[0]).exterior, note='φ1.0 の滝壺')
+    rg = [_mesh_poly(g) for nm, g in _pf('92s_')]
+    if rg: F['雨庭'] = dict(kind='line', prio='重要', layer='92s', geom=unary_union(rg).boundary, note='洲浜（白い玉石）の浅いくぼみ、約 21 m²')
+    rr = unary_union([_mesh_poly(g) for nm, g in _pf('99_園庭_雨の川')])
+    F['雨の川'] = dict(kind='line', prio='重要', layer='99', geom=rr.boundary, note='本館の雨落ちの溝（幅 0.5 m）。本館の穴の縁に重なる所は穴で切る')
+    # --- 駐車・駐輪
+    stalls, bikes_p, bikes_s = [], [], []
+    for nm, g in _pf('74_外構_駐車'):
+        if not isinstance(g, r.NurbsCurve): continue
+        P = Polygon(_cxy(g)); a_ = P.area / 1e6
+        (stalls if a_ > 10 else bikes_p if a_ > 1.0 else bikes_s).append(P)
+    F['車室 5'] = dict(kind='line', prio='必須', layer='74', geom=unary_union([p.exterior for p in stalls]), n=len(stalls), note='2.5×5.0 m の車室（うち 1 は搬入）')
+    asph = [_foot(g) for nm, g in _pf('74a_') if isinstance(g, r.Extrusion)]
+    F['車路・駐車場の外形'] = dict(kind='line', prio='必須', layer='74a', geom=unary_union([p.exterior for p in asph]), note='アスファルトの範囲（車路 5.5 m）')
+    F['駐輪の範囲'] = dict(kind='line', prio='重要', layer='74', geom=unary_union([unary_union(bikes_p).convex_hull.exterior, unary_union(bikes_s).convex_hull.exterior]), note=f'保護者 {len(bikes_p)} 台・職員 {len(bikes_s)} 台を、範囲の外形 2 つで（1 台ずつは彫らない）')
+    F['駐輪の1台ずつ'] = dict(kind='line', prio='（省く）', layer='74', geom=unary_union([p.exterior for p in bikes_p + bikes_s]), n=len(bikes_p) + len(bikes_s), note='0.65×2.0 m の枠 21 個（6.5×20 mm）。範囲だけで足りるので省く')
+    # --- 舗装の区分
+    pav = []
+    for nm, g in _pf('76_外構_舗装'):
+        if isinstance(g, r.NurbsCurve) and g.IsClosed:
+            P = Polygon(_cxy(g)).buffer(0)
+            if P.area > 1.5e6: pav.append(P)
+    F['舗装の区分'] = dict(kind='line', prio='重要', layer='76', geom=unary_union([p.exterior for p in pav]), n=len(pav), note='歩道 1.0・ひろば・見送りの小径・搬入路・北の小径など')
+    # --- 道路（窓の中の、向かい側の縁の線）
+    rb = road.boundary.intersection(_box(*DAI_ROAD_WIN)).difference(site.buffer(400))      # 窓の中の道の縁から、敷地の縁と重なる線を除く
+    F['道路の縁'] = dict(kind='line', prio='必須', layer='03', geom=rb, note='窓の中の、向かい側の縁（敷地の側は台の縁）。お向かいの張り出しと道の狭い所をふくむ')
+    # --- 林の範囲：樹冠（園庭の木 4 本以上が連なる所）の外形。かぜのもり・しずかのもり・おくのもりの目じるし
+    cps = []
+    for nm, g in _pf('94c_'):
+        if '柳の家' in nm: continue
+        bb_ = _bb(g); cps.append(_Pt((bb_[0] + bb_[3]) / 2, (bb_[1] + bb_[4]) / 2).buffer((bb_[3] - bb_[0]) / 2 * 0.85))
+    comps = unary_union(cps)
+    big = [c for c in getattr(comps, 'geoms', [comps]) if sum(1 for q in cps if q.intersects(c)) >= 4]
+    F['林の範囲'] = dict(kind='line', prio='重要', layer='94c', geom=unary_union([c.buffer(300).buffer(-300).exterior for c in big]), n=len(big), note='樹冠が 4 本以上連なる所の外形（かぜのもり・しずかのもり・おくのもり）')
+    # --- 塀と柵の足の溝（runs＝中心線）
+    walls = []
+    for nm, g in _pf('70_外構_生垣・塀・格子'):
+        if isinstance(g, r.Extrusion) and _bb(g)[5] - _bb(g)[2] < 100 and abs(_bb(g)[2] + 100) < 5:
+            P = _foot(g)
+            if max(P.bounds[2] - P.bounds[0], P.bounds[3] - P.bounds[1]) > 500: walls.append(_long_axis(P))
+    lat = []
+    for nm, g in _pf('70k_'):
+        if isinstance(g, r.Extrusion) and abs(_bb(g)[2] - 855) < 5:
+            P = _foot(g)
+            if max(P.bounds[2] - P.bounds[0], P.bounds[3] - P.bounds[1]) > 5000: lat.append(_long_axis(P))
+    iron = []
+    for nm, g in _pf('74p_'):
+        if isinstance(g, r.Extrusion) and abs(_bb(g)[2] + 220) < 5:
+            P = _foot(g)
+            if max(P.bounds[2] - P.bounds[0], P.bounds[3] - P.bounds[1]) > 3000: iron.append(_long_axis(P))
+    hito = [g for nm, g in _pf('60_') if isinstance(g, r.Mesh)]
+    if hito:
+        b = _bb(hito[0]); iron_h = LineString([((b[0] + b[3]) / 2, b[1]), ((b[0] + b[3]) / 2, b[4])])
+    else: iron_h = None
+    F['_walls'] = walls; F['_lattice'] = lat; F['_iron'] = iron; F['_hito'] = iron_h
+    # --- 木
+    trunks = _pf('94_園庭_木の幹'); crowns = _pf('94c_')
+    trees = []
+    for nm, g in trunks:
+        b = _bb(g); cx, cy = (b[0] + b[3]) / 2, (b[1] + b[4]) / 2
+        cr = min(crowns, key=lambda c: math.hypot((_bb(c[1])[0] + _bb(c[1])[3]) / 2 - cx, (_bb(c[1])[1] + _bb(c[1])[4]) / 2 - cy))
+        trees.append(dict(name=nm.split('（')[0], x=cx, y=cy, base=b[2], top=_bb(cr[1])[5], rcrown=(_bb(cr[1])[3] - _bb(cr[1])[0]) / 2, phi=(b[3] - b[0]), src='94'))
+    crown77 = _pf('77c_')
+    for (nm, g), lab in zip(_pf('77_外構_樹木'), ['入江の木', 'ヤマボウシ（みなみのさんかく）', 'キンモクセイ（生垣）', 'キンモクセイ（生垣）', 'キンモクセイ（生垣）', 'お向かいの張り出しの木']):
+        b = _bb(g); cx, cy = (b[0] + b[3]) / 2, (b[1] + b[4]) / 2
+        cr = [c for c in crown77 if math.hypot((_bb(c[1])[0] + _bb(c[1])[3]) / 2 - cx, (_bb(c[1])[1] + _bb(c[1])[4]) / 2 - cy) < 500]
+        top = _bb(cr[0][1])[5] if cr else b[5]
+        trees.append(dict(name=lab, x=cx, y=cy, base=b[2], top=top, rcrown=((_bb(cr[0][1])[3] - _bb(cr[0][1])[0]) / 2 if cr else 0), phi=(b[3] - b[0]), src='77'))
+    for t in json.load(open(os.path.join(ROOT, 'data', 'siteplan_approach.json')))['trees']:
+        if t['name'] == 'モミジ':                                    # 読書の庭（3dm 67 は部品が多いので、配置図の位置を使う）
+            trees.append(dict(name='モミジ（読書の庭）', x=t['xy'][0] * 1000, y=t['xy'][1] * 1000, base=-300, top=4200, rcrown=t['r'] * 1000, phi=120, src='67'))
+    F['_trees'] = trees
+    return F
+
+def dai_slot_positions(line, inset=None):
+    """線（模型 mm）に沿って、両端から inset 内、おき DAI_SLOT_PITCH 以下の最少の本数に等分した足の位置（点）"""
+    inset = DAI_SLOT_INSET if inset is None else inset
+    L = line.length
+    L2 = max(L - 2 * inset, 0)
+    n = max(1, math.ceil(L2 / DAI_SLOT_PITCH - 1e-9))
+    if L2 == 0: return [line.interpolate(L / 2)]
+    return [line.interpolate(inset + L2 * i / n) for i in range(n + 1)]
+
+def dai_slot_geom(line, d, w, ln):
+    """線 line 上の距離 d の所に、線に沿って ln・横に w の細長い穴"""
+    p = line.interpolate(d); q = line.interpolate(min(d + 0.01, line.length)); p0 = line.interpolate(max(d - 0.01, 0))
+    t = np.array([q.x - p0.x, q.y - p0.y]); t = t / np.linalg.norm(t); nn = np.array([-t[1], t[0]])
+    c = np.array([p.x, p.y])
+    return Polygon([c - t * ln / 2 - nn * w / 2, c + t * ln / 2 - nn * w / 2, c + t * ln / 2 + nn * w / 2, c - t * ln / 2 + nn * w / 2])
+
+def dai_tx(g):
+    """3dm mm → 回して模型 mm（原点のずれは to_top_left が直す）"""
+    g = affinity.rotate(g, DAI_ROT, origin=(0, 0))
+    return affinity.scale(g, S, S, origin=(0, 0))
+
+# 塀・柵の足の溝：どれを必須にするか（一覧の案 A＝必須だけ、案 B＝重要も）
+DAI_FENCE_MUST = ('川沿いの縦格子', '北の塀（読書の庭）', 'ひろば西の塀')
+def dai_fence_runs(F):
+    """名前つきの塀・柵の runs（3dm mm の LineString）を、長さ順に。戻り：[(名前, 線, 優先)]"""
+    out = []
+    for i, g in enumerate(sorted(F['_lattice'], key=lambda x: -x.length)):
+        out.append((f'川沿いの縦格子 {i + 1}', g, '必須', '70k'))
+    W = sorted(F['_walls'], key=lambda x: -x.length)
+    def nm(g):
+        x, y = g.centroid.x / 1000, g.centroid.y / 1000
+        if y > -20: return ('北の塀（読書の庭）' if x < -9 else '北の塀（木戸の先）' if x < 0 else '北のもりの北の端の塀', 70)
+        if y < -60: return ('公園側の塀', 70)
+        return ('ひろば西の塀', 70)
+    cnt = {}
+    for g in W:
+        n_, _ = nm(g); cnt[n_] = cnt.get(n_, 0) + 1
+        pr = '必須' if n_ in ('北の塀（読書の庭）', '北の塀（木戸の先）', 'ひろば西の塀') else '重要'
+        out.append((f'{n_} {cnt[n_]}', g, pr, '70'))
+    for i, g in enumerate(sorted(F['_iron'], key=lambda x: -x.length)):
+        out.append((f'公園の鉄柵（現況）{i + 1}', g, '重要', '74p'))
+    if F['_hito'] is not None: out.append(('一本の線の延長の柵', F['_hito'], '重要', '60'))
+    out.sort(key=lambda t: -t[1].length)
+    return out
+
+def dai_forest_pick(n_target=40):
+    """北山杉の林 141 本（ピアノ線）を 40 本ほどに：①低い株（高さ 1.1 m 以下、93 本）は省く → 48 本（29 株）。
+    ②ぬし・外周（凸包から 0.9 m 以内）・ホールの東西の筋（縁側から見通す y−37・−39・−41 の線から 0.45 m 以内）は残す。
+    ③残りの内側の株を、奥（凸包から遠い順）に、本数が n_target 以下になるまで省く。戻り：(株の全部, 選んだ株, 省いた株)"""
+    from shapely.geometry import MultiPoint, Point as _Pt
+    pts = []
+    for nm, g in _pf('55_ホール_北山杉の林'):
+        b = _bb(g); pts.append(dict(x=(b[0] + b[3]) / 2, y=(b[1] + b[4]) / 2, h=b[5], name=nm))
+    units = []
+    for p in pts:
+        for u in units:
+            if math.hypot(u['x'] - p['x'], u['y'] - p['y']) < 350:
+                u['n'] += 1; u['h'] = max(u['h'], p['h']); break
+        else:
+            units.append(dict(p, n=1))
+    hull = MultiPoint([(u['x'], u['y']) for u in units]).convex_hull
+    tall = [u for u in units if u['h'] > 2400]
+    for u in tall:
+        u['depth'] = hull.exterior.distance(_Pt(u['x'], u['y']))
+        if u['name'].startswith('ぬし'): u['why'] = 'ぬし'
+        elif u['depth'] < 900: u['why'] = '外周'
+        elif any(abs(u['y'] - y) < 450 for y in (-37.0e3, -39.0e3, -41.0e3)): u['why'] = '筋'
+        else: u['why'] = '内側'
+    sel = list(tall); dropped = []
+    for u in sorted([u for u in tall if u['why'] == '内側'], key=lambda u: -u['depth']):
+        if sum(x['n'] for x in sel) <= n_target: break
+        sel.remove(u); dropped.append(u)
+    return units, sel, dropped
+
+def dai_sheets():
+    from shapely.geometry import LineString
+    F = dai_features()
+    holes = unary_union([F['本館の穴']['geom'].buffer(-DAI_HOLE_SHRINK / S, join_style=2), F['西館の穴']['geom'].buffer(-DAI_HOLE_SHRINK / S, join_style=2)])
+    hole_keep = unary_union([F['本館の穴']['geom'], F['西館の穴']['geom']]).buffer(0)
+    mound_main = F['_mound_polys'][0]
+    s = Sheet('01台_表面_シナ3', 841, 594, 'シナ 3 A1：台の表面（GL）。赤＝切る（建物の穴・外形・塀の足の溝）、青＝彫る（必須）、青の別グループ「彫る（青）重要」＝重要。仮（10-31 夜、必須・重要の判断と T7 の結果で直す）')
+    s.add(box(0, 0, 841, 594), 'ref')
+    s.add_layer('eng2', '#0000FF', 5, 'ENGRAVE_blue_important', '彫る（青）重要')
+    s.add_layer('cut2', '#FF0000', 1, 'CUT_red_important', '切る（赤）重要の塀・柵の足の溝')
+    s.tabs = False
+    T = dai_tx
+    def line_geoms(g):
+        return [x for x in getattr(g, 'geoms', [g]) if not x.is_empty]
+    # 切る：建物の穴・外形
+    for h in getattr(holes, 'geoms', [holes]):
+        if h.area > 1e6: s.add(T(Polygon(h.exterior)).buffer(0), 'cut')
+    s.add(T(F['台の外形']['geom']), 'cut')
+    # 彫る
+    n_eng = {}
+    for k, v in F.items():
+        if k.startswith('_') or v['kind'] != 'line' or v['prio'] == '（省く）': continue
+        g = v['geom'].difference(hole_keep.buffer(0)) if k not in ('道路の縁',) else v['geom']
+        lay = 'eng' if v['prio'] == '必須' else 'eng2'
+        for x in line_geoms(g):
+            if x.geom_type in ('LineString', 'LinearRing', 'MultiLineString'): s.add(T(x), lay)
+        n_eng[k] = (v['prio'], round(g.length * S, 1))
+    # 木の位置（手でドリルの十字）
+    marks = {'必須': 0, '重要': 0, '築山の上': 0, '穴の中': 0}
+    must_trees = lambda t: (t['phi'] >= 280) or t['name'] == 'お向かいの張り出しの木'
+    for t in F['_trees']:
+        pt = Point(t['x'], t['y'])
+        if pt.within(mound_main) and t['base'] > -100:           # バルサの一段目（GL+0.2 m）より上に立つ木は、表面でなくバルサの面に立てる
+            marks['築山の上'] += 1; continue
+        if pt.within(hole_keep.buffer(-200)):
+            marks['穴の中'] += 1; continue
+        k = '必須' if must_trees(t) else '重要'
+        marks[k] += 1
+        c = T(pt).coords[0]; h = DAI_TREE_MARK / 2
+        for seg in (LineString([(c[0] - h, c[1]), (c[0] + h, c[1])]), LineString([(c[0], c[1] - h), (c[0], c[1] + h)])):
+            s.add(seg, 'eng' if k == '必須' else 'eng2')
+    # 塀・柵の足の溝
+    n_slot = {'必須': 0, '重要': 0}; n_skip = []
+    outline_m = T(F['台の外形']['geom']); outline_m = outline_m if outline_m.geom_type == 'Polygon' else max(outline_m.geoms, key=lambda g: g.area)
+    for nm_, ln, pr, _ in dai_fence_runs(F):
+        L = T(ln); ps = dai_slot_positions(L)
+        if min(outline_m.exterior.distance(p) for p in ps) < 2.5:            # 台の縁に重なる柵（公園の鉄柵）は溝にできない
+            n_skip.append(nm_); continue
+        for p in ps:
+            d = L.project(p)
+            s.add(dai_slot_geom(L, d, DAI_SLOT_W, DAI_SLOT_LEN), 'cut' if pr == '必須' else 'cut2')
+            n_slot[pr] += 1
+    # 北の矢印と文字（参考）
+    b_ = T(F['台の外形']['geom']).bounds
+    print('台の外形（模型 mm）', round(b_[2] - b_[0]), '×', round(b_[3] - b_[1]), '／ A1 841×594')
+    s.save([(8, 8, '台の表面 シナ3（仮）：赤＝切る、青＝彫る（必須）、「彫る（青）重要」のグループ＝重要。北は右上。足の溝の幅は T7 の結果で決める', 4)])
+    # 溝の試し片
+    dai_trial()
+    return n_eng, marks, n_slot, ('台の縁に重なり溝にしない柵', n_skip)
+
+def dai_trial():
+    """塀の足の溝の幅の試し片（シナ 3 の端、70×30）。描く幅 0.4・0.5・0.6 を各 3 本（長さ 4.0）＋ 航空ベニヤ 0.6 の足つきの帯（別の色＝別の出力）。
+    シナ 3 の出力は T2 の結果（速度 12・16%）。穴に足（厚 0.6・2 mm 深）が差さるか、立って揺れないかを見る"""
+    s = Sheet('01台_溝の試し片_シナ3', 70, 40, 'シナ 3 の端：塀の足の溝 描く幅 0.4・0.5・0.6（各 3 本、長さ 4.0）。橙＝航空ベニヤ 0.6 の足つきの帯（別の板で）。速度 12・出力 16%（T2）')
+    s.add(box(0, 0, 70, 40), 'ref')
+    s.add_layer('cut2', TRY['色']['2'], 30, 'CUT_2', '切る・出力2（航空ベニヤ 0.6 の帯）')
+    s.tabs = False
+    texts = []
+    for i, w in enumerate((0.4, 0.5, 0.6)):
+        y = 36 - i * 5
+        for j in range(3):
+            x = 6 + j * 8
+            s.add(box(x, y - w / 2, x + DAI_SLOT_LEN, y + w / 2), 'cut')
+        for l in label_num(i + 1, 1.0, y - 1.0, 2.0): s.add(l, 'eng')
+        texts.append((30, y - 0.5, f'{i + 1}：描く幅 {w}', 2))
+    # 足つきの帯：高さ 6、足 4.0×2.0（実際の足）、おき 8
+    body = box(0, 4, 60, 10)
+    feet = [box(5 + k * 8, 2, 5 + k * 8 + DAI_SLOT_LEN, 4) for k in range(7)]
+    s.add(unary_union([body] + feet).buffer(0), 'cut2')
+    texts.append((1, 11.5, '橙：航空ベニヤ 0.6 の帯（足 4.0×2.0・おき 8）', 2))
+    s.save(texts)
+
 if __name__ == '__main__':
+    if sys.argv[1:2] == ['dai']:                       # 台の表面だけ（ほかの部品は書き換えない）
+        print(dai_sheets()); sys.exit(0)
     # 01〜06（試し切り・本館の架構・床・ベタ基礎・屋根）は切った部品なので作り直さない（ユーザー 10-28、CUT_DONE）
     print('西館の架構', west_sheets())
     print('本館の外壁', wall_sheets())
