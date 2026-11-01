@@ -15,7 +15,7 @@
         for (k = 0; k < app.documents.length; k++) {
             try { if (app.documents[k].fullName.fsName === out.fsName && !app.documents[k].saved) { alert("sodachiya_present.ai が開いていて、保存していない変更があります。保存してから、もう一度。"); return; } } catch (e0) {}
         }
-        carry = confirm("どちらで組みますか。\n\nはい：組み替え（前の sodachiya_present.ai から、レイヤーのすぐ下の物をグループごと持ってきて、新しい割付の位置へ平行に動かす。ふつうはこちら）\n\nいいえ：予備（layout_user.json の記録から描き直す。前の .ai が壊れたときなど）");
+        carry = confirm("どちらで組みますか。\n\nはい：組み替え（前の sodachiya_present.ai から、レイヤーのすぐ下の物をグループごと持ってきて、新しい割付の位置へ平行に動かす。ふつうはこちら）\n\nいいえ：一から作り直す（layout.json と layout_user.json の記録から描き直す。図ごとのグループもきれいに作る。前の .ai が壊れたとき・図がばらばらのときなど）");
     }
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var doc = app.documents.add(DocumentColorSpace.RGB, L.artboard[0] * K, L.artboard[1] * K, n,
@@ -119,13 +119,19 @@
     try { SDY.groupPlan(doc, L); } catch (e) { SDY.missing.push("配置図のまとめ（" + e.message + "）"); }
     try { SDY.groupDrawings(doc, L); } catch (e) { SDY.missing.push("図面のまとめ（" + e.message + "）"); }
     try { SDY.applyOrder(doc, L); SDY.applyStacking(doc, U); } catch (e) { SDY.missing.push("重ね順（" + e.message + "）"); }   // 重ね順：決め打ち → 書き出した並び（10-29）
-    var FR = null;                                     // 図ごとのグループ（11-01）：重ね順を当てた後で、図の部品を一つのグループに（中の重ね順はそのまま）
-    try { FR = SDY.groupFigures(doc, L, null, false); } catch (e) { SDY.missing.push("図のグループ（" + e.message + "）"); }
+    var FR = null;                                     // 図ごとのグループ（11-01）：いちばん終わりに（この後で部品を動かす処理は無い）。部品のいちばん上の階を図ごとに一つのグループへ、中の重ね順はそのまま
+    try { FR = SDY.groupFiguresAll(doc, L); } catch (e) { SDY.missing.push("図のグループ（" + e.message + "）"); }
     SDY.hideOut(doc);
     msg = "組みました（予備：記録から当て直し）：" + nmade + " 個（隠した " + skipped + " 個）、前の .ai から写した木田さんの物 " + carried + " 個";
-    if (FR) { msg += "\n図のグループ " + FR.figs + "（入れた物 " + FR.moved + "）" + SDY.figReport({ lost: [], far: FR.far, mixed: FR.mixed, hidden: FR.hidden, warn: [], fail: FR.fail }); }
+    if (FR) { msg += "\n図のグループ：新しく作った " + FR.made + "（入れた物 " + FR.moved + "）、もとから一つの物の図 " + FR.one + SDY.figReport({ lost: [], far: [], mixed: FR.mixed, hidden: [], warn: FR.warn, fail: FR.fail }); }
     if (SDY.planShift && SDY.planShift.n && (Math.abs(SDY.planShift.dx) > 0.05 || Math.abs(SDY.planShift.dy) > 0.05)) { msg += "\n配置図の上の物 " + SDY.planShift.n + " 個を、配置図と一緒に " + Math.round(SDY.planShift.dx) + "・" + Math.round(SDY.planShift.dy) + " mm 動かしました"; }
     }
+    var OUTS = [];                                     // 確かめ：図の名前の付いた部品で、その図のグループの外に残った物（11-01）
+    try { OUTS = SDY.figsOutside(doc, L); } catch (e11) { SDY.missing.push("図のグループの確かめ（" + e11.message + "）"); }
+    msg += "\n\n図のグループの外に残った図の部品：" + (OUTS.length ? OUTS.length + "\n" + (OUTS.length > 20 ? OUTS.slice(0, 20).join("\n") + "\n…ほか " + (OUTS.length - 20) : OUTS.join("\n")) : "なし");
+    var STR = [];                                      // 図の上に重なっているが図の部品でない物（図とは別に動く）
+    try { STR = SDY.figStrays(doc, L); } catch (e12) {}
+    if (STR.length) { msg += "\n\n図の上にあるが図のグループに入らない物（図とは別に動く。要らなければ消す）：" + STR.length + "\n" + (STR.length > 20 ? STR.slice(0, 20).join("\n") + "\n…ほか " + (STR.length - 20) : STR.join("\n")); }
     if (out.exists) {                                  // 前のファイルは old/ に日時を付けて退け、同じ名前で保存する（ユーザー、10-26：名前が増えていく）
         var d = new Date();
         var stamp = d.getFullYear() + ("0" + (d.getMonth() + 1)).slice(-2) + ("0" + d.getDate()).slice(-2) + "-" + ("0" + d.getHours()).slice(-2) + ("0" + d.getMinutes()).slice(-2);

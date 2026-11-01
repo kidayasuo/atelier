@@ -656,6 +656,8 @@ SDY.isOurs = function (it) {
     if (it.typename === "SymbolItem" && it.name === "枠") { return true; }
     return SDY.hasTag(it);
 };
+// 前の版の線（update_texts が「（前の線）」にした sdyold:）・外した物（sdyout:）はスクリプトが作った物：木田さんの物として写さない・書き出さない（11-01：一から組み直すと、前の線の写しが図のグループの外に残った）
+SDY.isRetired = function (it) { var n = ""; try { n = it.note; } catch (e) {} return !!n && (n.indexOf("sdyold:") === 0 || n.indexOf("sdyout:") === 0); };
 SDY.userItems = function (doc) {                     // レイヤーのいちばん上の階の物のうち、印の無いもの
     var out = [], i, k, L, it;
     for (i = 0; i < doc.layers.length; i++) {
@@ -664,6 +666,7 @@ SDY.userItems = function (doc) {                     // レイヤーのいちば
         for (k = 0; k < L.pageItems.length; k++) {
             it = L.pageItems[k];
             try { if (it.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
+            if (SDY.isRetired(it)) { continue; }
             if (!SDY.isOurs(it)) { out.push(it); }
             else if (it.typename === "GroupItem" && !SDY.parseTag(it)) { SDY.userInGroup(it, out); }   // 部品のグループ（配置図の切り抜きなど）に入れた木田さんの物も（10-28：風の線が消えた）
         }
@@ -674,7 +677,7 @@ SDY.userInGroup = function (g, out) {               // 印の無いグループ�
     var k, c, clip;
     for (k = 0; k < g.pageItems.length; k++) {
         c = g.pageItems[k];
-        if (SDY.parseTag(c)) { continue; }
+        if (SDY.parseTag(c) || SDY.isRetired(c)) { continue; }
         clip = false; try { clip = c.clipping; } catch (e) {}
         if (clip) { continue; }
         if (c.typename === "GroupItem" && SDY.hasTag(c)) { SDY.userInGroup(c, out); } else { out.push(c); }
@@ -1402,6 +1405,138 @@ SDY.groupFigures = function (doc, L, only, dry) {
     }
     for (k = 0; k < LK.length; k++) { try { LK[k].locked = true; } catch (e9) {} }
     return R;
+};
+// ── 一から組んだとき（build の予備）の図のグループ（11-01 09:25、ユーザー：group_figures でゾーニングの等高線・園庭説明図の図と文字がばらばらのまま）──
+// 物どうしを === で比べない（Illustrator の DOM は同じ物でも取り出すたびに別の物になることがある）。レイヤーのすぐ下の物は、印（中のいちばん初めの印）の鍵で見分ける。
+// 図ごとに：部品のいちばん上の階（部品のグループ・まとめのグループ）を集め、いちばん下の物のレイヤー（リンクがあれば「図」）に、いちばん下の物のすぐ上に
+// 図のグループ（メモ sdyfig:枚:図の名前）を作り、上から順にグループの下へ足していく（中の重ね順は今の見え方のまま）。部品の中身（線の部品の一本一本）は動かさない。
+SDY.topKey = function (top) { var t = SDY.parseTag(top), d; if (t) { return "t:" + t.id; } d = SDY.firstTagIn(top); return d ? "d:" + d : null; };
+SDY.rankTops = function (doc) {                       // レイヤーのすぐ下の物を上から数える：{rank: {鍵: 番号}, list: [{key, it, r, lay}]}
+    var out = { rank: {}, list: [] }, n = 0;
+    var walk = function (lay) {
+        var k, it, key, nm = lay.name;
+        for (k = 0; k < lay.layers.length; k++) { walk(lay.layers[k]); }
+        for (k = 0; k < lay.pageItems.length; k++) {
+            it = lay.pageItems[k];
+            try { if (it.parent.typename !== "Layer" || it.parent.name !== nm) { continue; } } catch (e) { continue; }
+            key = SDY.topKey(it);
+            if (key && out.rank[key] === undefined) { out.rank[key] = n; }
+            out.list.push({ key: key, it: it, r: n, lay: nm }); n++;
+        }
+    };
+    var i; for (i = 0; i < doc.layers.length; i++) { walk(doc.layers[i]); }
+    return out;
+};
+SDY.groupFiguresAll = function (doc, L) {
+    var R = { figs: 0, made: 0, moved: 0, one: 0, mixed: [], fail: [], warn: [] };
+    var FS = SDY.figsOf(L), map = SDY.findByTag(doc), RT = SDY.rankTops(doc), fi, f, k, q, it, top, key, ln, tops, seen, tg, bad, G, T, low, mem, lowR, z, bz, nt;
+    var nameOf = function (x) { var s = ""; try { s = x.name; } catch (e) {} return s || x.typename; };
+    for (fi = 0; fi < FS.keys.length; fi++) {
+        f = FS.F[FS.keys[fi]]; tops = []; seen = {};
+        for (k = 0; k < f.ids.length; k++) {
+            it = map[f.ids[k]]; if (!it) { continue; }
+            ln = ""; try { ln = it.layer.name; } catch (e1) {}
+            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER) { continue; }
+            top = SDY.topOf(it); key = SDY.topKey(top);
+            if (!key || seen[key]) { continue; }
+            seen[key] = true;
+            tg = SDY.tagsIn(top, []); bad = false;
+            for (q = 0; q < tg.length; q++) { if (FS.FI[tg[q]] !== f.key) { bad = tg[q]; break; } }
+            if (bad) { R.mixed.push(f.no + "枚目 " + f.name + "：「" + nameOf(top) + "」にほかの物（" + bad + "）も入っている（入れなかった）"); continue; }
+            tops.push({ it: top, key: key, r: (RT.rank[key] === undefined ? 1e9 : RT.rank[key]), name: nameOf(top) });
+        }
+        if (!tops.length) { continue; }
+        if (tops.length === 1) {                      // もう一つの物（まとめのグループ・一つのリンク）
+            top = tops[0].it; nt = ""; try { nt = top.note; } catch (e2) {}
+            if (top.typename === "GroupItem" && !nt) { try { top.note = SDY.FIG_NOTE + f.key; } catch (e3) {} }
+            R.one++; continue;
+        }
+        tops.sort(function (a, c) { return a.r - c.r; });   // 上から
+        low = tops[tops.length - 1]; lowR = low.r;
+        // 重なりの見え方が変わるかもしれない所：図の部品のあいだ（上下）にある、図でない物で、それより上の図の部品と重なる物（図のグループはいちばん下の物の所に入るので、その物の下へ回る）
+        mem = {}; for (k = 0; k < tops.length; k++) { mem[tops[k].key] = true; }
+        for (q = 0; q < RT.list.length; q++) {
+            z = RT.list[q];
+            if (z.r <= tops[0].r || z.r >= lowR || (z.key && mem[z.key]) || z.lay === SDY.OUT_LAYER || z.lay === "注記") { continue; }
+            try { if (z.it.typename === "SymbolItem" && z.it.name === "枠") { continue; } } catch (e4) {}
+            bz = SDY.bOf(z.it);
+            for (k = 0; k < tops.length && tops[k].r < z.r; k++) {
+                if (SDY.bHit(SDY.bOf(tops[k].it), bz, 0)) { R.warn.push(f.no + "枚目 " + f.name + "：「" + tops[k].name + "」が「" + nameOf(z.it) + "」（" + z.lay + "）の下になる"); break; }
+            }
+        }
+        // 作るときのまとめ（部品の group が図の名前、「ゾーニングの図」「園庭説明図」など）があれば、それを図のグループにする（入れ子にしない）
+        var gi = -1;
+        for (k = 0; k < tops.length; k++) { if (tops[k].it.typename === "GroupItem" && tops[k].key.indexOf("d:") === 0 && tops[k].name === f.name) { gi = k; break; } }
+        try {
+            if (gi >= 0) {
+                G = tops[gi].it;
+                if (gi !== tops.length - 1) { G.move(low.it, ElementPlacement.PLACEBEFORE); }   // いちばん下の物のすぐ上へ
+                nt = ""; try { nt = G.note; } catch (e7) {} if (!nt) { G.note = SDY.FIG_NOTE + f.key; }
+            } else {
+                T = low.it.layer;
+                G = T.groupItems.add(); G.name = f.name; G.note = SDY.FIG_NOTE + f.key;
+                G.move(low.it, ElementPlacement.PLACEBEFORE);   // いちばん下の物のすぐ上
+                R.made++;
+            }
+            R.figs++;
+        } catch (e5) { R.fail.push(f.no + "枚目 " + f.name + "（グループを作れなかった：" + e5.message + "）"); continue; }
+        for (k = gi - 1; k >= 0; k--) {                         // まとめより上の物：下から順にグループのいちばん上へ
+            try { tops[k].it.move(G, ElementPlacement.PLACEATBEGINNING); R.moved++; }
+            catch (e8) { R.fail.push(f.no + "枚目 " + f.name + "：" + tops[k].name + "（" + e8.message + "）"); }
+        }
+        for (k = gi + 1; k < tops.length; k++) {                // 下の物（まとめが無ければ全部）：上から順にグループのいちばん下へ（中の重ね順は今のまま）
+            try { tops[k].it.move(G, ElementPlacement.PLACEATEND); R.moved++; }
+            catch (e6) { R.fail.push(f.no + "枚目 " + f.name + "：" + tops[k].name + "（" + e6.message + "）"); }
+        }
+    }
+    return R;
+};
+// 確かめ：図の名前の付いた部品のうち、その図のほかの部品と同じ一つの物（レイヤーのすぐ下の物）に入っていない物の一覧（「外した物」「更新（新しい線）」の物は数えない）
+SDY.figsOutside = function (doc, L) {
+    var FS = SDY.figsOf(L), map = SDY.findByTag(doc), out = [], fi, f, k, it, ln, key, cnt, best, bc, keys, m;
+    for (fi = 0; fi < FS.keys.length; fi++) {
+        f = FS.F[FS.keys[fi]]; cnt = {}; keys = []; best = null; bc = 0;
+        for (k = 0; k < f.ids.length; k++) {
+            it = map[f.ids[k]]; if (!it) { keys.push(null); continue; }
+            ln = ""; try { ln = it.layer.name; } catch (e) {}
+            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER) { keys.push(null); continue; }
+            key = SDY.topKey(SDY.topOf(it)); keys.push(key);
+            cnt[key] = (cnt[key] || 0) + 1;
+            if (cnt[key] > bc) { bc = cnt[key]; best = key; }
+        }
+        for (k = 0; k < f.ids.length; k++) { if (keys[k] && keys[k] !== best) { out.push(f.no + "枚目 " + f.name + "：" + f.ids[k]); } }
+    }
+    return out;
+};
+// 確かめ（11-01 09:35、ユーザー：「もうまとまっています」と出るのに、等高線・園庭説明図がばらばらに動く）：図の部品ではないが図の上に重なっている、レイヤーのすぐ下の物
+// （「更新（新しい線）」の新しい版の線、「（前の線）」、印の無い物＝木田さんの物や前の .ai から写した物）。これらは図のグループに入らないので、図とは別に動く
+SDY.figStrays = function (doc, L) {
+    var FS = SDY.figsOf(L), map = SDY.findByTag(doc), RT = SDY.rankTops(doc), boxes = [], out = [], fi, f, k, it, b, bb, z, nt, cx, cy, what, t;
+    for (fi = 0; fi < FS.keys.length; fi++) {
+        f = FS.F[FS.keys[fi]]; bb = null;
+        for (k = 0; k < f.ids.length; k++) { it = map[f.ids[k]]; if (!it) { continue; } try { if (it.layer.name === SDY.OUT_LAYER || it.layer.name === SDY.NEW_LAYER) { continue; } } catch (e) {} bb = SDY.bJoin(bb, SDY.bOf(it)); }
+        if (bb) { boxes.push({ f: f, b: bb }); }
+    }
+    for (k = 0; k < RT.list.length; k++) {
+        z = RT.list[k];
+        if (z.lay === SDY.OUT_LAYER || z.lay === "注記" || z.lay === "枠") { continue; }
+        try { if (z.it.typename === "SymbolItem" && z.it.name === "枠") { continue; } } catch (e1) {}
+        nt = ""; try { nt = z.it.note || ""; } catch (e2) {}
+        t = SDY.parseTag(z.it);
+        if (z.lay === SDY.NEW_LAYER) { what = "更新（新しい線）の新しい版"; }
+        else if (nt.indexOf("sdyold:") === 0) { what = "（前の線）"; }
+        else if (!z.key) { what = (nt.indexOf(SDY.UKEY) === 0) ? "木田さんの物" : "印の無い物"; }
+        else { continue; }                            // 部品（図の部品はグループの外なら figsOutside が数える）
+        b = SDY.bOf(z.it); if (!b) { continue; }
+        cx = (b[0] + b[2]) / 2; cy = (b[1] + b[3]) / 2;
+        var hit = null, ha = 0, ar;                   // 中心を含むいちばん小さい図
+        for (fi = 0; fi < boxes.length; fi++) {
+            bb = boxes[fi].b; ar = (bb[2] - bb[0]) * (bb[1] - bb[3]);
+            if (cx >= bb[0] && cx <= bb[2] && cy <= bb[1] && cy >= bb[3] && (!hit || ar < ha)) { hit = boxes[fi]; ha = ar; }
+        }
+        if (hit) { out.push(hit.f.no + "枚目 " + hit.f.name + "：" + what + "「" + ((z.it.name || "") || z.it.typename) + "」（" + z.lay + "、" + z.it.typename + "）"); }
+    }
+    return out;
 };
 SDY.figReport = function (R) {                        // alert に出す一覧
     var cut = function (a) { return a.length > 12 ? a.slice(0, 12).join("\n") + "\n…ほか " + (a.length - 12) : a.join("\n"); }, s = "";

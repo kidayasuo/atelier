@@ -12,7 +12,12 @@
     if (SDY.oldNumbering(L)) { alert("この .ai は前の枚の番号のままです。先に build_sodachiya.jsx の「組み替え」で組み直してください。"); return; }
     if (!SDY.hasFigs(L)) { alert("layout.json に図の名前（fig）がありません。git pull してから、もう一度。"); return; }
     var P = SDY.groupFigures(doc, L, null, true);
-    if (P.figs === 0) { alert("まとめる図はありません（どの図ももうまとまっています：" + P.done + "）。" + SDY.figReport(P)); return; }
+    var cut = function (a) { return a.length > 20 ? a.slice(0, 20).join("\n") + "\n…ほか " + (a.length - 20) : a.join("\n"); };
+    var OUTS = [], STR = [];
+    try { OUTS = SDY.figsOutside(doc, L); STR = SDY.figStrays(doc, L); } catch (e0) {}
+    var chk = "\n\n図のグループの外にある図の部品：" + (OUTS.length ? OUTS.length + "\n" + cut(OUTS) : "なし") +
+              (STR.length ? "\n\n図の上にあるが図の部品でない物（図とは別に動く。「更新（新しい線）」「（前の線）」は見比べて要らない方を消す。一から作り直すのが早い：README）：" + STR.length + "\n" + cut(STR) : "");
+    if (P.figs === 0) { alert("まとめる図はありません（" + P.done + "）。" + SDY.figReport(P) + chk); return; }
     var ask = "図を " + P.figs + " つ、それぞれ一つのグループにまとめます（グループに入れる物 " + P.moved + "、もうまとまっている図 " + P.done + "）。\n" +
               "位置・大きさ・色・文字は変えません。グループはその図のいちばん下の物のレイヤー（ふつう「図」）に作ります。" + SDY.figReport(P) + "\n\n続けますか。";
     if (!confirm(ask)) { return; }
