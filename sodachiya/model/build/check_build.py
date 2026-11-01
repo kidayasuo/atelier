@@ -109,7 +109,7 @@ if os.path.exists(k3dm):
     try:
         import rhino3dm as r3
         km = r3.File3dm.Read(k3dm); kn = {}
-        kl = [km.Layers[i].Name for i in range(len(km.Layers))]
+        kl = [km.Layers[i].Name.removesuffix('（2階）') for i in range(len(km.Layers))]     # 2階のまとめ（materials.py、11-01）の写しは元のレイヤーと合わせて数える
         for o in km.Objects:
             g = o.Geometry; ln = kl[o.Attributes.LayerIndex]
             if ln.split('_')[0] in KATACHI_FREE or ln.startswith('床の絵') or o.Attributes.GetUserString('etch_of'): continue      # 床の絵の板は絵を貼るためのメッシュ（materials.py）

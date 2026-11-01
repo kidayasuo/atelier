@@ -376,8 +376,62 @@ def stamp(m):
     m.Objects.AddTextDot('作り直し：' + BUILD, r.Point3d(x, y, 10000.0), a)
 
 
+# 2階のまとめ（設計監修、11-01。ユーザー：2階の物をまとめて消して、上から1階の部屋を見たい）：Rhino版だけ。
+# レイヤーの親は一つなので、1階と2階の物が混ざるレイヤー（24 間仕切り・37 家具・27 ガラス・58 ファン・19 戸 …）を、
+# 西館の2階の物（外接箱の下端が 2FL−100 以上＝2階の床23・床から立つ壁、または物の名前が「2階」で始まる、例：吹き抜けに下がる2階の間仕切り）だけ「同じ名前＋（2階）」の
+# 写しのレイヤー（色・素材・番号の頭が同じ。素材の表や図のスクリプトは番号の頭で読むのでそのまま）に移し、親「2階（…）」の下にまとめる。
+# 屋根（A）・架構（C）・外の親（G・H・I・K・L・T）・N 番号は動かさない（2階を消しても屋根と架構は残る、屋根の親で別に消せる）。
+# 1階から上までの物（階段・吹き抜けの壁）は下端が 2FL より下なので動かない。本館には2階が無い（ロフトは1階の家具）。
+FL2, FL2_TOL = 3250.0, 100.0                                     # 2階の床の厚さ 85（下端 3165）
+F2_PARENT = '2階（西館の2階の物、消すと1階が見える）'
+F2_SUFFIX = '（2階）'
+F2_KEEP = ('A ', 'C ', 'G ', 'H ', 'I ', 'K ', 'L ', 'T ', 'N ')     # 親の名前の頭：動かさない
+F2_WEST_V = -0.35                                                  # 西館は v＜−0.35（uv.py）
+
+
+def floor2(m):
+    """Rhino版の西館の2階の物を「（2階）」の写しのレイヤーへ → {元のレイヤー: 数}"""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from uv import uv
+    layers = list(m.Layers)
+    byid = {str(L.Id): L for L in layers}
+    def top(L):                                                      # いちばん上の親（親が無ければ自分）
+        while str(L.ParentLayerId) in byid: L = byid[str(L.ParentLayerId)]
+        return L
+    if not any(L.Name.startswith('A 屋根') and str(L.ParentLayerId) not in byid for L in layers):
+        return None                                                  # メッシュの版（親が無い）は動かさない
+    pidx = next((i for i, L in enumerate(layers) if L.Name == F2_PARENT), None)
+    if pidx is None:
+        p = r.Layer(); p.Name = F2_PARENT; p.Id = __import__('uuid').uuid4(); p.Color = (90, 90, 90, 255)
+        pidx = m.Layers.Add(p)
+    pid = m.Layers[pidx].Id
+    twin = {L.Name: i for i, L in enumerate(layers) if str(L.ParentLayerId) == str(pid)}
+    moved = {}
+    for o in m.Objects:
+        a = o.Attributes; L = m.Layers[a.LayerIndex]
+        if str(L.ParentLayerId) == str(pid) or L.Name == SKIN_LAYER or a.GetUserString('tex_of') or a.GetUserString('etch_of'):
+            continue
+        if top(L).Name.startswith(F2_KEEP): continue
+        b = o.Geometry.GetBoundingBox()
+        if not b.IsValid: continue
+        u, v = uv((b.Min.X + b.Max.X) / 2, (b.Min.Y + b.Max.Y) / 2)
+        if v >= F2_WEST_V: continue
+        if not (b.Min.Z >= FL2 - FL2_TOL or (a.Name or '').startswith('2階')): continue
+        tn = L.Name + F2_SUFFIX
+        if tn not in twin:
+            T = r.Layer(); T.Name = tn; T.Id = __import__('uuid').uuid4(); T.Color = L.Color; T.PlotColor = L.PlotColor
+            T.Visible = L.Visible; T.Locked = L.Locked; T.RenderMaterialIndex = L.RenderMaterialIndex; T.ParentLayerId = pid
+            twin[tn] = m.Layers.Add(T)
+        a.LayerIndex = twin[tn]; moved[L.Name] = moved.get(L.Name, 0) + 1
+    return moved
+
+
 def apply(path):
     m = r.File3dm.Read(path)
+    f2 = floor2(m)
+    if f2 is not None:
+        print(f'materials: 2階のまとめ：{sum(f2.values())} 物を {len(f2)} のレイヤーの（2階）へ（'
+              + '、'.join(f'{k.split("_")[0]} {v}' for k, v in sorted(f2.items())) + '）')
     # その場で書き換える（グループ・親子のレイヤー・物の属性を失わないため）。同じ名前の素材があれば使い回す
     have = {mt.Name: i for i, mt in enumerate(m.Materials)}
     idx = {}
