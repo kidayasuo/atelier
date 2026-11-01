@@ -1242,6 +1242,7 @@ def _poly_sz(g, F=None, k=0):
     F = F or _frame_of(g); P = _ring_pts(g, k)
     return Polygon(_l2sz(F, np.c_[(P - F['A']) @ F['X'], (P - F['A']) @ F['Y']])).buffer(0)
 TAMEDIA = True
+import shapely.affinity as _shp_aff
 def _gaxis(g):
     A_, B_ = _path(g); pl_ = g.GetProfilePlane(0.0); X_ = _v3(pl_.XAxis); Y_ = _v3(pl_.YAxis)
     c_ = g.Profile3d(0, 0.0); P_ = np.array([[q.X, q.Y, q.Z] for q in (c_.PointAt(t) for t in np.linspace(c_.Domain.T0, c_.Domain.T1, 200))])
@@ -1356,9 +1357,16 @@ for _it in range(2 if TAMEDIA else 0):
         for gi, end in ends_:
             P_ = _gaxis(gi[1])[end]
             for c_ in _cl:
-                if np.linalg.norm(_gaxis(c_[0][0][1])[c_[0][1]] - P_) < 30.0: c_.append((gi, end)); break
+                if np.linalg.norm(_gaxis(c_[0][0][1])[c_[0][1]] - P_) < 300.0: c_.append((gi, end)); break
             else: _cl.append([(gi, end)])
         for ends_ in [c_ for c_ in _cl if len(c_) >= 2]:
+          # 11-01（監修の項 2131 の追記、点検 tamedia.py）：折れ目の二本の桁の端を同じ一点（端の平均）に（u24 の折れで約 50 離れていた）
+          Pm_ = np.mean([_gaxis(gi[1])[end] for gi, end in ends_], axis=0)
+          for gi, end in ends_:
+              mv0_ = Pm_ - _gaxis(gi[1])[end]
+              if np.linalg.norm(mv0_) < 0.05: continue
+              e = extedit.edit(gi[1], None, (lambda A_, B_, mv0_=mv0_: (A_ + mv0_, B_)) if end == 0 else (lambda A_, B_, mv0_=mv0_: (A_, B_ + mv0_)))
+              if e is not None: gi[1] = e; EXT[gi[0]] = e
           secs_ = []
           for gi, end in ends_:
               tm_ = _ext_tm(gi[1])
@@ -1369,17 +1377,28 @@ for _it in range(2 if TAMEDIA else 0):
                       if len(lp_) >= 3: secs_.append(Polygon(np.c_[_w2s(Fc_, lp_), lp_[:, 2]]).buffer(0))
           if not secs_: continue
           H_ = unary_union(secs_).buffer(10.0); zc_ = (H_.bounds[1] + H_.bounds[3]) / 2
+          # 11-01：穴は折れ目について点対称（下の _rebuild_holes）。その形で、外壁の側（柱の外の面＝足もとから頭までの線）に木 25 が残るよう折れ目を動かす。
+          #   内の側にはみ出す所は、あとで柱の頭を局所的に太らせる
+          Ks_ = Point(float(_w2s(Fc_, Pm_[None, :2])[0]), float(Pm_[2]))
+          H_ = unary_union([H_, _shp_aff.rotate(H_, 180, origin=Ks_)]).convex_hull
           if opc_.buffer(-15.0).contains(H_): continue
           ln_ = opc_.intersection(LineString([(opc_.bounds[0] - 10.0, zc_), (opc_.bounds[2] + 10.0, zc_)]))
           if ln_.is_empty: continue
-          dl_ = (ln_.bounds[0] + 25.0) - H_.bounds[0]; dr_ = H_.bounds[2] - (ln_.bounds[2] - 25.0)
-          sh_ = dl_ if dl_ > 0 else (-dr_ if dr_ > 0 else 0.0)
+          wl_ = _dv(Fc_) > 0                                                    # 外壁の側が s の小さい側
+          sh_ = max(0.0, (opc_.bounds[0] + 25.0) - H_.bounds[0]) if wl_ else -max(0.0, H_.bounds[2] - (opc_.bounds[2] - 25.0))
           if abs(sh_) < 0.5: continue
           mv_ = np.r_[Fc_['hw'] * sh_, 0.0]
           for gi, end in ends_:
               e = extedit.edit(gi[1], None, (lambda A_, B_: (A_ + mv_, B_)) if end == 0 else (lambda A_, B_: (A_, B_ + mv_)))
               if e is not None: gi[1] = e; EXT[gi[0]] = e
           _n_ks += 1; _gx_log.append(f'u{w[5]:.2f}折れ目を{sh_:+.0f}')
+_KINKS = []                                                                   # 折れ目（二本の桁の端が会う点、柱の穴をこの点について点対称に）
+for gi in _GIR:
+    for end in (0, 1):
+        P_ = _gaxis(gi[1])[end]
+        for gj in _GIR:
+            if gj is gi: continue
+            if min(np.linalg.norm(_gaxis(gj[1])[0] - P_), np.linalg.norm(_gaxis(gj[1])[1] - P_)) < 15.0 and not any(np.linalg.norm(k_ - P_) < 15.0 for k_ in _KINKS): _KINKS.append(P_)
 log.append(f'西館：桁の端 {_n_gx} を柱の頭の中心・端の架構の外の板の外面まで（Tamedia の留め、10-31。うち外の板の外面 {_n_gp}）：{" ".join(_gx_log)}')
 # 2b. 2 階の床梁（22c）の東の端を柱の東の面（v−1.05、外壁の内面）で止める（I：柱の面から 110〜130 出て宙で終わっていた）
 _n_fe = 0
@@ -1491,7 +1510,8 @@ for w in _WOOD:
     if not secs: continue
     add_ = []
     for h_ in getattr(unary_union(secs).buffer(10.0), 'geoms', [unary_union(secs).buffer(10.0)]):
-        if h_.area < 2000.0 or h_.intersection(op_).area < 1.0 or op_.buffer(-60.0).contains(h_): continue
+        near_ = TAMEDIA and w[2] == L22C and h_.intersection(op_).area < 1.0 and h_.distance(op_) < 300.0   # 11-01：板の端のすぐ外を通る桁（u21.47 の 2 階の床梁の西の端）も包む
+        if h_.area < 2000.0 or (h_.intersection(op_).area < 1.0 and not near_) or op_.buffer(-60.0).contains(h_): continue
         add_.append(unary_union([op_.intersection(h_.buffer(370.0).envelope), h_.buffer(70.0)]).convex_hull)
     if not add_: continue
     new_ = unary_union([op_] + add_)
@@ -1519,6 +1539,13 @@ def _rebuild_holes(g, col=False, bear=False):
     c0_ = g.Profile3d(0, 0.0); Q0_ = np.array([[q.X, q.Y, q.Z] for q in (c0_.PointAt(t) for t in np.linspace(c0_.Domain.T0, c0_.Domain.T1, 600))])
     if not secs and old_n == 0 and Polygon(np.c_[(Q0_ - A) @ X, (Q0_ - A) @ Y]).is_valid: return None, 0, 0, 0
     H_ = unary_union(secs).buffer(10.0, resolution=8).simplify(0.5) if secs else None
+    if col and TAMEDIA and H_ is not None and globals().get('_KINKS'):        # 11-01：折れ目の柱の穴は折れ目について点対称に（穴の重心が二本の桁の芯の会う点に）
+        Mc_ = (A + B) / 2; hs_ = list(getattr(H_, 'geoms', [H_]))
+        for K_ in _KINKS:
+            if abs(float((K_ - Mc_) @ pd_)) > L_ / 2 + 1.0: continue
+            q_ = Point(float((K_ - A) @ X), float((K_ - A) @ Y))
+            hs_ = [unary_union([h_, _shp_aff.rotate(h_, 180, origin=q_)]).convex_hull if h_.buffer(5.0).contains(q_) else h_ for h_ in hs_]
+        H_ = unary_union(hs_)
     if bear and H_ is not None:                                                # 10-31：一枚の梁も桁のピンに載る（穴の上の縁が桁の上端に）                                                # 10-29 夜（項 2027 の 3）：柱の無い梁（u43.5）は桁に載る：穴の上の縁を桁の上端に合わせる
         up_ = np.array([X[2], Y[2]]); up_ /= np.linalg.norm(up_)
         H_ = _shp_aff.translate(H_, -10.0 * up_[0], -10.0 * up_[1])
@@ -1740,6 +1767,12 @@ for fk_, ws_ in _byf.items():
     vstop_ = max(c_[6] for c_ in cand_)                                       # 2 枚は同じ所（内側の 1 枚が壁に当たる所）
     for w, F, op_, dv_, sW_, sw_, _v in cand_:
         s_ = _s_of_v(F, vstop_, sw_)
+        if TAMEDIA:                                                            # 11-01：揃えて切ると桁（ピン）の穴が切れる板（u21.47 の西の端）は、自分の壁の所で止める
+            Ap_, Bp_ = _path(w[4]); Lp_ = np.linalg.norm(Bp_ - Ap_); pp_ = (Bp_ - Ap_) / Lp_; cut_ = op_.difference(_half(F, s_, dv_ > 0))
+            for tm_ in _GTM:
+                sc_ = tm_.section(plane_origin=(Ap_ + Bp_) / 2, plane_normal=pp_)
+                if sc_ is None: continue
+                if any(len(lp_) >= 3 and Polygon(np.c_[_w2s(F, lp_), lp_[:, 2]]).buffer(0).buffer(80.0).intersects(cut_) for lp_ in sc_.discrete): s_ = sw_; break
         if (s_ - sW_) * dv_ > 2.0:                                            # 壁の中へ出ている
             e_ = _rebuild_sz(w[4], F, op_.intersection(_half(F, s_, dv_ > 0)))
             if e_ is not None: _wset(w, e_); _g3['trim'] += 1; op_ = _poly_sz(e_, F)
@@ -2079,9 +2112,15 @@ if TAMEDIA:
                             if q_.area > 500.0 and q_.intersects(opc_): sc2_.append(q_)
             if sc2_:
                 Hc_ = unary_union(sc2_).buffer(10.0)
+                for K_ in _KINKS:                                                  # 11-01：折れ目の穴は点対称（_rebuild_holes と同じ）
+                    if abs(float((K_ - (Ac_ + Bc_) / 2) @ pc_)) > Lc_ / 2 + 1.0: continue
+                    q_ = Point(float(_w2s(Fc_, K_[None, :2])[0]), float(K_[2]))
+                    Hc_ = unary_union([unary_union([h_, _shp_aff.rotate(h_, 180, origin=q_)]).convex_hull if h_.buffer(5.0).contains(q_) else h_
+                                       for h_ in getattr(Hc_, 'geoms', [Hc_])])         # 穴ごとに（屋根の桁の穴と床の桁の穴を一つにしない）
                 sw_ = opc_.bounds[0] if _dv(Fc_) > 0 else opc_.bounds[2]          # 外壁の側（v の小さい側）の外の面の線は越えない。内の側は太らせてよい
                 lim_ = Polygon([(sw_, -1e5), (sw_ + 1e5 * _dv(Fc_), -1e5), (sw_ + 1e5 * _dv(Fc_), 1e5), (sw_, 1e5)]).buffer(0)
-                wrap_ = unary_union([opc_.intersection(Hc_.buffer(300.0).envelope), Hc_.buffer(20.0)]).convex_hull.intersection(lim_)
+                wrap_ = unary_union([unary_union([opc_.intersection(h_.buffer(300.0).envelope), h_.buffer(20.0)]).convex_hull for h_ in getattr(Hc_, 'geoms', [Hc_])
+                                     if not opc_.buffer(-15.0).contains(h_)]).intersection(lim_) if not opc_.buffer(-15.0).contains(Hc_) else Polygon()   # 縁にかかる穴のまわりだけ
                 e3_ = _rebuild_sz(w[4], Fc_, unary_union([opc_, wrap_]))
                 if e3_ is not None:
                     _wset(w, e3_); e_, a_, b_, c_ = _rebuild_holes(w[4], True)
