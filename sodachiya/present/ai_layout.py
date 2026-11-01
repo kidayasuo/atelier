@@ -20,6 +20,16 @@ def djb2(s):
     return format(h, "x")
 
 
+def file_hash(path):
+    """PDF の中身の印（作った日時・ID は除く）。.ai の素材置き場（自動で更新しない枚、11-01）で、前の update から変わったかを見る"""
+    import hashlib
+    try:
+        b = open(path, "rb").read()
+    except OSError:
+        return ""
+    return hashlib.md5(re.sub(rb"/(CreationDate|ModDate) *\([^)]*\)|/ID *\[[^\]]*\]", b"", b)).hexdigest()[:8]
+
+
 def _slug(s, n=14):
     s = re.sub(r"[\s　/\\|:]+", "", s)
     return s[:n] or "x"
@@ -478,6 +488,9 @@ def write(c):
                         fg_ = nm_
                         break
             p["fig"] = fg_
+        for p in parts:                              # リンクの中身の印（ファイルと「文字と寸法」の重ね）：自動で更新しない枚の素材置き場（11-01）
+            if p["kind"] == "link" and not p.get("mock_hash"):
+                p["mock_hash"] = file_hash(os.path.join(ROOT, p["file"])) + (file_hash(os.path.join(ROOT, p["overlay"])) if p.get("overlay") else "")
         pages.append(dict(no=no, frame=has_frame, parts=parts))
     M = 15.0
     out = dict(note="mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",

@@ -106,8 +106,9 @@ SDY.tag = function (it, p) {
     it.note = SDY.tagNote(p.kind, p.id, p.mock_hash, p.world);
 };
 // 印：sdy:種類|id|mock の印[|w=西,北,幅,高さ]（w は映す範囲の決まったリンクだけ、回した座標の m。11-01：背景の範囲を変えても上の物に合わせて付け替える）
-SDY.tagNote = function (kind, id, hash, world) {
-    return "sdy:" + kind + "|" + id + "|" + (hash || "") + (world && world.length === 4 ? "|w=" + world.join(",") : "");
+// g=：線の部品（lines）を描いたときの形・色の印（SDY.shapeHash、11-01）。今の形と同じなら木田さんは手を付けていない
+SDY.tagNote = function (kind, id, hash, world, g) {
+    return "sdy:" + kind + "|" + id + "|" + (hash || "") + (world && world.length === 4 ? "|w=" + world.join(",") : "") + (g ? "|g=" + g : "");
 };
 SDY.parseTag = function (it) {
     var n = "";
@@ -116,6 +117,7 @@ SDY.parseTag = function (it) {
     var a = n.substring(4).split("|"), t = { kind: a[0], id: a[1], mock_hash: a[2] || "" }, k, w;
     for (k = 3; k < a.length; k++) {
         if (a[k].indexOf("w=") === 0) { w = a[k].substring(2).split(","); if (w.length === 4) { t.world = [Number(w[0]), Number(w[1]), Number(w[2]), Number(w[3])]; } }
+        else if (a[k].indexOf("g=") === 0) { t.g = a[k].substring(2); }
     }
     return t;
 };
@@ -271,6 +273,7 @@ SDY.stackingOf = function (doc, rid) {               // 書き出し：{レイ�
     var out = {}, i, k, L, it, key, arr;
     for (i = 0; i < doc.layers.length; i++) {
         L = doc.layers[i]; arr = [];
+        if (L.name === SDY.OKIBA_LAYER) { continue; }  // 素材置き場（11-01）は重ね順を覚えない
         for (k = 0; k < L.pageItems.length; k++) {
             it = L.pageItems[k];
             try { if (it.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
@@ -524,6 +527,7 @@ SDY.makeLines = function (doc, lay, i, p) {
         if (q.op !== undefined && q.op !== null && q.op < 1) { pi.opacity = q.op * 100; }
     }
     SDY.tag(g, p);
+    try { g.note = g.note + "|g=" + SDY.shapeHash(g); } catch (eg) {}
     return SDY.intoCont(lay, p, g);
 };
 SDY.makeBox = function (doc, lay, i, p) {
@@ -678,12 +682,12 @@ SDY.isOurs = function (it) {
     return SDY.hasTag(it);
 };
 // 前の版の線（update_texts が「（前の線）」にした sdyold:）・外した物（sdyout:）はスクリプトが作った物：木田さんの物として写さない・書き出さない（11-01：一から組み直すと、前の線の写しが図のグループの外に残った）
-SDY.isRetired = function (it) { var n = ""; try { n = it.note; } catch (e) {} return !!n && (n.indexOf("sdyold:") === 0 || n.indexOf("sdyout:") === 0); };
+SDY.isRetired = function (it) { var n = ""; try { n = it.note; } catch (e) {} return !!n && (n.indexOf("sdyold:") === 0 || n.indexOf("sdyout:") === 0 || n.indexOf("sdystock") === 0); };
 SDY.userItems = function (doc) {                     // レイヤーのいちばん上の階の物のうち、印の無いもの
     var out = [], i, k, L, it;
     for (i = 0; i < doc.layers.length; i++) {
         L = doc.layers[i];
-        if (L.name === SDY.OUT_LAYER) { continue; }   // 外した物（10-31）は木田さんの物の台帳に入れない（組み替えはレイヤーごと持ってくる）
+        if (L.name === SDY.OUT_LAYER || L.name === SDY.OKIBA_LAYER) { continue; }   // 外した物（10-31）・素材置き場（11-01）は木田さんの物の台帳に入れない（組み替えはレイヤーごと持ってくる）
         for (k = 0; k < L.pageItems.length; k++) {
             it = L.pageItems[k];
             try { if (it.parent.typename !== "Layer") { continue; } } catch (e) { continue; }
@@ -879,7 +883,7 @@ SDY.drawUser = function (doc, ai, d, dx, dy, cont) {  // describe の形から�
     return it;
 };
 // layout_user.json の user_items のうち、.ai にまだ無い物（鍵で見る）を描く。配置図の上の物は配置図と一緒に動かし、配置図のまとめへ。返り値は描いた数
-SDY.drawUserItems = function (doc, L, U) {
+SDY.drawUserItems = function (doc, L, U, auto) {       // auto：自動でない枚（11-01）には足さない
     if (!U || !U.user_items) { return 0; }
     var have = SDY.userKeys(doc), n = 0, i, d, ai, pg, dx, dy, cont, it, gi, an, au, inWin;
     an = (L && L.anchors) ? L.anchors["p1.siteplan"] : null;
@@ -891,6 +895,7 @@ SDY.drawUserItems = function (doc, L, U) {
         ai = -1;
         for (pg = 0; pg < L.pages.length; pg++) { if (L.pages[pg].no === d.artboard) { ai = pg; } }
         if (ai < 0) { SDY.missing.push("足した物の枚が無い：" + (d.name || d.type)); continue; }
+        if (auto && !auto[ai]) { continue; }
         inWin = false;
         if (d.artboard === 1 && au && au.window) {
             var cx = d.x + d.w / 2, cy = d.y + d.h / 2, w = au.window;
@@ -1085,10 +1090,14 @@ SDY.retire = function (doc, it) {                    // 消さずに「外した
     return it;
 };
 // layout.json に無くなった部品（図が変わって寸法が無くなった・名前の変わった文字など）を「外した物」へ移す。空になった寸法などの入れ物（sdyg:）だけは片付ける
-SDY.retireStale = function (doc, L) {
-    var ids = {}, i, j, map = SDY.findByTag(doc), id, rm = [], k, n = 0, nt, g;
+SDY.retireStale = function (doc, L, auto) {             // auto：枚ごとの自動の更新（SDY.autoPages）。自動でない枚の物は外さない（11-01）
+    var ids = {}, i, j, map = SDY.findByTag(doc), id, rm = [], k, n = 0, nt, g, ai;
     for (i = 0; i < L.pages.length; i++) { for (j = 0; j < L.pages[i].parts.length; j++) { ids[L.pages[i].parts[j].id] = true; } }
-    for (id in map) { if (map.hasOwnProperty(id) && !ids[id] && !SDY.isUserOwned(L, id)) { rm.push(map[id]); } }   // 木田さんが持つ部品は外さない（11-01）
+    for (id in map) {
+        if (!map.hasOwnProperty(id) || ids[id] || SDY.isUserOwned(L, id)) { continue; }
+        if (auto) { ai = -1; try { ai = SDY.abOf(doc, map[id].geometricBounds); } catch (ea) {} if (ai >= 0 && ai < auto.length && !auto[ai]) { continue; } }
+        rm.push(map[id]);
+    }   // 木田さんが持つ部品は外さない（11-01）
     for (k = 0; k < rm.length; k++) { try { SDY.retire(doc, rm[k]); n++; } catch (e) { SDY.missing.push("外せなかった部品：" + (rm[k].name || rm[k].typename) + "（" + e.message + "）"); } }
     for (k = doc.groupItems.length - 1; k >= 0; k--) {
         g = doc.groupItems[k]; nt = "";
@@ -1238,15 +1247,116 @@ SDY.relinkWorld = function (it, pl, f, p) {
         SDY.notes.push("背景の範囲を付け替えた（.ai の変換のまま［回転 " + rot + "°・" + sc + "%］、前の範囲の中身が同じ所に来るように置き直した。新しい範囲 " + (Math.round(w1[2] * p.world_mm * 10) / 10) + "×" + (Math.round(w1[3] * p.world_mm * 10) / 10) + " mm（100% のとき））：" + f.name);
         try { if (pl.parent.typename === "GroupItem" && pl.parent.clipped) { SDY.notes.push("背景のリンクが切り抜きのグループの中にある（伸ばした所は切り抜きの四角で隠れる。.ai で四角を広げる）：" + f.name); } } catch (e2) {}
     }
-    try { it.note = SDY.tagNote(t ? t.kind : p.kind, p.id, t ? t.mock_hash : p.mock_hash, w1); } catch (e3) {}
+    try { it.note = SDY.tagNote(t ? t.kind : p.kind, p.id, p.mock_hash, w1, t ? t.g : null); } catch (e3) {}
     return true;
 };
 // 印の付いた部品の印だけ替える（名前は木田さんが変えていればそのまま）
-SDY.retag = function (it, p) { var t = SDY.parseTag(it); it.note = SDY.tagNote(p.kind, p.id, p.mock_hash, p.world || (t ? t.world : null)); };
+SDY.retag = function (it, p) { var t = SDY.parseTag(it); it.note = SDY.tagNote(p.kind, p.id, p.mock_hash, p.world || (t ? t.world : null), t ? t.g : null); };
 // ふだんの更新（update_texts と、組み替えの後）。made に新しく描いた物を入れる。返り値は数
-SDY.refresh = function (doc, L, U, made) {
-    var st = { nt: 0, nl: 0, na: 0, nr: 0, nx: 0, nu: 0, own: 0, kept: [], newl: [] }, UP = (U && U.parts) || {}, map, i, j, p, it, tg, q, nw, kf;
-    try { st.nx = SDY.retireStale(doc, L); } catch (e0) { SDY.missing.push("無くなった部品（" + e0.message + "）"); }
+// ── 枚ごとの自動の更新と素材置き場（ユーザー 11-01 14:58）──────────────────────────────────────────
+// auto_pages.json（{"1": false, "2": false, "3": true, …}）で、枚ごとに update_texts が自動で更新するかを決める（書いていない枚は自動）。
+// 自動でない枚は、その枚の物に一切触らない（足さない・直さない・外さない・「（前の線）」も作らない・リンクも替えない）。
+// その枚の部品で前の update から中身が変わった物（文字・線・リンクの PDF）と新しい部品は、新しい版を描いて、図（無ければ部品）ごとに
+// 一つのグループ「更新：<図の名前>（<日時>）」にし、6枚の外の「素材置き場」アートボード（レイヤー「素材置き場」）に格子に並べる。
+// 前の版は okiba_seen.json（部品の id → 中身の印）に。無ければ .ai の部品の印。置き場の物は消さない（木田さんが消す）
+SDY.OKIBA_LAYER = "素材置き場";
+SDY.OKIBA_AB = "素材置き場";
+SDY.STOCK = "sdystock:";
+SDY.autoPages = function (L) {                        // 枚の順（L.pages の i）→ 自動か
+    var A = null, m = [], i, v, f = File(SDY.here.fsName + "/auto_pages.json");
+    try { if (f.exists) { A = SDY.readJSON(f); } } catch (e) { SDY.missing.push("auto_pages.json を読めなかった（全部の枚を自動に）：" + e.message); }
+    for (i = 0; i < L.pages.length; i++) { v = A ? A[String(L.pages[i].no)] : undefined; m.push(v !== false); }
+    return m;
+};
+SDY.readSeen = function () { var f = File(SDY.here.fsName + "/okiba_seen.json"); try { if (f.exists) { return SDY.readJSON(f); } } catch (e) {} return {}; };
+SDY.writeSeen = function (o) {
+    var a = [], k; for (k in o) { if (o.hasOwnProperty(k)) { a.push(SDY.q(k) + ": " + SDY.q(o[k])); } }
+    try { SDY.writeText(File(SDY.here.fsName + "/okiba_seen.json"), "{\n" + a.join(",\n") + "\n}\n"); } catch (e) { SDY.missing.push("okiba_seen.json を書けなかった（" + e.message + "）"); }
+};
+// 形・色の印（線の部品が描いたときのままか、11-01）：点（0.01 pt）・閉じ・塗り・線の色と太さ・不透明度
+SDY.shapeHash = function (it) {
+    var out = [], r = function (v) { return Math.round(v * 100) / 100; };
+    var walk = function (x) {
+        var k, pp, a;
+        if (x.typename === "GroupItem") { for (k = 0; k < x.pageItems.length; k++) { walk(x.pageItems[k]); } return; }
+        if (x.typename === "CompoundPathItem") { out.push("C"); for (k = 0; k < x.pathItems.length; k++) { walk(x.pathItems[k]); } return; }
+        if (x.typename !== "PathItem") { out.push(x.typename); return; }
+        a = [];
+        for (k = 0; k < x.pathPoints.length; k++) {
+            pp = x.pathPoints[k];
+            a.push(r(pp.anchor[0]) + "," + r(pp.anchor[1]) + "," + r(pp.leftDirection[0]) + "," + r(pp.leftDirection[1]) + "," + r(pp.rightDirection[0]) + "," + r(pp.rightDirection[1]));
+        }
+        out.push(a.join(";") + "|" + (x.closed ? 1 : 0) + "|" + (x.filled ? SDY.hexOf(x.fillColor) : "-") + "|" +
+                 (x.stroked ? SDY.hexOf(x.strokeColor) + "/" + r(x.strokeWidth) : "-") + "|" + r(x.opacity));
+    };
+    walk(it);
+    return SDY.hash(out.join("\n"));
+};
+SDY.stamp = function () {
+    var d = new Date(), z = function (v) { return (v < 10 ? "0" : "") + v; };
+    return z(d.getMonth() + 1) + "-" + z(d.getDate()) + " " + z(d.getHours()) + ":" + z(d.getMinutes());
+};
+SDY.stockMark = function (x) {                          // 置き場の物の印を sdystock: に（部品・木田さんの物と数えない）
+    var n = "", k;
+    try { n = x.note; } catch (e) {}
+    if (n && n.indexOf("sdy:") === 0) { try { x.note = SDY.STOCK + n.substring(4); } catch (e1) {} }
+    try { if (x.typename === "GroupItem") { for (k = 0; k < x.pageItems.length; k++) { SDY.stockMark(x.pageItems[k]); } } } catch (e2) {}
+};
+// 新しい版を描いて（いったん元の枚の位置に、レイヤー「素材置き場」）、図ごとの入れ物 bk に入れる
+SDY.stockPart = function (doc, i, p, isNew, bk, bkeys) {
+    var q = SDY.clone(p), nw, key = i + ":" + (p.fig || p.id);
+    delete q.group; delete q.group_name; delete q.dwg; q.clipgroup = false; q.layer = SDY.OKIBA_LAYER;
+    nw = SDY.make(doc, i, q);
+    if (!nw) { return false; }
+    SDY.stockMark(nw);
+    if (!bk[key]) { bk[key] = { name: (p.fig || p.name || p.id), no: (doc && i >= 0) ? i + 1 : 0, items: [] }; bkeys.push(key); }
+    bk[key].items.push(nw);
+    return true;
+};
+SDY.okibaBoard = function (doc, L) {                     // 素材置き場のアートボード（無ければ6枚の右に、紙2枚分の幅で作る）。返り値は番号
+    var k, r, R = null, K = SDY.K, W = L.artboard[0] * K, H = L.artboard[1] * K, ab;
+    for (k = 0; k < doc.artboards.length; k++) { if (doc.artboards[k].name === SDY.OKIBA_AB) { return k; } }
+    for (k = 0; k < doc.artboards.length; k++) { r = doc.artboards[k].artboardRect; R = R ? [Math.min(R[0], r[0]), Math.max(R[1], r[1]), Math.max(R[2], r[2]), Math.min(R[3], r[3])] : r; }
+    ab = doc.artboards.add([R[2] + 100 * K, R[1], R[2] + 100 * K + 2 * W, R[1] - H]);
+    ab.name = SDY.OKIBA_AB;
+    return doc.artboards.length - 1;
+};
+// 入れ物ごとに一つのグループにして、置き場に格子に並べる（前からある物の下の行から。足りなければアートボードを下・右へ伸ばす）
+SDY.stockFlush = function (doc, L, bk, bkeys) {
+    if (!bkeys.length) { return 0; }
+    var lay = SDY.layer(doc, SDY.OKIBA_LAYER), ai = SDY.okibaBoard(doc, L), A = doc.artboards[ai], r = A.artboardRect, K = SDY.K, M = 10 * K, G = 8 * K;
+    var low = r[1] - M, k, j, b, g, x, y, rowH = 0, n = 0, st = SDY.stamp(), it, gb, rr;
+    try { lay.locked = false; lay.visible = true; } catch (e0) {}
+    for (k = 0; k < lay.pageItems.length; k++) {             // 前からある置き場の物の下
+        it = lay.pageItems[k];
+        try { if (it.parent.typename !== "Layer") { continue; } b = it.visibleBounds; } catch (e1) { continue; }
+        if (b[3] - G < low && b[0] < r[2] && b[2] > r[0]) { low = b[3] - G; }
+    }
+    x = r[0] + M; y = low;
+    for (k = 0; k < bkeys.length; k++) {
+        g = lay.groupItems.add();
+        g.name = "更新：" + bk[bkeys[k]].name + "（" + bk[bkeys[k]].no + "枚目、" + st + "）";
+        g.note = "sdystockg:" + bkeys[k] + "|" + st;
+        for (j = 0; j < bk[bkeys[k]].items.length; j++) { try { bk[bkeys[k]].items[j].move(g, ElementPlacement.PLACEATEND); } catch (e2) {} }
+        if (!g.pageItems.length) { g.remove(); continue; }
+        gb = g.visibleBounds;
+        if (x > r[0] + M && x + (gb[2] - gb[0]) > r[2] - M) { x = r[0] + M; y -= rowH + G; rowH = 0; }   // 次の行
+        g.translate(x - gb[0], y - gb[1]);
+        x += (gb[2] - gb[0]) + G; if (gb[1] - gb[3] > rowH) { rowH = gb[1] - gb[3]; }
+        rr = A.artboardRect;
+        if (y - (gb[1] - gb[3]) - M < rr[3] || x - G + M > rr[2]) {   // アートボードを伸ばす
+            try { A.artboardRect = [rr[0], rr[1], Math.max(rr[2], x - G + M), Math.min(rr[3], y - (gb[1] - gb[3]) - M)]; } catch (e3) { SDY.notes.push("素材置き場のアートボードを伸ばせなかった（" + e3.message + "）"); }
+        }
+        n++;
+    }
+    return n;
+};
+// auto：枚ごとの自動の更新（SDY.autoPages、update_texts だけが渡す。無ければ全部の枚が自動）。自動でない枚は、その枚の物に触らず、
+// 変わった部品・新しい部品の新しい版を「素材置き場」に図ごとのグループで置く（SDY.stockPart・SDY.stockFlush、11-01）
+SDY.refresh = function (doc, L, U, made, auto) {
+    var st = { nt: 0, nl: 0, na: 0, nr: 0, nx: 0, nu: 0, own: 0, kept: [], newl: [], nrep: 0, nstock: 0, nsg: 0, nbase: 0, stocked: [] }, UP = (U && U.parts) || {}, map, i, j, p, it, tg, q, nw, kf, last;
+    var seen = auto ? SDY.readSeen() : null, bk = {}, bkeys = [];
+    try { st.nx = SDY.retireStale(doc, L, auto); } catch (e0) { SDY.missing.push("無くなった部品（" + e0.message + "）"); }
     map = SDY.findByTag(doc);
     for (i = 0; i < L.pages.length; i++) {
         for (j = 0; j < L.pages[i].parts.length; j++) {
@@ -1254,13 +1364,28 @@ SDY.refresh = function (doc, L, U, made) {
             if (p.hidden) { continue; }
             it = map[p.id];
             if (SDY.isUserOwned(L, p.id)) { st.own++; continue; }   // 木田さんが持つ部品（11-01）：消さない・直さない・新しく足さない
+            if (auto && !auto[i]) {                    // 自動でない枚（11-01）：この枚の物には触らない。前の版（記録 okiba_seen.json、無ければ .ai の印）と比べる
+                last = seen.hasOwnProperty(p.id) ? seen[p.id] : (it ? ((SDY.parseTag(it) || {}).mock_hash || "") : null);
+                if (last === "") { seen[p.id] = p.mock_hash || ""; st.nbase++; continue; }   // 前の版が分からない（印に中身の印が無いリンク）：今の版を記録するだけ
+                if (last !== null && last === (p.mock_hash || "")) { continue; }
+                try { if (SDY.stockPart(doc, i, p, last === null, bk, bkeys)) { st.nstock++; st.stocked.push((last === null ? "新しい：" : "") + (p.name || p.id)); } else { SDY.failed[p.id] = 1; } }
+                catch (es) { SDY.missing.push("素材置き場：" + p.id + "（" + es.message + "）"); }
+                seen[p.id] = p.mock_hash || "";
+                continue;
+            }
             if (!it) {                                 // 新しい部品：既定の位置・元のレイヤーに足す
                 try { nw = SDY.make(doc, i, p); if (nw) { st.na++; made.push(nw); } else { SDY.failed[p.id] = 1; } } catch (e) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e.message + "）"); }
                 continue;
             }
             tg = SDY.parseTag(it);
             if (p.kind === "lines") {                  // 形の変わった線の部品：前の線は残し、新しい版を「更新（新しい線）」に足す（木田さんが見比べて消す）
-                if (tg && tg.mock_hash !== p.mock_hash) {
+                if (tg && tg.mock_hash !== p.mock_hash && tg.g && auto && SDY.shapeHash(it) === tg.g) {   // 木田さんが手を付けていない線（描いたときの形・色のまま、11-01）：前の線を残さずに差し替える
+                    try {
+                        q = SDY.clone(p); delete q.group; delete q.group_name; delete q.dwg;
+                        nw = SDY.make(doc, i, q);
+                        if (nw) { nw.move(it, ElementPlacement.PLACEBEFORE); it.remove(); st.nrep++; } else { SDY.failed[p.id] = 1; }
+                    } catch (e1r) { SDY.missing.push(p.id + "（" + e1r.message + "）"); }
+                } else if (tg && tg.mock_hash !== p.mock_hash) {
                     try {
                         q = SDY.clone(p); delete q.group; delete q.group_name; q.layer = SDY.NEW_LAYER;
                         kf = SDY.fillOf(it); nw = SDY.make(doc, i, q);
@@ -1283,7 +1408,10 @@ SDY.refresh = function (doc, L, U, made) {
             } else if (p.kind === "link") {            // 図のPDF：ファイルを差し替えるだけ
                 var f = File(SDY.root.fsName + "/" + p.file), pl = it, ov;
                 if (it.typename === "GroupItem") { pl = SDY.baseIn(it, p); }
-                if (pl && f.exists) { if (p.world ? SDY.relinkWorld(it, pl, f, p) : SDY.relinkKeep(pl, f)) { st.nl++; } }
+                if (pl && f.exists) {
+                    if (p.world ? SDY.relinkWorld(it, pl, f, p) : SDY.relinkKeep(pl, f)) { st.nl++; }
+                    if (tg && tg.mock_hash !== (p.mock_hash || "")) { try { SDY.retag(it, p); } catch (e4b) {} }   // リンクの中身の印（ai_layout の file_hash、11-01）
+                }
                 else if (!f.exists) { SDY.missing.push(p.file); }
                 if (it.typename === "GroupItem" && pl) {   // Rhino の図の「文字と寸法」
                     ov = SDY.overlayIn(it, p);
@@ -1295,7 +1423,11 @@ SDY.refresh = function (doc, L, U, made) {
             }
         }
     }
-    try { if (U) { st.nu = SDY.drawUserItems(doc, L, U); } } catch (e8) { SDY.missing.push("足した物（" + e8.message + "）"); }
+    try { if (U) { st.nu = SDY.drawUserItems(doc, L, U, auto); } } catch (e8) { SDY.missing.push("足した物（" + e8.message + "）"); }
+    if (auto) {
+        try { st.nsg = SDY.stockFlush(doc, L, bk, bkeys); } catch (e9) { SDY.missing.push("素材置き場に並べる（" + e9.message + "）"); }
+        SDY.writeSeen(seen);
+    }
     return st;
 };
 SDY.idsOf = function (items) { var o = {}, k, t; for (k = 0; k < items.length; k++) { t = SDY.parseTag(items[k]); if (t) { o[t.id] = true; } } return o; };
@@ -1441,7 +1573,7 @@ SDY.groupFigures = function (doc, L, only, dry) {
             it = map[f.ids[k]];
             if (!it) { if (!only) { R.lost.push(f.no + "枚目 " + f.name + "：" + f.ids[k]); } continue; }
             ln = ""; try { ln = it.layer.name; } catch (e1) {}
-            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER) { continue; }
+            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER || ln === SDY.OKIBA_LAYER) { continue; }
             if (G && SDY.within(it, G)) { continue; }
             t = SDY.topOf(it);
             if (SDY.inArr(seen, t)) { continue; }
@@ -1492,7 +1624,7 @@ SDY.groupFigures = function (doc, L, only, dry) {
             var lo = Math.min(tops[k].r, rg), hi = Math.max(tops[k].r, rg), bk = SDY.bOf(tops[k].it), z, mem;
             for (q = 0; q < Z.length; q++) {
                 z = Z[q];
-                if (z.r <= lo || z.r >= hi || !z.shown || z.lay === SDY.OUT_LAYER || z.lay === SDY.NEW_LAYER) { continue; }
+                if (z.r <= lo || z.r >= hi || !z.shown || z.lay === SDY.OUT_LAYER || z.lay === SDY.NEW_LAYER || z.lay === SDY.OKIBA_LAYER) { continue; }
                 if (G && z.it === SDY.topOf(G)) { continue; }
                 mem = false; for (m = 0; m < tops.length; m++) { if (tops[m].it === z.it) { mem = true; break; } }
                 if (mem) { continue; }
@@ -1556,7 +1688,7 @@ SDY.groupFiguresAll = function (doc, L) {
         for (k = 0; k < f.ids.length; k++) {
             it = map[f.ids[k]]; if (!it) { continue; }
             ln = ""; try { ln = it.layer.name; } catch (e1) {}
-            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER) { continue; }
+            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER || ln === SDY.OKIBA_LAYER) { continue; }
             top = SDY.topOf(it); key = SDY.topKey(top);
             if (!key || seen[key]) { continue; }
             seen[key] = true;
@@ -1577,7 +1709,7 @@ SDY.groupFiguresAll = function (doc, L) {
         mem = {}; for (k = 0; k < tops.length; k++) { mem[tops[k].key] = true; }
         for (q = 0; q < RT.list.length; q++) {
             z = RT.list[q];
-            if (z.r <= tops[0].r || z.r >= lowR || (z.key && mem[z.key]) || z.lay === SDY.OUT_LAYER || z.lay === "注記") { continue; }
+            if (z.r <= tops[0].r || z.r >= lowR || (z.key && mem[z.key]) || z.lay === SDY.OUT_LAYER || z.lay === SDY.OKIBA_LAYER || z.lay === "注記") { continue; }
             try { if (z.it.typename === "SymbolItem" && z.it.name === "枠") { continue; } } catch (e4) {}
             bz = SDY.bOf(z.it);
             for (k = 0; k < tops.length && tops[k].r < z.r; k++) {
@@ -1619,7 +1751,7 @@ SDY.figsOutside = function (doc, L) {
         for (k = 0; k < f.ids.length; k++) {
             it = map[f.ids[k]]; if (!it) { keys.push(null); continue; }
             ln = ""; try { ln = it.layer.name; } catch (e) {}
-            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER) { keys.push(null); continue; }
+            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER || ln === SDY.OKIBA_LAYER) { keys.push(null); continue; }
             key = SDY.topKey(SDY.topOf(it)); keys.push(key);
             cnt[key] = (cnt[key] || 0) + 1;
             if (cnt[key] > bc) { bc = cnt[key]; best = key; }
@@ -1634,12 +1766,12 @@ SDY.figStrays = function (doc, L) {
     var FS = SDY.figsOf(L), map = SDY.findByTag(doc), RT = SDY.rankTops(doc), boxes = [], out = [], fi, f, k, it, b, bb, z, nt, cx, cy, what, t;
     for (fi = 0; fi < FS.keys.length; fi++) {
         f = FS.F[FS.keys[fi]]; bb = null;
-        for (k = 0; k < f.ids.length; k++) { it = map[f.ids[k]]; if (!it) { continue; } try { if (it.layer.name === SDY.OUT_LAYER || it.layer.name === SDY.NEW_LAYER) { continue; } } catch (e) {} bb = SDY.bJoin(bb, SDY.bOf(it)); }
+        for (k = 0; k < f.ids.length; k++) { it = map[f.ids[k]]; if (!it) { continue; } try { if (it.layer.name === SDY.OUT_LAYER || it.layer.name === SDY.NEW_LAYER || it.layer.name === SDY.OKIBA_LAYER) { continue; } } catch (e) {} bb = SDY.bJoin(bb, SDY.bOf(it)); }
         if (bb) { boxes.push({ f: f, b: bb }); }
     }
     for (k = 0; k < RT.list.length; k++) {
         z = RT.list[k];
-        if (z.lay === SDY.OUT_LAYER || z.lay === "注記" || z.lay === "枠") { continue; }
+        if (z.lay === SDY.OUT_LAYER || z.lay === SDY.OKIBA_LAYER || z.lay === "注記" || z.lay === "枠") { continue; }
         try { if (z.it.typename === "SymbolItem" && z.it.name === "枠") { continue; } } catch (e1) {}
         nt = ""; try { nt = z.it.note || ""; } catch (e2) {}
         t = SDY.parseTag(z.it);
@@ -1759,7 +1891,7 @@ SDY.carry = function (doc, L, U, src) {
         if (t) {
             nid = rid(t.id);
             if (P[nid] === undefined) { if (!SDY.isUserOwned(L, nid)) { stale.push(x); } }   // 木田さんが持つ部品は layout.json に無くても外さない（11-01）
-            else if (nid !== t.id) { x.note = SDY.tagNote(t.kind, nid, t.mock_hash, t.world); }
+            else if (nid !== t.id) { x.note = SDY.tagNote(t.kind, nid, t.mock_hash, t.world, t.g); }
         } else {
             try { nt = x.note; } catch (e) {}
             mm = nt ? /^sdydwg:(\d+):(.*)$/.exec(nt) : null;

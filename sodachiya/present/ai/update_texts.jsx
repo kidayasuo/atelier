@@ -6,7 +6,10 @@
 // ・layout.json から無くなった部品：消さずにレイヤー「外した物」へ移して隠す
 // ・新しい部品：layout.json の位置・元のレイヤーに足す（消した部品は足さない）
 // ・木田さんが持つ部品（layout.json の owner が "user"、11-01：園庭説明図の木の記号と文字・凡例）：消さない・直さない・新しく足さない。
-//   その図の背景のリンク（素材22）だけは新しくし、映す範囲が変わったら今の縮尺のまま上の物に合わせて付け替える
+//   その図の背景のリンク（素材22）だけは新しくし、映す範囲が変わったら .ai の変換のまま上の物に合わせて付け替える
+// ・自動で更新しない枚（auto_pages.json で false、11-01）：その枚の物には一切触らない。変わった部品・新しい部品の新しい版を、図ごとのグループにして
+//   「素材置き場」のアートボード（レイヤー「素材置き場」）に並べる。前の版の記録は okiba_seen.json
+// ・自動の枚で、木田さんが手を付けていない線（描いたときの形・色のまま）は、前の線を残さずに差し替える
 #target illustrator
 #include "sdy_lib.jsxinc"
 (function () {
@@ -17,13 +20,19 @@
     if (SDY.oldNumbering(L)) { alert("枚の番号を振り直しました（10-28、10-30 の6枚）。この .ai は前の番号のままなので、update_texts ではなく build_sodachiya.jsx の「組み替え」で組み直してください（.ai の物はそのまま新しい番号の枚へ移ります）。"); return; }
     var U = null;
     try { var uf = File(SDY.here.fsName + "/layout_user.json"); if (uf.exists) { U = SDY.readJSON(uf); } } catch (e0) { SDY.missing.push("layout_user.json を読めなかった（" + e0.message + "）"); }
-    var made = [], st = SDY.refresh(doc, L, U, made), sn = SDY.settleNew(doc, L, U, made);
+    var auto = SDY.autoPages(L), off = [], ai;
+    for (ai = 0; ai < auto.length; ai++) { if (!auto[ai]) { off.push(L.pages[ai].no); } }
+    var made = [], st = SDY.refresh(doc, L, U, made, auto), sn = SDY.settleNew(doc, L, U, made);
     SDY.hideOut(doc);
     var msg = "更新しました：文字 " + st.nt + "、リンク " + st.nl + "、新しい部品 " + st.na +
               (st.nr ? "、形の変わった線（新しい版を「更新（新しい線）」に） " + st.nr : "") + (st.nx ? "、無くなった部品（「外した物」へ） " + st.nx : "") +
-              (sn.ng ? "、配置図のまとめに入れた新しい物 " + sn.ng : "") + (sn.nd ? "、図面のまとめに入れた新しい物 " + sn.nd : "") + (sn.nf ? "、図のグループに入れた新しい物 " + sn.nf : "") + (st.nu ? "、足した物（layout_user.json から） " + st.nu : "") + (st.own ? "\n木田さんが持つ部品（園庭説明図の木と説明など、消さない・直さない・足さない） " + st.own : "");
+              (sn.ng ? "、配置図のまとめに入れた新しい物 " + sn.ng : "") + (sn.nd ? "、図面のまとめに入れた新しい物 " + sn.nd : "") + (sn.nf ? "、図のグループに入れた新しい物 " + sn.nf : "") + (st.nu ? "、足した物（layout_user.json から） " + st.nu : "") + (st.own ? "\n木田さんが持つ部品（園庭説明図の木と説明など、消さない・直さない・足さない） " + st.own : "") +
+              (st.nrep ? "\n手を付けていない線を新しい版に差し替えた（前の線は残さない） " + st.nrep : "") +
+              (off.length ? "\n\n自動で更新しない枚（auto_pages.json）：" + off.join("・") + "枚目。その枚の物には触らず、変わった部品・新しい部品 " + st.nstock + " を図ごとのグループ " + st.nsg + " にして「素材置き場」のアートボードへ" +
+                            (st.nbase ? "（前の版が分からず、今の版を記録しただけの物 " + st.nbase + "）" : "") : "");
     var cut = function (a) { return a.length > 15 ? a.slice(0, 15).join("\n") + "\n…ほか " + (a.length - 15) : a.join("\n"); };
     if (st.kept.length) { msg += "\n\n文の元が変わったが、書き換えてあるので差し替えなかった（見比べて直す）：\n" + cut(st.kept); }
+    if (st.stocked.length) { msg += "\n\n素材置き場に置いた物（自動で更新しない枚、見比べて使う。要らなければ消す）：\n" + cut(st.stocked); }
     if (st.newl.length) { msg += "\n\n形の変わった線（前の線は名前の頭が「（前の線）」。見比べて要らない方を消す）：\n" + cut(st.newl); }
     if (SDY.notes.length) { msg += "\n\n知らせ：\n" + cut(SDY.notes); }
     if (SDY.missing.length) { msg += "\n\n見つからない・作れなかったもの：\n" + cut(SDY.missing); }

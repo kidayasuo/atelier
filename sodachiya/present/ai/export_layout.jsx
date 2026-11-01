@@ -77,7 +77,7 @@
         if (!same(rec, BUILT[oid]) || (BUILT[oid] && BUILT[oid].u) || rec.world) { out.parts[t.id] = rec; }   // 動かした・書き換えた部品だけ残す（動かしていない物はプレゼンの準備の既定のまま）
         if (L && SDY.isUserOwned(L, t.id) && !ownedIn(it)) {   // 木田さんが持つ部品（11-01）：形のすべて（一から作り直すときにここから描く）
             var od = rui(SDY.describe(doc, it, true));
-            od.note = SDY.tagNote(t.kind, t.id, t.mock_hash, t.world); od.kind = t.kind; od.z = i;
+            od.note = SDY.tagNote(t.kind, t.id, t.mock_hash, t.world, t.g); od.kind = t.kind; od.z = i;
             od.fig = (WP && WP.fig) || (PU0 && PU0.owned && PU0.owned[t.id] ? PU0.owned[t.id].fig : null);
             if (!od.fig) { try { var fq = it.parent, fm; while (fq && fq.typename !== "Layer" && !od.fig) { fm = /^sdyfig:\d+:(.*)$/.exec(fq.note || ""); if (fm) { od.fig = fm[1]; } fq = fq.parent; } } catch (e10) {} }   // layout.json に無い部品は入っている図のグループから
             out.owned[t.id] = od; nown++;
