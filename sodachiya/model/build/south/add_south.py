@@ -57,16 +57,31 @@ def wall_along(pts2d,z0f,z1f,thick,li):
 # 平面上の r（中心からの距離）
 def rr_of(x,y): return float(np.hypot(x-C[0],y-C[1]))
 # 10-31（ユーザー「床を床に」）：杉の床板の絵（data/tex/sugi_floor.png、板は絵の X の向き、最後の段 materials.py が貼る）の向きを、
-# 物のユーザー文字列 tex_angle（度、ワールドの X 軸から反時計回り、−90〜90）に書く。形は変えない。板は部屋の奥行きの向き（v、東西、
-# 東の庭からの光に沿う）：物の真ん中が入るスパンの、真ん中の v の向き（中心 C へ）。along='u' は弧の接線（南北に長い通り：内縁側・西吹き抜け）
-def tex_tag(n0,along='v'):
+# 物のユーザー文字列 tex_angle（度、ワールドの X 軸から反時計回り、−90〜90）に書く。形は変えない。物の真ん中が入るスパンの、真ん中の向き。
+# along='u' は弧の接線（スパンの弦の向き）、'v' は放射の向き（中心 C へ）。11-01（ユーザー、監修の項 20261101-0835）：本館の床の板はすべて u（長手）。
+# 床はスパンごとの片（span_pieces、架構の線で切る）にして、片ごとにそのスパンの向きを付ける（Rhino 版は一つの立体に一つの平面マッピング）。
+# 物の真ん中は頂点の平均（スパンの扇の中の片なら必ず扇の中）
+def tex_tag(n0,along='u'):
     """n0 番目から後に足した物に tex_angle を付ける"""
     for i in range(n0,len(m.Objects)):
-        o=m.Objects[i]; bb=o.Geometry.GetBoundingBox()
-        a=math.atan2((bb.Min.Y+bb.Max.Y)/2-C[1],(bb.Min.X+bb.Max.X)/2-C[0])%(2*math.pi)
+        o=m.Objects[i]; g=o.Geometry
+        if isinstance(g,r.Mesh) and len(g.Vertices):
+            cx=sum(g.Vertices[j].X for j in range(len(g.Vertices)))/len(g.Vertices); cy=sum(g.Vertices[j].Y for j in range(len(g.Vertices)))/len(g.Vertices)
+        else:
+            bb=g.GetBoundingBox(); cx,cy=(bb.Min.X+bb.Max.X)/2,(bb.Min.Y+bb.Max.Y)/2
+        a=math.atan2(cy-C[1],cx-C[0])%(2*math.pi)
         k=int(np.clip(np.searchsorted(TH,a)-1,0,18)); mid=(TH[k]+TH[k+1])/2
         d=math.degrees(mid+math.pi)+(90.0 if along=='u' else 0.0)
         o.Attributes.SetUserString('tex_angle',f'{(d+90.0)%180.0-90.0:.2f}')
+def span_pieces(g):
+    """世界座標の形 g を架構の線（中心 C からの TH[k] の放射）で切った片（スパンごと、11-01）。南北の端の外は端のスパンに入れる"""
+    out=[]
+    for k in range(19):
+        a0=TH[k] if k>0 else TH[0]-0.5; a1=TH[k+1] if k<18 else TH[19]+0.5
+        x=g.intersection(Polygon([tuple(C)]+[tuple(P(400000,a)) for a in np.linspace(a0,a1,8)]))
+        for gg in getattr(x,'geoms',[x]):
+            if gg.geom_type=='Polygon' and gg.area>1e4: out.append(gg)   # 0.01 m² 未満は継ぎ目の数値のすき（約 0.0004 m²）なので捨てる
+    return out
 K0=13
 # 11-01（設計監修の項 20261031-2145、ユーザー 10-31 21:44）：機械室の屋根の上の室外機置場（26、凍結した元のスクリプトから引き継いだ物）はやめる。
 # ヒートポンプは地下水を熱源にした水冷で、機械室の中（室外機は無し、決定事項（共通））。レイヤーは残し、物だけ消す
@@ -88,8 +103,9 @@ slab(doma,-300,-290,L_doma)
 _n0=len(m.Objects)
 for g,li in ((r01.intersection(quad(RC,RK,TH[K0],th19,40)),L_01),(r2.intersection(quad(RC,RK,TH[K0],th19,40)),L_2),(quad(RK,RO,TH[15],TH[17],40),L_strip)):   # 56 窓辺は 0・1 歳の分（スパン 3〜4、u6〜12）だけ。10-28（監修の項 20261028-0015 の 17）：前はスパン 6 まで（u18）で、59 西吹き抜け（スパン 5〜19）と u12〜18 で二重だった
     for gg in getattr(g,'geoms',[g]):
-        if gg.geom_type=='Polygon' and gg.area>0.5e6: slab(gg,0,10,li)
-        tex_tag(_n0,'u' if li==L_strip else 'v'); _n0=len(m.Objects)   # 0・1歳・2歳は v、56 窓辺（西吹き抜けの続き）は u
+        if gg.geom_type=='Polygon' and gg.area>0.5e6:
+            for pp in span_pieces(gg): slab(pp,0,10,li)                # 11-01：スパンごとの片
+        tex_tag(_n0,'u'); _n0=len(m.Objects)                           # 11-01：板はすべて u（前は 0・1歳・2歳が v）
 dth=lambda mm: mm/RK
 # (10-21 削除：しつらえは add_shitsurae.py) wet=[quad(RK-3000,RK,thp-dth(2700),thp),quad(RK-3000,RK,thp,thp+dth(2200))]
 # (10-21 削除：しつらえは add_shitsurae.py) for g in wet: slab(g,10,20,L_wet)

@@ -36,10 +36,19 @@ def _dense(ring):
             for uk in sorted([3.0*k for k in range(20) if min(u0,u1)+1e-6<3.0*k<max(u0,u1)-1e-6],reverse=u1<u0):
                 out_.append((uk,v0+(v1-v0)*(uk-u0)/(u1-u0)))
     return out_
-def _uvslab(g,z0,z1,li):
+def _usplit(g):
+    """(u, v) の形を架構の線 u=3k で切った片（スパンごと、11-01 ユーザー：床をスパンで分割）。南北の端の外は端のスパンに"""
+    out=[]
+    for k in range(19):
+        x=g.intersection(_box(3.0*k if k else -10.0,-100.0,3.0*k+3.0 if k<18 else 70.0,100.0))
+        out+=[gg for gg in getattr(x,'geoms',[x]) if gg.geom_type=='Polygon' and gg.area>1e-2]   # 0.01 m² 未満の継ぎ目のすきは捨てる
+    return out
+def _uvslab(g,z0,z1,li,split=True):
+    """split：杉の床板の物はスパンごとの片に（絵の向き tex_angle を片ごとに、11-01）。あまのがわ・框は切らない"""
     for gg in getattr(g,'geoms',[g]):
         if gg.geom_type!='Polygon' or gg.area<0.05: continue
-        slab(Polygon([tuple(_chord(u,v)) for u,v in _dense(gg.exterior)]),z0,z1,li)
+        for pp in (_usplit(gg) if split else [gg]):
+            slab(Polygon([tuple(_chord(u,v)) for u,v in _dense(pp.exterior)]),z0,z1,li)
 V_RG,V_RO,V_RC,V_RK,V_WALL=13.5,-0.2,12.0,1.6,13.465
 import json as _json
 from scipy.interpolate import PchipInterpolator as _Pchip
@@ -65,7 +74,7 @@ HON_U0, HON_US, HON_U1, HON_V0, HON_V1, HON_K = 51.6, 51.9, 57.0, -0.2, 0.75, 0.
 _HON_COLS=unary_union([_box(53.91,-0.3,54.09,0.28),_box(56.91,-0.3,57.09,0.28)])
 _hon_uv=lambda u0_,u1_,v1_,v0_=-0.199: _box(u0_,v0_,u1_,v1_).difference(_HON_COLS)
 inner=inner.difference(_hon_uv(HON_U0,HON_U1,HON_V1))
-_n0=len(m.Objects)                                              # 10-31：杉の床板の絵の向き（add_south.py の tex_tag）。床組は v、内縁側は u
+_n0=len(m.Objects)                                              # 杉の床板の絵の向き（add_south.py の tex_tag）。11-01：すべて u、スパンごとの片
 _uvslab(inner,-450,-10,L_fl)                                    # 床組（上面 −10、色付きの室の板 0〜10 の下）
 _uvslab(_hon_uv(HON_U0,HON_US,HON_V1-HON_K),-450,-160,L_fl)   # 本の奥の溝の南の段（−150）
 _uvslab(_hon_uv(HON_US,HON_U1,HON_V1-HON_K),-450,-310,L_fl)   # 本の奥の溝の底（−300）
@@ -75,13 +84,13 @@ slab(Polygon([tuple(_chord(u,v)) for u,v in _dense(_box(56.91,-0.199,57.0,0.28).
 # 11-01（同じ項の③）：遊戯室の口②（u45.6〜47.6）の前の本館の西の外壁の下（v−0.35〜−0.2）に敷居の床（上面は本館の床と同じ −10）。
 # 外壁は口の所で下端まで切る（fix_details.py の外壁の立面の形）。西のすき間の床（西館係）と継ぐ
 _uvslab(_box(45.6,-0.35,47.6,-0.199),-450,-10,L_fl)
-tex_tag(_n0,'v'); _n0=len(m.Objects)
+tex_tag(_n0,'u'); _n0=len(m.Objects)
 _uvslab(_box(0.0,V_RC,57.0,V_RG).difference(_kaiK).difference(_walls),-10,0,L_in)  # 内縁側の仕上げ
 tex_tag(_n0,'u')
-_uvslab(_kai,-450,-150,L_kai)
+_uvslab(_kai,-450,-150,L_kai,split=False)
 # 框：曲線の杉（見付 60、−150〜0）。はだしの床と色・素材を変える（間仕切り・框のレイヤー 91 → 38、杉板）。輪郭の押し出し
 L_kmc=layer('91_しつらえ_間仕切り・框・腰壁',(200,185,160))
-_uvslab(_kam,-150,0,L_kmc)
+_uvslab(_kam,-150,0,L_kmc,split=False)
 # 内縁側（v12〜13.5）で先生が川へ下りて渡る（給食、10-28 ユーザー）：段 150 はそのまま、両岸の段に手すり（丸棒 φ35・h800、柱 φ40）。
 # 手すりは渡る帯の西の側（v12.1）に、段をはさんで ±0.3。東の側は東の口の戸（u21.06〜22.45）への川の道なのであける
 L_hr=layer('96b_しつらえ_格子・手すり（木）',(185,150,105))
@@ -225,15 +234,17 @@ for s0,s1,name,col in ROOMS:
     g=quad(RC,RK,an,as_,20)
     if name=='ホール': g=g.difference(kaiK)
     _n0=len(m.Objects)
-    for gg in getattr(g,'geoms',[g]): slab(gg,0,10,li)
-    if not name.startswith('便所'): tex_tag(_n0,'v')            # 杉の床板は v（便所・倉庫は磁器タイル）
+    for gg in getattr(g,'geoms',[g]):
+        for pp in span_pieces(gg): slab(pp,0,10,li)               # 11-01：スパンごとの片（架構の線で切る）
+    tex_tag(_n0,'u')                                             # 杉の床板は u（11-01、前は v）。便所・倉庫も付ける（add_hall.py が倉庫（教材庫、杉）に分ける）
     areas[name]=areas.get(name,0)+g.area/1e6
 _hon=lambda u0_,u1_,v0_=HON_V0: Polygon([tuple(_chord(u,v)) for u,v in _dense(_hon_uv(u0_,u1_,HON_V1-HON_K,v0_).exterior)])
 _n0=len(m.Objects)
 strip=quad(RK,RO,TH[0],span(5)[1],60).difference(kai).difference(_hon(HON_U0,HON_U1,-0.25))   # 西の端は外壁の内面（RO）の外まで抜く（細い残りを作らない）
 for g in getattr(strip,'geoms',[strip]):
-    if g.area>1e5: slab(g,0,10,L_cor)
-slab(_hon(HON_U0,HON_US),-150,-140,L_cor); slab(_hon(HON_US,HON_U1),-300,-290,L_cor)   # 本の奥の溝：室の板は溝の底へ（面積は同じ）
+    if g.area>1e5:
+        for pp in span_pieces(g): slab(pp,0,10,L_cor)              # 11-01：スパンごとの片
+slab(_hon(HON_U0,HON_US),-150,-140,L_cor); slab(_hon(HON_US,54.0),-300,-290,L_cor); slab(_hon(54.0,HON_U1),-300,-290,L_cor)   # 底は架構の線 u54 で継ぐ   # 本の奥の溝：室の板は溝の底へ（面積は同じ）
 tex_tag(_n0,'u')                                                 # 西吹き抜け（南北に長い通り）は u
 m.Write(OUT,8)
 sp=lambda s: quad(RG,RC,*span(s)).area/1e6

@@ -86,6 +86,15 @@ for o in m.Objects:
             o.Attributes.LayerIndex = wc_or_store(mesh_poly(g))        # スパン 17：便所と倉庫に分ける
     out.Objects.Add(g, o.Attributes)
 K = Kit(out)
+def tex_u(n0):
+    """11-01（本館係、監修の項 20261101-0835）：本館の床の板は長手（u）。n0 番目から後に足した床の片に、片の真ん中（頂点の平均）が入る
+    スパンの弦の向きを tex_angle に（add_south.py の tex_tag と同じ値。作り直した床で向きが落ちないように）"""
+    for i in range(n0, len(out.Objects)):
+        o = out.Objects[i]; g = o.Geometry
+        if not isinstance(g, r.Mesh) or not len(g.Vertices): continue
+        c = np.array([[g.Vertices[j].X, g.Vertices[j].Y] for j in range(len(g.Vertices))]).mean(0)
+        k = int(np.clip(np.floor(uv(*c)[0] / 3.0), 0, 18)); d = np.asarray(xy(3.0 * k + 3.0, 6.0)) - np.asarray(xy(3.0 * k, 6.0))
+        o.Attributes.SetUserString('tex_angle', f'{(math.degrees(math.atan2(d[1], d[0])) + 90.0) % 180.0 - 90.0:.2f}')
 
 # ---------------------------------------------------------------- 北山杉の林
 TOP = F['TOP']
@@ -138,8 +147,10 @@ print('trees', n, 'cut to roof plane', n_cut)
 
 # ---------------------------------------------------------------- スパン 11
 H = 2400.0
+_n0 = len(out.Objects)
 K.flat(R(30, 33, 1.6, 4.3), 10, L_MPT)                                 # 多目的便所（10-23夜、もと静養室）
 K.flat(R(30, 33, 4.3, 12.0), 10, L_JIMU)                             # 事務室（記録の机と園長室・応接を一体に、10-29 ユーザー）
+tex_u(_n0)                                                           # 杉の床板の向き（11-01）
 def wall_v(v, u0, u1, holes=()):
     cuts = sorted(set([u0, u1] + [h[0] for h in holes] + [h[1] for h in holes]))
     for a, b in zip(cuts, cuts[1:]):
@@ -188,8 +199,10 @@ chair(31.7, 10.4)
 blk(30.06, 30.66, 9.55, 10.25, 0, 900, L_FURN, WOOD)                # コピー・印刷の台 h900
 
 # ---------------------------------------------------------------- スパン 7：おはようの窓口の帯・静養室（10-23夜）
+_n0 = len(out.Objects)
 K.flat(R(18, 21, 0.0, 1.6), 10, L_OFF7)                             # 窓口の帯（事務室に数える）
 K.flat(R(18, 21, 1.6, 4.5), 10, L_REST)                             # 静養室（医務室に数える）
+tex_u(_n0)                                                           # 杉の床板の向き（11-01）
 wall_v(1.6, 18.0, 21.0, [(18.6, 20.2, 900, 2000)])                  # 帯｜静養室：先生が見守る室内窓
 K.prism(R(18.6, 20.2, 1.585, 1.615, 0.05), 900.0, 2000.0, L_GL)
 wall_u(21.0, 1.6, 4.5, [(3.0, 3.9, 0, 2100)])                       # 静養室｜あまのがわ：戸（お迎えの保護者へ、框 150 は下のまま）
@@ -199,11 +212,13 @@ blk(19.00, 19.70, 1.75, 3.15, 0, 400, L_FURN, (235, 228, 214))      # ベッド
 # 飛び石は無し（10-28 ユーザー、案4：入口の近くの飛び石は危ない。給食は内縁側で先生が川へ下りて渡る、add_floor.py の手すり）
 
 # ---------------------------------------------------------------- スパン 14：職員用の個室（10-23夜）
+_n0 = len(out.Objects)
 for _g in wcroom14:
     _d = _g.difference(R(40.5, 42.0, 1.6, 3.6, 0.05).buffer(1))
     for _p in getattr(_d, 'geoms', [_d]):
         if _p.geom_type == 'Polygon' and _p.area > 5e4: K.flat(_p, 10, wc_or_store(_p))
 K.flat(R(40.5, 42.0, 1.6, 3.6), 10, L_SWC)
+tex_u(_n0)                                                           # 教材庫は杉の床板（11-01）
 wall_u(40.5, 1.65, 5.0, [(3.75, 4.75, 0, 2100)])                    # 路地｜個室・教材庫（教材庫の口を北へ移す、路地の形は同じ）
 wall_v(1.6, 40.5, 42.0, [(41.15, 41.95, 0, 2100)])                  # 西吹き抜け｜個室：戸
 K.prism(R(40.5, 42.0, 3.55, 3.65, 0.05), 0.0, H, L_PART)            # 個室｜教材庫

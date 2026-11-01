@@ -977,7 +977,12 @@ if _RJ is not None and _LWC is not None:
         for part, li in ((foot.difference(_RJ), _LWC), (foot.intersection(_RJ), L_PATH)):
             for pg in getattr(part, 'geoms', [part]):
                 if pg.geom_type == 'Polygon' and pg.area > 0.05:
+                    _i0 = len(m.Objects)
                     solid_uv(list(pg.exterior.coords)[:-1], 0, 10, li)
+                    # 11-01（監修の項 20261101-0835）：杉の床板の向きは長手（u）。片が入るスパンの真ん中の弧の接線を tex_angle に（add_south.py の tex_tag と同じ）
+                    _k = int(np.clip(np.floor(pg.centroid.x / 3.0), 0, 18)); _am = TH19 - (3.0 * _k + 1.5) / 205.0
+                    for _j in range(_i0, len(m.Objects)):
+                        m.Objects[_j].Attributes.SetUserString('tex_angle', f'{(math.degrees(_am) + 90.0 + 90.0) % 180.0 - 90.0:.2f}')
     for i in _del: m.Objects.Delete(i)
     print('通り抜けの床を分けた', _n, round(_RJ.area, 1))
 m.Write(OUT, 8)

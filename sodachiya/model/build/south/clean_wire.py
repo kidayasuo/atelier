@@ -111,6 +111,8 @@ def copy_attr(a0, grp=None):
         try: setattr(a, k, getattr(a0, k))
         except Exception: pass
     a.WireDensity = -1
+    _ta = a0.GetUserString('tex_angle')                              # 杉の床板の向き（本館係、11-01：Rhino版でも片ごとに。前はここで落ちていた）
+    if _ta: a.SetUserString('tex_angle', _ta)
     if grp is not None: a.AddToGroup(grp)
     return a
 

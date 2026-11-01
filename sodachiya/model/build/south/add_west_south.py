@@ -80,7 +80,7 @@ for o in m.Objects:
         continue
     if li in (L_KIT, L_HARE, L_BAND, L_MED): continue
     if li == L_WV and isinstance(g, r.Mesh):
-        WV.append(g); continue
+        WV.append(g); continue                     # 11-01：本館の床はスパンごとの片（add_floor.py）。作り直すときは下の tex_u で板の向きを付け直す
     keep.append((g, o.Attributes))
 # ---------------------------------------------------------------- 西館の屋根の面（10-24午後、ユーザー：軒は水平のまま、南北の端の屋根の形がヘンテコなのを直す）
 # 決まり：棟（東の縁 v −0.9）は 8.15、外周の軒は 4.65 で水平、架構の向き（u 一定の放射の線）に沿ってまっすぐ下る。
@@ -640,10 +640,24 @@ def mesh_poly(g):
     for i in range(g.Faces.Count):
         f = g.Faces[i]; ps.append(Polygon(V[[f[0], f[1], f[2]]]).buffer(0))
     return unary_union([p.buffer(1) for p in ps if p.area > 0]).buffer(-1)
-for g in WV:                                   # 西吹き抜けの板からスパン 7 を抜く
-    flat(mesh_poly(g).difference(R(18.0, 21.0, -0.3, 1.9)), 10, L_WV)
+def tex_u(n0):
+    """11-01（本館係、監修の項 20261101-0835）：本館の床の板は長手（u）。n0 番目から後に足した床の片に、片の真ん中（頂点の平均）が入る
+    スパンの弦の向きを tex_angle に（add_south.py の tex_tag と同じ値。前はここで作り直すと向きが落ちていた）"""
+    for i in range(n0, len(new.Objects)):
+        o = new.Objects[i]; g = o.Geometry
+        if not isinstance(g, r.Mesh) or not len(g.Vertices): continue
+        c = np.array([[g.Vertices[j].X, g.Vertices[j].Y] for j in range(len(g.Vertices))]).mean(0)
+        k = int(np.clip(np.floor(uv(*c)[0] / 3.0), 0, 18)); d = np.asarray(xy(3.0 * k + 3.0, 6.0)) - np.asarray(xy(3.0 * k, 6.0))
+        o.Attributes.SetUserString('tex_angle', f'{(math.degrees(math.atan2(d[1], d[0])) + 90.0) % 180.0 - 90.0:.2f}')
+_n0 = len(new.Objects)
+for g in WV:                                   # 西吹き抜けの板からスパン 7 を抜く（板はスパンごとの片のまま）
+    # 11-01（ユーザー 09:48「本読み場が掘りごたつ状態になっていません」）：高さは元の板の上面のまま。前はどの板も +10 にしたので、
+    # 本の奥の溝の底（−290）・南の段（−140）の板が ±0 に上がって溝をふさいでいた
+    _zt = max(g.Vertices[i].Z for i in range(len(g.Vertices)))
+    flat(mesh_poly(g).difference(R(18.0, 21.0, -0.3, 1.9)), _zt, L_WV)
 # 事務の板・おはようの窓口のカウンターは add_hall.py の「スパン 7」の節で作る（窓口の帯 v 0–1.6・静養室 v 1.6–4.5、本館係 10-23夜）
 flat(R(18.0, 21.0, 4.5, 12.0), 10, L_MED)
+tex_u(_n0)
 mesh_prism(R(20.95, 21.05, 4.5, 12.0, 0.02), 0.0, const(2400.0), L_KAMA)            # 医務｜あまのがわの壁
 mesh_prism(R(20.95, 21.05, 0.0, 4.5, 0.02), -150.0, const(0.0), L_KAMA, (150, 110, 70))   # 框 150（あまのがわ −150 → ±0）
 for a_, b_ in ((18.0, 19.0), (20.4, 21.0)):                                         # 静養室｜医務（引き込み戸 u 19.0–20.4）
