@@ -1212,12 +1212,206 @@ SDY.placeNew = function (doc, U, items) {
 };
 // 新しく描いた物をまとめ・重ね順へ（update_texts と組み替えの終わり）
 SDY.settleNew = function (doc, L, U, made) {
-    var only = SDY.idsOf(made), r = { ng: 0, nd: 0 };
+    var only = SDY.idsOf(made), r = { ng: 0, nd: 0, nf: 0 };
     try { SDY.groupBoxes(doc, only); } catch (e) { SDY.missing.push("箱のまとめ（" + e.message + "）"); }
     try { r.ng = SDY.groupPlan(doc, L, only); } catch (e1) { SDY.missing.push("配置図のまとめ（" + e1.message + "）"); }
     try { r.nd = SDY.groupDrawings(doc, L, only); } catch (e2) { SDY.missing.push("図面のまとめ（" + e2.message + "）"); }
     try { SDY.applyOrder(doc, L, SDY.topsOf(made)); SDY.placeNew(doc, U, made); } catch (e3) { SDY.missing.push("重ね順（" + e3.message + "）"); }
+    try {                                              // 図のグループ（11-01）：新しい部品をその図のグループへ（無ければ作る）
+        var fr = SDY.groupFigures(doc, L, only, false); r.nf = fr.moved;
+        for (var q = 0; q < fr.fail.length; q++) { SDY.missing.push("図のグループ：" + fr.fail[q]); }
+        for (q = 0; q < fr.mixed.length; q++) { SDY.notes.push("図のグループ：" + fr.mixed[q]); }
+    } catch (e4) { SDY.missing.push("図のグループ（" + e4.message + "）"); }
     return r;
+};
+
+// ── 図ごとのグループ（ユーザー 11-01 08:49：配置図・ゾーン図がバラバラで、位置の調整ができない）──────────────────
+// layout.json の部品の fig（図の名前、mock.py の _FIG_RULES）ごとに、図を作る部品を一つのグループに入れる。
+// グループは一つのレイヤーの中にしか作れないので、今あるまとめ（sdyfig の印のグループ・図面のグループ sdydwg・配置図（まとめ）・図と同じ名前のグループ）があればそれに、
+// 無ければ図のいちばん下の部品（ふつう「図」のレイヤーのリンク）のすぐ上に作る。ほかのレイヤーの部品もその中へ、中の重ね順は今の見え方のまま
+// （上の物は上へ、下の物は下へ）。位置・大きさ・色・文字は変えない（グループに入れるだけ）。印の無い物（木田さんの物）は入れない
+// （木田さんが部品をグループにしてあれば、そのグループごと）。ほかの図・図でない物と同じグループに入っている部品、図の本体から SDY.FIG_FAR mm より
+// 離れた部品（木田さんが離して置いた物）、見えないレイヤーの部品は入れずに知らせる。
+// only：新しく描いた部品の id だけ（update_texts・組み替え：リンクはグループのいちばん下、ほかはいちばん上へ）。dry：数えるだけで動かさない
+SDY.FIG_NOTE = "sdyfig:";
+SDY.FIG_FAR = 45;
+SDY.figsOf = function (L) {
+    var F = {}, FI = {}, keys = [], i, j, p, key;
+    for (i = 0; i < L.pages.length; i++) {
+        for (j = 0; j < L.pages[i].parts.length; j++) {
+            p = L.pages[i].parts[j];
+            if (!p.fig || p.hidden) { continue; }
+            key = L.pages[i].no + ":" + p.fig;
+            if (!F[key]) { F[key] = { key: key, no: L.pages[i].no, ab: i, name: p.fig, ids: [], links: {} }; keys.push(key); }
+            F[key].ids.push(p.id); FI[p.id] = key;
+            if (p.kind === "link") { F[key].links[p.id] = true; }
+        }
+    }
+    return { F: F, FI: FI, keys: keys };
+};
+SDY.hasFigs = function (L) { var i, j; for (i = 0; i < L.pages.length; i++) { for (j = 0; j < L.pages[i].parts.length; j++) { if (L.pages[i].parts[j].fig !== undefined) { return true; } } } return false; };
+SDY.tagsIn = function (it, out) {                    // 物とその中の、印の付いた部品の id
+    var t = SDY.parseTag(it), k;
+    if (t) { out.push(t.id); }
+    if (it.typename === "GroupItem") { for (k = 0; k < it.pageItems.length; k++) { SDY.tagsIn(it.pageItems[k], out); } }
+    return out;
+};
+SDY.within = function (it, g) { var q = it; try { while (q && q.typename !== "Layer") { if (q === g) { return true; } q = q.parent; } } catch (e) {} return false; };
+SDY.layerShown = function (l) { try { while (l && l.typename === "Layer") { if (!l.visible) { return false; } l = l.parent; } } catch (e) {} return true; };
+SDY.bOf = function (it) { try { return it.visibleBounds; } catch (e) { return null; } };
+SDY.bHit = function (a, b, m) { m = m || 0; return a && b && a[0] - m < b[2] && a[2] + m > b[0] && a[3] - m < b[1] && a[1] + m > b[3]; };
+SDY.bJoin = function (a, b) { if (!a) { return b; } if (!b) { return a; } return [Math.min(a[0], b[0]), Math.max(a[1], b[1]), Math.max(a[2], b[2]), Math.min(a[3], b[3])]; };
+// 重ね順：レイヤーのすぐ下の物を、上から順に数えた番号（小さいほど上）。副レイヤーは親のレイヤーの中で、物の上に
+SDY.zTable = function (doc) {
+    var all = [], base = 0;
+    var walk = function (lay) {
+        var k, it, n = 0, sh = SDY.layerShown(lay), nm = lay.name;
+        for (k = 0; k < lay.layers.length; k++) { walk(lay.layers[k]); }
+        for (k = 0; k < lay.pageItems.length; k++) {
+            it = lay.pageItems[k];
+            try { if (it.parent !== lay) { continue; } } catch (e) { continue; }
+            all.push({ it: it, r: base + n, shown: sh, lay: nm }); n++;
+        }
+        base += n + 1;
+    };
+    var i; for (i = 0; i < doc.layers.length; i++) { walk(doc.layers[i]); }
+    return all;
+};
+SDY.zOf = function (Z, it) { var k; for (k = 0; k < Z.length; k++) { if (Z[k].it === it) { return Z[k].r; } } return -1; };
+SDY.groupFigures = function (doc, L, only, dry) {
+    var R = { figs: 0, moved: 0, made: 0, done: 0, lost: [], far: [], mixed: [], warn: [], fail: [], hidden: [] };
+    var FS = SDY.figsOf(L), map = SDY.findByTag(doc), K = SDY.K, GF = {}, GD = {}, k, m, nt, g, i;
+    for (k = 0; k < doc.groupItems.length; k++) {
+        g = doc.groupItems[k]; nt = "";
+        try { nt = g.note; } catch (e0) {}
+        if (!nt) { continue; }
+        if (nt.indexOf(SDY.FIG_NOTE) === 0) { GF[nt.substring(SDY.FIG_NOTE.length)] = g; }
+        else if (nt.indexOf("sdydwg:") === 0) { GD[nt.substring(7)] = g; }
+    }
+    var Z = only ? null : SDY.zTable(doc), LK = [];
+    var nameOf = function (it) { var s = ""; try { s = it.name; } catch (e) {} return s || it.typename; };
+    if (!dry) {                                       // 鍵の掛かったレイヤーは、動かすあいだだけ外す（終わったら戻す）
+        var unl = function (l) { var q; try { if (l.locked) { LK.push(l); l.locked = false; } } catch (e) {} for (q = 0; q < l.layers.length; q++) { unl(l.layers[q]); } };
+        for (i = 0; i < doc.layers.length; i++) { unl(doc.layers[i]); }
+    }
+    var fi, f, G, ids, it, t, ln, tops, seen, tg, bad, q, core, b, isLink, rg, m0, T, abv, blw, x;
+    for (fi = 0; fi < FS.keys.length; fi++) {
+        f = FS.F[FS.keys[fi]];
+        if (only) { x = false; for (k = 0; k < f.ids.length; k++) { if (only[f.ids[k]]) { x = true; break; } } if (!x) { continue; } }
+        // 今あるまとめ
+        G = GF[f.key] || GD[f.key] || null;
+        if (!G && f.name === "配置図") { G = SDY.findGroupTop(doc, SDY.PLAN_GROUP, null); }
+        if (!G) { G = SDY.findGroupTop(doc, f.name, null); }
+        if (G && !GF[f.key]) {
+            if (SDY.abOf(doc, SDY.bOf(G)) !== f.ab) { G = null; }
+            else {
+                tg = SDY.tagsIn(G, []); bad = false;
+                for (k = 0; k < tg.length; k++) { if (FS.FI[tg[k]] !== f.key) { bad = true; break; } }
+                if (bad) { R.mixed.push(f.no + "枚目 " + f.name + "：グループ「" + nameOf(G) + "」にほかの物も入っている（このグループは使わない）"); G = null; }
+            }
+        }
+        if (G && !SDY.layerShown(G.layer)) { R.hidden.push(f.no + "枚目 " + f.name + "（グループが見えないレイヤー）"); continue; }
+        // 入れる物（レイヤーのすぐ下の物）
+        tops = []; seen = [];
+        for (k = 0; k < f.ids.length; k++) {
+            if (only && !only[f.ids[k]]) { continue; }
+            it = map[f.ids[k]];
+            if (!it) { if (!only) { R.lost.push(f.no + "枚目 " + f.name + "：" + f.ids[k]); } continue; }
+            ln = ""; try { ln = it.layer.name; } catch (e1) {}
+            if (ln === SDY.OUT_LAYER || ln === SDY.NEW_LAYER) { continue; }
+            if (G && SDY.within(it, G)) { continue; }
+            t = SDY.topOf(it);
+            if (SDY.inArr(seen, t)) { continue; }
+            seen.push(t);
+            if (!SDY.layerShown(t.layer)) { R.hidden.push(f.no + "枚目 " + f.name + "：" + nameOf(t)); continue; }
+            if (t !== it && t.typename === "GroupItem") {
+                tg = SDY.tagsIn(t, []); bad = false;
+                for (q = 0; q < tg.length; q++) { if (FS.FI[tg[q]] !== f.key) { bad = true; break; } }
+                if (bad) { R.mixed.push(f.no + "枚目 " + f.name + "：「" + nameOf(t) + "」にほかの物も入っている（入れなかった）"); continue; }
+            }
+            tops.push({ it: t, link: !!f.links[f.ids[k]], name: nameOf(t) });
+        }
+        if (!tops.length) { if (G && !only) { R.done++; } continue; }
+        if (!only) {                                   // 図の本体（今のまとめとリンク）から離れた物は入れない
+            core = G ? SDY.bOf(G) : null;
+            for (k = 0; k < tops.length; k++) { if (tops[k].link) { core = SDY.bJoin(core, SDY.bOf(tops[k].it)); } }
+            if (core) {
+                x = [];
+                for (k = 0; k < tops.length; k++) {
+                    b = SDY.bOf(tops[k].it);
+                    if (tops[k].link || SDY.bHit(b, core, SDY.FIG_FAR * K)) { x.push(tops[k]); }
+                    else { R.far.push(f.no + "枚目 " + f.name + "：" + tops[k].name); }
+                }
+                tops = x;
+            }
+        }
+        if (!tops.length || (!G && tops.length < 2)) { if (!only) { R.done++; } continue; }   // もうまとまっている・一つだけの図
+        if (only) {
+            if (dry) { R.figs++; R.moved += tops.length; continue; }
+            try {
+                if (!G) { G = tops[0].it.layer.groupItems.add(); G.name = f.name; G.note = SDY.FIG_NOTE + f.key; G.move(tops[0].it, ElementPlacement.PLACEBEFORE); GF[f.key] = G; R.made++; }
+                for (k = 0; k < tops.length; k++) {
+                    try { tops[k].it.move(G, tops[k].link ? ElementPlacement.PLACEATEND : ElementPlacement.PLACEATBEGINNING); R.moved++; }
+                    catch (e2) { R.fail.push(f.no + "枚目 " + f.name + "：" + tops[k].name + "（" + e2.message + "）"); }
+                }
+                R.figs++;
+            } catch (e3) { R.fail.push(f.no + "枚目 " + f.name + "（" + e3.message + "）"); }
+            continue;
+        }
+        // 重ね順：上から数えた番号。グループの所（新しく作るなら、いちばん下の物の所）より上の物はグループの上へ、下の物は下へ
+        for (k = 0; k < tops.length; k++) { tops[k].r = SDY.zOf(Z, tops[k].it); }
+        tops.sort(function (a, c) { return a.r - c.r; });   // 上から
+        m0 = null;
+        if (G) { rg = SDY.zOf(Z, SDY.topOf(G)); } else { m0 = tops[tops.length - 1]; rg = m0.r; }
+        // 重なりの見え方が変わるかもしれない所：動かす物とグループのあいだにある、図でない物で、重なっている物
+        for (k = 0; k < tops.length; k++) {
+            if (tops[k] === m0 || tops[k].r < 0 || rg < 0) { continue; }
+            var lo = Math.min(tops[k].r, rg), hi = Math.max(tops[k].r, rg), bk = SDY.bOf(tops[k].it), z, mem;
+            for (q = 0; q < Z.length; q++) {
+                z = Z[q];
+                if (z.r <= lo || z.r >= hi || !z.shown || z.lay === SDY.OUT_LAYER || z.lay === SDY.NEW_LAYER) { continue; }
+                if (G && z.it === SDY.topOf(G)) { continue; }
+                mem = false; for (m = 0; m < tops.length; m++) { if (tops[m].it === z.it) { mem = true; break; } }
+                if (mem) { continue; }
+                try { if (z.it.typename === "SymbolItem" && z.it.name === "枠") { continue; } } catch (e4) {}
+                if (SDY.bHit(bk, SDY.bOf(z.it), 0)) { R.warn.push(f.no + "枚目 " + f.name + "：「" + tops[k].name + "」と「" + nameOf(z.it) + "」（" + z.lay + "）"); }
+            }
+        }
+        if (dry) { R.figs++; R.moved += tops.length; continue; }
+        try {
+            if (!G) {
+                T = m0.it.layer;
+                G = T.groupItems.add(); G.name = f.name; G.note = SDY.FIG_NOTE + f.key;
+                G.move(m0.it, ElementPlacement.PLACEBEFORE);
+                m0.it.move(G, ElementPlacement.PLACEATEND); R.moved++; R.made++;
+                GF[f.key] = G;
+            } else {
+                try { nt = G.note; if (!nt) { G.note = SDY.FIG_NOTE + f.key; } } catch (e5) {}   // 配置図（まとめ）・同じ名前のグループに図の印（図面のグループは sdydwg のまま）
+            }
+            abv = []; blw = [];
+            for (k = 0; k < tops.length; k++) { if (tops[k] === m0) { continue; } if (tops[k].r < rg || tops[k].r < 0) { abv.push(tops[k]); } else { blw.push(tops[k]); } }
+            for (k = abv.length - 1; k >= 0; k--) {        // 上の物：下から順にグループのいちばん上へ
+                try { abv[k].it.move(G, ElementPlacement.PLACEATBEGINNING); R.moved++; } catch (e6) { R.fail.push(f.no + "枚目 " + f.name + "：" + abv[k].name + "（" + e6.message + "）"); }
+            }
+            for (k = 0; k < blw.length; k++) {             // 下の物：上から順にグループのいちばん下へ
+                try { blw[k].it.move(G, ElementPlacement.PLACEATEND); R.moved++; } catch (e7) { R.fail.push(f.no + "枚目 " + f.name + "：" + blw[k].name + "（" + e7.message + "）"); }
+            }
+            R.figs++;
+            Z = SDY.zTable(doc);                           // 動かしたので数え直す
+        } catch (e8) { R.fail.push(f.no + "枚目 " + f.name + "（" + e8.message + "）"); }
+    }
+    for (k = 0; k < LK.length; k++) { try { LK[k].locked = true; } catch (e9) {} }
+    return R;
+};
+SDY.figReport = function (R) {                        // alert に出す一覧
+    var cut = function (a) { return a.length > 12 ? a.slice(0, 12).join("\n") + "\n…ほか " + (a.length - 12) : a.join("\n"); }, s = "";
+    if (R.lost.length) { s += "\n\n見つからない部品（.ai に無い。消した物なら気にしなくてよい）：\n" + cut(R.lost); }
+    if (R.far.length) { s += "\n\n図から離れた所にあるので入れなかった物（入れるなら手で）：\n" + cut(R.far); }
+    if (R.mixed.length) { s += "\n\nほかの物と一緒のグループなので入れなかった物：\n" + cut(R.mixed); }
+    if (R.hidden.length) { s += "\n\n見えないレイヤーにあるので入れなかった物：\n" + cut(R.hidden); }
+    if (R.warn.length) { s += "\n\n重なりの見え方が変わるかもしれない所（図の部品が、あいだのレイヤーの物の上・下に入れ替わる）：\n" + cut(R.warn); }
+    if (R.fail.length) { s += "\n\n入れられなかった物：\n" + cut(R.fail); }
+    return s;
 };
 
 // ── 組み替え（build_sodachiya.jsx、大きな配置換えのとき、10-31）───────────────────────────────

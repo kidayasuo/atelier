@@ -433,6 +433,24 @@ def write(c):
                 p["pts"] = [[round(q[0] + ssx, 2), round(q[1] + ssy, 2)] for q in p["pts"]]
         for p in parts:
             p.pop("no_user_s", None)
+        # 図の名前（fig、ユーザー 11-01 08:49：図ごとに一つのグループに）：配置図の部品（plan）は「配置図」、図面（dwg）はその図の名前、
+        # ほかは mock.py の fig_rules（枚、"id"か"group"、正規表現、図の名前）。図でない物（ページの題・説明の箱・表・注記）は None
+        _fr = [(f_, re.compile(rx_), nm_) for (no_, f_, rx_, nm_) in c.get("fig_rules", []) if no_ == no]
+        for p in parts:
+            fg_ = None
+            if p.get("layer") == "注記":
+                fg_ = None                              # 印刷しない注記はまとめない（レイヤーごと印刷しない）
+            elif p.get("plan"):
+                fg_ = "配置図"
+            elif p.get("dwg"):
+                fg_ = p["dwg"]
+            else:
+                for f_, rx_, nm_ in _fr:
+                    v_ = p["id"][len(f"p{no}."):] if f_ == "id" else (p.get("group_name") or "")
+                    if rx_.match(v_):
+                        fg_ = nm_
+                        break
+            p["fig"] = fg_
         pages.append(dict(no=no, frame=has_frame, parts=parts))
     M = 15.0
     out = dict(note="mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
@@ -449,3 +467,4 @@ def write(c):
         out["renumber"] = c["renumber"]
     json.dump(out, open(os.path.join(AI, "layout.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=0)
     print("Illustratorの割付：", ", ".join(f"{p['no']}枚目 {len(p['parts'])}部品" for p in pages))
+    print("図の名前：", ", ".join(f"{p['no']}枚目 図{len({q['fig'] for q in p['parts'] if q.get('fig')})}・部品{sum(1 for q in p['parts'] if q.get('fig'))}／図でない{sum(1 for q in p['parts'] if not q.get('fig'))}" for p in pages))

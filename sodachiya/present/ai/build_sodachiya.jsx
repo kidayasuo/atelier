@@ -61,7 +61,7 @@
         try { if (first0.pageItems.length === 0 && first0.layers.length === 0 && !SDY.inArr(std, first0.name) && !res.names[first0.name]) { first0.remove(); } } catch (e9) {}
         var cut = function (a) { return a.length > 15 ? a.slice(0, 15).join("\n") + "\n…ほか " + (a.length - 15) : a.join("\n"); };
         msg = "組み替えました：前の .ai から持ってきた物 " + res.n + " 個（紙の中の位置のまま " + (res.kept + res.ab) + "、新しい割付の位置へ " + res.def + "）" +
-              "、新しく描いた部品 " + st.na + (res.out + st.nx ? "、要らなくなった部品（「外した物」へ） " + (res.out + st.nx) : "") + (nf > 0 ? "、枠を足した枚 " + nf : "") +
+              "、新しく描いた部品 " + st.na + (sn && sn.nf ? "（図のグループへ " + sn.nf + "）" : "") + (res.out + st.nx ? "、要らなくなった部品（「外した物」へ） " + (res.out + st.nx) : "") + (nf > 0 ? "、枠を足した枚 " + nf : "") +
               "\n文字 " + st.nt + "、リンク " + st.nl + (st.nr ? "、形の変わった線（新しい版を「更新（新しい線）」に） " + st.nr : "") + (st.nu ? "、足した物（layout_user.json から） " + st.nu : "");
         if (res.split.length) { msg += "\n\nグループの中の部品が別々の紙に分かれる（グループのまま多い方の紙へ。.ai で分ける）：\n" + cut(res.split); }
         if (st.kept.length) { msg += "\n\n文の元が変わったが、書き換えてあるので差し替えなかった：\n" + cut(st.kept); }
@@ -119,8 +119,11 @@
     try { SDY.groupPlan(doc, L); } catch (e) { SDY.missing.push("配置図のまとめ（" + e.message + "）"); }
     try { SDY.groupDrawings(doc, L); } catch (e) { SDY.missing.push("図面のまとめ（" + e.message + "）"); }
     try { SDY.applyOrder(doc, L); SDY.applyStacking(doc, U); } catch (e) { SDY.missing.push("重ね順（" + e.message + "）"); }   // 重ね順：決め打ち → 書き出した並び（10-29）
+    var FR = null;                                     // 図ごとのグループ（11-01）：重ね順を当てた後で、図の部品を一つのグループに（中の重ね順はそのまま）
+    try { FR = SDY.groupFigures(doc, L, null, false); } catch (e) { SDY.missing.push("図のグループ（" + e.message + "）"); }
     SDY.hideOut(doc);
     msg = "組みました（予備：記録から当て直し）：" + nmade + " 個（隠した " + skipped + " 個）、前の .ai から写した木田さんの物 " + carried + " 個";
+    if (FR) { msg += "\n図のグループ " + FR.figs + "（入れた物 " + FR.moved + "）" + SDY.figReport({ lost: [], far: FR.far, mixed: FR.mixed, hidden: FR.hidden, warn: [], fail: FR.fail }); }
     if (SDY.planShift && SDY.planShift.n && (Math.abs(SDY.planShift.dx) > 0.05 || Math.abs(SDY.planShift.dy) > 0.05)) { msg += "\n配置図の上の物 " + SDY.planShift.n + " 個を、配置図と一緒に " + Math.round(SDY.planShift.dx) + "・" + Math.round(SDY.planShift.dy) + " mm 動かしました"; }
     }
     if (out.exists) {                                  // 前のファイルは old/ に日時を付けて退け、同じ名前で保存する（ユーザー、10-26：名前が増えていく）

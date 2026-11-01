@@ -19,7 +19,7 @@
     SDY.hideOut(doc);
     var msg = "更新しました：文字 " + st.nt + "、リンク " + st.nl + "、新しい部品 " + st.na +
               (st.nr ? "、形の変わった線（新しい版を「更新（新しい線）」に） " + st.nr : "") + (st.nx ? "、無くなった部品（「外した物」へ） " + st.nx : "") +
-              (sn.ng ? "、配置図のまとめに入れた新しい物 " + sn.ng : "") + (sn.nd ? "、図面のまとめに入れた新しい物 " + sn.nd : "") + (st.nu ? "、足した物（layout_user.json から） " + st.nu : "");
+              (sn.ng ? "、配置図のまとめに入れた新しい物 " + sn.ng : "") + (sn.nd ? "、図面のまとめに入れた新しい物 " + sn.nd : "") + (sn.nf ? "、図のグループに入れた新しい物 " + sn.nf : "") + (st.nu ? "、足した物（layout_user.json から） " + st.nu : "");
     var cut = function (a) { return a.length > 15 ? a.slice(0, 15).join("\n") + "\n…ほか " + (a.length - 15) : a.join("\n"); };
     if (st.kept.length) { msg += "\n\n文の元が変わったが、書き換えてあるので差し替えなかった（見比べて直す）：\n" + cut(st.kept); }
     if (st.newl.length) { msg += "\n\n形の変わった線（前の線は名前の頭が「（前の線）」。見比べて要らない方を消す）：\n" + cut(st.newl); }

@@ -4578,7 +4578,36 @@ print("Rhino の図：", "、".join(RHINO_USED) if RHINO_USED else "無し（dra
 _GROUPS = {f"p1.{k_}": ("water", "用水のネットワーク") for k_ in ("sozai.02", "water.title", "water.source", "water.source2")}
 _GROUPS["p1.link.14_地域のなかの敷地_1-10000"] = ("areamap", "地域のなかの敷地")
 _GROUPS["p1.top.地域のなかの敷地110000"] = ("areamap", "地域のなかの敷地")
-ai_layout.write(dict(order=[dict(layer="説明", name="地域のなかの敷地", above="用水のネットワーク")], groups=_GROUPS, frame_hdr=(HDR, HDR_BL, NAME_SZ, SCHOOL), mark_num_box=MARK_NUM_BOX, emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
+# 図ごとのグループ（ユーザー 11-01 08:49：配置図・ゾーン図がバラバラで位置の調整ができない）。.ai で図を作る部品を一つのグループに（ai/group_figures.jsx）。
+# 配置図の部品（plan）は「配置図」、図面（dwg）はその図の名前、ほかはこの表：（枚、"id"（pN. の後）か"group"（group_name）、正規表現、図の名前）。
+# 図の題と縮尺の添えは図に入れる。図の横の見出し・本文（「園庭にひらく」など）、説明の箱、表、ページの題、注記は図でない
+_FIG_RULES = [
+    (1, "id", r"(sozai\.02$|water\.)", "用水のネットワーク"),
+    (1, "id", r"(link\.14_|top\.(高野川|京都工芸繊維大学|敷地|N~2|0|200m|地域のなかの敷地|出典)|mark\.com\.saigai\.1\.)", "地域のなかの敷地"),
+    (2, "id", r"(sozai\.22$|gx\.)", "園庭説明図"),
+    (2, "id", r"zc\.", "ゾーニングの図"),
+    (2, "id", r"sozai\.0[6-9]$", "一日の帯"), (2, "group", r"一日の帯", "一日の帯"),
+    (2, "id", r"(sozai\.23a$|t\.教室3〜5歳$)", "教室　3〜5歳"),
+    (2, "id", r"(sozai\.23b$|t\.教室0・1歳$)", "教室　0・1歳"),
+    (2, "id", r"(sozai\.23c$|t\.教室2歳$)", "教室　2歳"),
+    (2, "id", r"(sozai\.23d$|t\.居場所読書$)", "居場所　読書"),
+    (2, "id", r"(sozai\.23e$|t\.居場所遊戯室の箱$)", "居場所　遊戯室の箱"),
+    (2, "id", r"(link\.26_|t\.遊戯室$|t\.平面$)", "遊戯室"), (2, "group", r"遊戯室（文字）", "遊戯室"),
+    (2, "id", r"(link\.28a_|t\.遊戯室の切り株のはじまり)", "写真　切り株のはじまり"),
+    (2, "id", r"(link\.28b_|t\.KAPLAの板で)", "写真　KAPLAの筒"),
+    (3, "id", r"link\.(27a|29b)_", "平面図　1階"),
+    (4, "id", r"link\.(27b|29c)_", "平面図　2階"),
+    (5, "id", r"t\.(園庭の側の立面図|1100円弧の中心)", "立面図　園庭の側"),
+    (5, "id", r"t\.(道路の側の立面図|1100西の道路から)", "立面図　道路の側"),
+    (5, "id", r"(sozai\.16$|t\.透視図（A4）|t\.目の高さ1)", "透視図"),
+    (5, "id", r"(sozai\.0[34]$|t\.沿川の景観|t\.高野川の向こう岸の歩道から)", "沿川の景観"),
+    (5, "id", r"sozai\.05$", "素材と色"),
+    (6, "id", r"t\.(縦断面図A$|1100保育室の中ほど)", "縦断面図A"),
+    (6, "id", r"t\.(断面図C|1100空気の環境)", "断面図C"),
+    (6, "id", r"t\.(断面図D|1100北を見る光の環境)", "断面図D"),
+    (6, "id", r"(link\.18_|t\.構造$|t\.架構と耐力壁の分布$)", "構造"),
+]
+ai_layout.write(dict(order=[dict(layer="説明", name="地域のなかの敷地", above="用水のネットワーク")], groups=_GROUPS, fig_rules=_FIG_RULES, frame_hdr=(HDR, HDR_BL, NAME_SZ, SCHOOL), mark_num_box=MARK_NUM_BOX, emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
                      renumber=RENUMBER,
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
 
