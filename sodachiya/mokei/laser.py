@@ -523,7 +523,8 @@ def found_ext_sheets():
 EDGE_GAP = 10.0     # 04 の端から離す（世界 mm＝模型 0.1 mm）
 
 def engawa_strip():
-    """3dm のレイヤー13「0・1歳の東の縁側（杉の床板）」8 枚の外形の和。04 の上の層・下の層の端（floors()）から 0.1 mm 離す。
+    """3dm のレイヤー13「0・1歳の東の縁側（杉の床板）」8 枚の外形の和。切った 04 上の層の外形（kirita.cut_floor('upper')）の端から 0.1 mm 離す。
+    下の層は、切った 04 下がすでに外縁側（f1〜5、v 0〜1.5 m）まで入っているので作らない。
     返す：(外形（世界座標）, 04 から離す前の外形, 柱の穴, 04 の外形)"""
     polys = []
     for nm, g in objs_named('13_本館_内縁側（はだし ±0）'):
@@ -531,15 +532,15 @@ def engawa_strip():
         c = g.Profile3d(0, 0)
         polys.append(Polygon([(c.Points[i].X, c.Points[i].Y) for i in range(len(c.Points))]).buffer(1, join_style=2))
     raw = unary_union(polys).buffer(-1, join_style=2).simplify(1)
-    upper, lower, _ = floors()
-    f04 = unary_union([upper, lower])
+    import kirita as _K
+    f04 = _K.cut_floor('upper')                              # 切った 04 上の実際の外形（3dm の floors() ではない。11-02）
     strip = raw.difference(f04.buffer(EDGE_GAP, join_style=2))
     strip = max(getattr(strip, 'geoms', [strip]), key=lambda x: x.area)
     holes = [h for h in (col_rect(g, FLOOR_L, FLOOR_T) for g in cols) if h.intersects(raw)]
     return strip, raw, holes, f04
 
 def engawa_sheets():
-    """04b：0・1歳の東の外縁側の帯。上の層・下の層とも同じ外形の 1.7 を 2 枚（柱の穴つき）。04 と同じ向きで、SVG のみ・参考の黒なし"""
+    """04b：0・1歳の東の外縁側の帯。上の層だけの 1.7 を 1 枚（柱の穴つき）。04 と同じ向きで、SVG のみ・参考の黒なし"""
     strip, raw, holes, f04 = engawa_strip()
     # 向きは帯の長辺を水平に（弧の上の 12 m なので、04 の板の向きだと斜めになる）
     rc = list(strip.minimum_rotated_rectangle.exterior.coords)
@@ -563,11 +564,11 @@ def engawa_sheets():
     sel = [top[round((len(top) - 1) * f)] for f in (0.25, 0.75)]
     sel = [affinity.translate(to_sheet(q, ang, (0, 0)), -b[0], -b[1]) for q in sel]
     M = Sheet.MARGIN
-    s = Sheet('04b_0・1歳の外縁側の床_シナ1.7', w + 2 * M, 2 * h + 3 + 2 * M, 'シナ 1.7：0・1歳の東の外縁側の床の帯（上の層・下の層、同じ外形を 2 枚）。04 の端から 0.1 mm 離す')
-    s.add(P); s.add(affinity.translate(P, 0, h + 3))
-    s.tab_pts = sel + [affinity.translate(q, 0, h + 3) for q in sel]
+    s = Sheet('04b_0・1歳の外縁側の床_シナ1.7', w + 2 * M, h + 2 * M, 'シナ 1.7：0・1歳の東の外縁側の床の帯（上の層だけ 1 枚。下の層は切った 04 下に入っている）。切った 04 上の端から 0.1 mm 離す')
+    s.add(P)
+    s.tab_pts = sel
     s.save()
-    return dict(w=round(w, 2), h=round(h, 2), sheet=(round(w + 2 * M, 1), round(2 * h + 3 + 2 * M, 1)), holes=len(holes))
+    return dict(w=round(w, 2), h=round(h, 2), sheet=(round(w + 2 * M, 1), round(h + 2 * M, 1)), holes=len(holes))
 
 # ================= 6. 本館の屋根 =================
 ROOF_GAP = 190      # 下の層の板の端：架構の中心線から（梁 2 枚の外面 180＋すき間 10、実寸 mm）。切り幅 0.1 で、すき間は片側 約 0.2
