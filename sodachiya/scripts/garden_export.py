@@ -805,33 +805,129 @@ def _w3(a, d, z):
 
 
 _rng = np.random.default_rng(31)
-# 3〜5歳の床の噴水：噴き口ごとに細い水の柱（高さ 0.6〜1.2 m で揺らす。決まりの高さは無いので絵のため）
-_ca, _sa = math.cos(math.radians(F["rot"])), math.sin(math.radians(F["rot"]))
-_rpost = G["SHOWER"].get("ring", {}).get("posts", [G["SHOWER"]["c"]])
-# 10-31（ユーザー：水が鉄の棒のよう、項 20261031-2111-present）：水の柱は半径 7 mm の水の筋、噴き口は円の全面（gc.fountain_jets）
-_nf = 0
-for q in gc.fountain_jets():
-    hj = float(_rng.uniform(0.6, 1.2))
-    KT.add(m, KT.enchu(_w3(*q, _fz), _w3(*q, _fz + hj), 7.0), LAY["92f"], name=f"床の噴水の水の柱 h{hj:.2f}"); _nf += 1
-# あめのわの雨のカーテン：輪の 48 の噴き口から床まで、細い線状の水の柱
+# 11-01（ユーザー、項 20261101-1939-present：モノクロの絵でも噴水と分かるリアルさ）：水は決めてある自由な形（閉じたメッシュ、地形・雨の川と同じ扱い）。
+# 水の柱は根もとが細く上で太る円錐台、頂で開いて落ちる小さな水の粒の冠。座標は世界（mm）。
+_p = (1 + 5 ** 0.5) / 2   # 正二十面体（水の粒、頂点12）
+_ICO_V = np.array([(-1, _p, 0), (1, _p, 0), (-1, -_p, 0), (1, -_p, 0), (0, -1, _p), (0, 1, _p), (0, -1, -_p), (0, 1, -_p),
+                   (_p, 0, -1), (_p, 0, 1), (-_p, 0, -1), (-_p, 0, 1)], float)
+_ICO_V /= np.linalg.norm(_ICO_V[0])
+_ICO_F = [(0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11), (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
+          (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9), (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1)]
+
+
+class _Wm:
+    """閉じたメッシュを貯める（粒・円錐台・短い線分を一つの物に）"""
+    def __init__(self): self.m = r.Mesh(); self.n = 0
+    def _v(self, P):
+        for x, y, z in P: self.m.Vertices.Add(float(x), float(y), float(z))
+        k = self.n; self.n += len(P); return k
+    def drop(self, c, rad, sz=1.0):
+        k = self._v(np.asarray(c) + _ICO_V * [rad, rad, rad * sz])
+        for f in _ICO_F: self.m.Faces.AddFace(k + f[0], k + f[1], k + f[2])
+    def frustum(self, p0, p1, r0, r1, seg=8):
+        p0, p1 = np.asarray(p0, float), np.asarray(p1, float); d = p1 - p0; d = d / np.linalg.norm(d)
+        X = np.cross([0, 1., 0] if abs(d[0]) > 0.9 else [1., 0, 0], d); X /= np.linalg.norm(X); Y = np.cross(d, X)
+        t = np.linspace(0, 2 * math.pi, seg, endpoint=False); ring = np.outer(np.cos(t), X) + np.outer(np.sin(t), Y)
+        k = self._v(np.vstack([p0 + ring * r0, p1 + ring * r1, [p0, p1]])); c0, c1 = k + 2 * seg, k + 2 * seg + 1
+        for i in range(seg):
+            j = (i + 1) % seg
+            self.m.Faces.AddFace(k + i, k + j, k + seg + j, k + seg + i)
+            self.m.Faces.AddFace(c0, k + j, k + i); self.m.Faces.AddFace(c1, k + seg + i, k + seg + j)
+
+
+def _jet(W, base, h, r0, r1, tilt, n_cr, rc):
+    """一本の噴き上がる水：base（mm）から高さ h（mm）、傾き tilt（度）。頂に n_cr 個の粒の冠（外へ開いて下がる）、rc は粒の半径の目安"""
+    az = _rng.uniform(0, 2 * math.pi); tl = math.radians(tilt)
+    d = np.array([math.sin(tl) * math.cos(az), math.sin(tl) * math.sin(az), math.cos(tl)])
+    top = np.asarray(base, float) + d * h
+    W.frustum(base, top, r0, r1)
+    W.drop(top + d * r1 * 0.6, r1 * 1.15, 1.3)                 # 頂のふくらみ
+    a0 = _rng.uniform(0, 2 * math.pi)
+    for i in range(n_cr):
+        q = a0 + 2 * math.pi * i / n_cr + _rng.uniform(-0.3, 0.3)
+        sp = _rng.uniform(1.6, 3.2) * r1 + h * _rng.uniform(0.02, 0.05)   # 外へ開く
+        dz = _rng.uniform(0.2, 0.9) * sp                                   # 少し下がる
+        W.drop(top + [sp * math.cos(q), sp * math.sin(q), -dz], rc * _rng.uniform(0.6, 1.0), 1.25)
+
+
+def _scatter(c, R, n, dmin, ok):
+    """円（中心 c、半径 R、m）の中に、たがいに dmin 以上離れたばらつく点を n 個まで（ダーツ投げ）"""
+    pts = []
+    for _ in range(40000):
+        if len(pts) >= n: break
+        rr, q = R * math.sqrt(_rng.uniform()), _rng.uniform(0, 2 * math.pi)
+        p = (c[0] + rr * math.cos(q), c[1] + rr * math.sin(q))
+        if ok(p) and all(math.hypot(p[0] - s[0], p[1] - s[1]) >= dmin for s in pts): pts.append(p)
+    return pts
+
+
+# 3〜5歳の床の噴水：高さ0.3〜0.6 m、約150本、円の全面にばらつかせる（縁から0.15内）。根もと半径3〜4 mm→上7〜10 mm
 _rg = G["SHOWER"]["ring"]; _zr = H(*_rg["c"]) + _rg["h"]
+_rpost = _rg.get("posts", [G["SHOWER"]["c"]]) + [G["SHOWER"]["c"]]
+_ftrap = None
+if F.get("sand_trap") and F.get("drain"):
+    _v = np.array(F["drain"]) - np.array(F["c"]); _v = _v / (np.linalg.norm(_v) or 1)
+    _ftrap = np.array(F["c"]) + _v * (F["r"][0] - 0.05 - F["sand_trap"]["w"] / 2)
+
+
+def _f_ok(p):
+    if min(math.hypot(p[0] - q[0], p[1] - q[1]) for q in _rpost) < 0.2: return False      # あめのわの柱・シャワーの柱（120角）
+    if math.hypot(p[0] - F["drain"][0], p[1] - F["drain"][1]) < 0.25: return False         # 排水口
+    if _ftrap is not None and max(abs(p[0] - _ftrap[0]), abs(p[1] - _ftrap[1])) < F["sand_trap"]["w"] / 2 + 0.08: return False   # 砂だめの蓋
+    if abs(math.hypot(p[0] - _rg["c"][0], p[1] - _rg["c"][1]) - _rg["r"]) < 0.05: return False   # 雨のカーテンの真下
+    return True
+
+
+_fj = _scatter(F["c"], F["r"][0] - 0.15, 150, 0.21, _f_ok)
+_nf = 0; _hs = []
+for k_ in range(0, len(_fj), 10):                                          # 10本ずつ一つの物に
+    W = _Wm()
+    for q in _fj[k_:k_ + 10]:
+        hj = float(_rng.uniform(0.3, 0.6)); _hs.append(hj)
+        _jet(W, _w3(*q, _fz), hj * 1000, _rng.uniform(3.0, 4.0), _rng.uniform(7.0, 10.0), _rng.uniform(0, 6),
+             int(_rng.integers(5, 9)), 4.0); _nf += 1
+    KT.add(m, W.m, LAY["92f"], name=f"床の噴水の水の柱（{len(_fj[k_:k_ + 10])}本、h0.3〜0.6、根もとr3〜4・上r7〜10 mm、頂の粒の冠）")
+# あめのわの雨のカーテン：輪の48の噴き口から床まで、途中で切れた粒の列（半径 2〜3 mm の短い線分を縦に）
+_ncur = 0
 for k_ in range(_rg["n"]):
     q_ = 2 * math.pi * k_ / _rg["n"]
     a_, d_ = _rg["c"][0] + _rg["r"] * math.cos(q_), _rg["c"][1] + _rg["r"] * math.sin(q_)
-    KT.add(m, KT.enchu(_w3(a_, d_, _fz), _w3(a_, d_, _zr - 0.03), 8.0), LAY["92f"], name="あめのわの雨のカーテン（線状の水）")
-# 0〜2歳の床の噴水：噴き口ごとに低い泡（高さ 0.10〜0.20、低い円柱）と、霧のわの下の薄い円筒の霧
+    p0 = np.array(_w3(a_, d_, _fz)); z1 = _w3(a_, d_, _zr - 0.03)[2]; W = _Wm(); z = z1
+    rw = _rng.uniform(2.0, 3.0)
+    while z - p0[2] > 20:
+        L = min(_rng.uniform(30, 90) * (0.5 + (z - p0[2]) / (z1 - p0[2])), z - p0[2])   # 上ほど長い筋、下ほど短い粒
+        W.frustum(p0 + [0, 0, z - L - p0[2]], p0 + [0, 0, z - p0[2]], rw, rw, 6); _ncur += 1
+        z -= L + _rng.uniform(15, 45)
+    KT.add(m, W.m, LAY["92f"], name="あめのわの雨のカーテン（途中で切れた粒の列、r2〜3 mm）")
+# 0〜2歳の床の噴水：噴き口ごとに低い泡（高さ0.10〜0.20、低い円錐台＋頂の小さな粒）と、霧のわの霧（細かい粒の集まり）
 _ns = 0
 if _js := SP.get("jets", 0):
+    W = _Wm(); _strap = None
+    if SP.get("sand_trap") and SP.get("drain"):
+        _v = np.array(SP["drain"]) - np.array(SP["c"]); _v = _v / (np.linalg.norm(_v) or 1)
+        _strap = np.array(SP["c"]) + _v * (SP["r"][0] - 0.05 - SP["sand_trap"]["w"] / 2)
     for ja in np.arange(-SP["r"][0], SP["r"][0] + 0.01, _js):
         for jd in np.arange(-SP["r"][0], SP["r"][0] + 0.01, _js):
             if math.hypot(ja, jd) < SP["r"][0] - 0.3:
                 hb = float(_rng.uniform(0.10, 0.20)); a_, d_ = SP["c"][0] + ja, SP["c"][1] + jd
-                KT.add(m, KT.enchu(_w3(a_, d_, _sz), _w3(a_, d_, _sz + hb), 90.0), LAY["92f"], name=f"乳児の床の噴水の泡 h{hb:.2f}"); _ns += 1
+                if _strap is not None and max(abs(a_ - _strap[0]), abs(d_ - _strap[1])) < SP["sand_trap"]["w"] / 2 + 0.08: continue   # 砂だめの蓋の上は外す
+                _jet(W, _w3(a_, d_, _sz), hb * 1000, _rng.uniform(10, 14), _rng.uniform(18, 25), _rng.uniform(0, 4),
+                     int(_rng.integers(6, 9)), 7.0); _ns += 1
+    KT.add(m, W.m, LAY["92f"], name="乳児の床の噴水の泡（低い円錐台h0.10〜0.20＋頂の粒）")
+_nmist = 0
 if SP.get("mist"):
-    _ms = SP["mist"]
-    KT.add(m, KT.enchu(_w3(*SP["c"], _sz), _w3(*SP["c"], H(*SP["c"]) + _ms["h"] - 0.03), _ms["r"] * 1000, _ms["r"] * 1000 - 30.0),
-           LAY["92f"], name="霧のわの霧（薄い円筒）")
-print("噴水の水", _nf, "本・雨のカーテン", _rg["n"], "本・泡", _ns)
+    _ms = SP["mist"]; _zm0 = _w3(*SP["c"], _sz)[2]; _zm1 = _w3(*SP["c"], H(*SP["c"]) + _ms["h"] - 0.03)[2]
+    _cw = np.array(_w3(*SP["c"], _sz))
+    for g_ in range(6):
+        W = _Wm()
+        for _ in range(250):                      # 輪の下から降る霧：上は輪に沿って細く、下へ広がって薄く
+            t = _rng.uniform() ** 0.7; z = _zm1 - t * (_zm1 - _zm0)
+            q = _rng.uniform(0, 2 * math.pi); rr = _ms["r"] * 1000 + _rng.normal(0, 25 + 220 * t)
+            pd = _cw[:2] + [rr * math.cos(q), rr * math.sin(q)]
+            if min(math.hypot(*(pd - _w3(*pp, 0)[:2])) for pp in _ms["posts"]) < 120: continue   # 霧のわの柱（100角）に当てない
+            W.drop(_cw + [rr * math.cos(q), rr * math.sin(q), z - _cw[2]], _rng.uniform(3.0, 6.0)); _nmist += 1
+        KT.add(m, W.m, LAY["92f"], name="霧のわの霧（細かい粒の集まり）")
+print(f"噴水の水{_nf}本（h{min(_hs):.2f}〜{max(_hs):.2f}）・雨のカーテン{_rg['n']}本（線分{_ncur}）・泡{_ns}・霧の粒{_nmist}")
 
 out = os.path.join(gc.ROOT, "model", "sodachiya_garden_layers.3dm")
 m.Write(out, 7)
