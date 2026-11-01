@@ -720,8 +720,8 @@ def west_parts(clr):
     返す：[(名前, 架構の番号, 形, つなぎの点)]"""
     out = []
     for nm_, g in objs_named('22a_西館_柱'):
-        if '階段の箱の柱' in nm_:
-            continue                                        # 階段の箱の 120 角の柱は作らない（ユーザー 10-28）
+        if not (nm_ == '' or nm_.startswith('骨格の柱')):
+            continue                                        # 架構の柱（名前なし）とキッチンの東の骨格の柱だけ（west_cols と同じ）。階段の箱の 120 角の柱（ユーザー 10-28）・壁の中の 120 角の柱・柱の受け材は作らない
         if g.ProfileCount == 1:
             # キッチンの東の柱 180×400（10-28）：桁の穴が無い。本館の柱と同じ 0.8×2、幅は 400（4.0）、肩が GL、ほぞ
             P = profile_rz(g, 0); b_ = g.GetBoundingBox()
@@ -738,8 +738,8 @@ def west_parts(clr):
     seen = set()
     for lay, nm in (('22b_西館_梁', '梁'), ('22c_西館_2階床梁', '床梁')):
         for nm_, g in objs_named(lay):
-            if '出し梁' in nm_ or '登り梁' in nm_:
-                continue                                    # 出し梁・北西の角の登り梁 u43.5 は 07 に入れない（10-28）
+            if nm_ != '':
+                continue                                    # 架構の梁（名前なし）だけ。出し梁・北西の角の一枚の梁 u43.5（10-28）・腕木・楔の受け材は 07 に入れない
             P = to_model(profile_rz(g, 0))
             part = Polygon(P).buffer(0)
             for h_ in _holes(g, clr): part = part.difference(h_)
@@ -2227,7 +2227,7 @@ def dai_features():
     honkan = found
     both = unary_union([honkan, west])
     F['本館の穴'] = dict(kind='hole', prio='必須', layer='12〜15・52（床）', geom=honkan, note='切った 05＋05b のベタ基礎の外形（kirita.cut_found()）')
-    F['西館の穴'] = dict(kind='hole', prio='必須', layer='31〜33・36（床）', geom=west.difference(honkan.buffer(30)), note='西館のベタ基礎（表面から抜けた板）')
+    F['西館の穴'] = dict(kind='hole', prio='必須', layer='31〜33・36（床）', geom=Polygon(west_f1_outline().exterior).difference(honkan.buffer(30)), note='西館のベタ基礎（表面から抜けた板）：西館の床（12w）の 1 階の外形（更衣 57 を含む）と同じ外周（11-02）')
     # --- 外形（台）
     road = dai_road()
     reg = road.intersection(_box(*DAI_ROAD_WIN))
@@ -2422,9 +2422,14 @@ def dai_sheets():
     for h in getattr(holes, 'geoms', [holes]):
         if h.area > 1e6: s.add(T(Polygon(h.exterior)).buffer(0), 'cut')
     s.add(T(F['台の外形']['geom']), 'cut')
-    # 西館の柱のほぞ穴（11-02）：西館のベタ基礎＝この「西館の穴」から抜けた板。柱 24 本（本館の 05 と同じ描き寸法 1.64×2.1）。穴の縁にかかる 1 本と穴の外の 1 本は表面の板に直接（west_mortise_notes）
-    for mo in dai_west_mortises(T):
+    # 西館の柱のほぞ穴（11-02）：西館のベタ基礎＝この「西館の穴」（西館の床 12w の外形、更衣を含む）から抜けた板。柱 24 本（本館の 05 と同じ描き寸法 1.64×2.1）を、切り抜き片の内側に。
+    # 穴の外になるのは架構 u21.33 の南東の柱 1 本だけ（床が無い所）：その 1 本は表面の板に直接切る（下の print）
+    hs_w = F['西館の穴']['geom'].buffer(-DAI_HOLE_SHRINK / S, join_style=2)
+    for mo, (g_, kind_, top_) in zip(dai_west_mortises(T), west_cols()):
         s.add(mo, 'cut')
+        m3 = _wcol_rect(g_, MORTISE_W, MORTISE_T)
+        if not hs_w.contains(m3):
+            print('西館のほぞ穴が切り抜き片の外（表面の板に直接）：', kind_, [round(v_, 2) for v_ in _uv_of(m3.centroid.x, m3.centroid.y)])
     # 彫る
     n_eng = {}
     for k, v in F.items():
@@ -2637,18 +2642,22 @@ def _drill(fl, cols, slivers, tag):
         out = unary_union([g for g in getattr(out, 'geoms', [out]) if g.geom_type == 'Polygon'])
     return out
 
+def west_f1_outline():
+    """西館の 1 階の床の外形（3dm の mm、柱の穴を開ける前。摺鉢の穴φ3.2 m だけ内側の輪郭に残す）。12w の上の層・下の層と、台の表面の「西館の穴」（基礎の切り抜き片）の元"""
+    parts = []
+    for k in WEST_F1_LAYERS: parts += [_mesh_poly(g) for g in objs(k)]
+    f1 = _close_(unary_union(parts))
+    f1 = f1.intersection(_east_clip())
+    f1 = max(getattr(f1, 'geoms', [f1]), key=lambda g: g.area)
+    return Polygon(f1.exterior, [h for h in f1.interiors if Polygon(h).area > 1e6])          # 摺鉢の穴だけ残す（細いすき間は埋める）
+
 def west_floors():
     """西館の床（3dm の mm）。戻り：(1 階の上の層, 下の層, 2 階の床, 情報)。
     1 階：レイヤー 31・32・33・36・36b（階段の下の倉庫）・57 はすべて z＝10（FL、はだし）で、土足・段のレイヤーは西館に無い → 上の層と下の層は同じ形。
     遊戯室の穴（φ3.2 m の摺鉢）は両方の層を抜く。v −0.35 より東（本館とのすき間）は出さない。
     柱の穴は床用 1.60×3.9（柱 24 本、骨格の柱 2 本も床を貫く）。
     2 階：レイヤー 23 の輪郭（3dm の柱の穴 170×400 は埋めて、頭が 2 階の床より上に出る柱 22 本だけ 1.60×3.9 に。骨格の柱は床の下で止まる）"""
-    parts = []
-    for k in WEST_F1_LAYERS: parts += [_mesh_poly(g) for g in objs(k)]
-    f1 = _close_(unary_union(parts))
-    f1 = f1.intersection(_east_clip())
-    f1 = max(getattr(f1, 'geoms', [f1]), key=lambda g: g.area)
-    f1 = Polygon(f1.exterior, [h for h in f1.interiors if Polygon(h).area > 1e6])          # 摺鉢の穴だけ残す（細いすき間は埋める）
+    f1 = west_f1_outline()
     f2 = unary_union([_mesh_poly(g) for g in objs('23_西館_2階床')])
     f2 = max(getattr(f2, 'geoms', [f2]), key=lambda g: g.area)
     f2 = _close_(Polygon(f2.exterior))
