@@ -758,45 +758,53 @@ def _wall_faces(name):
         th = np.arctan2(q[:, 1] - CY, q[:, 0] - CX) % (2 * np.pi)
         yield q, n @ rv, n @ tv, rr, th
 
+RW_WALL = 205370.0      # 西の外壁を展開する半径（外面）
 def honkan_walls():
-    """西の外壁（弧を展開、外から見て左＝北）、越屋根の東の立ち上がり、北の妻壁（外から見て左＝東）、南の妻の西の端"""
-    west, riser, north, south = [], [], [], []
-    RW, RR = 205370.0, 203480.0
+    """西の外壁（弧を展開、外から見て左＝北）、北の妻壁（外から見て左＝東）、南の妻の西の端"""
+    west, north, south = [], [], []
+    RW = RW_WALL
     for q, nr, nt, rr, th in _wall_faces('17_本館_外壁（西・南北の妻）'):
         if abs(nr) > 0.9 and rr.mean() > 205300:
             west.append(Polygon(np.column_stack((th * RW, q[:, 2]))).buffer(0.5))
-        elif abs(nr) > 0.9 and 203300 < rr.mean() < 203550 and q[:, 2].min() > 3500:
-            riser.append(Polygon(np.column_stack((th * RR, q[:, 2]))).buffer(0.5))
         elif abs(nt) > 0.9:
             a = math.degrees(th.mean())
             if a < 171.5: north.append(Polygon(np.column_stack((rr, q[:, 2]))).buffer(0.5))
             elif a > 186.3: south.append(Polygon(np.column_stack((-rr, q[:, 2]))).buffer(0.5))
     out = {}
-    for k, L_ in (('西の外壁', west), ('越屋根の東の立ち上がり', riser), ('北の妻', north), ('南の妻の西の端', south)):
+    for k, L_ in (('西の外壁', west), ('北の妻', north), ('南の妻の西の端', south)):
         u = unary_union(L_).buffer(-0.5)
         u = affinity.scale(u, S, S, origin=(0, 0))
         u = unary_union([p for p in getattr(u, 'geoms', [u]) if p.minimum_rotated_rectangle.buffer(-1.0).area > 0])   # 幅 2 mm 未満のかけらを捨てる
-        if k == '越屋根の東の立ち上がり':
-            u = Polygon(RISER_CUT_ROOF)                    # 切った屋根に合わせ、前の 08 の形のまま
-        else:
-            u = _raise_top(u, WALL_RAISE, WALL_RAISE_Y0)
+        u = _cut_at_beam_top(u, k)          # 11-02：壁は梁の上面で止める（屋根は壁の上に載る。越屋根は無し）
         b = u.bounds
         out[k] = affinity.translate(u, -b[0], -b[1])
     # 外から見て左＝北にする（角度が大きい方が南。展開の u は南へ増える → そのままで左が北）
     return out
 
-# 10-28 ユーザー：本館の外壁は切った架構・屋根（10-27夜の屋根の組み直しの前）に合わせる。
-# 今の 3dm では屋根が約 310 下がり外壁が 3.11 低いので、天端を 3.11 上げて前の 08 と同じ高さにする（開口・窓はそのまま）
-WALL_RAISE = 3.11
-WALL_RAISE_Y0 = 40.0       # これより上（FL+4000、窓・西の外壁の北の端の段より上）の外形の点だけ上げる（模型 mm、FL が 0）
-# 越屋根の東の立ち上がりは、今の 3dm では形も変わった（高さ 8.2→5.0）。切った屋根（06a）に載せるので、前の 08 の形のまま（模型 mm）
-RISER_CUT_ROOF = [(0, 0), (0, 6.8), (565.125, 6.8), (565.125, 8.2), (566.328, 8.2), (566.328, 1.213), (564.985, 1.213), (564.985, 0)]
-def _raise_top(u, dz, y0):
-    out = []
-    for p in getattr(u, 'geoms', [u]):
-        ext = [(x, y + dz if y > y0 else y) for x, y in p.exterior.coords]
-        out.append(Polygon(ext, [list(i.coords) for i in p.interiors]).buffer(0))
-    return unary_union(out)
+# 11-02 ユーザー：本館の外壁の天端は梁の上面（屋根の下面）にそろえる。屋根 1.7 は壁に足さない（屋根が壁の上に載る）。
+# 越屋根は無し（06a に決まった）ので、越屋根の東の立ち上がりは作らない。
+# 梁の上面は 3dm の梁（11b、切った 03a と同じ形）の断面の上辺：半径 r の一次式（東下がり 1/12）。
+def _beam_top_line():
+    P_ = profile_rz(beam, 0)
+    k = next(i for i, p in enumerate(P_) if p[0] <= 190191.5)       # 断面の上辺の直線の部分（西の端から東の端の手前まで）
+    return np.polyfit(P_[:k, 0], P_[:k, 1], 1)                       # z（FL から、実寸 mm）＝ a·r ＋ b
+BEAM_TOP_A, BEAM_TOP_B = _beam_top_line()
+def beam_top(r_mm):
+    """半径 r（実寸 mm）での梁の上面の高さ（FL から、模型 mm）"""
+    return (BEAM_TOP_A * r_mm + BEAM_TOP_B) * S
+
+def _cut_at_beam_top(u, k):
+    """展開した外壁の外形を、梁の上面の線で切る（西の外壁は r＝壁の位置で一定、妻は半径方向の位置で斜め）"""
+    b = u.bounds
+    if k == '西の外壁':
+        yt = lambda x: beam_top(RW_WALL)
+    elif k == '北の妻':
+        yt = lambda x: beam_top(x / S)          # 北の妻の x ＝ 半径 × S
+    else:
+        yt = lambda x: beam_top(-x / S)         # 南の妻の x ＝ −半径 × S
+    x0, x1 = b[0] - 1, b[2] + 1
+    clip = Polygon([(x0, b[1] - 1), (x1, b[1] - 1), (x1, yt(x1)), (x0, yt(x0))])
+    return u.intersection(clip)
 
 def yamato_lines(poly):
     """大和張りの縦の線（彫り）。窓の穴は避ける"""
@@ -812,23 +820,222 @@ def yamato_lines(poly):
 
 def wall_sheets():
     W = honkan_walls()
-    s = Sheet('08_本館の外壁_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：本館の外壁（西は弧を展開、北の妻、南の妻の西の端、越屋根の東の立ち上がり）。大和張りの線は彫り')
+    s = Sheet('08_本館の外壁_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：本館の外壁（西は弧を展開、北の妻、南の妻の西の端）。天端は梁の上面。大和張りの線は彫り')
     s.add(box(0, 0, 600, 300), 'ref')
     y = 0; texts = []
-    rows = [['西の外壁'], ['越屋根の東の立ち上がり'], ['北の妻', '南の妻の西の端']]
+    rows = [['西の外壁'], ['北の妻', '南の妻の西の端']]
     for row in rows:
         x = 0; rowh = 0
         for k in row:
             g = W[k]
             q = affinity.translate(g, x, 300 - y - g.bounds[3])
             s.add(q)
-            if k != '越屋根の東の立ち上がり':
-                for ln in yamato_lines(q): s.add(ln, 'eng')
+            for ln in yamato_lines(q): s.add(ln, 'eng')
             texts.append((x, 300 - y - g.bounds[3] - 3, k, 2.5))
             x += g.bounds[2] + 4; rowh = max(rowh, g.bounds[3])
         y += rowh + 8
     s.save(texts)
     return {k: tuple(round(v, 1) for v in g.bounds[2:]) for k, g in W.items()}
+
+
+# ================= 6c. 本館の屋根の光の筋の穴を埋める差し込み小片＋小屋・機械室の屋根（11-02） =================
+# 06a の光の筋の穴 18 本は、東の端が外皮の線（今の 3dm の光の筋の東の端）より約 14 mm 長い。06a は変えない。
+# 穴の形は 06a の SVG から読み、外皮の線から東の部分を、シナ 1.7 の端材から切る差し込み小片にする。
+# 06a は切ったときの 3dm（架構の角度が約 0.49° 違う）なので、今の 3dm の光の筋の穴を 06a の板に重ねる（剛体で合わせる）。
+PLUG_GROW = 0.15   # 小片を描く大きさ：穴の描いた形（切ると実寸は +0.2 開く）より各辺 +0.15 大きく描く → 切って 0.2 小さく出て、すき間は各辺 約 0.05
+SCRAP_X0 = 620.0   # 端材の板：06a を取った帯（841×220）の右の余り。06a は x 3〜617 を使う（板の左から）
+T_VENEER = 1.0     # 航空ベニヤ 1.0 の厚さ（箱の板を突き合わせる寸法）
+
+def _svg_rings(fname, H):
+    import re
+    t = open(os.path.join(OUT, fname)).read()
+    cut = t.split('<g id="切る（赤）"')[1].split('</g>')[0]
+    out = []
+    for d in re.findall(r'<path d="([^"]+)"', cut):
+        pts = [tuple(map(float, p.split(','))) for p in re.findall(r'[-\d.]+,[-\d.]+', d)]
+        out.append(Polygon([(x, H - y) for x, y in pts]))
+    return out
+
+def roof_plugs():
+    """06a の穴ごとの差し込み小片（描く形）。返す：[(南からの番号, 小片, 外皮の線の中点)]"""
+    rings = _svg_rings('06a_本館の屋根_上の層_シナ1.7.svg', 220)
+    old = sorted(rings[1:], key=lambda p: p.centroid.x)                  # 0＝外形、1〜＝穴
+    up, _ = roof_parts(); ang = sheet_angle()
+    wslots = [Polygon(h) for h in up.interiors]
+    wslots.sort(key=lambda sl: to_sheet(sl, ang, (0, 0)).centroid.x)
+    new = [to_sheet(sl, ang, (0, 0)) for sl in wslots]
+    assert len(old) == len(new) == 18
+    A, B = [], []                                                         # 西の端（外皮の線と反対）の頂点どうしで剛体を合わせる
+    for a_, b_ in zip(old, new):
+        ca = np.array(a_.exterior.coords)[:-1]; cb = np.array(b_.exterior.coords)[:-1]
+        ha = ca[ca[:, 1] > ca[:, 1].mean()]; hb = cb[cb[:, 1] > cb[:, 1].mean()]
+        A += list(hb[np.argsort(hb[:, 0])]); B += list(ha[np.argsort(ha[:, 0])])
+    A, B = np.array(A), np.array(B)
+    ma, mb = A.mean(0), B.mean(0)
+    U_, _, Vt = np.linalg.svd((A - ma).T @ (B - mb)); R_ = Vt.T @ U_.T
+    if np.linalg.det(R_) < 0:
+        Vt[-1] *= -1; R_ = Vt.T @ U_.T
+    t_ = mb - R_ @ ma
+    assert np.abs((A @ R_.T + t_) - B).max() < 0.05
+    plugs = []
+    for a_, wsl, b_ in zip(old, wslots, new):
+        # 外皮の線＝今の 3dm の光の筋の東の端（世界座標で半径が小さい方の 2 頂点）
+        cw = np.array(wsl.exterior.coords)[:-1]; rr = np.hypot(cw[:, 0] - CX, cw[:, 1] - CY)
+        east = np.argsort(rr)[:2]
+        cb = np.array(b_.exterior.coords)[:-1]
+        e1, e2 = [R_ @ cb[i] + t_ for i in east]
+        d = (e2 - e1) / np.linalg.norm(e2 - e1); nrm = np.array([-d[1], d[0]])
+        if nrm @ (np.array(a_.centroid.coords[0]) - (e1 + e2) / 2) > 0:
+            nrm = -nrm                                                    # 東（余る側）へ
+        big = Polygon([e1 - d * 50, e2 + d * 50, e2 + d * 50 + nrm * 50, e1 - d * 50 + nrm * 50])
+        plug = a_.intersection(big)
+        assert plug.geom_type == 'Polygon' and 12 < max(plug.bounds[2] - plug.bounds[0], plug.bounds[3] - plug.bounds[1]) < 17, plug.bounds
+        plugs.append((plug, (e1 + e2) / 2))
+    # 南から 1〜18：世界の角度が大きい方が南
+    ang_w = [math.degrees(math.atan2(sl.centroid.y - CY, sl.centroid.x - CX)) % 360 for sl in wslots]
+    order = np.argsort(-np.array(ang_w))
+    num = {int(i): k + 1 for k, i in enumerate(order)}
+    return [(num[i], plugs[i][0], plugs[i][1]) for i in range(18)]
+
+def _upright_h(plug, mid):
+    """長い辺を水平に、外皮の線（西の切り口）を右に"""
+    c = np.array(plug.minimum_rotated_rectangle.exterior.coords)
+    e = max(((c[i + 1] - c[i]) for i in range(2)), key=np.linalg.norm)
+    a = -math.atan2(e[1], e[0])
+    p = affinity.rotate(plug, a, origin=(0, 0), use_radians=True)
+    m_ = affinity.rotate(Point(*mid), a, origin=(0, 0), use_radians=True)
+    if m_.x < p.centroid.x:
+        p = affinity.rotate(p, math.pi, origin=p.centroid, use_radians=True)
+    return p
+
+# ---- 小屋・機械室 ----
+def _hut_boxes():
+    """園庭の小屋（レイヤー 93）の便所・倉庫の箱（3dm のメッシュ）。
+    返す：{名前: (a の長さ, d の長さ, 北東（d 小）の高さ, 南西（d 大）の高さ)}（模型 mm）。壁の上＝屋根の下面"""
+    out = {}
+    for nm, g in objs_named('93_園庭_小屋（便所・倉庫・コンポストの間）'):
+        if not isinstance(g, r.Mesh) or ('便所' not in nm and '倉庫' not in nm):
+            continue
+        V = g.Vertices
+        P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
+        z0 = P[:, 2].min()
+        xy = np.unique(np.round(P[:, :2], 1), axis=0)
+        hts = {tuple(q): P[(np.abs(P[:, 0] - q[0]) < 0.6) & (np.abs(P[:, 1] - q[1]) < 0.6)][:, 2].max() - z0 for q in xy}
+        hs = sorted(set(round(v) for v in hts.values()))
+        assert len(hs) == 2, hs
+        hi = [np.array(q) for q, v in hts.items() if round(v) == hs[1]]
+        lo = [np.array(q) for q, v in hts.items() if round(v) == hs[0]]
+        La = np.linalg.norm(hi[0] - hi[1])                                # 高さの等しい 2 頂点を結ぶ辺が a 方向
+        Ld = min(np.linalg.norm(hi[0] - q) for q in lo)
+        out[nm.split('（')[0]] = (La * S, Ld * S, hs[0] * S, hs[1] * S)
+    return out
+
+HUT_ROOF = dict(a=(20.3, 31.3), d=(1.1, 6.3), pitch=0.1)   # data/garden.json の HUT：a の両端に 0.3、北東に 0.3、南西に軒 1.5。東下がり 1/10（北東が低い）
+
+def _kikai_ring():
+    g = objs('35_機械室（本館の北）')[0]
+    V, F = g.Vertices, g.Faces
+    P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
+    polys = []
+    for j in range(len(F)):
+        f = F[j]; idx = list(dict.fromkeys([f[0], f[1], f[2], f[3]])); q = P[idx]
+        n = np.cross(q[1] - q[0], q[2] - q[0]); nn = np.linalg.norm(n)
+        if nn < 1e-6:
+            continue
+        if abs(n[2] / nn) > 0.99 and abs(q[:, 2].mean() - 3200) < 1:     # 屋根の上面（z 3200）の平面形＝外形
+            polys.append(Polygon(q[:, :2]).buffer(0.5))
+    u = unary_union(polys).buffer(-0.5)
+    big = max(getattr(u, 'geoms', [u]), key=lambda p_: p_.area)
+    return big, float(P[:, 2].max())
+
+def kikai_parts():
+    """機械室（おむすび）：外形（丸い三角、角 R1300）の周を 1 枚に展開した壁（戸の開口 1.6×2.1）と、屋根の板。
+    壁は 3dm のパラペット（z 3200〜3800）まで通し、屋根の板は内側に落とす（上面が z 3200）"""
+    from shapely.geometry import LineString
+    big, ztop = _kikai_ring()
+    c = np.array(big.exterior.coords)
+    ring = LineString(c); L = ring.length
+    seg = np.linalg.norm(np.diff(c, axis=0), axis=1); cum = np.concatenate([[0], np.cumsum(seg)])
+    k = int(np.argmax(seg)); s_seam = cum[k] + seg[k] / 2                 # 継ぎ目：いちばん長い直線の辺の真ん中
+    pts = []
+    for nm, g in objs_named('35d_機械室_戸（両開き1.6、外開き）'):
+        V = g.Vertices; pts += [(V[i].X, V[i].Y) for i in range(len(V))]
+    ss = sorted(ring.project(Point(p)) for p in pts)
+    x = lambda s_: ((s_ - s_seam) % L) * S
+    d0, d1 = sorted((x(ss[0]), x(ss[-1])))
+    H = ztop * S
+    wall = box(0, 0, L * S, H).difference(box(d0, 0, d1, 2100 * S))
+    roof = affinity.scale(big, S, S, origin=(0, 0)).buffer(-T_VENEER, join_style=1)   # 壁の内側に落とす（描く形：壁の厚さぶん内へ）
+    return wall, roof, dict(L=L * S, H=H, door_x=(d0, d1), seam=s_seam)
+
+def _hut_wall_panels(La, Ld, h_ne, h_sw, t=T_VENEER):
+    """底の開いた箱の 4 枚の壁（突き付け）：長い辺（a 方向）の 2 枚は全長、妻の 2 枚は長辺の 2 枚のあいだ（長さ Ld−2t）、上辺は北東から南西へ斜め"""
+    end = Polygon([(0, 0), (Ld - 2 * t, 0), (Ld - 2 * t, h_sw), (0, h_ne)])     # 左＝北東（低い）
+    return {'北東の壁': box(0, 0, La, h_ne), '南西の壁': box(0, 0, La, h_sw), '妻の壁 1': end, '妻の壁 2': Polygon(end)}
+
+def hut_kikai_sheets():
+    # ---- 06c：シナ 1.7 の端材 ----
+    plugs = roof_plugs()
+    b06a = _svg_rings('06a_本館の屋根_上の層_シナ1.7.svg', 220)[0].bounds
+    W6 = 841 - SCRAP_X0
+    s6 = Sheet('06c_屋根の差し込み小片と小屋・機械室の屋根_シナ1.7', W6, 220,
+               f'シナ 1.7 の端材（06a を取った帯の右の余り、06a は x {b06a[0]:.0f}〜{b06a[2]:.0f}）：06a の光の筋の穴の東の端を埋める差し込み小片 18（南から 1〜18）、小屋の屋根、機械室の屋根')
+    s6.add(box(0, 0, W6, 220), 'ref')
+    pitch_x, pitch_y = 22.0, 7.0
+    for i, (n_, plug, mid) in enumerate(sorted(plugs, key=lambda p: p[0])):
+        col, row = i % 9, i // 9
+        p = _upright_h(plug.buffer(PLUG_GROW, join_style=2), mid)
+        p = place(p, col * pitch_x + 5, -row * pitch_y - 3)
+        s6.add(p)
+        b = p.bounds; yc = (b[1] + b[3]) / 2
+        s6.tab_pts += [Point((b[0] + b[2]) / 2, b[1]), Point((b[0] + b[2]) / 2, b[3])]
+        for j, ch in enumerate(str(n_)):
+            for l in label_num(ch, col * pitch_x + j * 1.3 - 0.2, yc - 0.55, 1.1):
+                s6.add(l, 'eng')
+    # 小屋の屋根：平面（a 20.3〜31.3 × d 1.1〜6.3 m）。1/10 の斜めなので d 方向は斜めの長さ。北東（d 小）を上に、a を右に（上から見たまま）
+    ra, rd = HUT_ROOF['a'], HUT_ROOF['d']
+    Lr, Dr = (ra[1] - ra[0]) * 10, (rd[1] - rd[0]) * 10 * math.sqrt(1 + HUT_ROOF['pitch'] ** 2)
+    yb = -(2 * pitch_y + 12)
+    s6.add(place(box(0, 0, Lr, Dr), 0, yb - Dr))
+    wall, kroof, kinfo = kikai_parts()
+    kh = kroof.bounds[3] - kroof.bounds[1]
+    s6.add(place(kroof, Lr + 8, yb - kh))                                 # 世界の向きのまま（上から見て、上＝北）
+    s6.save([(0, 3, '差し込み小片 1〜18（南から）。番号の彫りは小片の左', 2.5),
+             (0, yb - Dr - 3, f'小屋の屋根 {Lr:.1f}×{Dr:.2f}（上から見て：上＝北東の軒（低い）、右＝南東）', 2.5),
+             (Lr + 8, yb - kh - 3, '機械室の屋根（上から見て、上＝北）', 2.5)])
+    # ---- 11：航空ベニヤ 1.0 ----
+    s = Sheet('11_小屋と機械室_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：園庭の小屋（便所・倉庫・コンポストの枠）と機械室の壁。底の開いた箱。屋根は 06c（シナ 1.7）')
+    s.add(box(0, 0, 600, 300), 'ref')
+    texts = []
+    st = dict(x=0.0, y=0.0, rowh=0.0)
+    def put(geom, label):
+        w_, h_ = geom.bounds[2], geom.bounds[3]
+        if st['x'] + w_ > 590:
+            st['x'] = 0.0; st['y'] += st['rowh'] + 9; st['rowh'] = 0.0
+        q = place(geom, st['x'], 300 - st['y'] - h_)
+        s.add(q)
+        texts.append((st['x'], 300 - st['y'] - h_ - 3, label, 2.2))
+        st['x'] += w_ + 4; st['rowh'] = max(st['rowh'], h_)
+        return q
+    q = put(wall, f'機械室の壁（周を 1 枚に展開 {kinfo["L"]:.1f}×{kinfo["H"]:.1f}、大和張り、戸の開口 1.6×2.1、継ぎ目は長い辺の真ん中）')
+    for ln in yamato_lines(q):
+        s.add(ln, 'eng')
+    st['x'] = 0.0; st['y'] += st['rowh'] + 9; st['rowh'] = 0.0
+    hb = _hut_boxes()
+    for nm in ('便所', '倉庫'):
+        La, Ld, hne, hsw = hb[nm]
+        for k, g in _hut_wall_panels(La, Ld, hne, hsw).items():
+            put(g, f'{nm} {k}')
+    # コンポストの枠 4 つ（全体 1.05×1.2、高さ 0.7、ふた付き）
+    CP = json.load(open(os.path.join(ROOT, 'data', 'garden.json')))['COMPOST']
+    fa, fd, fh = (CP['w'] - 0.1) * 10, CP['depth'] * 10, 7.0
+    for lab in CP['labels']:
+        for k, g in (('前の壁', box(0, 0, fa, fh - T_VENEER)), ('後ろの壁', box(0, 0, fa, fh - T_VENEER)),
+                     ('横の壁 1', box(0, 0, fd - 2 * T_VENEER, fh - T_VENEER)), ('横の壁 2', box(0, 0, fd - 2 * T_VENEER, fh - T_VENEER)),
+                     ('ふた', box(0, 0, fa, fd))):
+            put(g, f'枠「{lab}」' if k == '前の壁' else '')
+    s.save(texts)
+    return dict(hut=hb, kikai=kinfo, roof=(Lr, Dr), frame=(fa, fd, fh), plugs=[(n_, [round(v, 2) for v in p_.bounds]) for n_, p_, m_ in plugs])
 
 # ================= 9. 室内の壁（本館 38・西館 24） =================
 def _panel(g):
@@ -940,6 +1147,7 @@ if __name__ == '__main__':
     # 01〜06（試し切り・本館の架構・床・ベタ基礎・屋根）は切った部品なので作り直さない（ユーザー 10-28、CUT_DONE）
     print('西館の架構', west_sheets())
     print('本館の外壁', wall_sheets())
+    print('06c・11 小屋と機械室', hut_kikai_sheets())
     print('西館の屋根', west_roof_sheets())
     print('室内の壁', interior_sheets())
     print('ok', OUT)
