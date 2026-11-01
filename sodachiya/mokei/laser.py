@@ -195,7 +195,7 @@ class Sheet:
     TAB_MAX = 250      # これより小さい部品の外形に 2 か所のつなぎ（大きい板は付けない）
     def tab_gap(self):
         # 航空ベニヤ 0.8 は弱く（10-26 ユーザー：もう少し弱く）：切り残し 0.35 → 残る木 約 0.15
-        return 0.35 if self.name.startswith(('01_試し切り_T1', '02_', '03', '07_')) else self.TAB_GAP
+        return 0.35 if self.name.startswith(('01_試し切り_T1', '02_', '03', '07_', '11b_機械室')) else self.TAB_GAP
     def tabbed(self, geoms):
         """小さい部品が飛ばないように、外形に 2 か所の切り残し（周の 1/4 と 3/4、直線の所）を入れる。穴には付けない"""
         from shapely.geometry import LineString
@@ -1001,6 +1001,8 @@ def _kikai_ring():
     big = max(getattr(u, 'geoms', [u]), key=lambda p_: p_.area)
     return big, float(P[:, 2].max())
 
+KIKAI_KERF06 = 0.20   # 航空ベニヤ 0.6 の切り幅（仮定。T5 の結果で直す）
+
 def kikai_parts():
     """機械室（おむすび）：外形（丸い三角、角 R1300）の周を 1 枚に展開した壁（戸の開口 1.6×2.1）と、屋根の板。
     壁は 3dm のパラペット（z 3200〜3800）まで通し、屋根の板は内側に落とす（上面が z 3200）"""
@@ -1018,8 +1020,10 @@ def kikai_parts():
     d0, d1 = sorted((x(ss[0]), x(ss[-1])))
     H = ztop * S
     wall = box(0, 0, L * S, H).difference(box(d0, 0, d1, 2100 * S))
+    kw = KIKAI_KERF06 / 2                                                 # 11b（航空ベニヤ 0.6）：戸の開口は切り幅の分だけ小さく描く（片側 0.1）
+    wall06 = box(0, 0, L * S, H).difference(box(d0 + kw, -1, d1 - kw, 2100 * S - kw))
     roof = affinity.scale(big, S, S, origin=(0, 0)).buffer(-T_VENEER, join_style=1)   # 壁の内側に落とす（描く形：壁の厚さぶん内へ）
-    return wall, roof, dict(L=L * S, H=H, door_x=(d0, d1), seam=s_seam)
+    return wall, roof, dict(L=L * S, H=H, door_x=(d0, d1), seam=s_seam, wall06=wall06)
 
 def _hut_wall_panels(La, Ld, h_ne, h_sw, t=T_VENEER):
     """底の開いた箱の 4 枚の壁（突き付け）：長い辺（a 方向）の 2 枚は全長、妻の 2 枚は長辺の 2 枚のあいだ（長さ Ld−2t）、上辺は北東から南西へ斜め"""
@@ -1057,7 +1061,7 @@ def hut_kikai_sheets():
              (0, yb - Dr - 3, f'小屋の屋根 {Lr:.1f}×{Dr:.2f}（上から見て：上＝北東の軒（低い）、右＝南東）', 2.5),
              (Lr + 8, yb - kh - 3, '機械室の屋根（上から見て、上＝北）', 2.5)])
     # ---- 11：航空ベニヤ 1.0 ----
-    s = Sheet('11_小屋と機械室_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：園庭の小屋（便所・倉庫・コンポストの枠）と機械室の壁。底の開いた箱。屋根は 06c（シナ 1.7）')
+    s = Sheet('11_小屋と機械室_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：園庭の小屋（便所・倉庫・コンポストの枠）と底の開いた箱。屋根は 06c（シナ 1.7）。機械室の壁は 11b（航空ベニヤ 0.6）')
     s.add(box(0, 0, 600, 300), 'ref')
     texts = []
     st = dict(x=0.0, y=0.0, rowh=0.0)
@@ -1070,10 +1074,6 @@ def hut_kikai_sheets():
         texts.append((st['x'], 300 - st['y'] - h_ - 3, label, 2.2))
         st['x'] += w_ + 4; st['rowh'] = max(st['rowh'], h_)
         return q
-    q = put(wall, f'機械室の壁（周を 1 枚に展開 {kinfo["L"]:.1f}×{kinfo["H"]:.1f}、大和張り、戸の開口 1.6×2.1、継ぎ目は長い辺の真ん中）')
-    for ln in yamato_lines(q):
-        s.add(ln, 'eng')
-    st['x'] = 0.0; st['y'] += st['rowh'] + 9; st['rowh'] = 0.0
     hb = _hut_boxes()
     for nm in ('便所', '倉庫'):
         La, Ld, hne, hsw = hb[nm]
@@ -1088,6 +1088,14 @@ def hut_kikai_sheets():
                      ('ふた', box(0, 0, fa, fd))):
             put(g, f'枠「{lab}」' if k == '前の壁' else '')
     s.save(texts)
+    # ---- 11b：航空ベニヤ 0.6（機械室の壁。角の半径が 13 mm で 1.0 の板では巻けない） ----
+    s2 = Sheet('11b_機械室の壁_航空ベニヤ0.6', 600, 300, '航空ベニヤ 0.6 300×600：機械室（おむすび）の壁。周を 1 枚に展開（大和張り、戸の開口 1.6×2.1）。切り幅 0.20 と仮定し、戸の開口は 0.2 小さく描く。屋根は 06c（シナ 1.7）')
+    s2.add(box(0, 0, 600, 300), 'ref')
+    w2 = place(kinfo['wall06'], 0, 300 - kinfo['H'])
+    s2.add(w2)
+    for ln in yamato_lines(w2):
+        s2.add(ln, 'eng')
+    s2.save([(0, 300 - kinfo['H'] - 3, f'機械室の壁（周を 1 枚に展開 {kinfo["L"]:.1f}×{kinfo["H"]:.1f}、大和張り、戸の開口 1.6×2.1、継ぎ目は長い辺の真ん中）', 2.2)])
     return dict(hut=hb, kikai=kinfo, roof=(Lr, Dr), frame=(fa, fd, fh), plugs=[(n_, [round(v, 2) for v in p_.bounds]) for n_, p_, m_ in plugs])
 
 # ================= 9. 室内の壁（本館 38） =================
@@ -1565,6 +1573,7 @@ DAI_CLIFF = 800                                  # 川側の崖の上の小段�
 DAI_SLOT_LEN = 4.0                               # 足の溝の長さ（塀に沿う向き、模型 mm）
 DAI_SLOT_W = 0.5                                 # 足の溝の幅（描く幅、仮。T7 試し片の結果で決める）
 DAI_SLOT_PITCH = 40.0                            # 足のおき：30〜40 mm（この値を超えない最少の本数に等分）
+DAI_SLOT_HOLE_MIN = 3.0                          # 北の塀（読書の庭）の足の溝は、建物の穴（描く穴）の縁から溝の縁まで 3 mm 以上離す（塀の線に沿って穴から遠ざける。足のおきは DAI_SLOT_PITCH 以下、端から DAI_SLOT_INSET 以上）
 DAI_SLOT_INSET = 3.0                             # 両端の足は端から 3 mm 内
 DAI_TREE_MARK = 1.2                              # 木の位置（手でドリル）の十字の長さ
 SITE_OUTER = [(0, 0), (34860, -43830), (-14440, -83040), (-21910, -73650), (-25830, -20540)]
@@ -1628,12 +1637,13 @@ def dai_features():
     F = {}
     site = Polygon(SITE_OUTER)
     # --- 建物の穴（表面＝GL に、ベタ基礎がはまる）
-    up, lo, found = floors()
+    import kirita as _K
+    found = _K.cut_found()          # 本館の穴は、今の 3dm の floors() の found ではなく、切った 05＋05b の外形（11-02：切ったものは今の 3dm と 15 mm 違い、島が 3 つできる）
     close = lambda g: g.buffer(120, join_style=2).buffer(-120, join_style=2)
     west = close(unary_union([plan('31_1F_遊戯室'), plan('32_1F_キッチン'), plan('33_1F_東の帯（はだし ±0、ホールと一続き）'), plan('36_1F_階段')]))
     honkan = found
     both = unary_union([honkan, west])
-    F['本館の穴'] = dict(kind='hole', prio='必須', layer='12〜15・52（床）', geom=honkan, note='05 のベタ基礎と同じ輪郭')
+    F['本館の穴'] = dict(kind='hole', prio='必須', layer='12〜15・52（床）', geom=honkan, note='切った 05＋05b のベタ基礎の外形（kirita.cut_found()）')
     F['西館の穴'] = dict(kind='hole', prio='必須', layer='31〜33・36（床）', geom=west.difference(honkan.buffer(30)), note='西館のベタ基礎（表面から抜けた板）')
     # --- 外形（台）
     road = dai_road()
@@ -1854,13 +1864,30 @@ def dai_sheets():
             s.add(seg, 'eng' if k == '必須' else 'eng2')
     # 塀・柵の足の溝
     n_slot = {'必須': 0, '重要': 0}; n_skip = []
+    holes_m = T(holes)
     outline_m = T(F['台の外形']['geom']); outline_m = outline_m if outline_m.geom_type == 'Polygon' else max(outline_m.geoms, key=lambda g: g.area)
     for nm_, ln, pr, _ in dai_fence_runs(F):
         L = T(ln); ps = dai_slot_positions(L)
         if min(outline_m.exterior.distance(p) for p in ps) < 2.5:            # 台の縁に重なる柵（公園の鉄柵）は溝にできない
             n_skip.append(nm_); continue
-        for p in ps:
-            d = L.project(p)
+        dd = [L.project(p) for p in ps]
+        if nm_.startswith('北の塀（読書の庭）'):                                  # 穴の縁に近い足は、塀の線に沿って穴から遠ざける（近いほうの向きに、最小の動きで）
+            hd = lambda d: holes_m.distance(dai_slot_geom(L, d, DAI_SLOT_W, DAI_SLOT_LEN))
+            for i, d0 in enumerate(dd):
+                if hd(d0) >= DAI_SLOT_HOLE_MIN: continue
+                lo = dd[i - 1] if i > 0 else None; hi = dd[i + 1] if i + 1 < len(dd) else None
+                for k in range(1, 400):
+                    ok = None
+                    for sg in (1, -1):
+                        d = d0 + sg * 0.05 * k
+                        if d < DAI_SLOT_INSET or d > L.length - DAI_SLOT_INSET: continue
+                        if (lo is not None and d - lo > DAI_SLOT_PITCH) or (hi is not None and hi - d > DAI_SLOT_PITCH): continue
+                        if hd(d) >= DAI_SLOT_HOLE_MIN: ok = d; break
+                    if ok is not None: break
+                assert ok is not None, (nm_, i)
+                print('足の溝を穴から遠ざけた：', nm_, i, f'{d0:.2f} → {ok:.2f}（動き {ok - d0:+.2f}）穴の縁から {hd(d0):.2f} → {hd(ok):.2f}')
+                dd[i] = ok
+        for d in dd:
             s.add(dai_slot_geom(L, d, DAI_SLOT_W, DAI_SLOT_LEN), 'cut' if pr == '必須' else 'cut2')
             n_slot[pr] += 1
     # 北の矢印と文字（参考）
