@@ -32,7 +32,52 @@ def tris(g):
             F.append((f[0], f[1], f[2]))
             if f[2] != f[3]: F.append((f[0], f[2], f[3]))
         return V[np.array(F)] if F else np.zeros((0, 3, 3))
-    return np.zeros((0, 3, 3))
+    P = _plan_of(g)                                     # 11-01 監修：押し出し・ポリサーフェスの床・壁も数える（西館係の項 0535、katachi.py の板）
+    if P is None or P.is_empty: return np.zeros((0, 3, 3))
+    b = g.GetBoundingBox()
+    import trimesh as _tmx
+    Ms = [_tmx.creation.extrude_polygon(q, b.Max.Z - b.Min.Z) for q in getattr(P, 'geoms', [P]) if q.geom_type == 'Polygon' and q.area > 1.0]
+    if not Ms: return np.zeros((0, 3, 3))
+    M = _tmx.util.concatenate(Ms); M.apply_translation([0, 0, b.Min.Z])
+    return M.triangles
+def _curve_xy(c, n=64):
+    """曲線を平面の点列に（折れ線・ポリカーブは区間ごとに、弧は細かく）"""
+    if isinstance(c, r.PolylineCurve):
+        return [(c.Point(i).X, c.Point(i).Y) for i in range(c.PointCount)]
+    d = c.Domain; ts = np.linspace(d.T0, d.T1, n * max(1, getattr(c, 'SegmentCount', 1)))
+    return [(c.PointAt(t).X, c.PointAt(t).Y) for t in ts]
+def _plan_of(g):
+    """押し出し：輪郭（外）から内の輪郭を引いた平面の形。ポリサーフェス：辺を上から見た線で囲まれた所の和（穴は埋まる、床には十分）"""
+    from shapely.ops import polygonize
+    from shapely.geometry import LineString
+    try:
+        if isinstance(g, r.Extrusion):
+            pc = [Polygon(_curve_xy(g.Profile3d(i, 0.0))).buffer(0) for i in range(g.ProfileCount)]
+            if not pc: return None
+            P = pc[0]
+            for q in pc[1:]: P = P.difference(q)
+            return P
+        if isinstance(g, r.Brep):
+            L = []
+            for i in range(len(g.Edges)):
+                e = g.Edges[i]; d = e.Domain
+                pts = [(e.PointAt(t).X, e.PointAt(t).Y) for t in np.linspace(d.T0, d.T1, 24)]
+                ls = LineString(pts)
+                if ls.length > 1.0: L.append(ls)
+            P = unary_union(list(polygonize(unary_union(L)))) if L else Polygon()
+            if P.is_empty:                              # 回転体（あつまりの皿）など辺で囲めない物：面の点を上から見た凸包
+                from shapely.geometry import MultiPoint
+                pts = []
+                for i in range(len(g.Faces)):
+                    f = g.Faces[i]; du, dv = f.Domain(0), f.Domain(1)
+                    for a in np.linspace(du.T0, du.T1, 25):
+                        for c in np.linspace(dv.T0, dv.T1, 25):
+                            q = f.PointAt(a, c); pts.append((q.X, q.Y))
+                P = MultiPoint(pts).convex_hull if pts else Polygon()
+            return P
+    except Exception:
+        return None
+    return None
 def footprint(T):
     ps = [Polygon(t[:, :2]).buffer(0) for t in T]
     ps = [p for p in ps if p.area > 1.0]
@@ -41,7 +86,7 @@ def footprint(T):
 FP, FZ = {}, {}
 for o in m.Objects:
     ln = LAY[o.Attributes.LayerIndex].Name
-    if not re.match(r'^(1[2-5]|23|3[1-6]|4[1-5]b?|5[2-9]|90)[a-z]?_', ln): continue
+    if not re.match(r'^(1[2-5]|23|3[1-6]|4[1-5]b?|5[2-9]|90|40[mnp])[a-z]?_', ln): continue          # 40m・40n・40p：あつまりの皿（保育室に数える、11-01）
     T = tris(o.Geometry)
     if not len(T): continue
     FP.setdefault(ln, []).append(footprint(T)); FZ[ln] = max(FZ.get(ln, -1e9), float(T[:, :, 2].max()))
