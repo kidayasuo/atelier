@@ -1258,7 +1258,9 @@ SDY.retag = function (it, p) { var t = SDY.parseTag(it); it.note = SDY.tagNote(p
 // 自動でない枚は、その枚の物に一切触らない（足さない・直さない・外さない・「（前の線）」も作らない・リンクも替えない）。
 // その枚の部品で前の update から中身が変わった物（文字・線・リンクの PDF）と新しい部品は、新しい版を描いて、図（無ければ部品）ごとに
 // 一つのグループ「更新：<図の名前>（<日時>）」にし、6枚の外の「素材置き場」アートボード（レイヤー「素材置き場」）に格子に並べる。
-// 前の版は okiba_seen.json（部品の id → 中身の印）に。無ければ .ai の部品の印。置き場の物は消さない（木田さんが消す）
+// 比べる相手はその枚に今ある物の印（描いたときの中身の印、11-01 16:29：記録と比べると、並べられなかった回に記録だけ進んで何も置かなくなった）。
+// 同じ版が .ai のどこかに置き場の物（sdystock:）としてあるか、置き場に並べ終えた記録（okiba_offered.json、並べ終えた物だけ書く）と同じなら置かない。
+// 印に中身の印の無いリンク（11-01 より前に置いた物）は、同じファイルを指しているので今の版とみなす。置き場の物は消さない（木田さんが消す）
 SDY.OKIBA_LAYER = "素材置き場";
 SDY.OKIBA_AB = "素材置き場";
 SDY.STOCK = "sdystock:";
@@ -1268,10 +1270,21 @@ SDY.autoPages = function (L) {                        // 枚の順（L.pages の
     for (i = 0; i < L.pages.length; i++) { v = A ? A[String(L.pages[i].no)] : undefined; m.push(v !== false); }
     return m;
 };
-SDY.readSeen = function () { var f = File(SDY.here.fsName + "/okiba_seen.json"); try { if (f.exists) { return SDY.readJSON(f); } } catch (e) {} return {}; };
+SDY.readSeen = function () { var f = File(SDY.here.fsName + "/okiba_offered.json"); try { if (f.exists) { return SDY.readJSON(f); } } catch (e) {} return {}; };
 SDY.writeSeen = function (o) {
     var a = [], k; for (k in o) { if (o.hasOwnProperty(k)) { a.push(SDY.q(k) + ": " + SDY.q(o[k])); } }
-    try { SDY.writeText(File(SDY.here.fsName + "/okiba_seen.json"), "{\n" + a.join(",\n") + "\n}\n"); } catch (e) { SDY.missing.push("okiba_seen.json を書けなかった（" + e.message + "）"); }
+    try { SDY.writeText(File(SDY.here.fsName + "/okiba_offered.json"), "{\n" + a.join(",\n") + "\n}\n"); } catch (e) { SDY.missing.push("okiba_offered.json を書けなかった（" + e.message + "）"); }
+};
+SDY.stockTagOf = function (x) {                        // 置き場の物の印 → [id, 中身の印]（無ければ null）
+    var n = ""; try { n = x.note; } catch (e) {}
+    if (!n || n.indexOf(SDY.STOCK) !== 0) { return null; }
+    var a = n.substring(SDY.STOCK.length).split("|");
+    return [a[1] || "", a[2] || ""];
+};
+SDY.stockHave = function (doc) {                       // .ai のどこかにある置き場の物：{id: {中身の印: true}}
+    var o = {}, k, t, its = doc.pageItems;
+    for (k = 0; k < its.length; k++) { t = SDY.stockTagOf(its[k]); if (t) { if (!o[t[0]]) { o[t[0]] = {}; } o[t[0]][t[1]] = true; } }
+    return o;
 };
 // 形・色の印（線の部品が描いたときのままか、11-01）：点（0.01 pt）・閉じ・塗り・線の色と太さ・不透明度
 SDY.shapeHash = function (it) {
@@ -1343,7 +1356,7 @@ SDY.stockIdOf = function (x) {
 // レイヤー「素材置き場」のすぐ下の、まだグループにしていない置き場の物（今回描いた物と、前の update で並べられずに残った物、11-01 16:21）を、
 // 図（無ければ部品）ごとに一つのグループにして、置き場に格子に並べる（前からあるグループの下の行から。足りなければアートボードを下・右へ伸ばす）。
 // 一つずつ try で続ける。返り値は作ったグループの数
-SDY.stockFlush = function (doc, L) {
+SDY.stockFlush = function (doc, L, offered) {             // offered：並べ終えた物の記録（id → 中身の印）に書き足す
     var lay, ai, A, r, K = SDY.K, M = 10 * K, G = 8 * K, low, k, j, b, g, x, y, rowH = 0, n = 0, st = SDY.stamp(), it, gb, rr, id, P = {}, bk = {}, bkeys = [], key, pi, p, loose = 0;
     try { lay = doc.layers.getByName(SDY.OKIBA_LAYER); } catch (e) { return 0; }
     try { lay.locked = false; lay.visible = true; } catch (e0) {}
@@ -1380,6 +1393,7 @@ SDY.stockFlush = function (doc, L) {
             g.translate(x - gb[0], y - gb[1]);
             x += (gb[2] - gb[0]) + G; if (gb[1] - gb[3] > rowH) { rowH = gb[1] - gb[3]; }
             n++;
+            if (offered) { for (j = 0; j < g.pageItems.length; j++) { var tq = SDY.stockTagOf(g.pageItems[j]); if (tq) { offered[tq[0]] = tq[1]; } } }
         } catch (e4) { SDY.missing.push("素材置き場に並べる：" + bk[bkeys[k]].name + "（" + e4.message + "）"); continue; }
         try {
             rr = A.artboardRect;
@@ -1395,7 +1409,8 @@ SDY.stockFlush = function (doc, L) {
 // 変わった部品・新しい部品の新しい版を「素材置き場」に図ごとのグループで置く（SDY.stockPart・SDY.stockFlush、11-01）
 SDY.refresh = function (doc, L, U, made, auto) {
     var st = { nt: 0, nl: 0, na: 0, nr: 0, nx: 0, nu: 0, own: 0, kept: [], newl: [], nrep: 0, nstock: 0, nsg: 0, nbase: 0, stocked: [] }, UP = (U && U.parts) || {}, map, i, j, p, it, tg, q, nw, kf, last;
-    var seen = auto ? SDY.readSeen() : null;
+    var seen = auto ? SDY.readSeen() : null, have = auto ? SDY.stockHave(doc) : null, cur, offAny = false;
+    if (auto) { for (i = 0; i < auto.length; i++) { if (!auto[i]) { offAny = true; } } }
     try { st.nx = SDY.retireStale(doc, L, auto); } catch (e0) { SDY.missing.push("無くなった部品（" + e0.message + "）"); }
     map = SDY.findByTag(doc);
     for (i = 0; i < L.pages.length; i++) {
@@ -1404,13 +1419,14 @@ SDY.refresh = function (doc, L, U, made, auto) {
             if (p.hidden) { continue; }
             it = map[p.id];
             if (SDY.isUserOwned(L, p.id)) { st.own++; continue; }   // 木田さんが持つ部品（11-01）：消さない・直さない・新しく足さない
-            if (auto && !auto[i]) {                    // 自動でない枚（11-01）：この枚の物には触らない。前の版（記録 okiba_seen.json、無ければ .ai の印）と比べる
-                last = seen.hasOwnProperty(p.id) ? seen[p.id] : (it ? ((SDY.parseTag(it) || {}).mock_hash || "") : null);
-                if (last === "") { seen[p.id] = p.mock_hash || ""; st.nbase++; continue; }   // 前の版が分からない（印に中身の印が無いリンク）：今の版を記録するだけ
-                if (last !== null && last === (p.mock_hash || "")) { continue; }
+            if (auto && !auto[i]) {                    // 自動でない枚（11-01）：この枚の物には触らない。枚の上の物の版（印）と今の版を比べる
+                cur = p.mock_hash || "";
+                last = it ? ((SDY.parseTag(it) || {}).mock_hash || "") : null;   // null：枚の上に無い（新しい部品・消した部品）
+                if (last === cur) { continue; }
+                if (last === "" && p.kind === "link") { st.nbase++; continue; }   // 中身の印の無いリンク：同じファイルを指している（今の版）
+                if ((have[p.id] && have[p.id][cur]) || (seen.hasOwnProperty(p.id) && seen[p.id] === cur)) { continue; }   // 同じ版をもう置いた
                 try { if (SDY.stockPart(doc, i, p)) { st.nstock++; st.stocked.push((last === null ? "新しい：" : "") + (p.name || p.id)); } else { SDY.failed[p.id] = 1; } }
                 catch (es) { SDY.missing.push("素材置き場：" + p.id + "（" + es.message + "）"); }
-                seen[p.id] = p.mock_hash || "";
                 continue;
             }
             if (!it) {                                 // 新しい部品：既定の位置・元のレイヤーに足す
@@ -1465,7 +1481,8 @@ SDY.refresh = function (doc, L, U, made, auto) {
     }
     try { if (U) { st.nu = SDY.drawUserItems(doc, L, U, auto); } } catch (e8) { SDY.missing.push("足した物（" + e8.message + "）"); }
     if (auto) {
-        try { st.nsg = SDY.stockFlush(doc, L); } catch (e9) { SDY.missing.push("素材置き場に並べる（" + e9.message + "）"); }
+        try { st.nsg = SDY.stockFlush(doc, L, seen); } catch (e9) { SDY.missing.push("素材置き場に並べる（" + e9.message + "）"); }
+        try { if (offAny) { st.okab = SDY.okibaBoard(doc, L); } } catch (e10) { SDY.missing.push("素材置き場のアートボード（" + e10.message + "）"); }   // 置く物が無くても作る（場所がわかるように）
         SDY.writeSeen(seen);
     }
     return st;
