@@ -6,7 +6,7 @@
 
   python3 sodachiya/mokei/laser.py
 """
-import json, math, os, sys
+import json, math, os, re, sys
 import numpy as np
 import rhino3dm as r
 from shapely.geometry import Polygon, MultiPolygon, box, Point
@@ -2399,11 +2399,187 @@ def dai_trial():
     texts.append((1, 11.5, '橙：航空ベニヤ 0.6 の帯（足 4.0×2.0・おき 8）', 2))
     s.save(texts)
 
+# ================= 台の中の層（シナ 3）と桟（シナ 3 の縦の板） =================
+# 11-02 の頼み（模型作成）：表面（01台_表面）の下。三層＝桟（縦）→中の層（ほぞ穴のみ）→表面（GL）。
+#   python3 laser.py dai-naka   … 01台_中の層_シナ3.svg だけ
+#   python3 laser.py dai-san    … 01台_桟_シナ3.svg だけ（桟の枚数・長さ・格子を表に出す）
+# 向き・位置：どちらも表面と同じ（DAI_ROT、外形の左上を板の左上から 3 mm）。外形は dai_features() の「台の外形」そのまま。
+SAN_H = 40.0                  # 桟の高さ（data/mokei.json 台.桟.高さ）。階段のまわり 50 は台の中に無いので使わない（階段は公園の角の橋のたもと、台の外）
+SAN_T = 3.0                   # 桟の厚さ（シナ 3）
+SAN_KERF = J['切り幅']['シナ3']     # 0.22
+SAN_NOTCH_W = SAN_T - SAN_KERF      # 半欠きの切り込みの描く幅 2.78（切って 3.0）
+SAN_NOTCH_D = SAN_H / 2             # 半欠きの深さ 20（南北の桟は上から、東西の桟は下から。かみ合うと高さがそろう）
+SAN_PITCH = 100.0             # 格子の間隔の目安（実際は縁の桟の内側を等分）
+SAN_END = SAN_T               # 格子の桟は台の縁から 3 mm（縁の桟の厚さ）内で止める
+SAN_GAP = 1.5                 # 板の上で部品どうしを離す
+SAN_SHEET = (841.0, 594.0)
+
+def dai_outline_sheet():
+    """台の外形を、表面・中の層・桟に共通の板の座標（模型 mm、y 上向き、左上から 3 mm）で。戻り：(外形 Polygon, 変換 g→板の座標)"""
+    F = dai_features()
+    o = dai_tx(F['台の外形']['geom'])
+    if o.geom_type != 'Polygon': o = max(o.geoms, key=lambda g: g.area)
+    b = o.bounds
+    dx, dy = Sheet.MARGIN - b[0], (SAN_SHEET[1] - Sheet.MARGIN) - b[3]
+    T = lambda g: affinity.translate(dai_tx(g), dx, dy)
+    return T(F['台の外形']['geom']), T, F
+
+def dai_mortises(T):
+    """本館の柱 40 本のほぞ穴（切った 05 と同じ位置・描いた寸法 1.64×2.1。南北の妻の 4 本は 05b の継ぎ足しの所の穴）を、板の座標で"""
+    import kirita as _K
+    return [T(_K.mortise_world(side, k)) for side in 'EW' for k in range(1, 21)]
+
+def dai_naka_sheets():
+    out, T, F = dai_outline_sheet()
+    ms = dai_mortises(T)
+    assert all(abs(m.area - laser_mortise_area()) < 1e-6 for m in ms)
+    s = Sheet('01台_中の層_シナ3', 841, 594, 'シナ 3 A1：台の中の層。外形は表面（01台_表面）と同じ形・同じ向き・同じ位置。穴は本館の柱のほぞ穴 40（切った 05 と同じ 1.64×2.1）だけ。西館のほぞ穴は未（西館の柱の位置が落ち着いてから）')
+    s.add(box(0, 0, 841, 594), 'ref')
+    s.tabs = False
+    s.add(out.difference(unary_union(ms)), 'cut')
+    s.save([(8, 8, '台の中の層 シナ3：外形は表面と同じ。ほぞ穴 40（本館）。北は右上。表面とは別の A1（同じ板から切れない）', 4)])
+    b = out.bounds
+    return dict(外形=(round(b[2] - b[0], 1), round(b[3] - b[1], 1)), ほぞ穴=len(ms), 切る長さ=round(out.exterior.length + sum(m.exterior.length for m in ms), 1))
+
+def laser_mortise_area():
+    return MORTISE_T * MORTISE_W
+
+def _san_rims(o):
+    """外形の、軸に平行な長い辺（縁の桟を置く所）。戻り：[(向き 'h' か 'v', 座標, 始め, 終わり, 内側の向き ±1)]"""
+    es = []
+    c = list(o.simplify(0.05).exterior.coords)
+    for (x0, y0), (x1, y1) in zip(c[:-1], c[1:]):
+        L = math.hypot(x1 - x0, y1 - y0)
+        if L < 30: continue
+        if abs(y1 - y0) < 0.05:
+            ym = (y0 + y1) / 2; a, b_ = sorted((x0, x1))
+            inn = 1 if o.contains(Point((a + b_) / 2, ym + 1)) else -1
+            es.append(('h', ym, a, b_, inn))
+        elif abs(x1 - x0) < 0.05:
+            xm = (x0 + x1) / 2; a, b_ = sorted((y0, y1))
+            inn = 1 if o.contains(Point(xm + 1, (a + b_) / 2)) else -1
+            es.append(('v', xm, a, b_, inn))
+    return es
+
+def dai_san_plan():
+    """桟の配置。戻り：planks（辞書の列：id・kind・line（板の座標の中心線）・L・notches（始めからの位置））、外形、縁と格子の情報"""
+    from shapely.geometry import LineString, MultiLineString
+    o, T, F = dai_outline_sheet()
+    rims = _san_rims(o)
+    planks = []
+    hrim = [r_ for r_ in rims if r_[0] == 'h']
+    for (d, c, a, b_, inn) in rims:
+        cc = c + inn * SAN_T / 2
+        if d == 'h':
+            planks.append(dict(kind='縁', where=('川側（崖）' if inn == 1 else '北'), line=LineString([(a, cc), (b_, cc)])))
+        else:
+            a2, b2 = a, b_
+            for (_, c2, _, _, inn2) in hrim:         # 横の縁の桟に突き当たる端は、その厚さだけ詰める（突き当て）
+                if abs(a - c2) < 0.5 and inn2 == 1: a2 = a + SAN_T
+                if abs(b_ - c2) < 0.5 and inn2 == -1: b2 = b_ - SAN_T
+            planks.append(dict(kind='縁', where=('西' if inn == 1 else '東'), line=LineString([(cc, a2), (cc, b2)])))
+    # 格子の位置：縁の桟の中心から中心まで（東西は x、南北は y）。南＝川側の縁、北＝上の縁
+    xs_c = [r_[1] + r_[4] * SAN_T / 2 for r_ in rims if r_[0] == 'v']
+    ys_c = [r_[1] + r_[4] * SAN_T / 2 for r_ in rims if r_[0] == 'h']
+    x0, x1 = min(xs_c), max(xs_c); y0, y1 = min(ys_c), max(ys_c)
+    nx = max(1, round((x1 - x0) / SAN_PITCH)); ny = max(1, round((y1 - y0) / SAN_PITCH))
+    inner = o.buffer(-SAN_END)
+    grid = []
+    for i in range(1, nx):
+        x = x0 + (x1 - x0) * i / nx
+        g = LineString([(x, o.bounds[1]), (x, o.bounds[3])]).intersection(inner)
+        for seg in getattr(g, 'geoms', [g]):
+            if seg.geom_type == 'LineString' and seg.length > 10: grid.append(dict(kind='南北', line=seg))
+    for j in range(1, ny):
+        y = y0 + (y1 - y0) * j / ny
+        g = LineString([(o.bounds[0], y), (o.bounds[2], y)]).intersection(inner)
+        for seg in getattr(g, 'geoms', [g]):
+            if seg.geom_type == 'LineString' and seg.length > 10: grid.append(dict(kind='東西', line=seg))
+    planks += grid
+    for p_ in planks:
+        c = list(p_['line'].coords); (xa, ya), (xb, yb) = c[0], c[-1]
+        if xa > xb or ya > yb: c = c[::-1]
+        p_['line'] = LineString(c); p_['L'] = p_['line'].length; p_['notches'] = []
+    # 半欠き：南北の桟と東西の桟の交点
+    ns = [p_ for p_ in planks if p_['kind'] == '南北']; ew = [p_ for p_ in planks if p_['kind'] == '東西']
+    for a in ns:
+        for b_ in ew:
+            ip = a['line'].intersection(b_['line'])
+            if ip.is_empty: continue
+            a['notches'].append(a['line'].project(ip)); b_['notches'].append(b_['line'].project(ip))
+    return planks, o, dict(x0=x0, x1=x1, y0=y0, y1=y1, nx=nx, ny=ny, rims=rims)
+
+def san_part(p_):
+    """桟 1 枚の板の上の形（左下原点、長さ L＋切り幅、高さ H＋切り幅。切って L×H になる）。南北の桟は上から、東西の桟は下から半欠き"""
+    L = p_['L'] + SAN_KERF; H = SAN_H + SAN_KERF
+    g = box(0, 0, L, H)
+    for u in p_['notches']:
+        u = u + SAN_KERF / 2
+        if p_['kind'] == '南北': g = g.difference(box(u - SAN_NOTCH_W / 2, H - SAN_NOTCH_D, u + SAN_NOTCH_W / 2, H + 1))
+        else: g = g.difference(box(u - SAN_NOTCH_W / 2, -1, u + SAN_NOTCH_W / 2, SAN_NOTCH_D))
+    return g
+
+def dai_san_sheets():
+    planks, o, info = dai_san_plan()
+    order = {'縁': 0, '南北': 1, '東西': 2}
+    planks.sort(key=lambda p_: (order[p_['kind']], p_['line'].coords[0][0] if p_['kind'] != '東西' else p_['line'].coords[0][1], p_['line'].coords[0][1] if p_['kind'] == '縁' else 0))
+    for i, p_ in enumerate(planks, 1): p_['id'] = i
+    # 板に並べる：長い順に、段（高さ H＋切り幅＋すき間）ごとに左から
+    Wmax = SAN_SHEET[0] - 2 * Sheet.MARGIN; H = SAN_H + SAN_KERF
+    rows = []
+    for p_ in sorted(planks, key=lambda q: -q['L']):
+        w = p_['L'] + SAN_KERF
+        for r_ in rows:
+            if r_['used'] + w <= Wmax + 1e-9:
+                r_['items'].append(p_); r_['used'] += w + SAN_GAP; break
+        else:
+            rows.append(dict(items=[p_], used=w + SAN_GAP))
+    rows_per = int((SAN_SHEET[1] - 2 * Sheet.MARGIN + SAN_GAP) // (H + SAN_GAP))
+    n_sheet = -(-len(rows) // rows_per)
+    sheets = []
+    for k in range(n_sheet):
+        nm = '01台_桟_シナ3' + ('' if n_sheet == 1 else f'_{k + 1}')
+        s = Sheet(nm, 841, 594, f'シナ 3 A1：台の桟（縦の板、高さ {SAN_H:g}）。南北の桟（上から半欠き）と東西の桟（下から半欠き）、縁の桟は突き当て。半欠きの描く幅 {SAN_NOTCH_W:.2f}、深さ {SAN_NOTCH_D:g}')
+        s.add(box(0, 0, 841, 594), 'ref'); s.tabs = True
+        texts = []
+        for ri, r_ in enumerate(rows[k * rows_per:(k + 1) * rows_per]):
+            y = SAN_SHEET[1] - Sheet.MARGIN - H - ri * (H + SAN_GAP); x = Sheet.MARGIN
+            for p_ in r_['items']:
+                g = affinity.translate(san_part(p_), x, y)
+                s.add(g, 'cut')
+                c = list(p_['line'].coords)
+                w_ = p_['L'] + SAN_KERF
+                s.tab_pts += [Point(x, y + H / 2), Point(x + w_, y + H / 2)]
+                # 番号を彫る（切り込みの無い側の半分）
+                lab = str(p_['id']); hh = 4.0; yy = y + (6.0 if p_['kind'] == '南北' else H - 6.0 - hh)
+                for ci, ch in enumerate(lab):
+                    for l in label_num(ch, x + 4 + ci * (hh * 0.55 + 1.0), yy, hh): s.add(l, 'eng')
+                p_['sheet'] = (k + 1, x, y)
+                x += w_ + SAN_GAP
+        s.save([(8, 8, '台の桟 シナ3：番号を彫る（桟の配置は表）。南北＝切り込みが上、東西＝切り込みが下。縁は切り込みなし', 4)])
+        sheets.append(s)
+    return planks, rows, rows_per, n_sheet, info
+
+def svg_cut_length(fname, groups=('切る',)):
+    t = open(os.path.join(OUT, fname), encoding='utf-8').read()
+    tot = {}
+    for gm in re.finditer(r'<g id="([^"]+)"[^>]*>(.*?)</g>', t, re.S):
+        L = 0.0
+        for d in re.findall(r'<path d="([^"]+)"', gm.group(2)):
+            pts = [tuple(map(float, q.split(','))) for q in re.findall(r'[-\d.]+,[-\d.]+', d)]
+            L += sum(math.dist(a, b) for a, b in zip(pts[:-1], pts[1:]))
+        tot[gm.group(1)] = L
+    return tot
+
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
         print(engawa_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai']:                       # 台の表面だけ（ほかの部品は書き換えない）
         print(dai_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
+        print(dai_naka_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['dai-san']:                   # 台の桟だけ
+        r_ = dai_san_sheets(); print(r_[2:]); sys.exit(0)
     # 01〜06（試し切り・本館の架構・床・ベタ基礎・屋根）は切った部品なので作り直さない（ユーザー 10-28、CUT_DONE）
     print('西館の架構', west_sheets())
     print('本館の外壁', wall_sheets())
