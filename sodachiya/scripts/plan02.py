@@ -122,14 +122,15 @@ box(15.9, 16.3, 2.2, 4.0, fc="#F7F1E6")                          # slow bench
 # teacher record counter
 box(17.3, 17.95, 1.75, 3.0, fc="white")
 box(16.85, 17.19, 2.205, 2.545, lw=0.35, fc="#F2E8D6", z=4); line([(16.86, 2.225), (16.86, 2.525)], lw=1.0, c="#8a6a3a", z=5)   # 10-31：先生の高い腰掛け（座 h650、南の辺に背もたれ）
-# cool-down nook
-box(16.9, 17.95, 3.3, 4.6, lw=0.8, fc="#E9DFC9", z=3)
-box(16.98, 16.98 + 0.04, 3.6, 4.3, lw=0, fc="#E9DFC9", z=4)
-line([(16.9, 3.62), (16.9, 4.28)], lw=1.2, c="#E9DFC9", z=5)    # opening (south)
-box(17.05, 17.85, 3.45, 4.45, lw=0.3, ls=(0, (3, 2)), fc="none", z=4)   # low roof board (overhead)
-_tp = [(16.9, 3.5), (17.41, 3.3), (17.92, 3.5), (17.92, 4.4), (17.41, 4.6), (16.9, 4.4)]   # 10-31：ティピ（囲いの上の六角形から頂 h1.9 へ、柱 φ30×6）
-line(_tp + _tp[:1], lw=0.4, ls=(0, (2, 1.2)), c="#8a6a3a", z=6)
-for _p in _tp: line([_p, (17.41, 3.95)], lw=0.25, c="#8a6a3a", z=6); ax.add_patch(Circle(P(*_p), 0.03, fc="#8a6a3a", ec="none", zorder=6.5))
+# cool-down nook：床から立つティピ（11-01、ユーザー：箱の上に乗せない。くぼみの囲いはやめた）
+_tc, _R, _Rf, _Rr = (17.32, 3.95), 0.6, 0.63, 0.48                 # 中心・柱の円・布の裾（六角形の頂点）・敷物
+_d = lambda a, rr: (_tc[0] - rr * math.cos(math.radians(a)), _tc[1] + rr * math.sin(math.radians(a)))   # 南（u の小さい側）から a°
+ax.add_patch(Polygon([P(*_d(a, _Rr)) for a in range(0, 360, 10)], closed=True, fc="#E9DFC9", ec="black", lw=0.3, zorder=4))   # 円い敷物
+_tp = [_d(a, _Rf) for a in (30, 90, 150, 210, 270, 330)]
+line([_d(24.6, 0.6)] + _tp + [_d(-24.6, 0.6)], lw=0.8, c="#8a6a3a", z=6)   # 布の裾（南に入口 幅0.5、布をめくった形）
+for _a in (-24.6, 24.6): line([_d(_a, 0.6), _d(_a * 1.5, 0.74)], lw=0.8, c="#8a6a3a", z=6)
+for _a in (30, 90, 150, 210, 270, 330):
+    line([_d(_a, _R), _tc], lw=0.25, c="#8a6a3a", z=6); ax.add_patch(Circle(P(*_d(_a, _R)), 0.03, fc="#8a6a3a", ec="none", zorder=6.5))
 # hand wash outside toilet
 box(12.1, 13.3, 4.67, 5.2, fc="white")
 for uc in [12.4, 13.0]:
@@ -287,7 +288,7 @@ legend = [
     "10　ひらけた床（積み木・ブロック）",
     "11　山：頂上 h900（南 約1:2・東 約1:2.4）、肩に崖 h350、中はかくれ家（入口は西、東に覗き穴×2）",
     "12　ままごとの家（壁のない家：柱と低い屋根 h1400。先生の目が通る）",
-    "13　落ち着くくぼみ（竪穴の囲い h1000）の上にティピ（木の柱 φ30×6、頂 h1.9、生成りの帆布。入口は南、布をめくった形）",
+    "13　落ち着くくぼみ：床から立つティピ（木の柱 φ30×6、頂 h1.9、生成りの帆布、入口は先生から見える側）",
     "14　先生の記録台 h900（立ち机）と高い腰掛け（座 h650・低い背もたれ・足掛け）",
     "15　縁側：内縁側 1.5（はだし）＋外縁側 1.5（土足 −150）。中ほどにスパンごとに杉の壁＋ガラスの片引き戸、外の端に格子の高欄 h900",
     "16　高欄の戸・二段の縁",
@@ -322,4 +323,3 @@ def _wall_outline():
             ax.add_patch(Polygon([P(u, v) for u, v in ring.coords], closed=True, fc="none", ec="black", lw=0.5, zorder=5.5))
 _wall_outline()
 fig.savefig(_os.path.join(OUT, "sodachiya_02_furniture.pdf"))
-fig.savefig(_os.path.join(OUT, "sodachiya_02_furniture.png"), dpi=220)
