@@ -3686,7 +3686,7 @@ for sp_, c_, r_, g_ in _tl:
             e_ = c_ + 0.85 * r_ * np.array([np.cos(a_), np.sin(a_)])
             _cl += _gpp(LineString([tuple(c_), tuple(m_), tuple(e_)]), stroke=GS_["climb"]["stroke"], lw=GS_["climb"]["lw"], name="木登りの枝")
     fcol_ = GSP.get(s0_, {}).get("fruit")
-    if fcol_ and "実" in tr_ + ("実" if s0_ in ("ムベ", "クヌギ", "コナラ", "シラカシ") else ""):   # 実：さくらんぼの印（紙の mm）
+    if fcol_ and "実" in tr_ + ("実" if s0_ in ("ムベ",) else ""):   # 実：さくらんぼの印（紙の mm）
         q0_ = gxf(np.array([c_ + np.array([0.3, -0.3]) * r_]))[0]
         rr_ = GS_["fruit"]["r_mm"]
         if _GWP.contains(Point(q0_)):
