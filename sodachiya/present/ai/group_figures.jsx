@@ -6,6 +6,7 @@
 #include "sdy_lib.jsxinc"
 (function () {
     if (app.documents.length === 0) { alert("育ち舎の .ai を開いてから実行してください。"); return; }
+    try { app.executeMenuCommand("exitisolation"); } catch (eIso) {}   // 編集モード（グループの中に入った状態）だとレイヤーを足せないので、先に抜ける（11-01）
     var doc = app.activeDocument;
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     var L = SDY.readJSON(File(SDY.here.fsName + "/layout.json"));
