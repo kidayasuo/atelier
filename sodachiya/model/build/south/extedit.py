@@ -50,6 +50,11 @@ def edit(g, fn=None, path_fn=None):
         A2, B2 = A, B
     e = r.Extrusion()
     up = pl.YAxis
+    # 11-02（ソリッド係の点検、22d の7本）：道の両端を別々に動かすと道が少し傾き、元の up が道に直交しなくなる（ずれ 1e-8〜4e-7）。
+    # SetPathAndUp はそれを直さずに受け、押し出しが Rhino で無効（IsValid が偽）になる。up を道に直交するよう直す（回り 1e-6 rad 以下、形は変わらない）
+    D_ = np.asarray(B2, float) - np.asarray(A2, float); D_ = D_ / np.linalg.norm(D_); U_ = np.array([up.X, up.Y, up.Z])
+    if abs(U_ @ D_) > 1e-12:
+        U_ = U_ - (U_ @ D_) * D_; U_ = U_ / np.linalg.norm(U_); up = r.Vector3d(*map(float, U_))
     if not e.SetPathAndUp(r.Point3d(*map(float, A2)), r.Point3d(*map(float, B2)), up): return None
     if not e.SetOuterProfile(curves2d[0], True): return None
     for c2 in curves2d[1:]:
