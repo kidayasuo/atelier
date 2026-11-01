@@ -161,7 +161,8 @@ def amaniwa_h(A, D):
 
 def bowl_h(A, D):
     """くぼみ：すりばち＋雨庭"""
-    b = G["BOWL"]; q = np.hypot(A - b["c"][0], D - b["c"][1]) / b["r"]
+    b = G["BOWL"]; rf = b.get("flat_r", 0.0)   # 底の平らな所の半径（11-01 ユーザー：お話の輪で座る）
+    q = (np.hypot(A - b["c"][0], D - b["c"][1]) - rf) / (b["r"] - rf)
     return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1))) + amaniwa_h(A, D)
 
 
