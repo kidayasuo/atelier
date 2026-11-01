@@ -891,6 +891,108 @@ def wall_sheets():
     return {k: tuple(round(v, 1) for v in g.bounds[2:]) for k, g in W.items()}
 
 
+# ================= 8w. 西館の外壁（14w、11-02） =================
+# 本館の 08 と同じ作り：航空ベニヤ 1.0 の長い帯（外面の長さで展開、外から見て左→右）、大和張りの線は彫り、開口は切り。
+# 形は 3dm の 21（外壁の一つの立体）の外面の三角形を、外皮の輪郭 WS（data/wnew.pkl）の外周の長さ s と高さ z に開いたもの。
+# 天端は 3dm の外壁の天端（＝屋根の線＝梁の上面。22b の梁の上端と ±5 mm（北の妻の角で 20 mm）で一致を確かめた）。
+# 下端は GL（−300、07 の柱の肩・本館の 08 と同じ）。3dm の外壁は FL（0）から立つが、基礎の立ち上がりは 3dm に描かれていないので、
+# 模型はベタ基礎の上（GL）に立て、FL までの 3 mm は帯（開口の下は FL まで）。
+# 外周は、北の妻と東の面の角（NE）から反時計回りに：北の妻→北東の丸み→北西の壁→北西の丸み→西の壁→南西の丸み→南の妻→（南東の角）→東の面。
+# 丸みは R 約 3.1〜3.3 m（模型 31〜33 mm、内側も 15 mm 以上）なので航空ベニヤ 1.0 を湿らせて巻く。直角の角は南東・北東の 2 か所だけ。
+# 帯 A＝北の妻から南の妻まで（大和張り）。帯 B＝東の面（すき間側、大和張りは張らない）。B は A の端の内側に突き当てる（両端を 1.0 ずつ短く）。
+WW_TOL = 15.0          # 外面の三角形を拾う許し（外周から、実寸 mm。丸みの弦の矢高は約 3.4）
+WW_ARM_W, WW_ARM_H = 150.0, 260.0   # 腕木（鼻母屋を受ける 120×240）の穴：模型に腕木が無いので埋める
+WW_SLIT = 25.0         # 水切りの接する所にできる細い隙間（高さ 20）は埋める
+WW_SKIRT = 0.0         # 開口の下端は FL（床がある）
+
+def _west_wall_su():
+    """(外周の線 ring（反時計回り、NE の角から）, 全周の長さ L, 南東の角の s, (s, z) の平面の外壁の形)"""
+    import pickle
+    sys.path.insert(0, os.path.join(ROOT, 'model', 'build', 'south'))
+    from uv import uv as uv_
+    from shapely.geometry import LineString
+    WS = pickle.load(open(os.path.join(ROOT, 'data', 'wnew.pkl'), 'rb'))['WS']
+    c = np.array(WS.simplify(0.3).exterior.coords)[:-1]
+    k = [0]
+    for i in range(1, len(c)):
+        if np.hypot(*(c[i] - c[k[-1]])) > 1.0: k.append(i)
+    c = c[k]
+    if not WS.exterior.is_ccw: c = c[::-1]
+    uvs = np.array([uv_(*p) for p in c])
+    i0 = int(np.argmin(np.hypot(uvs[:, 0] - 51.0, uvs[:, 1] + 0.9)))        # 北東の角（北の妻と東の面）
+    c = np.roll(c, -i0, axis=0)
+    ring = LineString(np.vstack([c, c[:1]])); Lr = ring.length
+    i1 = int(np.argmin([np.hypot(uv_(*p)[0] - 21.0, uv_(*p)[1] + 0.9) for p in c]))   # 南東の角
+    sSE = ring.project(Point(c[i1]))
+    g = objs('21_西館_外壁')[0]
+    V, F = g.Vertices, g.Faces
+    P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
+    polys = []
+    for j in range(len(F)):
+        f = F[j]; q = P[[f[0], f[1], f[2]]]
+        n = np.cross(q[1] - q[0], q[2] - q[0]); nn = np.linalg.norm(n)
+        if nn < 1e-9 or abs(n[2]) / nn > 0.2: continue                       # 立っている面だけ
+        if max(ring.distance(Point(p[0], p[1])) for p in q) > WW_TOL: continue   # 外面だけ（内面は 150 内、水切りは 30 外）
+        s = np.array([ring.project(Point(p[0], p[1])) for p in q])
+        if s.max() - s.min() > Lr / 2: s = np.where(s > Lr / 2, s - Lr, s)      # 北東の角をまたぐ三角形
+        pg = Polygon([(s[i], q[i, 2]) for i in range(3)])
+        if pg.area > 1e-3: polys.append(pg.buffer(0.01))
+    U = unary_union(polys).buffer(-0.01)
+    U = Polygon(U.exterior, [h for h in U.interiors
+                             if not (min(Polygon(h).bounds[2] - Polygon(h).bounds[0], Polygon(h).bounds[3] - Polygon(h).bounds[1]) <= WW_SLIT
+                                     or (Polygon(h).bounds[2] - Polygon(h).bounds[0] < WW_ARM_W and Polygon(h).bounds[3] - Polygon(h).bounds[1] < WW_ARM_H))])
+    U = U.union(box(-0.5, GL, Lr + 0.5, 1.0))           # GL から FL までの帯（開口の下は FL まで）
+    return ring, Lr, sSE, U
+
+WW_MIZUKIRI_Z = 3260.0      # 水切り（2 階の床の高さ、t20）の高さの中心：彫りの線だけ（南北の妻と丸みだけ）
+def west_wall_pieces():
+    """帯 A（北の妻→南の妻、大和張り）、帯 B（東の面）。(x 右へ、y 上へ、mm、左下が原点)。返す：dict、水切りの線の (x0, x1) の列"""
+    ring, Lr, sSE, U = _west_wall_su()
+    sys.path.insert(0, os.path.join(ROOT, 'model', 'build', 'south'))
+    from uv import xy as xy_
+    T = T_VENEER / S                                    # 100（実寸 mm）：B は A の端の内側に突き当てる
+    parts = {'A': (0.0, sSE), 'B': (sSE + T, Lr - T)}
+    out = {}
+    for k, (s0, s1) in parts.items():
+        g = U.intersection(box(s0, GL - 1, s1, 20000))
+        g = affinity.scale(g, S, S, origin=(0, 0)); g = affinity.translate(g, -s0 * S, -GL * S)
+        g = unary_union([p for p in getattr(g, 'geoms', [g]) if p.area > 0.5]).simplify(0.02)
+        out[k] = g
+    # 水切り：南北の妻と丸みの外周の s の範囲（3dm の add_west_south.py の box_：北 u50.08〜51.1、南 u20.9〜23.65）
+    mz = []
+    for u0, u1, v0, v1 in ((50.08, 51.1, -7.9, -0.92), (20.9, 23.65, -13.1, -0.92)):
+        pg = Polygon([xy_(u0, v0), xy_(u1, v0), xy_(u1, v1), xy_(u0, v1)])
+        hit = ring.intersection(pg)
+        ss = [ring.project(Point(c_)) for g_ in getattr(hit, 'geoms', [hit]) for c_ in g_.coords]
+        mz.append((min(ss) * S, max(ss) * S))
+    return out, mz
+
+def west_wall_sheets():
+    pcs, mz = west_wall_pieces()
+    yFL = (0.0 - GL) * S
+    s = Sheet('14w_西館の外壁_航空ベニヤ1.0', 600, 300,
+              '航空ベニヤ 1.0 300×600：西館の外壁（A＝北の妻→北東の丸み→北西の壁→北西の丸み→西の壁→南西の丸み→南の妻、外から見て左＝北、湿らせて巻く／B＝東の面）。'
+              '天端は梁の上面、下端は GL（FL までの 3 mm は帯）。大和張りの線（1.05 間隔）は A だけ彫り。開口は切り（ガラスの面は PET を貼る）')
+    s.add(box(0, 0, 600, 300), 'ref')
+    y = 150.0; texts = []; res = {}
+    for k in ('A', 'B'):
+        g = pcs[k]; b = g.bounds
+        q = affinity.translate(g, -b[0], y - b[1])
+        for p in getattr(q, 'geoms', [q]): s.add(p)
+        if k == 'A':
+            for ln in yamato_lines(q):
+                ln = ln.intersection(box(-1, y + yFL, 700, y + 400))     # FL までの帯には彫らない
+                if not ln.is_empty: s.add(ln, 'eng')
+            for x0, x1 in mz:
+                ln = LineString([(x0 - b[0], y + (WW_MIZUKIRI_Z - GL) * S), (x1 - b[0], y + (WW_MIZUKIRI_Z - GL) * S)]).intersection(q.buffer(-0.3))
+                if not ln.is_empty: s.add(ln, 'eng')
+        texts.append((0, y - 5, {'A': 'A 西の外壁一周（左＝北、湿らせて巻く）', 'B': 'B 東の面（すき間側、外から見て左＝南）'}[k], 2.5))
+        res[k] = (round(b[2] - b[0], 1), round(b[3] - b[1], 1), len(getattr(g, 'geoms', [g])))
+        y -= (b[3] - b[1]) + 14
+    s.save(texts)
+    return res
+
+
 # ================= 6c. 本館の屋根の光の筋の穴を埋める差し込み小片＋小屋・機械室の屋根（11-02） =================
 # 06a の光の筋の穴 18 本は、東の端が外皮の線（今の 3dm の光の筋の東の端）より約 14 mm 長い。06a は変えない。
 # 穴の形は 06a の SVG から読み、外皮の線から東の部分を、シナ 1.7 の端材から切る差し込み小片にする。
@@ -2454,9 +2556,12 @@ if __name__ == '__main__':
         print(dai_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['14w']:                       # 西館の外壁だけ
+        print(west_wall_sheets()); sys.exit(0)
     # 01〜06（試し切り・本館の架構・床・ベタ基礎・屋根）は切った部品なので作り直さない（ユーザー 10-28、CUT_DONE）
     print('西館の架構', west_sheets())
     print('本館の外壁', wall_sheets())
+    print('西館の外壁 14w', west_wall_sheets())
     print('06c・11 小屋と機械室', hut_kikai_sheets())
     print('西館の屋根', west_roof_sheets())
     print('室内の壁', interior_sheets())
