@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-11-02 02:04",
+"generated": "2026-11-02 02:19",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -158,7 +158,7 @@
 ],
 "u": 1,
 "fig": "配置図",
-"mock_hash": "836eb351"
+"mock_hash": "eb8d6242"
 },
 {
 "id": "p1.sozai.01c",
@@ -172589,7 +172589,7 @@
 "page": 1,
 "dwg": "平面図　1階",
 "fig": "平面図　1階",
-"mock_hash": "a7bedd07"
+"mock_hash": "83685e7e"
 },
 {
 "id": "p3.dwg.plan.line.355_120.l",
@@ -198295,7 +198295,7 @@
 "page": 1,
 "dwg": "平面図　2階",
 "fig": "平面図　2階",
-"mock_hash": "74d709a2"
+"mock_hash": "0db46c25"
 },
 {
 "id": "p4.dwg.plan2.grid.20.l",
@@ -211990,7 +211990,7 @@
 "page": 1,
 "dwg": "立面図　園庭の側",
 "fig": "立面図　園庭の側",
-"mock_hash": "b9013b25"
+"mock_hash": "3215c96c"
 },
 {
 "id": "p5.dwg.E1.level.西館最高+8,471.l",
@@ -213344,7 +213344,7 @@
 "page": 1,
 "dwg": "立面図　道路の側",
 "fig": "立面図　道路の側",
-"mock_hash": "b9013b25"
+"mock_hash": "3215c96c"
 },
 {
 "id": "p5.dwg.E2.level.西館最高+8,471.l",
@@ -215026,7 +215026,7 @@
 "page": 1,
 "dwg": "縦断面図A",
 "fig": "縦断面図A",
-"mock_hash": "6dba698e"
+"mock_hash": "4f9dd3db"
 },
 {
 "id": "p6.dwg.SA.line.70_120.l",
@@ -216572,7 +216572,7 @@
 "page": 1,
 "dwg": "断面図C",
 "fig": "断面図C",
-"mock_hash": "6dba698e"
+"mock_hash": "4f9dd3db"
 },
 {
 "id": "p6.dwg.C.cut.W.l",
@@ -224778,7 +224778,7 @@
 "page": 1,
 "dwg": "断面図D",
 "fig": "断面図D",
-"mock_hash": "6a3f25f9"
+"mock_hash": "3182d0fc"
 },
 {
 "id": "p6.dwg.D.cut.W.l",
