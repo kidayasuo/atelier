@@ -1302,60 +1302,100 @@ SDY.stockMark = function (x) {                          // 置き場の物の印
     if (n && n.indexOf("sdy:") === 0) { try { x.note = SDY.STOCK + n.substring(4); } catch (e1) {} }
     try { if (x.typename === "GroupItem") { for (k = 0; k < x.pageItems.length; k++) { SDY.stockMark(x.pageItems[k]); } } } catch (e2) {}
 };
-// 新しい版を描いて（いったん元の枚の位置に、レイヤー「素材置き場」）、図ごとの入れ物 bk に入れる
-SDY.stockPart = function (doc, i, p, isNew, bk, bkeys) {
-    var q = SDY.clone(p), nw, key = i + ":" + (p.fig || p.id);
+// 新しい版を描く（いったん元の枚の位置に、レイヤー「素材置き場」。図ごとのグループにして並べるのは SDY.stockFlush）
+SDY.stockPart = function (doc, i, p) {
+    var q = SDY.clone(p), nw;
     delete q.group; delete q.group_name; delete q.dwg; q.clipgroup = false; q.layer = SDY.OKIBA_LAYER;
     nw = SDY.make(doc, i, q);
     if (!nw) { return false; }
-    SDY.stockMark(nw);
-    if (!bk[key]) { bk[key] = { name: (p.fig || p.name || p.id), no: (doc && i >= 0) ? i + 1 : 0, items: [] }; bkeys.push(key); }
-    bk[key].items.push(nw);
+    SDY.stockMark(nw);                                   // いったんレイヤー「素材置き場」の元の位置に。並べるのは SDY.stockFlush
     return true;
 };
-SDY.okibaBoard = function (doc, L) {                     // 素材置き場のアートボード（無ければ6枚の右に、紙2枚分の幅で作る）。返り値は番号
-    var k, r, R = null, K = SDY.K, W = L.artboard[0] * K, H = L.artboard[1] * K, ab;
+// 素材置き場のアートボード（無ければ作る）。返り値は番号（作れなければ -1）。
+// 11-01 16:21：6枚の右に紙2枚分で作ろうとしてカンバス（±8191 pt くらい）の外になり 'CoOA' で止まった。今のアートボード全部の外形の
+// 下・右・上・左の順に、大きさを詰めながら試す（矩形は [左, 上, 右, 下]、上 > 下）
+SDY.okibaBoard = function (doc, L) {
+    var k, r, R = null, K = SDY.K, W = L.artboard[0] * K, H = L.artboard[1] * K, G = 50 * K, ab = null, c, sz, w, h, j;
     for (k = 0; k < doc.artboards.length; k++) { if (doc.artboards[k].name === SDY.OKIBA_AB) { return k; } }
     for (k = 0; k < doc.artboards.length; k++) { r = doc.artboards[k].artboardRect; R = R ? [Math.min(R[0], r[0]), Math.max(R[1], r[1]), Math.max(R[2], r[2]), Math.min(R[3], r[3])] : r; }
-    ab = doc.artboards.add([R[2] + 100 * K, R[1], R[2] + 100 * K + 2 * W, R[1] - H]);
-    ab.name = SDY.OKIBA_AB;
+    sz = [[Math.min(2 * W, R[2] - R[0]), H], [W, H], [W / 2, H / 2], [W / 4, H / 4]];
+    for (j = 0; j < sz.length && !ab; j++) {
+        w = sz[j][0]; h = sz[j][1];
+        c = [[R[0], R[3] - G, R[0] + w, R[3] - G - h],          // 下
+             [R[2] + G, R[1], R[2] + G + w, R[1] - h],          // 右
+             [R[0], R[1] + G + h, R[0] + w, R[1] + G],          // 上
+             [R[0] - G - w, R[1], R[0] - G, R[1] - h]];         // 左
+        for (k = 0; k < c.length && !ab; k++) { try { ab = doc.artboards.add(c[k]); } catch (e) { ab = null; } }
+    }
+    if (!ab) { SDY.missing.push("素材置き場のアートボードを作れなかった（カンバスに空きが無い）。置き場の物はレイヤー「素材置き場」の元の位置のまま"); return -1; }
+    try { ab.name = SDY.OKIBA_AB; } catch (e1) {}
     return doc.artboards.length - 1;
 };
-// 入れ物ごとに一つのグループにして、置き場に格子に並べる（前からある物の下の行から。足りなければアートボードを下・右へ伸ばす）
-SDY.stockFlush = function (doc, L, bk, bkeys) {
-    if (!bkeys.length) { return 0; }
-    var lay = SDY.layer(doc, SDY.OKIBA_LAYER), ai = SDY.okibaBoard(doc, L), A = doc.artboards[ai], r = A.artboardRect, K = SDY.K, M = 10 * K, G = 8 * K;
-    var low = r[1] - M, k, j, b, g, x, y, rowH = 0, n = 0, st = SDY.stamp(), it, gb, rr;
+// 置き場の物の部品の id（物か、その中の sdystock: の印）。並べたグループ（sdystockg:）の中の物は数えない
+SDY.stockIdOf = function (x) {
+    var n = "", k, v;
+    try { n = x.note; } catch (e) {}
+    if (n && n.indexOf(SDY.STOCK) === 0) { return n.substring(SDY.STOCK.length).split("|")[1] || null; }
+    if (n && n.indexOf("sdystockg:") === 0) { return null; }
+    try { if (x.typename === "GroupItem") { for (k = 0; k < x.pageItems.length; k++) { v = SDY.stockIdOf(x.pageItems[k]); if (v) { return v; } } } } catch (e1) {}
+    return null;
+};
+// レイヤー「素材置き場」のすぐ下の、まだグループにしていない置き場の物（今回描いた物と、前の update で並べられずに残った物、11-01 16:21）を、
+// 図（無ければ部品）ごとに一つのグループにして、置き場に格子に並べる（前からあるグループの下の行から。足りなければアートボードを下・右へ伸ばす）。
+// 一つずつ try で続ける。返り値は作ったグループの数
+SDY.stockFlush = function (doc, L) {
+    var lay, ai, A, r, K = SDY.K, M = 10 * K, G = 8 * K, low, k, j, b, g, x, y, rowH = 0, n = 0, st = SDY.stamp(), it, gb, rr, id, P = {}, bk = {}, bkeys = [], key, pi, p, loose = 0;
+    try { lay = doc.layers.getByName(SDY.OKIBA_LAYER); } catch (e) { return 0; }
     try { lay.locked = false; lay.visible = true; } catch (e0) {}
-    for (k = 0; k < lay.pageItems.length; k++) {             // 前からある置き場の物の下
+    for (k = 0; k < L.pages.length; k++) { for (j = 0; j < L.pages[k].parts.length; j++) { P[L.pages[k].parts[j].id] = { i: k, p: L.pages[k].parts[j] }; } }
+    for (k = 0; k < lay.pageItems.length; k++) {
         it = lay.pageItems[k];
-        try { if (it.parent.typename !== "Layer") { continue; } b = it.visibleBounds; } catch (e1) { continue; }
+        try { if (it.parent.typename !== "Layer") { continue; } } catch (e1) { continue; }
+        id = SDY.stockIdOf(it);
+        if (!id) { continue; }
+        pi = P[id]; p = pi ? pi.p : null;
+        key = pi ? (pi.i + ":" + (p.fig || p.id)) : ("?:" + id);
+        if (!bk[key]) { bk[key] = { name: p ? (p.fig || p.name || p.id) : id, no: pi ? L.pages[pi.i].no : "?", items: [] }; bkeys.push(key); }
+        bk[key].items.push(it); loose++;
+    }
+    if (!bkeys.length) { return 0; }
+    ai = SDY.okibaBoard(doc, L);
+    if (ai < 0) { return 0; }
+    A = doc.artboards[ai]; r = A.artboardRect; low = r[1] - M;
+    for (k = 0; k < lay.pageItems.length; k++) {             // 前に並べたグループの下
+        it = lay.pageItems[k];
+        try { if (it.parent.typename !== "Layer" || SDY.stockIdOf(it)) { continue; } b = it.visibleBounds; } catch (e2) { continue; }
         if (b[3] - G < low && b[0] < r[2] && b[2] > r[0]) { low = b[3] - G; }
     }
     x = r[0] + M; y = low;
     for (k = 0; k < bkeys.length; k++) {
-        g = lay.groupItems.add();
-        g.name = "更新：" + bk[bkeys[k]].name + "（" + bk[bkeys[k]].no + "枚目、" + st + "）";
-        g.note = "sdystockg:" + bkeys[k] + "|" + st;
-        for (j = 0; j < bk[bkeys[k]].items.length; j++) { try { bk[bkeys[k]].items[j].move(g, ElementPlacement.PLACEATEND); } catch (e2) {} }
-        if (!g.pageItems.length) { g.remove(); continue; }
-        gb = g.visibleBounds;
-        if (x > r[0] + M && x + (gb[2] - gb[0]) > r[2] - M) { x = r[0] + M; y -= rowH + G; rowH = 0; }   // 次の行
-        g.translate(x - gb[0], y - gb[1]);
-        x += (gb[2] - gb[0]) + G; if (gb[1] - gb[3] > rowH) { rowH = gb[1] - gb[3]; }
-        rr = A.artboardRect;
-        if (y - (gb[1] - gb[3]) - M < rr[3] || x - G + M > rr[2]) {   // アートボードを伸ばす
-            try { A.artboardRect = [rr[0], rr[1], Math.max(rr[2], x - G + M), Math.min(rr[3], y - (gb[1] - gb[3]) - M)]; } catch (e3) { SDY.notes.push("素材置き場のアートボードを伸ばせなかった（" + e3.message + "）"); }
-        }
-        n++;
+        try {
+            g = lay.groupItems.add();
+            g.name = "更新：" + bk[bkeys[k]].name + "（" + bk[bkeys[k]].no + "枚目、" + st + "）";
+            g.note = "sdystockg:" + bkeys[k] + "|" + st;
+            for (j = 0; j < bk[bkeys[k]].items.length; j++) { try { bk[bkeys[k]].items[j].move(g, ElementPlacement.PLACEATEND); } catch (e3) {} }
+            if (!g.pageItems.length) { g.remove(); continue; }
+            gb = g.visibleBounds;
+            if (x > r[0] + M && x + (gb[2] - gb[0]) > r[2] - M) { x = r[0] + M; y -= rowH + G; rowH = 0; }   // 次の行
+            g.translate(x - gb[0], y - gb[1]);
+            x += (gb[2] - gb[0]) + G; if (gb[1] - gb[3] > rowH) { rowH = gb[1] - gb[3]; }
+            n++;
+        } catch (e4) { SDY.missing.push("素材置き場に並べる：" + bk[bkeys[k]].name + "（" + e4.message + "）"); continue; }
+        try {
+            rr = A.artboardRect;
+            if (y - (gb[1] - gb[3]) - M < rr[3] || x - G + M > rr[2]) {   // アートボードを伸ばす（カンバスの外なら伸ばさない）
+                A.artboardRect = [rr[0], rr[1], Math.max(rr[2], x - G + M), Math.min(rr[3], y - (gb[1] - gb[3]) - M)];
+            }
+        } catch (e5) { SDY.ext = true; }
     }
+    if (SDY.ext) { SDY.notes.push("素材置き場のアートボードを伸ばせなかった（カンバスの縁）。はみ出した物はアートボードの外にある"); SDY.ext = false; }
     return n;
 };
 // auto：枚ごとの自動の更新（SDY.autoPages、update_texts だけが渡す。無ければ全部の枚が自動）。自動でない枚は、その枚の物に触らず、
 // 変わった部品・新しい部品の新しい版を「素材置き場」に図ごとのグループで置く（SDY.stockPart・SDY.stockFlush、11-01）
 SDY.refresh = function (doc, L, U, made, auto) {
     var st = { nt: 0, nl: 0, na: 0, nr: 0, nx: 0, nu: 0, own: 0, kept: [], newl: [], nrep: 0, nstock: 0, nsg: 0, nbase: 0, stocked: [] }, UP = (U && U.parts) || {}, map, i, j, p, it, tg, q, nw, kf, last;
-    var seen = auto ? SDY.readSeen() : null, bk = {}, bkeys = [];
+    var seen = auto ? SDY.readSeen() : null;
     try { st.nx = SDY.retireStale(doc, L, auto); } catch (e0) { SDY.missing.push("無くなった部品（" + e0.message + "）"); }
     map = SDY.findByTag(doc);
     for (i = 0; i < L.pages.length; i++) {
@@ -1368,7 +1408,7 @@ SDY.refresh = function (doc, L, U, made, auto) {
                 last = seen.hasOwnProperty(p.id) ? seen[p.id] : (it ? ((SDY.parseTag(it) || {}).mock_hash || "") : null);
                 if (last === "") { seen[p.id] = p.mock_hash || ""; st.nbase++; continue; }   // 前の版が分からない（印に中身の印が無いリンク）：今の版を記録するだけ
                 if (last !== null && last === (p.mock_hash || "")) { continue; }
-                try { if (SDY.stockPart(doc, i, p, last === null, bk, bkeys)) { st.nstock++; st.stocked.push((last === null ? "新しい：" : "") + (p.name || p.id)); } else { SDY.failed[p.id] = 1; } }
+                try { if (SDY.stockPart(doc, i, p)) { st.nstock++; st.stocked.push((last === null ? "新しい：" : "") + (p.name || p.id)); } else { SDY.failed[p.id] = 1; } }
                 catch (es) { SDY.missing.push("素材置き場：" + p.id + "（" + es.message + "）"); }
                 seen[p.id] = p.mock_hash || "";
                 continue;
@@ -1425,7 +1465,7 @@ SDY.refresh = function (doc, L, U, made, auto) {
     }
     try { if (U) { st.nu = SDY.drawUserItems(doc, L, U, auto); } } catch (e8) { SDY.missing.push("足した物（" + e8.message + "）"); }
     if (auto) {
-        try { st.nsg = SDY.stockFlush(doc, L, bk, bkeys); } catch (e9) { SDY.missing.push("素材置き場に並べる（" + e9.message + "）"); }
+        try { st.nsg = SDY.stockFlush(doc, L); } catch (e9) { SDY.missing.push("素材置き場に並べる（" + e9.message + "）"); }
         SDY.writeSeen(seen);
     }
     return st;
