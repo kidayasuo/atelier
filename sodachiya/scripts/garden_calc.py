@@ -19,7 +19,7 @@ cell = STEP * STEP
 # ---------------- 土の釣り合い ----------------
 h_all = gc.height(AA, DD)
 bowl = gc.bowl_h(AA, DD)
-hp = np.where(inside, h_all - bowl, 0.0)          # 盛り（すりばちを除いた地形の高さ）
+hp = np.where(inside, h_all - bowl, 0.0)          # 盛り（ひみつのたにを除いた地形の高さ）
 fill = float(np.clip(hp, 0, None).sum() * cell)
 bowl_cut = float(-np.where(inside, bowl, 0).sum() * cell)
 s = G["STREAM"]; s_len = LineString(s["line"]).length

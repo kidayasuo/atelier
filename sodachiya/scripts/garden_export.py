@@ -611,16 +611,14 @@ for k_, qs, nvs in _runs:
                     name=f"砂場の土留め（丸太φ0.15を横に{k_}段、上端は地面にそろえる GL{_sz + k_ * _RW:+.2f}）"); _nlog += 1
 print(f"砂場：砂の面 GL{_sz:+.3f}、縁の上端 GL{_st:+.3f}、縁の外の地面 {min(H(q0[0] + nv[0] * _RW, q0[1] + nv[1] * _RW) for q0, q1, nv, k_ in _segs):+.3f}〜"
       f"{max(H(q0[0] + nv[0] * _RW, q0[1] + nv[1] * _RW) for q0, q1, nv, k_ in _segs):+.3f}、土留めの丸太 {_nlog} 本（段の数 {sorted(set(k_ for k_, _, _ in _runs))}）")
-GR = G["GRAIN"]; ca, sa = math.cos(math.radians(GR["rot"])), math.sin(math.radians(GR["rot"]))
-gr = lambda u, v: (GR["c"][0] + u * ca - v * sa, GR["c"][1] + u * sa + v * ca)
-hl, hw = GR["l"] / 2, GR["w"] / 2
-_gp = [gr(-hl, -hw), gr(hl, -hw), gr(hl, hw), gr(-hl, hw)]; _gz = gmax(_gp) + 0.02
-slab(_gp, _gz - 0.1, _gz, 95, "粒の遊び場の粒（1〜2 mm、2.4×3.0）")
-_go = [gr(-hl - 0.15, -hw - 0.15), gr(hl + 0.15, -hw - 0.15), gr(hl + 0.15, hw + 0.15), gr(-hl - 0.15, hw + 0.15)]
-slab(_go, gmin(_gp) - 0.1, gmax(_gp) + 0.10, "95r", "粒の遊び場の木の縁（幅 0.15・h0.10、2歳がまたいで入れる）", hole_ad=_gp)   # 10-31 ユーザー：h0.25→0.10
-_r0, _r1 = gr(-hl, hw + 0.35), gr(hl, hw + 0.35); _rz = max(H(*_r0), H(*_r1)) + 0.1
-tube_ad(_r0, _r1, _rz, 0.1, "95r", "帆布を巻いた棒（φ0.2、長さ 3.0）")
-B = G["BOWL"]; curve_ad(ell(B["c"], (B["r"], B["r"])), "90l", "すりばち（輪郭、お話の輪、縁取りで水を入れない）", close=True)   # くぼみは地形（90）
+_GG = gc.grain_geom()                         # 11-01：乳児の床の噴水の隣の砂浜ビーチ（噴水の円に沿う三日月）。粒の面は水平
+_gp = _GG["sand"]; _go = _GG["frame"]; _gz = gmax(_gp) + 0.02
+_ga = Polygon(_gp).area
+slab(_gp, _gz - 0.1, _gz, 95, f"粒の遊び場の粒（1〜2 mm、砂浜、噴水に沿う三日月約{_ga:.1f} m²）")
+slab(_go, gmin(_go) - 0.1, gmax(_gp) + 0.10, "95r", "粒の遊び場の木の縁（幅 0.15・h0.10、2歳がまたいで入れる）", hole_ad=_gp)   # 10-31 ユーザー：h0.25→0.10
+_r0, _r1 = _GG["roller"]; _rz = max(H(*_r0), H(*_r1)) + 0.1
+tube_ad(_r0, _r1, _rz, 0.1, "95r", f"帆布を巻いた棒（φ0.2、長さ {math.dist(_r0, _r1):.1f}、芝の帯の側）")
+B = G["BOWL"]; curve_ad(ell(B["c"], (B["r"], B["r"])), "90l", "ひみつのたに（輪郭、お話の輪、縁取りで水を入れない）", close=True)   # くぼみは地形（90）
 W = G["WILLOW"]; _wp = ring_pts(W["c"], W["r"], 24)
 dome(W["c"], W["r"], 2.0, gmin(_wp) - 0.05, "94c", "柳の家（生きたヤナギのドームφ3・h2.0）")   # 生きた木なので樹冠のレイヤー（10-28）
 

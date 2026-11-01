@@ -160,15 +160,15 @@ def amaniwa_h(A, D):
 
 
 def bowl_h(A, D):
-    """くぼみ：すりばち＋雨庭"""
+    """くぼみ：ひみつのたに＋雨庭"""
     b = G["BOWL"]; rf = b.get("flat_r", 0.0)   # 底の平らな所の半径（11-01 ユーザー：お話の輪で座る）
     q = (np.hypot(A - b["c"][0], D - b["c"][1]) - rf) / (b["r"] - rf)
     return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1))) + amaniwa_h(A, D)
 
 
 def bowl_rim_h(A, D):
-    """すりばちの縁取り（11-01 ユーザー：すりばちには大雨でも水が来ない）：縁（半径 r）を頂に +rim["h"] の低い輪の盛り。
-    内へは rim["w_in"]、外へは rim["w_out"] で cos になだらかに 0 へ。周りの雨は縁で外へ向き、すりばちへは入らない"""
+    """ひみつのたにの縁取り（11-01 ユーザー：ひみつのたにには大雨でも水が来ない）：縁（半径 r）を頂に +rim["h"] の低い輪の盛り。
+    内へは rim["w_in"]、外へは rim["w_out"] で cos になだらかに 0 へ。周りの雨は縁で外へ向き、ひみつのたにへは入らない"""
     b = G["BOWL"]; rm = b.get("rim")
     A = np.asarray(A, float); D = np.asarray(D, float)
     if not rm:
@@ -176,6 +176,36 @@ def bowl_rim_h(A, D):
     e = np.hypot(A - b["c"][0], D - b["c"][1]) - b["r"]
     t = np.where(e < 0, -e / rm["w_in"], e / rm["w_out"])
     return rm["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(t, 0, 1)))
+
+
+def grain_geom():
+    """粒の遊び場（11-01 ユーザー：乳児の床の噴水の隣の「砂浜ビーチ」、形は自由）の形を (a, d) で。
+    GRAIN に "arc" があれば、噴水の円と同じ中心の弧（角度 th±span/2、枠の d・a の向きで度）を幅 w で太らせた
+    三日月（端は丸い）：粒の内の縁は噴水の縁から turf（芝の帯）+ frame（木の縁の幅）。無ければ前の長方形（c・w・l・rot）。
+    返すもの：sand（粒の輪郭）、frame（木の縁の外の輪郭）、roller（帆布を巻いた棒の両端）、cover（帆布の長方形）"""
+    gr = G["GRAIN"]; fr = gr.get("frame", 0.15)
+    ac = gr.get("arc")
+    if ac:
+        cx, cy = G["SPLASH"]["c"]; rm = G["SPLASH"]["r"][0] + ac["turf"] + fr + ac["w"] / 2
+        ths = np.radians(np.linspace(ac["th"] - ac["span"] / 2, ac["th"] + ac["span"] / 2, 33))
+        arc = LineString([(cx + rm * math.cos(t), cy + rm * math.sin(t)) for t in ths])
+        sand = arc.buffer(ac["w"] / 2, quad_segs=8)
+        frame = sand.buffer(fr, quad_segs=8)
+        # 帆布：弦の向きの長方形で三日月を覆う。棒は芝の帯の側（噴水の側）の長い辺に沿うまっすぐな棒
+        t0 = math.radians(ac["th"]); u = np.array([-math.sin(t0), math.cos(t0)]); n = np.array([math.cos(t0), math.sin(t0)])
+        P = np.array(frame.exterior.coords); pu = (P - [cx, cy]) @ u; pn = (P - [cx, cy]) @ n
+        lo, hi = pu.min(), pu.max(); n0, n1 = pn.min(), pn.max()
+        c0 = np.array([cx, cy])
+        cover = [tuple(c0 + a_ * u + b_ * n) for a_, b_ in ((lo, n0), (hi, n0), (hi, n1), (lo, n1))]
+        nr = n0 - ac.get("roller_off", 0.2)
+        roller = [tuple(c0 + (lo + 0.1) * u + nr * n), tuple(c0 + (hi - 0.1) * u + nr * n)]
+        return dict(sand=list(sand.exterior.coords)[:-1], frame=list(frame.exterior.coords)[:-1], roller=roller, cover=cover)
+    ca, sa = math.cos(math.radians(gr["rot"])), math.sin(math.radians(gr["rot"]))
+    f = lambda u, v: (gr["c"][0] + u * ca - v * sa, gr["c"][1] + u * sa + v * ca)
+    hl, hw = gr["l"] / 2, gr["w"] / 2
+    sand = [f(-hl, -hw), f(hl, -hw), f(hl, hw), f(-hl, hw)]
+    frame = [f(-hl - fr, -hw - fr), f(hl + fr, -hw - fr), f(hl + fr, hw + fr), f(-hl - fr, hw + fr)]
+    return dict(sand=sand, frame=frame, roller=[f(-hl, hw + 0.35), f(hl, hw + 0.35)], cover=sand)
 
 
 def _ss(x):
@@ -243,7 +273,7 @@ def height(A, D):
     h = np.maximum(h, bank_h(A, D))
     h = h + add + bowl_h(A, D) + bowl_rim_h(A, D) + tilt_h(A, D)
     # 10-31：今の地形と大地の高い方、11-01：てんぐのたにの峠。大地・峠の無い所（0）は今の地形のまま
-    # （11-01：np.maximum(h, 0) ですりばち・雨庭のくぼみが GL±0 に埋まっていた）
+    # （11-01：np.maximum(h, 0) でひみつのたに・雨庭のくぼみが GL±0 に埋まっていた）
     for f in (daichi_h, pass_h):
         e = f(A, D); h = np.where(e > 0, np.maximum(h, e), h)
     return h
