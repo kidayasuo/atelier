@@ -173,10 +173,20 @@ Pr(48.55, 49.38, 1.66, 1.86, fc=C_WOOD, ec='#555', lw=0.25, z=5)     # 教材庫
 Pt(50.25, 1.76, '路地へ', size=4.6, ha='center', c='#555')
 Pt(54.0, 1.77, '5歳の部屋', size=4.6, ha='center', c='#2F5E2E')
 
-# 絵本の通り：本棚だけ（奥行き300、h1.2、10-31 ユーザー：くぼみはやめ、本は好きな所へ持って行って読む）
-Pr(UP0, 50.80, 0.08, 0.38, fc=C_WOOD, ec='#444', lw=0.4, z=7)
-for u in np.arange(48.75, 50.8, 0.3):
-    Pl([(u, 0.10), (u, 0.36)], lw=0.15, c='#8C6A45', z=7)
+# 絵本の通り：本棚だけ（h1.2、10-31 ユーザー：くぼみはやめ、本は好きな所へ持って行って読む）。
+# 11-01 20:03（ユーザー）：棚は西の外壁の内面 v−0.20 に付け、柱間ごとに背差し0.9（奥行き0.30）・面陳1.0（奥行き0.35）・背差し0.9（data/hondana.json）
+import json as _json
+HD = _json.load(open(os.path.join(ROOT, 'data', 'hondana.json'), encoding='utf-8'))
+for _t, _a, _b in HD['bays']:
+    if _b < UP0: continue
+    _a = max(_a, UP0); _v0 = HD['v_back']; _d = HD['depth'][_t]
+    Pr(_a, _b, _v0, _v0 + _d, fc=C_WOOD, ec='#444', lw=0.4, z=7)
+    if _t == 'sesashi':
+        Pl([(_a + 0.03, _v0 + 0.2), (_b - 0.03, _v0 + 0.2)], lw=0.8, c='#8C6A45', z=7.2)
+    else:
+        for _k in range(6):
+            _u = _a + 0.08 + (_b - _a - 0.16) * _k / 5
+            Pl([(_u - 0.04, _v0 + 0.05), (_u + 0.04, _v0 + _d - 0.05)], lw=0.3, c='#8C6A45', z=7.2)
 # 本の奥（10-31、ユーザー）：入口は暖簾（架構51の柱の北 u51.125、幅いっぱい、裾h0.7（中で座った子の目の高さ、11-01）。
 # 11-01 09:52：木の丸棒の竿φ30に、縦に切れた布4枚（すき間12）、上端は竿を包む袋縫い、布はゆるいひだ（3dm の noren_hon と同じ）
 NOREN = [(-0.199 + k * 0.4375, -0.199 + k * 0.4375 + 0.4255) for k in range(4)]
@@ -267,20 +277,29 @@ _e = Ellipse((55.7, 0.8), 0.7, 0.8, fc='#9DB07A', ec='#5a6b3a', lw=0.35, alpha=0
 for k in range(9):
     _c = Circle((55.48 + 0.055 * k, 0.47 + 0.05 * ((k * 3) % 4) / 3), 0.022, fc='#C8352A', ec='none', zorder=2.3); axE.add_patch(_c); _c.set_clip_path(_clip)
 leader(axE, (55.3, -0.15), (55.0, 0.95), '掘りごたつの溝−300（窓際、底は木の床）', size=4.4, c='#34502A', bg=True)
-# 棚（見えがかり：h1.2、4段＠300、絵本を面陳と背で）
-rect(axE, UP0, 0.0, 50.80, 1.2, fc=C_WOOD, ec='#6b5236', lw=0.45, z=3)
+# 棚（見えがかり：h1.2。背差しの棚は3段に背を見せて、面陳の台は前に傾いた板3段に表紙を見せて。data/hondana.json の区画、3dm の hondana.py と同じ寸法）
 rng = np.random.default_rng(3)
-for (a, b) in [(UP0, 50.8)]:
-    for zs in (0.3, 0.6, 0.9):
-        line(axE, [(a, zs), (b, zs)], lw=0.35, c='#6b5236', z=4)
-    for z0 in (0.02, 0.32, 0.62, 0.92):
-        x = a + 0.03
-        while x < b - 0.06:
-            if z0 >= 0.6 and rng.random() < 0.5:       # 上の2段は表紙を見せる（面陳）と背差しの混じり
-                w = 0.2; rect(axE, x, z0, x + w, z0 + 0.25, fc=BOOK[rng.integers(8)], ec='#555', lw=0.2, z=5); x += w + 0.04
-            else:
-                w = rng.uniform(0.02, 0.05); hh = rng.uniform(0.16, 0.26)
-                rect(axE, x, z0, x + w, z0 + hh, fc=BOOK[rng.integers(8)], ec='none', z=5); x += w + 0.005
+for _t, a, b in HD['bays']:
+    if b < UP0: continue
+    rect(axE, a, 0.0, b, 1.2, fc=C_WOOD, ec='#6b5236', lw=0.45, z=3)
+    rect(axE, a + 0.02, 0.06, b - 0.02, 1.18, fc='#D9C29B', ec='#6b5236', lw=0.3, z=3.2)        # 側板・天板・底板の内側（背板）
+    if _t == 'sesashi':
+        cl = (1.2 - 0.02 - 0.08 - 0.04) / 3
+        for k in range(3):
+            z0 = 0.08 + k * (cl + 0.02)
+            if k: rect(axE, a + 0.02, z0 - 0.02, b - 0.02, z0, fc=C_WOOD, ec='#6b5236', lw=0.25, z=4)
+            x = a + 0.025; xe = b - 0.025 - rng.uniform(0.04, 0.2)
+            while x < xe:
+                w = rng.uniform(0.010, 0.022); hh = rng.uniform(0.20, min(0.32, cl - 0.012))
+                rect(axE, x, z0, x + w, z0 + hh, fc=BOOK[rng.integers(8)], ec='none', z=5); x += w + 0.0005
+                if rng.random() < 0.03: x += rng.uniform(0.04, 0.11)
+    else:
+        for zb in (0.08, 0.45, 0.82):
+            rect(axE, a + 0.02, zb + 0.025, b - 0.02, zb + 0.025 + 0.33 * math.cos(math.radians(18)), fc='#E3CDA6', ec='#6b5236', lw=0.25, z=4)   # 傾いた板
+            rect(axE, a + 0.02, zb, b - 0.02, zb + 0.05, fc=C_WOOD, ec='#6b5236', lw=0.25, z=5.5)                                         # 桟と縁
+            n = int(rng.choice([2, 3, 3])); ws = rng.uniform(0.22, 0.27, n); sp = (b - a - 0.04 - ws.sum()) / (n + 1); x = a + 0.02 + sp
+            for bw in ws:
+                rect(axE, x, zb + 0.03, x + bw, zb + 0.03 + rng.uniform(0.26, 0.30) * math.cos(math.radians(18)), fc=BOOK[rng.integers(8)], ec='#555', lw=0.2, z=5); x += bw + sp
 kid_stand(axE, 49.25, 1.0)                                             # 棚の前で本を選ぶ子
 rect(axE, 49.33, 0.55, 49.48, 0.72, fc=BOOK[1], ec='none', z=13)
 # 暖簾（切り口、架構51の北、裾h0.7）と竿
@@ -303,7 +322,7 @@ kid_sit(axE, 55.6, z0=0.05, h=0.55, legs=(0.0, -0.33))
 kid_stand(axE, 50.4, 1.05)
 kid_stand(axE, 51.35, 1.58, c=C_ADULT)
 # 寸法・ラベル
-leader(axE, (50.72, 0.75), (50.72, 1.87), '絵本の棚h1.2（4段）', size=4.4, ha='right')
+leader(axE, (50.72, 0.75), (50.72, 1.87), '絵本の棚h1.2（背差し3段・面陳の斜めの台3段）', size=4.4, ha='right')
 T(axE, 48.62, 2.22, '西の壁（内側は白、越屋根の光を返す）', size=4.4, c='#555')
 leader(axE, (51.14, 1.75), (51.3, 2.25), '暖簾（竿φ30 h2.0、布4枚、裾h0.7）', size=4.4, c='#555')
 leader(axE, (53.2, 0.5), (52.25, 1.05), '地窓h−300〜600、向こうに苔・ベニシダレ・ロウバイ・ナンテン', size=4.4, c='#2E5373', bg=True)
@@ -320,17 +339,17 @@ SK = 1000 / 400
 KU0, KU1, KV0, KV1 = 31.8, 57.6, -0.45, 1.75
 axK = fig.add_axes([PX0 / W, 58.6 / H, (KU1 - KU0) * SK / W, (KV1 - KV0) * SK / H])
 axK.set_xlim(KU0, KU1); axK.set_ylim(-KV1, -KV0); axK.set_aspect('equal'); axK.axis('off')
-SHELF_RUNS = [(32.9, 35.8), (36.2, 38.8), (39.2, 41.8), (42.2, 43.9), (46.3, 47.8), (48.2, 50.8)]
+SHELF_RUNS = [(a, b) for _t, a, b in HD['bays']]
 rect(axK, 32.0, 0.20, 57.19, -1.60, fc=C_ST, ec='none', z=0)
 rect(axK, 51.0, -0.2, 57.0, -1.54, fc=C_TATAMI, ec='none', z=1)
 for a, b in [(32.0, 45.6), (47.6, 57.34)]: rect(axK, a, 0.35, b, 0.20, fc=C_CUT, ec='none', z=3)
 rect(axK, 57.19, 0.35, 57.34, -1.66, fc=C_CUT, ec='none', z=3)
 rect(axK, 32.0, -1.54, 57.19, -1.66, fc=C_CUT, ec='none', z=3)
-for a, b in SHELF_RUNS: rect(axK, a, -0.08, b, -0.38, fc=C_WOOD2, ec='none', z=4)
+for _t, a, b in HD['bays']: rect(axK, a, -HD['v_back'], b, -(HD['v_back'] + HD['depth'][_t]), fc=C_WOOD2 if _t == 'sesashi' else C_WOOD, ec='none', z=4)
 for uc in range(33, 58, 3): rect(axK, uc - 0.09, 0.2, uc + 0.09, -0.2, fc=C_CUT, ec='none', z=6)
 rect(axK, UP0, 0.42, UP1, -1.72, fc='none', ec='#C0392B', lw=0.6, z=8)
 fig.text((PX0 + (KU1 - KU0) * SK + 3) / W, 62.6 / H, '絵本の通りの全体　1/400（赤い枠が上の平面・展開の範囲）', fontsize=4.6, weight='bold', va='center')
-fig.text((PX0 + (KU1 - KU0) * SK + 3) / W, 59.9 / H, '棚6か所・計約14 m（本棚だけ）。柱と遊戯室への口で切れる', fontsize=4.4, va='center', color='#5A4A20')
+fig.text((PX0 + (KU1 - KU0) * SK + 3) / W, 59.9 / H, '棚5か所・計14 m（壁付け、柱間ごとに背差し・面陳・背差し）。柱と遊戯室への口で切れる', fontsize=4.4, va='center', color='#5A4A20')
 
 # ======================================================================
 # 断面A　1/60（u55.0で切って南を見る：x＝−v（西が右）、y＝z）
@@ -444,7 +463,7 @@ T(axS, X(VS0) + 0.05, ZS1 - 0.06, '断面A　1/60（南を見る）', size=5.4, 
 # ======================================================================
 nx0 = SX0 / W; y = (H - 1.5 - SH - 3.5)
 notes = [
-    ('絵本の通り', ['西吹き抜け（スパン11〜17）の壁に沿って棚h1.2、', '6か所で計約14 m（柱と遊戯室への口で切れる）。', '棚は本を選ぶ所。読むのは本の奥・遊戯室・', '保育室へ持って行って。']),
+    ('絵本の通り', ['西吹き抜け（スパン11〜17）の壁に沿って棚h1.2、', '5か所で計14 m（背差しと面陳の区画の繰り返し）。', '棚は本を選ぶ所。読むのは本の奥・遊戯室・', '保育室へ持って行って。']),
     ('本の奥', ['北の行き止まりの窓際に掘りごたつの溝、部屋の側に', '畳の座と背のクッション。縁に腰掛けて足を下ろすと、', '目の前の地窓の向こうに読書の庭。入口は暖簾。']),
     ('上から光', ['越屋根のガラスの蓋と木のルーバーから、朝は直射、', '昼は拡散光が落ちる。天井扇が空気をまわす。']),
 ]
