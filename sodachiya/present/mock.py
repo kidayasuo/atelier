@@ -2947,6 +2947,14 @@ _CONT = [g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith("91_")) if 
 _zname = lambda ln_: re.split(r"[（(]", ln_.split("_")[-1])[0]
 # 建物の足もと（部屋・壁・外縁側。穴を埋める）
 _BLD = _fill(unary_union([g_.buffer(0.05) for ln_, k_, g_ in plan_items if g_ is not None and ln_[:1] in "12345" and g_.geom_type.endswith("Polygon")]).buffer(0.1).buffer(-0.1))
+# 外皮の線（屋内と屋外の境、11-01 15:37）：外縁側（2歳から北は14の土足、0・1歳は12・13の押し出しのはだし）は線の外。
+# 線はガラス・外壁の線（内縁側の東の端）に沿う。外縁側の上の高欄・戸・妻壁の出も外。_BLD（色の塗り）はそのまま
+_ENG_OUT = unary_union([g_.buffer(0.05) for ln_, k_, g_ in plan_items if g_ is not None and g_.geom_type.endswith("Polygon")
+                        and (ln_.startswith("14_") or (ln_[:3] in ("12_", "13_") and k_ == "solid"))]).buffer(0.5).buffer(-0.5)
+_SKIN = _fill(unary_union([g_.buffer(0.05) for ln_, k_, g_ in plan_items if g_ is not None and ln_[:1] in "12345" and g_.geom_type.endswith("Polygon")
+                           and not (ln_.startswith("14_") or (ln_[:3] in ("12_", "13_") and k_ == "solid"))]).buffer(0.1).buffer(-0.1))
+_SKIN = _fill(_SKIN.difference(_ENG_OUT.buffer(-0.03)).buffer(-0.08).buffer(0.08))
+_SKIN = unary_union([p_ for p_ in getattr(_SKIN, "geoms", [_SKIN]) if p_.geom_type == "Polygon" and p_.area > 3.0])   # 外縁側のすき間に残る沓脱ぎ石・家具の小さな島は外
 # セキュリティの線：塀・生垣・格子（70）・柵（60）・扉（66）と、南の生垣の線（siteplan_approach.json の security_line）。
 # 3dm の塀は板一枚ずつの箱なので、太らせて縮め、途切れない一続きの帯に（10-30 23:07：セキュリティを切る線ははっきり）
 _SECL = _G3R(LineString(_SAJ["security_line"]["pts"]))
@@ -3302,9 +3310,9 @@ for nm_, g_, cc_, n_ in _ZP:
 _zpart("zc.net", _NET["name"], _netd, "説明", G_ZB, fill_=_NET["hex"], stroke_=None, lw_=0, swatch_=_NET["name"])
 print("土足の網：%d か所、点 %d" % (len(_netd), sum(len(d_["rings"]) for d_ in _netd)))
 _FENW = _SECB.intersection(_WIN)
-# 建物の外壁（屋内と屋外の境、外縁側・あまのがわも屋内の土足として内）：セキュリティの線に倣ってはっきり、少し細く（10-31 22:43）
+# 建物の外壁（屋内と屋外の境、あまのがわ・受け取り土間は内、外縁側は外（11-01）：セキュリティの線に倣ってはっきり、少し細く（10-31 22:43）
 _WALLJ = ZCJ["wall"]
-_zpart("zc.外壁", _WALLJ["name"], [dict(pts=[list(map(float, q_)) for q_ in zxf(np.array(p_.exterior.coords))], closed=True) for p_ in getattr(_BLD.intersection(_WIN), "geoms", [_BLD.intersection(_WIN)]) if p_.geom_type == "Polygon" and p_.area > 1.0],
+_zpart("zc.外壁", _WALLJ["name"], [dict(pts=[list(map(float, q_)) for q_ in zxf(np.array(p_.exterior.coords))], closed=True) for p_ in getattr(_SKIN.intersection(_WIN), "geoms", [_SKIN.intersection(_WIN)]) if p_.geom_type == "Polygon" and p_.area > 1.0],
        "説明", G_ZB, fill_=None, stroke_=_WALLJ["hex"], lw_=_WALLJ["lw"])
 _zpart("zc.セキュリティの線", "セキュリティの線（一周）", _rings(_FENW, zxf), "説明", G_ZB, fill_=ZCJ["secline"]["hex"], stroke_=None, lw_=0, swatch_=ZCJ["secline"]["name"])
 # 2階（西館）の差し込み：枠と部屋（同じ縮尺）
