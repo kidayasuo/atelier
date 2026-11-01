@@ -8,6 +8,8 @@ materials.py が呼ぶ。絵は決まった種（seed）から作るので、作
   小さな節をまれに。継ぎ目は細い線（1 px＝2 mm を少し暗く）。無塗装・オイル仕上げの杉で、木目調の印刷のような強い模様にはしない
   （ユーザー：木目調は嫌い、素材に正直に）。
 - 洗い出し（arai）：灰色のセメントの中に 3〜9 mm の玉砂利（灰・白・茶）、600 mm 角。
+- 玉石（tamaishi、11-02 園庭係、ユーザー：雨庭の白い玉石は絵で）：白〜淡い灰の玉石φ30〜80が詰まった浜、1,000 mm 角（1 px＝1 mm）。
+  石のすき間は陰で暗く、石の頭は左上から光。tamaishi_g は同じ並びで灰色寄り（雨落ちの溝の玉石）。向きは要らない。
 """
 import numpy as np
 from PIL import Image
@@ -135,6 +137,56 @@ def arai(path, seed=1032):
     return ARAI_T, ARAI_T
 
 
+TAMA_T = 1000.0
+TAMA_MMPX = 1.0
+
+
+def _tamaishi(path, pal, gap, seed):
+    """玉石φ30〜80を重ねずに詰める（継ぎ目なし）。pal は石の色の並び、gap はすき間の色"""
+    from scipy import ndimage
+    rng = np.random.default_rng(seed)
+    N = int(round(TAMA_T / TAMA_MMPX))
+    lab = np.zeros((N, N), np.int32); hgt = np.zeros((N, N))
+    cols = [np.array(gap, float)]; k = 0
+    for i in range(20000):                                       # 大きい石から置き、すき間に小さい石（φ30〜80）
+        r = (40.0 - 25.0 * min(1.0, i / 12000)) * rng.uniform(0.8, 1.0) / TAMA_MMPX
+        e = rng.uniform(0.7, 1.0); a = rng.uniform(0, np.pi)
+        cx, cy = rng.uniform(0, N), rng.uniform(0, N)
+        R = int(r) + 2; x0, y0 = int(cx) - R, int(cy) - R
+        px = np.arange(x0, x0 + 2 * R + 1); py = np.arange(y0, y0 + 2 * R + 1)
+        dx = px[None, :] + 0.5 - cx; dy = py[:, None] + 0.5 - cy
+        u = (dx * np.cos(a) + dy * np.sin(a)) / r; v = (-dx * np.sin(a) + dy * np.cos(a)) / (r * e)
+        q = u * u + v * v; msk = q <= 1
+        iy = np.broadcast_to(py[:, None] % N, msk.shape)[msk]; ix = np.broadcast_to(px[None, :] % N, msk.shape)[msk]
+        free = lab[iy, ix] == 0
+        if free.sum() < (1.0 if i < 2500 else 0.55) * msk.sum(): continue   # 初めは重ねず、あとはすき間に下から覗く石（詰まった浜）
+        k += 1; lab[iy[free], ix[free]] = k
+        hgt[iy[free], ix[free]] = np.sqrt(np.clip(1 - q[msk][free], 0, 1)) * r * e * 0.7
+        cols.append(np.asarray(pal[rng.integers(len(pal))], float) * rng.normal(1, 0.03))
+    cols = np.array(cols); img = cols[lab]
+    stone = (lab > 0).astype(float)
+    hy, hx = np.gradient(ndimage.gaussian_filter(hgt, 1.0, mode='wrap'))
+    nz = 1 / np.sqrt(hx ** 2 + hy ** 2 + 1)
+    lam = (-hx * -0.35 - hy * -0.35 + 0.87) * nz
+    shade = np.where(stone > 0, 0.70 + 0.36 * lam, 1.0)
+    ao = 1 - 0.35 * (1 - stone) * ndimage.gaussian_filter(stone, 3.0, mode='wrap')   # すき間の奥の陰
+    img = img * (shade * ao)[..., None] + rng.normal(0, 2.5, img.shape)
+    Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), 'RGB').save(path, quality=88, optimize=True)
+    return TAMA_T, TAMA_T
+
+
+def tamaishi(path, seed=1102):
+    """白い玉石（洲浜）：白〜淡い灰（白川砂利・那智白のような）"""
+    pal = [[236, 234, 228], [226, 224, 218], [214, 212, 206], [200, 198, 192], [228, 222, 210], [190, 188, 184]]
+    return _tamaishi(path, pal, (112, 108, 100), seed)
+
+
+def tamaishi_g(path, seed=1102):
+    """玉石（雨落ちの溝）：同じ並びで灰色寄り"""
+    pal = [[170, 166, 158], [150, 146, 138], [132, 128, 120], [186, 182, 172], [120, 116, 110], [160, 150, 138]]
+    return _tamaishi(path, pal, (70, 68, 64), seed)
+
+
 DATA_DIR = None          # data/ の場所（materials.py が素材の表の場所から入れる。作り直しはスクリプトを /tmp に写して走らせるので __file__ からは引けない）
 
 
@@ -149,8 +201,8 @@ def sugi_a(path):
     return 2400.0, 2400.0
 
 
-MAKERS = {'sugi': sugi_a, 'sugi_gen': sugi, 'arai': arai}
-FILES = {'sugi': 'sugi_floor.jpg', 'arai': 'araidashi.jpg'}
+MAKERS = {'sugi': sugi_a, 'sugi_gen': sugi, 'arai': arai, 'tamaishi': tamaishi, 'tamaishi_g': tamaishi_g}
+FILES = {'sugi': 'sugi_floor.jpg', 'arai': 'araidashi.jpg', 'tamaishi': 'tamaishi.jpg', 'tamaishi_g': 'tamaishi_hai.jpg'}
 
 
 if __name__ == '__main__':

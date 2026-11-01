@@ -22,7 +22,7 @@
     （model/build/south/uv.py の弧の中心から）。板の長さの向き＝dir（v＝放射、架構と平行／u＝弧に沿う）。
     dir はレイヤーごとに data/materials.json の texture_dir、無ければ素材の dir（materials.py と同じ）。
   - 絵の大きさ（1 枚の絵の本当の寸法、mm）は model/build/south/textures.py と同じ：杉 2400×2400（本館係の絵 data/tex/sugi_floor.png、10-31 ユーザー：A）、
-    洗い出し 600×600。
+    洗い出し 600×600、玉石（tamaishi・tamaishi_g、11-02 園庭係：雨庭の白い玉石の板 92s）1000×1000（向きは要らないので放射の向きのまま）。
   - 物にユーザー文字列 tex_angle（度、ワールドの X から反時計回り＝板の長さの向き、本館係）があれば、それを優先する。
   - 床の絵の板のレイヤーは隠す（消さない。元に戻すときはレイヤーを表示にする）。
 """
@@ -34,12 +34,13 @@ import rhinoscriptsyntax as rs
 CX, CY = 194662.93237, -41348.26335                       # 本館の背骨の弧の中心（uv.py）
 PLAIN = '（絵なし）'
 SKIN_LAYER = '床の絵（テクスチャを貼った板、materials.py が作り直しのたびに）'
-TILE = {'sugi': (2400.0, 2400.0), 'arai': (600.0, 600.0)}  # 種類 → (絵の横＝板の幅の向き, 縦＝板の長さの向き) mm
+TILE = {'sugi': (2400.0, 2400.0), 'arai': (600.0, 600.0), 'tamaishi': (1000.0, 1000.0), 'tamaishi_g': (1000.0, 1000.0)}  # 種類 → (絵の横＝板の幅の向き, 縦＝板の長さの向き) mm
 
 
 # data/materials.json が見つからないとき（3dm をリポジトリの外で開いたときなど）の既定（materials.json と同じ値）
 DEFAULT_SPEC = {'materials': {'杉の床板 t30': {'texture': 'sugi', 'dir': 'v'},
-                              '洗い出し（土足の床・ポーチ）': {'texture': 'arai'}},
+                              '洗い出し（土足の床・ポーチ）': {'texture': 'arai'},
+                              '白い玉石（洲浜）': {'texture': 'tamaishi'}, '玉石（雨落ちの溝）': {'texture': 'tamaishi_g'}},
                 'texture_dir': [['13_', 'u'], ['81_', 'u'], ['56_', 'u'], ['59_', 'u']]}
 
 

@@ -237,8 +237,7 @@ _fl = G["STREAM"].get("fall")
 if _fl:
     _pc = _fl["pool"]
     _holes.append(Polygon([(_pc["c"][0] + _pc["r"] * math.cos(q), _pc["c"][1] + _pc["r"] * math.sin(q)) for q in np.linspace(0, 2 * math.pi, 33)[:-1]]))
-if G.get("AMANIWA"):
-    _holes.append(Polygon(_aw_ring()).buffer(0))
+# 11-02（ユーザー）：雨庭は見える面がGL±0、地形に穴をあけず 92s の薄い板をのせる
 _holes.append(Polygon(G["SAND"]["poly"]).buffer(0.15, join_style=1))      # 10-31：掘り込んだ砂場（砂・縁・土留めの外まで）
 HOLES = _uu0(_holes)
 gpoly = Polygon([gc.AD(*p) for p in gc.garden_poly().exterior.coords])
@@ -428,18 +427,8 @@ for u in np.linspace(am["u"][1], am["u"][0], 140):        # 北の端から南�
 for (a0_, d0_), (a1_, d1_) in zip(am["outlet"][:-1], am["outlet"][1:]):
     for t in np.linspace(0, 1, 8)[1:]:
         a, d = a0_ + (a1_ - a0_) * t, d0_ + (d1_ - d0_) * t; cl.append((a, d, H(a, d) - am["depth"]))
-trough(cl, am["w"] / 2, 99, "雨の川（雨落ちの溝、玉石、幅 0.5・深さ 0.2）")
-# 玉石の面（溝の底から 0.12 上まで玉石を敷く）
-pebble = r.Mesh()
-for i, (a, d, zb) in enumerate(cl):
-    j = min(i + 1, len(cl) - 1); h = max(i - 1, 0)
-    ta, td = cl[j][0] - cl[h][0], cl[j][1] - cl[h][1]; ln = math.hypot(ta, td) or 1
-    na, nd = -td / ln, ta / ln
-    for sa in (-am["w"] / 2, am["w"] / 2):
-        q = P3(a + na * sa, d + nd * sa, zb + 0.12); pebble.Vertices.Add(q.X, q.Y, q.Z)
-for i in range(len(cl) - 1):
-    pebble.Faces.AddFace(2 * i, 2 * i + 1, 2 * (i + 1) + 1, 2 * (i + 1))
-pebble.Normals.ComputeNormals(); m.Objects.AddMesh(pebble, at(99, "雨の川の玉石（φ50〜100）"))
+trough(cl, am["w"] / 2, 99, "雨の川（雨落ちの溝、玉石の絵、幅 0.5・深さ 0.2）")
+# 11-02（ユーザー）：中の玉石の粒の面はやめ、溝の面に玉石の絵（素材「玉石（雨落ちの溝）」、texture tamaishi_g、materials.py が本当の寸法で貼る）
 # 床の噴水の石張り（10-30：閉じた板、上面は中心の地面 +0.01、厚さ 0.1。3〜5歳はφ4.6の円＝乳児と同じまん丸）
 F = G["FOUNTAIN"]; _fz = H(*F["c"]) + 0.01
 vcyl(F["c"], F["r"][0], _fz - 0.1, _fz, 96, f"床の噴水の石張り（御影石のバーナー仕上げ、φ{2 * F['r'][0]:.1f}、噴き口 0.8 m ごと）")
@@ -502,48 +491,18 @@ for i in range(CP["n"]):
 # ---- 雨庭（洲浜）（92・96） ----
 AW = G.get("AMANIWA")
 if AW:
-    curve_ad(AW["poly"], "90l", "雨庭（洲浜、玉石の浜の浅いくぼみ−0.25、溢れたら護岸の溝へ）", close=True)
+    curve_ad(AW["poly"], "90l", "雨庭（洲浜、見える面はGL±0の白い玉石の浜、下に砕石の貯留層、溢れたら護岸の溝へ）", close=True)
     for sa_, sd_, sr_ in AW["stones"]:
         c0 = P3(sa_, sd_); sph = r.Sphere(r.Point3d(c0.X, c0.Y, c0.Z + sr_ * 300), sr_ * 1000)
         m.Objects.AddBrep(sph.ToBrep(), at(96, "雨庭の景石"))
-    # 10-30（ユーザー）：洲浜の白い玉石の層。地形（くぼみを含む H）に沿って厚さ 0.05 の閉じた立体（メッシュ）
-    from shapely import constrained_delaunay_triangles as _cdt
-    _pg = Polygon(AW["poly"]).buffer(0)
-    _bd = list(_pg.exterior.coords)[:-1]; _dn = []
-    for (a0_, d0_), (a1_, d1_) in zip(_bd, _bd[1:] + _bd[:1]):
-        n_ = max(1, int(math.ceil(math.hypot(a1_ - a0_, d1_ - d0_) / 0.3)))
-        _dn += [(a0_ + (a1_ - a0_) * t / n_, d0_ + (d1_ - d0_) * t / n_) for t in range(n_)]
-    _tris = [list(t.exterior.coords)[:3] for t in _cdt(Polygon(_dn)).geoms]
-
-    def _split(t, lv):                                  # 中点で4つに（隣どうし同じ点で割れるので継ぎ目なし）
-        if lv == 0:
-            return [t]
-        p, q, s = t; mid = lambda u, v: ((u[0] + v[0]) / 2, (u[1] + v[1]) / 2)
-        pq, qs, sp = mid(p, q), mid(q, s), mid(s, p)
-        return sum((_split(x, lv - 1) for x in ((p, pq, sp), (pq, q, qs), (sp, qs, s), (pq, qs, sp))), [])
-    _tris = sum((_split(t, 3) for t in _tris), [])
-    WM = r.Mesh(); _vi = {}; TH = 0.05
-
-    def _v(p, top):
-        k_ = (round(p[0], 6), round(p[1], 6), top)
-        if k_ not in _vi:
-            q_ = P3(p[0], p[1], H(*p) + (TH if top else 0.0)); _vi[k_] = WM.Vertices.Add(q_.X, q_.Y, q_.Z)
-        return _vi[k_]
-    _edges = {}
-    for t in _tris:
-        xy = [gc.X(*p) for p in t]
-        if (xy[1][0] - xy[0][0]) * (xy[2][1] - xy[0][1]) - (xy[1][1] - xy[0][1]) * (xy[2][0] - xy[0][0]) < 0:
-            t = (t[0], t[2], t[1])                       # xy で左回りに（上面が上向き）
-        WM.Faces.AddFace(_v(t[0], 1), _v(t[1], 1), _v(t[2], 1))
-        WM.Faces.AddFace(_v(t[0], 0), _v(t[2], 0), _v(t[1], 0))
-        for u_, w_ in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
-            ku, kw = (round(u_[0], 6), round(u_[1], 6)), (round(w_[0], 6), round(w_[1], 6))
-            _edges[(ku, kw)] = (u_, w_)
-    for (ku, kw), (u_, w_) in _edges.items():         # 外周（逆向きの辺が無い辺）に側面
-        if (kw, ku) not in _edges:
-            WM.Faces.AddFace(_v(u_, 0), _v(w_, 0), _v(w_, 1), _v(u_, 1))
-    WM.Normals.ComputeNormals(); WM.Compact()
-    m.Objects.AddMesh(WM, at("92s", f"雨庭の白い玉石の層（洲浜、t{TH:.2f}、地形のくぼみに沿う）"))
+    # 11-02（ユーザー）：洲浜の白い玉石の層は、雨庭の輪郭の平らな薄い板（GL±0の上t0.02、katachi の押し出し）。玉石は絵（素材「白い玉石（洲浜）」の texture tamaishi）。
+    # 下の砕石の貯留層（約4〜5 m³）はモデル化しない
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(gc.ROOT, "model", "build", "south"))
+    import katachi as KT
+    _pg = Polygon(AW["poly"]).buffer(0); _z0 = max(H(a_, d_) for a_, d_ in _pg.exterior.coords)
+    _pw = Polygon([(q_.X, q_.Y) for q_ in (P3(a_, d_, 0.0) for a_, d_ in _pg.exterior.coords)])
+    KT.add(m, KT.ita(_pw, _z0 * 1000 + GL, (_z0 + 0.02) * 1000 + GL, simplify=0), LAY["92s"], name="雨庭の白い玉石の層（洲浜、GL±0の上t0.02の平らな板、玉石は絵）")
 
 # ---- シャワーの柱と輪のシャワー「あめのわ」（95） ----
 SH = G["SHOWER"]; _rg = SH.get("ring")

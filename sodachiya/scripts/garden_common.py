@@ -146,7 +146,7 @@ def bank_h(A, D):
 
 
 def amaniwa_h(A, D):
-    """雨庭（洲浜）の浅いくぼみ：縁から ramp でなだらかに −depth へ"""
+    """雨庭（洲浜）の浅いくぼみ：縁から ramp でなだらかに −depth へ（11-02 から地形には足さない。見える面はGL±0）"""
     w = G.get("AMANIWA")
     if not w:
         return np.zeros_like(np.asarray(A, float))
@@ -160,10 +160,10 @@ def amaniwa_h(A, D):
 
 
 def bowl_h(A, D):
-    """くぼみ：ひみつのたに＋雨庭"""
+    """くぼみ：ひみつのたに（11-02 ユーザー：雨庭は見える面がGL±0、くぼみは白い玉石の層と砕石の貯留層のためでモデル化しない→ amaniwa_h は足さない）"""
     b = G["BOWL"]; rf = b.get("flat_r", 0.0)   # 底の平らな所の半径（11-01 ユーザー：お話の輪で座る）
     q = (np.hypot(A - b["c"][0], D - b["c"][1]) - rf) / (b["r"] - rf)
-    return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1))) + amaniwa_h(A, D)
+    return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1)))
 
 
 def bowl_rim_h(A, D):
