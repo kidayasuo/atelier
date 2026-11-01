@@ -147,6 +147,18 @@ def bowl_h(A, D):
     return b["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(q, 0, 1))) + amaniwa_h(A, D)
 
 
+def bowl_rim_h(A, D):
+    """すりばちの縁取り（11-01 ユーザー：すりばちには大雨でも水が来ない）：縁（半径 r）を頂に +rim["h"] の低い輪の盛り。
+    内へは rim["w_in"]、外へは rim["w_out"] で cos になだらかに 0 へ。周りの雨は縁で外へ向き、すりばちへは入らない"""
+    b = G["BOWL"]; rm = b.get("rim")
+    A = np.asarray(A, float); D = np.asarray(D, float)
+    if not rm:
+        return np.zeros_like(A)
+    e = np.hypot(A - b["c"][0], D - b["c"][1]) - b["r"]
+    t = np.where(e < 0, -e / rm["w_in"], e / rm["w_out"])
+    return rm["h"] * (0.5 + 0.5 * np.cos(np.pi * np.clip(t, 0, 1)))
+
+
 def _ss(x):
     x = np.clip(x, 0, 1); return x * x * (3 - 2 * x)
 
@@ -210,8 +222,12 @@ def height(A, D):
         else:
             h = np.maximum(h, bump_h(A, D, b))
     h = np.maximum(h, bank_h(A, D))
-    h = h + add + bowl_h(A, D) + tilt_h(A, D)
-    return np.maximum(np.maximum(h, daichi_h(A, D)), pass_h(A, D))   # 10-31：今の地形と大地の高い方、11-01：てんぐのたにの峠
+    h = h + add + bowl_h(A, D) + bowl_rim_h(A, D) + tilt_h(A, D)
+    # 10-31：今の地形と大地の高い方、11-01：てんぐのたにの峠。大地・峠の無い所（0）は今の地形のまま
+    # （11-01：np.maximum(h, 0) ですりばち・雨庭のくぼみが GL±0 に埋まっていた）
+    for f in (daichi_h, pass_h):
+        e = f(A, D); h = np.where(e > 0, np.maximum(h, e), h)
+    return h
 
 
 # ---------------- 3dm から ----------------
