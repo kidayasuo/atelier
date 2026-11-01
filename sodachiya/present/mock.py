@@ -588,6 +588,11 @@ def sozai(key, name, sheet, x, y, w, h, note=""):
     SOZAI.append((key, name, sheet, (x, y, w, h), note))
 
 
+SOZAI_WORLD = {}     # 素材の映す範囲（回した座標の m）。layout.json のリンクの world・world_prev に（11-01、園庭説明図の背景）
+_G_BARE = {}         # 枚 → 素材を切り抜くときに隠す絵（見本の紙には描く。11-01：園庭説明図の背景に木の記号を入れない）
+_OWNER_RULES = [(2, r"gx\.", "user")]   # 木田さんが持つ部品（ユーザー 11-01 13:05：園庭説明図の木と説明は .ai で直す。スクリプトは消さない・直さない・足さない）。（枚、pN. の後の id の正規表現、持ち主）
+
+
 # 木田さんが足した物（present/ai/layout_user.json の user_items、アートボードの左上からmm）
 USER_ITEMS = {}
 try:
@@ -3013,7 +3018,8 @@ _STRIP02 = rot(Polygon([(_ub[0] - 0.3, -200), (_ub[2], -200), (_ub[2], 200), (_u
 _u0_south = _ub[0] + 1.0
 # 2枚目の左の列（10-31 22:54、ユーザー）：上に園庭説明図 1/250（主役）、その下にゾーニング 1/400
 GSC = 250
-GWX0 = WX0 + 0.2 * (WX1 - WX0)                     # 園庭説明図は西の道・駐車場を外す（建物と園庭）
+GWX0_PREV = WX0 + 0.2 * (WX1 - WX0)                # 11-01 までの園庭説明図の範囲（西の道・駐車場を外していた）。.ai の背景を付け替えるときの前の範囲
+GWX0 = WX0                                         # 背景（素材22）の範囲はゾーニングと同じ（ユーザー 11-01 13:05：西の道・駐車場の側も）。縮尺は 1/250 のまま
 gw_, gh_ = (WX1 - GWX0) * 1000 / GSC, (WY1 - WY0) * 1000 / GSC
 gox, goy = M + 6, Y(55) - gh_
 ZSC = 400
@@ -3593,10 +3599,17 @@ def _gpp(g_, fill=None, stroke=None, lw=0.0, op=None, name=None, paper=False):
     return out_
 
 
+# 背景（素材22）に入れない記号（ユーザー 11-01 13:05：背景は地面・等高線・水・建物・設備の線と色だけ。木の記号と印は .ai の木田さんの物）。
+# 見本の紙には描くが、素材22を切り抜く紙（_G_BARE）では隠す
+_GSYM = ("gx.halo", "gx.deci", "gx.ever", "gx.color", "gx.thorn", "gx.climb", "gx.fruit", "gx.grass", "gx.niche", "gx.teacher")
+_GSYM_ART = []
+
+
 def _gpart(id_, name_, paths_):
     """園庭説明図の部品（.ai のサブグループ）。見本にも同じ物を描く（gid=aipart、透明度・線の太さ pt も同じ）"""
     if not paths_:
         return
+    _a0 = set(map(id, list(ax.patches) + list(ax.lines)))
     from matplotlib.patches import PathPatch
     from matplotlib.path import Path as MPath
     _gz[0] += 0.01
@@ -3613,6 +3626,8 @@ def _gpart(id_, name_, paths_):
         else:
             P_ = np.array(q_["pts"])
             ax.plot(P_[:, 0], P_[:, 1], color=ec_, lw=lw_, alpha=al_, zorder=_gz[0], gid="aipart", solid_capstyle="round")
+    if id_ in _GSYM:
+        _GSYM_ART.extend(a_ for a_ in list(ax.patches) + list(ax.lines) if id(a_) not in _a0)
     _airec(fig, kind="lines", id=id_, name=name_, paths=paths_, layer="説明", group=G_GF[0], group_name=G_GF[1])
 
 
@@ -4117,7 +4132,12 @@ if G01["keep"]:
     for t_ in G01["keep"]:
         _para(t_, x_=_lx + 2, wc=(_RX - 7 - _lx - 2) / (_LSZ / 0.72))
         _yy -= 0.6
-sozai("22", f"園庭説明図（1/{GSC}、木と遊び場・建物の案内）", 2, gox, goy, gw_, gh_, note=".ai は部品（グループ「園庭説明図」、記号の種類ごとのサブグループ）。色の表は present/garden_fig.json")
+sozai("22", f"園庭説明図（1/{GSC}、木と遊び場・建物の案内）", 2, gox, goy, gw_, gh_, note="背景だけ（地面・等高線・水・建物・設備。木の記号・印・文字は入れない）。上の木と説明は .ai の木田さんの物（owner user）。色の表は present/garden_fig.json")
+# 背景のリンクが映す範囲（回した座標の m：西の端・北の端・幅・高さ）。.ai で範囲が変わっても、木田さんの木と説明に合うように付け替える（sdy_lib の relinkWorld）
+SOZAI_WORLD["22"] = dict(world=[round(GWX0, 3), round(WY1, 3), round(WX1 - GWX0, 3), round(WY1 - WY0, 3)],
+                         world_prev=[round(GWX0_PREV, 3), round(WY1, 3), round(WX1 - GWX0_PREV, 3), round(WY1 - WY0, 3)])
+_G_BARE[2] = list(_GSYM_ART)
+print("園庭説明図の背景（素材22）から外す記号：%d" % len(_GSYM_ART))
 print("園庭説明図：1/%d、木 %d（名前 %d）、香り %d・実 %d・トゲ %d・草の点 %d、凡例の下 %.0f mm" % (GSC, len(_tl), len(_named), len(_ha) // len(_HOP["steps"]), len(_fr) // 3, len(_th), len(_gr), _yy))
 _live(None, 2, None, None)
 plan_items[:] = _SAVE[0]
@@ -4283,6 +4303,18 @@ for si in range(1, 7):
         pg.insert_text(fitz.Point((M + 4) * MM, (M + HDR_BL) * MM), SCHOOL, fontsize=NAME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
         pg.insert_text(fitz.Point((M + THEME_X) * MM, (M + HDR_BL) * MM), PAGE_TITLES.get(si, ""), fontsize=THEME_SZ / 0.72 * MM, fontname="F_B", fontfile=FONTB, color=(0.133, 0.133, 0.133))
 doc_clean = fitz.open("pdf", doc.tobytes())          # 素材は引き出し線・重ねた文字を入れる前から切り抜く（ユーザー、10-25）
+# 素材だけから外す絵（_G_BARE、11-01）：その枚を隠して描き直した紙。素材を切り抜くときはこの紙から（貼った図が重なる範囲の素材には使わない）
+DOC_BARE = {}
+for si_, arts_ in _G_BARE.items():
+    _vis = [(a_, a_.get_visible()) for a_ in arts_]
+    for a_ in arts_:
+        a_.set_visible(False)
+    _bp = os.path.join(OUT, f"_bare{si_}.pdf")
+    figs[si_ - 1].savefig(_bp)
+    for a_, v_ in _vis:
+        a_.set_visible(v_)
+    DOC_BARE[si_] = fitz.open("pdf", open(_bp, "rb").read())
+    os.remove(_bp)                                 # 作業用（リポジトリに残さない）
 
 
 def _own_resources(d):
@@ -4491,7 +4523,7 @@ for key, name, sh_, (x, y, w, h), note in SOZAI:
     nd = fitz.open()
     pg_ = nd.new_page(width=w * MM, height=h * MM)
     _clip = fitz.Rect(x * MM, (H - y - h) * MM, (x + w) * MM, (H - y) * MM)
-    pg_.show_pdf_page(pg_.rect, _sheet_for_clip(sh_, _clip), 0, clip=_clip)
+    pg_.show_pdf_page(pg_.rect, DOC_BARE[sh_] if (sh_ in DOC_BARE and key in SOZAI_WORLD) else _sheet_for_clip(sh_, _clip), 0, clip=_clip)
     hs = hashlib.md5(pg_.get_pixmap(dpi=40).samples).hexdigest()
     nd.save(os.path.join(SZ, fn), garbage=3, deflate=True)
     nd.close()
@@ -4607,7 +4639,7 @@ _FIG_RULES = [
     (6, "id", r"t\.(断面図D|1100北を見る光の環境)", "断面図D"),
     (6, "id", r"(link\.18_|t\.構造$|t\.架構と耐力壁の分布$)", "構造"),
 ]
-ai_layout.write(dict(order=[dict(layer="説明", name="地域のなかの敷地", above="用水のネットワーク")], groups=_GROUPS, fig_rules=_FIG_RULES, frame_hdr=(HDR, HDR_BL, NAME_SZ, SCHOOL), mark_num_box=MARK_NUM_BOX, emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
+ai_layout.write(dict(order=[dict(layer="説明", name="地域のなかの敷地", above="用水のネットワーク")], groups=_GROUPS, fig_rules=_FIG_RULES, owner_rules=_OWNER_RULES, sozai_world=SOZAI_WORLD, frame_hdr=(HDR, HDR_BL, NAME_SZ, SCHOOL), mark_num_box=MARK_NUM_BOX, emb_dwg=EMB_DWG, siteparts=SITEPARTS, figs=figs, rec=AIREC, sozai=SOZAI, sozfn=SOZFN, sitemap=SITEMAP, sitebig=[bsx, H - bsy - bsh, bsw, bsh], site_shift=SITE_SHIFT, rhino_txt=RHINO_TXT, dwg=DWG, siteclip_full=[M, H - 2 * M], plan_links=[_SUNF], anchors={"p1.siteplan": PLAN_ANCHOR_AI}, anchors_prev={"p1.siteplan": PLAN_ANCHOR_PREV}, embeds=embeds, topl=TOPL, topt=TOPT, marks=MARKS, ai_shift=AI_SHIFT, mark_num=MARK_NUM, cnat=C_NAT, ccom=C_COM,
                      renumber=RENUMBER,
                      W=W, H=H, MM=MM, NOTE=NOTE, INK=INK, ROOT=ROOT, HERE=HERE))
 

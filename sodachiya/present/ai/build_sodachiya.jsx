@@ -4,6 +4,8 @@
 // 組み替え（既定）：前の .ai から、各レイヤーのすぐ下の物をグループごと複製して持ってきて、新しい割付の位置へ平行に動かすだけ（SDY.carry）。
 //   前の .ai に無い部品だけ新しく描き、要らなくなった物は「外した物」のレイヤーに隠して残す。
 // 予備：layout.json と記録（layout_user.json）から描き直す（前の .ai が無いとき、壊れたとき）
+// 木田さんが持つ部品（owner user、11-01：園庭説明図の木と説明）：組み替えでは前の .ai の物を紙の中の位置のまま持ってきて、直さない・足さない。
+//   予備では layout_user.json の owned（export_layout.jsx が書き出した形のすべて）から描く
 #target illustrator
 #include "sdy_lib.jsxinc"
 (function () {
@@ -71,13 +73,33 @@
     } else {
     // ── 予備：記録から当て直す（前の作り方）──
     var first = doc.layers[0];
-    var names = std, j, p, nmade = 0, skipped = 0;
+    var names = std, j, p, nmade = 0, skipped = 0, nown = 0, OWNED = [], OWNFIG = {}, inL = {}, oid, od, ow;
     for (i = 0; i < names.length; i++) { SDY.layer(doc, names[i]); }        // 下から 枠・図・ゾーニング・線・説明・注記
     try { SDY.makeFrame(doc, L); } catch (e) { SDY.missing.push("枠（" + e.message + "）"); }
+    // 木田さんが持つ部品（owner user、11-01）：書き出した記録（layout_user.json の owned）があれば、その形のまま描く（木田さんの直しが消えない）。
+    // 記録のある図では、記録に無い部品は足さない（新しく足さない）。記録に無い図は layout.json から（はじめて組むとき）
+    if (U && U.owned) {
+        for (oid in U.owned) { if (U.owned.hasOwnProperty(oid) && U.owned[oid] && U.owned[oid].fig) { OWNFIG[U.owned[oid].artboard + ":" + U.owned[oid].fig] = true; } }
+        for (i = 0; i < n; i++) { for (j = 0; j < L.pages[i].parts.length; j++) { inL[L.pages[i].parts[j].id] = true; } }
+        for (oid in U.owned) {                         // layout.json に無くなった部品（mock の id が変わった物）も、記録があれば描く。図のグループに入るように部品の表に足す
+            if (!U.owned.hasOwnProperty(oid) || inL[oid] || !U.owned[oid]) { continue; }
+            od = U.owned[oid];
+            for (i = 0; i < n; i++) {
+                if (L.pages[i].no !== od.artboard) { continue; }
+                var ofg = od.fig || null;                  // 図の名前が無ければ、同じ枚の木田さんが持つ部品の図
+                for (j = 0; j < L.pages[i].parts.length && !ofg; j++) { if (L.pages[i].parts[j].fig && SDY.isUserOwned(L, L.pages[i].parts[j].id)) { ofg = L.pages[i].parts[j].fig; } }
+                L.pages[i].parts.push({ id: oid, kind: od.kind || "lines", name: od.name || oid, layer: od.layer, fig: ofg, owner: "user", owned_only: true });
+            }
+        }
+    }
     for (i = 0; i < n; i++) {
         for (j = 0; j < L.pages[i].parts.length; j++) {
             p = L.pages[i].parts[j];
             if (p.hidden) { skipped++; continue; }
+            if (SDY.isUserOwned(L, p.id) && (SDY.ownedOf(U, p.id) || OWNFIG[L.pages[i].no + ":" + p.fig] || p.owned_only)) {
+                try { ow = SDY.drawOwned(doc, L, U, p.id); if (ow) { nown++; OWNED.push({ it: ow, z: SDY.ownedOf(U, p.id).z }); } } catch (e) { SDY.missing.push(p.id + "（木田さんの部品：" + e.message + "）"); }
+                continue;
+            }
             try { if (SDY.make(doc, i, p)) { nmade++; } else { SDY.failed[p.id] = 1; } } catch (e) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e.message + "）"); }
         }
     }
@@ -119,10 +141,12 @@
     try { SDY.groupPlan(doc, L); } catch (e) { SDY.missing.push("配置図のまとめ（" + e.message + "）"); }
     try { SDY.groupDrawings(doc, L); } catch (e) { SDY.missing.push("図面のまとめ（" + e.message + "）"); }
     try { SDY.applyOrder(doc, L); SDY.applyStacking(doc, U); } catch (e) { SDY.missing.push("重ね順（" + e.message + "）"); }   // 重ね順：決め打ち → 書き出した並び（10-29）
+    try { SDY.orderOwned(OWNED); } catch (e) { SDY.missing.push("木田さんの部品の重ね順（" + e.message + "）"); }   // 木田さんの部品どうしは書き出したときの並び（11-01）
     var FR = null;                                     // 図ごとのグループ（11-01）：いちばん終わりに（この後で部品を動かす処理は無い）。部品のいちばん上の階を図ごとに一つのグループへ、中の重ね順はそのまま
     try { FR = SDY.groupFiguresAll(doc, L); } catch (e) { SDY.missing.push("図のグループ（" + e.message + "）"); }
     SDY.hideOut(doc);
-    msg = "組みました（予備：記録から当て直し）：" + nmade + " 個（隠した " + skipped + " 個）、前の .ai から写した木田さんの物 " + carried + " 個";
+    msg = "組みました（予備：記録から当て直し）：" + nmade + " 個（隠した " + skipped + " 個）、前の .ai から写した木田さんの物 " + carried + " 個" +
+          (nown ? "\n木田さんが持つ部品（園庭説明図の木と説明など）を書き出した記録から " + nown + " 個" : "");
     if (FR) { msg += "\n図のグループ：新しく作った " + FR.made + "（入れた物 " + FR.moved + "）、もとから一つの物の図 " + FR.one + SDY.figReport({ lost: [], far: [], mixed: FR.mixed, hidden: [], warn: FR.warn, fail: FR.fail }); }
     if (SDY.planShift && SDY.planShift.n && (Math.abs(SDY.planShift.dx) > 0.05 || Math.abs(SDY.planShift.dy) > 0.05)) { msg += "\n配置図の上の物 " + SDY.planShift.n + " 個を、配置図と一緒に " + Math.round(SDY.planShift.dx) + "・" + Math.round(SDY.planShift.dy) + " mm 動かしました"; }
     }

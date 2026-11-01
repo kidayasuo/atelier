@@ -142,7 +142,8 @@ def write(c):
             fn = c["sozfn"].get(k)
             if fn:
                 add(dict(id=f"sozai.{k}", name=f"素材 {fn[:-4]}", kind="link", layer="図", file=rel(os.path.join(HERE, "sozai", fn)),
-                         x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2), clip=None, scale=1))
+                         x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2), clip=None, scale=1,
+                         **(c.get("sozai_world", {}).get(k) or {})))   # world・world_prev：映す範囲（m）。.ai で付け替えるとき、上の木田さんの物に合わせる（11-01）
         # 3) 貼った図（ほかの係のPDF、配置図の三つ）
         for k_e, (src, pno, clip, (x, y, w, h)) in enumerate(emb):
             if inside(x + w / 2, y + h / 2):
@@ -393,6 +394,25 @@ def write(c):
                     p["s"] = u["s"]
             if u.get("style") and p["kind"] in ("text", "area"):
                 p["ustyle"] = u["style"]               # .ai で変えた書式の区間（書体・大きさ・色・行送り、10-29）
+        # 映す範囲の変わったリンク（world、11-01：園庭説明図の背景を西へ伸ばした）：.ai の位置・大きさ（記録）は前の範囲のもの。
+        # 前の範囲（記録の world、無ければ world_prev）の左上と縮尺から、新しい範囲の左上・大きさに直す（上の木田さんの物と合うように）
+        for p in parts:
+            u = user.get(p["id"]) or {}
+            if p["kind"] != "link" or not p.get("world") or "w" not in u or "x" not in u:
+                continue
+            w0, w1 = u.get("world") or p.get("world_prev") or p["world"], p["world"]
+            if w0 == w1 or not w0[2]:
+                continue
+            k_ = u["w"] / w0[2]                         # 紙の mm／m
+            p.update(x=round(u["x"] + (w1[0] - w0[0]) * k_, 2), y=round(u.get("y", p["y"]) - (w1[1] - w0[1]) * k_, 2),
+                     w=round(w1[2] * k_, 2), h=round(w1[3] * k_, 2), u=1)
+        # 木田さんが持つ部品（owner、mock.py の owner_rules、11-01）：update_texts・組み替えは消さない・直さない・足さない。一から作り直すときは layout_user.json の owned から描く
+        _or = [(re.compile(rx_), ow_) for (no_, rx_, ow_) in c.get("owner_rules", []) if no_ == no]
+        for p in parts:
+            for rx_, ow_ in _or:
+                if rx_.match(p["id"][len(f"p{no}."):]):
+                    p["owner"] = ow_
+                    break
         # 説明の箱の見出しの頭の印（1枚目、ユーザー 10-29 17:49：見出し 20 pt に対して小さすぎる）：見出しの文字の位置は動かさず、
         # 印だけを見出しの左に置き直す（外形 約8.6 mm、□は一回り小さく、数字 15.5 pt、間は字の半分、縦の中心は見出しの行の中心）
         if no == 1:
@@ -462,6 +482,7 @@ def write(c):
                           lw_rect=0.6, lw_header=0.4, color="#222222"),
                anchors=c.get("anchors", {}), anchors_prev=c.get("anchors_prev", {}),
                pages=pages)
+    out["owner_rules"] = [dict(re=f"^p{no_}\\." + rx_, owner=ow_) for (no_, rx_, ow_) in c.get("owner_rules", [])]   # 持ち主の決まり（layout.json に無い部品の id にも、11-01）
     out["order"] = c.get("order", [])                # 重ね順の決め打ち（グループ name を above の上に、同じレイヤー、10-29）
     if c.get("renumber"):                       # 5枚の番号の振り直し（前の番号 → 新しい番号）。build・export が前の番号の .ai を読むときに使う
         out["renumber"] = c["renumber"]

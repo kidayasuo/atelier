@@ -103,15 +103,36 @@ SDY.abOf = function (doc, b) {                                                  
 };
 SDY.tag = function (it, p) {
     it.name = p.name || p.id;
-    it.note = "sdy:" + p.kind + "|" + p.id + "|" + (p.mock_hash || "");
+    it.note = SDY.tagNote(p.kind, p.id, p.mock_hash, p.world);
+};
+// 印：sdy:種類|id|mock の印[|w=西,北,幅,高さ]（w は映す範囲の決まったリンクだけ、回した座標の m。11-01：背景の範囲を変えても上の物に合わせて付け替える）
+SDY.tagNote = function (kind, id, hash, world) {
+    return "sdy:" + kind + "|" + id + "|" + (hash || "") + (world && world.length === 4 ? "|w=" + world.join(",") : "");
 };
 SDY.parseTag = function (it) {
     var n = "";
     try { n = it.note; } catch (e) { return null; }
     if (!n || n.indexOf("sdy:") !== 0) { return null; }
-    var a = n.substring(4).split("|");
-    return { kind: a[0], id: a[1], mock_hash: a[2] || "" };
+    var a = n.substring(4).split("|"), t = { kind: a[0], id: a[1], mock_hash: a[2] || "" }, k, w;
+    for (k = 3; k < a.length; k++) {
+        if (a[k].indexOf("w=") === 0) { w = a[k].substring(2).split(","); if (w.length === 4) { t.world = [Number(w[0]), Number(w[1]), Number(w[2]), Number(w[3])]; } }
+    }
+    return t;
 };
+// 木田さんが持つ部品か（ユーザー 11-01 13:05：園庭説明図の木と説明）。layout.json の部品の owner、無ければ owner_rules（layout.json に無くなった id にも効く）
+SDY.ownerOf = function (L, id) {
+    if (!L || !id) { return null; }
+    var i, j, r;
+    if (!L.__own) {
+        L.__own = {}; L.__ownR = [];
+        for (i = 0; i < L.pages.length; i++) { for (j = 0; j < L.pages[i].parts.length; j++) { if (L.pages[i].parts[j].owner) { L.__own[L.pages[i].parts[j].id] = L.pages[i].parts[j].owner; } } }
+        for (i = 0; i < (L.owner_rules || []).length; i++) { try { L.__ownR.push({ re: new RegExp(L.owner_rules[i].re), owner: L.owner_rules[i].owner }); } catch (e) {} }
+    }
+    if (L.__own.hasOwnProperty(id)) { return L.__own[id]; }
+    for (r = 0; r < L.__ownR.length; r++) { if (L.__ownR[r].re.test(id)) { return L.__ownR[r].owner; } }
+    return null;
+};
+SDY.isUserOwned = function (L, id) { return SDY.ownerOf(L, id) === "user"; };
 // 文字の体裁。Illustratorは文字の範囲によって Error 9503（illegal text range）を出すことがあるので、
 // 属性は一つずつ try で掛け、全体に掛けられなければ段落ごと・文字ごとに掛ける（10-25、ユーザーの試運転で9503）
 SDY._each = function (tf, fn) {
@@ -712,8 +733,8 @@ SDY.hexOf = function (c) {
         return c.typename;
     } catch (e) { return null; }
 };
-SDY.describe = function (doc, it) {                   // 台帳に残す中身（mm、アートボードの左上から）
-    var b = it.geometricBounds, ai = SDY.abOf(doc, b), r = SDY.ab(doc, ai < 0 ? 0 : ai), K = SDY.K, d, k, pp;
+SDY.describe = function (doc, it, full) {             // 台帳に残す中身（mm、アートボードの左上から）。full：グループの中を全部、点は向きの無いとき [x, y] だけ（木田さんが持つ部品、11-01）
+    var b = it.geometricBounds, ai = SDY.abOf(doc, b), r = SDY.ab(doc, ai < 0 ? 0 : ai), K = SDY.K, d, k, pp, qa, ql, qr;
     var mm = function (p) { return [Math.round((p[0] - r[0]) / K * 100) / 100, Math.round((r[1] - p[1]) / K * 100) / 100]; };
     d = { type: it.typename, name: it.name || "", layer: it.layer.name, artboard: ai + 1,
           x: mm([b[0], b[1]])[0], y: mm([b[0], b[1]])[1], w: Math.round((b[2] - b[0]) / K * 100) / 100, h: Math.round((b[1] - b[3]) / K * 100) / 100 };
@@ -723,10 +744,14 @@ SDY.describe = function (doc, it) {                   // 台帳に残す中身�
         d.fill = it.filled ? SDY.hexOf(it.fillColor) : null;
         d.stroke = it.stroked ? SDY.hexOf(it.strokeColor) : null;
         if (it.stroked) { d.stroke_pt = it.strokeWidth; }
+        try { if (it.stroked && it.strokeDashes && it.strokeDashes.length) { d.dash = []; for (k = 0; k < it.strokeDashes.length; k++) { d.dash.push(it.strokeDashes[k]); } } } catch (e8) {}
+        try { if (it.clipping) { d.clipping = true; } } catch (e7) {}
         d.pts = [];
         for (k = 0; k < it.pathPoints.length; k++) {
             pp = it.pathPoints[k];
-            d.pts.push([mm(pp.anchor), mm(pp.leftDirection), mm(pp.rightDirection)]);
+            qa = mm(pp.anchor); ql = mm(pp.leftDirection); qr = mm(pp.rightDirection);
+            if (full && ql[0] === qa[0] && ql[1] === qa[1] && qr[0] === qa[0] && qr[1] === qa[1]) { d.pts.push(qa); }
+            else { d.pts.push([qa, ql, qr]); }
         }
     } else if (it.typename === "TextFrame") {
         d.s = SDY.norm(it.contents);
@@ -737,6 +762,8 @@ SDY.describe = function (doc, it) {                   // 台帳に残す中身�
                 d.w = Math.round((tb[2] - tb[0]) / K * 100) / 100; d.h = Math.round((tb[1] - tb[3]) / K * 100) / 100;
             }
         } catch (e9) {}
+        try { if (it.kind === TextType.POINTTEXT) { d.anchor = mm(it.anchor); } } catch (e10) {}   // 点の文字の基準線の始まり（揃えの点）
+        try { var js = String(it.textRange.paragraphAttributes.justification); d.just = js.indexOf("CENTER") >= 0 ? "center" : (js.indexOf("RIGHT") >= 0 ? "right" : "left"); } catch (e11) {}
         try { d.size_pt = it.textRange.characterAttributes.size; } catch (e) {}
         try { d.color = SDY.hexOf(it.textRange.characterAttributes.fillColor); } catch (e) {}
         try { d.font = SDY.fontName(it.textRange.characterAttributes.textFont); } catch (e) {}
@@ -744,7 +771,8 @@ SDY.describe = function (doc, it) {                   // 台帳に残す中身�
     } else if (it.typename === "GroupItem" || it.typename === "CompoundPathItem") {
         d.children = [];
         var ch = it.typename === "GroupItem" ? it.pageItems : it.pathItems;
-        for (k = 0; k < ch.length && k < 50; k++) { try { d.children.push(SDY.describe(doc, ch[k])); } catch (e) {} }
+        try { if (it.typename === "GroupItem" && it.clipped) { d.clipped = true; } } catch (e12) {}
+        for (k = 0; k < ch.length && (full || k < 50); k++) { try { d.children.push(SDY.describe(doc, ch[k], full)); } catch (e) {} }
     } else if (it.typename === "PlacedItem" || it.typename === "RasterItem") {
         try { d.file = it.file.fsName; } catch (e) {}
     }
@@ -815,6 +843,8 @@ SDY.drawUser = function (doc, ai, d, dx, dy, cont) {  // describe の形から�
         pi.closed = !!e.closed;
         c = SDY.colorOf(e.fill); pi.filled = !!c; if (c) { pi.fillColor = c; }
         c = SDY.colorOf(e.stroke); pi.stroked = !!c; if (c) { pi.strokeColor = c; pi.strokeWidth = Number(e.stroke_pt || 1); }
+        if (c && e.dash) { try { pi.strokeDashes = e.dash; } catch (e6) {} }
+        if (e.clipping) { try { pi.clipping = true; } catch (e7) {} }
     };
     if (d.type === "PathItem" && d.pts) {
         it = cont.pathItems.add(); fillPath(it, d);
@@ -825,14 +855,16 @@ SDY.drawUser = function (doc, ai, d, dx, dy, cont) {  // describe の形から�
         it = cont.groupItems.add();
         var j;
         for (j = (d.children || []).length - 1; j >= 0; j--) { try { SDY.drawUser(doc, ai, d.children[j], dx, dy, it); } catch (e1) { SDY.missing.push("足した物の中（" + (d.children[j].name || d.children[j].type) + "）：" + e1.message); } }
+        if (d.clipped) { try { it.clipped = true; } catch (e8) {} }
     } else if (d.type === "TextFrame" && d.s !== undefined) {
         if (d.area && d.w && d.h) {                   // エリア内文字：同じ枠で（10-30）
             var q0 = P([d.x, d.y]);
             it = cont.textFrames.areaText(cont.pathItems.rectangle(q0[1], q0[0], d.w * K, d.h * K));
         } else {
-            it = cont.textFrames.pointText(P([d.x, d.y + (d.h || 4) * 0.8]));
+            it = cont.textFrames.pointText(P(d.anchor || [d.x, d.y + (d.h || 4) * 0.8]));
         }
         it.contents = String(d.s).replace(/\n/g, "\r");
+        if (d.anchor && d.just) { try { SDY._each(it, function (rg) { rg.paragraphAttributes.justification = d.just === "center" ? Justification.CENTER : (d.just === "right" ? Justification.RIGHT : Justification.LEFT); }); } catch (e9) {} }
         try { if (d.size_pt) { it.textRange.characterAttributes.size = Number(d.size_pt); } } catch (e2) {}
         try { c = SDY.colorOf(d.color); if (c) { it.textRange.characterAttributes.fillColor = c; } } catch (e3) {}
         try { if (d.font) { it.textRange.characterAttributes.textFont = app.textFonts.getByName(d.font); } } catch (e5) {}
@@ -880,6 +912,35 @@ SDY.drawUserItems = function (doc, L, U) {
     return n;
 };
 
+// 木田さんが持つ部品（owner user、11-01）を、layout_user.json の owned（export_layout.jsx が書き出した形のすべて）から描く（一から作り直すとき）。
+// 印（sdy:）は書き出したときのまま。返り値は描いた物（無ければ null）
+SDY.ownedOf = function (U, id) { return (U && U.owned && U.owned[id]) ? U.owned[id] : null; };
+SDY.hasOwned = function (U) { var k; if (!U || !U.owned) { return false; } for (k in U.owned) { if (U.owned.hasOwnProperty(k)) { return true; } } return false; };
+SDY.drawOwned = function (doc, L, U, id) {
+    var d = SDY.ownedOf(U, id), ai = -1, pg, it;
+    if (!d) { return null; }
+    for (pg = 0; pg < L.pages.length; pg++) { if (L.pages[pg].no === d.artboard) { ai = pg; } }
+    if (ai < 0) { SDY.missing.push("木田さんの部品の枚が無い：" + id); return null; }
+    it = SDY.drawUser(doc, ai, d, 0, 0, SDY.userLayer(doc, d.layer));
+    if (!it) { return null; }
+    it.note = d.note || ("sdy:lines|" + id + "|");
+    return it;
+};
+// 木田さんの部品どうしの重ね順：レイヤーごとに、書き出したときの順（z、上から）に、いちばん上の物のすぐ下へ続けて並べる
+SDY.orderOwned = function (A) {
+    var by = {}, lays = [], k, ln, a, m;
+    for (k = 0; k < A.length; k++) {
+        if (A[k].z === undefined || A[k].z === null) { continue; }
+        try { ln = A[k].it.layer.name; } catch (e) { continue; }
+        if (!by[ln]) { by[ln] = []; lays.push(ln); }
+        by[ln].push(A[k]);
+    }
+    for (k = 0; k < lays.length; k++) {
+        a = by[lays[k]];
+        a.sort(function (p, q) { return p.z - q.z; });
+        for (m = 1; m < a.length; m++) { try { a[m].it.move(a[m - 1].it, ElementPlacement.PLACEAFTER); } catch (e1) {} }
+    }
+};
 // 配置図のまとめ（ユーザー、10-28 18:03：配置図の位置に依存する物は全てグループに）
 SDY.planUser = [];                                   // 前の .ai から写した、配置図の上の木田さんの物（copyUserItems が入れる）
 SDY.PLAN_GROUP = "配置図（まとめ）";
@@ -1027,7 +1088,7 @@ SDY.retire = function (doc, it) {                    // 消さずに「外した
 SDY.retireStale = function (doc, L) {
     var ids = {}, i, j, map = SDY.findByTag(doc), id, rm = [], k, n = 0, nt, g;
     for (i = 0; i < L.pages.length; i++) { for (j = 0; j < L.pages[i].parts.length; j++) { ids[L.pages[i].parts[j].id] = true; } }
-    for (id in map) { if (map.hasOwnProperty(id) && !ids[id]) { rm.push(map[id]); } }
+    for (id in map) { if (map.hasOwnProperty(id) && !ids[id] && !SDY.isUserOwned(L, id)) { rm.push(map[id]); } }   // 木田さんが持つ部品は外さない（11-01）
     for (k = 0; k < rm.length; k++) { try { SDY.retire(doc, rm[k]); n++; } catch (e) { SDY.missing.push("外せなかった部品：" + (rm[k].name || rm[k].typename) + "（" + e.message + "）"); } }
     for (k = doc.groupItems.length - 1; k >= 0; k--) {
         g = doc.groupItems[k]; nt = "";
@@ -1122,11 +1183,36 @@ SDY.relinkKeep = function (pl, f) {
     } catch (e1) {}
     return true;
 };
+// 映す範囲（world）の決まったリンクの付け替え（11-01：園庭説明図の背景を西へ伸ばした）。今の .ai の縮尺（幅 ÷ 前の範囲の幅）はそのまま、
+// 前の範囲（印の w=、無ければ layout.json の world_prev）と新しい範囲の差だけ左上をずらし、大きさを新しい範囲に。上の木田さんの木と説明と合ったまま
+SDY.relinkWorld = function (it, pl, f, p) {
+    var t = SDY.parseTag(it) || SDY.parseTag(pl), w0 = (t && t.world) || p.world_prev || p.world, w1 = p.world, b, k, K = SDY.K, rot = false;
+    if (!w0 || !w1 || !w0[2] || !w0[3]) { return SDY.relinkKeep(pl, f); }
+    b = pl.geometricBounds;
+    k = (b[2] - b[0]) / w0[2];                         // pt／m（今の .ai の縮尺）
+    try { var m = pl.matrix; rot = Math.abs(m.mValueB) > 1e-6 || Math.abs(m.mValueC) > 1e-6; } catch (e0) {}
+    if (rot || Math.abs((b[1] - b[3]) / w0[3] - k) > 0.02 * k) {
+        SDY.notes.push("背景のリンクが回してある・縦横の比が前の範囲と合わないので、範囲の付け替えをしなかった（ファイルだけ替えた。.ai で見直す）：" + f.name);
+        return SDY.relinkKeep(pl, f);
+    }
+    try { pl.relink(f); } catch (e) { SDY.missing.push(f.fsName + "（" + e.message + "）"); return false; }
+    try {
+        pl.width = w1[2] * k; pl.height = w1[3] * k;
+        pl.position = [b[0] + (w1[0] - w0[0]) * k, b[1] + (w1[1] - w0[1]) * k];
+    } catch (e1) { SDY.missing.push(f.name + "：範囲の付け替え（" + e1.message + "）"); }
+    if (w0.join(",") !== w1.join(",")) {
+        SDY.notes.push("背景の範囲を付け替えた（縮尺は .ai のまま、上の物と合わせて " + (Math.round((w0[0] - w1[0]) * k / K * 10) / 10) + " mm 西へ・大きさ " +
+                       (Math.round(w1[2] * k / K * 10) / 10) + "×" + (Math.round(w1[3] * k / K * 10) / 10) + " mm）：" + f.name);
+        try { if (pl.parent.typename === "GroupItem" && pl.parent.clipped) { SDY.notes.push("背景のリンクが切り抜きのグループの中にある（伸ばした所は切り抜きの四角で隠れる。.ai で四角を広げる）：" + f.name); } } catch (e2) {}
+    }
+    try { it.note = SDY.tagNote(t ? t.kind : p.kind, p.id, t ? t.mock_hash : p.mock_hash, w1); } catch (e3) {}
+    return true;
+};
 // 印の付いた部品の印だけ替える（名前は木田さんが変えていればそのまま）
-SDY.retag = function (it, p) { it.note = "sdy:" + p.kind + "|" + p.id + "|" + (p.mock_hash || ""); };
+SDY.retag = function (it, p) { var t = SDY.parseTag(it); it.note = SDY.tagNote(p.kind, p.id, p.mock_hash, p.world || (t ? t.world : null)); };
 // ふだんの更新（update_texts と、組み替えの後）。made に新しく描いた物を入れる。返り値は数
 SDY.refresh = function (doc, L, U, made) {
-    var st = { nt: 0, nl: 0, na: 0, nr: 0, nx: 0, nu: 0, kept: [], newl: [] }, UP = (U && U.parts) || {}, map, i, j, p, it, tg, q, nw, kf;
+    var st = { nt: 0, nl: 0, na: 0, nr: 0, nx: 0, nu: 0, own: 0, kept: [], newl: [] }, UP = (U && U.parts) || {}, map, i, j, p, it, tg, q, nw, kf;
     try { st.nx = SDY.retireStale(doc, L); } catch (e0) { SDY.missing.push("無くなった部品（" + e0.message + "）"); }
     map = SDY.findByTag(doc);
     for (i = 0; i < L.pages.length; i++) {
@@ -1134,6 +1220,7 @@ SDY.refresh = function (doc, L, U, made) {
             p = L.pages[i].parts[j];
             if (p.hidden) { continue; }
             it = map[p.id];
+            if (SDY.isUserOwned(L, p.id)) { st.own++; continue; }   // 木田さんが持つ部品（11-01）：消さない・直さない・新しく足さない
             if (!it) {                                 // 新しい部品：既定の位置・元のレイヤーに足す
                 try { nw = SDY.make(doc, i, p); if (nw) { st.na++; made.push(nw); } else { SDY.failed[p.id] = 1; } } catch (e) { SDY.failed[p.id] = 1; SDY.missing.push(p.id + "（" + e.message + "）"); }
                 continue;
@@ -1163,7 +1250,7 @@ SDY.refresh = function (doc, L, U, made) {
             } else if (p.kind === "link") {            // 図のPDF：ファイルを差し替えるだけ
                 var f = File(SDY.root.fsName + "/" + p.file), pl = it, ov;
                 if (it.typename === "GroupItem") { pl = SDY.baseIn(it, p); }
-                if (pl && f.exists) { if (SDY.relinkKeep(pl, f)) { st.nl++; } }
+                if (pl && f.exists) { if (p.world ? SDY.relinkWorld(it, pl, f, p) : SDY.relinkKeep(pl, f)) { st.nl++; } }
                 else if (!f.exists) { SDY.missing.push(p.file); }
                 if (it.typename === "GroupItem" && pl) {   // Rhino の図の「文字と寸法」
                     ov = SDY.overlayIn(it, p);
@@ -1591,6 +1678,7 @@ SDY.carry = function (doc, L, U, src) {
     };
     var touched = function (x, t) {
         var nid = rid(t.id), u = UP[nid];
+        if (SDY.isUserOwned(L, nid)) { return true; }  // 木田さんが持つ部品（と、その入ったグループ）は紙の中の位置のまま（11-01）
         if (u && (u.x !== undefined || u.pts !== undefined)) { return true; }
         return moved(SDY.measure(src, x, t.kind), BUILT[t.id] || P[nid]);
     };
@@ -1637,8 +1725,8 @@ SDY.carry = function (doc, L, U, src) {
         var t = SDY.parseTag(x), nt = "", m, nid, mm;
         if (t) {
             nid = rid(t.id);
-            if (P[nid] === undefined) { stale.push(x); }
-            else if (nid !== t.id) { x.note = "sdy:" + t.kind + "|" + nid + "|" + t.mock_hash; }
+            if (P[nid] === undefined) { if (!SDY.isUserOwned(L, nid)) { stale.push(x); } }   // 木田さんが持つ部品は layout.json に無くても外さない（11-01）
+            else if (nid !== t.id) { x.note = SDY.tagNote(t.kind, nid, t.mock_hash, t.world); }
         } else {
             try { nt = x.note; } catch (e) {}
             mm = nt ? /^sdydwg:(\d+):(.*)$/.exec(nt) : null;
