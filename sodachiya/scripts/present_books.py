@@ -142,8 +142,14 @@ for k in range(7):
     axP.add_patch(Circle((52.3 + rr * math.cos(a), 1.3 + rr * math.sin(a)), 0.05, fc='#E9C93A', ec='#A08A2A', lw=0.25, zorder=7))
 Pt(52.3, -1.05, 'ロウバイ', size=4.2, ha='center', c='#7A6614')
 Pt(54.4, -1.98, 'ベニシダレ', size=4.2, ha='center', c='#45632A')
-Pt(53.35, -0.66, '読書の庭', size=6.2, weight='bold', c='#45632A')
-Pt(54.0, -0.66, '苔・ベニシダレ・ロウバイ（入らない坪庭）', size=4.4, c='#45632A')
+# ナンテン（11-01、ユーザー：園庭の小屋のそばから移す。u55.7・v−1.0、北の低い窓の前、株立ち h1.5・葉張り約φ0.7、冬の赤い実）
+axP.add_patch(Circle((55.7, 1.0), 0.35, fc='none', ec='#B03A2E', lw=0.5, ls=(0, (3, 2)), zorder=7))
+for k in range(6):
+    a = 2 * math.pi * k / 6 + 0.2; rr = 0.12 + 0.1 * (k % 2)
+    axP.add_patch(Circle((55.7 + rr * math.cos(a), 1.0 + rr * math.sin(a)), 0.035, fc='#C8352A', ec='none', zorder=7))
+Pt(55.7, -1.45, 'ナンテン', size=4.2, ha='center', c='#8E2A20')
+Pt(53.35, -0.53, '読書の庭', size=6.2, weight='bold', c='#45632A')
+Pt(54.0, -0.53, '苔・ベニシダレ・ロウバイ・ナンテン（入らない坪庭）', size=4.4, c='#45632A')
 
 # 外壁（柱の外、v−0.35〜−0.20）と地窓（GLまで、h−300〜600）
 for a, b in [(UP0, 52.6), (53.85, 54.15), (56.4, 57.34)]:
@@ -253,6 +259,13 @@ for a, b in [(52.6, 53.85), (54.15, 56.4)]:
     for k in range(18):   # 窓の向こうの苔
         x = a + (b - a) * (k + 0.5) / 18
         axE.add_patch(Ellipse((x, -0.24 + 0.04 * (k % 3)), 0.16, 0.08, fc=C_MOSS2, ec='none', alpha=0.5, zorder=2))
+# ナンテン（11-01、見えがかり：u55.7、窓から約0.65。地窓には株元の幹と樹冠の下の方・赤い実が見える）
+_clip = Rectangle((54.15, -0.30), 2.25, 0.9, transform=axE.transData)
+for du in (-0.06, 0.04, 0.03):
+    _l, = axE.plot([55.7 + du, 55.7 + du * 1.6], [-0.30, 0.45], lw=0.5, c='#6b4a30', zorder=2.2); _l.set_clip_path(_clip)
+_e = Ellipse((55.7, 0.8), 0.7, 0.8, fc='#9DB07A', ec='#5a6b3a', lw=0.35, alpha=0.8, zorder=2.1); axE.add_patch(_e); _e.set_clip_path(_clip)
+for k in range(9):
+    _c = Circle((55.48 + 0.055 * k, 0.47 + 0.05 * ((k * 3) % 4) / 3), 0.022, fc='#C8352A', ec='none', zorder=2.3); axE.add_patch(_c); _c.set_clip_path(_clip)
 leader(axE, (55.3, -0.15), (55.0, 0.95), '掘りごたつの溝−300（窓際、底は木の床）', size=4.4, c='#34502A', bg=True)
 # 棚（見えがかり：h1.2、4段＠300、絵本を面陳と背で）
 rect(axE, UP0, 0.0, 50.80, 1.2, fc=C_WOOD, ec='#6b5236', lw=0.45, z=3)
@@ -293,7 +306,7 @@ kid_stand(axE, 51.35, 1.58, c=C_ADULT)
 leader(axE, (50.72, 0.75), (50.72, 1.87), '絵本の棚h1.2（4段）', size=4.4, ha='right')
 T(axE, 48.62, 2.22, '西の壁（内側は白、越屋根の光を返す）', size=4.4, c='#555')
 leader(axE, (51.14, 1.75), (51.3, 2.25), '暖簾（竿φ30 h2.0、布4枚、裾h0.7）', size=4.4, c='#555')
-leader(axE, (53.2, 0.5), (52.25, 1.05), '地窓h−300〜600、向こうに苔・ベニシダレ・ロウバイ', size=4.4, c='#2E5373', bg=True)
+leader(axE, (53.2, 0.5), (52.25, 1.05), '地窓h−300〜600、向こうに苔・ベニシダレ・ロウバイ・ナンテン', size=4.4, c='#2E5373', bg=True)
 T(axE, 52.55, 2.6, '天井扇φ1100・h2.8', size=4.4, c='#555')
 TB(axE, 53.75, 2.15, '越屋根の光（朝は直射、昼はルーバーの拡散光）', size=4.4, c='#A07800')
 T(axE, UP0 + 0.08, 2.62, '展開B　1/60（西を見る）', size=5.4, weight='bold', va='top')
