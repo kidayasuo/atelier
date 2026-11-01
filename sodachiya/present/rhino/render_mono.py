@@ -9,6 +9,10 @@
   3. 部屋ごとに、room_view.py と同じ準備（クリッピング平面で切る・屋根などを隠す・南東の上から見る）→ モノクロで書き出す →
      元に戻す、を続けて行う。選んだ物は書き出す前に選択を外す。
      書き出し：out/<部屋>_mono.png と、カメラを書いた out/<部屋>_mono_view.json。
+  ・視点を自分で決めるとき（11-01）：room_view.py で部屋を選んで切り、ビューを自分で動かす（SetCameraTarget・レンズ・
+    回転・ズーム）。そのまま render_mono.py で同じ部屋と「今のビューのまま」を選ぶ → 描いて、その視点を
+    out/<部屋>_mono_view.json に「木田さんの視点」として記録する。次からは「記録した視点」で（5部屋まとめても）その視点で描く。
+    記録を消したいときは、そのファイルを消す（自動の視点に戻る）。
   4. 終わったら push：git add sodachiya/present/rhino/out && git commit -m "[プレゼン] 部屋のモノクロ" && git push
   ・線の太さ：SCALE_SCREEN_ITEMS（下、始めは True＝画面で見る太さの割合のまま絵の大きさに合わせて太らせる）。
     細すぎれば大きさを1600×1200に、太すぎれば False に。
@@ -40,6 +44,9 @@ SIZES = [((2400, 1800), u"2400×1800（ふつう）"), ((1600, 1200), u"1600×12
 MONO_NAMES = (u"Monochrome", u"モノクロ")     # 表示モードの名前（英語名・日本語名）
 SCALE_SCREEN_ITEMS = True                       # 線と点を絵の大きさに合わせて太らせる（画面で見る太さの割合のまま）
 HOW = u"クリッピング平面で切る（ふつう）"
+VIEW_SAVED = u"記録した視点（木田さんが合わせた物）があればそれ、無ければ自動"
+VIEW_AUTO = u"自動（南東の上から、room_view.py と同じ）"
+VIEW_NOW = u"今のビューのまま（room_view.py で切ってから、自分で視点を合わせた後に。視点を記録する）"
 
 
 def say(*a):
@@ -55,12 +62,51 @@ def mono_mode():
     return None
 
 
-def write_view(vp, name, W, H):
-    d = dict(name=name + u"_mono", made=System.DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+def view_path(name):
+    return os.path.join(OUT, name + u"_mono_view.json")
+
+
+def has_saved(name):
+    try:
+        with io.open(view_path(name), "r", encoding="utf-8") as f_:
+            return bool(json.loads(f_.read()).get("user"))
+    except Exception:
+        return False
+
+
+def apply_saved(vp, name):
+    """木田さんが合わせて記録した視点（user: true）に、今のビューを合わせる"""
+    try:
+        with io.open(view_path(name), "r", encoding="utf-8") as f_:
+            d = json.loads(f_.read())
+        if not d.get("user"):
+            return False
+        c, t = d["camera_mm"], d["target_mm"]
+        G = Rhino.Geometry
+        vp.ChangeToPerspectiveProjection(True, float(d.get("lens_mm", 50.0)))
+        vp.SetCameraLocations(G.Point3d(*[float(x) for x in t]), G.Point3d(*[float(x) for x in c]))
+        if d.get("up"):
+            try:
+                vp.CameraUp = G.Vector3d(*[float(x) for x in d["up"]])
+            except Exception:
+                pass
+        try:
+            vp.Camera35mmLensLength = float(d.get("lens_mm", 50.0))
+        except Exception:
+            pass
+        return True
+    except Exception as e:
+        say(u"  記録した視点を読めなかった：", e)
+        return False
+
+
+def write_view(vp, name, W, H, user=False):
+    d = dict(name=name + u"_mono", made=System.DateTime.Now.ToString("yyyy-MM-dd HH:mm"), user=bool(user),
+             up=[round(vp.CameraUp.X, 4), round(vp.CameraUp.Y, 4), round(vp.CameraUp.Z, 4)],
              camera_mm=[round(vp.CameraLocation.X), round(vp.CameraLocation.Y), round(vp.CameraLocation.Z)],
              target_mm=[round(vp.CameraTarget.X), round(vp.CameraTarget.Y), round(vp.CameraTarget.Z)],
              lens_mm=round(vp.Camera35mmLensLength, 2), px=[W, H], mode=u"モノクロ（render_mono.py）")
-    with io.open(os.path.join(OUT, name + u"_mono_view.json"), "w", encoding="utf-8") as f_:
+    with io.open(view_path(name), "w", encoding="utf-8") as f_:
         f_.write(u"%s" % json.dumps(d, indent=1, ensure_ascii=False))
 
 
@@ -91,6 +137,13 @@ def main():
     if gs is None:
         return
     W, H = [s for s, l in SIZES if l == gs][0]
+    vl = [VIEW_SAVED, VIEW_AUTO, VIEW_NOW]
+    vw = rs.ListBox(vl, u"視点", u"モノクロ", vl[0])
+    if vw is None:
+        return
+    if vw == VIEW_NOW and len(names) > 1:
+        say(u"「今のビューのまま」は一部屋ずつ。部屋を一つ選び直してください")
+        return
     mode = mono_mode()
     if mode is None:
         return
@@ -102,25 +155,38 @@ def main():
         rs.UnselectAllObjects()
         vp.DisplayMode = mode
         for n in names:
-            say(u"—", n, u"：準備")
-            room_view.setup(doc, n, HOW)
+            if vw == VIEW_NOW:
+                say(u"—", n, u"：今のビューのまま（準備はしない。room_view.py で切ってから視点を合わせた前提）")
+            else:
+                say(u"—", n, u"：準備")
+                room_view.setup(doc, n, HOW)
+                if vw == VIEW_SAVED:
+                    if apply_saved(vp, n):
+                        say(u"  記録した視点（out/", n + u"_mono_view.json）で")
+                    else:
+                        say(u"  記録した視点が無いので自動の視点で")
             rs.UnselectAllObjects()
             view.Redraw()
             path = os.path.join(OUT, n + u"_mono.png")
             if os.path.exists(path):
                 os.remove(path)
             if capture(view, path, W, H):
-                write_view(vp, n, W, H)
+                if vw == VIEW_NOW or not has_saved(n):           # 木田さんの記録した視点は、今のビューのままで描いたときだけ書き直す
+                    write_view(vp, n, W, H, user=(vw == VIEW_NOW))
                 done.append(n)
                 say(u"  書いた：", path, W, u"×", H)
             else:
                 say(u"  書けなかった：", n)
-            room_view.save_state(room_view.restore(doc, room_view.load_state()))
+            if vw != VIEW_NOW:
+                room_view.save_state(room_view.restore(doc, room_view.load_state()))
     finally:
-        try:
-            room_view.save_state(room_view.restore(doc, room_view.load_state()))
-        except Exception as e:
-            say(u"  元に戻せなかった（room_view.py の「元に戻す」で）：", e)
+        if vw != VIEW_NOW:
+            try:
+                room_view.save_state(room_view.restore(doc, room_view.load_state()))
+            except Exception as e:
+                say(u"  元に戻せなかった（room_view.py の「元に戻す」で）：", e)
+        else:
+            say(u"  切ったまま。終わったら room_view.py の「元に戻す」で")
         try:
             vp.DisplayMode = old_mode
         except Exception:
