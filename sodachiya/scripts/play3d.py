@@ -231,8 +231,10 @@ def rail(walk, z, skip=None):
     if not g.is_empty: K.prism(g, z, z + RAIL, L_CW)
 dbr = (c_ld - c_net) / np.linalg.norm(c_ld - c_net)
 BR_ZONE = LineString([c_net, c_ld]).buffer(P['bridge']['width'] * 500, cap_style=2)
-rail(HIGH.union(RING), H, ring_in.buffer(5).union(BR_ZONE).union(LOW.buffer(5)))
-rail(LOW.union(LAND), H2, BR_ZONE.union(HIGH.buffer(300)).union(COL_NW.buffer(40, join_style=2)))   # 柱の欠きの縁には柵を立てない（柱が囲う）
+# 11-01（ユーザー：段の前後に扉がある）：通路が段につながる縁（段の上の端 w0・下の端 w1）は柵を立てない。前は通路を横切る柵の面が扉に見えた
+STEPS = CAT.intersection(RWw(cw['north_u'], 60, sp['w0'], sp['w1'])).buffer(5)
+rail(HIGH.union(RING), H, ring_in.buffer(5).union(BR_ZONE).union(LOW.buffer(5)).union(STEPS))
+rail(LOW.union(LAND), H2, BR_ZONE.union(HIGH.buffer(300)).union(COL_NW.buffer(40, join_style=2)).union(STEPS))   # 柱の欠きの縁には柵を立てない（柱が囲う）
 # 北の段（10-28、監修の項 20261028-0015 の 3）：段ごとの西の開いた縁にも柵（前は段だけ柵が無く、西へ落ちると 1.9〜2.8 m）
 for k in range(sp['n']):
     wa = sp['w0'] + (sp['w1'] - sp['w0']) * k / sp['n']; wb = sp['w0'] + (sp['w1'] - sp['w0']) * (k + 1) / sp['n']
