@@ -249,10 +249,12 @@ class Sheet:
                     closed = len(a) > 2 and np.allclose(a[0], a[-1])
                     L.append(f'<path d="{path(a)}{" Z" if closed else ""}"/>')
             L.append('</g>')
-        L.append('<g id="参考の文字（送る前に消す）" fill="#000000" stroke="none" font-family="sans-serif">')
-        for x, y, t, sz in texts:
-            L.append(f'<text x="{x:.2f}" y="{H - y:.2f}" font-size="{sz}">{t}</text>')
-        L.append('</g></svg>')
+        if texts:
+            L.append('<g id="参考の文字（送る前に消す）" fill="#000000" stroke="none" font-family="sans-serif">')
+            for x, y, t, sz in texts:
+                L.append(f'<text x="{x:.2f}" y="{H - y:.2f}" font-size="{sz}">{t}</text>')
+            L.append('</g>')
+        L.append('</svg>')
         open(os.path.join(OUT, self.name + '.svg'), 'w').write('\n'.join(L))
         if not WRITE_DXF: return
         try:
@@ -1037,15 +1039,34 @@ def hut_kikai_sheets():
     s.save(texts)
     return dict(hut=hb, kikai=kinfo, roof=(Lr, Dr), frame=(fa, fd, fh), plugs=[(n_, [round(v, 2) for v in p_.bounds]) for n_, p_, m_ in plugs])
 
-# ================= 9. 室内の壁（本館 38・西館 24） =================
-def _panel(g):
-    """薄い壁のメッシュを立面の板に：平面の長い向き（主成分）を u、高さを z（自分の下端から）にして、
-    板の面を向く面だけを投影して合わせる（戸の開口が穴や切り欠きになる）。返す：(板, 平面の中心, 向き, 厚さ, 下端 z)"""
+# ================= 9. 室内の壁（本館 38） =================
+# 10-31 監修の頼み：組み立ては ①間仕切りを床に立てる（壁どうしを半欠きでかみ合わせて自立）→ ②架構を上から下ろす → ③外壁。
+# だから間仕切りは、柱（頭の丸みも）と重ならず、梁の下面・桁より低く、架構の下を通れる形でなければならない。
+# 板の形と交点は kabe.py。ここは 3dm から板を読み、架構との干渉を測って直す。
+sys.path.insert(0, os.path.join(ROOT, 'model', 'build', 'south'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import kabe
+from shapely.geometry import LineString
+from uv import uv as _uv
+
+RW_ = 205017.7                   # 背骨（v 0）の半径 mm
+V_EDGE = -0.3423                 # 床 04 の西の端の v（半径 205 360 の弧）
+CLEAR_TOP = 50.0                 # 梁の下面・桁の下面との余裕（実寸 mm、模型 0.5 mm）
+HOLE_R, HOLE_T = 205.0, 90.0     # 床の柱の穴（実寸の半分：半径方向 4.1／2、接線方向 1.8／2）
+PLATE_IN, PLATE_OUT = 87.5, 190.0   # 梁の板が架構の線から占める範囲（接線方向、実寸 mm）
+KETA_BANDS = (('西の桁', -100.0, 100.0, 3420.0), ('東の桁', 11900.0, 12100.0, 2420.0))   # v の範囲(mm)・下面の高さ
+WALL_KERF = J.get('切り幅', {}).get('航空ベニヤ0.6', kabe.KERF)
+_W = J.get('室内の壁', {})
+CUT_W = _W.get('切り込みの幅_描く', kabe.T_BOARD - WALL_KERF)      # T5 の結果があれば mokei.json の「室内の壁」に
+
+def _panel_ex(g):
+    """薄い壁のメッシュ → 立面の板と、壁の線（A→B、実寸 mm の世界座標）"""
     V, F = g.Vertices, g.Faces
     P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
     c = P[:, :2].mean(0); xy = P[:, :2] - c
     _, _, vt = np.linalg.svd(xy, full_matrices=False); ax, nx = vt[0], vt[1]
-    T = np.ptp(xy @ nx); H = np.ptp(P[:, 2])
+    nn = xy @ nx
+    T = np.ptp(nn); H = np.ptp(P[:, 2])
     if T > 250 or H < 600: return None
     z0 = P[:, 2].min(); polys = []
     for j in range(len(F)):
@@ -1062,86 +1083,425 @@ def _panel(g):
     u = unary_union([p_ for p_ in getattr(u, 'geoms', [u]) if p_.area > 2])
     if u.is_empty: return None
     b = u.bounds
-    return affinity.translate(u, -b[0], -b[1]), c, ax, T, z0
+    base = c + nx * (nn.min() + nn.max()) / 2
+    A = base + ax * b[0] / S; B = base + ax * b[2] / S
+    return dict(poly=affinity.translate(u, -b[0], -b[1]), A=A, B=B, T=T, z0=z0, H=b[3] / S, ax=ax)
 
-def interior_parts():
-    out = []
+def honkan_pieces():
+    """本館の 1 階の間仕切り（38 のうち v>0.3 m）。番号は 3dm の並び順（interior_parts と同じ）"""
+    out = []; k = 0
     for lay, tag in (('38_しつらえ_間仕切り・框・腰壁', '本館'), ('24_西館_間仕切り', '西館')):
         for g in objs(lay):
             if not isinstance(g, r.Mesh): continue
-            pn = _panel(g)
-            if pn: out.append((tag,) + pn)
+            pn = _panel_ex(g)
+            if not pn: continue
+            k += 1
+            if tag != '本館': continue
+            um, vm = _uv(*((pn['A'] + pn['B']) / 2))
+            if vm < 0.3: continue                     # 西館の 2 階の壁（v<0）
+            pn['num'] = k; out.append(pn)
     return out
 
-def _shelf(items, W, H, gap=2.0):
-    sheets = [[]]; x = y = rowh = 0
-    for it in sorted(items, key=lambda it: -it[1].bounds[3]):
-        w, h = it[1].bounds[2], it[1].bounds[3]
-        if x + w > W: x = 0; y += rowh + gap; rowh = 0
-        if y + h > H: sheets.append([]); x = y = rowh = 0
-        sheets[-1].append((it, x, y)); x += w + gap; rowh = max(rowh, h)
-    return sheets
+def _col_info(g):
+    P = profile_rz(g, 0)
+    foot = P[P[:, 1] < 1]
+    rc = (foot[:, 0].min() + foot[:, 0].max()) / 2
+    a0 = math.atan2(g.PathStart.Y - CY, g.PathStart.X - CX); a1 = math.atan2(g.PathEnd.Y - CY, g.PathEnd.X - CX)
+    ac = (a0 + a1) / 2
+    return dict(rc=rc, ac=ac, prof=Polygon(P).buffer(0), east=rc < RW_ - 6000)
+
+def _polar_rect(ac, r0, r1, t):
+    er = np.array([math.cos(ac), math.sin(ac)]); et = np.array([-math.sin(ac), math.cos(ac)])
+    C = np.array([CX, CY])
+    return Polygon([C + r0 * er - t * et, C + r1 * er - t * et, C + r1 * er + t * et, C + r0 * er + t * et])
+
+COLS = None
+def col_infos():
+    global COLS
+    if COLS is None:
+        COLS = sorted([_col_info(g) for g in cols], key=lambda d: (d['east'], -d['ac']))
+        # 架構の番号：南（角度が大きい）から 1〜20
+        for east in (False, True):
+            lst = sorted([d for d in COLS if d['east'] == east], key=lambda d: -(d['ac'] % (2 * math.pi)))
+            for i, d in enumerate(lst): d['frame'] = i + 1
+    return COLS
+
+def col_keepout(d, zlo, zhi):
+    """柱の置き場所（平面）：高さ zlo〜zhi（実寸 mm）で柱が占める半径の範囲 ＋ 床の穴"""
+    I = d['prof'].intersection(box(0, zlo, 1e7, zhi))
+    rr = []
+    if zlo <= 300: rr += [d['rc'] - HOLE_R, d['rc'] + HOLE_R]
+    if not I.is_empty: rr += [I.bounds[0], I.bounds[2]]
+    rl, rh = min(rr), max(rr)
+    return _polar_rect(d['ac'], rl, rh, HOLE_T)
+
+def plate_bands():
+    out = []
+    for d in col_infos():
+        if d['east']: continue
+        for sgn in (-1, 1):
+            t0, t1 = sorted((sgn * PLATE_IN, sgn * PLATE_OUT))
+            er = np.array([math.cos(d['ac']), math.sin(d['ac'])]); et = np.array([-math.sin(d['ac']), math.cos(d['ac'])])
+            C = np.array([CX, CY]); r0, r1 = RW_ - 15500, RW_ + 600
+            out.append((d['frame'], '北' if sgn * 1 > 0 else '南', Polygon([C + r0 * er + t0 * et, C + r1 * er + t0 * et, C + r1 * er + t1 * et, C + r0 * er + t1 * et]), d['ac']))
+    return out
+_BEAM = None
+def beam_under(rr):
+    """梁の板の下面の高さ（実寸 mm）、半径 rr（mm）で"""
+    global _BEAM
+    if _BEAM is None: _BEAM = Polygon(profile_rz(beam, 0)).buffer(0)
+    ln = _BEAM.intersection(LineString([(rr, -1e4), (rr, 1e5)]))
+    return ln.bounds[1] if not ln.is_empty else 1e9
+
+def footprint(A, B, t=kabe.T_BOARD / S):
+    return LineString([A, B]).buffer(t / 2, cap_style=2)
+
+def check_wall(A, B, zlo, ztop, with_hole=True):
+    """壁の線 A→B（高さ zlo〜ztop、実寸 mm）と架構の干渉。返す：柱の重なり、梁、桁、最小の離れ"""
+    fp = footprint(A, B); res = dict(col=[], beam=[], keta=[], dist=1e9)
+    for d in col_infos():
+        ko = col_keepout(d, zlo if with_hole else 400, ztop)
+        res['dist'] = min(res['dist'], fp.distance(ko))
+        ov = fp.intersection(ko)
+        if ov.area > 0.5:
+            res['col'].append((d['frame'], '東' if d['east'] else '西', ov, ko))
+    for fr, side, band, ac in plate_bands():
+        ov = fp.intersection(band)
+        if ov.area > 0.5:
+            rs = [math.hypot(x - CX, y - CY) for x, y in ov.exterior.coords]
+            under = min(beam_under(x) for x in np.linspace(min(rs), max(rs), 25))
+            vv = (RW_ - np.mean(rs)) / 1000
+            res['beam'].append((fr, side, under, vv))
+    ring = lambda v0, v1: Point(CX, CY).buffer(RW_ - v0, 512).difference(Point(CX, CY).buffer(RW_ - v1, 512))
+    for nm, v0, v1, zb in KETA_BANDS:
+        if fp.intersection(ring(v0, v1)).area > 0.5: res['keta'].append((nm, zb))
+    return res
+
+def build_walls():
+    pcs = honkan_pieces()
+    runs = kabe.make_runs(pcs)
+    tiny = [R_ for R_ in runs if R_.L < 3.0]                  # 幅 3 mm 未満の板（隣の壁にほぼ含まれる）は作らない
+    runs = [R_ for R_ in runs if R_.L >= 3.0]
+    runs.sort(key=lambda R_: (min(_uv(*R_.A)[0], _uv(*R_.B)[0]), _uv(*R_.A)[1]))
+    for i, R_ in enumerate(runs): R_.id = i + 1
+    t3 = {}
+    for R_ in runs:
+        t3[R_.id] = float(np.mean([p['T'] for p in pcs if p['num'] in R_.members]))
+    # --- 架構との干渉を直す（柱の手前で止める／梁・桁より低くする）
+    for R_ in runs:
+        for _ in range(4):
+            zlo, ztop = R_.bottom(), R_.top()
+            cw = check_wall(R_.A, R_.B, zlo, ztop)
+            if not cw['col']: break
+            fr, sd, ov, ko = cw['col'][0]
+            Ls = np.linalg.norm(R_.B - R_.A)
+            ss = [(np.array(p) - R_.A) @ R_.e for p in ov.exterior.coords]
+            s0, s1 = min(ss), max(ss)
+            ks = [(np.array(p) - R_.A) @ R_.e for p in ko.exterior.coords]
+            if s0 <= 1.0:
+                x0, x1 = s1 * S, R_.poly.bounds[2]; where = '南端' if True else ''
+            elif s1 >= Ls - 1.0:
+                x0, x1 = 0.0, s0 * S; where = '北端'
+            else:
+                R_.notes.append(f'！壁の途中で柱{fr}{sd}に当たる（要判断）'); break
+            oldL = R_.poly.bounds[2] - R_.poly.bounds[0]
+            R_.poly = R_.poly.intersection(box(x0, -1e4, x1, 1e4)); R_.poly = unary_union(kabe._parts(R_.poly)); R_.reframe()
+            R_.notes.append(f"柱{fr}{sd}の手前で止めた（{(oldL - (R_.poly.bounds[2] - R_.poly.bounds[0])) / S / 1000:.3f} m短く）")
+        cw = check_wall(R_.A, R_.B, R_.bottom(), R_.top())
+        lim = min([u_ - CLEAR_TOP for (_, _, u_, _) in cw['beam']] + [zb - CLEAR_TOP for (_, zb) in cw['keta']] + [1e9])
+        if R_.top() > lim:
+            old = R_.top()
+            R_.poly = R_.poly.intersection(box(-1e4, -1e4, 1e4, R_.y_of(lim)))
+            R_.poly = unary_union(kabe._parts(R_.poly))
+            R_.notes.append(f'上端を{old / 1000:.2f} mから{lim / 1000:.2f} mに下げた（下面−{CLEAR_TOP / 1000:.2f} m）')
+    return pcs, runs, t3, tiny
+
+def assemble():
+    """間仕切りを壁にまとめ、架構との干渉を直し、交点に半欠きを入れ、孤立した壁に足をつける"""
+    pcs, runs, t3, tiny = build_walls()
+    Jt = kabe.find_joints(runs, t3); kabe.classify(Jt)
+    ext = kabe.extend_stems(Jt); kabe.apply_extensions(runs, ext)
+    comps = kabe.components(runs, Jt)
+    feet, fj = [], []
+    nid = len(runs) + 1
+    for c in comps:
+        if kabe.is_braced(c): continue
+        for R_ in c:
+            for f, j in kabe.make_feet(R_, nid):
+                feet.append(f); fj.append(j); nid += 1
+    allj = Jt + fj
+    kabe.cut_joints(allj, WALL_KERF, CUT_W)
+    # 足・伸ばした端が架構や別の壁に当たらないかを確かめる
+    probs = []
+    for R_ in runs + feet:
+        cw = check_wall(R_.A, R_.B, R_.bottom(), R_.top())
+        bad = [f'柱{fr}{sd}' for fr, sd, _, _ in cw['col']]
+        bad += [f'梁{fr}{sd}（下面{u_ / 1000:.2f} m）' for fr, sd, u_, _ in cw['beam'] if R_.top() > u_ - CLEAR_TOP + 1e-6]
+        bad += [f'{nm}' for nm, zb in cw['keta'] if R_.top() > zb - CLEAR_TOP + 1e-6]
+        if bad: probs.append((R_, bad))
+    for f in feet:
+        fp = footprint(f.A, f.B)
+        for R_ in runs:
+            if R_.id != f.foot_of and fp.intersection(footprint(R_.A, R_.B)).area > 1.0:
+                probs.append((f, [f'壁{R_.id}と重なる']))
+    return dict(pcs=pcs, runs=runs, feet=feet, joints=allj, comps=comps, tiny=tiny, probs=probs, t3=t3)
+
+def pin(P):
+    """壁の線上の点 → (架構の番号, 架構の線から北へ mm（模型）, 西の縁から mm（模型）, u, v)"""
+    u, v = _uv(*P)
+    k = int(round(u / 3.0))
+    a = (u - 3.0 * k) * (RW_ - v * 1000) / RW_ * 10
+    b = (v - V_EDGE) * 10
+    return k + 1, a, b, u, v
+
+def _label_pos(poly, n, h=1.2):
+    w = len(n) * h * 0.6 + (len(n) - 1) * (1.2 - h * 0.6) + h * 0.1
+    best = None
+    b = poly.bounds
+    inner = poly.buffer(-0.35)
+    for x in np.arange(b[0], b[2] - w, 0.4):
+        for y in np.arange(b[1], b[3] - h, 0.4):
+            if inner.contains(box(x, y, x + w, y + h)):
+                d = Point(x + w / 2, y + h / 2).distance(poly.boundary)
+                if best is None or d > best[0]: best = (d, x, y)
+    return best
+
+def _tab_points(poly):
+    """つなぎ（切り残し）の位置：外形のいちばん長い水平の辺の中点を、下側と上側に 1 つずつ"""
+    pts = []
+    ring = list(poly.exterior.coords)
+    segs = [(ring[i], ring[i + 1]) for i in range(len(ring) - 1) if abs(ring[i][1] - ring[i + 1][1]) < 1e-6 and abs(ring[i][0] - ring[i + 1][0]) > 1.4]
+    if not segs: return pts
+    ymid = (poly.bounds[1] + poly.bounds[3]) / 2
+    for half in (lambda y: y <= ymid, lambda y: y > ymid):
+        cand = [s for s in segs if half(s[0][1])]
+        if cand:
+            s_ = max(cand, key=lambda s: abs(s[0][0] - s[1][0]))
+            pts.append(Point((s_[0][0] + s_[1][0]) / 2, s_[0][1]))
+    return pts
 
 def interior_sheets():
-    parts = interior_parts()
-    if not any(p_[0] == '西館' for p_ in parts):
-        # 10-28：今の 3dm の西館の間仕切り（24）は 1 つにつながった立体で、板に分けられない。前の 09・10 を残す
-        print('  西館の間仕切りが板に分けられない（24 が 1 つの立体）ので、09・10 は書き出さない')
-        return len(parts), None
-    items = [(f'{i + 1}', pn[1], pn) for i, pn in enumerate(parts)]
-    items = [(n, g, pn) for n, g, pn in items]
-    sh = _shelf([(n, g) for n, g, _ in items], 590, 290)
-    names = {}
-    for si, lst in enumerate(sh):
+    W_ = assemble()
+    runs, feet = W_['runs'], W_['feet']
+    items = []
+    for R_ in runs:
+        items.append((str(R_.id), R_))
+    for f in feet:
+        par = next(r_ for r_ in runs if r_.id == f.foot_of)
+        items.append((f'{par.id}{"A" if f.side == "A" else "B"}', f))
+    shelf = kabe_shelf([(n, R_.poly) for n, R_ in items], 590, 290)
+    nsheet = 0
+    miss = []
+    for si, lst in enumerate(shelf):
         s = Sheet(f'09_室内の壁_{si + 1}_航空ベニヤ0.6', 600, 300,
-                  '航空ベニヤ 0.6 300×600：本館と西館の室内の壁・腰壁・框（番号は 10_室内の壁の配置図 と同じ）。高さは床の上面から')
-        s.add(box(0, 0, 600, 300), 'ref')
+                  '航空ベニヤ 0.6 300×600：本館の1階の間仕切り（番号は 10_室内の壁の配置図 と同じ。足は番号に A・B）。高さは床の上面から。半欠きは切り込み（上から／下から）')
+        s.tabs = True
         for (n, g), x, y in lst:
-            q = affinity.translate(g, x, 290 - y - g.bounds[3])
-            s.add(q)
-            c = q.representative_point()
-            for j, ch in enumerate(n):
-                for l in label_num(ch, c.x - len(n) * 0.6 + j * 1.2, c.y - 0.6, 1.2): s.add(l, 'eng')
-        s.save([])
-    # 配置図（1/100、平面）：壁の位置と番号
+            R_ = dict(items)[n]
+            q = affinity.translate(R_.poly, x - R_.poly.bounds[0], 290 - y - R_.poly.bounds[3])
+            for pp in kabe._parts(q):
+                s.add(pp)
+                s.tab_pts += _tab_points(pp)
+            lp = max(kabe._parts(q), key=lambda p_: p_.area)
+            pos = _label_pos(lp, n, 1.2) or _label_pos(lp, n, 0.9)
+            hh = 1.2 if _label_pos(lp, n, 1.2) else 0.9
+            if pos:
+                _, lx, ly = pos
+                for j, ch in enumerate(n):
+                    for l in label_num(ch, lx + j * (hh * 0.6 + (1.2 - 1.2 * 0.6) * (hh / 1.2)), ly, hh): s.add(l, 'eng')
+            else:
+                miss.append(n)
+        s.save()
+        nsheet += 1
+    plan_pdf(W_)
+    write_table(W_, miss)
+    return dict(壁=len(runs), 足=len(feet), 板=len(W_['pcs']), 交点=len(W_['joints']), 枚=nsheet, 番号を彫れない=miss, 問題=[(r_.id, b_) for r_, b_ in W_['probs']])
+
+def kabe_shelf(items, W, H, gap=2.5):
+    sheets = [[]]; x = y = rowh = 0
+    for n, g in sorted(items, key=lambda it: -it[1].bounds[3]):
+        w, h = g.bounds[2], g.bounds[3]
+        if x + w > W: x = 0; y += rowh + gap; rowh = 0
+        if y + h > H: sheets.append([]); x = y = rowh = 0
+        sheets[-1].append(((n, g), x, y)); x += w + gap; rowh = max(rowh, h)
+    return sheets
+
+def plan_pdf(W_):
+    """配置図（1/100、平面）：壁の線と番号、針の印の点、架構の番号"""
     import matplotlib; matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
-    plt.rcParams['font.family'] = 'Noto Sans CJK JP'
+    sys.path.insert(0, os.path.join(ROOT, 'scripts'))
+    try:
+        import fonts42                       # Type42（文字のまま埋め込む）、無ければ前のまま
+    except Exception:
+        plt.rcParams['font.family'] = 'Noto Sans CJK JP'
+        plt.rcParams['pdf.fonttype'] = 42
     ang = sheet_angle()
-    up = plan('10_本館_屋根')
     flo = unary_union([plan('12_本館_床（はだし ±0）'), plan('14_本館_外縁側（土足 −150）'), plan('15_本館_あまのがわ（土足 −150）')])
-    wfl = unary_union([plan(n) for n in ('31_1F_遊戯室', '32_1F_キッチン', '33_1F_東の帯（はだし ±0、ホールと一続き）', '34_1F_食べる土間') if n in LAY])
+    ub = to_sheet(flo, ang, (0, 0)).bounds
+    off = (20 - ub[0], (594 - (ub[3] - ub[1])) / 2 - ub[1])
+    ts = lambda g: affinity.translate(to_sheet(g, ang, (0, 0)), *off)
     path = os.path.join(OUT, '10_室内の壁の配置図.pdf')
     with PdfPages(path) as pdf:
-        for tag in ('本館', '西館'):
-            fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4)); axp = fig.add_axes([0, 0, 1, 1])
-            ub = to_sheet(unary_union([flo, wfl]), ang, (0, 0)).bounds
-            off = (20 - ub[0], 60 - ub[1])
-            ts = lambda g: affinity.translate(to_sheet(g, ang, (0, 0)), *off)
-            for base in (flo, wfl):
-                for gg in getattr(base, 'geoms', [base]):
-                    q = ts(gg)
-                    xs, ys = q.exterior.xy; axp.plot(xs, ys, color='0.75', lw=0.4)
-            for g in list(cols) + list(objs('22a_西館_柱')):
-                b_ = g.GetBoundingBox() if not isinstance(g, MeshCol) else None
-                pc = Point((b_.Min.X + b_.Max.X) / 2, (b_.Min.Y + b_.Max.Y) / 2) if b_ else Point(g.PathStart.X, g.PathStart.Y)
-                q = ts(pc); axp.plot([q.x], [q.y], 's', color='0.3', ms=2)
-            for (n, g, pn) in items:
-                if pn[0] != tag and tag == '西館' and False: pass
-                tg, panel, c, ax_, T, z0 = pn
-                L_ = panel.bounds[2] / S
-                a = np.array(c) - ax_ * L_ / 2; b = np.array(c) + ax_ * L_ / 2
-                from shapely.geometry import LineString
-                ln = ts(LineString([a, b])); xs, ys = ln.xy
-                col = 'tab:red' if tg == tag else '0.6'
-                axp.plot(xs, ys, color=col, lw=1.2)
+        fig = plt.figure(figsize=(841 / 25.4, 594 / 25.4)); axp = fig.add_axes([0, 0, 1, 1])
+        for gg in getattr(flo, 'geoms', [flo]):
+            xs, ys = ts(gg).exterior.xy; axp.plot(xs, ys, color='0.75', lw=0.4)
+        for d in col_infos():
+            q = ts(Point(CX + d['rc'] * math.cos(d['ac']), CY + d['rc'] * math.sin(d['ac'])))
+            axp.plot([q.x], [q.y], 's', color='0.3', ms=2)
+            if not d['east']:
+                axp.text(q.x - 0.5, q.y + 2.5, str(d['frame']), fontsize=6, color='0.2', ha='right', va='bottom', rotation=0)
+        for R_ in W_['runs'] + W_['feet']:
+            foot = R_.foot_of is not None
+            ln = ts(LineString([R_.A, R_.B])); xs, ys = ln.xy
+            axp.plot(xs, ys, color='tab:blue' if foot else 'tab:red', lw=0.9 if foot else 1.4, solid_capstyle='butt')
+            if not foot:
                 mid = ln.interpolate(0.5, normalized=True)
-                axp.text(mid.x, mid.y, n, fontsize=5, color=col, ha='center', va='center')
-            axp.set_xlim(0, 841); axp.set_ylim(0, 594); axp.set_aspect('equal'); axp.axis('off')
-            axp.text(20, 20, f'室内の壁の配置図：{tag}の壁を赤（番号＝09 の板の番号）。A1 に 100% で印刷すると模型と同じ大きさ', fontsize=10)
-            pdf.savefig(fig); plt.close(fig)
-    return len(parts), [len(l) for l in sh]
+                axp.text(mid.x, mid.y, str(R_.id), fontsize=5, color='tab:red', ha='center', va='center', bbox=dict(fc='white', ec='none', pad=0.3, alpha=0.8))
+        for j in W_['joints']:
+            q = ts(Point(*j.X)); axp.plot([q.x], [q.y], 'o', color='k', ms=1.6)
+        axp.set_xlim(0, 841); axp.set_ylim(0, 594); axp.set_aspect('equal'); axp.axis('off')
+        axp.text(20, 20, '室内の壁の配置図（本館の1階）：壁の線を赤、足を青、交点を黒の点。番号は 09 の板の番号、上の数字は架構の番号（南から）。A1 に 100% で印刷すると模型と同じ大きさ', fontsize=9)
+        pdf.savefig(fig); plt.close(fig)
+
+def _jdesc(j, run):
+    frm, x, w, removed, desc = j.cut[run.id]
+    return f'{j.R.id if run is j.S else j.S.id}と{j.kind}（{"上から" if frm == "top" else "下から"}）'
+
+def write_table(W_, miss):
+    runs, feet, joints = W_['runs'], W_['feet'], W_['joints']
+    pcs, probs = W_['pcs'], W_['probs']
+    byid = {r_.id: r_ for r_ in runs}
+    runof = {}
+    for R_ in runs:
+        for m_ in R_.members: runof[m_] = R_
+    o = []
+    o.append('# 室内の壁（本館1階）の位置表と干渉の確かめ\n')
+    o.append('作った所：`mokei/laser.py` の「9. 室内の壁」と `mokei/kabe.py`（`python3 mokei/laser.py` で09・10とこの表を書き直す）。模型作成。\n')
+    o.append('## 前提\n')
+    o.append('- 組み立ての順：①間仕切り（航空ベニヤ0.6）を床に立てる（壁どうしを半欠きでかみ合わせて自立）→②架構を上から下ろす→③外壁。')
+    o.append(f'- 板の厚さ0.6、切り幅{WALL_KERF}。切り込みの描く幅は、両側に木が残る所＝0.6−{WALL_KERF}＝{CUT_W:.2f}、壁の端の切り込み＝相手の厚さ−{WALL_KERF / 2:.1f}。T5（航空ベニヤ0.6の試し切り）の結果が`data/mokei.json`に無いので仮の値。結果が出たら`切り幅`の`航空ベニヤ0.6`か`室内の壁`の`切り込みの幅_描く`に入れて作り直す。')
+    o.append('- 切り込みの高さの境は、組む所の材の高さの真ん中。上端が高いほうの壁に下から、低いほうに上から入れる。T・Lで端になる壁は、相手の壁の向こう側の面まで伸ばして面をそろえる（相手は模型では0.6の薄さ）。')
+    o.append(f'- 梁の下面・桁の下面との余裕は{CLEAR_TOP / 10:.1f} mm（実寸{CLEAR_TOP / 1000:.2f} m）。柱の置き場所は、柱の厚さ1.75・幅4.0と頭の丸み、床の柱の穴（実寸1.8×4.1）。')
+    o.append(f'- 針の印の座標：架構の番号（南から、架構1＝南の妻）、その架構の線から北へ何mm（弧に沿って、南は−）、西の縁（床04の西の端、西の外壁の線より3.4 mm外）から何mm（半径方向、東へ）。単位は模型のmm。印は壁の線（厚さの真ん中）の上。\n')
+    # --- 干渉の確かめ
+    o.append('## 1. 干渉の確かめ（3dmの板ごと）\n')
+    o.append('a＝柱（頭の丸みと床の穴を含む）との重なり／b＝梁の板の下面との余裕（交わる梁の板の下面−板の上端、実寸m）／c＝桁・他の部材。直しは壁（まとめた板）につけた。\n')
+    o.append('| 板 | 場所（u, v m） | 高さ（m） | a 柱 | b 梁 | c 桁・他 | 壁 | 直し |')
+    o.append('|---|---|---|---|---|---|---|---|')
+    others = _others_hits(pcs)
+    for p in pcs:
+        zlo, zt = p['z0'], p['z0'] + p['H']
+        cw = check_wall(p['A'], p['B'], zlo, zt)
+        ua, va = _uv(*p['A']); ub, vb = _uv(*p['B'])
+        a_ = '、'.join(f'柱{fr}{sd}に重なる' for fr, sd, _, _ in cw['col']) or f'なし（離れ{cw["dist"] * S:.1f} mm）'
+        if cw['beam']:
+            b_ = '、'.join(f'梁{fr}{sd}の下面{u_ / 1000:.2f}（余裕{(u_ - zt) / 1000:+.2f}）' for fr, sd, u_, _ in cw['beam'])
+        else:
+            b_ = '梁の板と交わらない'
+        c_ = '、'.join(f'{nm}（下面{zb / 1000:.2f}）' for nm, zb in cw['keta']) or '桁なし'
+        if others is not None:
+            oh = others.get(p['num'])
+            c_ += '／他：' + ('、'.join(f'{k}×{v}' for k, v in sorted(oh.items())) if oh else 'なし')
+        R_ = runof.get(p['num'])
+        fix = '、'.join(R_.notes) if R_ and R_.notes else ''
+        o.append(f'| {p["num"]} | u{ua:.2f}〜{ub:.2f}, v{va:.2f}〜{vb:.2f} | {zlo / 1000:.2f}〜{zt / 1000:.2f} | {a_} | {b_} | {c_} | {R_.id if R_ else "（作らない）"} | {fix} |')
+    o.append('')
+    o.append('他の部材の列は、3dmの板の中に他のレイヤー（ロフト・家具・格子・ガラス・戸・縁側の框など。屋根・架構・床・外壁は除く）の面の点が入っているかの粗い測り。数字は入った物の数。窓のガラス（48）・縦格子（49）・格子手すりは、板の穴や仕上げとして別に作るので、壁の形は変えない。母屋（10v）などの屋根の部材は模型の屋根（06、3dmより3.11 mm高い）に無い。\n')
+    o.append('### 直したもの（壁ごと）\n')
+    for R_ in runs:
+        if R_.notes:
+            o.append(f'- 壁{R_.id}（板{"・".join(map(str, R_.members))}）：' + '；'.join(R_.notes))
+    for R_ in W_['tiny']:
+        o.append(f'- 板{"・".join(map(str, R_.members))}：幅{R_.L:.1f} mmの細い板（隣の壁にほぼ含まれる）は作らない。要判断')
+    o.append('')
+    # --- 壁と交点
+    o.append('## 2. 壁と半欠きのかみ合い\n')
+    o.append('| 壁 | 板 | 長さ×高さ（模型mm） | 高さ（床の上、m） | 交点（相手・形・自分の切り込み） |')
+    o.append('|---|---|---|---|---|')
+    for R_ in runs + feet:
+        js = []
+        for (j, frm, x, w, removed) in R_.joints:
+            oth = j.S if R_ is j.R else j.R
+            lab = oth.id if oth.foot_of is None else f'{oth.foot_of}{"A" if oth.side == "A" else "B"}'
+            js.append(f'{lab}（{j.kind}・{"上から" if frm == "top" else "下から"}・x={x:.1f}・幅{w:.2f}）' + ('' if removed > 0.05 else '！材が無い'))
+        b = R_.poly.bounds
+        nm = str(R_.id) if R_.foot_of is None else f'{R_.foot_of}{"A" if R_.side == "A" else "B"}（足）'
+        o.append(f'| {nm} | {"・".join(map(str, R_.members)) or "—"} | {b[2]:.1f}×{b[3]:.1f} | {R_.bottom() / 1000:.2f}〜{R_.top() / 1000:.2f} | {"、".join(js) or "なし"} |')
+    o.append('')
+    iso = [c for c in W_['comps'] if not kabe.is_braced(c)]
+    o.append(f'### 孤立した壁と足\n')
+    o.append(f'向きの違う壁と組まない壁（{sum(len(c) for c in iso)}枚）に、T字の足（長さ{kabe.FOOT_LEN:.0f} mm、高さは壁の端の半分で6 mmまで）をつけた。長さ15 mm未満の壁は、A端（番号の若い側＝壁の線のA→B の始め）だけ。足は番号にAかBをつけて09に入れてある。')
+    o.append('孤立した壁：' + '、'.join(str(r_.id) for c in iso for r_ in c))
+    o.append('')
+    if probs:
+        o.append('### 要判断（まだ当たる所）\n')
+        for R_, b_ in probs:
+            o.append(f'- 壁{R_.id}：{"、".join(b_)}')
+        o.append('')
+    # --- 針の印
+    o.append('## 3. 針の印の表\n')
+    o.append('床04に鉛筆の針で打つ点。壁の線（厚さの真ん中）の端と交点。A→B は壁の線の向き。「確かめ」は隣の印との距離（ものさしで）。\n')
+    o.append('| 壁 | 点 | 架構 | 架構の線から北へ（mm） | 西の縁から（mm） | u, v（m） |')
+    o.append('|---|---|---|---|---|---|')
+    for R_ in runs + feet:
+        nm = str(R_.id) if R_.foot_of is None else f'{R_.foot_of}{"A" if R_.side == "A" else "B"}'
+        pts = [('A端', R_.A), ('B端', R_.B)]
+        for (j, frm, x, w, removed) in R_.joints:
+            oth = j.S if R_ is j.R else j.R
+            lab = oth.id if oth.foot_of is None else f'{oth.foot_of}{"A" if oth.side == "A" else "B"}'
+            pts.append((f'交点{lab}', j.X))
+        pts_sorted = sorted(pts, key=lambda t: (t[1] - R_.A) @ R_.e)
+        for lab, P in pts_sorted:
+            k, a, b, u, v = pin(P)
+            o.append(f'| {nm} | {lab} | {k} | {a:+.1f} | {b:.1f} | {u:.2f}, {v:.2f} |')
+    o.append('')
+    if miss:
+        o.append('番号を彫れなかった板：' + '、'.join(miss))
+    txt = '\n'.join(o) + '\n'
+    open(os.path.join(ROOT, 'mokei', '室内の壁_位置表.md'), 'w').write(txt)
+
+def _others_hits(pcs):
+    """板の中に入る他のレイヤーの面の点（粗い）。tri（rhino の形→三角形）が使えなければ None"""
+    try:
+        sys.path.insert(0, os.path.join(ROOT, 'model', 'build', 'view'))
+        import tri as _tri
+    except Exception:
+        return None
+    skip = ('10', '11', '12', '13', '14', '15', '17', '38', '24', '52', '00', '01', '20', '21', '22', '23', '25', '27', '30', '31', '32', '33', '34', '35', '36', '41', '42', '43', '44', '45', '53', '54', '56', '58', '59', '60', '62', '64', '66', '67', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99', '19b', '19g', '19c', '19', '21g', '21y', '16', '35b', '35d', '55', '39', '40', '47', '57')
+    import re as _re
+    P_ = []
+    for o_ in m.Objects:
+        nm = m.Layers[o_.Attributes.LayerIndex].Name
+        code = nm.split('_')[0]
+        if not (code.startswith(('37', '46', '48', '49', '51', '18', '19d', '17g', '16d', '16h', '16i', '16o', '19e'))): continue
+        g = o_.Geometry
+        try:
+            if isinstance(g, r.Mesh): T = _tri.tri_mesh(g)
+            elif isinstance(g, r.Extrusion): T = _tri.tri_extrusion(g)
+            elif isinstance(g, r.Brep): T = _tri.tri_brep(g)
+            else: continue
+        except Exception:
+            continue
+        T = np.asarray(T).reshape(-1, 3, 3)
+        if not len(T): continue
+        pts = np.vstack([T.reshape(-1, 3), T.mean(1), (T[:, 0] + T[:, 1]) / 2, (T[:, 1] + T[:, 2]) / 2, (T[:, 0] + T[:, 2]) / 2])
+        P_.append((code, pts))
+    out = {}
+    for p in pcs:
+        A, B = p['A'], p['B']; e = _unit_(B - A); n = np.array([-e[1], e[0]]); L_ = np.linalg.norm(B - A)
+        hits = {}
+        for code, pts in P_:
+            rel = pts[:, :2] - A
+            s_ = rel @ e; t_ = rel @ n
+            mk = (s_ > 20) & (s_ < L_ - 20) & (np.abs(t_) < p['T'] / 2 - 10) & (pts[:, 2] > p['z0'] + 20) & (pts[:, 2] < p['z0'] + p['H'] - 20)
+            if mk.any(): hits[code] = hits.get(code, 0) + 1
+        out[p['num']] = hits
+    return out
+
+def _unit_(v):
+    return v / np.linalg.norm(v)
 
 # ================= 台の表面（シナ 3）：建物の穴・青の彫り・塀と柵の足の溝 =================
 # 10-31 の頼み（模型作成）：表面の彫りと溝は mokei/表面の彫り一覧.md のとおり。仮の出力（T7 の結果と、必須・重要の判断で直す）。
