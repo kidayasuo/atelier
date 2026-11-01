@@ -222,6 +222,11 @@ hits=[np.array(h.coords[0]) for h in hits if not h.is_empty]; fh=min(hits,key=la
 fh_in=fh-t*300
 EO_S=2450   # 柵は南の外縁側（u −2.42 まで）の外の縁で止める（10-24、外縁側と重なっていた）
 wall_along([kp+t*EO_S,fh_in],lambda x,y:-300,lambda x,y:900,60,L_f)
+# 11-02 00:38（ユーザー）：南の縁側の西の端も同じ柵で閉じる（受け取り土間・ポーチの側から南の縁側・みなみのさんかくへ出るルートは無し）。
+# 受け取り土間の引き分け戸の東の袖壁の外（戸のレール u−0.13 の外）から、上の柵の始まり（南の縁側の外の縁 2.45）まで、一本の線（v1.6）の
+# 西の側（縁側の床 61 の縁に接して）。高さは同じ（−300〜900、縁側の床 −150 から 1.05）
+_kw=P(RK+30,th19)
+wall_along([_kw+t*130,_kw+t*EO_S],lambda x,y:-300,lambda x,y:900,60,L_f)
 bldg=quad(RE,RO,TH[K0],th19,40)
 south=Polygon([P(RE,th19),P(RO,th19),P(RO,th19)+t*30000,P(RE,th19)+t*30000]).intersection(site).difference(park).difference(bldg)
 west=Polygon([kp,fh,fh+np.array([-30000,-5000]),kp+np.array([-30000,10000])])
