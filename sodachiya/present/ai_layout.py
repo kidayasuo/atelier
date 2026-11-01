@@ -202,6 +202,12 @@ def write(c):
                     qs_ = [q for q in qs_ if not any(e[0] <= _src_c(q)[0] <= e[2] and e[1] <= _src_c(q)[1] <= e[3] for e in dw.get("exclude", []))]
                 else:
                     qs_ = parts_for(dw["moji"], None if full else clip, (x, H - y - h), sc_, dw["key"], pno)
+                if dw.get("drop_color"):                # 図に置き換えた文字と線（断面Cの風の青、11-01）
+                    _dc = dw["drop_color"].lower()
+                    _blue = lambda q: (q.get("color") or "").lower() == _dc or any((pp.get("stroke") or "").lower() == _dc or (pp.get("fill") or "").lower() == _dc
+                                                                                 for pp in q.get("paths", []))
+                    _bg = {q.get("group") for q in qs_ if q.get("group") and _blue(q)}      # 同じまとまりの字の白い地も
+                    qs_ = [q for q in qs_ if not _blue(q) and q.get("group") not in _bg]
                 for q in qs_:
                     q["dwg"] = dw["name"]
                     q["mock_hash"] = djb2(q["s"]) if q["kind"] == "text" else djb2(q.pop("geo"))
@@ -220,13 +226,21 @@ def write(c):
                             pp["pts"] = [T_(v) for v in pp["pts"]]
                         if q.get("group_name"):
                             q["name"] = q.get("name") or q["group_name"]
-                        q["group"], q["group_name"] = ed["group"]
-                        q["dwg"] = ed["dwg"]
+                        if ed.get("keep_groups"):
+                            # 図の中のサブグループ（矢印・線・注のまとまり、11-01）：部品の group のまま。dwg は図の中の一つのグループ、fig は図
+                            if ed.get("dwg"):
+                                q["dwg"] = ed["dwg"]
+                            if ed.get("fig"):
+                                q["fig_of"] = ed["fig"]
+                        else:
+                            q["group"], q["group_name"] = ed["group"]
+                            q["dwg"] = ed["dwg"]
                         q.setdefault("mock_hash", djb2(json.dumps(q, ensure_ascii=False, sort_keys=True)))
                         add(q)
                 else:
                     add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {os.path.basename(src)}", kind="link", layer="図",
-                             file=rel(src), x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2), clip=None, scale=1, page=pno + 1, dwg=ed["dwg"]))
+                             file=rel(src), x=round(x, 2), y=round(H - y - h, 2), w=round(w, 2), h=round(h, 2), clip=None, scale=1, page=pno + 1,
+                             **({"dwg": ed["dwg"]} if ed.get("dwg") else {}), **({"fig_of": ed["fig"]} if ed.get("fig") else {})))
             else:
                 full = clip[0] == 0 and clip[1] == 0
                 add(dict(id=f"link.{os.path.splitext(os.path.basename(src))[0]}", name=f"図 {os.path.basename(src)}", kind="link", layer="図",
@@ -475,7 +489,9 @@ def write(c):
         _fr = [(f_, re.compile(rx_), nm_) for (no_, f_, rx_, nm_) in c.get("fig_rules", []) if no_ == no]
         for p in parts:
             fg_ = None
-            if p.get("layer") == "注記":
+            if p.get("fig_of"):
+                fg_ = p.pop("fig_of")                   # 図面に重ねる図・部品に分けた素材（空気と光の図・構造の図、11-01）
+            elif p.get("layer") == "注記":
                 fg_ = None                              # 印刷しない注記はまとめない（レイヤーごと印刷しない）
             elif p.get("plan"):
                 fg_ = "配置図"

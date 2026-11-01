@@ -2486,9 +2486,24 @@ wC = (CLIP_C2[2] - CLIP_C2[0]) * CSC
 AIR = 30                                        # 断面の上に、矢印と注を描き込む余白（mm、10-29 14:03：40→30）
 SIDE = 30                                       # 断面の左右の余白（mm）
 _tC = _ya - 10                                  # 断面Cの題の高さ（縦断Aの下）
-cx, cy = M + 6 + SIDE, _tC - 8 - AIR - hC
+# 11-01 23:19（ユーザー）：断面C・Dを同じ 1/100 で左右に並べる（Dの0.61倍をやめた）。Cは左の余白を詰めて左端から、Dは右端まで（木田さんが .ai で整える）
+cx, cy = M + 6, _tC - 8 - AIR - hC
 title(ax, M + 6, _tC, "断面図C　東西に切る（4歳・遊戯室）", "1/100　空気の環境：本館と西館の架構、昼と夏の夜の風の道")
-embed(6, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"))
+# 更新係の文字の層の青い風の注と線（前の越屋根の道）は、空気の環境の図（素材30）に置き換えるので外す（見本は写し、.ai は部品から外す）
+embed(6, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"), dwg_opt=dict(drop_color="#2f6fb0"))
+sys.path.insert(0, os.path.join(HERE, "tools"))
+import saikou as _sk
+RHINO_TXT_MIE[(6, len(embeds[6]) - 1)] = _sk.strip_blue(SEC[:-4] + "_文字.pdf", os.path.join(OUT, "_secC_文字_見本.pdf"))
+# 空気の環境の図（素材30、present/tools/saikou.py）を断面Cの上に。.ai は部品（図「断面図C」の中のグループ「空気の環境」、中は矢印・線・注のまとまりごと）
+_s30 = os.path.join(HERE, "sozai", "30_空気の環境_断面.pdf")
+_j30 = os.path.join(HERE, "sozai", "30_空気の環境_断面.json")
+_q30 = os.path.join(HERE, "sozai", "30_空気の環境_断面_parts.json")
+if os.path.exists(_s30) and os.path.exists(_j30):
+    _p30 = json.load(open(_j30, encoding="utf-8"))["page_paper_mm"]
+    EMB_DWG[(6, len(embeds[6]))] = dict(dwg="空気の環境", fig="断面図C", keep_groups=True, parts=_q30 if os.path.exists(_q30) else None,
+                                        tl=(cx, H - (cy + hC)), origin=(CLIP_C2[0], CLIP_C2[1]), scale=1.0)
+    embed(6, _s30, None, cx + (_p30[0] - CLIP_C2[0]), (cy + hC) - (_p30[3] - CLIP_C2[1]), 1.0)
+    print("空気の環境の図（素材30）：断面Cの上に、上へ %.1f mm" % (CLIP_C2[1] - _p30[1]))
 _rx5 = cx + wC + SIDE + 6
 _rw5 = W - M - 6 - _rx5
 # 季節ごとの運転と環境への配慮（ユーザー 10-29 9:43：監修のまとめに従い、ボードに合う短さで。8つの箱はやめ、同じ範囲に三つ）
@@ -2634,24 +2649,11 @@ for k_, col_ in _cols.items():
     _yl = _mpart(f"area.col.{k_}", _cx[k_], _y, [(t_, IA_FS, INK, j_ in (0, n_ - 1), IA_ROW) for j_, t_ in enumerate(col_)], G_IA,
                  f"面積表の列：{_nm[k_]}", ha="right" if k_ == "plan" else "left")
 _rule("area.rule.bottom", [(_ix, _yl - 1.6), (_ix + _iw, _yl - 1.6)], "#666666", 0.35, G_IA, "罫線：面積表の下")
-# 断面D：10-30（6枚）から、既定は木田さんが .ai で置いた所と大きさ（layout_user.json の p6.link.sodachiya_sections2_1-100 と題の文字）。
-# 6枚目の左下を構造の図に空けるため（.ai では断面Dは断面Cの右）。記録が無ければ前の既定（断面Cの下、1/100）。上に光の矢印を描く余白 AIR_D
-AIR_D = 42
-_uD = _UP.get("p6.link.sodachiya_sections2_1-100") or {}
-_uDt = _UP.get("p6.t.断面図D本館の横断（光の筋で") or {}
+# 断面D：11-01 23:19（ユーザー）から断面Cと同じ 1/100、断面Cの右に上をそろえて紙の右の余白まで（前は木田さんが .ai で240 mm 幅＝約0.61倍に置いていた）
+AIR_D = AIR
 D_SC = 1.0
-if _SD and all(k_ in _uD for k_ in ("x", "y", "w")):
-    # .ai の断面Dのリンクは木田さんの記録の幅（240 mm）で置かれる（ai_layout が w から倍率を出す）。図面の文字・寸法の部品と採光の図も同じ倍率にそろえる
-    # （10-30：更新係の断面Dが 395×123 mm に広がったので約0.61倍。1/100 に戻すかは木田さんが .ai で決める）
-    D_SC = round(_uD["w"] / DW, 4)
-    dx, dy = _uD["x"], H - _uD["y"] - DH * D_SC
-    _tD = H - _uDt["y"] if "y" in _uDt else dy + DH * D_SC + AIR_D * D_SC + 8
-    _tDx = _uDt.get("x", dx)
-else:
-    _r2t, _r2b = cy - 14, M + 8
-    _tD = (_r2t + _r2b) / 2 + (8 + AIR_D + DH) / 2
-    dx, dy = cx + (wC - DW) / 2, _tD - 8 - AIR_D - DH
-    _tDx = M + 6
+dx, dy = W - M - 6 - DW, cy + hC - DH
+_tD, _tDx = _tC, dx
 title(ax, _tDx, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根")
 if _SD and os.path.exists(_SD[0]):
     embed(6, _SD[0], _SD[1], dx, dy, D_SC, dwg=("D", "断面図D"))
@@ -2665,8 +2667,8 @@ if _SD and os.path.exists(_SD[0]):
         _p17 = json.load(open(_j17, encoding="utf-8"))["page_paper_mm"]
         _x17 = dx + (_p17[0] - _SD[1][0]) * D_SC
         _y17 = (dy + DH * D_SC) - (_p17[3] - _SD[1][1]) * D_SC
-        EMB_DWG[(6, len(embeds[6]))] = dict(dwg="断面図D", parts=_q17 if os.path.exists(_q17) else None,
-                                            tl=(dx, H - (dy + DH * D_SC)), origin=(_SD[1][0], _SD[1][1]), group=("saikou", "光の環境"), scale=D_SC)
+        EMB_DWG[(6, len(embeds[6]))] = dict(dwg="光の環境", fig="断面図D", keep_groups=True, parts=_q17 if os.path.exists(_q17) else None,
+                                            tl=(dx, H - (dy + DH * D_SC)), origin=(_SD[1][0], _SD[1][1]), scale=D_SC)
         embed(6, _s17, None, _x17, _y17, D_SC)
         print("採光の図（素材17）：断面Dの上に、上へ %.1f mm はみ出す（余白 %d mm）、.ai は%s" % (_SD[1][1] - _p17[1], AIR_D, "部品" if os.path.exists(_q17) else "PDF"))
 else:
@@ -2680,6 +2682,10 @@ KZ_W, KZ_H = 380.0, 150.0
 _kzt = H - 352.0
 title(ax, M + 6, _kzt, "構造", "架構と耐力壁の分布")
 if os.path.exists(KOZO):
+    # .ai では kozo.py の部品（線と生きた文字、図「構造」の中に種類ごとのサブグループ、11-01 ユーザー）。部品が無ければ PDF のリンク
+    _qkz = KOZO[:-4] + "_parts.json"
+    EMB_DWG[(6, len(embeds[6]))] = dict(fig="構造", keep_groups=True, parts=_qkz if os.path.exists(_qkz) else None,
+                                        tl=(M + 6, H - (_kzt - TITLE_GAP)), origin=(0.0, 0.0), scale=1.0)
     embed(6, KOZO, None, M + 6, _kzt - TITLE_GAP - KZ_H, fit=(KZ_W, KZ_H))
     _topalign(6, _kzt - TITLE_GAP)
     print("構造の図：", os.path.relpath(KOZO, HERE))

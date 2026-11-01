@@ -256,17 +256,17 @@ def shade(col, P):
 items = []          # (深さ, 2D, 面の色, 線の色, 線の太さ)
 for faces, edges, ln in members:
     for P in faces:
-        items.append((dep(P), pj(P), shade(C_MEM, P) + (1.0,), "none", 0.0))
+        items.append((dep(P), pj(P), shade(C_MEM, P) + (1.0,), "none", 0.0, "kako"))
     for a, b in edges:
-        items.append((dep(np.array([a, b])) + 0.02, pj(np.array([a, b])), "none", C_MEM_E, 0.18))
+        items.append((dep(np.array([a, b])) + 0.02, pj(np.array([a, b])), "none", C_MEM_E, 0.18, "kako"))
 for P, k in walls:
     if k.startswith("edge:"):
         k = k[5:]
         cc = tuple(np.array(to_rgb(WALL_C[k])) * 0.72)
-        items.append((dep(P) + 0.03, pj(P), "none", cc + ((0.55 if k == "PT" else 0.9),), 0.25 if k != "PT" else 0.18))
+        items.append((dep(P) + 0.03, pj(P), "none", cc + ((0.55 if k == "PT" else 0.9),), 0.25 if k != "PT" else 0.18, "wall." + k))
     else:
         a = 0.28 if k == "PT" else 0.55
-        items.append((dep(P), pj(P), shade(WALL_C[k], P) + (a,), "none", 0.0))
+        items.append((dep(P), pj(P), shade(WALL_C[k], P) + (a,), "none", 0.0, "wall." + k))
 items.sort(key=lambda t: t[0])
 
 allp = np.vstack([t[1] for t in items])
@@ -289,6 +289,68 @@ pc = PolyCollection([A2(t[1]) for t in items], facecolors=[t[2] for t in items],
                     linewidths=[t[4] for t in items], closed=True, joinstyle="round", capstyle="round")
 ax.add_collection(pc)
 
+# ---- Illustrator の部品（11-01、ユーザー：ほかの図と同じく線と文字を別の部品に、種類ごとのサブグループ）。座標は素材の左上からの mm、下向き +
+GRN = {"kako": "架構（柱・梁・桁・2階の床梁）", "wall.NS": "耐力壁：南北（桁の方向）", "wall.EW": "耐力壁：東西（梁間）",
+       "wall.DG": "耐力壁：斜め（両方向）", "wall.PT": "南の妻の垂れ壁・袖壁（門型）", "label": "名前と注", "legend": "凡例と注", "north": "方位"}
+GR, TX = {}, []
+
+
+def _hx(c):
+    if c is None or (isinstance(c, str) and c == "none"):
+        return None, 1.0
+    rgba = matplotlib.colors.to_rgba(c)
+    return matplotlib.colors.to_hex(rgba[:3]), float(rgba[3])
+
+
+def rec_path(g, pts, stroke=None, fill=None, lw=0.0, closed=False, op=None):
+    st, a1 = _hx(stroke); fl, a2 = _hx(fill)
+    GR.setdefault(g, []).append(dict(pts=[[round(float(x), 3), round(float(H - y), 3)] for x, y in pts], closed=closed, stroke=st, fill=fl,
+                                     lw=round(float(lw), 3), dash=None, op=round(op if op is not None else (a2 if fl else a1), 3), eo=False))
+
+
+def rec_text(g, x, y, s_, size, ha="left", va="center", color=INK, bold=False):
+    e = size * 0.3528
+    base = {"center": y - 0.37 * e, "top": y - 0.88 * e, "bottom": y + 0.12 * e, "baseline": y}[va]
+    TX.append(dict(id=f"kozo.{g}.t{len(TX)}", name=f"注　{s_[:20]}", kind="text", layer="説明", x=round(x, 2), y=round(H - base, 2), s=s_,
+                   size_pt=round(size, 2), font="W6" if bold else "W3", color=_hx(color)[0], align=ha, group=f"kozo.{g}", group_name=GRN[g]))
+
+
+# .ai では面と辺を一つずつにすると数万になるので、部材ごと・壁の向きごとに面を一つの形に合わせ、辺は続く線にまとめる
+# （見本の PDF は面ごとの陰のまま。.ai は架構の下に耐力壁を重ねる：壁は半透明なので、奥の架構も透けて見える）
+from shapely.geometry import Polygon as SPoly, LineString as SLine
+from shapely.ops import unary_union, linemerge
+
+
+def _polys(geo):
+    gs = getattr(geo, "geoms", [geo])
+    return [g for g in gs if g.geom_type == "Polygon" and g.area > 1e-4]
+
+
+def _rec_union(g, polys2d, fill, op, stroke=None, lw=0.0):
+    U = unary_union([SPoly(q).buffer(0.01) for q in polys2d if len(q) >= 3])
+    for pg in _polys(U.simplify(0.02)):
+        rec_path(g, list(pg.exterior.coords)[:-1], stroke=stroke, fill=fill, lw=lw, closed=True, op=op)
+        for hole in pg.interiors:
+            rec_path(g, list(hole.coords)[:-1], fill="#ffffff", closed=True, op=0.0)
+
+
+def _rec_lines(g, segs2d, color, lw, op):
+    M_ = linemerge([SLine(q) for q in segs2d if np.linalg.norm(q[1] - q[0]) > 1e-3])
+    for ln_ in getattr(M_, "geoms", [M_]):
+        rec_path(g, list(ln_.simplify(0.02).coords), stroke=color, lw=lw, op=op)
+
+
+for faces, edges, ln in sorted(members, key=lambda t: np.mean([dep(P) for P in t[0]])):
+    _rec_union("kako", [A2(pj(P)) for P in faces], C_MEM, 1.0)
+    _rec_lines("kako", [A2(pj(np.array([a, b]))) for a, b in edges], C_MEM_E, 0.18, 1.0)
+for k in ("PT", "NS", "DG", "EW"):
+    fs = [A2(pj(P)) for P, kk in walls if kk == k]
+    es = [A2(pj(P)) for P, kk in walls if kk == "edge:" + k]
+    if fs:
+        _rec_union("wall." + k, fs, WALL_C[k], 0.28 if k == "PT" else 0.55)
+    if es:
+        _rec_lines("wall." + k, es, matplotlib.colors.to_hex(np.array(to_rgb(WALL_C[k])) * 0.72), 0.25 if k != "PT" else 0.18, 0.55 if k == "PT" else 0.9)
+
 
 def P3(u, v, z):
     return np.r_[xy(u, v) / 1000, z] + (SH if v < -0.8 else 0)      # 西館（v＜−0.8）は離した位置
@@ -303,11 +365,16 @@ def lab(u, v, z, s, dx, dy, ha="left", bold=False, size=FSL, color=INK, at=None)
     ax.text(t[0], t[1], s, fontsize=size, ha=ha, va="bottom" if dy > 0 else "top", color=color,
             fontweight="bold" if bold else "normal",
             bbox=dict(boxstyle="square,pad=0.15", fc="white", ec="none", alpha=0.8))
+    rec_path("label", [(p[0], p[1]), (t[0], t[1] - (0.6 if dy > 0 else -1.6))], stroke=color, lw=0.3)
+    cc = [(p[0] + 0.21 * math.cos(a_), p[1] + 0.21 * math.sin(a_)) for a_ in np.linspace(0, 2 * math.pi, 12, endpoint=False)]
+    rec_path("label", cc, fill=color, closed=True)
+    rec_text("label", t[0], t[1], s, size, ha, "bottom" if dy > 0 else "top", color, bold)
 
 
 def name(u, v, z, s, dx=0, dy=0):
     p = A2(pj(P3(u, v, z)))[0]
     ax.text(p[0] + dx, p[1] + dy, s, fontsize=12, fontweight="bold", ha="center", va="center", color=INK)
+    rec_text("label", p[0] + dx, p[1] + dy, s, 12, "center", "center", INK, True)
 
 
 # ---------------------------------------------------------------- 1階の耐力壁の分布（1/600、高野川の辺が下）
@@ -359,24 +426,21 @@ def B2(P):
     return np.c_[(Q[:, 0] - qlo[0]) * PL + PX0, (Q[:, 1] - qlo[1]) * PL + PY0]
 
 
-ax.add_collection(PolyCollection([B2(q) for q in plan_beams], facecolors="none", edgecolors="#9A9A9A", linewidths=0.2))
-order = ["PT", "NS", "DG", "EW"]
-for k in order:
-    if segs[k]:
-        ax.add_collection(LineCollection([B2(s) for s in segs[k]], colors=WALL_C[k],
-                                         linewidths=0.9 if k == "PT" else 1.7, capstyle="butt"))
-ax.add_collection(PolyCollection([B2(q) for q in plan_cols], facecolors=INK, edgecolors=INK, linewidths=0.15))
+# 11-01 23:37（ユーザー）：構造の図はアイソメ図だけ（シンプルにするため）。横の小さな1階平面（1/600）は描かない。
+# 凡例の位置・アイソメ図の大きさと位置は前のまま（平面の所は余白のまま残す、ユーザー 23:38）。上の平面の計算は凡例の位置（PY0）にだけ使う
 
-# 平面の注：方位と架構の番号
-nv = np.array([0.0, 1.0]) @ _R.T
-nx, ny = W - 14, H - 18                          # 平面の右上の空き
-ax.annotate("", xy=(nx + nv[0] * 7, ny + nv[1] * 7), xytext=(nx, ny),
-            arrowprops=dict(arrowstyle="-|>,head_length=0.5,head_width=0.22", lw=0.5, color=INK))
-ax.text(nx + nv[0] * 9.2, ny + nv[1] * 9.2, "N", fontsize=FS, ha="center", va="center")
-for fr, u, ha in ((1, -1.0, "right"), (20, 58.0, "left")):
-    p = B2(np.r_[xy(u, 14.0)] / 1000)[0]
-    ax.text(p[0], p[1], f"架構{fr}", fontsize=7.0, ha=ha, va="center", color="#555555")
-ax.text(W - 3, H - 36, "1階　1/600", fontsize=FS, ha="right", va="center", color=INK)
+# 方位の印（アイソメ図の左上の空き、3dm の +Y が北）
+_nv = pj(P0 + np.array([0.0, 1.0, 0.0]))[0] - pj(P0)[0]
+_nv = _nv / np.linalg.norm(_nv)
+NX, NY = 12.0, H - 16.0
+_tip = (NX + _nv[0] * 8, NY + _nv[1] * 8)
+ax.annotate("", xy=_tip, xytext=(NX, NY), arrowprops=dict(arrowstyle="-|>,head_length=0.5,head_width=0.22", lw=0.5, color=INK))
+ax.text(NX + _nv[0] * 10.5, NY + _nv[1] * 10.5, "N", fontsize=FS, ha="center", va="center")
+_nn = np.array([-_nv[1], _nv[0]])
+rec_path("north", [(NX, NY), (NX + _nv[0] * 6.2, NY + _nv[1] * 6.2)], stroke=INK, lw=0.5)
+rec_path("north", [_tip, (_tip[0] - _nv[0] * 1.8 + _nn[0] * 0.7, _tip[1] - _nv[1] * 1.8 + _nn[1] * 0.7),
+                   (_tip[0] - _nv[0] * 1.8 - _nn[0] * 0.7, _tip[1] - _nv[1] * 1.8 - _nn[1] * 0.7)], fill=INK, closed=True)
+rec_text("north", NX + _nv[0] * 10.5, NY + _nv[1] * 10.5, "N", FS, "center", "center")
 
 # ---------------------------------------------------------------- 軸測図の名前と注
 SEL = os.environ.get("KOZO_NOLABEL")
@@ -396,27 +460,43 @@ if not SEL:
     lab(32.5, -4.0, 1.2, "階段の箱", 0, 0, ha="center", at=(100.0, 20.0))
 
 # 凡例と注（右の列、平面の下）
-LX, LY = COL_X + 2, PY0 - 6
+LX, LY = COL_X + 2, PY0 - 6 + 5.0                # 注を一行足したので5 mm 上へ（11-01）
 leg = [("NS", "南北（桁の方向）に効く耐力壁"), ("EW", "東西（梁間）に効く耐力壁"), ("DG", "斜めの壁（両方向に効く）"),
        ("PT", "南の妻の垂れ壁・袖壁（門型の一部）")]
 y = LY
 for k, s in leg:
     ax.add_patch(plt.Rectangle((LX, y - 1.6), 7.0, 3.2, fc=WALL_C[k], ec="none", alpha=0.85 if k != "PT" else 0.6))
     ax.text(LX + 9.0, y, s, fontsize=FS, va="center")
+    rec_path("legend", [(LX, y - 1.6), (LX + 7, y - 1.6), (LX + 7, y + 1.6), (LX, y + 1.6)], fill=WALL_C[k], closed=True, op=0.85 if k != "PT" else 0.6)
+    rec_text("legend", LX + 9.0, y, s, FS)
     y -= 5.2
 ax.add_patch(plt.Rectangle((LX, y - 1.6), 7.0, 3.2, fc=C_MEM, ec=C_MEM_E, lw=0.3))
 ax.text(LX + 9.0, y, "柱・梁・桁・2階の床梁（架構）", fontsize=FS, va="center")
+rec_path("legend", [(LX, y - 1.6), (LX + 7, y - 1.6), (LX + 7, y + 1.6), (LX, y + 1.6)], stroke=C_MEM_E, fill=C_MEM, lw=0.3, closed=True)
+rec_text("legend", LX + 9.0, y, "柱・梁・桁・2階の床梁（架構）", FS)
 y -= 7.0
-notes = ["本館と西館は構造が別（エキスパンション）。離して描いた。",
+notes = ["梁間は剛接合の架構（2枚の梁が柱を挟む）、桁行は耐力壁。",
+         "本館と西館は構造が別（エキスパンション）。離して描いた。",
          "本館の東西は架構1〜20（柱と梁の門型）で受ける。",
          "間仕切りは構造にしない（動かせるように）。",
          "西館の外壁は窓を含めて構造用合板で通す。",
          "屋根は母屋の上の合板を水平構面に。"]
 for s in notes:
     ax.text(LX, y, s, fontsize=FS - 0.5, va="center", color="#444444")
+    rec_text("legend", LX, y, s, FS - 0.5, color="#444444")
     y -= 4.0
 
 fig.savefig(OUT)
+_parts = []
+for g, paths in GR.items():
+    A_ = np.array([p_ for q_ in paths for p_ in q_["pts"]])
+    _parts.append(dict(id=f"kozo.{g}.l", name=GRN[g], kind="lines", layer="説明", paths=paths, group=f"kozo.{g}", group_name=GRN[g],
+                       x=round(float(A_[:, 0].min()), 2), y=round(float(A_[:, 1].min()), 2), w=round(float(np.ptp(A_[:, 0])), 2), h=round(float(np.ptp(A_[:, 1])), 2)))
+json.dump({"_": "構造の図の部品（Illustrator の一つずつの部品）。present/ai/layout.json の parts と同じ形（kind＝text・lines）。座標は素材（18_構造_架構と耐力壁.pdf）の左上からの mm、"
+                "下向き +。text の (x, y) は揃えの点の基準線、size_pt・lw は pt。group は図の中のサブグループ（架構・耐力壁の向きごと・名前と注・凡例・方位）。present/tools/kozo.py が書く。",
+           "base": os.path.relpath(OUT, SOD), "unit": "mm", "origin": "素材の左上", "page_mm": [W, H], "parts": _parts + TX},
+          open(OUT[:-4] + "_parts.json", "w", encoding="utf-8"), ensure_ascii=False)
+print("部品：", ", ".join(f"{GRN[g]} {len(p_)}" for g, p_ in GR.items()), "・文字", len(TX))
 if PNG:
     fig.savefig(PNG, dpi=1600 / (W / 25.4))
 print(OUT)

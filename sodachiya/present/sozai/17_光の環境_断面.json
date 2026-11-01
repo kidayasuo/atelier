@@ -3,26 +3,21 @@
  "base": "drawings/sodachiya_sections2_1-100.pdf",
  "view": "断面D",
  "page_paper_mm": [
-  305.0,
-  220.6,
-  536.1,
-  343.0
+  223.0,
+  209.0,
+  618.0,
+  362.0
  ],
- "frame_line_depth_mm": 0,
- "eave_cut_deg": 60.8,
- "sun_9h_profile_deg": {
-  "夏至": 49.5,
-  "春秋分": 37.4,
-  "冬至": 22.2
+ "louver_direct_time": {
+  "冬至": "9:24"
  },
- "noon_profile_deg": {
-  "夏至": 88.3,
-  "春秋分": 84.1,
-  "冬至": 76.6
+ "noon_profile_deg": 89.3,
+ "eave_cut_deg": 59.8,
+ "summer_eave_time": "10:00",
+ "angles_deg": {
+  "冬至9時": 23.8,
+  "夏至7時": 25.8,
+  "春秋分8時": 24.9
  },
- "glass_sunlit_until": {
-  "夏至": "9:56",
-  "春秋分": "10:37",
-  "冬至": "11:19"
- }
+ "fallback": []
 }
