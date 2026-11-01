@@ -239,10 +239,32 @@ def _sid(s):
     return re.sub(r"[\s　/\\|:（）()、。・]+", "", s)[:16] or "x"
 
 
+# 名前の一覧（name.md、11-02）で文の呼び名を新しい名前にした。部品の id は文から作るので、id だけは前の呼び名のまま
+# （木田さんが .ai で動かした・書き換えた部品の記録 layout_user.json と、group の決まりの id がそのまま当たるように）。長い順に。
+NAME_ID_BACK = [("くすのきひろば", "遊戯室"), ("たつまきネット", "摺鉢ネット"), ("ねこのみち", "キャットウォーク"),
+                ("ふきぬけのみち", "西吹き抜け"), ("やなぎのくぐり", "柳の家"), ("おもてのはたけ", "菜園"), ("だいどこまえ", "キッチンの前"),
+                ("だいどこ", "キッチン"), ("しずかのま", "本の奥"), ("つぼにわ", "読書の庭"), ("はやし", "北山杉の林"),
+                ("おやま", "築山"), ("おがわ", "小川"), ("はらっぱ", "原っぱ"), ("うんてい", "雲梯"), ("すなば", "砂場"), ("はんもっく", "ハンモック")]
+NAME_ID_EXACT = {"かのもりの入口）": "の入口）", "と土留め・粒の遊び場の木の縁": "土留め・粒の遊び場の木の縁",   # 園庭説明図の凡例の折り返しの行
+                 "の石・雨庭の景石・噴水の石張りの縁": "石・雨庭の景石・噴水の石張りの縁", "ぶら下がる・渡る）。場所と寸法は丘の形が決": "下がる・渡る）。場所と寸法は丘の形が決まっ",
+                 "まってから（検討中）、図は今の鉄棒の位置。": "てから（検討中）、図は今の鉄棒の位置。下は", "下は芝と土のまま": "芝と土のまま",
+                 "けを使い、ほかは閉じる": "を使い、ほかは閉じる",                                       # 一日の帯の延長保育の折り返し
+                 "設計趣旨 約328字（課題は300字程度）。文字20 pt（5.1 mm）": "設計趣旨 約326字（課題は300字程度）。文字20 pt（5.1 mm）"}   # ゾーニングのスウォッチの名前も前のまま。上の置き換えで前の id に戻らない文（言い回しを直した所）：新しい文→前の文
+
+
+def _idsrc(s):
+    if s in NAME_ID_EXACT:
+        return NAME_ID_EXACT[s]
+    for n_, o_ in NAME_ID_BACK:
+        s = s.replace(n_, o_)
+    return s
+
+
 def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **kw):
     """sizeは文字の高さ（mm）"""
     if SITE_LIVE[0] is not None and ax is SITE_LIVE[0] and s:
-        SITEPARTS.append(dict(kind="text", x=x, y=y, s=s, size=size, color=matplotlib.colors.to_hex(color), bold=bold, ha=ha, va=va, group=kw.get("group")))
+        SITEPARTS.append(dict(kind="text", x=x, y=y, s=s, size=size, color=matplotlib.colors.to_hex(color), bold=bold, ha=ha, va=va, group=kw.get("group"),
+                              **({"id": "site.t." + re.sub(r"[\s　/\\|:]+", "", _idsrc(s))[:16]} if _idsrc(s) != s else {})))
         return
     _lv = LIVE_TXT[0]
     if _lv is not None and ax is _lv["ax"] and s and matplotlib.colors.to_hex(color) != matplotlib.colors.to_hex(NOTE):
@@ -250,7 +272,7 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
         e_ = size / 0.72
         by_ = y + {"center": -0.35 * e_, "top": -0.88 * e_, "bottom": 0.12 * e_}.get(va, 0.0)
         TOPT[_lv["sheet"]].append((x, by_, s, size, bold, kw.get("font"), matplotlib.colors.to_hex(color),
-                                   dict(id=_lv.get("idp", "") + "t." + re.sub(r"[\s　/\\|:]+", "", s)[:14], name=s[:24], align=ha if ha in ("left", "center", "right") else "left",
+                                   dict(id=_lv.get("idp", "") + "t." + re.sub(r"[\s　/\\|:]+", "", _idsrc(s))[:14], name=s[:24], align=ha if ha in ("left", "center", "right") else "left",
                                         group=_lv["group"], group_name=_lv["name"])))
         LIVE_N[0] += 1
         return
@@ -260,7 +282,8 @@ def T(ax, x, y, s, size=3.0, color=INK, bold=False, ha="left", va="baseline", **
     ax.text(x, y, s, fontsize=pt, color=color, ha=ha, va=va,
             fontproperties=FontProperties(fname=FONT_ALT.get(fnt, FONTB if bold else FONT), size=pt), **kw)
     if s:
-        _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va, font=fnt)
+        _airec(ax.figure, kind="text", x=x, y=y, s=s, size=size, color=color, bold=bold, ha=ha, va=va, font=fnt,
+               **({"id": "t." + (re.sub(r"[\s　/\\|:]+", "", _idsrc(s))[:14] or "x")} if _idsrc(s) != s else {}))
 
 
 LIVE_TXT = [None]   # dict(ax, sheet, group, name)：このあいだの T は部品の文字（TOPT）に
@@ -1153,10 +1176,10 @@ def lab(ax, xfun, P3, text, dxy=(0, 0), size=3.0, color=INK, ha="left", lead=Tru
 
 # 周囲の自然環境との関係（青）と地域環境への配慮（茶）。配置図を真ん中に置き、左右の箱から引き出し線で点へ（ユーザー、10-24夜）
 C_NAT, C_COM = "#2F6FA0", "#8A5A2B"
-NAT = [("用水を借りる", ["高野川の上の堰で取った水が、松ヶ崎の田を潤してきた用水の網を巡る。その水を借りる。", "北の道の下の暗渠から敷地の北の角へ、おくのもりのみなもとに湧き出し、小川になって高野川へ返る。"]),
-       ("山から川へ", ["みなもとから縁側の前・原っぱを流れ、護岸の溝を滑り落ちて高野川に合流するまでを、こどもが追える。", "雨は樋に隠さず、雨の川から同じ溝で川へ。"]),
-       ("比叡と高野川のうつし", ["築山は比叡のうつし。ホールから頂の向こうに比叡が見える。", "小川は高野川のうつし。足もとを掘った土で築山を盛る。"]),
-       ("地下の水と北山の木も借りる", ["松ヶ崎は地面を走る用水と地下の水の両方が豊か。涌泉寺の井戸に見るように井戸水が豊富で、その地下水も借りる。", "京都北山の北山杉の間伐材141本を、ホールの林に立てる。"])]
+NAT = [("用水を借りる", ["高野川の上の堰で取った水が、松ヶ崎の田を潤してきた用水の網を巡る。その水を借りる。", "北の道の下の暗渠から敷地の北の角へ、おくのもりのみなもとに湧き出し、おがわになって高野川へ返る。"]),
+       ("山から川へ", ["みなもとから縁側の前・はらっぱを流れ、護岸の溝を滑り落ちて高野川に合流するまでを、こどもが追える。", "雨は樋に隠さず、雨の川から同じ溝で川へ。"]),
+       ("比叡と高野川のうつし", ["おやまは比叡のうつし。ホールから頂の向こうに比叡が見える。", "おがわは高野川のうつし。足もとを掘った土でおやまを盛る。"]),
+       ("地下の水と北山の木も借りる", ["松ヶ崎は地面を走る用水と地下の水の両方が豊か。涌泉寺の井戸に見るように井戸水が豊富で、その地下水も借りる。", "京都北山の北山杉の間伐材141本を、ホールのはやしに立てる。"])]
 cy = M + 8 + 26.0 + 400                          # 上の段の下端の目安（配置図の上）
 
 # 配置図1/200：敷地＋西の道路と向かいの住宅、北は大学の角、南は高野川の河川敷まで
@@ -1658,7 +1681,7 @@ def _zl3(pref, text, dxy=(0, 0), size=3.2, color=INK, bold=True):
     U_ = _U(pref)
     q = xf(np.array(U_.representative_point().coords))[0] + np.array(dxy)
     T(ax, q[0], q[1], text, size, color, ha="center", va="center", bold=bold)
-_zl3("31_", "遊戯室", size=3.2, color="white")          # 屋根（太陽光）の上なので白
+_zl3("31_", "くすのきひろば", size=3.2, color="white")          # 屋根（太陽光）の上なので白
 _zl3("23_", "西館（2階建て）", size=3.2, color="white")
 _zl3("12_", "本館（平屋）", (8, 6), size=3.6, color="white")
 _zl(GD["north"], "だいさんかく", (6, -4), size=3.6)
@@ -1773,7 +1796,7 @@ if HIEI_ON:
         ax.add_patch(plt.Circle(tuple(_qq), 0.9, fc="#7A5A9A", ec="none", zorder=21))
     _mk("o")
     T(ax, _q[-1][0] - 2, _q[-1][1] + 3, f"比叡山へ　約{_DIST:.0f} km", 3.2, "#5E4380", bold=True, ha="right")
-    T(ax, (_q[0][0] + _q[1][0]) / 2 + 2, (_q[0][1] + _q[1][1]) / 2 - 4, "ホールから築山の頂の向こうに比叡", 3.0, "#5E4380")
+    T(ax, (_q[0][0] + _q[1][0]) / 2 + 2, (_q[0][1] + _q[1][1]) / 2 - 4, "ホールからおやまの頂の向こうに比叡", 3.0, "#5E4380")
 # 太陽の通り道（北緯35.05°、大気差なし：cos A＝sin δ／cos φ）。配置図の左上の空きに、配置図と同じ向きの方位円
 SUN_ON = False                                           # 太陽の通り道は外す（ユーザー、10-26 9:50：前に自分で作ったものを使う）。素材01eは空のまま残す
 if SUN_ON:
@@ -2101,15 +2124,15 @@ _cen = lambda pre: Psp(np.array(unary_union([g for ln, k, g in plan_items if ln.
 # 解説の箱（ユーザー、10-25 23:38：文を差し替え。番号は大事な順。引き出し線は短く、交わらないように）
 # 置き場所を決めた箱は FIX（Illustratorでの木田さんの割付、アートボードの左上からmm）：用水を借りる＝用水ネットワークの図の真下、災害＝上の真ん中
 _rainend = xf(np.array([_rain.coords[-1]]))[0]
-NAT = [("yousui", "用水を借りる", ["井出ヶ鼻井堰に端を発する松ヶ崎の用水ネットワークから、水を借り、園庭の小川にする。"], [P3p(_stl[0])], (609.68, 186.77)),
+NAT = [("yousui", "用水を借りる", ["井出ヶ鼻井堰に端を発する松ヶ崎の用水ネットワークから、水を借り、園庭のおがわにする。"], [P3p(_stl[0])], (609.68, 186.77)),
        ("compost", "野菜くずコンポスト", ["野菜くずや落ち葉をこどもたちの手で土に還す。発酵する暖かい土とミミズに驚く。野菜を育てる。命の循環を知る。"],
         [Psp(np.array(GD["compost"].centroid.coords[0]))], None),
-       ("mitate", "高野川と比叡にみたてる", ["日本文化が育ててきた「みたて」。園内の小川と築山を高野川と比叡にみたてる。それを超えて視線を遠くにすると、高野川を超えて比叡の山。"],
+       ("mitate", "高野川と比叡にみたてる", ["日本文化が育ててきた「みたて」。園内のおがわとおやまを高野川と比叡にみたてる。それを超えて視線を遠くにすると、高野川を超えて比叡の山。"],
         [Psp(np.array(GD["mound"].centroid.coords[0])), P3p(_stl[len(_stl) // 2])], None),
-       ("mizu", "水の行方を見る", ["小川は暗渠に隠さず高野川に注ぐ。屋根に降った雨は、雨落ちに落ち、雨水浸透側溝と雨庭を経て、溢れは高野川に。"],
+       ("mizu", "水の行方を見る", ["おがわは暗渠に隠さず高野川に注ぐ。屋根に降った雨は、雨落ちに落ち、雨水浸透側溝と雨庭を経て、溢れは高野川に。"],
         [P3p(_stl[-1]), _rainend], None),
        ("kaze", "風の道", ["夏の夜、高野川の谷を下りてくる涼しい風を、縁側の床下から越屋根へ抜く。床下に冷えをためて、昼の冷房を抑える。"], [_cen("14_")], None),
-       ("rin", "間伐材を使った林", ["京都北山の北山杉の間伐材141本を、ホールの林として立てる。"], [_cen("59_1F_ホール")], None)]
+       ("rin", "間伐材を使った林", ["京都北山の北山杉の間伐材141本を、ホールのはやしとして立てる。"], [_cen("59_1F_ホール")], None)]
 COM = [("park", "小竹薮公園を残す", ["地域の記憶である小竹薮公園をそのまま残し、園への入口の前庭にする。そこから北へ、西の道沿いに幅1 mの歩道を開き、歩く人を車から守る。"],
         [P3p(np.array(gc.PARK.centroid.coords[0]))], None),
        ("traffic", "車と自転車の出入りを南にまとめる", ["西の道の中ほどでは、道に突き出た木が見通しをさえぎる。車と送り迎えの自転車の出入りはこの木より南にまとめ、出入口にはスピードバンプを置いて速度を落とす。"],
@@ -2488,7 +2511,7 @@ SIDE = 30                                       # 断面の左右の余白（mm�
 _tC = _ya - 10                                  # 断面Cの題の高さ（縦断Aの下）
 # 11-01 23:19（ユーザー）：断面C・Dを同じ 1/100 で左右に並べる（Dの0.61倍をやめた）。Cは左の余白を詰めて左端から、Dは右端まで（木田さんが .ai で整える）
 cx, cy = M + 6, _tC - 8 - AIR - hC
-title(ax, M + 6, _tC, "断面図C　東西に切る（4歳・遊戯室）", "1/100　空気の環境：本館と西館の架構、昼と夏の夜の風の道")
+title(ax, M + 6, _tC, "断面図C　東西に切る（4歳・くすのきひろば）", "1/100　空気の環境：本館と西館の架構、昼と夏の夜の風の道")
 # 更新係の文字の層の青い風の注と線（前の越屋根の道）は、空気の環境の図（素材30）に置き換えるので外す（見本は写し、.ai は部品から外す）
 embed(6, SEC, CLIP_C2, cx, cy, CSC, dwg=("C", "断面図C"), dwg_opt=dict(drop_color="#2f6fb0"))
 sys.path.insert(0, os.path.join(HERE, "tools"))
@@ -2513,10 +2536,10 @@ UNTEN_SUM = "夏は夜の外気で床下の重さを冷やし、昼はその冷�
 UNTEN_COLS = [("季節", 16), ("開け閉め", 67), ("動かすもの", 70), ("効くもの", 0)]   # 幅 mm（最後は残り）
 UNTEN = [
     ("夏の昼", "窓・越屋根・床下の入口を閉じる", "放射冷房のパネル・天井扇（下向き）・床下の送風", "深い軒、夜に冷やした底板"),
-    ("夏の夜", "縁側のガラリと西館の越屋根を開く（本館の越屋根は閉じる）", "開け閉めは自動（外気が涼しいとき・雨で閉じる）", "外気が床下の底板を冷やす。遊戯室の吹き抜けの高低差約8 mで引く"),
+    ("夏の夜", "縁側のガラリと西館の越屋根を開く（本館の越屋根は閉じる）", "開け閉めは自動（外気が涼しいとき・雨で閉じる）", "外気が床下の底板を冷やす。くすのきひろばの吹き抜けの高低差約8 mで引く"),
     ("春・秋", "窓・越屋根を開く", "機械は止める", "通風（梁間から越屋根へ）"),
     ("冬", "すべて閉じる", "床下の暖房・全熱交換の換気・加湿・天井扇（上向きに弱く）", "断熱と気密。ガラス戸の際の床からの暖気がガラスの冷えを止める")]
-REIBOU = "保育室と遊戯室の壁、こどもの手の届く高さに置く。表面は約15℃で、触れて「つめた！」とわかる。結露した水を外へ流して除湿も兼ねる。風が無いので静かで、午睡を妨げない。"
+REIBOU = "保育室とくすのきひろばの壁、こどもの手の届く高さに置く。表面は約15℃で、触れて「つめた！」とわかる。結露した水を外へ流して除湿も兼ねる。風が無いので静かで、午睡を妨げない。"
 HAIRYO = [                                      # LEED v5 BD+C の評価項目の順（ユーザー 10-29 12:52：評価項目に沿わせる、Gold を「目指す」）
     ("統合的なプロセス（IP）", "一つの形で二つ以上を解く。本館の弧＝朝の日と、夏の夜に谷を下りる冷気（1枚目）。片流れの屋根＝景観と、越屋根へ上る空気の流れ（断面C）。縁側の段のガラリ＝夜の外気を床下へ入れ、ガラス戸をすっきり保つ。井戸＝冷暖房の熱源と、災害時の近隣の水"),   # ユーザー 10-29：具体例で
     ("立地と交通（LT）", "車は5台に絞り、送迎は徒歩と自転車（駐輪21台）。西の道に歩道を開く"),
@@ -2654,7 +2677,7 @@ AIR_D = AIR
 D_SC = 1.0
 dx, dy = W - M - 6 - DW, cy + hC - DH
 _tD, _tDx = _tC, dx
-title(ax, _tDx, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根")
+title(ax, _tDx, _tD, "断面図D　本館の横断（光の筋で切る）", "1/100　北を見る　光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・ふきぬけのみちの越屋根")
 if _SD and os.path.exists(_SD[0]):
     embed(6, _SD[0], _SD[1], dx, dy, D_SC, dwg=("D", "断面図D"))
     print("断面D：", os.path.basename(_SD[0]), _SD[1])
@@ -2673,7 +2696,7 @@ if _SD and os.path.exists(_SD[0]):
         print("採光の図（素材17）：断面Dの上に、上へ %.1f mm はみ出す（余白 %d mm）、.ai は%s" % (_SD[1][1] - _p17[1], AIR_D, "部品" if os.path.exists(_q17) else "PDF"))
 else:
     box(ax, dx, dy, DW * D_SC, DH * D_SC, "断面図D　本館の横断（光の筋で切る）1/100　北を見る",
-        "光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・西の吹き抜けの越屋根\n（更新係の図を待つ：20261029-0946-present）")
+        "光の環境：光の筋の鏡面の溝・東のガラス戸・深い軒・ふきぬけのみちの越屋根\n（更新係の図を待つ：20261029-0946-present）")
     print("断面D：まだ図が無いので枠")
 # 構造の図（10-30、先生のエスキス）：別の手伝いが present/sozai/18_構造_架構と耐力壁.pdf を作る。左下（断面Cの下）に約380×150 mm。
 # 無いあいだは同じ大きさの仮の枠。ファイルができたら mock.py を走らせ直すだけで入る（見本は貼り込み、.ai はリンク）
@@ -2869,8 +2892,8 @@ FIGS[3] = fig
 # 10-30 16:15（ユーザー）：こどもたちの環境も全部2枚目に詰める。左：ゾーニング1/200（園庭と一体、土足・トイレ・駐車場・歩道）と樹木図1/400。
 # 右：一日の帯3コマ（朝・日中・時間外）、季節ごとの空気環境と環境への配慮、遊戯室（平面）・教室3つ・居場所2つの軸測図
 fig, ax = page()
-frame(ax, 2, "ゾーニングと動線・環境", "左にゾーニング（園庭と一体、使う人・土足・トイレ）と樹木。右の上に一日の帯（朝と帰り・日中・食事・延長保育）、下に教室・居場所・遊戯室",
-      "ゾーニング→一日の帯→教室・居場所・遊戯室→樹木")
+frame(ax, 2, "ゾーニングと動線・環境", "左にゾーニング（園庭と一体、使う人・土足・トイレ）と樹木。右の上に一日の帯（朝と帰り・日中・食事・延長保育）、下に教室・居場所・くすのきひろば",
+      "ゾーニング→一日の帯→教室・居場所・くすのきひろば→樹木")
 Y = lambda t_: H - t_                            # 紙の上からの mm → 下からの mm
 _RX = M + 6 + 340 + 8                           # 右の列の左（左の列はゾーニング1/200の幅）
 _RW = W - M - 6 - _RX
@@ -2951,6 +2974,8 @@ _MINAMI = _zg("62_")
 _STREAM_W = _zg("92_")
 _CONT = [g_ for g_ in (_sh(o) for o in objs if o["layer"].startswith("91_")) if g_ is not None]
 _zname = lambda ln_: re.split(r"[（(]", ln_.split("_")[-1])[0]
+_ZNAME_NEW = {"遊戯室": "くすのきひろば", "西吹き抜け": "ふきぬけのみち", "キッチン": "だいどこ"}   # 表示だけ name.md（11-02）の名前に。レイヤー名の照合は前のまま
+_zdisp = lambda ln_: _ZNAME_NEW.get(_zname(ln_), _zname(ln_))
 # 建物の足もと（部屋・壁・外縁側。穴を埋める）
 _BLD = _fill(unary_union([g_.buffer(0.05) for ln_, k_, g_ in plan_items if g_ is not None and ln_[:1] in "12345" and g_.geom_type.endswith("Polygon")]).buffer(0.1).buffer(-0.1))
 # 外皮の線（屋内と屋外の境、11-01 15:37）：外縁側（2歳から北は14の土足、0・1歳は12・13の押し出しのはだし）は線の外。
@@ -3286,7 +3311,7 @@ def _zpart(id_, name_, paths_, layer_, group_, fill_=None, stroke_="#555555", lw
 
 _zs_ = lambda s_: re.sub(r"[\s　/\\|:（）()、。・]+", "", s_)[:14]
 _ZOL = ZCJ["outline"]
-_zsw = lambda c_: "ゾーン_" + re.split(r"[（(]", ZCJ["colors"][c_]["name"])[0]      # 分類の名前（サブグループ・スウォッチの名前）
+_zsw = lambda c_: "ゾーン_" + re.split(r"[（(]", _idsrc(ZCJ["colors"][c_]["name"]))[0]      # 分類の名前（サブグループ・スウォッチの名前）
 for c_ in ZCJ["colors"]:                           # 分類ごとに一つの部品（.ai では「ゾーン_共用」などのサブグループ、中の面の名前はゾーンの名前）
     ps_ = []
     for nm_, g_, cc_, n_ in _ZP:
@@ -3367,7 +3392,7 @@ for ln_, gs_ in _lab.items():
     if u_.area < 3.0:
         continue
     q_ = zxf(np.array([u_.representative_point().coords[0]]))[0]
-    T(ax, q_[0], _rlab(q_, _zname(ln_), 1.4), _zname(ln_), 1.4, "#333333", ha="center", va="center")
+    T(ax, q_[0], _rlab(q_, _zdisp(ln_), 1.4), _zdisp(ln_), 1.4, "#333333", ha="center", va="center")
 for nm_, g_ in (("だいさんかく", GD["north"]), ("しずかのもり", GD["shizu"]), ("みなみのさんかく", _MINAMI), ("公園", _PARK_R), ("駐車場", _Z)):
     if g_ is not None and not g_.is_empty:
         q_ = zxf(np.array([g_.representative_point().coords[0]]))[0]
@@ -3375,7 +3400,7 @@ for nm_, g_ in (("だいさんかく", GD["north"]), ("しずかのもり", GD["
 T(ax, z2ox + 1, z2oy + z2h + 2, "2階（西館）", 2.4, bold=True, zorder=10)
 for ln_, g_ in Z2:
     q_ = z2xf(np.array([g_.representative_point().coords[0]]))[0]
-    T(ax, q_[0], q_[1], _zname(ln_), 1.4, "#333333", ha="center", va="center", zorder=10)
+    T(ax, q_[0], q_[1], _zdisp(ln_), 1.4, "#333333", ha="center", va="center", zorder=10)
 # 読書：絵本の通り（西吹き抜け）の北の行き止まり「本の奥」（u51〜57）に名前を一つ（共用の色のまま、ユーザー 10-31 22:23）
 _wfb = unary_union([g_ for ln_, k_, g_ in plan_items if ln_.startswith("59_1F_西吹き抜け") and g_ is not None and g_.geom_type.endswith("Polygon")])
 if not _wfb.is_empty:
@@ -3425,7 +3450,7 @@ _rule("zc.leg.wall", [[_cx_, _ly + 0.6], [_cx_ + 6, _ly + 0.6]], ZCJ["wall"]["he
 T(ax, _cx_ + 8, _ly, ZCJ["wall"]["name"], 2.5)
 _cx_ += 8 + _FT.text_length(ZCJ["wall"]["name"], 2.5 / 0.72) + 8
 _rule("zc.leg.contour", [[_cx_, _ly + 0.6], [_cx_ + 6, _ly + 0.6]], "#8A8A8A", 0.4, G_ZF, "凡例の線：等高線")
-T(ax, _cx_ + 8, _ly, "等高線 0.2 m（園庭の地形・築山）", 2.5)
+T(ax, _cx_ + 8, _ly, "等高線 0.2 m（園庭の地形・おやま）", 2.5)
 _ZLEG_BAND = (_ly - 3.0, zoy)                    # ゾーニングの凡例の帯（紙の下からの mm）。園庭説明図の凡例の2段目がよける
 _ly += 7                                         # 樹木図の題は _ly − 14
 print("ゾーニングの色：", ZCC)
@@ -3463,8 +3488,8 @@ def _act_late(kind_, ln_, g_):
 frames_ = [
     ("朝（と帰り）", _act_morning, "公園の木戸からムベのアーチの下へ。0・1歳は受け取り土間で手渡し、ひろばで見送り、おはようの窓口で挨拶。食材は勝手口で検収。帰りはこの逆"),
     ("日中", _act_day, "建物の中のすべてと、だいさんかく・しずかのもり・みなみのさんかくで過ごす"),
-    ("食事", _act_day, "保育室の食卓でクラスごとに食べる。キッチンから配膳口を通って運ぶ"),
-    ("延長保育", _act_late, "2歳の部屋で迎えを待つ。内縁側・あまのがわ・西の吹き抜けの南だけを使い、ほかは閉じる"),
+    ("食事", _act_day, "保育室の食卓でクラスごとに食べる。だいどこから配膳口を通って運ぶ"),
+    ("延長保育", _act_late, "2歳の部屋で迎えを待つ。内縁側・あまのがわ・ふきぬけのみちの南だけを使い、ほかは閉じる"),
 ]
 nf = len(frames_)
 fw = (_RW - (nf - 1) * 5) / nf
@@ -3917,14 +3942,14 @@ _hu = GJ["HUT"]
 _gpart("gx.eave", "小屋の軒の下（足洗い・ベンチ）", _gpp(_mapP([(_hu["a"][0], _hu["d"][1]), (_hu["closed_a"], _hu["d"][1]), (_hu["closed_a"], _hu["d"][1] + _hu["eave"]), (_hu["a"][0], _hu["d"][1] + _hu["eave"])], _PAD).exterior,
                                                        stroke=GS_["hut"]["stroke"], lw=0.2, name="軒の下"))
 # 名前（園庭の場所と設備）。位置は garden01.py の文字の位置（園庭の枠 a, d）
-for a_, d_, s_, sz_, col_, b_ in [(39.4, 13.6, "原っぱ", 1.9, "#6B5E3A", True), (16.0, 7.2, "おくのもり", 1.8, "#56704A", True), (51.8, 8.6, "かぜのもり", 1.8, "#56704A", True),
+for a_, d_, s_, sz_, col_, b_ in [(39.4, 13.6, "はらっぱ", 1.9, "#6B5E3A", True), (16.0, 7.2, "おくのもり", 1.8, "#56704A", True), (51.8, 8.6, "かぜのもり", 1.8, "#56704A", True),
                                    (40.6, 1.7, "てんぐのたに（入らない）", 1.4, "#56704A", False), (23.6, 11.6, "みずべ", 1.8, "#4C7A99", True),
-                                   (GJ["MOUND"]["top"][0] + 1.6, GJ["MOUND"]["top"][1] - 0.4, f"築山 +{GJ['MOUND']['h']}", 1.5, "#6B5E3A", True),
+                                   (GJ["MOUND"]["top"][0] + 1.6, GJ["MOUND"]["top"][1] - 0.4, f"おやま +{GJ['MOUND']['h']}", 1.5, "#6B5E3A", True),
                                    (47.0, 21.9, "土手 +1.0", 1.3, "#6B5E3A", False), (GJ["BOWL"]["c"][0], GJ["BOWL"]["c"][1], "ひみつのたに", 1.3, "#2F6E95", False),
                                    (GJ["FOUNTAIN"]["c"][0] - 0.2, GJ["FOUNTAIN"]["c"][1] - 3.0, "床の噴水・あめのわ", 1.4, "#2F6E95", True),
                                    (GJ["SPLASH"]["c"][0] - 2.6, GJ["SPLASH"]["c"][1] + 0.4, "乳児の床の噴水・霧のわ", 1.3, "#2F6E95", True),
                                    (54.7, 28.2, "雨庭（洲浜）", 1.4, "#4A4438", True), (GJ["GRAIN"]["c"][0], GJ["GRAIN"]["c"][1] - 2.4, "粒の遊び場", 1.3, "#6B5A3A", False),
-                                   (29.2, 9.9, "砂場", 1.4, "#6B5A3A", True), (GJ["BAR"]["c"][0], GJ["BAR"]["c"][1] + 1.6, "雲梯", 1.25, "#5A4630", False),
+                                   (29.2, 9.9, "すなば", 1.4, "#6B5A3A", True), (GJ["BAR"]["c"][0], GJ["BAR"]["c"][1] + 1.6, "うんてい", 1.25, "#5A4630", False),
                                    (_tk["c"][0] + 0.4, _hu["d"][0] + 0.8, "雨水タンク（床下）", 1.05, "#4C8DB8", False), (8.0, 0.9, "暗渠（用水路から）", 1.15, "#4C8DB8", False),
                                    (np.mean([_hu["a"][0], _hu["split_a"]]), np.mean(_hu["d"]), "便所", 1.3, "#5A564E", False),
                                    (np.mean([_hu["split_a"], _hu["closed_a"]]), _hu["d"][0] + 2.6, "倉庫", 1.3, "#5A564E", False),
@@ -3944,7 +3969,7 @@ for ln_, gs_ in _lab.items():
     if u_.area < 3.0 or not _GW.contains(u_.representative_point()):
         continue
     q_ = gxf(np.array([u_.representative_point().coords[0]]))[0]
-    T(ax, q_[0], _rlab(q_, _zname(ln_), 1.7), _zname(ln_), 1.7, "#5A564E", ha="center", va="center")
+    T(ax, q_[0], _rlab(q_, _zdisp(ln_), 1.7), _zdisp(ln_), 1.7, "#5A564E", ha="center", va="center")
 for nm_, g_ in (("だいさんかく", GD["north"]), ("しずかのもり", GD["shizu"]), ("みなみのさんかく", _MINAMI), ("公園", _PARK_R)):
     if g_ is not None and not g_.is_empty and _GW.contains(g_.representative_point()):
         q_ = gxf(np.array([g_.representative_point().coords[0]]))[0]
@@ -4124,22 +4149,22 @@ _leg("grass", "草", sum([_gpp(_circ(np.array([_lx + 1.5 + i_ * 0.8 + (j_ % 2) *
      ["草（点の集まり）。" + (_g01("行事の草") or "行事の草"), _g01("てんぐのたに")])
 _leg("stone", "飛び石", [], _g01("飛び石"))
 _rb = lambda: Polygon([(_lx + 0.5, _yy - 1.5), (_lx + 6.5, _yy - 1.5), (_lx + 6.5, _yy + 1.5), (_lx + 0.5, _yy + 1.5)])
-_leg("water", "水", _gpp(_rb(), fill=GS_["water"]["fill"], stroke=GS_["water"]["stroke"], lw=0.2, paper=True), [_g01("小川") or "小川", _g01("床の噴水") or "床の噴水", _g01("雨庭") or "雨庭"])
+_leg("water", "水", _gpp(_rb(), fill=GS_["water"]["fill"], stroke=GS_["water"]["stroke"], lw=0.2, paper=True), [_g01("小川") or "おがわ", _g01("床の噴水") or "床の噴水", _g01("雨庭") or "雨庭"])
 _leg("rainriver", "雨の川", _gpp(_rb(), fill=GS_["rainriver"]["fill"], stroke=GS_["rainriver"]["stroke"], lw=0.2, paper=True), _g01("雨の川") or "雨の川")
-_leg("sand", "砂場", _gpp(_rb(), fill=GS_["sand"]["fill"], stroke=GS_["sand"]["stroke"], lw=0.2, paper=True), _g01("砂場") or "砂場・粒の遊び場")
-_leg("willow", "柳の家", _gpp(_ci(2.0).exterior, stroke=GS_["willow"]["stroke"], lw=GS_["willow"]["lw"], paper=True), "柳の家（生きたヤナギのドーム、しずかのもりの入口）")
+_leg("sand", "砂場", _gpp(_rb(), fill=GS_["sand"]["fill"], stroke=GS_["sand"]["stroke"], lw=0.2, paper=True), _g01("砂場") or "すなば・粒の遊び場")
+_leg("willow", "柳の家", _gpp(_ci(2.0).exterior, stroke=GS_["willow"]["stroke"], lw=GS_["willow"]["lw"], paper=True), "やなぎのくぐり（生きたヤナギのドーム、しずかのもりの入口）")
 _leg("teacher", "先生", _gpp(_ci(_TE["r_mm"]).exterior, stroke=_TE["stroke"], lw=_TE["lw"], paper=True) + _gpp(_ci(0.4), fill=_TE["stroke"], paper=True), _g01("先生のいる所") or "先生のいる所")
 _leg("contour", "等高線", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=GS_["contour"]["stroke"], lw=GS_["contour"]["lw_1m"], paper=True), _g01("等高線") or "等高線 0.2 m（1.0 mごとに太く）")
 _leg("bld", "建物", _gpp(_rb(), fill=GS_["bld"]["fill"], stroke=GS_["bld"]["stroke"], lw=GS_["bld"]["lw"], paper=True), "建物（部屋の名前）")
 _leg("hut", "小屋", _gpp(_rb(), fill=GS_["hut"]["fill"], stroke=GS_["hut"]["stroke"], lw=GS_["hut"]["lw"], paper=True),
      "園庭の小屋（ひとつの屋根）：便所6.8 m²（座る便器2・手洗い）｜倉庫12.9 m²｜コンポストの間（壁なし、木枠4つ）。南西の軒1.5の下に足洗い場とベンチ。屋根の雨は床下のタンク約1 m³にためて便所の洗浄に（青い楕円の線）")
 _FC = GF_
-_leg("stone", "石", _gpp(_rb(), fill=_FC["stone"]["fill"], stroke=_FC["stone"]["stroke"], lw=0.15, paper=True), "石：平らな石の橋（車も渡れる、幅2.6）・飛び石（縁側の前の道・小川の中）・滝の落ち口の石・雨庭の景石・噴水の石張りの縁")
-_leg("log", "丸太", _gpp(_rb(), fill=_FC["log"]["fill"], stroke=_FC["log"]["stroke"], lw=0.1, paper=True), "丸太：丸太の橋・砂場の縁（丸太の腰掛け）と土留め・粒の遊び場の木の縁")
+_leg("stone", "石", _gpp(_rb(), fill=_FC["stone"]["fill"], stroke=_FC["stone"]["stroke"], lw=0.15, paper=True), "石：平らな石の橋（車も渡れる、幅2.6）・飛び石（縁側の前の道・おがわの中）・滝の落ち口の石・雨庭の景石・噴水の石張りの縁")
+_leg("log", "丸太", _gpp(_rb(), fill=_FC["log"]["fill"], stroke=_FC["log"]["stroke"], lw=0.1, paper=True), "丸太：丸太の橋・すなばの縁（丸太の腰掛け）と土留め・粒の遊び場の木の縁")
 _leg("ring", "輪のシャワー", _gpp(_ci(1.9).exterior, stroke=_FC["ring"]["stroke"], lw=_FC["ring"]["lw"], paper=True),
      "輪のシャワー：あめのわ φ2.4・h2.3（床の噴水の上、輪の下に雨のカーテンが丸く降る）、霧のわ φ1.8・h2.0（乳児の床の噴水の上）")
 _leg("bar", "雲梯", _gpp(Polygon([(_lx + 1, _yy - 0.4), (_lx + 6, _yy - 0.4), (_lx + 6, _yy + 0.4), (_lx + 1, _yy + 0.4)]), fill=_FC["bar"]["stroke"], paper=True),
-     "雲梯（鉄棒の代わり、体を確かめる道具：ぶら下がる・渡る）。場所と寸法は丘の形が決まってから（検討中）、図は今の鉄棒の位置。下は芝と土のまま")
+     "うんてい（鉄棒の代わり、体を確かめる道具：ぶら下がる・渡る）。場所と寸法は丘の形が決まってから（検討中）、図は今の鉄棒の位置。下は芝と土のまま")
 _leg("culvert", "暗渠", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=_FC["culvert"]["stroke"], lw=0.6, paper=True), "暗渠：用水路から北の角のみなもとへ（口に水門、大雨は閉じる）")
 _lpp = []
 for k_, (nm_, c_) in enumerate(_FC["loop"].items()):
@@ -4200,14 +4225,14 @@ _cells = [(_RX + c_ * (_cell_w + 8), _gy0 + (1 - r_) * (_cell_h + 10)) for r_ in
 # 教室と居場所は Rhino のレンダリング（ユーザー 10-30 18:05、別の手伝いが視点を作る：rhino/out/room_*_hiru.png）。無ければ軸測図（sozai/20a〜21b）を仮に
 AXO = [("20a_教室_3〜5歳.pdf", "教室　3〜5歳", "room_3to5_hiru.png", "23a"), ("20b_教室_0・1歳.pdf", "教室　0・1歳", "room_01_hiru.png", "23b"),
        ("20c_教室_2歳.pdf", "教室　2歳", "room_2_hiru.png", "23c"), ("21a_居場所_読書.pdf", "居場所　読書", "room_dokusho_hiru.png", "23d"),
-       ("21b_居場所_遊戯室の箱.pdf", "居場所　遊戯室の箱", "room_hako_hiru.png", "23e")]
+       ("21b_居場所_遊戯室の箱.pdf", "居場所　くすのきひろばの箱", "room_hako_hiru.png", "23e")]
 for (fn_, nm_, png_, key_), (cx_, cy_) in zip(AXO, _cells):
     p_ = os.path.join(HERE, "sozai", fn_)
     r_ = os.path.join(HERE, "rhino", "out", png_)
     if os.path.exists(r_):
         title(ax, cx_, cy_ + _cell_h + TITLE_GAP, nm_, "")
         _r = _img_box(r_, cx_, cy_, _cell_w, _cell_h, fit="contain", align="left")
-        sozai(key_, nm_.replace("　", "_") + "（Rhinoのレンダリング）", 2, _r[0], _r[1], _r[2], _r[3], "rhino/out/" + png_)
+        sozai(key_, _idsrc(nm_).replace("　", "_") + "（Rhinoのレンダリング）", 2, _r[0], _r[1], _r[2], _r[3], "rhino/out/" + png_)   # ファイル名は前の呼び名のまま（name.md 11-02）
         continue
     title(ax, cx_, cy_ + _cell_h + TITLE_GAP, nm_, "軸測図（レンダリングを待つあいだ）")
     if os.path.exists(p_):
@@ -4217,7 +4242,7 @@ for (fn_, nm_, png_, key_), (cx_, cy_) in zip(AXO, _cells):
         box(ax, cx_, cy_, _cell_w, _cell_h, nm_ + "（作成中）", "sozai/" + fn_ + "ができたら入る")
 PLAYP = os.path.join(ROOT, "out", "sodachiya_play_present.pdf")
 _pcx, _pcy = _cells[5]
-title(ax, _pcx, _pcy + _cell_h + TITLE_GAP, "遊戯室", "平面")
+title(ax, _pcx, _pcy + _cell_h + TITLE_GAP, "くすのきひろば", "平面")
 # 遊戯室の図の平面だけ（断面は外す、ユーザー 10-30 16:15）。文字は図から外して一つずつ部品に（グループ「遊戯室（文字）」、10-30 23:07）
 PLAY_CLIP = (0, 0, 230, 150)
 PLAYP_NT = os.path.join(HERE, "sozai", "26_遊戯室_平面_文字なし.pdf")
@@ -4251,7 +4276,7 @@ print("遊戯室の平面：文字 %d を部品に" % _np)
 # 娘さんの小さい頃の写真2枚（ユーザー 10-31 14:14：遊戯室の切り株とKAPLAのアイディアはこの写真から。公開してよい）。
 # 切り株は遊戯室の平面の下、KAPLAは教室3〜5歳（KAPLAの箱はデンの前）の軸測図の下の空き。説明は1行（仮の文、木田さんが .ai で直す）。
 # 素材は写真を長辺2000 px以下に縮めたJPEGを貼ったPDF（画質を保つ）。元の写真は sozai/photo/
-PHOTOS2 = [("28a", "写真_切り株のはじまり", "kirikabu_musume.jpg", 5, 70.0, 8.0, "遊戯室の切り株のはじまり：木の幹を組んだ遊具に、はだしで登る"),
+PHOTOS2 = [("28a", "写真_切り株のはじまり", "kirikabu_musume.jpg", 5, 70.0, 8.0, "くすのきひろばの切り株のはじまり：木の幹を組んだ遊具に、はだしで登る"),
            ("28b", "写真_KAPLAの筒", "kapla_musume.jpg", 0, 62.0, 3.5, "KAPLAの板で自分を囲む。教室のデンの前にKAPLAの箱を")]
 for key_, nm_, src_, ci_, pw_, dy_, cap_ in PHOTOS2:      # dy_：ますの下端から説明の基準線まで（切り株は右下の名前を避けて上へ）
     sp_ = os.path.join(HERE, "sozai", "photo", src_)
@@ -4294,7 +4319,7 @@ _EX2 = [(c_[2], c_[1], CLIP_2F[2], c_[3]) for c_ in CLIP_2F_ST[1:]]
 if PLAN_RHINO_SHEETS:                             # Rhino の2階の図を紙いっぱいに（3枚目と同じ位置・同じ大きさ）
     HEYA2 = _heya_nuri(PLAN2F, PLAN2F[:-4] + "_文字.pdf", os.path.join(HERE, "sozai", "27b_平面図_2階_部屋の色.pdf"),
                        fukinuke=C_SHARE)   # 部屋の色（3枚目と同じ）。2階の黄色は遊戯室の吹抜だけなので、塗らずに×（10-31 10:15）
-    SOZAI_PDF.append(("27b", "平面図　2階　1/100　部屋の色（塗りだけ、ベクター）と遊戯室の吹抜の×", HEYA2, 4, "Rhinoの線（drawings_rhino/sodachiya_plan2F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan2F_1-100.pdfから"))
+    SOZAI_PDF.append(("27b", "平面図　2階　1/100　部屋の色（塗りだけ、ベクター）とくすのきひろばの吹抜の×", HEYA2, 4, "Rhinoの線（drawings_rhino/sodachiya_plan2F_1-100.pdf）の下に置く。紙いっぱい・同じ位置。塗りはdrawings/sodachiya_plan2F_1-100.pdfから"))
     embed(4, HEYA2, None, 0, 0, 1.0)
     TOK2 = _tokousen(os.path.join(HERE, "sozai", "29c_平面図_2階_園庭の等高線.pdf"), thin=True)
     SOZAI_PDF.append(("29c", "平面図　2階　1/100　園庭の等高線（下に見える園庭の見えがかり、細く。地は透明）", TOK2, 4, "部屋の色の上、Rhinoの線の下に置く。1階と同じ位置（10-31 22:24）"))

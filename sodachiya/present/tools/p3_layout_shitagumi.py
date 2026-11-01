@@ -71,7 +71,7 @@ ax.plot(q[:,0],q[:,1],color='#C03030',lw=0.4,ls=(0,(8,2,1,2)))
 sx_=MG+6
 g['T'](ax,sx_,H-MG-14,'こどもたちの育ち舎　3/5',4.5,bold=True)
 g['T'](ax,sx_,H-MG-22,'平面図　1階・2階　1/100',4.0,bold=True)
-g['T'](ax,sx_,H-MG-30,'2階は西の道路の外に同じ向きで（遊戯室は吹き抜けを見下ろす）',2.6)
+g['T'](ax,sx_,H-MG-30,'2階は西の道路の外に同じ向きで（くすのきひろばは吹き抜けを見下ろす）',2.6)
 g['T'](ax,sx_,MG+80,'色の凡例（ここ）',3.2,bold=True)
 fig.savefig('out/p3_layout_shitagumi.pdf')
 print('2F shift',sh.round(1),'strip',W-MG-sx_)

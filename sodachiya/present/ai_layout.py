@@ -344,7 +344,7 @@ def write(c):
                 if sp["kind"] == "text":
                     e = em(sp["size"])
                     y = sp["y"] + {"center": -0.35 * e, "top": -0.88 * e, "bottom": 0.12 * e}.get(sp["va"], 0.0)
-                    add(dict(id=f"site.t.{_slug(sp['s'], 16)}", name=f"配置図の文字　{sp['s'][:20]}", kind="text", layer="説明",
+                    add(dict(id=sp.get("id") or f"site.t.{_slug(sp['s'], 16)}", name=f"配置図の文字　{sp['s'][:20]}", kind="text", layer="説明",
                              x=round(sp["x"], 2), y=round(H - y, 2), s=sp["s"], size_pt=pt(sp["size"]), font="W6" if sp["bold"] else "W3",
                              color=sp["color"], align=sp["ha"] if sp["ha"] in ("left", "center", "right") else "left",
                              group=sp.get("group"), mock_hash=djb2(sp["s"]), plan=True))
