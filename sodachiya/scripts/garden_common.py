@@ -104,25 +104,43 @@ def bump_h(A, D, b):
 
 
 def bank_h(A, D):
+    """しずかのもりの土手。11-01：北西の端は雨落ちの溝の縁まで（溝の縁から 1:trench_slope より急にしない）、
+    車の口は低いうねり（hump：口の中で+h の丸い背、線に直交して半幅 w の cos、勾配 1:8 より緩い）、
+    木の幹のまわり tree_clear は今の地面（土手を載せない）"""
     bk = G["BANK"]; line = LineString(bk["line"])
     flat = np.zeros_like(A, dtype=float)
     it = np.nditer([A, D, flat], op_flags=[["readonly"], ["readonly"], ["writeonly"]])
     L = line.length
     gaps = bk["gaps"]
+    hump = bk.get("hump"); tr = bk.get("trench_slope")
+    v_te = G["EDGE_V"] + G["AMAOCHI"]["w"]
+    tc = bk.get("tree_clear")
+    trunks = [(t[0], t[1]) for t in G["TREES"]] if tc else []
+    reach = max(bk["half_w"], hump["w"] if hump else 0)
+    sgs = [line.project(Point(g_a, float(np.interp(g_a, [q[0] for q in bk["line"]], [q[1] for q in bk["line"]])))) for (g_a, g_w) in gaps]
     for a, d, o in it:
         p = Point(float(a), float(d)); dist = line.distance(p)
-        if dist >= bk["half_w"]:
+        if dist >= reach:
             o[...] = 0; continue
         s = line.project(p)
-        hh = bk["h"] * (0.5 + 0.5 * math.cos(math.pi * dist / bk["half_w"]))
+        hh = bk["h"] * (0.5 + 0.5 * math.cos(math.pi * min(1.0, dist / bk["half_w"])))
         # 端はなだらかに
         e = min(s, L - s); hh *= _ss(min(1.0, e / bk.get("end_taper", 1.2)))
-        for (g_a, g_w) in gaps:
-            sg = line.project(Point(g_a, float(np.interp(g_a, [q[0] for q in bk["line"]], [q[1] for q in bk["line"]]))))
-            k = abs(s - sg) - g_w / 2
+        for k_, (g_a, g_w) in enumerate(gaps):
+            k = abs(s - sgs[k_]) - g_w / 2
             tp = bk.get("taper", 1.0)
             if k < tp:
                 hh *= _ss(max(0.0, k) / tp)
+            if hump and abs(g_a - hump["a"]) < 1e-6 and dist < hump["w"]:
+                fa = 1 - _ss(max(0.0, k) / hump["fade"])         # 口の中は全部、口の端から fade（すりつけと同じ長さ）でなくなる
+                hh = max(hh, fa * hump["h"] * (0.5 + 0.5 * math.cos(math.pi * dist / hump["w"])))
+        if tr and hh > 0:                                     # 溝の縁（v = EDGE_V + w）から 1:tr より急にしない、縁より建物の側は 0
+            v_ = _xyuv(*(np.array(X(float(a), float(d))) * 1000.0))[1]
+            hh = min(hh, max(0.0, v_ - v_te) / tr)
+        for (ta, td) in trunks:                               # 幹のまわり tree_clear は今の地面、その外は 1:tr（無ければ1:1.6）で上る
+            r_ = math.hypot(a - ta, d - td)
+            if r_ < tc + 2.0:
+                hh = min(hh, max(0.0, r_ - tc) / (tr or 1.6))
         o[...] = hh
     return flat
 

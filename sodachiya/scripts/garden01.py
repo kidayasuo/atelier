@@ -155,7 +155,7 @@ for k in ("02_敷地_高野川の護岸（現況、寸法は仮）",):
 # 園庭の地
 poly(ax, GARDEN, fc=C["grass"], ec="none", z=1)
 bank_line = LineString(G["BANK"]["line"])
-shizu_ad = Polygon([tuple(p) for p in G["BANK"]["line"]] + [(56.0, 18.2), (56.0, 37.0), (d_a := 53.6, 36.0)] + [(a, d_edge(a)) for a in np.linspace(53.4, 40.6, 20)])
+shizu_ad = Polygon([tuple(p) for p in G["BANK"]["line"]] + [(56.0, 18.2), (56.0, 37.0), (d_a := 53.6, 36.0)] + [(a, d_edge(a)) for a in np.linspace(53.4, G["BANK"]["line"][0][0], 20)])
 SHIZU = P(list(shizu_ad.exterior.coords)).intersection(GARDEN)
 poly(ax, SHIZU, fc=C["shizu"], ec="none", z=1.1)
 
