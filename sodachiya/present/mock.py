@@ -590,7 +590,9 @@ def sozai(key, name, sheet, x, y, w, h, note=""):
 
 SOZAI_WORLD = {}     # 素材の映す範囲（回した座標の m）。layout.json のリンクの world・world_prev に（11-01、園庭説明図の背景）
 _G_BARE = {}         # 枚 → 素材を切り抜くときに隠す絵（見本の紙には描く。11-01：園庭説明図の背景に木の記号を入れない）
-_OWNER_RULES = [(2, r"gx\.", "user")]   # 木田さんが持つ部品（ユーザー 11-01 13:05：園庭説明図の木と説明は .ai で直す。スクリプトは消さない・直さない・足さない）。（枚、pN. の後の id の正規表現、持ち主）
+# 木田さんが持つ部品（ユーザー 11-01 13:05：「背景の線や色は最新のものに置き換えてゆくが、その上の木や説明は私がコントロールする」）。スクリプトは消さない・直さない・足さない。
+# 園庭説明図の木の記号（地の円・縁取り・香り・実・トゲ・枝・草）・文字（gx.t.）・凡例（gx.leg.）だけ。背景にあたる部品（地・道・公園・建物・水・等高線・設備の形など）は今までどおり最新に。（枚、pN. の後の id の正規表現、持ち主）
+_OWNER_RULES = [(2, r"(?:gx\.(?:halo|deci|ever|color|thorn|climb|fruit|grass)$|gx\.(?:t|leg)\.)", "user")]
 
 
 # 木田さんが足した物（present/ai/layout_user.json の user_items、アートボードの左上からmm）
@@ -3410,6 +3412,7 @@ T(ax, _cx_ + 8, _ly, ZCJ["wall"]["name"], 2.5)
 _cx_ += 8 + _FT.text_length(ZCJ["wall"]["name"], 2.5 / 0.72) + 8
 _rule("zc.leg.contour", [[_cx_, _ly + 0.6], [_cx_ + 6, _ly + 0.6]], "#8A8A8A", 0.4, G_ZF, "凡例の線：等高線")
 T(ax, _cx_ + 8, _ly, "等高線 0.2 m（園庭の地形・築山）", 2.5)
+_ZLEG_BAND = (_ly - 3.0, zoy)                    # ゾーニングの凡例の帯（紙の下からの mm）。園庭説明図の凡例の2段目がよける
 _ly += 7                                         # 樹木図の題は _ly − 14
 print("ゾーニングの色：", ZCC)
 
@@ -3986,7 +3989,9 @@ _yy = _ly0
 _LTX = _lx + 9                                     # 説明の文の左
 _LSZ, _LLH = 1.8, 2.55                             # 説明の文の高さ（mm）と行の送り
 _ZTY = zoy + zh + TITLE_GAP + 1                    # ゾーニングの題の基準線
-_LWC = (_RX - 7 - _LTX) / (_LSZ / 0.72)            # 一行の字数（全角）
+_LRX = _RX - 7                                     # 説明の文の右の端
+_LEG2 = [False]                                    # 凡例の2段目を書いているか
+_LWC = (_LRX - _LTX) / (_LSZ / 0.72)               # 一行の字数（全角）
 _CJK = r"[　-ヿ㐀-鿿＀-￯]"
 
 
@@ -4045,6 +4050,8 @@ def _para(t_, x_=None, size=_LSZ, col="#222222", bold=False, wc=None):
     for l_ in ls_:
         if _ZTY - 4.2 < _yy < _ZTY + 4.0:          # ゾーニングの題の行（右へ長い）はよける
             _yy = _ZTY - 3.8
+        if _LEG2[0] and _ZLEG_BAND[0] < _yy < _ZLEG_BAND[1] + 2.0:   # 2段目：ゾーニングの凡例の帯はよける
+            _yy = _ZLEG_BAND[0] - 1.0
         T(ax, _LTX if x_ is None else x_, _yy, l_, size, col, bold=bold)
         _yy -= _LLH
     return len(ls_)
@@ -4110,9 +4117,16 @@ _leg("gate", "木戸・門", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)
 _leg("hedge", "生垣", _gpp(LineString([(_lx + 0.5, _yy), (_lx + 6.5, _yy)]), stroke=GS_["hedge"]["stroke"], lw=GS_["hedge"]["lw"], paper=True), "生垣（線）")
 # 木の種類と本数（園庭係の分け方：香り・花・紅葉・実・常緑・木陰、garden.json の園庭の木）
 _yy -= 1.5
+# 凡例の2段目（11-01：背景をゾーニングと同じ範囲に広げて凡例の列が細くなり、紙の下にはみ出した）：園庭の木・ニッチ・数字・約束は、ゾーニングの図の右へ
+_LEG1_END = _yy
+_LEG2[0] = True
+_lx = zox + zw + 8
+_LTX, _LRX = _lx + 9, _RX - 7                      # 1段目の下はゾーニングの図の上より上（右の列の端まで使える）
+_LWC = (_LRX - _LTX) / (_LSZ / 0.72)
+_yy = zoy + zh - 2
 T(ax, _lx, _yy, "園庭の木（園庭係の分け方と本数）", 2.3, bold=True); _yy -= 3.6
 for t_ in [r_ for r_ in G01["rows"] if re.match(r"(香り|花|紅葉|実|常緑|木陰)：", r_)]:
-    _para(t_, x_=_lx + 2, wc=(_RX - 7 - _lx - 2) / (_LSZ / 0.72))
+    _para(t_, x_=_lx + 2, wc=(_LRX - _lx - 2) / (_LSZ / 0.72))
 _yy -= 2.5
 T(ax, _lx, _yy, "ニッチ（静かに遊べる・ひとりになれる所）", 2.3, bold=True); _yy -= 3.6
 for i_, n_ in enumerate(GJ["NICHES"]):
@@ -4124,13 +4138,13 @@ for i_, n_ in enumerate(GJ["NICHES"]):
 _yy -= 2.5
 T(ax, _lx, _yy, "数字（園庭係の図から）", 2.3, bold=True); _yy -= 3.6
 for t_ in G01["nums"]:
-    _para(t_, x_=_lx + 2, wc=(_RX - 7 - _lx - 2) / (_LSZ / 0.72))
+    _para(t_, x_=_lx + 2, wc=(_LRX - _lx - 2) / (_LSZ / 0.72))
     _yy -= 0.9
 if G01["keep"]:
     _yy -= 2.5
     T(ax, _lx, _yy, G01["keep_head"] or "保母さんが困らないように（木と地形の約束）", 2.3, bold=True); _yy -= 3.6
     for t_ in G01["keep"]:
-        _para(t_, x_=_lx + 2, wc=(_RX - 7 - _lx - 2) / (_LSZ / 0.72))
+        _para(t_, x_=_lx + 2, wc=(_LRX - _lx - 2) / (_LSZ / 0.72))
         _yy -= 0.6
 sozai("22", f"園庭説明図（1/{GSC}、木と遊び場・建物の案内）", 2, gox, goy, gw_, gh_, note="背景だけ（地面・等高線・水・建物・設備。木の記号・印・文字は入れない）。上の木と説明は .ai の木田さんの物（owner user）。色の表は present/garden_fig.json")
 # 背景のリンクが映す範囲（回した座標の m：西の端・北の端・幅・高さ）。.ai で範囲が変わっても、木田さんの木と説明に合うように付け替える（sdy_lib の relinkWorld）
@@ -4138,7 +4152,7 @@ SOZAI_WORLD["22"] = dict(world=[round(GWX0, 3), round(WY1, 3), round(WX1 - GWX0,
                          world_prev=[round(GWX0_PREV, 3), round(WY1, 3), round(WX1 - GWX0_PREV, 3), round(WY1 - WY0, 3)])
 _G_BARE[2] = list(_GSYM_ART)
 print("園庭説明図の背景（素材22）から外す記号：%d" % len(_GSYM_ART))
-print("園庭説明図：1/%d、木 %d（名前 %d）、香り %d・実 %d・トゲ %d・草の点 %d、凡例の下 %.0f mm" % (GSC, len(_tl), len(_named), len(_ha) // len(_HOP["steps"]), len(_fr) // 3, len(_th), len(_gr), _yy))
+print("園庭説明図：1/%d、木 %d（名前 %d）、香り %d・実 %d・トゲ %d・草の点 %d、凡例の下 %.0f mm（1段目の下 %.0f mm、2段目の下 %.0f mm・ゾーニングの図の下 %.0f mm）" % (GSC, len(_tl), len(_named), len(_ha) // len(_HOP["steps"]), len(_fr) // 3, len(_th), len(_gr), min(_yy, _LEG1_END), _LEG1_END, _yy, zoy))
 _live(None, 2, None, None)
 plan_items[:] = _SAVE[0]
 GD.clear(); GD.update(_SAVE[1])
