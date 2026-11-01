@@ -2147,6 +2147,7 @@ def write_table_w(W_, miss):
 # 10-31 の頼み（模型作成）：表面の彫りと溝は mokei/表面の彫り一覧.md のとおり。仮の出力（T7 の結果と、必須・重要の判断で直す）。
 #   python3 laser.py dai        … 01台_表面_シナ3.svg と 01台_溝の試し片_シナ3.svg だけを書く（ほかの部品は触らない）
 # 座標：3dm の xy（mm）。台は A1（841×594）に収めるため、DAI_ROT だけ回す（北が右上）。回して縮尺 S をかけ、左上に寄せる
+SAN_SHEET = (841, 594)                           # 台の板（A1）。dai_outline_sheet() が使う（桟をやめたとき定数が消えて dai-naka が動かなくなっていた：11-02）
 DAI_ROT = -38.5                                  # 度。川側の辺を水平に（63 m × 56 m、道路の窓を足して 68×56 m → 682×560 mm）
 DAI_ROAD_WIN = (-45000, -75000, -24000, -30000)  # 道路を見せる窓（3dm mm）：西の道路の、お向かいの張り出しと狭い所をふくむ所
 DAI_HOLE_SHRINK = 0.11                           # 建物の穴は、切り幅の分（シナ 3：0.22）だけ小さく描く＝片側 0.11（模型 mm）
@@ -2421,6 +2422,9 @@ def dai_sheets():
     for h in getattr(holes, 'geoms', [holes]):
         if h.area > 1e6: s.add(T(Polygon(h.exterior)).buffer(0), 'cut')
     s.add(T(F['台の外形']['geom']), 'cut')
+    # 西館の柱のほぞ穴（11-02）：西館のベタ基礎＝この「西館の穴」から抜けた板。柱 24 本（本館の 05 と同じ描き寸法 1.64×2.1）。穴の縁にかかる 1 本と穴の外の 1 本は表面の板に直接（west_mortise_notes）
+    for mo in dai_west_mortises(T):
+        s.add(mo, 'cut')
     # 彫る
     n_eng = {}
     for k, v in F.items():
@@ -2523,15 +2527,21 @@ def dai_mortises(T):
     import kirita as _K
     return [T(_K.mortise_world(side, k)) for side in 'EW' for k in range(1, 21)]
 
+def dai_west_mortises(T):
+    """西館の柱 24 本（架構の柱 22＋キッチンの東の骨格の柱 2）のほぞ穴（1.64×2.1）を、板の座標で。表面・中の層に同じ位置"""
+    return [T(mo) for mo in west_mortises()]
+
 def dai_naka_sheets():
     out, T, F = dai_outline_sheet()
     ms = dai_mortises(T)
+    wm = dai_west_mortises(T)
+    ms = ms + wm
     assert all(abs(m.area - laser_mortise_area()) < 1e-6 for m in ms)
-    s = Sheet('01台_中の層_シナ3', 841, 594, 'シナ 3 A1：台の中の層。外形は表面（01台_表面）と同じ形・同じ向き・同じ位置。穴は本館の柱のほぞ穴 40（切った 05 と同じ 1.64×2.1）だけ。西館のほぞ穴は未（西館の柱の位置が落ち着いてから）')
+    s = Sheet('01台_中の層_シナ3', 841, 594, 'シナ 3 A1：台の中の層。外形は表面（01台_表面）と同じ形・同じ向き・同じ位置。穴は柱のほぞ穴だけ：本館 40（切った 05 と同じ 1.64×2.1）＋西館 24（同じ描き寸法、表面の西館の穴と同じ位置）')
     s.add(box(0, 0, 841, 594), 'ref')
     s.tabs = False
     s.add(out.difference(unary_union(ms)), 'cut')
-    s.save([(8, 8, '台の中の層 シナ3：外形は表面と同じ。ほぞ穴 40（本館）。北は右上。表面とは別の A1（同じ板から切れない）', 4)])
+    s.save([(8, 8, '台の中の層 シナ3：外形は表面と同じ。ほぞ穴 64（本館 40・西館 24）。北は右上。表面とは別の A1（同じ板から切れない）', 4)])
     b = out.bounds
     return dict(外形=(round(b[2] - b[0], 1), round(b[3] - b[1], 1)), ほぞ穴=len(ms), 切る長さ=round(out.exterior.length + sum(m.exterior.length for m in ms), 1))
 
@@ -2549,11 +2559,213 @@ def svg_cut_length(fname, groups=('切る',)):
         tot[gm.group(1)] = L
     return tot
 
+# ================= 12w. 西館の床（シナ 1.7）・13w. 西館の階段（航空ベニヤ 0.6）・西館の柱のほぞ穴 =================
+# 11-02 の頼み（模型作成）。西館は切った部品ではないので今の 3dm のまま。本館と同じ積み重ね：
+#   2 階の床 1.7（2 階の床梁の上）／ 1 階の床の上の層 1.7（FL）＋下の層 1.7 ／ 基礎 3（GL、台の表面の西館の穴から抜けた板）／ 共通地盤 3（台の中の層）
+# 柱は床の穴（1.60×3.9）を貫いて、基礎と共通地盤のほぞ穴（1.64×2.1）に刺さる。
+#   python3 -c "import laser; print(laser.west_floor_sheets())"  … 12w だけ
+#   python3 -c "import laser; print(laser.west_stair_sheets())"  … 13w だけ
+RW0 = 205017.7                                                   # 本館の (u, v) の定数（model/build/south/uv.py と同じ）
+TH_S0 = math.atan2(-65173.47495 - CY, -8965.4788 - CX) % (2 * math.pi)
+WEST_V_EAST = -0.35                                              # v −0.35（本館の西の外壁の外面）から西が西館。床はここより東に出さない
+WEST_F1_LAYERS = ('31_1F_遊戯室', '32_1F_キッチン', '33_1F_東の帯（はだし ±0、ホールと一続き）', '36_1F_階段', '36b_1F_倉庫（階段の下）', '57_1F_調理の更衣・便所・前室')
+WEST_Z2F = 3250.0                                                # 2 階の床の上面（3dm、レイヤー 23）。これより上に出る柱だけ 2 階の床を貫く
+WEST_SLIVER = 0.8                                                # 床の穴と縁のあいだがこれ（模型 mm）より細いと割れやすいので、縁まで開けて切り欠きにする
+
+def _uv_xy(u, v):
+    th = TH_S0 - u * 1000 / RW0; rr = RW0 - v * 1000
+    return np.array([CX + rr * math.cos(th), CY + rr * math.sin(th)])
+
+def _uv_of(x, y):
+    th = math.atan2(y - CY, x - CX) % (2 * math.pi)
+    return (TH_S0 - th) * RW0 / 1000, (RW0 - math.hypot(x - CX, y - CY)) / 1000
+
+def west_cols():
+    """西館の構造の柱：[(g, 種類, 頭の高さ)]。架構の柱（名前なし、桁の穴あり）22 本＋キッチンの東の骨格の柱 180×400 の 2 本。
+    階段の箱の 120 角・鼻母屋の 120 角・柱の受け材は作らない（07 と同じ）"""
+    out = []
+    for nm, g in objs_named('22a_西館_柱'):
+        if nm == '': kind = '架構'
+        elif nm.startswith('骨格の柱'): kind = '骨格'
+        else: continue
+        out.append((g, kind, g.GetBoundingBox().Max.Z))
+    return out
+
+def _rect_at(c, ac, rad_w, tan_w):
+    hr, ht = rad_w / S / 2, tan_w / S / 2
+    er = np.array([math.cos(ac), math.sin(ac)]); et = np.array([-math.sin(ac), math.cos(ac)])
+    c = np.asarray(c, float)
+    return Polygon([c - hr * er - ht * et, c + hr * er - ht * et, c + hr * er + ht * et, c - hr * er + ht * et])
+
+def _wcol_rect(g, rad_w, tan_w):
+    """西館の柱の足の位置に、半径方向 rad_w × 接線方向 tan_w（模型 mm）の長方形（3dm の mm）。
+    骨格の柱（押し出しの経路が角から始まる）は、col_rect だと接線の中心が半分ずれるので、足の平面の輪郭の中心から取る"""
+    if g.ProfileCount == 1:
+        f = _foot(g); c = np.array([f.centroid.x, f.centroid.y])
+        return _rect_at(c, math.atan2(c[1] - CY, c[0] - CX), rad_w, tan_w)
+    return col_rect(g, rad_w, tan_w)
+
+def west_mortises():
+    """西館の柱 24 本のほぞ穴（描いた寸法 1.64×2.1、3dm の mm）。基礎（台の表面から抜けた板）と共通地盤（台の中の層）に同じ位置"""
+    return [_wcol_rect(g, MORTISE_W, MORTISE_T) for g, kind, top in west_cols()]
+
+def _close_(g, r_=120):
+    return g.buffer(r_, join_style=2).buffer(-r_, join_style=2)
+
+def _east_clip():
+    """v ≤ −0.35（半径 ≥ RW0 + 350）の側の広い領域"""
+    circ = Point(CX, CY).buffer(RW0 - WEST_V_EAST * 1000, 1440)
+    return box(-40000, -60000, 0, 0).difference(circ)
+
+def _drill(fl, cols, slivers, tag):
+    """床 fl に、柱 cols の穴（1.60×3.9）を開ける。縁に近くて細く残る所は、縁まで開けて切り欠きにする"""
+    from shapely.geometry import LineString
+    out = fl
+    for g, kind, top in cols:
+        h = _wcol_rect(g, FLOOR_L, FLOOR_T)
+        if not out.intersects(h): continue
+        if out.contains(h) and not out.contains(h.buffer(WEST_SLIVER / S)):
+            from shapely.ops import nearest_points
+            d = out.boundary.distance(h) * S
+            c = h.centroid
+            q = nearest_points(out.boundary, c)[0]
+            v_ = np.array([q.x - c.x, q.y - c.y]); v_ = v_ / np.linalg.norm(v_)
+            e_ = np.array([q.x, q.y]) + v_ * (FLOOR_T / S)                  # 縁を越えて少し先まで（縁ぴったりで終わらせない）
+            h = unary_union([h, LineString([(c.x, c.y), tuple(e_)]).buffer(FLOOR_T / S / 2, cap_style=2)])
+            slivers.append((tag, kind, round(d, 2)))
+        out = out.difference(h)
+        out = unary_union([g for g in getattr(out, 'geoms', [out]) if g.geom_type == 'Polygon'])
+    return out
+
+def west_floors():
+    """西館の床（3dm の mm）。戻り：(1 階の上の層, 下の層, 2 階の床, 情報)。
+    1 階：レイヤー 31・32・33・36・36b（階段の下の倉庫）・57 はすべて z＝10（FL、はだし）で、土足・段のレイヤーは西館に無い → 上の層と下の層は同じ形。
+    遊戯室の穴（φ3.2 m の摺鉢）は両方の層を抜く。v −0.35 より東（本館とのすき間）は出さない。
+    柱の穴は床用 1.60×3.9（柱 24 本、骨格の柱 2 本も床を貫く）。
+    2 階：レイヤー 23 の輪郭（3dm の柱の穴 170×400 は埋めて、頭が 2 階の床より上に出る柱 22 本だけ 1.60×3.9 に。骨格の柱は床の下で止まる）"""
+    parts = []
+    for k in WEST_F1_LAYERS: parts += [_mesh_poly(g) for g in objs(k)]
+    f1 = _close_(unary_union(parts))
+    f1 = f1.intersection(_east_clip())
+    f1 = max(getattr(f1, 'geoms', [f1]), key=lambda g: g.area)
+    f1 = Polygon(f1.exterior, [h for h in f1.interiors if Polygon(h).area > 1e6])          # 摺鉢の穴だけ残す（細いすき間は埋める）
+    f2 = unary_union([_mesh_poly(g) for g in objs('23_西館_2階床')])
+    f2 = max(getattr(f2, 'geoms', [f2]), key=lambda g: g.area)
+    f2 = _close_(Polygon(f2.exterior))
+    info = dict(slivers=[], 摺鉢の穴=len(f1.interiors), 面積_m2=dict(f1=round(f1.area / 1e6, 1), f2=round(f2.area / 1e6, 1)))
+    cols = west_cols()
+    u = _drill(f1, cols, info['slivers'], '1F')
+    f2d = _drill(f2, [c for c in cols if c[2] > WEST_Z2F], info['slivers'], '2F')
+    return u, u, f2d, info
+
+def _west_ang():
+    """板の上の向き：西館の u（南 u21 → 北 u51）を水平に（04 と同じ向きの約束：回すだけで裏返さない）"""
+    p0 = _uv_xy(21, -8); p1 = _uv_xy(51, -8)
+    return -math.atan2(p1[1] - p0[1], p1[0] - p0[0])
+
+def _to_w(g, ang):
+    g = affinity.scale(g, S, S, origin=(0, 0))
+    return affinity.rotate(g, ang, origin=(0, 0), use_radians=True)
+
+def _longest_mid_pts(poly, n=2):
+    c = list(poly.exterior.coords)
+    es = sorted(((math.dist(c[i], c[i + 1]), i) for i in range(len(c) - 1)), reverse=True)[:n]
+    return [Point((c[i][0] + c[i + 1][0]) / 2, (c[i][1] + c[i + 1][1]) / 2) for _, i in es]
+
+def west_floor_sheets():
+    upper, lower, f2, info = west_floors()
+    ang = _west_ang()
+    items = []
+    for nm, g in (('1階 上の層（はだし FL）', upper), ('1階 下の層（上と同じ形）', lower), ('2階の床', f2)):
+        g = _to_w(g, ang); b = g.bounds
+        items.append((nm, affinity.translate(g, -b[0], -b[1])))
+    # 置き方：06b の A1（上 約 150 mm を使う）の残り 841×444 に、3 枚を 1 列に（左から 1 階の上の層・下の層・2 階の床）
+    W, H, gap = 841, 444, 6
+    s = Sheet('12w_西館の床_シナ1.7', W, H, 'シナ 1.7：西館の床。1階の上の層（FL）と下の層（同じ形：西館に土足・段の所は無い）、2階の床。柱の穴 1.60×3.9（実寸 約 1.80×4.1）、遊戯室の摺鉢の穴は 1階の 2枚とも抜く。v −0.35 より東（本館とのすき間）は出さない')
+    s.add(box(0, 0, W, H), 'ref')
+    pos = []; x = 0
+    for nm, g in items:
+        q = affinity.translate(g, x, 0)
+        s.add(q)
+        if nm.startswith('2階'): s.tab_pts += _longest_mid_pts(Polygon(q.exterior))
+        pos.append((nm, round(g.bounds[2], 1), round(g.bounds[3], 1), round(x, 1)))
+        x += g.bounds[2] + gap
+    hh = max(g.bounds[3] for _, g in items)
+    used_h = hh + Sheet.MARGIN
+    s.save([(0, -4, '左から：1階 上の層・1階 下の層（同じ形）・2階の床', 3)])
+    return dict(sheet=(W, H), 並べ方=pos, 使う幅=round(x - gap + Sheet.MARGIN, 1), 使う高さ=round(used_h, 1), 余り_高さ=round(H - used_h, 1), info=info)
+
+def west_stair_treads():
+    """階段（レイヤー 25、面のメッシュ。段板は厚 40）の踏面：[(高さ z（3dm の mm）, 平面の形（3dm の mm）)]、低い順。
+    上を向く水平の面を高さごとに集め、面積 0.2 m² 以上（踏面 260×1200＝0.31）だけ取る。踊り場（z 1625）も 1 つ。階段は 17 段＋踊り場、18 段目は 2 階の床"""
+    byz = {}
+    for g in objs('25_西館_階段'):
+        if not isinstance(g, r.Mesh): continue
+        V, F = g.Vertices, g.Faces
+        P = np.array([[V[i].X, V[i].Y, V[i].Z] for i in range(len(V))])
+        for fi in range(F.Count):
+            f = F[fi]; idx = list(dict.fromkeys([f[0], f[1], f[2], f[3]]))
+            q = P[idx]
+            n = np.cross(q[1] - q[0], q[2] - q[0])
+            if np.linalg.norm(n) < 1e-6 or n[2] / np.linalg.norm(n) < 0.99: continue
+            byz.setdefault(int(round(q[:, 2].mean())), []).append(Polygon(q[:, :2]).buffer(1))
+    out = []
+    for z in sorted(byz):
+        pg = unary_union(byz[z]).buffer(-1)
+        if pg.area >= 0.2e6: out.append((z, pg))
+    return out
+
+STAIR_T = 0.6                              # 階段の板（航空ベニヤ 0.6）の厚さ
+STAIR_RISE = 180.6                          # 蹴上（実寸 mm）。0.6 の板 3 枚＝1.8 ≈ 蹴上 1.806
+
+def west_stair_plates():
+    """段を 0.6 の板の積み重ね（等高線の積層）で作る。踏面 k（上面の高さ z）の上には、板が n＝round(z×S／0.6)（＝3k）枚。
+    板 m（下から数えて m 枚目）の形＝n ≥ m の踏面の和。戻り：([(m, 形（3dm の mm））], [(n, 踏面の形)])"""
+    T = west_stair_treads()
+    ns = [(int(round(z * S / STAIR_T)), pg) for z, pg in T]
+    N = max(n for n, _ in ns)
+    cl = lambda g: g.buffer(5, join_style=2).buffer(-5, join_style=2)       # 踏面を 1 mm ずつ縮めたすき間（面の継ぎ目）を閉じる
+    return [(m, cl(unary_union([pg for n, pg in ns if n >= m]))) for m in range(1, N + 1)], ns
+
+def west_stair_sheets():
+    plates, ns = west_stair_plates()
+    ang = _west_ang()
+    items = []
+    for m, g in plates:
+        g = _to_w(g, ang)
+        assert g.geom_type == 'Polygon', (m, g.geom_type)
+        g = g.simplify(0.005)
+        b = g.bounds
+        items.append((m, affinity.translate(g, -b[0], -b[1])))
+    W, H, gap = 600, 300, 1.6
+    s = Sheet('13w_西館の階段_航空ベニヤ0.6', W, H, f'航空ベニヤ 0.6 300×600：西館の階段（階段 1 段＝板 3 枚の積層）。板 m 枚目の形＝高さが 0.6×m 以上の踏面の和（踊り場を含む）。板は下から 1〜{len(items)}、番号を彫る')
+    s.add(box(0, 0, W, H), 'ref')
+    items.sort(key=lambda it: (-it[1].bounds[3], it[0]))
+    x = y = rowh = 0
+    for m, g in items:
+        w, h = g.bounds[2], g.bounds[3]
+        if x + w > W - 6:
+            x = 0; y += rowh + gap; rowh = 0
+        if y + h > H - 6: raise RuntimeError('13w が 600×300 に入らない')
+        q = affinity.translate(g, x, H - y - h)
+        s.add(q); s.tab_pts += _longest_mid_pts(q)
+        c = q.representative_point(); txt = str(m)
+        for j, ch in enumerate(txt):
+            for l in label_num(ch, c.x - len(txt) * 0.6 + j * 1.2, c.y - 0.6, 1.2): s.add(l, 'eng')
+        x += w + gap; rowh = max(rowh, h)
+    s.tab_gap = lambda: 0.35                                     # 0.8 の弱い設定に準じる（ユーザー 11-02）
+    s.save([(0, -4, f'{len(items)} 枚。番号＝下から何枚目', 3)])
+    return dict(板=len(items), 踏面=len(ns), 踏面の板数=[n for n, _ in ns], 使う高さ=round(y + rowh + 6, 1), 板の最大=(round(max(g.bounds[2] for _, g in items), 1), round(max(g.bounds[3] for _, g in items), 1)))
+
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
         print(engawa_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai']:                       # 台の表面だけ（ほかの部品は書き換えない）
         print(dai_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['west-floor']:                # 西館の床（12w）だけ
+        print(west_floor_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['west-stair']:                # 西館の階段（13w）だけ
+        print(west_stair_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['14w']:                       # 西館の外壁だけ
