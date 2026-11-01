@@ -3867,14 +3867,33 @@ for p_ in _rg["posts"] + _ms["posts"]:
     q_ = _PAD(*p_)
     _rings += _gpp(Polygon([(q_[0] - 0.06, q_[1] - 0.06), (q_[0] + 0.06, q_[1] - 0.06), (q_[0] + 0.06, q_[1] + 0.06), (q_[0] - 0.06, q_[1] + 0.06)]), fill=GF_["log"]["stroke"], name="柱")
 _gpart("gx.ring", GF_["ring"]["name"], _rings)
-_bar = []                                          # 鉄棒の位置（garden.json の BAR：中心・向き・一段の幅・段の数）。雲梯に替える（決定事項_園庭、場所と寸法は検討中）
+_bar = []                                          # 雲梯（garden.json の BAR：中心 c・向き rot・長さ L・幅 W・握り棒の間 grip_pitch・柱 post_d、園庭係 11-01）
 _bj = GJ["BAR"]
 _bd = np.array([np.cos(np.radians(_bj["rot"])), np.sin(np.radians(_bj["rot"]))])
-_bn = len(_bj["bars"])
-_bpts = [np.array(_bj["c"]) + (k_ - _bn / 2) * _bj["span"] * _bd for k_ in range(_bn + 1)]
-_bar += _gpp(LineString([tuple(_PAD(*p_)) for p_ in (_bpts[0], _bpts[-1])]), stroke=GF_["bar"]["stroke"], lw=0.5, name="棒")
-for p_ in _bpts:
-    _bar += _gpp(_circ(_PAD(*p_), _bj["post_d"] / 2 + 0.05, 16), fill=GF_["bar"]["stroke"], name="柱")
+_bw = np.array([-_bd[1], _bd[0]])
+_bL, _bW = float(_bj.get("L", _bj.get("span", 3.3))), float(_bj.get("W", 0.5))
+_bc = np.array(_bj["c"], dtype=float)
+for sg_ in (-0.5, 0.5):                            # 左右の桁
+    _bar += _gpp(LineString([tuple(_PAD(*(_bc + sg_ * _bW * _bw - 0.5 * _bL * _bd))), tuple(_PAD(*(_bc + sg_ * _bW * _bw + 0.5 * _bL * _bd)))]),
+                 stroke=GF_["bar"]["stroke"], lw=0.45, name="桁")
+_np = int(round(_bL / float(_bj.get("grip_pitch", 0.3))))
+for k_ in range(_np + 1):                          # 握り棒（はしごの横木の向き）
+    t_ = -0.5 * _bL + k_ * _bL / _np
+    _bar += _gpp(LineString([tuple(_PAD(*(_bc - 0.5 * _bW * _bw + t_ * _bd))), tuple(_PAD(*(_bc + 0.5 * _bW * _bw + t_ * _bd)))]),
+                 stroke=GF_["bar"]["stroke"], lw=0.25, name="握り棒")
+for sl_ in (-0.5, 0.5):                            # 柱（栗の丸太、四隅）
+    for sg_ in (-0.5, 0.5):
+        _bar += _gpp(_circ(_PAD(*(_bc + sg_ * _bW * _bw + sl_ * _bL * _bd)), _bj["post_d"] / 2, 16), fill=GF_["bar"]["stroke"], name="柱")
+if "HAMMOCK" in GJ:                                # ネットのハンモック（園庭係 11-01）：丸いネットと、両側の幹への吊りロープ
+    _hm = GJ["HAMMOCK"]
+    try:
+        _hc = np.array(_hm.get("c") or _hm.get("center"), dtype=float)
+        _hr = float(_hm["r"]) if "r" in _hm else float(_hm.get("d", 2.3)) / 2.0
+        _bar += _gpp(_circ(_PAD(*_hc), _hr, 32), stroke=GF_["bar"]["stroke"], lw=0.3, name="ネットのハンモック")
+        for e_ in _hm.get("ends", _hm.get("trees", [])) or []:
+            _bar += _gpp(LineString([tuple(_PAD(*_hc)), tuple(_PAD(*np.array(e_[:2], dtype=float)))]), stroke=GF_["bar"]["stroke"], lw=0.15, name="吊りロープ")
+    except Exception as e_:
+        print("ハンモック：描けなかった", e_)
 _gpart("gx.bar", GF_["bar"]["name"], _bar)
 _tk = GJ["TANK"]
 _gpart("gx.tank", GF_["tank"]["name"], _gpp(_mapP([(_tk["c"][0] + _tk["r"][0] * np.cos(t_), _tk["c"][1] + _tk["r"][1] * np.sin(t_)) for t_ in np.linspace(0, 2 * np.pi, 32, endpoint=False)], _PAD).exterior,
@@ -3891,7 +3910,7 @@ for a_, d_, s_, sz_, col_, b_ in [(39.4, 13.6, "原っぱ", 1.9, "#6B5E3A", True
                                    (GJ["FOUNTAIN"]["c"][0] - 0.2, GJ["FOUNTAIN"]["c"][1] - 3.0, "床の噴水・あめのわ", 1.4, "#2F6E95", True),
                                    (GJ["SPLASH"]["c"][0] - 2.6, GJ["SPLASH"]["c"][1] + 0.4, "乳児の床の噴水・霧のわ", 1.3, "#2F6E95", True),
                                    (54.7, 28.2, "雨庭（洲浜）", 1.4, "#4A4438", True), (GJ["GRAIN"]["c"][0], GJ["GRAIN"]["c"][1] - 2.4, "粒の遊び場", 1.3, "#6B5A3A", False),
-                                   (29.2, 9.9, "砂場", 1.4, "#6B5A3A", True), (GJ["BAR"]["c"][0], GJ["BAR"]["c"][1] + 1.6, "雲梯（検討中、今は鉄棒の位置）", 1.25, "#5A4630", False),
+                                   (29.2, 9.9, "砂場", 1.4, "#6B5A3A", True), (GJ["BAR"]["c"][0], GJ["BAR"]["c"][1] + 1.6, "雲梯", 1.25, "#5A4630", False),
                                    (_tk["c"][0] + 0.4, _hu["d"][0] + 0.8, "雨水タンク（床下）", 1.05, "#4C8DB8", False), (8.0, 0.9, "暗渠（用水路から）", 1.15, "#4C8DB8", False),
                                    (np.mean([_hu["a"][0], _hu["split_a"]]), np.mean(_hu["d"]), "便所", 1.3, "#5A564E", False),
                                    (np.mean([_hu["split_a"], _hu["closed_a"]]), _hu["d"][0] + 2.6, "倉庫", 1.3, "#5A564E", False),
