@@ -306,20 +306,41 @@ poly(ax, P([_gr(-_hl - .15, -_hw - .15), _gr(_hl + .15, -_hw - .15), _gr(_hl + .
 poly(ax, P([_gr(-_hl, -_hw), _gr(_hl, -_hw), _gr(_hl, _hw), _gr(-_hl, _hw)]), fc="#EFE6CF", ec="#A88E58", lw=0.3, z=5.5, hatch="...")
 line(ax, XS([_gr(-_hl, _hw + .35), _gr(_hl, _hw + .35)]), lw=2.2, c="#C9B48E", z=5.6)   # 帆布を巻いた棒
 T(ax, X(*_gr(0, _hw + 0.9)), "帆布の巻き取り", 3.4, c="#6B5A3A", rot=-38, z=9.3)
-# 鉄棒ひと組（10-27 ユーザー）：3段の低い鉄棒、点線は安全の範囲
+# 雲梯（11-01ユーザー：鉄棒をやめて雲梯に）：柱・桁・握り棒、点線は安全の範囲（まわり約2 m）
 BR = G.get("BAR")
 if BR:
     _cb, _sb = math.cos(math.radians(BR["rot"])), math.sin(math.radians(BR["rot"]))
     def _br(u, v):
         return (BR["c"][0] + u * _cb - v * _sb, BR["c"][1] + u * _sb + v * _cb)
-    _zl, _zw = BR["zone"][0] / 2, BR["zone"][1] / 2
-    poly(ax, P([_br(-_zl, -_zw), _br(_zl, -_zw), _br(_zl, _zw), _br(-_zl, _zw)]), fc="none", ec="#5A4630", lw=0.5, z=20, ls=(0, (2, 1.5)))
-    _n = len(BR["bars"]); _u0 = -BR["span"] * _n / 2
-    line(ax, XS([_br(_u0, 0), _br(-_u0, 0)]), lw=1.0, c="#3F444A", z=20.1)
-    for i in range(_n + 1):
-        ax.add_patch(Circle(X(*_br(_u0 + i * BR["span"], 0)), BR["post_d"] / 2 + 0.05, fc=C["wood"], ec="#5A4630", lw=0.4, zorder=20.2))
-    _hs = "・".join(f"{h:.2f}" for h in BR["bars"])
-    T(ax, X(*_br(0, -_zw - 0.9)), f"鉄棒（3段 h{_hs}）", 4.0, c="#5A4630", rot=-38, z=21, fontweight="bold")
+    _hL, _hW = BR["L"] / 2, BR["W"] / 2
+    _vb = _hW + BR["beam"][0] / 2; _vp = _vb + BR["beam"][0] / 2 + BR["post_d"] / 2
+    _fp = Polygon([_br(-_hL - BR["post_d"] / 2, -_vp - BR["post_d"] / 2), _br(_hL + BR["post_d"] / 2, -_vp - BR["post_d"] / 2),
+                   _br(_hL + BR["post_d"] / 2, _vp + BR["post_d"] / 2), _br(-_hL - BR["post_d"] / 2, _vp + BR["post_d"] / 2)])
+    poly(ax, P(list(_fp.buffer(BR["zone"]).exterior.coords)), fc="none", ec="#5A4630", lw=0.5, z=20, ls=(0, (2, 1.5)))
+    for _sv in (-1, 1):
+        line(ax, XS([_br(-_hL - BR["post_d"] / 2, _sv * _vb), _br(_hL + BR["post_d"] / 2, _sv * _vb)]), lw=1.4, c=C["wood"], z=20.1)
+    _ng = int(round(2 * (_hL - 0.15) / BR["grip_pitch"])) + 1
+    for i in range(_ng):
+        _u = -(_ng - 1) * BR["grip_pitch"] / 2 + i * BR["grip_pitch"]
+        line(ax, XS([_br(_u, -_vb), _br(_u, _vb)]), lw=0.5, c="#3F444A", z=20.15)
+    for _su in (-1, 1):
+        line(ax, XS([_br(_su * _hL, -_vp), _br(_su * _hL, _vp)]), lw=0.5, c="#3F444A", z=20.15)   # 登る段
+        for _sv in (-1, 1):
+            ax.add_patch(Circle(X(*_br(_su * _hL, _sv * _vp)), BR["post_d"] / 2 + 0.03, fc=C["wood"], ec="#5A4630", lw=0.4, zorder=20.2))
+    T(ax, X(BR["c"][0] + 0.3, BR["c"][1] + 1.2), f"雲梯\n（長さ{BR['L']:.1f}、握り棒h{BR['grip_h']:.1f}）", 4.0, c="#5A4630", rot=-38, z=21, fontweight="bold", ha="right", linespacing=1.1)
+# ネットのハンモック（11-01ユーザー）：エノキとホオノキの幹に吊る丸いネット、点線は揺れの範囲
+HM = G.get("HAMMOCK")
+if HM:
+    _hc = np.array(HM["c"])
+    for _tr in HM["trees"]:
+        _th = math.atan2(_tr[1] - _hc[1], _tr[0] - _hc[0]); _dd = math.hypot(_tr[0] - _hc[0], _tr[1] - _hc[1])
+        for _sg in (-1, 1):
+            _q = _th + _sg * math.radians(HM["rope_spread"])
+            line(ax, XS([(_hc[0] + HM["r"] * math.cos(_q), _hc[1] + HM["r"] * math.sin(_q)),
+                         (_hc[0] + (_dd - 0.15) * math.cos(_th), _hc[1] + (_dd - 0.15) * math.sin(_th))]), lw=0.5, c="#8C7A4E", z=20.1)
+    ax.add_patch(Circle(X(*HM["c"]), HM["r"] + HM["zone"], fc="none", ec="#8C7A4E", lw=0.5, ls=(0, (2, 1.5)), zorder=20))
+    ax.add_patch(Circle(X(*HM["c"]), HM["r"], fc="#EDE3C8", ec="#8C7A4E", lw=0.8, hatch="++", zorder=20.2))
+    T(ax, X(HM["c"][0] - 0.2, HM["c"][1] - HM["r"] - 0.3), f"ネットのハンモック\n（φ{HM['r'] * 2:.1f}、h{HM['h']:.1f}）", 4.0, c="#6B5A3A", rot=-38, z=21, fontweight="bold", ha="left", linespacing=1.1)
 # 小さな滝と滝壺（みなもと）
 _FL = G["STREAM"].get("fall")
 if _FL:
@@ -490,7 +511,7 @@ ax.text(sx + 13.5, sy + 0.25, "1/200　高野川を下に（北は右上）", fo
 # ================= 見出しと凡例 =================
 fx = fig.text
 fx(14 / PW, 1 - 16 / PH, "育ち舎　園庭（だいさんかく・しずかのもり）　たたき台 8", fontsize=15, ha="left", va="baseline")
-fx(14 / PW, 1 - 24 / PH, "配置 1/200　断面 1/100（A2）　2026-10-27　遊具は鉄棒ひと組だけ、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
+fx(14 / PW, 1 - 24 / PH, "配置1/200　断面1/100（A2）　2026-10-27　遊具は雲梯とネットのハンモックだけ、木と地形で遊ぶ庭。山・川・原っぱ・森、そのあいだにたくさんのニッチ。",
    fontsize=7.2, ha="left", color="#444444")
 fx(14 / PW, 1 - 30 / PH, "地形は GL（＝FL−300）からの高さ。等高線 0.2 m ごと（1 m を太く）。築山の位置と形はこの図で決め直した（Keynote の位置は前提にしていない）。",
    fontsize=6.0, ha="left", color="#666666")
@@ -541,6 +562,11 @@ def sw(y, kind, txt):
         lax.add_patch(Rectangle((1, y - 2), 8, 4, fc="none", ec=C["hidden"], lw=0.4, hatch="////"))
     elif kind == "eye":
         lax.add_patch(Circle((5, y), 1.6, fc="white", ec=C["red"], lw=0.8)); lax.add_patch(Circle((5, y), 0.6, fc=C["red"], ec="none"))
+    elif kind == "yugu":
+        lax.add_patch(Rectangle((0.5, y - 0.6), 4.6, 1.2, fc="none", ec=C["wood"], lw=0.7))
+        for xx in (1.6, 2.8, 4.0):
+            lax.plot([xx, xx], [y - 0.6, y + 0.6], c="#3F444A", lw=0.35)
+        lax.add_patch(Circle((8.0, y), 1.5, fc="#EDE3C8", ec="#8C7A4E", lw=0.5, hatch="++"))
     elif kind == "veh":
         lax.add_patch(Rectangle((1, y - 2), 8, 4, fc="none", ec="#B7A98C", lw=0.5, ls=(0, (4, 2))))
     elif kind == "cont":
@@ -560,10 +586,11 @@ from collections import Counter as _Ct
 _cnt = _Ct(sp_of(t[4]) for t in G["TREES"])
 rows = [("g:" + g, g + "：" + "・".join(f"{k} {_cnt[k]}" for k in SP if k != "_" and SP[k]["g"] == g and _cnt[k])) for g in GC] + [
         ("climb", "木登りの木（エノキ、下は木のチップ）"), ("gyoji", "行事の草：セリ・ショウブ・摘み草・ススキ・キク"), ("tengu", "てんぐのたにと小屋の裏（入らない帯）：三つの口にヒイラギの小さい木（低く刈り込む、h約1.8）、先生が脇を通れる間を残す。中は築山の裾にヤマブキ、足もとにシャガ。築山の北東の肩にもヤマブキの茂みの帯（転がり落ちない）"),  ("seki", "飛び石：ホールの前から縁側沿いにしずかのもりへ。境は石や柵で示さず、「ここからは しずかに」と伝えるだけ（ユーザー：入ってだめなわけではない）。招かれた入口は柳の家をくぐる道"), ("water", "小川（幅 0.5、岸は急、底は平らで浅い。終わりは護岸の溝を滑り落ちる、破線は暗渠）"), ("jets", "床の噴水（水遊び場、上水をためずに一度だけ使う、排水は雨の川へ。ポンプなし、弁はシャワーの柱の隣のバルブます）。上に輪のシャワー「あめのわ」。0〜2歳の前にも小さな床の噴水（φ4.0、低い泡と霧のわ、南のカツラの木陰）"), ("trench", "雨の川（雨落ちの溝、玉石。本館の雨は樋なしで落ち、南へ流れて雨庭へ。大雨で溢れたらすりばちが雨の池）"), ("amaniwa", "雨庭（洲浜）：玉石の浜の浅いくぼみ −0.25、下に砕石。初めの約5 mmの雨を溜めてしみ込ませ、溢れた分だけ護岸の溝から高野川へ。景石3、ミソハギ（盆花）・ギボウシ・カンスゲ・ハンゲショウ"),
-        ("sand", "砂場（掘り込み、砂の面は水平、縁は丸太の腰掛けh0.15、坂の上は丸太の土留め）・粒の遊び場（1〜2 mm、2.4×3.0、木の縁h0.10、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
+        ("sand", "砂場（掘り込み、砂の面は水平、縁は丸太の腰掛けh0.15、坂の上は丸太の土留め）・粒の遊び場（1〜2 mm、2.4×3.0、木の縁h0.10、帆布を巻いた棒を転がして「おやすみね」とカバー）"), ("yugu", "雲梯（握り棒h1.7）と丸いネットのハンモック。点線は安全・揺れの範囲"),
+        ("cont", "等高線 0.2 m（太線 1.0 m）"), ("veh", "剪定・搬入の車の道（芝の保護材 幅 2.5、ふだんは庭）"),
         ("eye", "先生のいる所（縁側の外の縁・小屋の軒、目の高さ GL+1.35）"), ("hidden", f"死角：どの先生からも子どもの頭（地面+{CH}）が見えない所")]
 for k, t in rows:
-    n = sw(y, k, t); y += (3.4 if k.startswith("g:") else 4.0) + 2.6 * n
+    n = sw(y, k, t); y += 3.4 + 2.6 * n   # 11-01：雲梯・ハンモックの行を足した分、行の間を4.0→3.4
 y += 3
 lax.text(0, y, "ニッチ（静かに遊べる・ひとりになれる所）", fontsize=8, fontweight="bold", va="center"); y += 7
 for k, (a, d, txt) in enumerate(G["NICHES"], 1):

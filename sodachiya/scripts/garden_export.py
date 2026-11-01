@@ -26,7 +26,8 @@ NAMES = {90: ("90_園庭_地形（GL からの起伏、メッシュ）", (196, 1
          94: ("94_園庭_木の幹（円柱、名前＝種類）", (111, 100, 80)), "94c": ("94c_園庭_樹冠（葉、名前＝種類、柳の家）", (111, 143, 87)), "94g": ("94g_園庭_草（年中行事の草・てんぐのたにのシャガ、h0.3の塊、葉）", (150, 175, 100)),
          "94b": ("94b_園庭_低木（葉、ヤマブキの株、扁平な半球）", (170, 160, 80)),
          95: ("95_園庭_遊び場（砂場の砂・粒の遊び場の粒）", (168, 142, 88)),
-         "95w": ("95w_園庭_鉄棒の柱（栗の丸太）", (140, 110, 80)), "95m": ("95m_園庭_鉄棒の棒（ステンレス）", (150, 155, 162)),
+         "95w": ("95w_園庭_雲梯の柱と桁（栗の丸太・角材）", (140, 110, 80)), "95m": ("95m_園庭_雲梯の握り棒と段（ステンレス）", (150, 155, 162)),
+         "95n": ("95n_園庭_ネットのハンモック（麻のロープ）", (196, 170, 120)),
          "95r": ("95r_園庭_木の縁と丸太（砂場・粒の遊び場の縁、帆布を巻いた棒、丸太の橋）", (150, 115, 80)),
          "95s": ("95s_園庭_輪のシャワー（あめのわ・霧のわの輪と腕、ステンレス）", (160, 165, 172)),
          "95p": ("95p_園庭_シャワーの柱（あめのわ・霧のわ、木 120角・100角）", (165, 130, 90)),
@@ -623,27 +624,63 @@ B = G["BOWL"]; curve_ad(ell(B["c"], (B["r"], B["r"])), "90l", "すりばち（�
 W = G["WILLOW"]; _wp = ring_pts(W["c"], W["r"], 24)
 dome(W["c"], W["r"], 2.0, gmin(_wp) - 0.05, "94c", "柳の家（生きたヤナギのドームφ3・h2.0）")   # 生きた木なので樹冠のレイヤー（10-28）
 
-# ---- 95w・95m 鉄棒ひと組（10-27 ユーザー）：柱＝栗の丸太（閉じた円柱）、棒＝ステンレスφ25（閉じた円柱） ----
+# ---- 95w・95m雲梯（11-01ユーザー：鉄棒をやめて雲梯に）。katachiの円柱（柱・握り棒・段）と角材（桁） ----
+# 握り棒の高さは両端の地面を結んだ線 + grip_h（斜面でも地面からそろう、桁はまっすぐ）
+import katachi as _KU
 BR = G.get("BAR")
 if BR:
     cb, sb = math.cos(math.radians(BR["rot"])), math.sin(math.radians(BR["rot"]))
     br = lambda u, v: (BR["c"][0] + u * cb - v * sb, BR["c"][1] + u * sb + v * cb)
-    z0 = H(*BR["c"])                                   # その場で平らにならす
-    n_ = len(BR["bars"]); u0 = -BR["span"] * n_ / 2
-    def circ(p, n, rad):
-        c = r.Circle(p, rad); c.Plane = r.Plane(p, n); return c
-    def post(u, h):
-        p = P3(*br(u, 0), z=z0)
-        cyl = r.Cylinder(circ(p, r.Vector3d(0, 0, 1), BR["post_d"] / 2 * 1000), h * 1000)
-        m.Objects.AddBrep(cyl.ToBrep(True, True), at("95w", f"鉄棒の柱（栗の丸太 φ{BR['post_d'] * 1000:.0f}、h{h:.2f}）"))
-    for i in range(n_ + 1):
-        hs = [BR["bars"][j] for j in (i - 1, i) if 0 <= j < n_]
-        post(u0 + i * BR["span"], max(hs) + BR["post_over"])
-    for j, hb in enumerate(BR["bars"]):
-        p0 = P3(*br(u0 + j * BR["span"], 0), z=z0 + hb); p1 = P3(*br(u0 + (j + 1) * BR["span"], 0), z=z0 + hb)
-        ax_ = r.Vector3d(p1.X - p0.X, p1.Y - p0.Y, p1.Z - p0.Z)
-        cyl = r.Cylinder(circ(p0, ax_, BR["bar_d"] / 2 * 1000), ax_.Length())
-        m.Objects.AddBrep(cyl.ToBrep(True, True), at("95m", f"鉄棒の棒（ステンレスφ{BR['bar_d'] * 1000:.0f}、h{hb:.2f}）"))
+    hL, hW = BR["L"] / 2, BR["W"] / 2
+    bb, bh = BR["beam"]; pr = BR["post_d"] / 2
+    vb = hW + bb / 2                                   # 桁の芯（握り棒は桁の内側に渡す）
+    vp = vb + bb / 2 + pr                              # 柱の芯（桁の外に添える）
+    g0, g1 = H(*br(-hL, 0)), H(*br(hL, 0))
+    zg = lambda u: g0 + (g1 - g0) * (u + hL) / (2 * hL) + BR["grip_h"]     # 握り棒の芯の高さ（GLからのm）
+    def w3(u, v, z):
+        q = P3(*br(u, v), z=z); return (q.X, q.Y, q.Z)
+    for su in (-1, 1):
+        for sv in (-1, 1):
+            u_, v_ = su * hL, sv * vp; gp = H(*br(u_, v_))
+            zt = zg(u_) + bh / 2 + BR["post_over"]
+            _KU.add(m, _KU.enchu(w3(u_, v_, gp - 0.05), w3(u_, v_, zt), pr * 1000), LAY["95w"],
+                    name=f"雲梯の柱（栗の丸太φ{BR['post_d'] * 1000:.0f}、無塗装、根もとは鋼の脚、h{zt - gp:.2f}）")
+        for k_, hs in enumerate(BR["steps"]):           # 両端のはしご：端の2本の柱のあいだに段
+            gs = (H(*br(su * hL, -vp)) + H(*br(su * hL, vp))) / 2
+            _KU.add(m, _KU.enchu(w3(su * hL, -vp + pr, gs + hs), w3(su * hL, vp - pr, gs + hs), BR["grip_d"] / 2 * 1000), LAY["95m"],
+                    name=f"雲梯の登る段（ステンレスφ{BR['grip_d'] * 1000:.0f}、地面から{hs:.2f}）")
+    for sv in (-1, 1):                                 # 上の桁（長手の2本の梁、栗の角材）
+        u0_, u1_ = -hL - pr, hL + pr
+        _KU.add(m, _KU.bou(w3(u0_, sv * vb, zg(u0_)), w3(u1_, sv * vb, zg(u1_)), bb * 1000, bh * 1000), LAY["95w"],
+                name=f"雲梯の桁（栗の角材{bb * 1000:.0f}×{bh * 1000:.0f}）")
+    n_g = int(round(2 * (hL - 0.15) / BR["grip_pitch"])) + 1
+    for i in range(n_g):
+        u_ = -(n_g - 1) * BR["grip_pitch"] / 2 + i * BR["grip_pitch"]
+        _KU.add(m, _KU.enchu(w3(u_, -vb + bb / 2, zg(u_)), w3(u_, vb - bb / 2, zg(u_)), BR["grip_d"] / 2 * 1000), LAY["95m"],
+                name=f"雲梯の握り棒（ステンレスφ{BR['grip_d'] * 1000:.0f}、地面から{zg(u_) - H(*br(u_, 0)):.2f}）")
+    print(f"雲梯：握り棒{n_g}本、地面から両端{zg(-(n_g - 1) * BR['grip_pitch'] / 2) - H(*br(-(n_g - 1) * BR['grip_pitch'] / 2, 0)):.2f}・"
+          f"{zg((n_g - 1) * BR['grip_pitch'] / 2) - H(*br((n_g - 1) * BR['grip_pitch'] / 2, 0)):.2f}、真ん中{zg(0) - H(*br(0, 0)):.2f}")
+
+# ---- 95nネットのハンモック（11-01ユーザー）：エノキとホオノキの幹に吊る（育った後の形）。ネット＝薄い円柱、縁の輪＝管（円柱の輪）、吊りロープ＝円柱（katachi） ----
+HM = G.get("HAMMOCK")
+if HM:
+    zn = H(*HM["c"]) + HM["h"]                         # ネットの上面（水平）
+    xc, yc = gc.X(*HM["c"]); xc, yc = xc * 1000, yc * 1000
+    _KU.add(m, _KU.enchu((xc, yc, (zn - HM["t"]) * 1000 + GL), (xc, yc, zn * 1000 + GL), HM["r"] * 1000), LAY["95n"],
+            name=f"ネットのハンモック（麻のロープの網φ{HM['r'] * 2:.1f}、地面から約{HM['h']:.1f}）")
+    _KU.add(m, _KU.enchu((xc, yc, (zn - HM["rim_d"]) * 1000 + GL), (xc, yc, zn * 1000 + GL), (HM["r"] + HM["rim_d"]) * 1000, rin=HM["r"] * 1000), LAY["95n"],
+            name=f"ネットの縁の輪（太いロープφ{HM['rim_d'] * 1000:.0f}）")
+    for tr in HM["trees"]:
+        dx, dy = tr[0] - HM["c"][0], tr[1] - HM["c"][1]; th = math.atan2(dy, dx); dist = math.hypot(dx, dy)
+        for k_, sg in enumerate((-1, 1)):
+            q = th + sg * math.radians(HM["rope_spread"])
+            p0 = (HM["c"][0] + (HM["r"] + HM["rim_d"] / 2) * math.cos(q), HM["c"][1] + (HM["r"] + HM["rim_d"] / 2) * math.sin(q))
+            p1 = (HM["c"][0] + (dist - TRUNK_R["big"]) * math.cos(th), HM["c"][1] + (dist - TRUNK_R["big"]) * math.sin(th))
+            z1 = H(*tr[:2]) + HM["rope_h"][k_]
+            q0 = P3(*p0, z=zn - HM["rim_d"] / 2); q1 = P3(*p1, z=z1)
+            _KU.add(m, _KU.enchu((q0.X, q0.Y, q0.Z), (q1.X, q1.Y, q1.Z), HM["rope_d"] / 2 * 1000), LAY["95n"],
+                    name=f"ハンモックの吊りロープ（φ{HM['rope_d'] * 1000:.0f}、幹の地上{HM['rope_h'][k_]:.1f}へ）")
+    print(f"ハンモック：ネットの上面GL{zn:+.2f}、中心の地面から{HM['h']:.2f}")
 
 # ---- 96 石 ----
 for q in G["SEKIMORI"].get("steps", []):             # 10-30：飛び石は閉じた円柱（φ0.52、上面は地面 +0.04、厚さ 0.12）
