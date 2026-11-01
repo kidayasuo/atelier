@@ -1,6 +1,36 @@
 {
- "_": "教室の切り株（本館係、11-01。ユーザー 19:14：2歳に2つ、3・4・5歳に4つずつ。腰掛け・台・積む）。値は乱数の種20261101で決めて固定した。u・v は本館の座標 m、d 幹の径・h 高さ m、flare 根張り（幹の半径に対する広がり）、roots 根の数、rot 根の向き 度。tilt 傾き 度・tilt_dir_uv 傾ける向き（u, v）、lying 横倒し。3dm は model/build/shitsu/add_shitsurae.py（形は shitsu/kirikabu.py）、図は scripts/plan02.py・plan04.py・room3_50.py が読む。5歳は鏡像。",
+ "_": "教室の切り株（本館係、11-01。ユーザー 19:14：2歳に2つ、3・4・5歳に4つずつ。11-02 02:20：0・1歳にも3つ、低く太く（h0.12〜0.20・径0.35〜0.5、横倒しは置かない）。腰掛け・台・積む）。値は乱数の種20261101で決めて固定した。u・v は本館の座標 m、d 幹の径・h 高さ m、flare 根張り（幹の半径に対する広がり）、roots 根の数、rot 根の向き 度。tilt 傾き 度・tilt_dir_uv 傾ける向き（u, v）、lying 横倒し。3dm は model/build/shitsu/add_shitsurae.py（形は shitsu/kirikabu.py）、図は scripts/plan02.py・plan04.py・room3_50.py が読む。5歳は鏡像。",
  "stumps": [
+  {
+   "room": "0・1歳",
+   "u": 1.3,
+   "v": 11.3,
+   "d": 0.43,
+   "h": 0.19,
+   "flare": 0.17,
+   "roots": 3,
+   "rot": 43
+  },
+  {
+   "room": "0・1歳",
+   "u": 6.5,
+   "v": 11.3,
+   "d": 0.37,
+   "h": 0.18,
+   "flare": 0.16,
+   "roots": 4,
+   "rot": 358
+  },
+  {
+   "room": "0・1歳",
+   "u": 10.6,
+   "v": 11.0,
+   "d": 0.43,
+   "h": 0.19,
+   "flare": 0.19,
+   "roots": 3,
+   "rot": 253
+  },
   {
    "room": "2歳",
    "u": 13.4,

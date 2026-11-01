@@ -186,6 +186,12 @@ for vc in [8.5, 9.7]:
         line([(3.0 + 0.244 * math.cos(math.radians(_a)), vc + 0.419 * math.sin(math.radians(_a))), (3.0, vc)], lw=0.3, c="#8a6a3a", z=4.2)
     ax.add_patch(Circle(P(3.0, vc), 0.025, fc="#8a6a3a", ec="none", zorder=4.3))
 line([(3.0, 7.9), (3.0, 10.5)], lw=0.25, ls=(0, (6, 2, 1, 2)))
+# 切り株（ユーザー 11-02 02:20：0・1歳にも。低く太く、手をついて立つ。置き場と大きさは data/kirikabu.json、3dm は shitsu/add_shitsurae.py）：小さな円に年輪の線を一本
+import json as _json_k
+for _e in _json_k.load(open(_os.path.join(ROOT, "data", "kirikabu.json"), encoding="utf-8"))["stumps"]:
+    if not (-1 <= _e["u"] <= 12.0) or _e.get("lying"): continue
+    ax.add_patch(Circle(P(_e["u"], _e["v"]), _e["d"] / 2, fc="#E3D2B5", ec="#6b4f2e", lw=0.4, zorder=6.6))
+    ax.add_patch(Circle(P(_e["u"], _e["v"]), _e["d"] / 2 * 0.55, fc="none", ec="#6b4f2e", lw=0.25, zorder=6.7))
 # crawling mound
 ax.add_patch(Ellipse(P(1.25, 9.6), 1.8, 2.4, fc="#DCE7B0", ec="black", lw=0.4, zorder=3))
 for _k in (0.75, 0.5, 0.25): ax.add_patch(Ellipse(P(1.25, 9.6), 1.8 * _k, 2.4 * _k, fc="none", ec="#7a8a50", lw=0.25, zorder=3))   # 10-31：滑らかな丘の等高線（h50・100・150、頂 h200）
@@ -372,6 +378,7 @@ print(a_room, a0, a1, a_core, a_seat, a_eng, a_doma)
 
 # ---- title & legend
 fig.text(20 / 297, 410 / 420, "育ち舎　0・1歳の部屋　家具配置（たたき台）", fontsize=13, weight="medium", va="top")
+fig.text(20 / 297, 397 / 420, "凡例：年輪の線のある小さな円は切り株（低く太い、手をついて立つ。h0.12〜0.20・径0.35〜0.5）。", fontsize=6.5, va="top", color="#6b4f2e")
 fig.text(20 / 297, 402 / 420, "1/100（A3）　2026-10-27　西の背骨（r=205）を上下に、北を上寄りに描く。破線は頭上（軒・天蓋・物干し・天袋）と午睡時のコット。",
          fontsize=6.5, va="top", color="#444444")
 
