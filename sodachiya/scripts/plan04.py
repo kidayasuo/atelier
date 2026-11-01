@@ -242,6 +242,7 @@ for b0, k in [(39, "14"), (48, "17")]:
 print(A, blk)
 
 fig.text(25 / 297, 410 / 420, "育ち舎　3〜5歳の保育室　家具配置（たたき台）", fontsize=12.5, weight="medium", va="top")
+fig.text(25 / 297, 397 / 420, "赤の線と弧は避難口の戸（西の廊下・東の廊下の北の端）：外開き、内側から鍵なしで開く、取っ手h1.5、開くと事務に知らせる。外に沓脱ぎ石。", fontsize=6.5, va="top", color="#C0392B")
 fig.text(25 / 297, 402 / 420, "1/100（A3）　2026-10-20　スパン11〜19。点線のコットは午睡時（3歳20・4歳20・5歳10）。茶の一点鎖線はロフト、斜線はしずかな角の収納、青の破線はトップライト。年輪の線のある小さな円は切り株（腰掛け・台・積む）。",
          fontsize=6.5, va="top", color="#444444")
 legend = [
@@ -442,7 +443,14 @@ line([(51.9, -0.2), (51.9, 0.72)], lw=0.4, z=6)
 for a_, b_ in [(52.6, 53.85), (54.15, 56.4)]: line([(a_, -0.02), (b_, -0.02)], lw=2.0, c="#3d7fb0", z=7)      # low windows down to GL（柱 u54 で二つ、10-26）
 for k, uc in enumerate((52.25, 53.1, 53.95, 54.8, 55.65, 56.5)):  # 背のクッション（10-31：座の奥、部屋の壁の前、0.5×厚0.25×h0.5）
     box(uc - 0.25, uc + 0.25, 1.28, 1.53, fc=["#E8D7E6", "#F3E1C7", "#D9E6CF"][k % 3], ec="#9b6f8c", lw=0.3, z=6)
-line([(56.95, 0.3), (56.95, 1.3)], lw=0.6, z=7)                   # exit door (north)
+# 避難口の戸（11-01 23:45、ユーザー）：西の廊下（本の奥の北の壁、v0.68〜1.52）と東の廊下（内縁側の北の端、v12.04〜12.89）。外開き（赤の弧）、
+# 内側から鍵なしで開く、取っ手 h1.5、開くと事務に知らせる。外に沓脱ぎ石。3dm は shitsu/add_shitsurae.py の north_gable と south/add_floor.py
+for _uf, _va, _vb in ((57.34, 0.70, 1.50), (57.27, 12.04, 12.89)):
+    box(_uf - 0.15, _uf, _va - 0.02, _vb + 0.02, lw=0, fc="white", ec="white", z=6.5)
+    line([(_uf, _va), (_uf + (_vb - _va), _va)], lw=0.6, c="#C0392B", z=7)
+    _t = [i / 20 * math.pi / 2 for i in range(21)]
+    line([(_uf + (_vb - _va) * math.sin(t), _va + (_vb - _va) * math.cos(t)) for t in _t], lw=0.3, ls=(0, (2, 1.5)), c="#C0392B", z=7)
+    box(_uf + 0.06, _uf + 0.56, _va + 0.04, _vb - 0.04, lw=0.3, fc="#DDDAD3", z=6.6)    # 沓脱ぎ石
 ax.add_patch(Circle(P(54.4, -2.3), 1.3, fc="none", ec="#5a7a3a", lw=0.5, zorder=3))
 ax.add_patch(Circle(P(54.4, -2.3), 0.1, fc="#5a7a3a", ec="none", zorder=3))
 ax.add_patch(Circle(P(52.3, -1.3), 0.9, fc="none", ec="#a08a2a", lw=0.5, zorder=3))      # ロウバイ（10-31、低い窓の前）
