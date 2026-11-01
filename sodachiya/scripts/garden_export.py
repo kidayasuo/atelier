@@ -29,6 +29,8 @@ NAMES = {90: ("90_園庭_地形（GL からの起伏、メッシュ）", (196, 1
          "95w": ("95w_園庭_雲梯の柱と桁（栗の丸太・角材）", (140, 110, 80)), "95m": ("95m_園庭_雲梯の握り棒と段（ステンレス）", (150, 155, 162)),
          "95n": ("95n_園庭_ネットのハンモック（麻のロープ）", (196, 170, 120)),
          "95r": ("95r_園庭_木の縁と丸太（砂場・粒の遊び場の縁、帆布を巻いた棒、丸太の橋）", (150, 115, 80)),
+         "95k": ("95k_園庭_切り株の木口と芯（明るい木）", (214, 182, 132)),
+         "95h": ("95h_園庭_切り株の樹皮（幹の外周・裾・根張り・年輪の輪）", (104, 88, 70)),
          "95s": ("95s_園庭_輪のシャワー（あめのわ・霧のわの輪と腕、ステンレス）", (160, 165, 172)),
          "95p": ("95p_園庭_シャワーの柱（あめのわ・霧のわ、木 120角・100角）", (165, 130, 90)),
          96: ("96_園庭_石（床の噴水・乳児の床の噴水の石張り・橋・飛び石・滝の石・景石・バルブます）", (110, 104, 92)), "96w": ("96w_園庭_石積み（境の土留め、空石積み）", (110, 104, 92)), 97: ("97_園庭_木戸", (183, 169, 140)),
@@ -141,6 +143,44 @@ def dome(c_ad, R, h, z0, k, name):
     pts.append(r.Point3d(cp.X, cp.Y, cp.Z))
     rv = r.RevSurface.Create(r.Polyline(pts).ToNurbsCurve(), r.Line(cp, r.Point3d(cp.X, cp.Y, cp.Z + 1000)), 0, 2 * math.pi)
     m.Objects.AddBrep(r.Brep.CreateFromRevSurface(rv, False, False), at(k, name))
+
+
+def kirikabu(m_, c, z_g, d, h, li_kiguchi, li_kawa, tilt=0.0, tilt_dir=0.0, roots=4, embed=80.0, seed=0, name="切り株"):
+    """木の切り株（11-01 ユーザー：「木の切り株だ」と分かる造形）。園庭と、本館の教室の切り株（本館係）が使う。
+    使い方（座標は mm、3dm の世界の座標）：
+        import katachi  # model/build/south を sys.path に（garden_common が入れる）
+        n = kirikabu(m, (x, y), z_g, d, h, li_kiguchi, li_kawa, tilt=8, tilt_dir=30, roots=4, embed=80, seed=3, name="切り株")
+      c＝根もとの中心 (x, y)、z_g＝地面（床）の高さ、d＝幹の径、h＝木口の中心の地面からの高さ（どれも mm）。
+      li_kiguchi＝木口と芯のレイヤー（明るい木）、li_kawa＝樹皮・裾・根・年輪の輪のレイヤー（樹皮）。
+      tilt＝幹の傾き（度、0〜12くらい。木口が斜めに切れて見える）、tilt_dir＝傾く向き（xy の度）。
+      roots＝根張りの本数（3〜5。床の上に置く教室の切り株は 0）、embed＝地面に埋める深さ（床の上なら 0）。
+      seed で根の向きと長さが変わる。返り値は作った物の数。
+    形（katachi の押し出し・回転体だけ、メッシュは使わない）：
+      芯（円柱、木口の色）／樹皮（外周の厚さ約15の管）／裾（根もとで径×1.15に広がる円錐台、回転体）／
+      根張り（根もとから斜め下へ地面に潜る短い円柱）／年輪（木口の上に厚さ3・幅4の薄い輪を2〜3本、樹皮の色）"""
+    import katachi as K
+    rnd = np.random.default_rng(seed)
+    R = d / 2.0; t = min(15.0, 0.08 * R)
+    tl = math.radians(tilt); td = math.radians(tilt_dir)
+    u = np.array([math.sin(tl) * math.cos(td), math.sin(tl) * math.sin(td), math.cos(tl)])
+    base = np.array([c[0], c[1], z_g - embed])
+    L = (h + embed) / max(math.cos(tl), 0.5)
+    top = base + u * L
+    n = 0
+    K.add(m_, K.enchu(base, top, R - t), li_kiguchi, name=name + "（芯・木口）"); n += 1
+    K.add(m_, K.enchu(base, top, R, R - t), li_kawa, name=name + "（樹皮）"); n += 1
+    hs = min(0.35 * h, 120.0)                                           # 裾：根もとで少し広がる
+    K.add(m_, K.kaiten([(0, z_g - embed), (R * 1.15, z_g - embed), (R * 1.15, z_g), (R * 1.0, z_g + hs), (0, z_g + hs)], (c[0], c[1]), 0, 360),
+          li_kawa, name=name + "（裾）"); n += 1
+    for k in range(roots):                                              # 根張り：幹の中から斜め下へ地面に潜る
+        a = 2 * math.pi * (k + rnd.uniform(-0.15, 0.15)) / roots
+        rr = R * rnd.uniform(0.2, 0.28); lr = R + rnd.uniform(90.0, 170.0)
+        p0 = (c[0] + 0.5 * R * math.cos(a), c[1] + 0.5 * R * math.sin(a), z_g + min(0.3 * h, 70.0))
+        p1 = (c[0] + lr * math.cos(a), c[1] + lr * math.sin(a), z_g - 1.5 * rr)
+        K.add(m_, K.enchu(p0, p1, rr), li_kawa, name=name + "（根張り）"); n += 1
+    for f in ((0.32, 0.58, 0.8) if R > 200 else (0.4, 0.75)):           # 年輪：木口の上の薄い輪
+        K.add(m_, K.enchu(top, top + u * 3.0, f * (R - t), f * (R - t) - 4.0), li_kawa, name=name + "（年輪）"); n += 1
+    return n
 
 
 def tube_ad(q0, q1, z, rad, k, name):
@@ -704,6 +744,15 @@ for b in G["BRIDGES"]:                                  # 10-30：橋・小川�
     else:                                               # 小川の飛び石：川床から地面 +0.03 まで
         g_ = H(*c); vcyl(c, 0.3, g_ - 0.35, g_ + 0.03, 96, nm + "（小川の中）")
 vb = F["valve"]["c"]; box(vb[0] - 0.45, vb[0] + 0.45, vb[1] - 0.3, vb[1] + 0.3, H(*vb) - 0.6, H(*vb), 96, "バルブます（電磁弁 4 系統・逆流防止・子メーター）")
+
+# ---- 95k・95h 木の切り株（11-01 ユーザー：園庭の平らな所に、しずかのもりに5・だいさんかくに10）。kirikabu（上の関数）
+_ns = 0
+for _s in G.get("STUMPS", {}).get("items", []):
+    _x, _y = gc.X(_s[0], _s[1])
+    _td = math.degrees(math.atan2(*(np.array(gc.X(_s[0] + math.cos(math.radians(_s[5])), _s[1] + math.sin(math.radians(_s[5])))) - np.array([_x, _y]))[::-1])) if _s[4] else 0.0
+    _ns += kirikabu(m, (_x * 1000, _y * 1000), H(_s[0], _s[1]) * 1000 + GL, _s[2] * 1000, _s[3] * 1000, LAY["95k"], LAY["95h"],
+                    tilt=_s[4], tilt_dir=_td, roots=_s[6], seed=int(_s[0] * 10 + _s[1]), name=f"切り株（{_s[7]}、径{_s[2]:.2f}・h{_s[3]:.2f}）")
+print(f"切り株：{len(G.get('STUMPS', {}).get('items', []))} 個、物 {_ns}")
 
 # ---- 96w 境の石積み（11-01 ユーザー）：てんぐのたにの南東の口から川沿いの柵の際まで、大地を上げた区間の境の内側に。
 # 境に沿う立面の輪郭（下は根入れ、上端は境の地面に沿う折れ線）を厚さ t だけ内へ押し出した一つの押し出し（katachi）
