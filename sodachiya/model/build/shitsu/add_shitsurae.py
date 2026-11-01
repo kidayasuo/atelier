@@ -101,7 +101,11 @@ L_WW = layer('97_本館_外壁（西・南北の妻）', (196, 160, 118))   # �
 L_TR = layer('98_外構_読書の庭（モミジ）', (90, 122, 58))
 L_TRc = layer('98c_外構_読書の庭（モミジ）_樹冠（葉）', (120, 160, 80))   # 一つのレイヤーには一つの素材（10-27、樹冠は 67c へ）
 L_HI = layer('99_しつらえ_頭上（天蓋・物干し・天袋）', (180, 160, 200))
-L_CORK = layer('40k_しつらえ_コルク（あつまりの鉢・ほふくの丘）', (196, 160, 118))   # 10-31：コルク（やわらかい床）
+L_CORK = layer('40k_しつらえ_コルク（ほふくの丘）', (196, 160, 118))   # 10-31：コルク（やわらかい床）。11-01 からあつまりの皿は下のウールのカーペット
+# 11-01（ユーザー 13:35）：あつまりの皿はウールのカーペット（フェルト）、学年ごとに色を変える。一つのレイヤーには一つの素材（data/materials.json）
+L_WOOL = {36.0: (layer('40m_しつらえ_ウールのカーペット（苔色、3歳のあつまりの皿）', (112, 122, 84)), (0.44, 0.48, 0.33, 1)),
+          45.0: (layer('40n_しつらえ_ウールのカーペット（藍、4歳のあつまりの皿）', (52, 72, 104)), (0.20, 0.28, 0.41, 1)),
+          54.0: (layer('40p_しつらえ_ウールのカーペット（柿色、5歳のあつまりの皿）', (164, 92, 58)), (0.64, 0.36, 0.23, 1))}
 CORK = (0.77, 0.63, 0.46, 1)
 L_RAT = layer('40r_しつらえ_吊りかご（籐・綱）', (190, 150, 95))                  # 10-31：籐の吊りかごと綱
 RATTAN = (0.75, 0.59, 0.37, 1); RAT_C = (191, 150, 94)
@@ -579,7 +583,7 @@ T04 = {   # plan04（3〜5歳、u ≥ 30）
     359: ('solid', 0, 450, L_F), 358: ('table', 700, L_F),                 # 先生の席（10-24：腰の壁の東の端）
     357: koshi_wall,                                       # 腰の壁＋格子（363 の移動式の低い腰壁はやめた、ユーザー 10-31）
     364: canopy, 368: hang_bar,                                 # 布の天蓋／吊り桟 h2000（10-30）
-    372: ('solid', 0, 1000, L_F), 376: ('solid', 0, 900, L_F),        # 379（あつまりの楕円の敷物）：10-31 から下の atsumari_hachi（浅い鉢）
+    372: ('solid', 0, 1000, L_F), 376: ('solid', 0, 900, L_F),        # 379（あつまりの楕円の敷物）：11-01 から下の atsumari_sara（掘り下げた皿）
     396: ('solid', 0, 1200, L_F),                         # 絵本の通りの棚
     # 398〜400（くぼみの腰掛け・カーテン・クッション）：10-31 からやめた（絵本の通りは本棚だけ、ユーザー）
     # 406〜408（本の奥の格子の引き戸・畳・足入れ）：10-31 から下の hon_no_oku（掘りごたつの溝・畳の座・框・暖簾）
@@ -792,31 +796,25 @@ def kapla_box(a, b, mir):
 for _a, _b, _mir in ((33, 39, False), (42, 48, False), (51, 57, True)):
     ito_tsuitate(_a, _b, _mir); kapla_box(_a, _b, _mir)
 
-# ---------------- あつまりの浅い鉢（ユーザー 10-31、項 20261031-1056-present の2、決定事項（本館）の「あつまりの浅い鉢」） ----------------
-# 楕円の敷物（plan04 の Ellipse）の代わり。部屋の真ん中 u（3歳 36・4歳 45・5歳 54）、v7.5（腰の壁の東の端 v6.2 と食卓の椅子 v8.8 のあいだ、両側に約0.16）。
-# 外径 φ2.4（正十角形の外接円、一辺 0.74＝こども2人）。縁は幅 0.35 の平らな輪 h250、そこから円錐の斜面で真ん中の平らな所 φ1.0（h12、コルク）へ下がる。
-# 平らな面だけの閉じた立体（側面10・縁1・斜面10・真ん中1・底1＝23面。12角より少なくして段10で回転体・楕円にしない）。コルクのレイヤー 40k
-def atsumari_hachi(uc, vc, R=1.2, Ri=0.85, Rc=0.5, h=250, hc=12, n=10):
-    c = W(uc, vc); ex = W(uc + 0.01, vc) - c; ey = W(uc, vc + 0.01) - c
-    ex /= np.linalg.norm(ex); ey /= np.linalg.norm(ey)
-    if ex[0] * ey[1] - ex[1] * ey[0] < 0: ey = -ey                   # 上から見て反時計回りの組に
-    def ring(rad, z): return [(*(c + rad * 1000.0 * (math.cos(2 * math.pi * k / n) * ex + math.sin(2 * math.pi * k / n) * ey)), z) for k in range(n)]
-    M = r.Mesh()
-    for q in ring(R, 0) + ring(R, h) + ring(Ri, h) + ring(Rc, hc):
-        M.Vertices.Add(float(q[0]), float(q[1]), float(q[2]))
-    B, T, I, Cn = (lambda k: k % n), (lambda k: n + k % n), (lambda k: 2 * n + k % n), (lambda k: 3 * n + k % n)
-    for k in range(n):
-        M.Faces.AddFace(B(k), B(k + 1), T(k + 1), T(k))            # 外の側面
-        M.Faces.AddFace(T(k), T(k + 1), I(k + 1), I(k))            # 縁の平らな輪
-        M.Faces.AddFace(I(k), I(k + 1), Cn(k + 1), Cn(k))          # 円錐の斜面
-    for k in range(1, n - 1):
-        M.Faces.AddFace(Cn(0), Cn(k), Cn(k + 1))                   # 真ん中の平らな所
-        M.Faces.AddFace(B(0), B(k + 1), B(k))                      # 底
-    M.Normals.ComputeNormals(); M.Compact()
-    a_ = attr(L_CORK, CORK); a_.Name = 'あつまりの浅い鉢 φ2400（コルク、縁 h250）'
-    m.Objects.AddMesh(M, a_)
+# ---------------- あつまりの皿（ユーザー 10-31・11-01 13:35、決定事項（本館）の「あつまりの皿」） ----------------
+# 部屋の真ん中 u（3歳 36・4歳 45・5歳 54、架構の線の上）、v7.5。床から掘り下げた滑らかな皿：外径 φ2.4、縁は床と同じ高さで段なし、
+# 真ん中へゆるいS字（縁と真ん中で接線が水平、smoothstep）で下がり、真ん中 φ1.0 は平ら、深さ 250。板の厚さ 60（鉛直に測る）。
+# 高さは床の仕上げ（室の色の板 0〜10）の上面 +10 に縁を合わせる（本の奥の溝の底の板 −300〜−290 と同じ約束）。床の穴は south/add_floor.py（HACHI）。
+# 一つの閉じた回転体：r–z の断面（上面のS字を24の折れ線に）を鉛直の軸まわりに一周（rhino3dm の RevSurface。断面の両端が軸の上なので
+# 継ぎ目の蓋が無い一枚の閉じた面。katachi.kaiten は端の蓋を面の中に畳むので、一周だと継ぎ目に内側の面が残る）
+def atsumari_sara(uc, vc, R=1.2, Rc=0.5, depth=250, t=60, n=24):
+    c = W(uc, vc); top0 = 10.0
+    top = [(1000 * (Rc + (R - Rc) * i / n), top0 - depth + depth * ((i / n) ** 2 * (3 - 2 * i / n))) for i in range(n + 1)]
+    sec = [(0.0, top0 - depth)] + top + [(r_, z_ - t) for r_, z_ in top[::-1]] + [(0.0, top0 - depth - t)]
+    pl = r.Polyline(0)
+    for x_, z_ in sec: pl.Add(float(c[0] + x_), float(c[1]), float(z_))
+    ax_ = r.Line(r.Point3d(float(c[0]), float(c[1]), -1000.0), r.Point3d(float(c[0]), float(c[1]), 1000.0))
+    b_ = r.Brep.CreateFromRevSurface(r.RevSurface.Create(r.PolylineCurve(pl), ax_, 0.0, 2 * math.pi), False, False)
+    li, col = L_WOOL[uc]
+    a_ = attr(li, col); a_.Name = f'あつまりの皿 φ2400・深さ{depth}（ウールのカーペット）'
+    m.Objects.AddBrep(b_, a_)
 for _uc in (36.0, 45.0, 54.0):
-    atsumari_hachi(_uc, 7.5)
+    atsumari_sara(_uc, 7.5)
 
 # ---------------- 本の奥（スパン18–19、西吹き抜けの北の行き止まり）（ユーザー 10-31 14:21、決定事項（本館）の「本の奥」） ----------------
 # 掘りごたつの溝は窓際（西の外壁の内面 v−0.2 〜 0.72、底 −300＝低い窓の下端、南の端 u51.6〜51.9 は段 −150。床の塊は south/add_floor.py で抜く）。

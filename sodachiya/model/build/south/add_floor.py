@@ -43,12 +43,23 @@ def _usplit(g):
         x=g.intersection(_box(3.0*k if k else -10.0,-100.0,3.0*k+3.0 if k<18 else 70.0,100.0))
         out+=[gg for gg in getattr(x,'geoms',[x]) if gg.geom_type=='Polygon' and gg.area>1e-2]   # 0.01 m² 未満の継ぎ目のすきは捨てる
     return out
+# 3〜5歳のあつまりの皿（ユーザー 11-01 13:35、決定事項（本館）の「あつまりの皿」）：床から掘り下げた皿（shitsu/add_shitsurae.py の atsumari_sara、
+# 外径 φ2.4、中心は部屋の真ん中 u36・45・54（架構の線の上）、v7.5）。その外形で床の塊と室の色の板を抜く（世界座標、皿に当たらないよう外接の多角形）。
+# 皿の下（約 −310 まで）も床下（有効約 450）の風は回る
+_HN=72
+HACHI=unary_union([Polygon([tuple(np.array(_xy(uc_,7.5))+(1200.0/np.cos(np.pi/_HN)+0.5)*np.array([np.cos(2*np.pi*k/_HN),np.sin(2*np.pi*k/_HN)])) for k in range(_HN)])
+                   for uc_ in (36.0,45.0,54.0)])
+def _nohachi(pg):
+    """世界座標の形からあつまりの皿の穴を抜いた片の並び（架構の線で切った片は穴が縁にかかるので、輪郭に穴は残らない）"""
+    if not pg.intersects(HACHI): return [pg]
+    x=pg.difference(HACHI)
+    return [gg for gg in getattr(x,'geoms',[x]) if gg.geom_type=='Polygon' and gg.area>1e4]
 def _uvslab(g,z0,z1,li,split=True):
     """split：杉の床板の物はスパンごとの片に（絵の向き tex_angle を片ごとに、11-01）。あまのがわ・框は切らない"""
     for gg in getattr(g,'geoms',[g]):
         if gg.geom_type!='Polygon' or gg.area<0.05: continue
         for pp in (_usplit(gg) if split else [gg]):
-            slab(Polygon([tuple(_chord(u,v)) for u,v in _dense(pp.exterior)]),z0,z1,li)
+            for qq in _nohachi(Polygon([tuple(_chord(u,v)) for u,v in _dense(pp.exterior)])): slab(qq,z0,z1,li)
 V_RG,V_RO,V_RC,V_RK,V_WALL=13.5,-0.2,12.0,1.6,13.465
 import json as _json
 from scipy.interpolate import PchipInterpolator as _Pchip
@@ -235,7 +246,8 @@ for s0,s1,name,col in ROOMS:
     if name=='ホール': g=g.difference(kaiK)
     _n0=len(m.Objects)
     for gg in getattr(g,'geoms',[g]):
-        for pp in span_pieces(gg): slab(pp,0,10,li)               # 11-01：スパンごとの片（架構の線で切る）
+        for pp in span_pieces(gg):                                 # 11-01：スパンごとの片（架構の線で切る）
+            for qq in _nohachi(pp): slab(qq,0,10,li)                  # 11-01：あつまりの皿の穴
     tex_tag(_n0,'u')                                             # 杉の床板は u（11-01、前は v）。便所・倉庫も付ける（add_hall.py が倉庫（教材庫、杉）に分ける）
     areas[name]=areas.get(name,0)+g.area/1e6
 _hon=lambda u0_,u1_,v0_=HON_V0: Polygon([tuple(_chord(u,v)) for u,v in _dense(_hon_uv(u0_,u1_,HON_V1-HON_K,v0_).exterior)])

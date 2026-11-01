@@ -374,8 +374,8 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
     bx(0.06, 0.4, tv1 + 0.4, tv1 + 2.2, fc="white", lw=0.4)
     xs, ys = pt(0.8, tv1 + 1.3); ax.text(xs, ys, "遊びの棚", fontsize=4.2, ha="center", va="center", zorder=8, color="#333333")
     # ---- gathering rug + nap + tables
-    ax.add_patch(Polygon([P(a + W / 2 + _R * math.cos(_k * math.pi / 5), 7.5 + _R * math.sin(_k * math.pi / 5)) for _R in (1.2,) for _k in range(10)], closed=True, fc="#E9D8BE", ec="#8a6a3a", lw=0.4, zorder=2)); [line([(a + W / 2 + _R * math.cos(_k * math.pi / 5), 7.5 + _R * math.sin(_k * math.pi / 5)) for _k in range(11)], lw=0.3, c="#8a6a3a", z=2.5) for _R in (0.85, 0.5)]   # あつまりの浅い鉢 φ2.4（10-31、正十角形、縁h250・真ん中φ1.0、コルク）
-    t(a + W / 2, 7.5, "あつまり\nの鉢", size=4.0)
+    ax.add_patch(Circle(P(a + W / 2, 7.5), 1.2, fc={33: "#B9C2A0", 42: "#A3B0C6", 51: "#D9B39C"}[a], ec="#5a5040", lw=0.4, zorder=2)); ax.add_patch(Circle(P(a + W / 2, 7.5), 0.5, fc="none", ec="#5a5040", lw=0.3, ls=(0, (2, 1.5)), zorder=2.5))   # あつまりの皿 φ2.4（11-01、床から掘り下げ、縁は段なし、真ん中φ1.0・−250、ウールのカーペット：3歳 苔色・4歳 藍・5歳 柿色）
+    t(a + W / 2, 7.5, "あつまり\nの皿", size=4.0)
     k1 = min(n_cot, 9); k2 = min(n_cot - k1, 9); k3 = n_cot - k1 - k2          # 午睡：架構の線（腰の壁）をまたがない
     cots(a + 0.3, a + 2.5, 5.0, 8.6, 3, 3, k1)
     cots(b - 2.5, b - 0.3, 5.0, 8.6, 3, 3, k2)

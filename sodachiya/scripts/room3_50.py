@@ -152,11 +152,11 @@ T(axP, 8.6, 36.35, '横木φ30＠450（梁の2枚のあいだ、光の筋の下�
 T(axP, 2.0, 37.1, 'ロフトの下の巣（h1.1、こどもだけ）', 6, c=ACC)
 T(axP, 9.3, 36.12, '糸の衝立h1.0（縦の糸φ3＠20、押し広げて通れる）', 5.6, c=ACC)   # 10-31
 T(axP, 3.7, 38.78, 'KAPLAの箱', 5.2, c=ACC)   # 10-31：デンの口の脇
-# 10-31（ユーザー、項 20261031-1056-present の2）：あつまりの浅い鉢 φ2.4（正十角形、縁は幅0.35の平らな輪h250、斜面、真ん中φ1.0は平ら、コルク）。外の輪郭は3dm から
-for _R, _ls in ((0.85, '-'), (0.5, (0, (2, 1.5)))):
-    _a = np.linspace(0, 2 * np.pi, 11)
-    line(axP, np.c_[7.5 + _R * np.sin(_a), 36.0 + _R * np.cos(_a)], lw=0.35, c=ACC, ls=_ls, z=7)
-T(axP, 7.5, 36.5, 'あつまりの浅い鉢\nφ2.4・縁h250・コルク', 5.2, ha='center', c=ACC)
+# 11-01（ユーザー 13:35）：あつまりの皿 φ2.4（床から掘り下げ、縁は床と同じ高さで段なし、ゆるいS字で真ん中φ1.0・深さ250へ、ウールのカーペット、3歳は苔色）。外の輪郭は3dm から
+_a = np.linspace(0, 2 * np.pi, 73)
+line(axP, np.c_[7.5 + 0.5 * np.sin(_a), 36.0 + 0.5 * np.cos(_a)], lw=0.35, c=ACC, ls=(0, (2, 1.5)), z=7)
+line(axP, np.c_[7.5 + 1.2 * np.sin(_a), 36.0 + 1.2 * np.cos(_a)], lw=0.5, c=ACC, z=7)   # 外形（3dm の皿は回転体の Brep なので、平面の切り口に出ない）
+T(axP, 7.5, 37.45, 'あつまりの皿（掘り下げ）\nφ2.4・深さ250・苔色', 5.2, ha='center', c=ACC)
 T(axP, 6.1, 34.0, '先生の席（巣Aの南の壁）', 6, c=ACC)
 # 区域の名前
 area = lambda g: g.area
@@ -223,6 +223,10 @@ for sag, ls, lab, lx in ((0.15, '-', 'ふだん（約1.8〜1.95）', 6.55), (0.7
     zz = (HANG - 0.05 - sag * np.abs(np.sin(np.pi * (vv - 3.8) / 0.9))) if ls == '-' else (HANG - 0.05 - sag * np.clip(np.sin(np.pi * (vv - 3.8) / 3.6), 0, None) ** 0.8)
     line(axA, np.c_[vv, zz], lw=1.1 if ls == '-' else 0.8, c=ACC, ls=ls, z=8)
     T(axA, lx, HANG - 0.05 - sag - 0.13, lab, 6, ha='center', c=ACC)
+# 11-01：あつまりの皿（u36、断面の奥、見えがかり）：縁は床と同じ高さ、ゆるいS字で真ん中φ1.0・−250へ。床（はだし ±0、床下 有効約450）を抜いて掘り下げる
+_r = np.linspace(-1.2, 1.2, 97); _t = np.clip((np.abs(_r) - 0.5) / 0.7, 0, 1)
+line(axA, np.c_[7.5 + _r, -0.25 + 0.25 * _t ** 2 * (3 - 2 * _t)], lw=0.9, c=ACC, z=8, ls=(0, (3, 1.5)))
+T(axA, 7.5, -0.53, 'あつまりの皿（奥、u36）：縁は段なし、真ん中−250', 6, ha='center', c=ACC)
 # 吸音（垂木のあいだ、巣の上）
 vs = np.linspace(1.7, WALL_V[1], 2)
 poly(axA, [(1.7, roof_bot(1.7)), (WALL_V[1], roof_bot(WALL_V[1])), (WALL_V[1], roof_bot(WALL_V[1]) - 0.12), (1.7, roof_bot(1.7) - 0.12)],
@@ -333,5 +337,4 @@ fig.text(tx / W, (y - 4) / H, '面積は壁芯でなく床の上の概算（m²�
 
 os.makedirs(OUT, exist_ok=True)
 fig.savefig(os.path.join(OUT, 'sodachiya_room3_1-50.pdf'))
-fig.savefig(os.path.join(OUT, 'sodachiya_room3_1-50.png'), dpi=110)
 print('ok', round(nestA.area, 1), round(nestB.area, 1), round(shared.area, 1))
