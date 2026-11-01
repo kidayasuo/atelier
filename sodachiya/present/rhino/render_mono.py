@@ -53,6 +53,33 @@ def say(*a):
     Rhino.RhinoApp.WriteLine(u" ".join(u"%s" % x for x in a))
 
 
+WATER_KEY = u"噴水の水"                         # render_common.py と同じ
+
+
+def show_water(doc):
+    """名前に WATER_KEY のあるレイヤー（と親）を一時的に表示。戻すための (レイヤー, 前の表示) の一覧"""
+    old = []
+    for lay in list(doc.Layers):
+        if WATER_KEY not in lay.Name:
+            continue
+        chain, pid = [lay], lay.ParentLayerId
+        while pid != System.Guid.Empty:
+            pl = doc.Layers.FindId(pid)
+            if pl is None:
+                break
+            chain.append(pl)
+            pid = pl.ParentLayerId
+        for l_ in reversed(chain):
+            l_ = doc.Layers[l_.Index]
+            if not any(o_.Index == l_.Index for o_, _ in old):
+                old.append((l_, l_.IsVisible))
+            l_.IsVisible = True
+            doc.Layers.Modify(l_, l_.Index, True)
+    if old:
+        say(u"噴水の水のレイヤーを表示した")
+    return old
+
+
 def mono_mode():
     modes = Rhino.Display.DisplayModeDescription.GetDisplayModes()
     for d in modes:
@@ -150,9 +177,10 @@ def main():
     view = doc.Views.ActiveView
     vp = view.ActiveViewport
     old_mode = vp.DisplayMode
-    done = []
+    done, water = [], []
     try:
         rs.UnselectAllObjects()
+        water = show_water(doc)                          # 床の噴水の水（ふだん非表示）をモノクロでも見せる（11-01）
         vp.DisplayMode = mode
         for n in names:
             if vw == VIEW_NOW:
@@ -189,6 +217,12 @@ def main():
             say(u"  切ったまま。終わったら room_view.py の「元に戻す」で")
         try:
             vp.DisplayMode = old_mode
+        except Exception:
+            pass
+        try:
+            for l_, v_ in water:
+                l_.IsVisible = v_
+                doc.Layers.Modify(l_, l_.Index, True)
         except Exception:
             pass
         doc.Views.Redraw()
