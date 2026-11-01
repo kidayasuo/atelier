@@ -1,5 +1,5 @@
 """本館の床（2026-10-19 夜）。縁側 3 m の中ほど（r=191.5 m）に断熱ガラス戸、外縁側（土足 FL −150）と内縁側（はだし FL ±0）に分ける。
-高さの約束：地面 GL −300／土足の床 −150（3〜5歳の側の外縁側・あまのがわ・南の縁側）／はだしの床 ±0（0・1歳の東の縁側は外縁側もはだし、10-31）／受け取り土間 −300（GL と同じ）。
+高さの約束：地面 GL −300／土足の床 −150（外縁側（全長、11-02 に 0・1歳の東も戻した）・あまのがわ・南の縁側）／はだしの床 ±0／受け取り土間 −300（GL と同じ）。
 python3 -I add_floor.py IN OUT   （add_south.py → add_monitor_west.py の後）"""
 import sys, os as _os, numpy as np, rhino3dm as r
 src=open('/tmp/claude-0/t/south/add_south.py').read()
@@ -119,27 +119,11 @@ for _ub in (U_S,U_S+float(_wf(_VH))):
     _p=lambda u_,z_: [*_chord(u_,_VH),z_]
     _rod(_p(_ub-0.3,800.0),_p(_ub+0.3,800.0),17.5,L_hr)
     for _uu in (_ub-0.3,_ub+0.3): _rod(_p(_uu,-150.0 if U_S<_uu<U_S+float(_wf(_VH)) else 0.0),_p(_uu,800.0),20.0,L_hr)   # 柱の足もと：川の中は −150
-outer=quad(RE,RG,TH[0],TH[15],60)                              # 外縁側（土足 −150）はスパン 5〜19（2歳から北）
+# 11-02（ユーザー、模型作成の項 20261102-0256-mokei）：外縁側（土足 −150、洗い出し）は全長（スパン 1〜19）。0・1歳の東の縁側の外縁側も
+# 2歳から北と同じ土足 −150 に戻した（10-31 のはだし ±0 の杉の床板はやめ、模型の切った床・基礎が全長 GL+150）。内縁側は ±0 のはだしのまま
+outer=quad(RE,RG,TH[0],th19,60)
 slab(outer,-300,-150,L_out)
-# 10-31（ユーザー、項 20261031-1320-present、決定事項（本館）の「0・1歳」）：0・1歳の東の縁側（スパン 1〜4、u0〜12、v13.5〜15）は
-# はだしの木の縁側（±0、杉の床板）。内縁側と同じ高さの一つの床（段なし）。前はスパン 2〜4 が土足 −150、スパン 1 がスロープ（65）。
-# 床組（−300〜−10、地面の上）＋仕上げ（−10〜0、内縁側と同じ 81、絵の向きは u）。南の半分は戸の線 v13.5 から、北の半分は杉の壁の外面 v13.6 から。
-# 床下の風の道のガラリ（16b）は東の端の蹴込み（v14.98〜15.0、z −200〜−20、地面から 100 上）。沓脱ぎ石の前（u2.0〜3.4・8.2〜9.6）は除く。
-# どれも弦の四隅の板（katachi の押し出し）
 import katachi as K
-from shapely.geometry import Polygon as _Poly
-def _uvbox(u0_,u1_,v0_,v1_,z0_,z1_,li,name=None):
-    K.add(m,K.ita(_Poly([tuple(_chord(u0_,v0_)),tuple(_chord(u1_-1e-9,v0_)),tuple(_chord(u1_-1e-9,v1_)),tuple(_chord(u0_,v1_))]),z0_,z1_,simplify=0),li,name=name)
-V01_GAL=14.98
-_n0=len(m.Objects)
-for _k in range(4):
-    for _u0,_u1,_vw in ((3.0*_k,3.0*_k+1.5,V_RG),(3.0*_k+1.5,3.0*_k+3.0,13.6)):
-        _uvbox(_u0,_u1,_vw,V01_GAL,-300,-10,L_fl,'0・1歳の東の縁側の床組（はだし ±0）')
-_n1=len(m.Objects)
-for _k in range(4):
-    for _u0,_u1,_vw in ((3.0*_k,3.0*_k+1.5,V_RG),(3.0*_k+1.5,3.0*_k+3.0,13.6)):
-        _uvbox(_u0,_u1,_vw,15.0,-10,0,L_in,'0・1歳の東の縁側（杉の床板 t30、はだし ±0）')
-tex_tag(_n0,'u')
 # 断熱ガラス戸：r=191.5 の線、FL ±0 から 2.6 m（あまのがわの口は開閉する引戸として同じ線上）
 gl=[P(RG,a) for a in np.linspace(TH[0],th19,60)]
 # 10-21：引き戸＋鴨居の上は枠なしの固定ガラスで屋根の下まで。10-26（ユーザー）：鴨居の上端を梁の下端（ガラスの線 v13.5 で h2450）の 5 下 h2445 まで上げた（鴨居 h2385〜2445、戸 h2375）
@@ -224,14 +208,12 @@ _kb=kai.buffer(300)
 _WALLA=[(min(TH[k],(TH[k]+(TH[k+1] if k<18 else th19))/2),max(TH[k],(TH[k]+(TH[k+1] if k<18 else th19))/2)) for k in range(19)]
 _inw=lambda a: any(lo<=a<=hi for lo,hi in _WALLA)
 _run=[]; _prev=None
-for a in list(np.linspace(TH[0],TH[15]-1e-9,190))+[None]:      # 10-31：スパン 5〜19 だけ（0・1歳は下の東の端の蹴込み）
+for a in list(np.linspace(TH[0],th19,240))+[None]:              # 11-02：全長（0・1歳の東の縁側も段の蹴込みに戻した）
     f=None if a is None else _inw(a)
     p_=None if a is None else P(RG-110 if f else RG-15,a)
     if p_ is not None and not _kb.contains(Point(*p_)) and (f==_prev or not _run): _run.append(p_); _prev=f; continue
     if len(_run)>=2: wall_along(_run,lambda x,y:-130,lambda x,y:-20,20,L_gal)
     _run=[p_] if (p_ is not None and not _kb.contains(Point(*p_))) else []; _prev=f
-for _u0,_u1 in ((0.0,2.0),(3.4,6.0),(6.0,8.2),(9.6,12.0)):     # 0・1歳の東の端の蹴込みのガラリ（10-31、上の「0・1歳の東の縁側」）
-    _uvbox(_u0,_u1,V01_GAL,15.0,-200,-20,L_gal,'0・1歳の東の縁側の蹴込みのガラリ（夏の夜の外気を床下へ）')
 # 内縁側の南北の端（11-01 23:45、ユーザー）：前はどちらもガラスのはめ殺し（wall_along の厚さ30）。
 #  南の端（0・1歳、u0）：ガラスの片引き戸に。柱（v12〜12.28）の面の先、v12.32〜12.92 が戸の口（0.6＝端の幅の半分）、東の半分 v12.92〜13.5 は杉の壁
 #   （外の縦格子 17g は残す）。戸は室内（北）の側を走り、開けると東の杉の壁の前に重なる。框は縁側の片引き戸と同じ（縦框・上框60・下框90、見込み40、ガラスt12）。

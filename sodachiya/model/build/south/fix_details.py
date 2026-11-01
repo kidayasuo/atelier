@@ -4474,8 +4474,9 @@ def _lattice(v0_, v1_, zt_, name_):
 # 外のレール u−0.23〜−0.185、内 u−0.175〜−0.13（受け取り土間の引き分け戸のレール u−0.13〜−0.03 の外）。3dm は閉めた位置
 def _ldoor(i_, a_, b_, u0_, u1_):
     fr_ = [_gplate(u0_, u1_, a_, a_ + 0.06, lambda v: -145.0, lambda v: _KAM0 - 5.0, 2), _gplate(u0_, u1_, b_ - 0.06, b_, lambda v: -145.0, lambda v: _KAM0 - 5.0, 2),
-           _gplate(u0_, u1_, a_ + 0.06, b_ - 0.06, lambda v: -145.0, lambda v: -55.0, 2), _gplate(u0_, u1_, a_ + 0.06, b_ - 0.06, lambda v: _KAM0 - 65.0, lambda v: _KAM0 - 5.0, 2)]
-    fr_ += [_gplate(u0_, u1_, v_, v_ + 0.03, lambda v: -55.0, lambda v: _KAM0 - 65.0, 2) for v_ in np.arange(a_ + 0.06 + 0.045, b_ - 0.06 - 0.03, 0.12)]
+           _gplate(u0_, u1_, a_ + 0.061, b_ - 0.061, lambda v: -145.0, lambda v: -55.0, 2), _gplate(u0_, u1_, a_ + 0.061, b_ - 0.061, lambda v: _KAM0 - 65.0, lambda v: _KAM0 - 5.0, 2)]
+    # 部材は 1 mm ずつ離す（面で接すると段10で一つの網目になり、押し出しの箱に戻らない）
+    fr_ += [_gplate(u0_, u1_, v_, v_ + 0.03, lambda v: -54.0, lambda v: _KAM0 - 66.0, 2) for v_ in np.arange(a_ + 0.06 + 0.045, b_ - 0.06 - 0.03, 0.12)]
     at_ = r.ObjectAttributes(); at_.LayerIndex = L17G; at_.Name = f'格子戸（南の妻、引き違い、{i_ + 1}、杉の框と縦格子 30×45@120）'
     new_objs.append((_join(fr_), at_)); return len(fr_) - 4
 _nb = 0
