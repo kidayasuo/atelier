@@ -157,6 +157,14 @@ _a = np.linspace(0, 2 * np.pi, 73)
 line(axP, np.c_[7.5 + 0.5 * np.sin(_a), 36.0 + 0.5 * np.cos(_a)], lw=0.35, c=ACC, ls=(0, (2, 1.5)), z=7)
 line(axP, np.c_[7.5 + 1.2 * np.sin(_a), 36.0 + 1.2 * np.cos(_a)], lw=0.5, c=ACC, z=7)   # 外形（3dm の皿は回転体の Brep なので、平面の切り口に出ない）
 T(axP, 7.5, 37.45, 'あつまりの皿（掘り下げ）\nφ2.4・深さ250・苔色', 5.2, ha='center', c=ACC)
+# 11-01（ユーザー 19:14）：切り株（腰掛け・台・積む）。置き場と大きさは data/kirikabu.json（3dm は shitsu/add_shitsurae.py）。小さな円に年輪の線を一本
+import json as _json
+for _e in _json.load(open(os.path.join(ROOT, 'data', 'kirikabu.json'), encoding='utf-8'))['stumps']:
+    if not (U0 < _e['u'] < U1): continue
+    _r = _e['d'] / 2
+    axP.add_patch(Circle((_e['v'], _e['u']), _r, fc='#E3D2B5', ec='#6b4f2e', lw=0.5, zorder=8))
+    axP.add_patch(Circle((_e['v'], _e['u']), _r * 0.55, fc='none', ec='#6b4f2e', lw=0.3, zorder=8.1))
+    T(axP, _e['v'] + _r + 0.05, _e['u'], f"切り株φ{_e['d'] * 1000:.0f}・h{_e['h'] * 1000:.0f}" + ('（少し傾ける）' if _e.get('tilt') else ''), 4.6, c=ACC)
 T(axP, 6.1, 34.0, '先生の席（巣Aの南の壁）', 6, c=ACC)
 # 区域の名前
 area = lambda g: g.area
@@ -333,6 +341,10 @@ y -= 7
 for fc, lab in (('#dfe9f2', '巣（静か）'), ('#eef3e2', '共有'), ('#f6f1e6', '内縁側')):
     fig.patches.append(Rectangle((tx / W, y / H), 8 / W, 4 / H, transform=fig.transFigure, fc=fc, ec='none'))
     fig.text((tx + 11) / W, (y + 1) / H, lab, fontsize=7); y -= 6
+from matplotlib.patches import Ellipse as _El
+for _k, _lw in ((1.0, 0.5), (0.55, 0.3)):
+    fig.patches.append(_El(((tx + 4) / W, (y + 2) / H), 4 * _k / W, 4 * _k / H, transform=fig.transFigure, fc='#E3D2B5' if _k == 1 else 'none', ec='#6b4f2e', lw=_lw))
+fig.text((tx + 11) / W, (y + 1) / H, '切り株（腰掛け・台・積む）', fontsize=7); y -= 6
 fig.text(tx / W, (y - 4) / H, '面積は壁芯でなく床の上の概算（m²）。保育室全体は面積表の3歳（約60m²）。', fontsize=6.5, color='#666')
 
 os.makedirs(OUT, exist_ok=True)

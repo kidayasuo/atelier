@@ -816,6 +816,22 @@ def atsumari_sara(uc, vc, R=1.2, Rc=0.5, depth=250, t=60, n=24):
 for _uc in (36.0, 45.0, 54.0):
     atsumari_sara(_uc, 7.5)
 
+# ---------------- 切り株（ユーザー 11-01 19:14、決定事項（本館）の2歳・3〜5歳、項 20261101-1915-garden） ----------------
+# 2歳に2つ・3〜5歳に4つずつ、腰掛け・台・積む遊びの素材。置き場と大きさは data/kirikabu.json（乱数の種で決めて固定、5歳は鏡像）。
+# 形は shitsu/kirikabu.py（幹と根張りの回転体＋根のくさび＝樹皮、上の切り口の円板 t5＝木口）。床の仕上げの上面 +10 に置く
+import json as _json, kirikabu as _KB, katachi as _K
+L_BARK = layer('40s_しつらえ_切り株（樹皮）', (134, 102, 68))
+L_KIGU = layer('40t_しつらえ_切り株（木口・年輪）', (214, 182, 138))
+for _e in _json.load(open(_os0.path.join(SCR, '..', 'data', 'kirikabu.json'), encoding='utf-8'))['stumps']:
+    _c = W(_e['u'], _e['v']); _d, _h = _e['d'] * 1000, _e['h'] * 1000
+    _du, _dv = _e.get('tilt_dir_uv', (1, 0)); _dw = W(_e['u'] + 0.01 * _du, _e['v'] + 0.01 * _dv) - _c
+    _tdir = math.degrees(math.atan2(_dw[1], _dw[0]))
+    _tilt = _KB.lying_tilt(_d, _h, _e['flare']) if _e.get('lying') else _e.get('tilt', 0.0)
+    _bark, _kg = _KB.kirikabu((_c[0], _c[1], 10.0), _d, _h, _e['flare'], _e['roots'], _e['rot'] + _tdir, _tilt, _tdir,
+                              skip_down=50.0 if _e.get('lying') else 0.0)
+    _nm = f"切り株 {_e['room']} φ{_d:.0f}・h{_h:.0f}" + ('（横倒し）' if _e.get('lying') else f'（傾き{_tilt:.0f}°）' if _tilt else '')
+    _K.add(m, _bark, L_BARK, name=_nm); _K.add(m, _kg, L_KIGU, name=_nm + 'の木口')
+
 # ---------------- 本の奥（スパン18–19、西吹き抜けの北の行き止まり）（ユーザー 10-31 14:21、決定事項（本館）の「本の奥」） ----------------
 # 掘りごたつの溝は窓際（西の外壁の内面 v−0.2 〜 0.72、底 −300＝低い窓の下端、南の端 u51.6〜51.9 は段 −150。床の塊は south/add_floor.py で抜く）。
 # 畳の座は部屋の壁の側に一つ（v0.75〜1.54、h0〜50、u51.6〜57.0）。座の縁に角を丸めた杉の框 30（v0.72〜0.75、−450〜50）、南の段の鼻に框。

@@ -181,6 +181,21 @@ for _a, _b in ((17.25, 17.75),): line([(_a, 8.3), (_a, 9.1)], lw=0.35, ls=(0, (1
 for _u in (17.35, 17.68): ax.add_patch(Circle(P(_u, 10.9), 0.065, fc="white", ec="black", lw=0.4, zorder=6))   # 覗き穴 φ130×2（東、h450）
 # open floor marker
 txt(13.9, 10.3, "ひらけた床", size=6, color="#4f6b2a")
+# 切り株（ユーザー 11-01 19:14、腰掛け・台・積む。置き場と大きさは data/kirikabu.json、3dm は shitsu/add_shitsurae.py）：小さな円に年輪の線を一本。横倒しは上から見た形
+import json as _json
+def kirikabu_zu(umin, umax):
+    for _e in _json.load(open(_os.path.join(ROOT, "data", "kirikabu.json"), encoding="utf-8"))["stumps"]:
+        if not (umin <= _e["u"] <= umax): continue
+        _r = _e["d"] / 2
+        if _e.get("lying"):
+            _du, _dv = _e["tilt_dir_uv"]; _qu, _qv = -_dv, _du; _L = _e["h"]
+            _c = lambda s, t: P(_e["u"] + _du * s + _qu * t, _e["v"] + _dv * s + _qv * t)
+            ax.add_patch(Polygon([_c(0, -_r), _c(_L, -_r), _c(_L, _r), _c(0, _r)], closed=True, fc="#E3D2B5", ec="#6b4f2e", lw=0.4, zorder=6.6))
+            line([(_e["u"] + _du * _L * 0.82 + _qu * _r * k, _e["v"] + _dv * _L * 0.82 + _qv * _r * k) for k in (-0.75, 0.75)], lw=0.4, c="#6b4f2e", z=6.7)
+        else:
+            ax.add_patch(Circle(P(_e["u"], _e["v"]), _r, fc="#E3D2B5", ec="#6b4f2e", lw=0.4, zorder=6.6))
+            ax.add_patch(Circle(P(_e["u"], _e["v"]), _r * 0.55, fc="none", ec="#6b4f2e", lw=0.25, zorder=6.7))
+kirikabu_zu(12.0, 18.1)
 
 # laundry nook (span 4, context) + drying poles + attic
 box(10.4, 11.85, 0.95, 1.6, lw=0.5, fc="#EEF5F7", z=4)
@@ -298,6 +313,7 @@ legend = [
     "20　物干し（竹竿 φ35×2本、h3.1、両端の綱で昇降。越屋根の下、白い布の下端は h1.9 より上）",
     "21　トイレの西の壁の上：すりガラス＋格子（明るく、天袋はなし）",
     "22　洗濯（0・1歳の側、水まわりの配管壁沿い）",
+    "○　切り株（腰掛け・台・積む。径0.3〜0.4・高さ0.2、一つは少し傾ける。年輪の線を一本）",
 ]
 col_x = [25 / 297, 160 / 297]
 y0, dy, half = 225 / 420, 4.4 / 420, 11

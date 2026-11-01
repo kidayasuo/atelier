@@ -242,7 +242,7 @@ for b0, k in [(39, "14"), (48, "17")]:
 print(A, blk)
 
 fig.text(25 / 297, 410 / 420, "育ち舎　3〜5歳の保育室　家具配置（たたき台）", fontsize=12.5, weight="medium", va="top")
-fig.text(25 / 297, 402 / 420, "1/100（A3）　2026-10-20　スパン11〜19。点線のコットは午睡時（3歳20・4歳20・5歳10）。茶の一点鎖線はロフト、斜線はしずかな角の収納、青の破線はトップライト。",
+fig.text(25 / 297, 402 / 420, "1/100（A3）　2026-10-20　スパン11〜19。点線のコットは午睡時（3歳20・4歳20・5歳10）。茶の一点鎖線はロフト、斜線はしずかな角の収納、青の破線はトップライト。年輪の線のある小さな円は切り株（腰掛け・台・積む）。",
          fontsize=6.5, va="top", color="#444444")
 legend = [
     "1　西吹き抜け＝絵本の通り（本棚だけ。本は好きな所へ持って行って読む）",
@@ -397,6 +397,21 @@ def room(a, b, n_cot, tab_h, mir, Rc, Lp, n_leg):
 room(33, 39, 20, 400, False, 2.1, 0.0, 0)
 room(42, 48, 20, 450, False, 2.6, 0.0, 0)
 room(51, 57, 10, 500, True, 2.6, 1.2, 2)
+# 切り株（ユーザー 11-01 19:14、腰掛け・台・積む。置き場と大きさは data/kirikabu.json、3dm は shitsu/add_shitsurae.py）：小さな円に年輪の線を一本。横倒しは上から見た形
+import json as _json
+def kirikabu_zu(umin, umax):
+    for _e in _json.load(open(_os.path.join(ROOT, "data", "kirikabu.json"), encoding="utf-8"))["stumps"]:
+        if not (umin <= _e["u"] <= umax): continue
+        _r = _e["d"] / 2
+        if _e.get("lying"):
+            _du, _dv = _e["tilt_dir_uv"]; _qu, _qv = -_dv, _du; _L = _e["h"]
+            _c = lambda s, t: P(_e["u"] + _du * s + _qu * t, _e["v"] + _dv * s + _qv * t)
+            ax.add_patch(Polygon([_c(0, -_r), _c(_L, -_r), _c(_L, _r), _c(0, _r)], closed=True, fc="#E3D2B5", ec="#6b4f2e", lw=0.4, zorder=6.6))
+            line([(_e["u"] + _du * _L * 0.82 + _qu * _r * k, _e["v"] + _dv * _L * 0.82 + _qv * _r * k) for k in (-0.75, 0.75)], lw=0.4, c="#6b4f2e", z=6.7)
+        else:
+            ax.add_patch(Circle(P(_e["u"], _e["v"]), _r, fc="#E3D2B5", ec="#6b4f2e", lw=0.4, zorder=6.6))
+            ax.add_patch(Circle(P(_e["u"], _e["v"]), _r * 0.55, fc="none", ec="#6b4f2e", lw=0.25, zorder=6.7))
+kirikabu_zu(29.9, 57.4)
 
 # ---------- picture-book street along the west void ----------
 shelf_runs = [(32.9, 35.8), (36.2, 38.8), (39.2, 41.8), (42.2, 43.9), (46.3, 47.8), (48.2, 50.8)]
