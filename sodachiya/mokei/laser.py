@@ -2967,6 +2967,7 @@ def laser_uv_of_poly(g):
     c = g.centroid
     return _uv_of(c.x, c.y)
 
+AMANO_PATCH = False                      # 継ぎ足し小片：直線の部分が見当たらず不要（ユーザー 11-02 18:52）
 AMANO_FULL = True                       # 天の川の曲線を端から端まで切る（False なら曲線より材が出る所だけ）
 AMANO_EXT = 500.0                       # 切り取る線の端を、道の縁より先へ延ばす量（実寸 mm＝模型 5 mm）。11-02：切った板の縁が、図の縁より約 3 mm 先にあった
 
@@ -3259,7 +3260,7 @@ def west_floor_sheets():
     occ = unary_union(placed)                                  # 並べた板（穴の中は空き）
     bx = occ.envelope.bounds                                    # 板の外接矩形の中に置く（11-02：大きな板のあいだの空きに）
     GAPP = 3.0
-    for k, g in enumerate(amano_edit()[1]):
+    for k, g in enumerate(amano_edit()[1] if AMANO_PATCH else []):
         gs = affinity.scale(g.buffer(10), S, S, origin=(0, 0)); b = gs.bounds
         occb = occ.buffer(GAPP); put = None
         for yy in np.arange(bx[3] - (b[3] - b[1]) - 0.5, bx[1] - 0.01, -0.5):
@@ -3271,7 +3272,7 @@ def west_floor_sheets():
             put = affinity.translate(gs, bx[0] + 5 + 20 * k - b[0], bx[1] - 8 - (b[3] - b[1]) - b[1] + b[1])
         s.add(put); occ = unary_union([occ, put])
         patches.append((k + 1, round(b[2] - b[0], 1), round(b[3] - b[1], 1), tuple(round(v, 2) for v in laser_uv_of_poly(g)), tuple(round(v, 1) for v in put.bounds[:2])))
-    s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた。小片 2 つは本館の天の川の縁の継ぎ足し（仮、大きな板のあいだの空きに置いた）', 3)])
+    s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた。', 3)])
     return dict(継ぎ足し片=patches, 足の溝=n_slot, 溝が床の外=slot_bad, sheet=(W, H), 並べ方=pos, 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), info=info)
 
 def west_stair_treads():
