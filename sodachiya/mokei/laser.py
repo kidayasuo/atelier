@@ -163,7 +163,7 @@ def beam_part(clr, centers):
 
 # ---------- 書き出し ----------
 # 切った部品（ユーザー 10-28：本館の切った部品は変えない）。この SVG は書き出さない（設計が変わっても作り直さない）
-CUT_DONE = ('01_', '02_', '03a_', '03b_', '04_', '05_', '05b_', '06a_', '06b_')
+CUT_DONE = ('01_', '02_', '03a_', '03b_', '04_', '05_', '05b_')   # 06a・06b は 11-02 19時、屋根が変わったので切り直す（ユーザー）
 WRITE_DXF = os.environ.get('DXF') == '1'   # 10-26 ユーザー：SVG で切れるので DXF は作らない（要るときは DXF=1）
 
 class Sheet:
@@ -1261,8 +1261,11 @@ def _svg_rings(fname, H):
         out.append(Polygon([(x, H - y) for x, y in pts]))
     return out
 
+ROOF_PLUGS = False       # 11-02 19時：06a を今の 3dm で作り直したので、穴の東の端の差し込み小片は要らない
+
 def roof_plugs():
     """06a の穴ごとの差し込み小片（描く形）。返す：[(南からの番号, 小片, 外皮の線の中点)]"""
+    if not ROOF_PLUGS: return []
     rings = _svg_rings('06a_本館の屋根_上の層_シナ1.7.svg', 220)
     old = sorted(rings[1:], key=lambda p: p.centroid.x)                  # 0＝外形、1〜＝穴
     up, _ = roof_parts(); ang = sheet_angle()
