@@ -4766,4 +4766,8 @@ sys.path.insert(0, os.path.join(HERE, "tools"))
 import hiragino as _hira
 _nh = sum(_hira.convert(_f, _f)[0] for _f in sorted(glob.glob(os.path.join(SZ, "*.pdf"))))
 print("素材の書体をヒラギノ角ゴシックに：", _nh, "書体")
+# Illustrator で開くと PDF は文字がアウトライン化される（ユーザー 11-02、試しで警告が出ないのは SVG だけ）。素材は同じ名前の SVG も作る
+import svg_hiragino as _svgh
+_ns = [_svgh.convert(_f)[1] for _f in sorted(glob.glob(os.path.join(SZ, "*.pdf")))]
+print("素材の SVG（文字は文字のまま、ヒラギノ角ゴシック）：", len(_ns), "枚")
 print("ok")

@@ -463,6 +463,8 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import hiragino
     hiragino.convert(OUT, OUT)                 # 書体をヒラギノ角ゴシックに（ユーザー 11-02）
+    import svg_hiragino
+    svg_hiragino.convert(OUT)                  # Illustrator 用の SVG（文字は文字のまま、ユーザー 11-02）
     if a.png:
         F.fig.savefig(a.png, dpi=140)
     print("→", OUT)
