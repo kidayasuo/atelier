@@ -1734,11 +1734,14 @@ def foot_slot_world(f, ok=None):
 
 _OK = {}
 def foot_ok_h():
-    """本館の足の溝が、本館の穴（切り抜き片の輪郭）の縁から 0.8 以上内側に入るか"""
+    """本館の足の溝：床の上の層（FL＋0、天の川で 2 枚に分かれる。柱の穴あり）の縁・穴から 0.8 以上内側で、窪みの円と離れる。戻り：(T, ok)"""
     if 'h' not in _OK:
         out, T, F = dai_outline_sheet()
-        hole = T(F['本館の穴']['geom']).buffer(0).buffer(-0.8)
-        _OK['h'] = (T, lambda f, x: hole.contains(foot_slot_poly(f.world(x), f.e, T)))
+        upper = floors()[0]
+        um = affinity.scale(upper, S, S, origin=(0, 0)).buffer(-0.8)
+        txm = lambda P: Point(P.x * S, P.y * S)
+        circ = unary_union([Point(*_uv_xy(u, 7.5) * S).buffer(1200.0 * S + 0.8) for u in (36.0, 45.0, 54.0)])
+        _OK['h'] = (T, lambda f, x: um.contains(foot_slot_poly(f.world(x), f.e, txm)) and not foot_slot_poly(f.world(x), f.e, txm).intersects(circ))
     return _OK['h']
 
 def foot_ok_w():
@@ -1798,19 +1801,8 @@ class _WallTabbed:
         self.poly = unary_union([R_.poly] + [box(x - FOOT_TAB_L / 2, b[1] - FOOT_TAB_D, x + FOOT_TAB_L / 2, b[1]) for x in xs])
 
 def foot_ok_h_wall():
-    """本館の壁の溝：本館の穴の縁から 0.8 以上、柱の穴（ほぞ穴から 2.0）と円から離れる"""
-    if 'hw' not in _OK:
-        out, T, F = dai_outline_sheet()
-        hole = T(F['本館の穴']['geom']).buffer(0).buffer(-0.8)
-        mort = unary_union(dai_mortises(T)).buffer(2.0)
-        circ = unary_union([Point(*T(Point(*_uv_xy(u, 7.5))).coords[0]).buffer(1200.0 * S + 0.8) for u in (36.0, 45.0, 54.0)])
-        bad = mort.union(circ)
-        def ok(R_, x):
-            b = R_.poly.bounds
-            sl = foot_slot_poly(R_.world(x), R_.e, T)
-            return hole.contains(sl) and not sl.intersects(bad)
-        _OK['hw'] = ok
-    return _OK['hw']
+    """本館の壁の溝：足と同じ条件（壁 R_ と局所 x）"""
+    return foot_ok_h()[1]
 
 def interior_sheets():
     W_ = assemble()
@@ -2990,11 +2982,11 @@ def dai_pit_sheets():
         if sw is None: continue
         sl = foot_slot_poly(sw[0], sw[1], T)
         slots.append((f.id, sl)); s.add(sl.exterior, 'cut')
-    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足・壁の溝 %d か所（4.0×0.4）。1.7 は 20/13%%' % len(slots), 4)])
     wp = wall_tab_plan(W_, foot_ok_h_wall()); nw = 0
     for R_ in W_['runs']:
         for x in wp.get(R_.id, []):
             sl = foot_slot_poly(R_.world(x), R_.e, T); slots.append(('壁%d' % R_.id, sl)); s.add(sl.exterior, 'cut'); nw += 1
+    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足・壁の溝 %d か所（4.0×0.4）。1.7 は 20/13%%' % len(slots), 4)])
     inside = [i for i, sl in slots if h_.buffer(0).contains(sl)]
     return dict(足と壁の溝=len(slots), うち壁=nw, 穴の中=len(inside), 穴の外=[i for i, _ in slots if i not in inside], 円と重なる=[i for i, sl in slots if any(sl.intersects(Point(*c).buffer(1200.0 * S)) for c in cs)], 中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
 
