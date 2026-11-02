@@ -3040,10 +3040,13 @@ def dai_pit_sheets():
     for R_ in W_['runs']:
         for x in wp.get(R_.id, []):
             sl = foot_slot_poly(R_.world(x), R_.e, T); slots.append(('壁%d' % R_.id, sl)); s.add(sl.exterior, 'cut'); nw += 1
+    # 原点の目印（11-02 ユーザー承認）：板の左上の角（表面の切る線の角と同じ点）に、1 mm の斜めの彫り。切る線の範囲の角を板の角にそろえる
+    ob = out.bounds
+    s.add(LineString([(ob[0], ob[3]), (ob[0] + 1.0, ob[3] - 1.0)]), 'eng')
     am_lines, am_patch = amano_edit()
     for ln in am_lines:
         s.add(T(ln), 'cut')
-    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足・壁の溝 %d か所（4.0×0.4）、天の川の縁を切り取る線 %d 本。1.7 は 20/13%%' % (len(slots), len(am_lines)), 4)])
+    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足・壁の溝 %d か所（4.0×0.4）、天の川の曲線 %d 本。左上の角の彫りは原点の目印（彫り 123/12%%）。1.7 は 20/13%%' % (len(slots), len(am_lines)), 4)])
     inside = [i for i, sl in slots if h_.buffer(0).contains(sl)]
     return dict(天の川の切り取り線=len(am_lines), 継ぎ足し片=[round(g.area / 1e4, 1) for g in am_patch], 足と壁の溝=len(slots), うち壁=nw, 穴の中=len(inside), 穴の外=[i for i, _ in slots if i not in inside], 円と重なる=[i for i, sl in slots if any(sl.intersects(Point(*c).buffer(1200.0 * S)) for c in cs)], 中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
 
