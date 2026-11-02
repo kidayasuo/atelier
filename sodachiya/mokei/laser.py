@@ -2970,6 +2970,12 @@ def dai_pit_sheets():
     s.add(out.exterior, 'ref')
     h_ = T(F['本館の穴']['geom'])
     for g in getattr(h_, 'geoms', [h_]): s.add(g.exterior, 'ref')
+    # 参考：床の上の層（FL+0）の板の輪郭（天の川で 2 枚）と、天の川（通り土間、土足 −150）の輪郭。位置合わせの確認用（切らない）
+    ref_u = T(floors()[0]); ref_a = T(unary_union([plan('15_本館_あまのがわ（土足 −150）')]).intersection(annulus()))
+    for g in getattr(ref_u, 'geoms', [ref_u]):
+        s.add(g.exterior, 'ref')
+    for g in getattr(ref_a, 'geoms', [ref_a]):
+        if g.geom_type == 'Polygon': s.add(g.exterior, 'ref')
     R = 1200.0 * S - 0.1                                              # 半径 12.0 − 切り幅の半分（0.1、1.7 は 0.20・3.0 は 0.22）
     cs = []
     for u in (36.0, 45.0, 54.0):
