@@ -2967,6 +2967,8 @@ def laser_uv_of_poly(g):
     c = g.centroid
     return _uv_of(c.x, c.y)
 
+AMANO_EXT = 500.0                       # 切り取る線の端を、道の縁より先へ延ばす量（実寸 mm＝模型 5 mm）。11-02：切った板の縁が、図の縁より約 3 mm 先にあった
+
 def amano_edit():
     """戻り：(切り取る線の LineString の列（3dm の座標、実寸 mm、端は板の外へ少し延ばす）, 継ぎ足し片の Polygon の列（3dm の座標）)"""
     import kirita as _K
@@ -2985,7 +2987,7 @@ def amano_edit():
             c = list(ln.coords)
             if len(c) < 2: continue
             a0 = np.array(c[0]) - np.array(c[1]); a1 = np.array(c[-1]) - np.array(c[-2])
-            c = [tuple(np.array(c[0]) + a0 / np.linalg.norm(a0) * 150)] + c + [tuple(np.array(c[-1]) + a1 / np.linalg.norm(a1) * 150)]
+            c = [tuple(np.array(c[0]) + a0 / np.linalg.norm(a0) * AMANO_EXT)] + c + [tuple(np.array(c[-1]) + a1 / np.linalg.norm(a1) * AMANO_EXT)]
             lines.append(LineString(c))
     return lines, mi
 
