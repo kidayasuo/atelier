@@ -1757,12 +1757,68 @@ def foot_slot_poly(c, d, tx):
     a, b = FOOT_TAB_L / 2, FOOT_SLOT_W / 2
     return Polygon([tuple(np.array([P.x, P.y]) + v * sx + w * sy) for sx, sy in ((-a, -b), (a, -b), (a, b), (-a, b))])
 
+# --- かみ合った壁の組（事務室・トイレ・倉庫など）の位置決め：組ごとに 2 か所、壁の下に突起、床に溝（11-02、ユーザー）
+WALL_TAB_MARGIN = 2.5
+
+def _wall_tab_candidates(R_, ok):
+    """壁 R_ の下面（床に接する面）で、突起 4.0 を付けられる局所 x の候補。両側 WALL_TAB_MARGIN まで板があること"""
+    b = R_.poly.bounds
+    if R_.z_of(b[1]) < -151.0: return []
+    out = []
+    x = b[0] + WALL_TAB_MARGIN
+    while x <= b[2] - WALL_TAB_MARGIN + 1e-9:
+        seg = box(x - WALL_TAB_MARGIN, b[1], x + WALL_TAB_MARGIN, b[1] + 0.3)
+        if R_.poly.intersection(seg).area > 2 * WALL_TAB_MARGIN * 0.3 - 1e-6 and ok(R_, x):
+            out.append(round(x, 2))
+        x += 0.5
+    return out
+
+def wall_tab_plan(W_, ok):
+    """戻り：{壁の番号: [局所 x, …]}。足のない組（支え合う組）ごとに、いちばん離れた 2 か所（別々の壁を優先）"""
+    plan = {}
+    for c in W_['comps']:
+        if not kabe.is_braced(c): continue
+        cand = [(R_, x, R_.world(x)) for R_ in c for x in _wall_tab_candidates(R_, ok)]
+        if len(cand) < 2: continue
+        best = None
+        for i in range(len(cand)):
+            for j in range(i + 1, len(cand)):
+                d = float(np.linalg.norm(cand[i][2] - cand[j][2])) * S
+                if cand[i][0] is cand[j][0]: d *= 0.6
+                if best is None or d > best[0]: best = (d, i, j)
+        if best is None or best[0] < 6.0: continue
+        for k in best[1:]:
+            R_, x, _ = cand[k]; plan.setdefault(R_.id, []).append(x)
+    return plan
+
+class _WallTabbed:
+    def __init__(self, R_, xs):
+        self.R = R_; self.xs = xs
+        b = R_.poly.bounds
+        self.poly = unary_union([R_.poly] + [box(x - FOOT_TAB_L / 2, b[1] - FOOT_TAB_D, x + FOOT_TAB_L / 2, b[1]) for x in xs])
+
+def foot_ok_h_wall():
+    """本館の壁の溝：本館の穴の縁から 0.8 以上、柱の穴（ほぞ穴から 2.0）と円から離れる"""
+    if 'hw' not in _OK:
+        out, T, F = dai_outline_sheet()
+        hole = T(F['本館の穴']['geom']).buffer(0).buffer(-0.8)
+        mort = unary_union(dai_mortises(T)).buffer(2.0)
+        circ = unary_union([Point(*T(Point(*_uv_xy(u, 7.5))).coords[0]).buffer(1200.0 * S + 0.8) for u in (36.0, 45.0, 54.0)])
+        bad = mort.union(circ)
+        def ok(R_, x):
+            b = R_.poly.bounds
+            sl = foot_slot_poly(R_.world(x), R_.e, T)
+            return hole.contains(sl) and not sl.intersects(bad)
+        _OK['hw'] = ok
+    return _OK['hw']
+
 def interior_sheets():
     W_ = assemble()
     runs, feet = W_['runs'], W_['feet']
     items = []
+    wplan = wall_tab_plan(W_, foot_ok_h_wall())
     for R_ in runs:
-        items.append((str(R_.id), R_))
+        items.append((str(R_.id), _WallTabbed(R_, wplan[R_.id]) if R_.id in wplan else R_))
     for f in feet:
         par = next(r_ for r_ in runs if r_.id == f.foot_of)
         items.append((f'{par.id}{"A" if f.side == "A" else "B"}', _Tabbed(f, foot_ok_h()[1])))
@@ -1880,6 +1936,9 @@ def write_table(W_, miss):
     o.append('- 切り込みの高さの境は、組む所の材の高さの真ん中。上端が高いほうの壁に下から、低いほうに上から入れる。T・Lで端になる壁は、相手の壁の向こう側の面まで伸ばして面をそろえる（相手は模型では0.6の薄さ）。')
     o.append(f'- 梁の下面・桁の下面との余裕は{CLEAR_TOP / 10:.1f} mm（実寸{CLEAR_TOP / 1000:.2f} m）。柱の置き場所は、柱の厚さ1.75・幅4.0と頭の丸み、床の柱の穴（実寸1.8×4.1）。')
     o += foot_note_lines(W_, foot_ok_h()[1], '本館の床の上の層（1.7）')
+    wp = wall_tab_plan(W_, foot_ok_h_wall())
+    nocomp = ['・'.join(str(r_.id) for r_ in c) for c in W_['comps'] if kabe.is_braced(c) and not any(r_.id in wp for r_ in c)]
+    o.append('- **かみ合った壁の組の突起と溝**（11-02）：組ごとに2か所、壁の下に突起、床に溝。壁と局所x（壁の端から mm）：' + '、'.join(f'壁{k}（x={"・".join(f"{x:.1f}" for x in v)}）' for k, v in sorted(wp.items())) + f'。突起のない組（針の印で置く）：{"、".join(nocomp) or "なし"}。')
     o.append(f'- 針の印の座標：架構の番号（南から、架構1＝南の妻）、その架構の線から北へ何mm（弧に沿って、南は−）、西の縁（床04の西の端、西の外壁の線より3.4 mm外）から何mm（半径方向、東へ）。単位は模型のmm。印は壁の線（厚さの真ん中）の上。\n')
     # --- 干渉の確かめ
     o.append('## 1. 干渉の確かめ（3dmの板ごと）\n')
@@ -2931,9 +2990,13 @@ def dai_pit_sheets():
         if sw is None: continue
         sl = foot_slot_poly(sw[0], sw[1], T)
         slots.append((f.id, sl)); s.add(sl.exterior, 'cut')
-    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足の溝 %d か所（4.0×0.4）。1.7 は 20/13%%' % len(slots), 4)])
+    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足・壁の溝 %d か所（4.0×0.4）。1.7 は 20/13%%' % len(slots), 4)])
+    wp = wall_tab_plan(W_, foot_ok_h_wall()); nw = 0
+    for R_ in W_['runs']:
+        for x in wp.get(R_.id, []):
+            sl = foot_slot_poly(R_.world(x), R_.e, T); slots.append(('壁%d' % R_.id, sl)); s.add(sl.exterior, 'cut'); nw += 1
     inside = [i for i, sl in slots if h_.buffer(0).contains(sl)]
-    return dict(足の溝=len(slots), 穴の中=len(inside), 穴の外=[i for i, _ in slots if i not in inside], 円と重なる=[i for i, sl in slots if any(sl.intersects(Point(*c).buffer(1200.0 * S)) for c in cs)], 中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
+    return dict(足と壁の溝=len(slots), うち壁=nw, 穴の中=len(inside), 穴の外=[i for i, _ in slots if i not in inside], 円と重なる=[i for i, sl in slots if any(sl.intersects(Point(*c).buffer(1200.0 * S)) for c in cs)], 中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
 
 # ================= 台の中の層（シナ 3）と桟（シナ 3 の縦の板） =================
 # 11-02 の頼み（模型作成）：表面（01台_表面）の下に中の層（ほぞ穴のみ）。
