@@ -1103,7 +1103,7 @@ def _kikai_ring():
     big = max(getattr(u, 'geoms', [u]), key=lambda p_: p_.area)
     return big, float(P[:, 2].max())
 
-KIKAI_KERF06 = 0.20   # 航空ベニヤ 0.6 の切り幅（仮定。T5 の結果で直す）
+KIKAI_KERF06 = J.get('切り幅', {}).get('航空ベニヤ0.6', 0.20)   # 航空ベニヤ 0.6 の切り幅（T5、11-02 実測 19.85〜19.9 → 0.125）
 
 def kikai_parts():
     """機械室（おむすび）：外形（丸い三角、角 R1300）の周を 1 枚に展開した壁（戸の開口 1.6×2.1）と、屋根の板。
