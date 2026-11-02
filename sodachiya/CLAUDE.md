@@ -13,5 +13,5 @@
 - 自分の担当でないファイルは書き換えない（小さな直しの決まりは `yakuwari.md` の最後の段）。作ったもの（3dm・`drawings/`・`model/drawings/`）は push しない（push で自動に作り直る）。
 - 依頼・知らせは `renkei/inbox.py new`、変更の記録は `inbox.py log`、受け箱は `python3 renkei/inbox.py` で作って push（プロジェクトの受け箱の写しは、次に claude.ai のチャットが上書きする）。
 - 決まったことは `kettei/<係>.md` に（直す所だけ Edit で）。
-- 図の文字は Noto Sans CJK JP、PDF は Type42（`scripts/fonts42.py`）。フォントが無ければ `sudo apt-get install -y fonts-noto-cjk`。
+- **PDF の書体は、特に指定がない限り必ずヒラギノ角ゴシック**（ユーザー 11-02）。このコンテナにはヒラギノが無いので、図は Noto Sans CJK JP の Type42（`scripts/fonts42.py`）で組み、書き出した後に `python3 present/tools/hiragino.py <pdf>` で書体をヒラギノ角ゴシック（HiraginoSans-W3、太字は W6、埋め込まない）に差し替える。フォントが無ければ `sudo apt-get install -y fonts-noto-cjk`。
 - 和文と数字・欧文のあいだに空白を入れない。数字と単位のあいだは空白（「3 m」）。
