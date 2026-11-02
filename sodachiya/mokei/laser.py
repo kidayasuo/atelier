@@ -220,6 +220,7 @@ class Sheet:
     MARGIN = 3.0   # 10-26 ユーザー：どのデータも左上を原点に。切る・彫る線の左上を板の左上から 3 mm に寄せる
     def to_top_left(self, texts):
         from shapely.ops import unary_union as _uu
+        if getattr(self, 'no_shift', False): return texts               # 別のファイルと同じ原点に合わせる（座標を最初から板の座標で渡す）
         keys = [k for k, *_ in self.layers if k != 'ref' and getattr(self, k)]
         allg = [g for k in keys for g in getattr(self, k)]
         if not allg: return texts
@@ -2574,6 +2575,26 @@ def dai_trial():
     s2.add(unary_union([body] + feet).buffer(0), 'cut')
     s2.save([(1, 11.5, '足 4.0×2.0・おき 8', 2)])
 
+
+def dai_pit_sheets():
+    """本館 3〜5歳の「あつまりの皿」（φ2.4 m、u36・45・54、v7.5）を、床の塊（上の層 1.7・下の層 1.7・基礎 3.0）に貫通して切るデータ（11-02、ユーザーの案）。
+    手順：表面（01台_表面）を切る→本館の穴の切り抜き片を外し、切った本館の床（剥がして 1 枚ずつ）を穴にはめる→この円を、表面と同じ原点で、材ごとの出力で切る。
+    表面・中の層と同じ座標（dai_outline_sheet）。黒＝参考（板の外形・本館の穴、送る前に消す）、赤＝切る（円 3 つ）。穴は切り幅の分だけ小さく描く"""
+    out, T, F = dai_outline_sheet()
+    s = Sheet('01台_本館の窪み_円3つ', 841, 594, '本館の床の窪み（あつまりの皿 φ2.4 m）の円 3 つ。表面と同じ原点・同じ位置。表面の本館の穴にはめた床 1 枚ずつ（上の層 1.7・下の層 1.7・基礎 3.0）を、材ごとの出力で切る。黒は参考')
+    s.add(box(0, 0, 841, 594), 'ref')
+    s.tabs = False; s.no_shift = True
+    s.add(out.exterior, 'ref')
+    h_ = T(F['本館の穴']['geom'])
+    for g in getattr(h_, 'geoms', [h_]): s.add(g.exterior, 'ref')
+    R = 1200.0 * S - 0.1                                              # 半径 12.0 − 切り幅の半分（0.1、1.7 は 0.20・3.0 は 0.22）
+    cs = []
+    for u in (36.0, 45.0, 54.0):
+        c = T(Point(*_uv_xy(u, 7.5))).coords[0]; cs.append(c)
+        s.add(Point(*c).buffer(R, 128).exterior, 'cut')
+    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）。1.7 は 20/13%、3.0 は 12/16%', 4)])
+    return dict(中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
+
 # ================= 台の中の層（シナ 3）と桟（シナ 3 の縦の板） =================
 # 11-02 の頼み（模型作成）：表面（01台_表面）の下に中の層（ほぞ穴のみ）。
 #   python3 laser.py dai-naka   … 01台_中の層_シナ3.svg だけ
@@ -2837,6 +2858,8 @@ if __name__ == '__main__':
         print(west_floor_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['west-stair']:                # 西館の階段（13w）だけ
         print(west_stair_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['dai-pit']:                   # 本館の窪みの円 3 つだけ
+        print(dai_pit_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['14w']:                       # 西館の外壁だけ
