@@ -26,7 +26,9 @@ for n, c in [("70_外構_生垣・塀・格子", (90, 122, 58)), ("71_外構_屋
              ("74p_外構_公園の鉄の物（鉄棒・柵・車止め）", (60, 60, 64)), ("74s_外構_公園のすべり台", (200, 204, 208)),
              ("75p_外構_公園の木のベンチ", (170, 128, 86)),
              ("76g_外構_公園の芝生", (120, 160, 84)), ("74a_外構_駐車の舗装（アスファルト）", (62, 62, 64)), ("74w_外構_駐車の白線", (236, 236, 232)),
-             ("76b_外構_歩く舗装（ベージュ）", (204, 186, 156)), ("78a_外構_ひろばの真砂土", (190, 172, 140)), ("76s_外構_土（植栽・砂利・すき間）", (140, 116, 88)), ("73c_外構_アーチの棚のムベ（葉）", (80, 130, 60))]:
+             ("76b_外構_歩く舗装（ベージュ）", (204, 186, 156)), ("78a_外構_ひろばの真砂土", (190, 172, 140)), ("76s_外構_土（植栽・砂利・すき間）", (140, 116, 88)), ("73c_外構_アーチの棚のムベ（葉）", (80, 130, 60)),
+             # 西の道路の上（ユーザー 10-29・11-02）：横断歩道・停止線と、交差点の赤い舗装（矢印・ひし形は無い、11-02）。橋のたもとのベージュは76b
+             ("74r_外構_道路の白い標示", (236, 236, 232)), ("74t_外構_交差点の赤い舗装", (168, 74, 62))]:
     layer(n, c)
 def attr(name):
     a = r.ObjectAttributes(); a.LayerIndex = LAY[name]; return a
@@ -414,5 +416,15 @@ for _i in range(_cp.CountU):
         _q = _cp[_i, _j]; _cp[_i, _j] = r.Point4d(_q.X, _q.Y, _q.Z * _OT["crown_rz"] / _OT["crown_r"], _q.W)
 _sp = r.Brep.CreateFromSurface(_ns); _sp.Transform(r.Transform.Translation(_OT["xy"][0] * MM, _OT["xy"][1] * MM, _OT["crown_z"] * MM))
 m.Objects.AddBrep(_sp, attr("77c_外構_樹冠・植え込み・苔（葉）"))
+# 西の道路の上の標示と舗装（data/approachA.json の ROAD_MARKS、ユーザー 10-29・11-02）：閉じた板。標示と赤は道路の上面（GL−0.02）＋0.002、
+# 橋のたもとのベージュは周りの地面03g（GL−0.04）から道路の上面＋0.002まで
+_RM = A.ROAD_MARKS
+_RL = {"white": ("74r_外構_道路の白い標示", _RM["z_road"]), "red": ("74t_外構_交差点の赤い舗装", _RM["z_road"]), "beige": ("76b_外構_歩く舗装（ベージュ）", _RM["z_ground"])}
+for _k, _g in A.road_marks():
+    _ln, _z0 = _RL[_k]; _t = _RM["z_road"] + _RM["t"] - _z0
+    for _q in polys(_g):
+        _q = _q.simplify(0.001)
+        if not list(_q.interiors): slab(list(_q.exterior.coords)[:-1], _z0, _t, _ln)
+        else: slab_holes(list(_q.exterior.coords)[:-1], [list(_h.coords)[:-1] for _h in _q.interiors], _z0, _t, _ln)
 m.Write(OUTF, 7)
 print("wrote", OUTF, len(m.Objects), "objects")

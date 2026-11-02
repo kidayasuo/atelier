@@ -56,6 +56,10 @@ def _t(x): return tuple(_t(i) for i in x) if isinstance(x, list) and x and isins
 for _k, _v in _D.items():
     if not _k.startswith("_"): globals()[_k] = _t(_v)
 BEDS = [tuple(b) for b in BEDS]
+def road_marks():                                                   # 西の道路の上の標示と舗装（data/approachA.json の ROAD_MARKS、11-02）→ [(種類, shapely の形)]
+    R = ROAD_MARKS                                                  # 形は xy（3dm、m）で決めてある：横断歩道の帯（P3 の中ほどから西北西へ）・停止線・赤・ベージュ
+    out = [("white", SP(b)) for b in R["XWALK"]] + [("white", SP(R["STOP"])), ("red", SP(R["RED"])), ("beige", SP(R["BEIGE"]))]
+    return out
 
 C = dict(par="#FBE7CF", kid="#E2EDD0", red="#C8372D", path="#8a5a2b", blue="#3d7fb0", green="#5a7a3a",
          car="#ECECEC", plaza="#EEDFC6", kit="#F0B98A", eat="#F7D3B0", arai="#DCD3C3", hedge="#B7CF95",
@@ -99,6 +103,11 @@ poly(SETB, fc="none", ec="#999999", lw=0.3, ls=(0, (4, 3)), z=0.5)
 T((-27.7, -55), "西の道路（歩道なし）", 6.5, rot=86)
 T((6.8, -67.0), "高野川 →", 7, rot=38)
 poly(PARK, fc="#E3EDD3", ec=C["green"], lw=0.7, z=1)
+for _k, _g in road_marks():                                         # 道路の標示（白）・交差点の赤い舗装・橋のたもとのベージュ（ROAD_MARKS、11-02）
+    _fc, _ec = {"white": ("#FFFFFF", "#777777"), "red": ("#E8B8AE", "none"), "beige": ("#EDE3D2", "none")}[_k]
+    for _p in getattr(_g, "geoms", [_g]):
+        poly(_p, fc=_fc, ec=_ec, lw=0.25, z=0.8)
+        for _h in _p.interiors: poly(list(_h.coords), fc="white", ec=_ec, lw=0.25, z=0.81)
 # 公園の中身（ユーザー 10-29、data/approachA.jsonのPARK_PLAN）：局所座標(X, Y)＝原点PARK[0]、Xは川に沿ってPARK[3]へ、Yは南西の辺に沿ってPARK[1]へ
 _PO = np.array(PARK[0]); _PX = np.array(PARK[3]) - _PO; _PX /= np.linalg.norm(_PX); _PY = np.array(PARK[1]) - _PO; _PY /= np.linalg.norm(_PY)
 def PK(x, y): p = _PO + _PX * x + _PY * y; return (float(p[0]), float(p[1]))
