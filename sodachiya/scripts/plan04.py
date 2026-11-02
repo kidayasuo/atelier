@@ -447,8 +447,8 @@ for k, uc in enumerate((52.25, 53.1, 53.95, 54.8, 55.65, 56.5)):  # 背のクッ
 # 東の廊下は内縁側の北の端（v12.04〜12.89、外に沓脱ぎ石）。外開き（赤の弧）、内側から鍵なしで開く、取っ手 h1.5、開くと事務に知らせる。
 # 3dm は shitsu/add_shitsurae.py の esc_west と south/add_floor.py
 box(56.01, 56.87, -0.36, -0.19, lw=0, fc="white", ec="white", z=6.5)
-line([(56.85, -0.35), (56.85, -1.17)], lw=0.6, c="#C0392B", z=7)
-line([(56.85 - 0.82 * math.sin(i / 20 * math.pi / 2), -0.35 - 0.82 * math.cos(i / 20 * math.pi / 2)) for i in range(21)], lw=0.3, ls=(0, (2, 1.5)), c="#C0392B", z=7)
+line([(56.03, -0.35), (56.03, -1.17)], lw=0.6, c="#C0392B", z=7)
+line([(56.03 + 0.82 * math.sin(i / 20 * math.pi / 2), -0.35 - 0.82 * math.cos(i / 20 * math.pi / 2)) for i in range(21)], lw=0.3, ls=(0, (2, 1.5)), c="#C0392B", z=7)
 for _uf, _va, _vb in ((57.27, 12.04, 12.89),):
     box(_uf - 0.15, _uf, _va - 0.02, _vb + 0.02, lw=0, fc="white", ec="white", z=6.5)
     line([(_uf, _va), (_uf + (_vb - _va), _va)], lw=0.6, c="#C0392B", z=7)
