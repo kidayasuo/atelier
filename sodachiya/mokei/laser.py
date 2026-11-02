@@ -163,7 +163,7 @@ def beam_part(clr, centers):
 
 # ---------- 書き出し ----------
 # 切った部品（ユーザー 10-28：本館の切った部品は変えない）。この SVG は書き出さない（設計が変わっても作り直さない）
-CUT_DONE = ('01_', '02_', '03a_', '03b_', '04_', '05_', '05b_')   # 06a・06b は 11-02 19時、屋根が変わったので切り直す（ユーザー）
+CUT_DONE = ('01_', '02_', '03a_', '03b_', '04_', '05_', '05b_', '06a_', '06b_')
 WRITE_DXF = os.environ.get('DXF') == '1'   # 10-26 ユーザー：SVG で切れるので DXF は作らない（要るときは DXF=1）
 
 class Sheet:
@@ -808,7 +808,7 @@ def roof_parts():
         panels.append(Polygon(e0 + e1[::-1]))
     return up, panels
 
-ROOF_SPLIT = True        # 06a を 19 枚に分解（11-02、ユーザー）
+ROOF_SPLIT = False       # 06a を作り直して 19 枚に分解する版（切った 06a が無いときだけ）。今は roof_split_lines() で切った 06a に切り線を足す
 
 def roof_split_pieces(U):
     """屋根の上の層 U（3dm の座標、実寸 mm、穴つき 1 枚）の光の筋の穴 18 本を、穴の長い向きに両端の縁まで延ばして切り、19 枚に分ける。
@@ -826,6 +826,35 @@ def roof_split_pieces(U):
     ps = [g for g in getattr(q, 'geoms', [q]) if g.area > 2e5]
     ps.sort(key=lambda g: math.atan2(g.centroid.y - CY, g.centroid.x - CX) % (2 * math.pi))
     return [(len(ps) - i, g) for i, g in enumerate(ps)]
+
+def roof_split_lines():
+    """切った 06a（cut/06a…svg、841×220 の帯、板の左上が原点）を 19 枚に分解する切り線（11-02、ユーザーの案）。
+    光の筋の穴 18 本を、穴の長い向きの中心線で、両端から屋根の縁の先まで延ばす（切り幅だけのすき間）。06a と同じ座標。ファイル：06a追_…"""
+    from shapely.geometry import LineString
+    rings = _svg_rings('06a_本館の屋根_上の層_シナ1.7.svg', 220)          # y 上向き
+    outline = max(rings, key=lambda g: g.area)
+    holes = [g for g in rings if g is not outline]
+    s = Sheet('06a追_光の筋の延長線で分解_シナ1.7', 841, 220, 'シナ 1.7：切った 06a を 19 枚に分解する切り線。光の筋の穴 18 本を両端から屋根の縁まで延ばす（線の上にあたる所は切り幅だけのすき間）。06a の板を、06a を切ったときと同じ位置に置いて切る')
+    s.add(box(0, 0, 841, 220), 'ref')
+    s.add(outline.exterior, 'ref')
+    for g in holes: s.add(g.exterior, 'ref')
+    s.tabs = False; s.no_shift = True
+    n = 0; lens = []
+    for g in holes:
+        mr = g.minimum_rotated_rectangle; c = list(mr.exterior.coords)[:4]
+        e1 = np.array(c[1]) - np.array(c[0]); e2 = np.array(c[2]) - np.array(c[1])
+        ax_ = e1 if np.linalg.norm(e1) > np.linalg.norm(e2) else e2
+        d = ax_ / np.linalg.norm(ax_); ctr = np.array(mr.centroid.coords[0]); L = np.linalg.norm(ax_)
+        for sgn in (-1, 1):
+            p0 = ctr + sgn * d * (L / 2 - 0.3)                        # 穴の端の少し内側から（つながって切れる）
+            far = LineString([p0, ctr + sgn * d * (L / 2 + 40)])
+            inside = far.intersection(outline)
+            ln = inside if inside.geom_type == 'LineString' else max(inside.geoms, key=lambda q: q.length)
+            e = np.array(ln.coords[-1]) if np.linalg.norm(np.array(ln.coords[-1]) - p0) > np.linalg.norm(np.array(ln.coords[0]) - p0) else np.array(ln.coords[0])
+            q0 = p0; q1 = e + sgn * d * 1.5                           # 縁の先 1.5 mm まで
+            s.add(LineString([q0, q1]), 'cut'); n += 1; lens.append(round(float(np.linalg.norm(q1 - q0)), 1))
+    s.save([(8, 8, '06a を 19 枚に分解する切り線（36 本）。06a と同じ位置に置く。長さ約 %.0f mm の線 36 本' % (sum(lens) / len(lens)), 4)])
+    return dict(線=n, 長さmm=(min(lens), max(lens)), 合計m=round(sum(lens) / 1000, 2))
 
 def roof_sheets():
     """10-26 ユーザー：床（04）の残りの帯（約 841×220）から上の層を取る → 上の層と下の層を別のファイルに"""
@@ -1296,7 +1325,7 @@ def _svg_rings(fname, H):
         out.append(Polygon([(x, H - y) for x, y in pts]))
     return out
 
-ROOF_PLUGS = False       # 11-02 19時：06a を今の 3dm で作り直したので、穴の東の端の差し込み小片は要らない
+ROOF_PLUGS = True        # 06a は切ったまま（穴の東の端は 06c の差し込み小片が埋める）。11-02 19時に作り直しかけたが、平面は同じ（板の角度 0.49° の差だけ）だったので戻した
 
 def roof_plugs():
     """06a の穴ごとの差し込み小片（描く形）。返す：[(南からの番号, 小片, 外皮の線の中点)]"""
