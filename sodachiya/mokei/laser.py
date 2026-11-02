@@ -849,7 +849,7 @@ def west_frame_lines():
 def west_roof_parts():
     """上の層＝3dm の西館の屋根（20）の平面（光の筋の穴つき）。
     下の層＝室内の上だけ、架構のあいだの板（梁 2 枚のあいだに落とし込む）。板の端は架構の線（柱の中心を結ぶ線）から ROOF_GAP。
-    室内＝西館の外壁（21）の内側（東の越屋根の下の帯は除く、本館の下の層が越屋根の立ち上がりまでなのと同じ）を 0.3 小さく。
+    室内＝西館の外壁（21）の内側を 0.3 小さく。屋根 20 の穴（光の筋と棟のガラスの帯、11-02 から越屋根は無い）には置かず、帯で東西に分かれる板は別の板。
     北西の角の登り梁（u43.5、120 角の幅）の所も板を分ける。北の妻の架構 17 の北は外壁まで"""
     from shapely.geometry import LineString
     up = plan('20_西館_屋根')
@@ -885,6 +885,16 @@ def west_roof_parts():
             else:
                 new.append((k, gs[0]))
         panels = new
+    # 11-02：越屋根をやめ、棟のガラスの帯（東の縁 v−0.9〜−2.56、光の筋とつながる）になった。屋根 20 の穴（光の筋と帯のくし形）の所に、下の層の板は置かない。
+    # 帯で東西に分かれる板は別々の板にする（東の細い板は v>−0.9）
+    if up.interiors:
+        comb = max((Polygon(h) for h in up.interiors), key=lambda q: q.area)
+        split = []
+        for k, reg in panels:
+            q = reg.difference(comb)
+            for part in sorted(getattr(q, 'geoms', [q]), key=lambda x: -x.area):
+                if part.geom_type == 'Polygon' and part.area > 1e5: split.append((k, part))
+        panels = split
     return up, panels
 
 def west_roof_sheets():
@@ -893,6 +903,7 @@ def west_roof_sheets():
     e0, e1 = fl[ks[0]][0], fl[ks[-1]][0]                     # 東の柱の列（架構 8 と 17）を水平に
     ang = -math.atan2(e1[1] - e0[1], e1[0] - e0[0])
     U = to_sheet(up, ang, (0, 0)); P = [(k, to_sheet(p, ang, (0, 0))) for k, p in panels]
+    E = [laser_uv_of_poly(p)[1] > -0.9 for k, p in panels]            # 棟のガラスの帯の東の細い板
     b = U.bounds; U = affinity.translate(U, -b[0], -b[1]); P = [(k, affinity.translate(p, -b[0], -b[1])) for k, p in P]
     nh = len(U.interiors) if U.geom_type == 'Polygon' else sum(len(q.interiors) for q in U.geoms)
     s = Sheet('11a_西館の屋根_上の層_シナ1.7', 841, 594, f'シナ 1.7：西館の屋根 上の層（3dm の屋根の平面、軒まで、光の筋の穴 {nh} 本）')
@@ -902,9 +913,9 @@ def west_roof_sheets():
     pb = unary_union([p for _, p in P]).bounds
     s = Sheet('11b_西館の屋根_下の層_シナ1.7', 841, 594, f'シナ 1.7：西館の屋根 下の層（架構のあいだの板 {len(P)} 枚、梁 2 枚のあいだに落とし込む）。番号＝スパン（南の架構の番号）')
     s.add(box(0, 0, 841, 594), 'ref')
-    for k, p in P:
+    for (k, p), east in zip(P, E):
         q = affinity.translate(p, 0, -pb[1]); s.add(q)
-        c = q.representative_point(); txt = str(k)
+        c = q.representative_point(); txt = str(k) + ('A' if east else '')      # 末尾の A＝棟のガラスの帯の東の細い板
         for j, ch in enumerate(txt):
             for l in label_num(ch, c.x - len(txt) * 0.8 + j * 1.6, c.y - 0.8, 1.6): s.add(l, 'eng')
     s.save([(0, pb[3] - pb[1] + 3, f'西館の屋根 下の層（{len(P)} 枚、番号＝スパン）', 4)])
