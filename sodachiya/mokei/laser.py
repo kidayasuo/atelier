@@ -2959,6 +2959,36 @@ def dai_trial():
     s2.save([(1, 11.5, '足 4.0×2.0・おき 8', 2)])
 
 
+# ================= 天の川の縁（床の上の層 FL+0）を、今の設計の形に合わせる（11-02、ユーザーの案） =================
+# 切った 04 の上の層は、天の川の縁が直線。今の 3dm は天の川をかたどった曲線。
+#   天の川が広い所（切った板に材があり、今の設計には無い）：今から切り取る（01台_本館の窪みと足の溝 に赤の線）
+#   天の川が狭い所（今の設計にあって、切った板に無い）：別の板（12w のシナ 1.7）で継ぎ足し片を切る
+def laser_uv_of_poly(g):
+    c = g.centroid
+    return _uv_of(c.x, c.y)
+
+def amano_edit():
+    """戻り：(切り取る線の LineString の列（3dm の座標、実寸 mm、端は板の外へ少し延ばす）, 継ぎ足し片の Polygon の列（3dm の座標）)"""
+    import kirita as _K
+    cu = _K.cut_floor('upper'); nu = floors()[0]
+    pits = unary_union([Point(*_uv_xy(u, 7.5)).buffer(1500) for u in (36.0, 45.0, 54.0)])
+    op = lambda g: g.buffer(-100).buffer(100)
+    ex = op(cu.difference(nu)).difference(pits); mi = op(nu.difference(cu)).difference(pits)
+    ex = [g for g in getattr(ex, 'geoms', [ex]) if g.area > 2e4]
+    mi = [g for g in getattr(mi, 'geoms', [mi]) if g.area > 2e4]
+    from shapely.ops import linemerge
+    lines = []
+    for g in ex:
+        ring = g.buffer(-10).exterior                       # 切り幅の半分（模型 0.1 mm）だけ、切り取る側へ寄せた線：残る板の縁が設計線に来る
+        path = ring.difference(cu.boundary.buffer(15))      # 切った板の縁に沿う所は切らない
+        for ln in ([path] if path.geom_type == 'LineString' else [q for q in path.geoms if q.geom_type == 'LineString'] if path.geom_type in ('MultiLineString', 'GeometryCollection') else []):
+            c = list(ln.coords)
+            if len(c) < 2: continue
+            a0 = np.array(c[0]) - np.array(c[1]); a1 = np.array(c[-1]) - np.array(c[-2])
+            c = [tuple(np.array(c[0]) + a0 / np.linalg.norm(a0) * 150)] + c + [tuple(np.array(c[-1]) + a1 / np.linalg.norm(a1) * 150)]
+            lines.append(LineString(c))
+    return lines, mi
+
 def dai_pit_sheets():
     """本館 3〜5歳の「あつまりの皿」（φ2.4 m、u36・45・54、v7.5）を、床の塊（上の層 1.7・下の層 1.7・基礎 3.0）に貫通して切るデータ（11-02、ユーザーの案）。
     手順：表面（01台_表面）を切る→本館の穴の切り抜き片を外し、切った本館の床（剥がして 1 枚ずつ）を穴にはめる→この円を、表面と同じ原点で、材ごとの出力で切る。
@@ -2992,9 +3022,12 @@ def dai_pit_sheets():
     for R_ in W_['runs']:
         for x in wp.get(R_.id, []):
             sl = foot_slot_poly(R_.world(x), R_.e, T); slots.append(('壁%d' % R_.id, sl)); s.add(sl.exterior, 'cut'); nw += 1
-    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足・壁の溝 %d か所（4.0×0.4）。1.7 は 20/13%%' % len(slots), 4)])
+    am_lines, am_patch = amano_edit()
+    for ln in am_lines:
+        s.add(T(ln), 'cut')
+    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足・壁の溝 %d か所（4.0×0.4）、天の川の縁を切り取る線 %d 本。1.7 は 20/13%%' % (len(slots), len(am_lines)), 4)])
     inside = [i for i, sl in slots if h_.buffer(0).contains(sl)]
-    return dict(足と壁の溝=len(slots), うち壁=nw, 穴の中=len(inside), 穴の外=[i for i, _ in slots if i not in inside], 円と重なる=[i for i, sl in slots if any(sl.intersects(Point(*c).buffer(1200.0 * S)) for c in cs)], 中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
+    return dict(天の川の切り取り線=len(am_lines), 継ぎ足し片=[round(g.area / 1e4, 1) for g in am_patch], 足と壁の溝=len(slots), うち壁=nw, 穴の中=len(inside), 穴の外=[i for i, _ in slots if i not in inside], 円と重なる=[i for i, sl in slots if any(sl.intersects(Point(*c).buffer(1200.0 * S)) for c in cs)], 中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
 
 # ================= 台の中の層（シナ 3）と桟（シナ 3 の縦の板） =================
 # 11-02 の頼み（模型作成）：表面（01台_表面）の下に中の層（ほぞ穴のみ）。
@@ -3200,8 +3233,16 @@ def west_floor_sheets():
         s.add(q)
         if nm.startswith('2階'): s.tab_pts += _longest_mid_pts(Polygon(q.exterior))
         pos.append((nm, round(g.bounds[2], 1), round(g.bounds[3], 1), round(q.bounds[0], 1), round(H - q.bounds[3], 1)))
-    s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた', 3)])
-    return dict(足の溝=n_slot, 溝が床の外=slot_bad, sheet=(W, H), 並べ方=pos, 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), info=info)
+    # 天の川の縁の継ぎ足し片（本館の床の上の層。amano_edit）。切り幅の分だけ大きく描く。置き場所は板の下半分の空き
+    patches = []
+    for k, g in enumerate(amano_edit()[1]):
+        gs = affinity.scale(g.buffer(10), S, S, origin=(0, 0)); b = gs.bounds
+        q = affinity.translate(gs, 20 + 30 * k - b[0], 120 - b[1]); s.add(q)
+        for j, ch in enumerate(str(k + 1)): 
+            for l in label_num(ch, q.bounds[0] + 2 + j * 1.2, q.bounds[3] + 6, 1.2): s.add(l, 'eng')
+        patches.append((k + 1, round(b[2] - b[0], 1), round(b[3] - b[1], 1), tuple(round(v, 2) for v in laser_uv_of_poly(g))))
+    s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた。左下の小片は本館の天の川の縁の継ぎ足し', 3)])
+    return dict(継ぎ足し片=patches, 足の溝=n_slot, 溝が床の外=slot_bad, sheet=(W, H), 並べ方=pos, 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), info=info)
 
 def west_stair_treads():
     """階段（レイヤー 25、面のメッシュ。段板は厚 40）の踏面：[(高さ z（3dm の mm）, 平面の形（3dm の mm）)]、低い順。
