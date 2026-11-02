@@ -1697,6 +1697,66 @@ def _tab_points(poly):
             pts.append(Point((s_[0][0] + s_[1][0]) / 2, s_[0][1]))
     return pts
 
+# ================= 足の突起と床の短い溝（11-02、ユーザー承認） =================
+# 孤立した壁の T 字の足の下に、突起（長さ FOOT_TAB_L、深さ FOOT_TAB_D、板厚 0.6）を付け、床のいちばん上の 1.7 の層に短い溝（描く 4.0×0.4）を切る。
+# 壁の高さは変えない（足の下の面 y=0 は床の上面のまま、突起だけが 1.5 mm 床に入る）。溝は床の上の層だけの貫通（深さ 1.7 > 突起 1.5）。
+# 足が基礎の上（zref −300、土足の低い所）に立つ 2 本は溝を切れない（基礎は 3.0）ので突起なし：針の印で置く
+FOOT_TAB_L = 4.0
+FOOT_TAB_D = 1.5
+FOOT_SLOT_W = 0.4
+
+def foot_tab_x(f, ok=None):
+    """突起の中心の局所 x（足の芯 4.0 に近い順に探す）。ok(f, x) は溝が床の内側（縁から 0.8 以上）に入るか。入る所がなければ None"""
+    if f.zref < -151.0: return None
+    b = f.poly.bounds; m = FOOT_TAB_L / 2 + 0.2
+    lo, hi = b[0] + m, b[2] - m
+    if lo > hi + 1e-9: return None
+    c0 = min(max(kabe.FOOT_LEN / 2, lo), hi)
+    cands = sorted({round(min(max(c0 + k * 0.1, lo), hi), 3) for k in range(-40, 41)}, key=lambda x: abs(x - c0))
+    for x in cands:
+        seg = box(x - FOOT_TAB_L / 2, 0, x + FOOT_TAB_L / 2, 0.3)
+        if f.poly.intersection(seg).area < FOOT_TAB_L * 0.3 - 1e-6: continue
+        if ok is None or ok(f, x): return x
+    return None
+
+class _Tabbed:
+    """足に突起を付けた板（番号の彫りや並べ替えは poly だけを見る）"""
+    def __init__(self, f, ok=None):
+        self.f = f; x = foot_tab_x(f, ok)
+        self.x = x
+        self.poly = f.poly if x is None else unary_union([f.poly, box(x - FOOT_TAB_L / 2, -FOOT_TAB_D, x + FOOT_TAB_L / 2, 0)])
+
+def foot_slot_world(f, ok=None):
+    """溝の中心（世界座標、実寸 mm）と、足の向きの単位ベクトル。溝なしなら None"""
+    x = foot_tab_x(f, ok)
+    if x is None: return None
+    return f.world(x), f.e
+
+_OK = {}
+def foot_ok_h():
+    """本館の足の溝が、本館の穴（切り抜き片の輪郭）の縁から 0.8 以上内側に入るか"""
+    if 'h' not in _OK:
+        out, T, F = dai_outline_sheet()
+        hole = T(F['本館の穴']['geom']).buffer(0).buffer(-0.8)
+        _OK['h'] = (T, lambda f, x: hole.contains(foot_slot_poly(f.world(x), f.e, T)))
+    return _OK['h']
+
+def foot_ok_w():
+    """西館の足の溝が、1 階の上の層の縁・穴から 0.8 以上内側に入るか"""
+    if 'w' not in _OK:
+        upper = west_floors()[0]
+        um = affinity.scale(upper, S, S, origin=(0, 0)).buffer(-0.8)
+        tx = lambda P: Point(P.x * S, P.y * S)
+        _OK['w'] = lambda f, x: um.contains(foot_slot_poly(f.world(x), f.e, tx))
+    return _OK['w']
+
+def foot_slot_poly(c, d, tx):
+    """溝の長方形：c 中心、d 向き。tx は世界座標→板の座標の変換（点→点）。描く寸法 FOOT_TAB_L×FOOT_SLOT_W（長い辺が足の向き）"""
+    P = tx(Point(*c)); Q = tx(Point(*(np.asarray(c) + np.asarray(d) * 1000.0)))
+    v = np.array([Q.x - P.x, Q.y - P.y]); v /= np.linalg.norm(v); w = np.array([-v[1], v[0]])
+    a, b = FOOT_TAB_L / 2, FOOT_SLOT_W / 2
+    return Polygon([tuple(np.array([P.x, P.y]) + v * sx + w * sy) for sx, sy in ((-a, -b), (a, -b), (a, b), (-a, b))])
+
 def interior_sheets():
     W_ = assemble()
     runs, feet = W_['runs'], W_['feet']
@@ -1705,7 +1765,7 @@ def interior_sheets():
         items.append((str(R_.id), R_))
     for f in feet:
         par = next(r_ for r_ in runs if r_.id == f.foot_of)
-        items.append((f'{par.id}{"A" if f.side == "A" else "B"}', f))
+        items.append((f'{par.id}{"A" if f.side == "A" else "B"}', _Tabbed(f, foot_ok_h()[1])))
     shelf = kabe_layout(items)
     nsheet = 0
     miss = []
@@ -1796,6 +1856,14 @@ def _jdesc(j, run):
     frm, x, w, removed, desc = j.cut[run.id]
     return f'{j.R.id if run is j.S else j.S.id}と{j.kind}（{"上から" if frm == "top" else "下から"}）'
 
+def foot_note_lines(W_, okfn, where):
+    """位置表に入れる、足の突起と床の溝の書き出し（溝のある足・ない足）"""
+    yes, no = [], []
+    for f in W_['feet']:
+        lab = f'{f.foot_of}{"A" if f.side == "A" else "B"}'
+        (yes if foot_slot_world(f, okfn) else no).append(lab)
+    return [f'- **足の突起と床の溝**（11-02）：足の下に突起（{FOOT_TAB_L:.1f}×深さ{FOOT_TAB_D} mm、板厚0.6）、{where}に短い溝（描く{FOOT_TAB_L:.1f}×{FOOT_SLOT_W}）。溝のある足（{len(yes)}）：{"・".join(yes) or "なし"}。針の印で置く足（突起なし、{len(no)}）：{"・".join(no) or "なし"}（床の縁・穴に近い所か、基礎の上に立つ所で、溝を切れない）。']
+
 def write_table(W_, miss):
     runs, feet, joints = W_['runs'], W_['feet'], W_['joints']
     pcs, probs = W_['pcs'], W_['probs']
@@ -1811,6 +1879,7 @@ def write_table(W_, miss):
     o.append(f'- 板の厚さ0.6、切り幅{WALL_KERF}。切り込みの描く幅は、両側に木が残る所＝0.6−{WALL_KERF}＝{CUT_W:.2f}、壁の端の切り込み＝相手の厚さ−{WALL_KERF / 2:.1f}。T5（航空ベニヤ0.6の試し切り）の結果が`data/mokei.json`に無いので仮の値。結果が出たら`切り幅`の`航空ベニヤ0.6`か`室内の壁`の`切り込みの幅_描く`に入れて作り直す。')
     o.append('- 切り込みの高さの境は、組む所の材の高さの真ん中。上端が高いほうの壁に下から、低いほうに上から入れる。T・Lで端になる壁は、相手の壁の向こう側の面まで伸ばして面をそろえる（相手は模型では0.6の薄さ）。')
     o.append(f'- 梁の下面・桁の下面との余裕は{CLEAR_TOP / 10:.1f} mm（実寸{CLEAR_TOP / 1000:.2f} m）。柱の置き場所は、柱の厚さ1.75・幅4.0と頭の丸み、床の柱の穴（実寸1.8×4.1）。')
+    o += foot_note_lines(W_, foot_ok_h()[1], '本館の床の上の層（1.7）')
     o.append(f'- 針の印の座標：架構の番号（南から、架構1＝南の妻）、その架構の線から北へ何mm（弧に沿って、南は−）、西の縁（床04の西の端、西の外壁の線より3.4 mm外）から何mm（半径方向、東へ）。単位は模型のmm。印は壁の線（厚さの真ん中）の上。\n')
     # --- 干渉の確かめ
     o.append('## 1. 干渉の確かめ（3dmの板ごと）\n')
@@ -2221,7 +2290,7 @@ def interior_sheets_w():
     items = [(str(R_.id), R_) for R_ in runs]
     for f in feet:
         par = next(r_ for r_ in runs if r_.id == f.foot_of)
-        items.append((f'{par.id}{"A" if f.side == "A" else "B"}', f))
+        items.append((f'{par.id}{"A" if f.side == "A" else "B"}', _Tabbed(f, foot_ok_w())))
     shelf = kabe_layout(items)
     nsheet = 0; miss = []
     for si, lst in enumerate(shelf):
@@ -2327,6 +2396,7 @@ def write_table_w(W_, miss):
     o.append(f'- 材は航空ベニヤ0.6、切り幅{WALL_KERF}（0.6の試し切り T5 の結果が `data/mokei.json` に無いので仮の値。入れて作り直す）。切り込みの描く幅は、両側に木が残る所＝{kabe.T_BOARD}−{WALL_KERF}＝{CUT_W:.2f}、壁の端＝相手の厚さ−{WALL_KERF / 2:.1f}。切り込みの高さの境、T・L の面そろえ、足（T 字、長さ{kabe.FOOT_LEN:.0f} mm、高さは壁の端の半分で6 mmまで、長さ15 mm未満の壁はA端だけ）は本館の09と同じ。')
     o.append(f'- 天端は 2 階の床の下面（3.17 m）。3dm が 1・2 階ひと続きの板（階段の箱の壁 u30・u33、高さ約6.7 m）にしている所は、2 階の床の下で切って 1 階の分にした（2 階の分は下の一覧）。腰壁（h450）も拾う（本館は 600 以上だけ）。')
     o.append(f'- 梁の板・桁の下：2 階の床梁（22c）の板の下は、その部分だけ天端を（板の下面−{CLEAR_TOP / 10:.1f} mm）まで切り欠く（3dm が梁の板の下を H2400 の小壁にしているのと同じ形。壁全体は下げない）。')
+    o += foot_note_lines(W_, foot_ok_w(), '12w の1階 上の層')
     o.append('- 西館の床（1.7×2＋基礎3）は未作成なので切り溝は使わない。**床の柱の穴は仮**：柱の足もとの幅＋0.2、厚さ1.8（本館の床の穴と同じ考え）。床ができたら `west_col_keepout` を合わせる。')
     o.append('- 針の印の座標：架構の番号（西館の架構、南から。架構8＝u21.33、9＝u24、…、17＝u48、18＝u50.57）、その架構の線（柱の中心を結ぶ線）から北へ何mm（弧に沿って、南は−）、西の縁から何mm（半径方向、東へ）。単位は模型のmm。印は壁の線（厚さの真ん中）の上。**西の縁＝西館の外壁（21）の外面の西の端**（その点を通る半径の線の上。西館の床の外形が決まったらそちらに替える）。\n')
     o.append('### 1. 3dmの板（24）と壁\n')
@@ -2843,7 +2913,7 @@ def dai_pit_sheets():
     手順：表面（01台_表面）を切る→本館の穴の切り抜き片を外し、切った本館の床（剥がして 1 枚ずつ）を穴にはめる→この円を、表面と同じ原点で、材ごとの出力で切る。
     表面・中の層と同じ座標（dai_outline_sheet）。黒＝参考（板の外形・本館の穴、送る前に消す）、赤＝切る（円 3 つ）。穴は切り幅の分だけ小さく描く"""
     out, T, F = dai_outline_sheet()
-    s = Sheet('01台_本館の窪み_円3つ', 841, 594, '本館の床の窪み（あつまりの皿 φ2.4 m）の円 3 つ。表面と同じ原点・同じ位置。表面の本館の穴にはめた床 1 枚ずつ（上の層 1.7・下の層 1.7・基礎 3.0）を、材ごとの出力で切る。黒は参考')
+    s = Sheet('01台_本館の窪みと足の溝_シナ1.7', 841, 594, '本館の床の窪み（あつまりの皿 φ2.4 m）の円 3 つ。表面と同じ原点・同じ位置。表面の本館の穴にはめた床 1 枚ずつ（上の層 1.7・下の層 1.7・基礎 3.0）を、材ごとの出力で切る。黒は参考')
     s.add(box(0, 0, 841, 594), 'ref')
     s.tabs = False; s.no_shift = True
     s.add(out.exterior, 'ref')
@@ -2854,8 +2924,16 @@ def dai_pit_sheets():
     for u in (36.0, 45.0, 54.0):
         c = T(Point(*_uv_xy(u, 7.5))).coords[0]; cs.append(c)
         s.add(Point(*c).buffer(R, 128).exterior, 'cut')
-    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）。1.7 は 20/13%、3.0 は 12/16%', 4)])
-    return dict(中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
+    # 足の溝（短い溝）：孤立した壁の足の下。床のいちばん上の 1.7 の層だけ貫通
+    W_ = assemble(); slots = []
+    for f in W_['feet']:
+        sw = foot_slot_world(f, foot_ok_h()[1])
+        if sw is None: continue
+        sl = foot_slot_poly(sw[0], sw[1], T)
+        slots.append((f.id, sl)); s.add(sl.exterior, 'cut')
+    s.save([(8, 8, '本館の窪み 円 3 つ（φ23.8 を描く＝実際 φ24.0）と、足の溝 %d か所（4.0×0.4）。1.7 は 20/13%%' % len(slots), 4)])
+    inside = [i for i, sl in slots if h_.buffer(0).contains(sl)]
+    return dict(足の溝=len(slots), 穴の中=len(inside), 穴の外=[i for i, _ in slots if i not in inside], 円と重なる=[i for i, sl in slots if any(sl.intersects(Point(*c).buffer(1200.0 * S)) for c in cs)], 中心=[tuple(round(v, 2) for v in c) for c in cs], 描く直径=round(2 * R, 2), 本館の穴の中=all(h_.buffer(0).contains(Point(*c).buffer(1200.0 * S)) for c in cs))
 
 # ================= 台の中の層（シナ 3）と桟（シナ 3 の縦の板） =================
 # 11-02 の頼み（模型作成）：表面（01台_表面）の下に中の層（ほぞ穴のみ）。
@@ -3027,12 +3105,20 @@ def _longest_mid_pts(poly, n=2):
     es = sorted(((math.dist(c[i], c[i + 1]), i) for i in range(len(c) - 1)), reverse=True)[:n]
     return [Point((c[i][0] + c[i + 1][0]) / 2, (c[i][1] + c[i + 1][1]) / 2) for _, i in es]
 
+def _west_slot(sw, ang, b0, mv):
+    """西館の溝：世界座標 → 12w の板の座標（_to_w、上の層の左下を原点、nest の移動）"""
+    def tx(P):
+        q = _to_w(P, ang)
+        return Point(q.x - b0[0] + mv[0], q.y - b0[1] + mv[1])
+    return foot_slot_poly(sw[0], sw[1], tx)
+
 def west_floor_sheets():
     upper, lower, f2, info = west_floors()
     ang = _west_ang()
+    WF = assemble_w(); g_raw = {}; slot_bad = []; n_slot = 0
     items = []
     for nm, g in (('1階 上の層（はだし FL）', upper), ('1階 下の層（上と同じ形）', lower), ('2階の床', f2)):
-        g = _to_w(g, ang); b = g.bounds
+        g = _to_w(g, ang); b = g.bounds; g_raw[nm] = (b[0], b[1])
         items.append((nm, affinity.translate(g, -b[0], -b[1])))
     # 置き方：06bのA1の残り841×444。11-02：3枚の位置だけを動かして、外接矩形が最小になるように詰める（向きは元のまま、間は今までの6 mm以上）
     W, H, gap = 841, 444, 6
@@ -3043,11 +3129,18 @@ def west_floor_sheets():
     pos = []
     for (nm, g), (tx, ty) in zip(items, mv):
         q = affinity.translate(g, tx, ty)
+        if nm.startswith('1階 上'):
+            for f in WF['feet']:
+                sw = foot_slot_world(f, foot_ok_w())
+                if sw is None: continue
+                sl_w = _west_slot(sw, ang, g_raw[nm], (tx, ty))
+                if not q.contains(sl_w): slot_bad.append(f.id)
+                q = q.difference(sl_w); n_slot += 1
         s.add(q)
         if nm.startswith('2階'): s.tab_pts += _longest_mid_pts(Polygon(q.exterior))
         pos.append((nm, round(g.bounds[2], 1), round(g.bounds[3], 1), round(q.bounds[0], 1), round(H - q.bounds[3], 1)))
     s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた', 3)])
-    return dict(sheet=(W, H), 並べ方=pos, 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), info=info)
+    return dict(足の溝=n_slot, 溝が床の外=slot_bad, sheet=(W, H), 並べ方=pos, 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), info=info)
 
 def west_stair_treads():
     """階段（レイヤー 25、面のメッシュ。段板は厚 40）の踏面：[(高さ z（3dm の mm）, 平面の形（3dm の mm）)]、低い順。
