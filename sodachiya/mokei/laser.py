@@ -3230,7 +3230,7 @@ def _west_slot(sw, ang, b0, mv):
 def west_floor_sheets():
     upper, lower, f2, info = west_floors()
     ang = _west_ang()
-    WF = assemble_w(); g_raw = {}; slot_bad = []; n_slot = 0
+    WF = assemble_w(); g_raw = {}; slot_bad = []; n_slot = 0; placed = []
     items = []
     for nm, g in (('1階 上の層（はだし FL）', upper), ('1階 下の層（上と同じ形）', lower), ('2階の床', f2)):
         g = _to_w(g, ang); b = g.bounds; g_raw[nm] = (b[0], b[1])
@@ -3251,18 +3251,27 @@ def west_floor_sheets():
                 sl_w = _west_slot(sw, ang, g_raw[nm], (tx, ty))
                 if not q.contains(sl_w): slot_bad.append(f.id)
                 q = q.difference(sl_w); n_slot += 1
-        s.add(q)
+        s.add(q); placed.append(q)
         if nm.startswith('2階'): s.tab_pts += _longest_mid_pts(Polygon(q.exterior))
         pos.append((nm, round(g.bounds[2], 1), round(g.bounds[3], 1), round(q.bounds[0], 1), round(H - q.bounds[3], 1)))
     # 天の川の縁の継ぎ足し片（本館の床の上の層。amano_edit）。切り幅の分だけ大きく描く。置き場所は板の下半分の空き
     patches = []
+    occ = unary_union(placed)                                  # 並べた板（穴の中は空き）
+    bx = occ.envelope.bounds                                    # 板の外接矩形の中に置く（11-02：大きな板のあいだの空きに）
+    GAPP = 3.0
     for k, g in enumerate(amano_edit()[1]):
         gs = affinity.scale(g.buffer(10), S, S, origin=(0, 0)); b = gs.bounds
-        q = affinity.translate(gs, 20 + 30 * k - b[0], 120 - b[1]); s.add(q)
-        for j, ch in enumerate(str(k + 1)): 
-            for l in label_num(ch, q.bounds[0] + 2 + j * 1.2, q.bounds[3] + 6, 1.2): s.add(l, 'eng')
-        patches.append((k + 1, round(b[2] - b[0], 1), round(b[3] - b[1], 1), tuple(round(v, 2) for v in laser_uv_of_poly(g))))
-    s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた。左下の小片は本館の天の川の縁の継ぎ足し', 3)])
+        occb = occ.buffer(GAPP); put = None
+        for yy in np.arange(bx[3] - (b[3] - b[1]) - 0.5, bx[1] - 0.01, -0.5):
+            for xx in np.arange(bx[0] + 0.5, bx[2] - (b[2] - b[0]), 0.5):
+                q = affinity.translate(gs, xx - b[0], yy - b[1])
+                if not q.intersects(occb): put = q; break
+            if put is not None: break
+        if put is None:                                          # 矩形の中に空きが無ければ、矩形の下に
+            put = affinity.translate(gs, bx[0] + 5 + 20 * k - b[0], bx[1] - 8 - (b[3] - b[1]) - b[1] + b[1])
+        s.add(put); occ = unary_union([occ, put])
+        patches.append((k + 1, round(b[2] - b[0], 1), round(b[3] - b[1], 1), tuple(round(v, 2) for v in laser_uv_of_poly(g)), tuple(round(v, 1) for v in put.bounds[:2])))
+    s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた。小片 2 つは本館の天の川の縁の継ぎ足し（仮、大きな板のあいだの空きに置いた）', 3)])
     return dict(継ぎ足し片=patches, 足の溝=n_slot, 溝が床の外=slot_bad, sheet=(W, H), 並べ方=pos, 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), info=info)
 
 def west_stair_treads():
