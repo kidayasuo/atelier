@@ -2151,7 +2151,14 @@ SAN_SHEET = (841, 594)                           # 台の板（A1）。dai_outli
 DAI_ROT = -38.5                                  # 度。川側の辺を水平に（63 m × 56 m、道路の窓を足して 68×56 m → 682×560 mm）
 DAI_ROAD_WIN = (-45000, -75000, -24000, -30000)  # 道路を見せる窓（3dm mm）：西の道路の、お向かいの張り出しと狭い所をふくむ所
 DAI_HOLE_SHRINK = 0.11                           # 建物の穴は、切り幅の分（シナ 3：0.22）だけ小さく描く＝片側 0.11（模型 mm）
-DAI_CLIFF = 800                                  # 川側の崖の上の小段・土（柵の外 0.8 m）まで台を広げる（3dm mm）
+# 台の板は長方形（11-02、ユーザー）：横＝敷地の南西の辺（12 m）の線から、さらに 8 m 西（道路の向こう側）まで、東は敷地の東の辺まで。
+# 縦＝A1 いっぱい（板の縁から 3 mm ずつ残して 588）：下に護岸の谷積み、上に道を数 mm（敷地境界の線）。数字は dai_tx で回したあとの模型 mm（北の角が原点、川側の辺が y＝−560）
+DAI_RECT_X = (-710.0, 0.0)
+DAI_RECT_TOP = 4.0                               # 敷地の北の辺より上に出す（道と敷地境界の線を見せる）
+DAI_RECT_H = 588.0                               # 594 − 3×2
+DAI_RECT = (DAI_RECT_X[0], DAI_RECT_TOP - DAI_RECT_H, DAI_RECT_X[1], DAI_RECT_TOP)
+DAI_ROAD_NEAR = 3500                             # 道路の縁のうち、敷地境界から これ（3dm mm）以内の線は、敷地境界の線と二重になるので彫らない（道路の近い縁と敷地境界の間の細いすき間は、3dm のデータの誤差）
+DAI_TREE_CROWN_ROAD = ('お向かいの張り出しの木',)
 DAI_SLOT_LEN = 4.0                               # 足の溝の長さ（塀に沿う向き、模型 mm）
 DAI_SLOT_W = 0.4                                 # 足の溝の幅（描く幅）。11-02 の試し片：0.4＝ぎちぎちだが入る、0.5＝簡単に抜ける、0.6＝がばがば → 0.4
 DAI_SLOT_PITCH = 40.0                            # 足のおき：30〜40 mm（この値を超えない最少の本数に等分）
@@ -2199,6 +2206,14 @@ def _long_axis(poly):
     a, b = np.array(c[L]), np.array(c[(L + 1) % 4]); d = np.array(c[(L + 3) % 4]) - a
     return LineString([tuple(a + d / 2), tuple(b + d / 2)])
 
+def dai_inv(g):
+    """dai_tx の逆：回して縮めた模型 mm → 3dm mm"""
+    return affinity.rotate(affinity.scale(g, 1 / S, 1 / S, origin=(0, 0)), -DAI_ROT, origin=(0, 0))
+
+def dai_rect_3dm():
+    from shapely.geometry import box as _box
+    return dai_inv(_box(*DAI_RECT))
+
 def dai_road():
     from shapely.geometry import box as _box
     win = _box(-70000, -110000, 20000, 20000)
@@ -2230,15 +2245,9 @@ def dai_features():
     F['西館の穴'] = dict(kind='hole', prio='必須', layer='31〜33・36（床）', geom=Polygon(west_f1_outline().exterior).difference(honkan.buffer(30)), note='西館のベタ基礎（表面から抜けた板）：西館の床（12w）の 1 階の外形（更衣 57 を含む）と同じ外周（11-02）')
     # --- 外形（台）
     road = dai_road()
-    reg = road.intersection(_box(*DAI_ROAD_WIN))
-    river = LineString([SITE_OUTER[1], SITE_OUTER[2]])
-    nrm = np.array([-(river.coords[1][1] - river.coords[0][1]), river.coords[1][0] - river.coords[0][0]]); nrm = nrm / np.linalg.norm(nrm)
-    cen = np.array(site.centroid.coords[0]); mid = np.array(river.interpolate(0.5, normalized=True).coords[0])
-    if np.dot(nrm, mid - cen) < 0: nrm = -nrm
-    a, b = np.array(river.coords[0]), np.array(river.coords[1])
-    strip = Polygon([a, b, b + nrm * DAI_CLIFF, a + nrm * DAI_CLIFF])
-    outline = unary_union([site, reg.buffer(300, join_style=2), strip]).buffer(1).buffer(-1)       # 道路の縁の線の外に、木を 3 mm 残す（縁の線は彫りで、切る線と重ねない）
-    F['台の外形'] = dict(kind='outline', prio='必須', layer='00・03', geom=outline, note='敷地（外側の線）＋川側の崖の上の小段 0.8 m＋道路の窓')
+    rect = dai_rect_3dm()
+    outline = rect
+    F['台の外形'] = dict(kind='outline', prio='必須', layer='00・03', geom=outline, note='長方形：横＝敷地の南西の辺の線から 8 m 西〜東の辺、縦＝A1 いっぱい（下＝護岸、上＝道を数 mm）')
     # --- 築山：バルサの等高線の一番下の輪郭（位置決め）
     mounds = []
     for nm, g in _pf('98_園庭_等高線の板'):
@@ -2280,8 +2289,22 @@ def dai_features():
             if P.area > 1.5e6: pav.append(P)
     F['舗装の区分'] = dict(kind='line', prio='重要', layer='76', geom=unary_union([p.exterior for p in pav]), n=len(pav), note='歩道 1.0・ひろば・見送りの小径・搬入路・北の小径など')
     # --- 道路（窓の中の、向かい側の縁の線）
-    rb = road.boundary.intersection(_box(*DAI_ROAD_WIN)).difference(site.buffer(400))      # 窓の中の道の縁から、敷地の縁と重なる線を除く
-    F['道路の縁'] = dict(kind='line', prio='必須', layer='03', geom=rb, note='窓の中の、向かい側の縁（敷地の側は台の縁）。お向かいの張り出しと道の狭い所をふくむ')
+    rb = road.boundary.intersection(rect).difference(site.buffer(DAI_ROAD_NEAR)).difference(dai_inv(box(DAI_RECT[0], DAI_RECT[1], DAI_RECT[2], -560.0)))      # 道の向こう側の縁だけ（近い側の縁は敷地境界と二重になる）
+    F['道路の縁'] = dict(kind='line', prio='必須', layer='03', geom=rb, note='道の向こう側の縁（板の範囲で切る）。お向かいの張り出しと道の狭い所をふくむ')
+    sb = LineString(SITE_OUTER + [SITE_OUTER[0]]).difference(rect.exterior.buffer(150))     # 板の縁と重なる辺（東の辺）は線にしない
+    F['敷地境界'] = dict(kind='line', prio='必須', layer='00', geom=sb, note='敷地境界（外側の線）。道・護岸との境')
+    # --- 護岸の谷積み（川側の辺の外、板の下の縁まで）：45° の格子、石 約 35 cm（T4 の谷積みと同じ）
+    x0, y0, x1, y1 = DAI_RECT
+    ry = -560.0                                                      # 川側の辺（回したあと）
+    bank = box(x0, y0, x1, ry); lns = []
+    for kk in np.arange(x0 - (ry - y0) - 3.5, x1 + 3.5, 3.5):
+        lns += [LineString([(kk, y0), (kk + (ry - y0), ry)]), LineString([(kk + (ry - y0), y0), (kk, ry)])]
+    pat = unary_union([l.intersection(bank.buffer(-0.5)) for l in lns])
+    top = LineString([(x0, ry), (-630.0, ry)])                        # 川側の辺の線（敷地境界の続き、南西の辺より西）
+    F['護岸の谷積み'] = dict(kind='line', prio='必須', layer='02', geom=unary_union([dai_inv(pat), dai_inv(top)]), note='川側の辺の外の護岸を上から見た模様（谷積み、45° の格子）')
+    # --- 道の向こう側の樹冠（お向かい）
+    cr = [(nm, g) for nm, g in _pf('77c_') if isinstance(g, r.Brep) and (_bb(g)[0] < -26000 and _bb(g)[3] < -20000)]
+    F['お向かいの樹冠'] = dict(kind='line', prio='必須', layer='77c', geom=unary_union([Point((_bb(g)[0] + _bb(g)[3]) / 2, (_bb(g)[1] + _bb(g)[4]) / 2).buffer((_bb(g)[3] - _bb(g)[0]) / 2, 32).exterior for _, g in cr]), n=len(cr), note='道の向かい側の木の樹冠（線）')
     # --- 林の範囲：樹冠（園庭の木 4 本以上が連なる所）の外形。かぜのもり・しずかのもり・おくのもりの目じるし
     cps = []
     for nm, g in _pf('94c_'):
@@ -2435,6 +2458,7 @@ def dai_sheets():
     for k, v in F.items():
         if k.startswith('_') or v['kind'] != 'line' or v['prio'] == '（省く）': continue
         g = v['geom'].difference(hole_keep.buffer(0)) if k not in ('道路の縁',) else v['geom']
+        g = g.intersection(dai_rect_3dm())
         lay = 'eng' if v['prio'] == '必須' else 'eng2'
         for x in line_geoms(g):
             if x.geom_type in ('LineString', 'LinearRing', 'MultiLineString'): s.add(T(x), lay)
