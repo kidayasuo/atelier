@@ -2967,6 +2967,7 @@ def laser_uv_of_poly(g):
     c = g.centroid
     return _uv_of(c.x, c.y)
 
+AMANO_FULL = True                       # 天の川の曲線を端から端まで切る（False なら曲線より材が出る所だけ）
 AMANO_EXT = 500.0                       # 切り取る線の端を、道の縁より先へ延ばす量（実寸 mm＝模型 5 mm）。11-02：切った板の縁が、図の縁より約 3 mm 先にあった
 
 def amano_edit():
@@ -2980,6 +2981,20 @@ def amano_edit():
     mi = [g for g in getattr(mi, 'geoms', [mi]) if g.area > 2e4]
     from shapely.ops import linemerge
     lines = []
+    if AMANO_FULL:
+        # 11-02 ユーザーの案：天の川の北の縁の曲線を、端から端まで全部切る（材のある所だけが切れ、縁の位置の誤差に左右されない）。
+        # 線は切り幅の半分（模型 0.1 mm）だけ天の川の側へ寄せる：残る板（北）の縁が曲線に来る
+        a_ = plan('15_本館_あまのがわ（土足 −150）').intersection(annulus())
+        a_ = max(getattr(a_, 'geoms', [a_]), key=lambda g: g.area)
+        north = max(getattr(nu, 'geoms', [nu]), key=lambda g: _uv_of(g.centroid.x, g.centroid.y)[0])
+        ring = a_.buffer(-10).exterior.intersection(north.exterior.buffer(40))
+        mm = linemerge(ring) if ring.geom_type == 'MultiLineString' else ring
+        for ln in [max(([mm] if mm.geom_type == 'LineString' else list(mm.geoms)), key=lambda q: q.length)]:   # 角の細かい切れ端は捨て、いちばん長い 1 本
+            c = list(ln.coords)
+            a0 = np.array(c[0]) - np.array(c[3]); a1 = np.array(c[-1]) - np.array(c[-4])
+            c = [tuple(np.array(c[0]) + a0 / np.linalg.norm(a0) * AMANO_EXT)] + c + [tuple(np.array(c[-1]) + a1 / np.linalg.norm(a1) * AMANO_EXT)]
+            lines.append(LineString(c))
+        return lines, mi
     for g in ex:
         ring = g.buffer(-10).exterior                       # 切り幅の半分（模型 0.1 mm）だけ、切り取る側へ寄せた線：残る板の縁が設計線に来る
         path = ring.difference(cu.boundary.buffer(15))      # 切った板の縁に沿う所は切らない
