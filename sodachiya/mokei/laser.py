@@ -218,6 +218,7 @@ class Sheet:
         return out
 
     MARGIN = 3.0   # 10-26 ユーザー：どのデータも左上を原点に。切る・彫る線の左上を板の左上から 3 mm に寄せる
+    show_used = False   # 11-02：詰めた板は、説明文に「使う大きさ」（外接矩形、板の左上から、マージン込み）を書く
     def to_top_left(self, texts):
         from shapely.ops import unary_union as _uu
         if getattr(self, 'no_shift', False): return texts               # 別のファイルと同じ原点に合わせる（座標を最初から板の座標で渡す）
@@ -226,6 +227,7 @@ class Sheet:
         if not allg: return texts
         b = _uu([g.envelope if g.geom_type != 'Point' else g for g in allg]).bounds
         dx, dy = self.MARGIN - b[0] + getattr(self, 'extra_dx', 0.0), (self.h - self.MARGIN) - b[3]
+        self.used = (round(b[2] - b[0] + self.MARGIN, 1), round(b[3] - b[1] + self.MARGIN, 1))
         for k in keys:
             setattr(self, k, [affinity.translate(g, dx, dy) for g in getattr(self, k)])
         self.tab_pts = [affinity.translate(q, dx, dy) for q in self.tab_pts]
@@ -235,6 +237,10 @@ class Sheet:
         if self.name.startswith(CUT_DONE):
             print('  切った部品なので書き出さない：', self.name); return
         texts = self.to_top_left(list(texts))
+        if self.show_used and getattr(self, 'used', None):
+            uw, uh = self.used
+            self.note += f'。使う大きさ{uw:g}×{uh:g} mm（板の左上から、マージン{self.MARGIN:g}込み。端材からこの大きさを切り出して使う）'
+            texts.append((self.MARGIN, self.h - uh - 4, f'使う大きさ{uw:g}×{uh:g} mm（左上から、マージン込み）', 3))
         os.makedirs(OUT, exist_ok=True)
         # SVG（mm、y は下向きに反転）
         H = self.h
@@ -289,6 +295,209 @@ def label_num(n, x, y, h=1.6):
          'e': ((0, 0), (0, h / 2)), 'f': ((0, h / 2), (0, h)), 'g': ((0, h / 2), (w, h / 2))}
     from shapely.geometry import LineString
     return [LineString([(x + p[0], y + p[1]) for p in P[s]]) for s in segs[str(n)]]
+
+# ---------- 詰め方：部品の位置だけを動かして、外接矩形を最小にする（11-02、ユーザー：端材から必要な大きさだけ切り出せるように） ----------
+# 形・向き・数は変えない。位置だけ（回さない）。部品どうしの輪郭の距離≥gap（穴の中には入れない：外形で測る）。
+# 手順：格子（res mm）に外形をgap/2だけ太らせて写し、左上から「スカイライン」で詰める（幅または高さを固定して、順番を変えて何度も）
+#       → 外接矩形の面積が最小のものを選ぶ（同じなら辺の短いほう）→ 輪郭（Shapely）で左・上へ寄せ直す → 距離を測り直して確かめる。
+import random as _random
+
+def _nest_hull(g):
+    """衝突に使う形：外形（穴は埋める）。複数の部品なら、それぞれの外形の集まり"""
+    ps = [Polygon(p.exterior) for p in getattr(g, 'geoms', [g]) if p.geom_type == 'Polygon' and not p.is_empty]
+    return ps[0] if len(ps) == 1 else MultiPolygon(ps) if ps else g
+
+class _NestPiece:
+    def __init__(self, hull, res, gap):
+        import shapely
+        h = affinity.scale(hull, 1, -1, origin=(0, 0))               # 計算はy下向き（左上が原点）
+        b = h.bounds
+        self.dx, self.dy = -b[0], -b[1]
+        h = affinity.translate(h, self.dx, self.dy)
+        self.hull = h
+        self.w, self.h = b[2] - b[0], b[3] - b[1]
+        self.area = h.area
+        d = gap / 2 + res * 0.7072
+        self.mc = int(math.ceil(d / res)) + 1
+        nc = int(math.ceil(self.w / res)) + 2 * self.mc + 1
+        nr = int(math.ceil(self.h / res)) + 2 * self.mc + 1
+        xs = (np.arange(nc) + 0.5) * res - self.mc * res
+        ys = (np.arange(nr) + 0.5) * res - self.mc * res
+        X, Y = np.meshgrid(xs, ys)
+        mask = shapely.contains_xy(h.buffer(d, quad_segs=4), X, Y)
+        self.dn = self._prof(mask, self.w, self.h)                   # 下へ伸ばす：列ごとの上端・下端
+        self.up = self._prof(mask[::-1], self.w, self.h)             # 上へ伸ばす（板の底に積む）：上下を反転して同じ手順
+        self.rt = self._prof(mask.T, self.h, self.w)                 # 右へ伸ばす：行ごとの左端・右端（転置して同じ手順）
+        self.lf = self._prof(mask.T[::-1], self.h, self.w)           # 左へ伸ばす（右の端に積む）
+    @staticmethod
+    def _prof(m, ext_fixed, ext_grow):
+        nr, nc = m.shape
+        idx = np.nonzero(m.any(axis=0))[0]
+        T = np.argmax(m[:, idx], axis=0)                              # 列の上端の行
+        B = nr - 1 - np.argmax(m[::-1, idx], axis=0)                  # 列の下端の行
+        return dict(idx=idx, T=T, B=B, wm=nc, f=ext_fixed, g=ext_grow)
+
+_SKY_ATTR = {'down': 'dn', 'up': 'up', 'right': 'rt', 'left': 'lf'}
+def _sky_pack(pcs, order, res, cap_f, cap_g, mode, crit, best_area=None):
+    """スカイライン。mode='down'：幅cap_f固定で上の端から下へ積む（高さcap_gまで）／'up'：下の端から上へ積む／'right'：高さcap_f固定で左の端から右へ（幅cap_gまで）／'left'：右の端から左へ。
+    戻り：[(x, y)]（部品の外接矩形の左上、mm、y下向き）、(使う幅, 使う高さ)。入らなければNone"""
+    from numpy.lib.stride_tricks import sliding_window_view
+    mcm = max(p.mc for p in pcs)
+    nf = int(math.floor(cap_f / res)) + 4 * mcm + 6
+    S = np.full(nf, -10 ** 6, dtype=np.int64)
+    pos = [None] * len(pcs)
+    used_f = used_g = 0.0
+    for i in order:
+        p = pcs[i]; q = getattr(p, _SKY_ATTR[mode])
+        mcp = p.mc
+        x0 = -mcp; x1 = int(math.floor((cap_f - q['f']) / res + 1e-9)) - mcp
+        if x1 < x0: return None
+        win = sliding_window_view(S, q['wm'])[mcm + x0: mcm + x1 + 1]       # (候補の数, 部品の幅の格子)
+        sw = win[:, q['idx']]
+        y0 = np.maximum((sw + 1 - q['T']).max(axis=1), -mcp)
+        if crit == 0:
+            k = int(np.argmin(y0))                                          # いちばん上（次に左）
+        else:
+            waste = np.where(sw < -10 ** 5, 0, (y0[:, None] + q['T'] - sw - 1).clip(min=0)).sum(axis=1)
+            k = int(np.argmin(y0 * 1000.0 + waste if crit == 1 else waste * 1000.0 + y0))
+        y = int(y0[k]); x = x0 + k
+        gend = (y + mcp) * res + q['g']
+        if gend > cap_g + 1e-9: return None
+        seg = S[mcm + x: mcm + x + q['wm']]
+        seg[q['idx']] = np.maximum(seg[q['idx']], y + q['B'])
+        fpos = (x + mcp) * res; gpos = (y + mcp) * res
+        pos[i] = (fpos, gpos)
+        used_f = max(used_f, fpos + q['f']); used_g = max(used_g, gend)
+        if best_area is not None and used_f * used_g > best_area * 1.002: return None
+    # 反転・転置を元に戻す（使う矩形の左上が(0, 0)）
+    out = []
+    for p, (f_, g_) in zip(pcs, pos):
+        if mode == 'down': out.append((f_, g_))
+        elif mode == 'up': out.append((f_, used_g - g_ - p.h))
+        elif mode == 'right': out.append((g_, f_))
+        else: out.append((used_g - g_ - p.w, f_))
+    return out, ((used_f, used_g) if mode in ('down', 'up') else (used_g, used_f))
+
+def _nest_orders(pcs):
+    n = len(pcs); idx = range(n)
+    o = [sorted(idx, key=lambda i: (-pcs[i].h, -pcs[i].w)),
+         sorted(idx, key=lambda i: (-pcs[i].w, -pcs[i].h)),
+         sorted(idx, key=lambda i: -pcs[i].area),
+         sorted(idx, key=lambda i: (-max(pcs[i].w, pcs[i].h), -min(pcs[i].w, pcs[i].h))),
+         sorted(idx, key=lambda i: -(pcs[i].w * pcs[i].h)),
+         sorted(idx, key=lambda i: (-pcs[i].area / max(1.0, pcs[i].w * pcs[i].h), -pcs[i].h))]
+    out = []
+    for x in o:
+        if x not in out: out.append(x)
+    return out
+
+def _nest_exact_ok(hs, pos, gap):
+    from shapely.strtree import STRtree
+    gs = [affinity.translate(h, x, y) for h, (x, y) in zip(hs, pos)]
+    t = STRtree(gs)
+    for i, g in enumerate(gs):
+        for j in t.query(g.buffer(gap)):
+            if j > i and g.distance(gs[j]) < gap - 1e-6: return False
+    return True
+
+def _nest_compact(pcs, pos, gap, passes=40, step=0.25, reach=4.0):
+    """輪郭（Shapely）で、部品を左へ・上へ寄せ直す（格子の余りを詰める）。ほかの部品との距離≥gapを保つ"""
+    pos = [list(p) for p in pos]
+    gs = [affinity.translate(p.hull, x, y) for p, (x, y) in zip(pcs, pos)]
+    bb = [g.bounds for g in gs]
+    def free(i, g):
+        gb = g.bounds
+        for j in range(len(gs)):
+            if j == i: continue
+            b = bb[j]
+            if b[0] - gap > gb[2] or b[2] + gap < gb[0] or b[1] - gap > gb[3] or b[3] + gap < gb[1]: continue
+            if g.distance(gs[j]) < gap - 1e-9: return False
+        return True
+    for _ in range(passes):
+        moved = 0.0
+        for i in sorted(range(len(pcs)), key=lambda i: (pos[i][0] + pos[i][1], pos[i][1])):
+            for ddx, ddy in ((-1, 0), (0, -1), (-1, -1)):
+                t = 0.0
+                while t + step <= reach:
+                    nx, ny = pos[i][0] + ddx * (t + step), pos[i][1] + ddy * (t + step)
+                    if nx < -1e-9 or ny < -1e-9: break
+                    if not free(i, affinity.translate(pcs[i].hull, nx, ny)): break
+                    t += step
+                lo, hi = t, t + step
+                if t + step <= reach:
+                    for _k in range(6):
+                        mid = (lo + hi) / 2
+                        nx, ny = pos[i][0] + ddx * mid, pos[i][1] + ddy * mid
+                        if nx >= -1e-9 and ny >= -1e-9 and free(i, affinity.translate(pcs[i].hull, nx, ny)): lo = mid
+                        else: hi = mid
+                if lo > 0:
+                    pos[i][0] += ddx * lo; pos[i][1] += ddy * lo
+                    gs[i] = affinity.translate(pcs[i].hull, pos[i][0], pos[i][1]); bb[i] = gs[i].bounds
+                    moved += lo
+        if moved < 0.05: break
+    return [tuple(p) for p in pos]
+
+def nest(shapes, W, H, gap, top=0.0, res=0.5, trials=None, verbose=False, seed=1, nsteps=24, norders=4, crits=(0, 1)):
+    """shapes：部品の形（衝突を測る形。穴は無視。複数の部品のかたまりでもよい）のリスト。W×H：使ってよい最大の外接矩形。
+    戻り：([(tx, ty)]、部品を動かす量（元の形のまま。使う矩形の左上がx＝0・y＝top）)、(使う幅, 使う高さ)。面積が最小、同じなら辺の短いほう"""
+    hulls = [_nest_hull(g) for g in shapes]
+    n = len(hulls)
+    if n > 40: nsteps = min(nsteps, 14); norders = min(norders, 3)       # 部品が多いと1回が重いので、探す幅を絞る
+    pcs = [_NestPiece(h, res, gap) for h in hulls]
+    mw = max(p.w for p in pcs); mh = max(p.h for p in pcs)
+    if mw > W + 1e-9 or mh > H + 1e-9: raise RuntimeError(f'板に入らない：部品の最大{mw:.1f}×{mh:.1f}が{W:.0f}×{H:.0f}より大きい')
+    rnd = _random.Random(seed)
+    ords = _nest_orders(pcs)[:norders]
+    # 固定する幅・高さの候補：細かい刻み＋同じ大きさの部品の段の組み合わせ
+    def cands(lo, hi, sizes):
+        c = set(lo + k * max(res, (hi - lo) / nsteps) for k in range(nsteps + 1)) | {hi}
+        for k in range(1, 9):
+            for s_ in sorted(set(round(s, 1) for s in sizes))[-8:]:
+                if k * s_ + (k - 1) * gap + 0.5 <= hi: c.add(k * s_ + (k - 1) * gap + 0.5)
+        return sorted(v for v in c if v >= lo - 1e-9)
+    cw = cands(mw, W, [p.w for p in pcs]); chh = cands(mh, H, [p.h for p in pcs])
+    best = [None]
+    def run(mode, c, order, crit):
+        capf, capg = (c, H) if mode in ('down', 'up') else (c, W)
+        r_ = _sky_pack(pcs, order, res, capf, capg, mode, crit, best[0][0] if best[0] else None)
+        if r_ is None: return False
+        pos, (uw, uh) = r_
+        key = (round(uw * uh, 1), max(uw, uh))
+        if best[0] is None or key < best[0][1]:
+            best[0] = (uw * uh, key, pos, mode, c, list(order), crit)
+            return True
+        return False
+    for o in ords:
+        for crit in crits:
+            for md in ('down', 'up'):
+                for c in cw: run(md, c, o, crit)
+            for md in ('right', 'left'):
+                for c in chh: run(md, c, o, crit)
+    if trials is None: trials = int(min(1200, max(60, 12000 / (n + 4))))
+    for t in range(trials):
+        _, key, pos, mode, c, o, crit = best[0]
+        o = list(o)
+        for _m in range(rnd.choice((1, 1, 2, 3))):
+            a = rnd.randrange(n); b = rnd.randrange(n)
+            if rnd.random() < 0.5: o[a], o[b] = o[b], o[a]
+            else: o.insert(b, o.pop(a))
+        m2 = mode if rnd.random() < 0.8 else rnd.choice(('down', 'up', 'right', 'left'))
+        uw, uh = max(x + p.w for (x, y), p in zip(pos, pcs)), max(y + p.h for (x, y), p in zip(pos, pcs))
+        vert = m2 in ('down', 'up')
+        base = uw if vert else uh
+        lo = (mw if vert else mh)
+        c2 = min(W if vert else H, max(lo, base + rnd.uniform(-0.15, 0.1) * base))
+        run(m2, c2, o, rnd.choice((crit, 0, 1, 2)))
+    if best[0] is None: raise RuntimeError('詰められない（板に入らない）')
+    _, key, pos, mode, c, o, crit = best[0]
+    pos = _nest_compact(pcs, pos, gap)
+    x0 = min(x for x, y in pos); y0 = min(y for x, y in pos)
+    pos = [(x - x0, y - y0) for x, y in pos]
+    uw = max(x + p.w for (x, y), p in zip(pos, pcs)); uh = max(y + p.h for (x, y), p in zip(pos, pcs))
+    assert _nest_exact_ok([p.hull for p in pcs], pos, gap), '距離が足りない'
+    if verbose: print('nest', n, mode, round(c, 1), 'crit', crit, '->', round(uw, 1), round(uh, 1), round(uw * uh))
+    # 元の形（y上向き）を動かす量：x＝dx＋x、y＝top−(最大のy)−y
+    return [(p.dx + x, top - p.dy - y) for (x, y), p in zip(pos, pcs)], (uw, uh)
 
 # ================= 1. 試し切り =================
 # 出力を 3 段（弱・中・強）で試す。段ごとに切る線の色を変え（1＝赤、2＝橙、3＝紫）、
@@ -768,25 +977,30 @@ def west_sheets():
         b = g.bounds
         items.append((nm, k, affinity.translate(g, -b[0], -b[1]),
                       [affinity.translate(q, -b[0], -b[1]) for q in tp] if tp else None))
-    # 棚に並べる（高い順）：300×600 の板（590×295 を使う）
+    # 詰める（11-02）：外接矩形が最小になるように位置だけを動かす（向きは元のまま：柱は縦、梁は横）。入らなければ棚に並べる（高い順、板は590×295を使う）
     W, H, gap = 590, 295, 1.6
     items.sort(key=lambda it: (-(it[2].bounds[3]), it[0]))
-    sheets = [[]]; x = y = rowh = 0
-    for it in items:
-        w, h = it[2].bounds[2], it[2].bounds[3]
-        if x + w > W:
-            x = 0; y += rowh + gap; rowh = 0
-        if y + h > H:
-            sheets.append([]); x = y = rowh = 0
-        sheets[-1].append((it, x, y)); x += w + gap; rowh = max(rowh, h)
+    try:
+        mv, (uw, uh) = nest([it[2] for it in items], 600 - 2 * Sheet.MARGIN, 300 - 2 * Sheet.MARGIN, gap, top=H)
+        sheets = [[(it, tx, ty) for it, (tx, ty) in zip(items, mv)]]
+    except RuntimeError:
+        sheets = [[]]; x = y = rowh = 0
+        for it in items:
+            w, h = it[2].bounds[2], it[2].bounds[3]
+            if x + w > W:
+                x = 0; y += rowh + gap; rowh = 0
+            if y + h > H:
+                sheets.append([]); x = y = rowh = 0
+            sheets[-1].append((it, x, H - y - h)); x += w + gap; rowh = max(rowh, h)
     for si, lst in enumerate(sheets):
         s = Sheet(f'07_西館の架構_{si + 1}_航空ベニヤ0.8', 600, 300,
-                  f'航空ベニヤ 0.8 300×600：西館の架構（柱は 2 枚で 1 本、梁・2 階の床梁は 2 枚で柱を挟む）桁の穴 D。番号＝架構（南から）')
+                  f'航空ベニヤ 0.8 300×600：西館の架構（柱は 2 枚で 1 本、梁・2 階の床梁は 2 枚で柱を挟む）桁の穴 D。番号＝架構（南から）。向きは元のまま、外接矩形が最小になるように詰めた（部品の間{gap} mm以上）')
+        s.show_used = True
         s.add(box(0, 0, 600, 300), 'ref')
         for (nm, k, g, tp), x, y in lst:
-            q = affinity.translate(g, x, H - y - g.bounds[3])
+            q = affinity.translate(g, x, y)
             s.add(q)
-            if tp: s.tab_pts += [affinity.translate(t, x, H - y - g.bounds[3]) for t in tp]
+            if tp: s.tab_pts += [affinity.translate(t, x, y) for t in tp]
             # 架構の番号を彫る（部品の中ほど、裏になる面）
             c = q.representative_point(); txt = str(k)
             if nm == '柱':
@@ -874,20 +1088,33 @@ def yamato_lines(poly):
 
 def wall_sheets():
     W = honkan_walls()
-    s = Sheet('08_本館の外壁_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：本館の外壁（西は弧を展開、北の妻、南の妻の西の端）。天端は梁の上面。大和張りの線は彫り')
+    s = Sheet('08_本館の外壁_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：本館の外壁（西は弧を展開、北の妻、南の妻の西の端）。天端は梁の上面。大和張りの線は彫り。向きは元のまま、外接矩形が最小になるように詰めた（板どうし4 mm以上）')
+    s.show_used = True
     s.add(box(0, 0, 600, 300), 'ref')
-    y = 0; texts = []
-    rows = [['西の外壁'], ['北の妻', '南の妻の西の端']]
-    for row in rows:
-        x = 0; rowh = 0
-        for k in row:
-            g = W[k]
-            q = affinity.translate(g, x, 300 - y - g.bounds[3])
-            s.add(q)
-            for ln in yamato_lines(q): s.add(ln, 'eng')
-            texts.append((x, 300 - y - g.bounds[3] - 3, k, 2.5))
-            x += g.bounds[2] + 4; rowh = max(rowh, g.bounds[3])
-        y += rowh + 8
+    # 部品＝ひと続きの板。戸のすき間などで離れた板（西の外壁は2枚＋かけら）は別々に動かす。4 mmより近い板（かけらなど）は、今の並びのまま1組。
+    # 大和張りの線は壁ごとの位置（左端から1.35・1.05の交互）のまま、組ごとに分ける
+    gap = 4.0
+    pieces = []
+    for k in ('西の外壁', '北の妻', '南の妻の西の端'):
+        g = W[k]; ps = list(getattr(g, 'geoms', [g])); lines = yamato_lines(g)
+        grp = list(range(len(ps)))                                   # 近い板をまとめる（距離<gap）
+        for i in range(len(ps)):
+            for j in range(i):
+                if ps[i].distance(ps[j]) < gap and grp[i] != grp[j]:
+                    old = grp[i]; grp = [grp[j] if v == old else v for v in grp]
+        groups = sorted(set(grp), key=lambda v: min(ps[i].bounds[0] for i in range(len(ps)) if grp[i] == v))
+        for gi, v in enumerate(groups):
+            mem = [ps[i] for i in range(len(ps)) if grp[i] == v]
+            u = unary_union(mem); inner = u.buffer(-0.3)
+            ln = [x for x in (l.intersection(inner) for l in lines) if not x.is_empty]
+            pieces.append((k if len(groups) == 1 else f'{k} {gi + 1}/{len(groups)}', u, ln))
+    mv, (uw, uh) = nest([p for _, p, _ in pieces], 600 - 2 * Sheet.MARGIN, 300 - 2 * Sheet.MARGIN, gap, top=300)
+    texts = []
+    for (nm, p, ln), (tx, ty) in zip(pieces, mv):
+        q = affinity.translate(p, tx, ty)
+        for pp in getattr(q, 'geoms', [q]): s.add(pp)
+        for l in ln: s.add(affinity.translate(l, tx, ty), 'eng')
+        texts.append((q.bounds[0], q.bounds[1] - 3, nm, 2.5))
     s.save(texts)
     return {k: tuple(round(v, 1) for v in g.bounds[2:]) for k, g in W.items()}
 
@@ -973,23 +1200,32 @@ def west_wall_sheets():
     yFL = (0.0 - GL) * S
     s = Sheet('14w_西館の外壁_航空ベニヤ1.0', 600, 300,
               '航空ベニヤ 1.0 300×600：西館の外壁（A＝北の妻→北東の丸み→北西の壁→北西の丸み→西の壁→南西の丸み→南の妻、外から見て左＝北、湿らせて巻く／B＝東の面）。'
-              '天端は梁の上面、下端は GL（FL までの 3 mm は帯）。大和張りの線（1.05 間隔）は A だけ彫り。開口は切り（ガラスの面は PET を貼る）')
+              '天端は梁の上面、下端は GL（FL までの 3 mm は帯）。大和張りの線（1.05 間隔）は A だけ彫り。開口は切り（ガラスの面は PET を貼る）。向きは元のまま、外接矩形が最小になるように詰めた（A・Bの間14 mm以上）')
+    s.show_used = True
     s.add(box(0, 0, 600, 300), 'ref')
-    y = 150.0; texts = []; res = {}
+    # 詰める（11-02）：A・Bの位置だけを動かして外接矩形を最小に（向きは元のまま。Aの上の山なりのくぼみにBが入る）。間は今までの14 mm
+    items = {}; res = {}
     for k in ('A', 'B'):
         g = pcs[k]; b = g.bounds
-        q = affinity.translate(g, -b[0], y - b[1])
-        for p in getattr(q, 'geoms', [q]): s.add(p)
+        q = affinity.translate(g, -b[0], -b[1])                      # 左下を原点に（この中で、下端y＝0）
+        eng = []
         if k == 'A':
             for ln in yamato_lines(q):
-                ln = ln.intersection(box(-1, y + yFL, 700, y + 400))     # FL までの帯には彫らない
-                if not ln.is_empty: s.add(ln, 'eng')
+                ln = ln.intersection(box(-1, yFL, 700, 400))     # FL までの帯には彫らない
+                if not ln.is_empty: eng.append(ln)
             for x0, x1 in mz:
-                ln = LineString([(x0 - b[0], y + (WW_MIZUKIRI_Z - GL) * S), (x1 - b[0], y + (WW_MIZUKIRI_Z - GL) * S)]).intersection(q.buffer(-0.3))
-                if not ln.is_empty: s.add(ln, 'eng')
-        texts.append((0, y - 5, {'A': 'A 西の外壁一周（左＝北、湿らせて巻く）', 'B': 'B 東の面（すき間側、外から見て左＝南）'}[k], 2.5))
+                ln = LineString([(x0 - b[0], (WW_MIZUKIRI_Z - GL) * S), (x1 - b[0], (WW_MIZUKIRI_Z - GL) * S)]).intersection(q.buffer(-0.3))
+                if not ln.is_empty: eng.append(ln)
+        items[k] = (q, eng)
         res[k] = (round(b[2] - b[0], 1), round(b[3] - b[1], 1), len(getattr(g, 'geoms', [g])))
-        y -= (b[3] - b[1]) + 14
+    mv, (uw, uh) = nest([items[k][0] for k in ('A', 'B')], 600 - 2 * Sheet.MARGIN, 300 - 2 * Sheet.MARGIN, 14.0, top=300)
+    texts = []
+    for k, (tx, ty) in zip(('A', 'B'), mv):
+        q, eng = items[k]
+        q = affinity.translate(q, tx, ty)
+        for p in getattr(q, 'geoms', [q]): s.add(p)
+        for ln in eng: s.add(affinity.translate(ln, tx, ty), 'eng')
+        texts.append((q.bounds[0], q.bounds[1] - 5, {'A': 'A 西の外壁一周（左＝北、湿らせて巻く）', 'B': 'B 東の面（すき間側、外から見て左＝南）'}[k], 2.5))
     s.save(texts)
     return res
 
@@ -1139,44 +1375,49 @@ def hut_kikai_sheets():
     b06a = _svg_rings('06a_本館の屋根_上の層_シナ1.7.svg', 220)[0].bounds
     W6 = 841 - SCRAP_X0
     s6 = Sheet('06c_屋根の差し込み小片と小屋・機械室の屋根_シナ1.7', W6, 220,
-               f'シナ 1.7 の端材（06a を取った帯の右の余り、06a は x {b06a[0]:.0f}〜{b06a[2]:.0f}）：06a の光の筋の穴の東の端を埋める差し込み小片 18（南から 1〜18）、小屋の屋根、機械室の屋根')
+               f'シナ 1.7 の端材（06a を取った帯の右の余り、06a は x {b06a[0]:.0f}〜{b06a[2]:.0f}）：06a の光の筋の穴の東の端を埋める差し込み小片 18（南から 1〜18）、小屋の屋根、機械室の屋根。向きは元のまま、外接矩形が最小になるように詰めた（5 mm以上）')
+    s6.show_used = True
     s6.add(box(0, 0, W6, 220), 'ref')
-    pitch_x, pitch_y = 22.0, 7.0
+    # 詰める（11-02）：小片18（番号の彫りは小片の左）・小屋の屋根・機械室の屋根の位置だけを動かし、外接矩形を最小に（向きは元のまま）。間は5 mm以上
+    items = []                                                       # (切る形, [彫る線], [つなぎの点], [(文字の位置x, y, 文字, 大きさ)]、衝突を測る形)
     for i, (n_, plug, mid) in enumerate(sorted(plugs, key=lambda p: p[0])):
-        col, row = i % 9, i // 9
         p = _upright_h(plug.buffer(PLUG_GROW, join_style=2), mid)
-        p = place(p, col * pitch_x + 5, -row * pitch_y - 3)
-        s6.add(p)
+        p = place(p, 5, 0)
         b = p.bounds; yc = (b[1] + b[3]) / 2
-        s6.tab_pts += [Point((b[0] + b[2]) / 2, b[1]), Point((b[0] + b[2]) / 2, b[3])]
+        eng = []
         for j, ch in enumerate(str(n_)):
-            for l in label_num(ch, col * pitch_x + j * 1.3 - 0.2, yc - 0.55, 1.1):
-                s6.add(l, 'eng')
+            eng += label_num(ch, j * 1.3 - 0.2, yc - 0.55, 1.1)
+        tabs = [Point((b[0] + b[2]) / 2, b[1]), Point((b[0] + b[2]) / 2, b[3])]
+        lab = unary_union(eng).buffer(0.3, cap_style=2, join_style=2).envelope
+        items.append((p, eng, tabs, [], unary_union([p, lab])))
     # 小屋の屋根：平面（a 20.3〜31.3 × d 1.1〜6.3 m）。1/10 の斜めなので d 方向は斜めの長さ。北東（d 小）を上に、a を右に（上から見たまま）
     ra, rd = HUT_ROOF['a'], HUT_ROOF['d']
     Lr, Dr = (ra[1] - ra[0]) * 10, (rd[1] - rd[0]) * 10 * math.sqrt(1 + HUT_ROOF['pitch'] ** 2)
-    yb = -(2 * pitch_y + 12)
-    s6.add(place(box(0, 0, Lr, Dr), 0, yb - Dr))
     wall, kroof, kinfo = kikai_parts()
     kh = kroof.bounds[3] - kroof.bounds[1]
-    s6.add(place(kroof, Lr + 8, yb - kh))                                 # 世界の向きのまま（上から見て、上＝北）
-    s6.save([(0, 3, '差し込み小片 1〜18（南から）。番号の彫りは小片の左', 2.5),
-             (0, yb - Dr - 3, f'小屋の屋根 {Lr:.1f}×{Dr:.2f}（上から見て：上＝北東の軒（低い）、右＝南東）', 2.5),
-             (Lr + 8, yb - kh - 3, '機械室の屋根（上から見て、上＝北）', 2.5)])
+    g1 = box(0, 0, Lr, Dr)
+    items.append((g1, [], [], [(0, -3, f'小屋の屋根 {Lr:.1f}×{Dr:.2f}（上から見て：上＝北東の軒（低い）、右＝南東）', 2.5)], g1))
+    g2 = place(kroof, 0, 0)                                          # 世界の向きのまま（上から見て、上＝北）
+    items.append((g2, [], [], [(0, -3, '機械室の屋根（上から見て、上＝北）', 2.5)], g2))
+    gap6 = 5.0
+    mv, (uw, uh) = nest([it[4] for it in items], W6 - 2 * Sheet.MARGIN, 220 - 2 * Sheet.MARGIN, gap6, top=220)
+    for (p, eng, tabs, txs, _), (tx, ty) in zip(items, mv):
+        s6.add(affinity.translate(p, tx, ty))
+        s6.tab_pts += [affinity.translate(t, tx, ty) for t in tabs]
+        for l in eng: s6.add(affinity.translate(l, tx, ty), 'eng')
+    t6 = [(0, 220 + 3, '差し込み小片 1〜18（南から）。番号の彫りは小片の左', 2.5)]
+    for (p, eng, tabs, txs, _), (tx, ty) in zip(items, mv):
+        for x_, y_, t_, z_ in txs:
+            bb = affinity.translate(p, tx, ty).bounds
+            t6.append((bb[0] + x_, bb[1] + y_, t_, z_))
+    s6.save(t6)
     # ---- 11：航空ベニヤ 1.0 ----
-    s = Sheet('11_小屋と機械室_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：園庭の小屋（便所・倉庫・コンポストの枠）と底の開いた箱。屋根は 06c（シナ 1.7）。機械室の壁は 11b（航空ベニヤ 0.6）')
+    s = Sheet('11_小屋と機械室_航空ベニヤ1.0', 600, 300, '航空ベニヤ 1.0 300×600：園庭の小屋（便所・倉庫・コンポストの枠）と底の開いた箱。屋根は 06c（シナ 1.7）。機械室の壁は 11b（航空ベニヤ 0.6）。向きは元のまま、外接矩形が最小になるように詰めた（板どうし4 mm以上）')
+    s.show_used = True
     s.add(box(0, 0, 600, 300), 'ref')
-    texts = []
-    st = dict(x=0.0, y=0.0, rowh=0.0)
+    pend = []                                                       # (形, 文字)：あとで外接矩形が最小になるように詰める（11-02、向きは元のまま、板どうし4 mm以上）
     def put(geom, label):
-        w_, h_ = geom.bounds[2], geom.bounds[3]
-        if st['x'] + w_ > 590:
-            st['x'] = 0.0; st['y'] += st['rowh'] + 9; st['rowh'] = 0.0
-        q = place(geom, st['x'], 300 - st['y'] - h_)
-        s.add(q)
-        texts.append((st['x'], 300 - st['y'] - h_ - 3, label, 2.2))
-        st['x'] += w_ + 4; st['rowh'] = max(st['rowh'], h_)
-        return q
+        pend.append((geom, label))
     hb = _hut_boxes()
     for nm in ('便所', '倉庫'):
         La, Ld, hne, hsw = hb[nm]
@@ -1190,9 +1431,16 @@ def hut_kikai_sheets():
                      ('横の壁 1', box(0, 0, fd - 2 * T_VENEER, fh - T_VENEER)), ('横の壁 2', box(0, 0, fd - 2 * T_VENEER, fh - T_VENEER)),
                      ('ふた', box(0, 0, fa, fd))):
             put(g, f'枠「{lab}」' if k == '前の壁' else '')
+    mv, _ = nest([g for g, _ in pend], 600 - 2 * Sheet.MARGIN, 300 - 2 * Sheet.MARGIN, 4.0, top=300)
+    texts = []
+    for (g, label), (tx, ty) in zip(pend, mv):
+        q = affinity.translate(g, tx, ty)
+        s.add(q)
+        texts.append((q.bounds[0], q.bounds[1] - 3, label, 2.2))
     s.save(texts)
     # ---- 11b：航空ベニヤ 0.6（機械室の壁。角の半径が 13 mm で 1.0 の板では巻けない） ----
     s2 = Sheet('11b_機械室の壁_航空ベニヤ0.6', 600, 300, '航空ベニヤ 0.6 300×600：機械室（おむすび）の壁。周を 1 枚に展開（大和張り、戸の開口 1.6×2.1）。切り幅 0.20 と仮定し、戸の開口は 0.2 小さく描く。屋根は 06c（シナ 1.7）')
+    s2.show_used = True
     s2.add(box(0, 0, 600, 300), 'ref')
     w2 = place(kinfo['wall06'], 0, 300 - kinfo['H'])
     s2.add(w2)
@@ -1456,16 +1704,16 @@ def interior_sheets():
     for f in feet:
         par = next(r_ for r_ in runs if r_.id == f.foot_of)
         items.append((f'{par.id}{"A" if f.side == "A" else "B"}', f))
-    shelf = kabe_shelf([(n, R_.poly) for n, R_ in items], 590, 290)
+    shelf = kabe_layout(items)
     nsheet = 0
     miss = []
     for si, lst in enumerate(shelf):
         s = Sheet(f'09_室内の壁_{si + 1}_航空ベニヤ0.6', 600, 300,
-                  '航空ベニヤ 0.6 300×600：本館の1階の間仕切り（番号は 10_室内の壁の配置図 と同じ。足は番号に A・B）。高さは床の上面から。半欠きは切り込み（上から／下から）')
-        s.tabs = True
-        for (n, g), x, y in lst:
+                  '航空ベニヤ 0.6 300×600：本館の1階の間仕切り（番号は 10_室内の壁の配置図 と同じ。足は番号に A・B）。高さは床の上面から。半欠きは切り込み（上から／下から）。向きは元のまま、外接矩形が最小になるように詰めた（壁どうし2.5 mm以上）')
+        s.tabs = True; s.show_used = True
+        for n, tx, ty in lst:
             R_ = dict(items)[n]
-            q = affinity.translate(R_.poly, x - R_.poly.bounds[0], 290 - y - R_.poly.bounds[3])
+            q = affinity.translate(R_.poly, tx, ty)
             for pp in kabe._parts(q):
                 s.add(pp)
                 s.tab_pts += _tab_points(pp)
@@ -1492,6 +1740,16 @@ def kabe_shelf(items, W, H, gap=2.5):
         if y + h > H: sheets.append([]); x = y = rowh = 0
         sheets[-1].append(((n, g), x, y)); x += w + gap; rowh = max(rowh, h)
     return sheets
+
+def kabe_layout(items, gap=2.5):
+    """間仕切りの板の並べ方（11-02）：壁（と足）ごとのひとかたまりを、外接矩形が最小になるように詰める（向きは元のまま）。
+    戻り：板ごとの[(番号, 動かす量x, y)]。1枚に入らなければ今までの棚詰め"""
+    try:
+        mv, _ = nest([R_.poly for n, R_ in items], 600 - 2 * Sheet.MARGIN, 300 - 2 * Sheet.MARGIN, gap, top=290)
+        return [[(n, tx, ty) for (n, R_), (tx, ty) in zip(items, mv)]]
+    except RuntimeError:
+        shelf = kabe_shelf([(n, R_.poly) for n, R_ in items], 590, 290, gap)
+        return [[(n, x - g.bounds[0], 290 - y - g.bounds[3]) for (n, g), x, y in lst] for lst in shelf]
 
 def plan_pdf(W_):
     """配置図（1/100、平面）：壁の線と番号、針の印の点、架構の番号"""
@@ -1962,16 +2220,16 @@ def interior_sheets_w():
     for f in feet:
         par = next(r_ for r_ in runs if r_.id == f.foot_of)
         items.append((f'{par.id}{"A" if f.side == "A" else "B"}', f))
-    shelf = kabe_shelf([(n, R_.poly) for n, R_ in items], 590, 290)
+    shelf = kabe_layout(items)
     nsheet = 0; miss = []
     for si, lst in enumerate(shelf):
         nm = WALL_NAME_W if len(shelf) == 1 else f'{WALL_NAME_W}_{si + 1}'
         s = Sheet(nm, 600, 300,
-                  '航空ベニヤ 0.6 300×600：西館の1階の間仕切り（番号は 10w_西館の室内の壁の配置図 と同じ。足は番号に A・B）。高さは床の上面から。半欠きは切り込み（上から／下から）。切り幅は0.20と仮定（T5 の結果が mokei.json に入るまで）')
-        s.tabs = True
-        for (n, g), x, y in lst:
+                  '航空ベニヤ 0.6 300×600：西館の1階の間仕切り（番号は 10w_西館の室内の壁の配置図 と同じ。足は番号に A・B）。高さは床の上面から。半欠きは切り込み（上から／下から）。切り幅は0.20と仮定（T5 の結果が mokei.json に入るまで）。向きは元のまま、外接矩形が最小になるように詰めた（壁どうし2.5 mm以上）')
+        s.tabs = True; s.show_used = True
+        for n, tx, ty in lst:
             R_ = dict(items)[n]
-            q = affinity.translate(R_.poly, x - R_.poly.bounds[0], 290 - y - R_.poly.bounds[3])
+            q = affinity.translate(R_.poly, tx, ty)
             for pp in kabe._parts(q):
                 s.add(pp)
                 s.tab_pts += _tab_points(pp)
@@ -2774,21 +3032,20 @@ def west_floor_sheets():
     for nm, g in (('1階 上の層（はだし FL）', upper), ('1階 下の層（上と同じ形）', lower), ('2階の床', f2)):
         g = _to_w(g, ang); b = g.bounds
         items.append((nm, affinity.translate(g, -b[0], -b[1])))
-    # 置き方：06b の A1（上 約 150 mm を使う）の残り 841×444 に、3 枚を 1 列に（左から 1 階の上の層・下の層・2 階の床）
+    # 置き方：06bのA1の残り841×444。11-02：3枚の位置だけを動かして、外接矩形が最小になるように詰める（向きは元のまま、間は今までの6 mm以上）
     W, H, gap = 841, 444, 6
-    s = Sheet('12w_西館の床_シナ1.7', W, H, 'シナ 1.7：西館の床。1階の上の層（FL）と下の層（同じ形：西館に土足・段の所は無い）、2階の床。柱の穴 1.60×3.9（実寸 約 1.80×4.1）、遊戯室の摺鉢の穴は 1階の 2枚とも抜く。v −0.35 より東（本館とのすき間）は出さない')
+    s = Sheet('12w_西館の床_シナ1.7', W, H, 'シナ 1.7：西館の床。1階の上の層（FL）と下の層（同じ形：西館に土足・段の所は無い）、2階の床。柱の穴 1.60×3.9（実寸 約 1.80×4.1）、遊戯室の摺鉢の穴は 1階の 2枚とも抜く。v −0.35 より東（本館とのすき間）は出さない。向きは元のまま、外接矩形が最小になるように詰めた（板どうし6 mm以上）')
+    s.show_used = True
     s.add(box(0, 0, W, H), 'ref')
-    pos = []; x = 0
-    for nm, g in items:
-        q = affinity.translate(g, x, 0)
+    mv, (uw, uh) = nest([g for _, g in items], W - 2 * Sheet.MARGIN, H - 2 * Sheet.MARGIN, gap, top=H)
+    pos = []
+    for (nm, g), (tx, ty) in zip(items, mv):
+        q = affinity.translate(g, tx, ty)
         s.add(q)
         if nm.startswith('2階'): s.tab_pts += _longest_mid_pts(Polygon(q.exterior))
-        pos.append((nm, round(g.bounds[2], 1), round(g.bounds[3], 1), round(x, 1)))
-        x += g.bounds[2] + gap
-    hh = max(g.bounds[3] for _, g in items)
-    used_h = hh + Sheet.MARGIN
-    s.save([(0, -4, '左から：1階 上の層・1階 下の層（同じ形）・2階の床', 3)])
-    return dict(sheet=(W, H), 並べ方=pos, 使う幅=round(x - gap + Sheet.MARGIN, 1), 使う高さ=round(used_h, 1), 余り_高さ=round(H - used_h, 1), info=info)
+        pos.append((nm, round(g.bounds[2], 1), round(g.bounds[3], 1), round(q.bounds[0], 1), round(H - q.bounds[3], 1)))
+    s.save([(0, -4, '1階 上の層・1階 下の層（同じ形）・2階の床。位置は外接矩形が最小になるように詰めた', 3)])
+    return dict(sheet=(W, H), 並べ方=pos, 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), info=info)
 
 def west_stair_treads():
     """階段（レイヤー 25、面のメッシュ。段板は厚 40）の踏面：[(高さ z（3dm の mm）, 平面の形（3dm の mm）)]、低い順。
@@ -2833,24 +3090,20 @@ def west_stair_sheets():
         b = g.bounds
         items.append((m, affinity.translate(g, -b[0], -b[1])))
     W, H, gap = 600, 300, 1.6
-    s = Sheet('13w_西館の階段_航空ベニヤ0.6', W, H, f'航空ベニヤ 0.6 300×600：西館の階段（階段 1 段＝板 3 枚の積層）。板 m 枚目の形＝高さが 0.6×m 以上の踏面の和（踊り場を含む）。板は下から 1〜{len(items)}、番号を彫る')
+    s = Sheet('13w_西館の階段_航空ベニヤ0.6', W, H, f'航空ベニヤ 0.6 300×600：西館の階段（階段 1 段＝板 3 枚の積層）。板 m 枚目の形＝高さが 0.6×m 以上の踏面の和（踊り場を含む）。板は下から 1〜{len(items)}、番号を彫る。向きは元のまま、外接矩形が最小になるように詰めた（板どうし{gap} mm以上）')
+    s.show_used = True
     s.add(box(0, 0, W, H), 'ref')
     items.sort(key=lambda it: (-it[1].bounds[3], it[0]))
-    x = y = rowh = 0
-    for m, g in items:
-        w, h = g.bounds[2], g.bounds[3]
-        if x + w > W - 6:
-            x = 0; y += rowh + gap; rowh = 0
-        if y + h > H - 6: raise RuntimeError('13w が 600×300 に入らない')
-        q = affinity.translate(g, x, H - y - h)
+    mv, (uw, uh) = nest([g for _, g in items], W - 2 * Sheet.MARGIN, H - 2 * Sheet.MARGIN, gap, top=H)
+    for (m, g), (tx, ty) in zip(items, mv):
+        q = affinity.translate(g, tx, ty)
         s.add(q); s.tab_pts += _longest_mid_pts(q)
         c = q.representative_point(); txt = str(m)
         for j, ch in enumerate(txt):
             for l in label_num(ch, c.x - len(txt) * 0.6 + j * 1.2, c.y - 0.6, 1.2): s.add(l, 'eng')
-        x += w + gap; rowh = max(rowh, h)
     s.tab_gap = lambda: 0.35                                     # 0.8 の弱い設定に準じる（ユーザー 11-02）
     s.save([(0, -4, f'{len(items)} 枚。番号＝下から何枚目', 3)])
-    return dict(板=len(items), 踏面=len(ns), 踏面の板数=[n for n, _ in ns], 使う高さ=round(y + rowh + 6, 1), 板の最大=(round(max(g.bounds[2] for _, g in items), 1), round(max(g.bounds[3] for _, g in items), 1)))
+    return dict(板=len(items), 踏面=len(ns), 踏面の板数=[n for n, _ in ns], 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), 板の最大=(round(max(g.bounds[2] for _, g in items), 1), round(max(g.bounds[3] for _, g in items), 1)))
 
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
