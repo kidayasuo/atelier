@@ -2153,11 +2153,11 @@ DAI_ROAD_WIN = (-45000, -75000, -24000, -30000)  # 道路を見せる窓（3dm m
 DAI_HOLE_SHRINK = 0.11                           # 建物の穴は、切り幅の分（シナ 3：0.22）だけ小さく描く＝片側 0.11（模型 mm）
 # 台の板は長方形（11-02、ユーザー）：横＝敷地の南西の辺（12 m）の線から、さらに 8 m 西（道路の向こう側）まで、東は敷地の東の辺まで。
 # 縦＝A1 いっぱい（板の縁から 3 mm ずつ残して 588）：下に護岸の谷積み、上に道を数 mm（敷地境界の線）。数字は dai_tx で回したあとの模型 mm（北の角が原点、川側の辺が y＝−560）
-DAI_RECT_X = (-710.0, 0.0)
+DAI_RECT_X = (-730.0, 0.0)                 # 西は 10 m（横断歩道を渡りきる所まで。8 m では帯が板の縁で切れる：11-02）
 DAI_RECT_TOP = 4.0                               # 敷地の北の辺より上に出す（道と敷地境界の線を見せる）
 DAI_RECT_H = 588.0                               # 594 − 3×2
 DAI_RECT = (DAI_RECT_X[0], DAI_RECT_TOP - DAI_RECT_H, DAI_RECT_X[1], DAI_RECT_TOP)
-DAI_ROAD_NEAR = 3500                             # 道路の縁のうち、敷地境界から これ（3dm mm）以内の線は、敷地境界の線と二重になるので彫らない（道路の近い縁と敷地境界の間の細いすき間は、3dm のデータの誤差）
+DAI_ROAD_NEAR = 100                              # 道路の縁のうち、敷地境界と重なる線（これ（3dm mm）以内）は彫らない。南西の角から先、境界から離れていく縁（橋の袂の三角形の道の側の辺）は彫る
 DAI_TREE_CROWN_ROAD = ('お向かいの張り出しの木',)
 DAI_SLOT_LEN = 4.0                               # 足の溝の長さ（塀に沿う向き、模型 mm）
 DAI_SLOT_W = 0.4                                 # 足の溝の幅（描く幅）。11-02 の試し片：0.4＝ぎちぎちだが入る、0.5＝簡単に抜ける、0.6＝がばがば → 0.4
@@ -2227,6 +2227,40 @@ def dai_road():
             P = Polygon(pts)
             if P.is_valid and P.area > 0 and P.intersects(win): ts.append(P)
     return unary_union(ts)
+
+def dai_zebra(road, BAR=4.5, GAP=4.5, LEN=40.0, EDGE=3.0):
+    """横断歩道の帯（模型 mm、回したあとの座標で作って 3dm に戻す）。橋の袂の三角形：敷地の南西の角（−630, −440）から、道の近い側の縁が川側の辺（y −560）まで続く線。その長さの半分の所から、縁に直角に道を渡る"""
+    from shapely.geometry import LineString as _LS, Polygon as _Pg
+    rb = dai_tx(road.boundary)
+    reg = box(-720, -560, -628, -436)
+    segs = [g for g in getattr(rb.intersection(reg), 'geoms', [rb.intersection(reg)]) if g.geom_type == 'LineString']
+    E = None
+    for s_ in segs:
+        cs = [c for c in s_.coords]
+        for i, c in enumerate(cs):
+            if abs(c[0] + 630) < 0.5 and abs(c[1] + 440) < 0.5: E = _LS(cs[i:]); break
+        if E is not None: break
+    assert E is not None, '近い側の縁が見つからない'
+    P0 = np.array(E.interpolate(0.5, normalized=True).coords[0])
+    cs = np.array(E.coords); L_ = 0.0; r_ = None
+    for a_, b_ in zip(cs[:-1], cs[1:]):
+        d_ = np.linalg.norm(b_ - a_)
+        if L_ + d_ >= E.length / 2 - 1e-9: r_ = (b_ - a_) / d_; break
+        L_ += d_
+    n_ = np.array([r_[1], -r_[0]])
+    if n_[0] > 0: n_ = -n_                                           # 道の中（西）へ
+    far = rb.difference(E.buffer(1.0))
+    ray = _LS([tuple(P0 + n_ * 0.5), tuple(P0 + n_ * 400)])
+    hit = ray.intersection(far)
+    hs = [np.linalg.norm(np.array(g.coords[0]) - P0) for g in getattr(hit, 'geoms', [hit]) if not g.is_empty and g.geom_type == 'Point']
+    W = min(hs)
+    N = int((W - 2 * EDGE + GAP) // (BAR + GAP)); t0 = (W - (N * (BAR + GAP) - GAP)) / 2
+    bars = []
+    for k in range(N):
+        c0 = P0 + n_ * (t0 + k * (BAR + GAP)); c1 = P0 + n_ * (t0 + k * (BAR + GAP) + BAR)
+        bars.append(_Pg([tuple(c0 - r_ * LEN / 2), tuple(c1 - r_ * LEN / 2), tuple(c1 + r_ * LEN / 2), tuple(c0 + r_ * LEN / 2)]).exterior)
+    print('横断歩道：P0', [round(v, 1) for v in P0], '渡る長さ', round(W / 10, 2), 'm、帯', N, '本、向き', round(math.degrees(math.atan2(r_[1], r_[0])), 1), '°')
+    return dai_inv(unary_union(bars))
 
 def dai_features():
     """台の表面に載せるものを集める。戻り：dict（名前→{kind, prio, geom（3dm mm）, layer, note}）。
@@ -2302,6 +2336,8 @@ def dai_features():
     pat = unary_union([l.intersection(bank.buffer(-0.5)) for l in lns])
     top = LineString([(x0, ry), (-630.0, ry)])                        # 川側の辺の線（敷地境界の続き、南西の辺より西）
     F['護岸の谷積み'] = dict(kind='line', prio='必須', layer='02', geom=unary_union([dai_inv(pat), dai_inv(top)]), note='川側の辺の外の護岸を上から見た模様（谷積み、45° の格子）')
+    # --- 横断歩道（配置図 1/200 と同じ決め：西の道、橋の袂の三角形の道の側の辺の中ほどから道に直角、帯 0.45・すき間 0.45・長さ 4.0 m、向こう側の縁まで、道の真ん中にそろえる。present/tools/oudan.py）
+    F['横断歩道'] = dict(kind='line', prio='必須', layer='03', geom=dai_zebra(road), note='白い帯の輪郭（帯 4.5×40 mm）')
     # --- 道の向こう側の樹冠（お向かい）
     cr = [(nm, g) for nm, g in _pf('77c_') if isinstance(g, r.Brep) and (_bb(g)[0] < -26000 and _bb(g)[3] < -20000)]
     F['お向かいの樹冠'] = dict(kind='line', prio='必須', layer='77c', geom=unary_union([Point((_bb(g)[0] + _bb(g)[3]) / 2, (_bb(g)[1] + _bb(g)[4]) / 2).buffer((_bb(g)[3] - _bb(g)[0]) / 2, 32).exterior for _, g in cr]), n=len(cr), note='道の向かい側の木の樹冠（線）')
