@@ -1166,9 +1166,11 @@ def _west_wall_su():
         pg = Polygon([(s[i], q[i, 2]) for i in range(3)])
         if pg.area > 1e-3: polys.append(pg.buffer(0.01))
     U = unary_union(polys).buffer(-0.01)
-    U = Polygon(U.exterior, [h for h in U.interiors
-                             if not (min(Polygon(h).bounds[2] - Polygon(h).bounds[0], Polygon(h).bounds[3] - Polygon(h).bounds[1]) <= WW_SLIT
-                                     or (Polygon(h).bounds[2] - Polygon(h).bounds[0] < WW_ARM_W and Polygon(h).bounds[3] - Polygon(h).bounds[1] < WW_ARM_H))])
+    def _clean(p_):                                      # 3dm の作り直しで外壁が 2 つ以上の塊になったことがある（11-02）：塊ごとに、細いすき間と小さな穴を埋める
+        return Polygon(p_.exterior, [h for h in p_.interiors
+                                     if not (min(Polygon(h).bounds[2] - Polygon(h).bounds[0], Polygon(h).bounds[3] - Polygon(h).bounds[1]) <= WW_SLIT
+                                             or (Polygon(h).bounds[2] - Polygon(h).bounds[0] < WW_ARM_W and Polygon(h).bounds[3] - Polygon(h).bounds[1] < WW_ARM_H))])
+    U = unary_union([_clean(p_) for p_ in getattr(U, 'geoms', [U]) if p_.area > 1.0])
     U = U.union(box(-0.5, GL, Lr + 0.5, 1.0))           # GL から FL までの帯（開口の下は FL まで）
     return ring, Lr, sSE, U
 
