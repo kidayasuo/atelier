@@ -225,7 +225,7 @@ class Sheet:
         allg = [g for k in keys for g in getattr(self, k)]
         if not allg: return texts
         b = _uu([g.envelope if g.geom_type != 'Point' else g for g in allg]).bounds
-        dx, dy = self.MARGIN - b[0], (self.h - self.MARGIN) - b[3]
+        dx, dy = self.MARGIN - b[0] + getattr(self, 'extra_dx', 0.0), (self.h - self.MARGIN) - b[3]
         for k in keys:
             setattr(self, k, [affinity.translate(g, dx, dy) for g in getattr(self, k)])
         self.tab_pts = [affinity.translate(q, dx, dy) for q in self.tab_pts]
@@ -2155,6 +2155,7 @@ DAI_HOLE_SHRINK = 0.11                           # 建物の穴は、切り幅�
 # 台の板は長方形（11-02、ユーザー）：横＝敷地の南西の辺（12 m）の線から、さらに 8 m 西（道路の向こう側）まで、東は敷地の東の辺まで。
 # 縦＝A1 いっぱい（板の縁から 3 mm ずつ残して 588）：下に護岸の谷積み、上に道を数 mm（敷地境界の線）。数字は dai_tx で回したあとの模型 mm（北の角が原点、川側の辺が y＝−560）
 DAI_RECT_X = (-730.0, 0.0)                 # 西は 10 m（横断歩道を渡りきる所まで。8 m では帯が板の縁で切れる：11-02）
+DAI_SHIFT_X = 20.0                               # 板の左右にガムテープで止める余白（11-02、ユーザー）：表面・中の層・窪みの 3 つとも、右へ 20 mm ずらす（同じ原点を保つ）
 DAI_RECT_TOP = 4.0                               # 敷地の北の辺より上に出す（道と敷地境界の線を見せる）
 DAI_RECT_H = 588.0                               # 594 − 3×2
 DAI_RECT = (DAI_RECT_X[0], DAI_RECT_TOP - DAI_RECT_H, DAI_RECT_X[1], DAI_RECT_TOP)
@@ -2472,6 +2473,7 @@ def dai_sheets():
     mound_main = F['_mound_polys'][0]
     s = Sheet('01台_表面_シナ3', 841, 594, 'シナ 3 A1：台の表面（GL）。赤＝切る（建物の穴・外形・塀の足の溝）、青＝彫る（必須）、青の別グループ「彫る（青）重要」＝重要。仮（10-31 夜、必須・重要の判断と T7 の結果で直す）')
     s.add(box(0, 0, 841, 594), 'ref')
+    s.extra_dx = DAI_SHIFT_X
     s.add_layer('eng2', '#0000FF', 5, 'ENGRAVE_blue_important', '彫る（青）重要')
     s.add_layer('cut2', '#FF0000', 1, 'CUT_red_important', '切る（赤）重要の塀・柵の足の溝')
     s.tabs = False
@@ -2606,7 +2608,7 @@ def dai_outline_sheet():
     o = dai_tx(F['台の外形']['geom'])
     if o.geom_type != 'Polygon': o = max(o.geoms, key=lambda g: g.area)
     b = o.bounds
-    dx, dy = Sheet.MARGIN - b[0], (SAN_SHEET[1] - Sheet.MARGIN) - b[3]
+    dx, dy = Sheet.MARGIN - b[0] + DAI_SHIFT_X, (SAN_SHEET[1] - Sheet.MARGIN) - b[3]
     T = lambda g: affinity.translate(dai_tx(g), dx, dy)
     return T(F['台の外形']['geom']), T, F
 
@@ -2627,6 +2629,7 @@ def dai_naka_sheets():
     assert all(abs(m.area - laser_mortise_area()) < 1e-6 for m in ms)
     s = Sheet('01台_中の層_シナ3', 841, 594, 'シナ 3 A1：台の中の層。外形は表面（01台_表面）と同じ形・同じ向き・同じ位置。穴は柱のほぞ穴だけ：本館 40（切った 05 と同じ 1.64×2.1）＋西館 24（同じ描き寸法、表面の西館の穴と同じ位置）')
     s.add(box(0, 0, 841, 594), 'ref')
+    s.extra_dx = DAI_SHIFT_X
     s.tabs = False
     s.add(out.difference(unary_union(ms)), 'cut')
     s.save([(8, 8, '台の中の層 シナ3：外形は表面と同じ。ほぞ穴 64（本館 40・西館 24）。北は右上。表面とは別の A1（同じ板から切れない）', 4)])
