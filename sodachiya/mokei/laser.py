@@ -3017,8 +3017,9 @@ def dai_pit_sheets():
     s.add(out.exterior, 'ref')
     h_ = T(F['本館の穴']['geom'])
     for g in getattr(h_, 'geoms', [h_]): s.add(g.exterior, 'ref')
-    # 参考：床の上の層（FL+0）の板の輪郭（天の川で 2 枚）と、天の川（通り土間、土足 −150）の輪郭。位置合わせの確認用（切らない）
-    ref_u = T(floors()[0]); ref_a = T(unary_union([plan('15_本館_あまのがわ（土足 −150）')]).intersection(annulus()))
+    # 参考：切った床 04 の上の層（FL+0）の板の輪郭（実際に切った形。天の川の縁は直線）と、天の川（通り土間、土足 −150）の輪郭。位置合わせの確認用（切らない）
+    import kirita as _Kr
+    ref_u = T(_Kr.cut_floor('upper')); ref_a = T(unary_union([plan('15_本館_あまのがわ（土足 −150）')]).intersection(annulus()))
     for g in getattr(ref_u, 'geoms', [ref_u]):
         s.add(g.exterior, 'ref')
     for g in getattr(ref_a, 'geoms', [ref_a]):
