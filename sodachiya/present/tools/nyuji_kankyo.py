@@ -460,6 +460,9 @@ def main():
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     F.fig.savefig(OUT)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import hiragino
+    hiragino.convert(OUT, OUT)                 # 書体をヒラギノ角ゴシックに（ユーザー 11-02）
     if a.png:
         F.fig.savefig(a.png, dpi=140)
     print("→", OUT)

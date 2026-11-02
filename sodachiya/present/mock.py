@@ -4760,4 +4760,10 @@ _od.close()
 for f in (base, ov, *_SITE_PDF.values()):
     os.remove(f)
 json.dump(dict(info, areas={k: round(v, 1) for k, v in AREA.items()}), open(os.path.join(OUT, "mock_info.json"), "w"), ensure_ascii=False, indent=1)
+# 素材のPDFの書体をヒラギノ角ゴシックに（ユーザー 11-02：PDFを作るときはヒラギノ角ゴシック）。図はNotoで組み、最後に書体の名前だけ差し替える
+# （埋め込まない、Macのヒラギノで表示。変わったかの印 state.json は差し替える前の絵で取っているので影響しない）
+sys.path.insert(0, os.path.join(HERE, "tools"))
+import hiragino as _hira
+_nh = sum(_hira.convert(_f, _f)[0] for _f in sorted(glob.glob(os.path.join(SZ, "*.pdf"))))
+print("素材の書体をヒラギノ角ゴシックに：", _nh, "書体")
 print("ok")
