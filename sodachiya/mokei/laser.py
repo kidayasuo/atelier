@@ -808,6 +808,25 @@ def roof_parts():
         panels.append(Polygon(e0 + e1[::-1]))
     return up, panels
 
+ROOF_SPLIT = True        # 06a を 19 枚に分解（11-02、ユーザー）
+
+def roof_split_pieces(U):
+    """屋根の上の層 U（3dm の座標、実寸 mm、穴つき 1 枚）の光の筋の穴 18 本を、穴の長い向きに両端の縁まで延ばして切り、19 枚に分ける。
+    戻り：[(スパンの番号（南から 1〜19）, 小片（3dm の座標）)]。番号は 06b と同じ（角度の小さい方が北）"""
+    from shapely.geometry import LineString
+    cut = []
+    for h in U.interiors:
+        pg = Polygon(h); mr = pg.minimum_rotated_rectangle
+        c = list(mr.exterior.coords)[:4]
+        e1 = np.array(c[1]) - np.array(c[0]); e2 = np.array(c[2]) - np.array(c[1])
+        ax_, wd = (e1, np.linalg.norm(e2)) if np.linalg.norm(e1) > np.linalg.norm(e2) else (e2, np.linalg.norm(e1))
+        d = ax_ / np.linalg.norm(ax_); ctr = np.array(mr.centroid.coords[0]); L = np.linalg.norm(ax_)
+        cut.append(LineString([ctr - d * (L / 2 + 6000), ctr + d * (L / 2 + 6000)]).buffer(wd / 2, cap_style=2))
+    q = Polygon(U.exterior).difference(unary_union(cut + [Polygon(h) for h in U.interiors]))
+    ps = [g for g in getattr(q, 'geoms', [q]) if g.area > 2e5]
+    ps.sort(key=lambda g: math.atan2(g.centroid.y - CY, g.centroid.x - CX) % (2 * math.pi))
+    return [(len(ps) - i, g) for i, g in enumerate(ps)]
+
 def roof_sheets():
     """10-26 ユーザー：床（04）の残りの帯（約 841×220）から上の層を取る → 上の層と下の層を別のファイルに"""
     up, panels = roof_parts()
@@ -815,10 +834,26 @@ def roof_sheets():
     U = to_sheet(up, ang, (0, 0)); P = [to_sheet(p, ang, (0, 0)) for p in panels]
     b = U.bounds; U = affinity.translate(U, -b[0], -b[1]); P = [affinity.translate(p, -b[0], -b[1]) for p in P]
     h = U.bounds[3]
-    s = Sheet('06a_本館の屋根_上の層_シナ1.7', 841, 220, 'シナ 1.7：本館の屋根 上の層（南の軒まで、光の筋の穴 18 本）。床（04）の残りの帯 841×220 から')
-    s.add(box(0, 0, 841, 220), 'ref')
-    s.add(U)
-    s.save([(0, h + 3, '本館の屋根 上の層（南の軒まで、光の筋の穴 18 本）', 4)])
+    if ROOF_SPLIT:
+        # 11-02 ユーザーの案：光の筋の穴を両端の縁まで延ばして切り、屋根の上の層を 19 枚に分解する（細い所が折れない、梁のあいだの下の層の板と同じ割り）
+        sp = roof_split_pieces(up)
+        U0 = to_sheet(up, ang, (0, 0)); b0 = U0.bounds
+        pieces = [affinity.translate(to_sheet(g, ang, (0, 0)), -b0[0], -b0[1]) for _, g in sp]
+        nums = [n_ for n_, _ in sp]
+        mv, (uw, uh) = nest(pieces, 720.0, 214.0, 3.0, top=214.0)       # 外接矩形が最小になる幅を探す（約 658）
+        s = Sheet('06a_本館の屋根_上の層_シナ1.7', 841, 220, f'シナ 1.7：本館の屋根 上の層を {len(pieces)} 枚に分解（光の筋の穴を縁まで延ばして切る）。床（04）の残りの帯 841×220 から。番号＝スパン（南から 1〜19、06b と同じ）。画面の番号は切らない文字：切ったら裏に鉛筆で書く')
+        s.add(box(0, 0, 841, 220), 'ref')
+        texts = []
+        for q, n_, (tx, ty) in zip(pieces, nums, mv):
+            q2 = affinity.translate(q, tx, ty); s.add(q2)
+            c = q2.representative_point(); texts.append((c.x - 2.5, 220 - c.y - 2, str(n_), 5))
+        s.save([(0, 0, f'本館の屋根 上の層（{len(pieces)} 枚に分解）', 4)] + texts)
+        h = uh
+    else:
+        s = Sheet('06a_本館の屋根_上の層_シナ1.7', 841, 220, 'シナ 1.7：本館の屋根 上の層（南の軒まで、光の筋の穴 18 本）。床（04）の残りの帯 841×220 から')
+        s.add(box(0, 0, 841, 220), 'ref')
+        s.add(U)
+        s.save([(0, h + 3, '本館の屋根 上の層（南の軒まで、光の筋の穴 18 本）', 4)])
     pb = unary_union(P).bounds
     s = Sheet('06b_本館の屋根_下の層_シナ1.7', 841, 594, 'シナ 1.7：本館の屋根 下の層（スパン 1〜19 の板、梁 2 枚のあいだに落とし込む）')
     s.add(box(0, 0, 841, 594), 'ref')
@@ -1388,8 +1423,12 @@ def _hut_wall_panels(La, Ld, h_ne, h_sw, t=T_VENEER):
 def hut_kikai_sheets():
     # ---- 06c：シナ 1.7 の端材 ----
     plugs = roof_plugs()
-    b06a = _svg_rings('06a_本館の屋根_上の層_シナ1.7.svg', 220)[0].bounds
-    W6 = 841 - SCRAP_X0
+    _t = open(os.path.join(OUT, '06a_本館の屋根_上の層_シナ1.7.svg'), encoding='utf-8').read()
+    _g = re.search(r'<g id="切る[^"]*"[^>]*>(.*?)</g>', _t, re.S).group(1)
+    _xy = [(float(a), float(b)) for d in re.findall(r'<path d="([^"]+)"', _g) for a, b in re.findall(r'([-\d.]+),([-\d.]+)', d)]
+    b06a = (min(x for x, _ in _xy), min(y for _, y in _xy), max(x for x, _ in _xy), max(y for _, y in _xy))
+    SX0 = math.ceil(b06a[2]) + 3.0                                    # 06a が使った右端の先から（06a の分解で幅が変わった。11-02）
+    W6 = 841 - SX0
     s6 = Sheet('06c_屋根の差し込み小片と小屋・機械室の屋根_シナ1.7', W6, 220,
                f'シナ 1.7 の端材（06a を取った帯の右の余り、06a は x {b06a[0]:.0f}〜{b06a[2]:.0f}）：06a の光の筋の穴の東の端を埋める差し込み小片 18（南から 1〜18）、小屋の屋根、機械室の屋根。向きは元のまま、外接矩形が最小になるように詰めた（5 mm以上）')
     s6.show_used = True
