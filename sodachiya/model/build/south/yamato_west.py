@@ -83,7 +83,7 @@ for o in o21:
     V, F = mesh_vf(o.Geometry)
     A = V[F]; N = np.cross(A[:, 1] - A[:, 0], A[:, 2] - A[:, 0]); L = np.linalg.norm(N, axis=1)
     ok = (L > 1e-3); A, N = A[ok], N[ok] / L[ok, None]
-    ver = np.abs(N[:, 2]) < 1e-4
+    ver = np.abs(N[:, 2]) < 1e-3          # 11-03：1e-4 だと北西の面の上端の細い三角形（法線の z が数値の誤差で 1e-4 ほど）が落ち、展開に斜めの割れ→板が斜めに切れて立面に破線が出た
     A, N = A[ver], N[ver]
     C = A.mean(1)
     # 外皮の輪郭の上：三つの頂点とも輪郭から ON_TOL 以内
