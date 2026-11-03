@@ -2648,6 +2648,7 @@ def _foot(g):
     return Polygon(_cxy(g.Profile3d(0, 0))).buffer(0)
 
 def _mesh_poly(g, min_area=1.0):
+    if isinstance(g, r.Extrusion): return _foot(g)       # 11-04：3dm の作り直しで 92s が押し出しになった
     V = g.Vertices; F = g.Faces
     P = np.array([[V[i].X, V[i].Y] for i in range(len(V))])
     ps = []
