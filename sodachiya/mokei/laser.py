@@ -151,7 +151,9 @@ def column_part(g, clr):
     ten = box(xc - TENON_W / 2, -TENON_L, xc + TENON_W / 2, 0.01)
     part = unary_union([poly, ext, ten])
     hc = to_model(np.array([hole_center(g, 1)]))[0]
-    part = part.difference(stadium(hc[0], hc[1], clr[0], clr[1]))
+    for k in range(1, g.ProfileCount):              # 穴を全部（西館の架構8〜12は2階の床の桁と頭の桁の2つ、11-04 設計監修）
+        h_ = to_model(np.array([hole_center(g, k)]))[0]
+        part = part.difference(stadium(h_[0], h_[1], clr[0], clr[1]))
     return part, hc
 
 def beam_part(clr, centers):
