@@ -24,7 +24,8 @@ mkdir -p /home/claude/plans/rhino /tmp/claude-0/mock2
 cp $B/vendor/plans_rhino/* /home/claude/plans/rhino/ ; cp -r $B/vendor/mock2/. /tmp/claude-0/mock2/
 cp -r $B/south $B/shitsu $T/ ; cp $B/ideas/roof_geo.py $T/ideas/ ; cp $A/data/wnew.pkl $T/exact/wnew.pkl
 exec 3>&1
-log() { echo "== $*" >&3; }
+T0=$SECONDS
+log() { echo "== [$(( (SECONDS-T0)/60 ))分] $*" >&3; }   # 11-03 どの段が遅いか見えるように、はじめからの経過分を付けた
 if command -v strace >/dev/null; then TRACE=1; else TRACE=0; echo "strace が無い：読むものの記録と前半の指紋は作らない（s4 は使えない）" >&3; fi
 # 段：stage 記号 名前 コマンド…（読んだファイルを strace で記録する）
 # 段のエラー出力は OUT/err_<段>.txt へ（画面には段の名前と最後の要約だけ）。止まったら、その段のログとエラーの最後の20行だけを出す（監修、10-24、連携10-24昼8の5）

@@ -35,7 +35,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150   # 11-03 90分で2回止まった（88分かかる日があった）。段ごとの経過分は run.txt の「== [n分]」
     steps:
       - name: 少し待って続けての push をまとめる
         if: github.event_name == 'push'
@@ -69,7 +69,7 @@ jobs:
           set +e
           bash model/build/run_all.sh /tmp/claude-0/out base --publish > /tmp/claude-0/run.txt 2>&1
           echo "code=$?" >> "$GITHUB_OUTPUT"
-          tail -n 40 /tmp/claude-0/run.txt
+          grep -E "^== \[" /tmp/claude-0/run.txt | tail -n 45; tail -n 40 /tmp/claude-0/run.txt
       - name: push（通ったとき）または連携の項（止まったとき）
         if: steps.need.outputs.build == 'yes'
         env:
