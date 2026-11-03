@@ -223,12 +223,75 @@ ld = P['landing']; c_ld = X(ld['u'], ld['w']); LAND = Point(c_ld).buffer(ld['r']
 LAND = LAND.intersection(WN.buffer(-cw['inset'] * 1000, join_style=1))   # 壁から0.1手前で止める（キャットウォークと同じ線。設計監修10-23：北西の斜めの壁を突き抜けていた）
 LAND = LAND.difference(COL_NW)                                       # 鼻母屋の受けの柱のまわり（10-30）
 K.prism(LAND.difference(LOW), ld['h'] * 1000 - TH, ld['h'] * 1000, L_CW, WOOD)
-# 手すり（縦格子 h1.1 の面として、厚さ 30）：通路の縁のうち壁に沿わない所
+# 手すり：通路の縁のうち壁に沿わない所
+# 11-03（ユーザー：キャットウォークの柵を縦格子に）：前は縦格子h1.1の面として厚さ30の一枚の板。本当の縦格子に：
+#   縦の材は杉30×30の角材（直方体）、芯の間隔120以下（すき間90以下、両端の材は線の端にそろえる）、床の上面から笠木の下まで。
+#   笠木は杉45×45、上端h1,100（床から）、線が曲がる所は弦のずれ5 mm以内の折れ線の区間ごとのまっすぐな材（折れ目で突き当て）。
+#   横桟・下の桟は付けない（足がかりにしない）。材の芯の線は床の縁から内へ15（縦の材が床の縁の上面に立つ）
+import katachi as KA
+from shapely.ops import linemerge
+from shapely.geometry import MultiLineString
+RAIL_N = {'post': 0, 'cap': 0}
+P_B, P_GAP, C_B = 30.0, 90.0, 45.0
+def _lines(g):
+    if g.is_empty: return []
+    if g.geom_type == 'LineString': return [g]
+    ls = [x for x in getattr(g, 'geoms', []) if x.geom_type == 'LineString']
+    if not ls: return []
+    m = linemerge(MultiLineString(ls))
+    return [m] if m.geom_type == 'LineString' else list(m.geoms)
+def _inward(ln, walk):
+    """線を通路の内へ15ずらした線（端は直角に切る）"""
+    a, b = np.asarray(ln.interpolate(0.5, normalized=True).coords[0]), np.asarray(ln.interpolate(min(ln.length * 0.5 + 1.0, ln.length)).coords[0])
+    t = b - a; t /= np.linalg.norm(t); nl = np.array([-t[1], t[0]])
+    sd = 1 if walk.contains(Point(*(a + nl * 5))) else -1
+    o = ln.simplify(0.2).offset_curve(sd * P_B / 2, join_style=2, mitre_limit=10.0)    # 一直線の上の細かい点を除いてから（残ると線が切れる）
+    if o.geom_type != 'LineString' and not o.is_empty: o = max(_lines(o), key=lambda x: x.length, default=None)
+    return o if (o is not None and not o.is_empty) else None
+RUNS = []                                          # (芯の線, 床の上面 z)：rail() が集め、build_rails() が材を置く
 def rail(walk, z, skip=None):
     e = walk.boundary.difference(WS.buffer(-cw['inset'] * 1000 + 20).exterior.buffer(60))   # 外皮の壁に沿う縁だけ手すりを省く（北西の斜めは外壁まで約0.7あくので手すり）
     if skip is not None: e = e.difference(skip)
-    g = e.buffer(15, cap_style=2).intersection(walk.buffer(16))
-    if not g.is_empty: K.prism(g, z, z + RAIL, L_CW)
+    for ln in _lines(e):
+        if ln.length < P_B: continue
+        o = _inward(ln, walk)
+        if o is not None and o.length >= P_B: RUNS.append((o, float(z)))
+def build_rails():
+    """線のつなぎ目（段の境・段と通路のあいだ：二つの線の端が60以内、高さの差250以内）は、低い方（同じ高さなら先の線）の端の材を
+    両方の線の材とし、もう一方の線はその材から芯の間隔120以下で並べる（前は両方の端に材が立ち、すき間15〜20の指を挟む隙になった）"""
+    ends = [(np.asarray(o.coords[0]), np.asarray(o.coords[-1])) for o, _ in RUNS]
+    share = {}                                     # (線, 0|1) → 相手の端の材の芯（この線の端から外へのずれ）
+    for i, (oi, zi) in enumerate(RUNS):
+        for j, (oj, zj) in enumerate(RUNS):
+            if j <= i or abs(zi - zj) > 250: continue
+            for ei in (0, 1):
+                for ej in (0, 1):
+                    if np.linalg.norm(ends[i][ei] - ends[j][ej]) > 60: continue
+                    lo, hi = (i, j) if (zi < zj - 1 or (abs(zi - zj) <= 1)) else (j, i)
+                    elo, ehi = (ei, ej) if lo == i else (ej, ei)
+                    # 低い方の端の材の芯（端から内へ15）と、高い方の線の端とのあいだ
+                    ol = RUNS[lo][0]; pc = np.asarray(ol.interpolate(P_B / 2 if elo == 0 else ol.length - P_B / 2).coords[0])
+                    share[(hi, ehi)] = float(np.linalg.norm(pc - ends[hi][ehi]))
+    for i, (o, z) in enumerate(RUNS):
+        zc = z + RAIL                              # 笠木の上端
+        # 縦の材の芯の並び：両端は線の端から15（材の外の面を端に）、相手の材を使う端はその芯（線の外、端から share）
+        s0 = -share[(i, 0)] if (i, 0) in share else P_B / 2
+        s1 = o.length + share[(i, 1)] if (i, 1) in share else o.length - P_B / 2
+        n = max(1, int(math.ceil((s1 - s0) / (P_B + P_GAP) - 1e-6)))
+        for k in range(n + 1):
+            if (k == 0 and (i, 0) in share) or (k == n and (i, 1) in share): continue
+            d = min(max(s0 + (s1 - s0) * k / n, 0.0), o.length)
+            p = np.asarray(o.interpolate(max(d - 0.5, 0.0)).coords[0]); q = np.asarray(o.interpolate(min(d + 0.5, o.length)).coords[0])
+            t = q - p; t /= np.linalg.norm(t); nn = np.array([-t[1], t[0]])
+            c = np.asarray(o.interpolate(d).coords[0]) - t * P_B / 2 - nn * P_B / 2
+            KA.add(out, KA.hako((c[0], c[1], z), (t[0], t[1], 0), (nn[0], nn[1], 0), P_B, P_B, RAIL - C_B), L_CW, WOOD)
+            RAIL_N['post'] += 1
+        # 笠木：弦のずれ5 mm以内の折れ線の区間ごとに45×45の角材
+        cp = np.asarray(o.simplify(5.0, preserve_topology=False).coords)
+        for a_, b_ in zip(cp[:-1], cp[1:]):
+            if np.linalg.norm(b_ - a_) < 1.0: continue
+            KA.add(out, KA.bou([a_[0], a_[1], zc - C_B / 2], [b_[0], b_[1], zc - C_B / 2], C_B, C_B), L_CW, WOOD)
+            RAIL_N['cap'] += 1
 dbr = (c_ld - c_net) / np.linalg.norm(c_ld - c_net)
 BR_ZONE = LineString([c_net, c_ld]).buffer(P['bridge']['width'] * 500, cap_style=2)
 # 11-01（ユーザー：段の前後に扉がある）：通路が段につながる縁（段の上の端 w0・下の端 w1）は柵を立てない。前は通路を横切る柵の面が扉に見えた
@@ -241,6 +304,7 @@ for k in range(sp['n']):
     STP = CAT.intersection(RWw(cw['north_u'], 60, wa, wb))
     risers = unary_union([RWw(cw['north_u'], 60, w_ - 0.01, w_ + 0.01) for w_ in (wa, wb)])   # 段の境（蹴上げの線、v 一定の弧）には柵を立てない
     rail(STP, H - sp['rise'] * 1000 * (k + 1), risers)
+build_rails()
 ext_circle(c_net, rg['inner_r'] * 1000 + 40, H - 150, H, L_NET, STEEL, hole=rg['inner_r'] * 1000)       # ネットを留める鋼の輪（円の押し出し、10-28）
 # ---------------------------------------------------------------- 網の吊り橋（輪 h3.0 → 踊り場 h2.0、真ん中が垂れる）
 bw = P['bridge']['width'] * 1000; sag = P['bridge']['sag'] * 1000
@@ -389,4 +453,5 @@ for u in fn['u']:
     rod([*c, fn['h'] * 1000], up_to([*c, fn['h'] * 1000], [*c, _under_roof_old(*c)], 15), 15, L_FAN, (90, 90, 90))
 
 OUT = os.path.join(ROOT, 'model', 'sodachiya_play_layers.3dm')
+print('手すり（縦格子）：縦の材 %d 本、笠木 %d 本' % (RAIL_N['post'], RAIL_N['cap']))
 out.Write(OUT, 8); print('written', OUT, len(out.Objects))
