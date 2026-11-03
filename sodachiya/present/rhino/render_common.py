@@ -233,8 +233,9 @@ def run(mode):
             room_light = LIGHT_OVERRIDE
         elif roof_z is not None:
             room_light = 4                                     # 屋根の下：室内の自然光（光あふれる）
-        elif name.startswith(u"room_"):
-            room_light = 0                                     # 屋根を取り去った部屋：散乱光
+        elif name.startswith(u"room_") and name in ROOM_UV and ROOM_UV[name][1][0] < 15.0:
+            room_light = 0                                     # 屋根を取り去った建物の中の部屋：散乱光
+        # 外の場所（room_funsui のように縁側の外 v15 より東、11-03：散乱光では真っ暗だった）は外の光（太陽と空）
         else:
             room_light = None                                  # 外：太陽と空
         say(u"光（自動）：", ROOM_LIGHTS[room_light] if room_light is not None else u"外の光（太陽と空）",
