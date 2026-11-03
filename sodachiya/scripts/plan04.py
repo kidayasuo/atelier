@@ -147,13 +147,17 @@ def crank_block(b0, flip, labels_out):
         ax.add_patch(Polygon([P(*q) for q in _arc(0.59, vc, 0.54, -_half - 5, _half + 5) + _arc(0.59, vc, 0.57, _half + 5, -_half - 5)], closed=True, fc="#C9A26B", ec="black", lw=0.3, zorder=5))
         a, b = sorted([U(0.14), U(0.37)]); box(a, b, vc - 0.17, vc + 0.17, lw=0.3)
         ax.add_patch(Ellipse(P(U(0.58), vc), 0.32, 0.42, fc="white", ec="black", lw=0.3, zorder=4))
-    # 個室の後ろのすき間の蓋（11-03、死角）：部屋の壁 w0.065〜w0.50、両側の個室の外面から 5、h1300（3dm は add_shitsurae.py の maru_pods）
-    _fr, _f0, _f1 = 0.535, 0.065, 0.50
-    def _side(vc_, s_, w_list):
-        return [(U(w_), vc_ + s_ * math.sqrt(_fr ** 2 - (0.59 - w_) ** 2)) for w_ in w_list]
-    _ws = [_f0 + (_f1 - _f0) * k_ / 15 for k_ in range(16)]
+    # 個室のあいだの作り付け（杉、11-03、死角とユーザー 11:42）：部屋の壁 w0.065〜前の面 w0.505、両側の個室の外面から 5、h1300。
+    # 横板 t15 を目地 15 で横に張る。h945〜1200 は花を置く窪み（奥 w0.35、棚板 t45 は w0.515 まで）。図は窪みの高さの断面（3dm は add_shitsurae.py の maru_pods）
+    _fr = 0.535
+    def _gp(va_, vb_, wa_, wb_, n_=12):
+        ws_ = [wa_ + (wb_ - wa_) * k_ / n_ for k_ in range(n_ + 1)]
+        sd = lambda vc_, s_, wl_: [(U(w_), vc_ + s_ * math.sqrt(_fr ** 2 - (0.59 - w_) ** 2)) for w_ in wl_]
+        return [P(*q) for q in sd(va_, 1, ws_) + sd(vb_, -1, ws_[::-1])]
     for va_, vb_ in zip((7.71, 8.92, 10.13), (8.92, 10.13, 11.34)):
-        ax.add_patch(Polygon([P(*q) for q in _side(va_, 1, _ws) + _side(vb_, -1, _ws[::-1])], closed=True, fc="#9a9a9a", ec="black", lw=0.3, zorder=5))
+        ax.add_patch(Polygon(_gp(va_, vb_, 0.065, 0.35), closed=True, fc="#D9C29A", ec="black", lw=0.3, zorder=5))     # 芯（窪みの奥まで）
+        ax.add_patch(Polygon(_gp(va_, vb_, 0.35, 0.515, 4), closed=True, fc="#EFE3CC", ec="black", lw=0.25, zorder=5))  # 花の棚板（窪み）
+        ax.add_patch(Ellipse(P(U(0.43), 0.5 * (va_ + vb_)), 0.07, 0.07, fc="white", ec="#5a7a3a", lw=0.3, zorder=6))   # 一輪挿し
     # mop sink（掃除用の流し 500×450）：スパン14は職員の個室の南西の隅、スパン17は教材庫の口の脇の隅（棚を 450 縮めた）
     a, b = sorted([U(1.56 if not flip else 2.44), U(2.06 if not flip else 2.94)]); box(a, b, 1.65, 2.10, lw=0.35, fc="#F2F7F8")
     # shikidai / low window（暖簾は外した、ユーザー 10-28）

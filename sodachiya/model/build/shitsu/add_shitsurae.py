@@ -808,22 +808,33 @@ def maru_pods(b0, flip):
     # 掃除用の流し 500×450（h800）：スパン 14 は職員の個室の南西の隅、スパン 17 は教材庫の口の脇の隅（棚を 450 縮めた所）
     sk = [(1.56, 1.65), (2.06, 1.65), (2.06, 2.10), (1.56, 2.10)] if not flip else [(2.44, 1.66), (2.94, 1.66), (2.94, 2.11), (2.44, 2.11)]
     _ext(poly_w(sk), 0.0, 800.0, L_WC, '掃除用の流し 500×450')
-    # 個室の後ろのすき間の蓋（11-03、項 20261103-1032-present、死角）：隣り合う個室のあいだの、部屋の壁（w0.065）から w0.50 まで。
-    # 輪郭は壁の線・前の面（w0.50）・両側の個室の外面から 5 の円弧（r0.535）の閉じた輪郭を h0〜1300（個室と同じ高さ・仕上げ）に押し出す。
-    # 前の面を w0.50 で止めるのは、開けた丸い引き戸（壁の外を回って奥へ、先が w0.55 まで来る）に当てないため。残る前のすき間は幅約 0.16
-    fw0, fw1, fr = 0.065, 0.50, POD_RIN + POD_T + 0.005
-    def arc_w(vc, wa, wb, sb, sa):                       # 個室（中心 POD_W, vc）の円 fr の上、w=wa（側 sa）→ w=wb（側 sb）の円弧
-        pa = (wa, vc + sa * math.sqrt(fr ** 2 - (POD_W - wa) ** 2)); pb = (wb, vc + sb * math.sqrt(fr ** 2 - (POD_W - wb) ** 2))
-        wm = 0.5 * (wa + wb); pm = (wm, vc + sa * math.sqrt(fr ** 2 - (POD_W - wm) ** 2))
+    # 個室の後ろのすき間の作り付け（11-03、項 20261103-1032-present、死角。形はユーザー 11:42：タリアセンのような横の線と花を置く窪み）：
+    # 隣り合う個室のあいだを、部屋の壁（w0.065）から前の面 w0.505 まで杉で埋める（こどもは入れない）。どれも、壁の線・w 一定の線・
+    # 両側の個室の外面から 5 の円弧（r0.535）で囲った一つの輪郭の押し出し。前の面は開けた丸い引き戸（壁の外を回って奥へ、先が w0.55）に当てない。
+    #   芯（w0.065〜0.49）：h0〜900・h1200〜1300、窪みの所（h945〜1200）は奥の板まで（w0.065〜0.35、窪みの奥行き 0.14）
+    #   前の横板（w0.49〜0.505、杉 t15）：h135 を 150 おき（目地 15、深さ 15 の横の線）。h0〜885 に 6 枚、上は h1215〜1300 の 1 枚
+    #   花の棚板（杉 t45、h900〜945、w0.35〜0.515）：横板の面から 10 出す。窪みは h945〜1200（こどもの目・大人の腰）、浅いので死角にならない
+    fw0, fr = 0.065, POD_RIN + POD_T + 0.005
+    def arc_w(vc, wa, wb, s):                            # 個室（中心 POD_W, vc）の円 fr の上、w=wa → w=wb（側 s）の円弧
+        f = lambda w_: (w_, vc + s * math.sqrt(fr ** 2 - (POD_W - w_) ** 2))
+        pa, pm, pb = f(wa), f(0.5 * (wa + wb)), f(wb)
         return r.Arc(P3(W(U(pa[0]), pa[1])), P3(W(U(pm[0]), pm[1])), P3(W(U(pb[0]), pb[1])))
-    for va, vb in zip(POD_VS[:-1], POD_VS[1:]):
+    def gap_prof(va, vb, wa, wb):                        # 個室 va・vb のあいだ、w=wa〜wb の輪郭
+        da = math.sqrt(fr ** 2 - (POD_W - wa) ** 2); db = math.sqrt(fr ** 2 - (POD_W - wb) ** 2)
         pc = r.PolyCurve()
-        dv0 = math.sqrt(fr ** 2 - (POD_W - fw0) ** 2); dv1 = math.sqrt(fr ** 2 - (POD_W - fw1) ** 2)
-        pc.Append(r.LineCurve(P3(W(U(fw0), va + dv0)), P3(W(U(fw0), vb - dv0))))
-        pc.Append(arc_w(vb, fw0, fw1, -1, -1))
-        pc.Append(r.LineCurve(P3(W(U(fw1), vb - dv1)), P3(W(U(fw1), va + dv1))))
-        pc.Append(arc_w(va, fw1, fw0, 1, 1))
-        _ext(pc, 0.0, POD_H, L_P, 'こどもの便所の丸い個室の後ろの蓋（すき間を塞ぐ、h1300）')
+        pc.Append(r.LineCurve(P3(W(U(wa), va + da)), P3(W(U(wa), vb - da))))
+        pc.Append(arc_w(vb, wa, wb, -1))
+        pc.Append(r.LineCurve(P3(W(U(wb), vb - db)), P3(W(U(wb), va + db))))
+        pc.Append(arc_w(va, wb, wa, 1))
+        return pc
+    SUGI = (0.85, 0.75, 0.6, 1); nm = 'こどもの便所の個室のあいだの作り付け（杉）'
+    for va, vb in zip(POD_VS[:-1], POD_VS[1:]):
+        _ext(gap_prof(va, vb, fw0, 0.49), 0.0, 900.0, L_P, nm + 'の芯', SUGI)
+        _ext(gap_prof(va, vb, fw0, 0.49), 1200.0, POD_H, L_P, nm + 'の芯', SUGI)
+        _ext(gap_prof(va, vb, fw0, 0.35), 900.0, 1200.0, L_P, nm + '、花を置く窪みの奥', SUGI)
+        for z0 in [150.0 * k for k in range(6)] + [1215.0]:
+            _ext(gap_prof(va, vb, 0.49, 0.505), z0, min(z0 + 135.0, POD_H), L_P, nm + 'の横板 t15（目地 15）', SUGI)
+        _ext(gap_prof(va, vb, 0.35, 0.515), 900.0, 945.0, L_P, nm + '、花の棚板 t45', SUGI)
 maru_pods(39, False); maru_pods(48, True)
 
 # ---------------- 3〜5歳：糸の衝立・KAPLAの箱（10-31 ユーザー、項 20261031-1056-present の3・5、決定事項（本館）の3〜5歳） ----------------
