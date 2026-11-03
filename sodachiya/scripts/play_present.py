@@ -540,3 +540,8 @@ T(LX, ly, '屋根：屋根材・野地64／通気垂木45／\n　断熱150（梁
 out = os.path.join(ROOT, 'out', 'sodachiya_play_present')
 fig.savefig(out + '.pdf')                  # 図の書き出しは PDF だけ（karuku.md の 2）
 print('written', out + '.pdf', 'strips', [round((a_ + b_) / 2, 2) for a_, b_ in FR_S], 'UN UO UR', round(UN, 3), round(UO, 3), round(UR, 3))
+
+# 11-02（ユーザー）：PDF の書体はヒラギノ角ゴシック、Illustrator 用に SVG も（sodachiya/CLAUDE.md）
+import subprocess as _sp, sys as _sys
+for _t in ('hiragino.py', 'svg_hiragino.py'):
+    _sp.run([_sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'present', 'tools', _t), out + '.pdf'], check=True)

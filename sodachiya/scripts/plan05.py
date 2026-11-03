@@ -338,3 +338,8 @@ fig.text(PL / 420, 35 / 297, "┅ 緑：配膳の保育士（キッチンの北�
          "スパン10 は遊戯室のもう一つの入り口（10-29 夜、ユーザー：はれのまは無くす。中身はこれから）。記念日のお祝いはホール、延長保育は玄関に近い保育室（案）。", fontsize=6.2, va="top", color="#444444", linespacing=1.6)
 fig.savefig(os.path.join(OUT, "sodachiya_05_south_entry.pdf"))
 print("areas", round(a_kit, 1), round(a_hare, 1), round(a_off, 1), round(a_med, 1))
+
+# 11-02（ユーザー）：PDF の書体はヒラギノ角ゴシック、Illustrator 用に SVG も（sodachiya/CLAUDE.md）
+import subprocess as _sp, sys as _sys
+for _t in ('hiragino.py', 'svg_hiragino.py'):
+    _sp.run([_sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'present', 'tools', _t), os.path.join(OUT, "sodachiya_05_south_entry.pdf")], check=True)
