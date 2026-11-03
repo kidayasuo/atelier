@@ -53,7 +53,7 @@ def planes_of(V, F):
     A = V[F]; N = np.cross(A[:, 1] - A[:, 0], A[:, 2] - A[:, 0]); L = np.linalg.norm(N, axis=1)
     ok = L > 1e-3; A, N, L = A[ok], N[ok] / L[ok, None], L[ok]
     G = []
-    for i in np.where(np.abs(N[:, 2]) < 1e-4)[0]:
+    for i in np.where(np.abs(N[:, 2]) < 1e-3)[0]:
         n = N[i].copy(); n[2] = 0; n /= np.linalg.norm(n); d = float(n @ A[i].mean(0))
         for g in G:
             if g['n'] @ n > math.cos(ANG_TOL) and abs(d - g['d']) < OFF_TOL: g['t'].append(A[i]); break

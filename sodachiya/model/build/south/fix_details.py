@@ -2184,9 +2184,9 @@ for o in m.Objects:
     if o.Attributes.LayerIndex != L17 or not isinstance(g, r.Mesh): continue
     u0, u1, v0, v1, z0, z1 = bbox_uv(g)
     west = v0 > -0.36 and v1 < -0.19 and 3500 < z1 < 3950 and u1 - u0 > 0.2   # 窓・口の下の腰の片（z1 が低い）は上げない
-    gable = u0 > 57.1 and v1 > 11.5
+    gable = u0 > 57.1 and (v1 > 11.5 or (o.Attributes.Name or '').startswith('北の妻')) and z1 > 1000   # 11-04：北の妻は避難口の口のまわりの4片（add_shitsurae.py の north_gable）
     if not (west or gable): continue
-    V = mesh_V(g); top = V[:, 2] > V[:, 2].max() - 5 if west else V[:, 2] > 1000
+    V = mesh_V(g); top = V[:, 2] > V[:, 2].max() - 5 if west else V[:, 2] > max(1000, V[:, 2].min() + 5)   # 口の上の片は上の面だけ
     zb = roof10_bottom(V[top]); ok = ~np.isnan(zb)
     if ok.any():
         Vt = V[top]; Vt[ok, 2] = (np.maximum(Vt[ok, 2], zb[ok] - 5.0) if west else zb[ok] - 5.0); V[top] = Vt
@@ -4519,12 +4519,12 @@ log.append(f'本館：乳児室の南の妻（ガラスの引き戸 6 枚 16s・
 # 屋根の厚み（10-26夜）：元の屋根の面より上にあった本館の物を RT_TOP 上げる（越屋根の蓋・ルーバー・LED、外壁と越屋根の立ち上がりの上端）。
 # 北の妻の壁の上端は屋根の立体の下面（梁の上端）まで下げる（屋根の中に食い込まない）。
 _LUP = {lidx('17_'), lidx('50a'), lidx('50b'), lidx('50c')}
-def _raise(g, ln):
+def _raise(g, ln, nm=''):
     V = mesh_V(g); U = np.array([uv(x, y) for x, y in V[:, :2]])
     if ln.startswith('50') and U[:, 1].mean() < -0.8: return False              # 西館の越屋根は西館係
     rz = np.array([ROOF_Z(v) for v in U[:, 1]])
     up = V[:, 2] > rz + 10.0
-    gab = ln.startswith('17_') and U[:, 0].min() > 57.1 and U[:, 1].max() > 5.0      # 北の妻の壁（u 57.19〜57.34、v −0.35〜12）
+    gab = ln.startswith('17_') and U[:, 0].min() > 57.1 and (U[:, 1].max() > 5.0 or (nm or '').startswith('北の妻'))      # 北の妻の壁（u 57.19〜57.34、v −0.35〜12、11-04 から避難口の口のまわりの片も）
     if gab:
         hi = V[:, 2] > rz + RT_BOT
         if not hi.any(): return False
@@ -4536,9 +4536,9 @@ def _raise(g, ln):
 _nr = 0
 for o in m.Objects:
     if o.Attributes.LayerIndex in _LUP and isinstance(o.Geometry, r.Mesh) and str(o.Attributes.Id) not in drop:
-        _nr += _raise(o.Geometry, LN[o.Attributes.LayerIndex])
+        _nr += _raise(o.Geometry, LN[o.Attributes.LayerIndex], o.Attributes.Name)
 for mm, at in new_objs:
-    if at.LayerIndex in _LUP: _nr += _raise(mm, LN[at.LayerIndex])
+    if at.LayerIndex in _LUP: _nr += _raise(mm, LN[at.LayerIndex], at.Name)
 # 11-01（本館係）：越屋根の木のルーバー（50c）は曲げ木の回転体（Brep、add_south.py）。どれも屋根の面より上なので、蓋と同じだけ丸ごと動かす
 _L50C = lidx('50c')
 for o in m.Objects:
