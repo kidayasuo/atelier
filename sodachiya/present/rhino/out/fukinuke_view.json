@@ -1,0 +1,33 @@
+{
+ "two_point": false, 
+ "made": "2026-11-03 15:07", 
+ "px": [
+  1600, 
+  1200
+ ], 
+ "lens_mm": 50.0, 
+ "named_view": "fukinuke", 
+ "hfov_deg": 39.600000000000001, 
+ "up": [
+  -0.042799999999999998, 
+  -0.17399999999999999, 
+  0.98380000000000001
+ ], 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "name": "fukinuke", 
+ "target_mm": [
+  -2518.0, 
+  -26400.0, 
+  6425.0
+ ], 
+ "projection": "perspective", 
+ "viewport_px": [
+  2042, 
+  1356
+ ], 
+ "camera_mm": [
+  -9648.0, 
+  -55382.0, 
+  990.0
+ ]
+}

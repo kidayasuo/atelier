@@ -1,0 +1,33 @@
+{
+ "two_point": false, 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "viewport_px": [
+  2042, 
+  1356
+ ], 
+ "up": [
+  0.036900000000000002, 
+  -0.0047000000000000002, 
+  0.99929999999999997
+ ], 
+ "target_mm": [
+  -14040.0, 
+  -23176.0, 
+  1611.0
+ ], 
+ "name": "roji", 
+ "camera_mm": [
+  3000.0, 
+  -25347.0, 
+  972.0
+ ], 
+ "lens_mm": 28.0, 
+ "projection": "perspective", 
+ "made": "2026-11-03 11:18", 
+ "px": [
+  1600, 
+  1200
+ ], 
+ "named_view": "roji", 
+ "hfov_deg": 65.5
+}

@@ -1,0 +1,33 @@
+{
+ "two_point": false, 
+ "note": "3dm \u306e mm\u3002\u4eca\u306e\u30d3\u30e5\u30fc\u306e\u307e\u307e\u63cf\u3044\u305f\uff08render_hiru.py\uff09", 
+ "viewport_px": [
+  2042, 
+  1356
+ ], 
+ "up": [
+  0.00069999999999999999, 
+  -0.098799999999999999, 
+  0.99509999999999998
+ ], 
+ "target_mm": [
+  2335.0, 
+  -19371.0, 
+  4411.0
+ ], 
+ "name": "uchi_engawa", 
+ "camera_mm": [
+  2604.0, 
+  -56181.0, 
+  757.0
+ ], 
+ "lens_mm": 50.0, 
+ "projection": "perspective", 
+ "made": "2026-11-03 11:05", 
+ "px": [
+  1600, 
+  1200
+ ], 
+ "named_view": "uchi_engawa", 
+ "hfov_deg": 39.600000000000001
+}
