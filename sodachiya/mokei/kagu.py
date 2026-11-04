@@ -85,7 +85,55 @@ def kagu_plan():
         pdf.savefig(fig); plt.close(fig)
     return sel, path
 
+# ---- 切るデータ：棚（口の開いた箱）・ロフト・机（航空ベニヤ 1.0）----
+T1 = 1.0
+SHELF_IDS = (1, 2, 5, 6, 8, 9, 11, 12, 15, 16, 17)       # 0〜2 歳：5・6・8・12・16・17、4 歳：1・2・9・11・15（11-04 ユーザー、F13 は境、F18 は個人棚）
+
+def shelf_parts(fid, L, D, H):
+    """口の開いた箱：両端の板（D×H）、間に底・上・背・（高ければ中段）。単位 mm（模型）"""
+    P = [(f'F{fid} 端', D, H), (f'F{fid} 端', D, H), (f'F{fid} 底', L - 2 * T1, D), (f'F{fid} 天', L - 2 * T1, D), (f'F{fid} 背', L - 2 * T1, H - 2 * T1)]
+    if H >= 11.5: P.append((f'F{fid} 中段', L - 2 * T1, D - T1))
+    return P
+
+def loft_parts():
+    P = [('ロフト 床板', 27.3, 19.3)]                      # 3dm の板（h1.1〜1.2 m、厚 0.1）：2.73×1.93 m の長方形
+    for _ in range(2): P.append(('家具階段 側板', 16.6, 10.0))
+    for _ in range(5): P.append(('家具階段 踏み板', 6.0, 3.32))
+    return P
+
+def kagu_sheet():
+    from shapely.geometry import box as _b, Polygon as _P
+    flo, A = kagu_groups()
+    sel = sorted([a for a in A if kagu_class(a)], key=lambda a: (kagu_class(a), -a['L']))
+    parts = []
+    for i, a in enumerate(sel, 1):
+        if i in SHELF_IDS:
+            parts += shelf_parts(i, round(a['L'] / 100, 1), round(a['D'] / 100, 1), round(a['H'] / 100, 1))
+    parts += loft_parts()
+    parts.append(('机 天板', 10.0, 5.0))
+    s = Sheet('15_棚とロフトと机_航空ベニヤ1.0', 300, 600, '航空ベニヤ 1.0 300×600：本館の棚（F 番号は 15_本館の家具_配置図、口の開いた箱）、4 歳のロフト（床板・家具階段）、しずかな角の机の天板。ロフトの脚 4（角材 1×1、長さ 11）・机の脚 4（角材 1×1、長さ 6）は手で。')
+    s.show_used = True; s.tabs = False
+    s.add(box(0, 0, 300, 600), 'ref')
+    parts.sort(key=lambda t: -t[2])
+    x = y = rowh = 0.0; gap = 2.0; W_ = 290
+    for nm, w, h in parts:
+        if x + w > W_: x = 0; y += rowh + gap; rowh = 0
+        yy = 595 - y - h
+        if nm.endswith('背') and w > 12:
+            s.add(_b(x, yy, x + w, yy + h))
+            c = (x + w / 2, yy + h / 2); t = nm.split()[0][1:]
+            for j, ch in enumerate(t):
+                for l in label_num(ch, c[0] - len(t) * 0.5 + j * 1.0, c[1] - 0.5, 1.0): s.add(l, 'eng')
+        else:
+            s.add(_b(x, yy, x + w, yy + h))
+        x += w + gap; rowh = max(rowh, h)
+    s.save([(0, -4, f'{len(parts)} 枚', 3)])
+    return [(nm, round(w, 1), round(h, 1)) for nm, w, h in parts]
+
 if __name__ == '__main__':
+    if sys.argv[1:2] == ['cut']:
+        for p in kagu_sheet(): print(p)
+        sys.exit(0)
     sel, path = kagu_plan()
     print(path)
     for a in sel:
