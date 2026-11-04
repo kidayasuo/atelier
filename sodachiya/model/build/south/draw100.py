@@ -2832,8 +2832,11 @@ def elev_levels(A, mode, objs, h0, h1):
     hm = (h0 + h1) / 2
     wside = -1 if (hw and float(np.median(hw)) < hm) else 1
     main = [('GL', -300), ('1FL', 0), ('本館の軒高', E_.get('本館の軒先')), ('本館の最高高さ', E_.get('本館の最高'))]
-    if _mach_visible(mode, objs): main.append(('機械室の最高高さ', E_.get('機械室の高さ')))
     wst = [('2FL', FL2), ('西館の軒高', E_.get('西館の軒先')), ('西館の最高高さ', E_.get('西館の最高'))]
+    if _mach_visible(mode, objs):                       # 機械室の高さは機械室のある側の端に（ユーザー 11-05）
+        hmach = [float(np.median(H(ob['T'].reshape(-1, 3)))) for ob in objs if ob['layer'].split('_')[0] == '35']
+        mside = 1 if (hmach and float(np.median(hmach)) > hm) else -1
+        (main if mside == -wside else wst).append(('機械室の最高高さ', E_.get('機械室の高さ')))
     for side, items in ((-wside, main), (wside, wst)):
         level_marks(A, items, (h1 + 900) if side > 0 else (h0 - 900), side)
 
