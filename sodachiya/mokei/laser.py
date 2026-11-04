@@ -3433,7 +3433,7 @@ def west_stair_sheets():
     return dict(板=len(items), 踏面=len(ns), 踏面の板数=[n for n, _ in ns], 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), 板の最大=(round(max(g.bounds[2] for _, g in items), 1), round(max(g.bounds[3] for _, g in items), 1)))
 
 # ================= 築山の等高線（バルサ 1 mm を 2 枚重ねで 2 mm＝20 cm） =================
-BALSA_SHEET = (200.0, 500.0)      # 手持ちのバルサ 1 mm の大きさ（仮：2 mm を買ったときの 200×500 と同じとした。違えばここを直す）
+BALSA_SHEET = (100.0, 500.0)      # 手持ちのバルサ 1 mm：100×500（と 100×300）。ユーザー 11-04
 BALSA_T = 1.0
 def tsuki_levels():
     """98 の等高線の板：[(段 1..12 = +0.2〜+2.4 m、模型 mm の Polygon の島, ...)]。段の番号 = 高さ/0.2"""
@@ -3447,44 +3447,78 @@ def tsuki_levels():
         lv.setdefault(k, []).append(P)
     return dict(sorted(lv.items()))
 
-def tsuki_sheets(sheet=None):
-    sheet = sheet or BALSA_SHEET
-    W, H, gap = sheet[0] - 2 * Sheet.MARGIN, sheet[1] - 2 * Sheet.MARGIN, 1.6
+def _min_width_angle(p):
+    """板の幅（回したあとの x の幅）が最小になる角度（度）"""
+    best = (1e9, 0)
+    for a_ in range(0, 180, 2):
+        q = affinity.rotate(p, a_, origin=(0, 0)); bb = q.bounds
+        w = bb[2] - bb[0]
+        if w < best[0]: best = (w, a_)
+    return best[1]
+
+def tsuki_pieces(maxw):
+    """築山の板を、バルサの幅（maxw）に入る形に：回して幅を最小に、それでも広い板は直線で割る（a と b で割る位置をずらす）。
+    返す：[(段, 島, 層, 切る形, 彫る線のリスト（形と同じ座標）)]"""
     lv = tsuki_levels()
-    # 木：築山の上（バルサの 1 段目より上に立つ木）は、いちばん高い段の上の板に十字を彫る
     F = dai_features(); trees = []
     for t in F['_trees']:
         pt = dai_tx(Point(t['x'], t['y']))
         ks = [k for k, ps in lv.items() if any(p.contains(pt) for p in ps)]
-        if ks and t['base'] > -100: trees.append((max(ks), pt, t['name']))
-    pieces = []      # (段, 島の番号, 層 'a'/'b', 形, 彫る線のリスト)
+        if ks and t['base'] > -100: trees.append((max(ks), pt))
+    out = []
     for k, ps in lv.items():
         up = lv.get(k + 1, [])
         for i, p in enumerate(ps):
-            eng = []
-            for q in up:
-                if q.intersects(p): eng.append(q.exterior)                   # 次の段の輪郭（置く位置の線）
-            for kk, pt, nm in trees:
-                if kk == k and p.contains(pt): eng.append(pt)
+            eng = [q.exterior for q in up if q.intersects(p)] + [pt for kk, pt in trees if kk == k and p.contains(pt)]
             for layer in ('a', 'b'):
-                pieces.append((k, i, layer, p, eng if layer == 'b' else []))
-    pieces.sort(key=lambda t: (-t[3].area, t[0], t[2]))
-    # 板に詰める（入らなければ次の板へ）
-    sheets = [[]]
+                ang = _min_width_angle(p)
+                R = lambda g: affinity.rotate(g, ang, origin=(0, 0))
+                pr = R(p); er = [R(e) for e in (eng if layer == 'b' else [])]
+                bb = pr.bounds; w = bb[2] - bb[0]
+                n = max(1, math.ceil(w / (maxw - 0.5)))
+                cuts = [bb[0] + w * j / n for j in range(1, n)]
+                shift = 0.0 if layer == 'a' else 0.33 * (w / n)          # b は割る位置を 1/3 ずらして、継ぎ目を a の継ぎ目と重ねない
+                cuts = [c_ + shift for c_ in cuts] if n > 1 else []
+                edges = [bb[0] - 1] + cuts + [bb[2] + 1]
+                for j in range(len(edges) - 1):
+                    strip = pr.intersection(box(edges[j], bb[1] - 1, edges[j + 1], bb[3] + 1))
+                    for sp in getattr(strip, 'geoms', [strip]):
+                        if sp.geom_type != 'Polygon' or sp.area < 1.0: continue
+                        eg = []
+                        for e in er:
+                            c_ = e.intersection(sp.buffer(0.01)) if e.geom_type != 'Point' else (e if sp.contains(e) else None)
+                            if c_ is not None and not c_.is_empty: eg.append(c_)
+                        out.append((k, i, layer, sp, eg))
+    return out
+
+def tsuki_sheets(sheet=None):
+    """バルサ 1 mm の板（幅 100）に詰める。sheet＝(幅, 長さ)。長さ 500 の板に詰め、足りない分の残りが 300 に入るか見る"""
+    sheet = sheet or BALSA_SHEET
+    W, H, gap = sheet[0] - 2 * Sheet.MARGIN, sheet[1] - 2 * Sheet.MARGIN, 1.6
+    pieces = tsuki_pieces(W)
+    pieces.sort(key=lambda t: -t[3].bounds[3] + t[3].bounds[1])
+    area = lambda lst: sum(p[3].area for p in lst)
+    norm = lambda p: affinity.translate(p[3], -p[3].bounds[0], -p[3].bounds[1])
     def fits(lst):
         try:
-            nest([affinity.translate(p[3], -p[3].bounds[0], -p[3].bounds[1]) for p in lst], W, H, gap, top=H); return True
+            nest([norm(p) for p in lst], W, H, gap, top=H); return True
         except (RuntimeError, TypeError):
             return False
-    for pc in pieces:
-        if fits(sheets[-1] + [pc]): sheets[-1].append(pc)
-        else: sheets.append([pc])
+    sheets = []; rest = list(pieces)
+    while rest:
+        cur = []; i = 0
+        while i < len(rest):
+            pc = rest[i]
+            if area(cur) + pc[3].area > 0.62 * W * H: i += 1; continue     # 面積の見込みを超える板は試さない（時間を節約）
+            if fits(cur + [pc]): cur.append(pc); rest.pop(i)
+            else: i += 1
+        if not cur: raise RuntimeError('入らない板がある：' + str([(p[0], p[3].bounds) for p in rest[:2]]))
+        sheets.append(cur)
     out = []
     for si, lst in enumerate(sheets):
-        shp = [affinity.translate(p[3], -p[3].bounds[0], -p[3].bounds[1]) for p in lst]
-        mv, (uw, uh) = nest(shp, W, H, gap, top=H)
+        mv, (uw, uh) = nest([norm(p) for p in lst], W, H, gap, top=H)
         s = Sheet(f'13_築山_{si + 1}_バルサ1', sheet[0], sheet[1],
-                  f'バルサ 1 mm {sheet[0]:g}×{sheet[1]:g}：築山の等高線。1 段（20 cm＝2 mm）を同じ形 2 枚（a・b）で作る。番号＝段（1＝+0.2 m … 12＝+2.4 m）。b の板には次の段の輪郭（置く位置）と木の位置の十字を彫る')
+                  f'バルサ 1 mm {sheet[0]:g}×{sheet[1]:g}：築山の等高線。1 段（20 cm＝2 mm）を同じ形 2 枚（a・b）で作る。広い板は回して、割って詰めた（継ぎ目は a と b でずらす）。番号＝段（1＝+0.2 m … 12＝+2.4 m）。b の板には次の段の輪郭と木の位置の十字を彫る')
         s.show_used = True
         s.add(box(0, 0, sheet[0], sheet[1]), 'ref')
         for (k, i, layer, p, eng), (tx, ty) in zip(lst, mv):
@@ -3496,15 +3530,15 @@ def tsuki_sheets(sheet=None):
                     h = DAI_TREE_MARK / 2
                     s.add(LineString([(e2.x - h, e2.y), (e2.x + h, e2.y)]), 'eng'); s.add(LineString([(e2.x, e2.y - h), (e2.x, e2.y + h)]), 'eng')
                 else: s.add(e2, 'eng')
-            if layer == 'a':                                              # 段の番号は a の板だけに（b は表に残るので彫らない）。小さい島には彫らない
-                c = q.representative_point(); txt = str(k)
+            if layer == 'a':
+                c = q.representative_point(); txt = f'{k}'
                 if q.area > 120:
                     for j, ch in enumerate(txt):
                         for l in label_num(ch, c.x - len(txt) * 0.6 + j * 1.2, c.y - 0.6, 1.2): s.add(l, 'eng')
         s.tab_gap = lambda: 0.35
         s.save([(0, -4, f'{len(lst)} 枚', 3)])
         out.append((len(lst), round(uw + Sheet.MARGIN, 1), round(uh + Sheet.MARGIN, 1)))
-    return dict(段=len(lv), 板の数=out, 木=[(k, nm) for k, _, nm in trees])
+    return dict(段=len(set(p[0] for p in pieces)), 切る板の数=len(pieces), 板の数=out)
 
 # ================= 8b. 本館の南の妻（開口を閉じた 1 枚、11-04 ユーザー） =================
 def south_gable_sheet():
