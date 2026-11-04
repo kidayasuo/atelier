@@ -6,7 +6,7 @@
 
   python3 present/tools/heimen_saishoku.py      → present/sozai/37_平面図_1階_彩色.svgz・37_平面図_2階_彩色.svgz
 """
-import gzip, os, re
+import gzip, json, os, re
 from lxml import etree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -66,14 +66,49 @@ def _layer(name, src_root, scale, pre, strip):
     return g, defs
 
 
+def _contours(view_json, thin):
+    """園庭の等高線（3dm の 91、名前に高さ）を、平面図の紙の座標（mm）の <g> に。mock.py の素材29b・29cは建物の足もとを
+    引く所で大半が消えていた（11-05）ので、3dm から直に描く。1.0 m ごとは太く"""
+    import rhino3dm as r_
+    v = [x for x in json.load(open(view_json))["views"] if x.get("kind") == "plan"][0]["model_to_paper"]
+    m = r_.File3dm.Read(os.path.join(A, "model", "sodachiya_exact_mesh.3dm"))
+    L = {i: l.FullPath.split("::")[-1] for i, l in enumerate(m.Layers)}
+    g = etree.Element("{%s}g" % NS, id="園庭の等高線")
+    n = 0
+    for o in m.Objects:
+        if not L[o.Attributes.LayerIndex].startswith("91_"):
+            continue
+        c = o.Geometry
+        try:
+            pts = [c.Point(i) for i in range(c.PointCount)]
+        except Exception:
+            continue
+        try:
+            h = float(re.sub(r"[^0-9.+-]", "", o.Attributes.Name or ""))
+        except ValueError:
+            h = 0.1
+        thick = abs(h - round(h)) < 0.01 and abs(h) > 0.01
+        lw = (0.35 if thick else 0.18) if thin else (0.6 if thick else 0.3)
+        d = " ".join(("M" if i == 0 else "L") + "%.3f %.3f" % (v["a"] * p.X + v["b"] * p.Y + v["c"], v["d"] * p.X + v["e"] * p.Y + v["f"])
+                     for i, p in enumerate(pts))
+        etree.SubElement(g, "{%s}path" % NS, d=d, fill="none", stroke="#9AAE8C" if thin else "#6F8C5A",
+                         **{"stroke-width": "%.4f" % (lw * PT2MM), "stroke-linejoin": "round"})
+        n += 1
+    print("等高線", n, "本")
+    return g
+
+
 def build(floor, cfg):
     root = etree.Element("{%s}svg" % NS, nsmap={None: NS, "xlink": XL}, width="841mm", height="594mm", viewBox="0 0 841 594")
     alldefs = etree.SubElement(root, "{%s}defs" % NS)
     parts = [("部屋の色", os.path.join(P, "sozai", cfg["color"] + ".svgz"), PT2MM, "c_", True),
-             ("園庭の等高線", os.path.join(P, "sozai", cfg["cont"] + ".svgz"), PT2MM, "k_", True),
+             ("等高線", None, None, None, None),
              ("線（Rhino）", os.path.join(A, "drawings_rhino", cfg["rhino"] + ".svg"), 1.0, "r_", True),
              ("文字と寸法", os.path.join(P, "sozai", cfg["moji"] + ".svgz"), PT2MM, "t_", True)]
     for name, path, sc, pre, strip in parts:
+        if path is None:
+            root.append(_contours(os.path.join(A, "drawings", cfg["rhino"] + "_views.json"), floor == "2階"))
+            continue
         if not os.path.exists(path):
             print("無い：", path)
             continue
