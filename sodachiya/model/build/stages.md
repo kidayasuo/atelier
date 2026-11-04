@@ -24,6 +24,7 @@
 | 7g | 大和張り | `model/build/south/yamato.py` |
 | 7h | 大和張り（西館） | `data/wnew.pkl`・`model/build/south/yamato_west.py` |
 | 7i | 西館の間仕切り | `data/wnew.pkl`・`model/build/south/add_inner.py`・`model/build/south/add_west_south.py`・`model/build/south/west_walls.py` |
+| 7j | 西館の柱の頭 | `model/build/south/west_col_heads.py` |
 | 8 | 護岸と園庭の取り込み | `model/build/south/add_site.py`・`model/sodachiya_garden_layers.3dm` |
 | 9 | 周辺 | `data/context_plateau.json`・`model/build/south/add_context.py` |
 | 10 | Rhino版 | `data/wnew.pkl`・`data/wnew.pkl`・`model/build/south/check_faces.py`・`model/build/south/clean_wire.py`・`model/build/south/onbrep.py`・`model/build/south/ruled_roof.py`・`model/build/south/solidify.py`・`model/sodachiya_exact_mesh.3dm` |
