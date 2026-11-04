@@ -10,6 +10,7 @@ from shapely.ops import unary_union
 from shapely import affinity
 
 M_WOOD = 180.0        # 穴のまわりの木の厚み（梁の丸い頭と同じ）
+F2_BOT, F2_TOP = 3170.0, 3700.0   # 西館の2階の床の下面と、2階で首を広げない高さ
 NECK = 250.0          # 膨らみの上下の、首のなめらかさ（凸包に入れる幅の帯）
 
 
@@ -51,7 +52,8 @@ def rebuild(g):
         a_ = (b[2] - b[0]) / 2 + M_WOOD; b_ = (b[3] - b[1]) / 2 + M_WOOD
         ell = affinity.scale(Point(0, 0).buffer(1.0, 64), a_, b_, origin=(0, 0))
         ell = affinity.translate(ell, cx, cy)
-        z0, z1 = cy - b_ - NECK, (cy + b_ + NECK) if h is not hh else cy
+        z0, z1 = cy - b_ - NECK, (cy + b_) if h is not hh else cy
+        if h is hh and len(holes) > 1: z0 = max(z0, F2_TOP)     # 2階のある柱（架構8〜12）：2階の床の上では首を広げない
         sl = shaft.intersection(box(-1e6, z0, 1e6, z1))
         parts.append(unary_union([ell, sl]).convex_hull)
     new = unary_union(parts)
@@ -65,6 +67,9 @@ def rebuild(g):
     X0, X1 = outer.bounds[0] - 2000, outer.bounds[2] + 2000
     cap = Polygon([(X0, zmin - 1), (X1, zmin - 1), (X1, a_t * X1 + c_t), (X0, a_t * X0 + c_t)])
     new = new.intersection(cap)
+    if len(holes) > 1:                                     # 2階の床の下面〜F2_TOP は元の輪郭より外へ出さない（床・間仕切りは元の柱で欠いてある、11-04 干渉 6）
+        band = box(-1e6, F2_BOT, 1e6, F2_TOP)
+        new = unary_union([new.difference(band), new.intersection(band).intersection(outer)])
     if new.geom_type != 'Polygon': new = max(new.geoms, key=lambda q: q.area)
     new = new.simplify(1.0)
     # 穴のまわりの木の最小の厚み（報告用）
