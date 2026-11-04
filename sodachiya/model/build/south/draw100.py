@@ -1221,15 +1221,21 @@ def plan_long_dims(A):
     # スパン10：放射の線のあいだの角度、W 通り・E 通りの上の弧長、西館の東端・西端の弧長（西館の架構も同じ角度）。上から順に重ねる
     k = SPAN_K; u0, u1 = uk[k], uk[k + 1]; um_ = (u0 + u1) / 2; d_ = dth[k]
     ve_w, vw_w = _west_hall_v(um_)[1], _west_hall_v(um_)[0]              # 西館の東の線・西の外面（スパンの真ん中で）
-    arcs = [d_ * RW, d_ * RE, d_ * (205000 - ve_w), d_ * (205000 - vw_w)]
-    vs = [V_SPAN0 + i * V_SPAN_DV for i in range(5)]
+    # 東（園庭の側）：本館の E 通り・W 通りの上の弧長と、放射の線のあいだの角度。建物に近い順（E→W→角度、ユーザー 11-05：順番が分かりにくい）
+    arcs = [d_ * RE, d_ * RW]
+    vs = [V_SPAN0 + i * V_SPAN_DV for i in range(3)]
     for u in (u0, u1): _ext(A, _xy(u, V_SPAN0 - 900), _xy(u, vs[-1]), np.zeros(2))
-    A.lines([np.array([_xy(u, vs[0]) for u in np.linspace(u0, u1, 12)])], DIML, lw=LW_THIN, color=DIMC, z=9)
-    for u in (u0, u1): dim_dot(A, _xy(u, vs[0]))                     # 角度の寸法も両端に黒丸（ユーザー 11-04）
-    _utxt(A, um_, vs[0], f'{math.degrees(d_):.3f}°')
-    for v_, L_ in zip(vs[1:], arcs):
+    for v_, L_ in zip(vs[:2], arcs):
         _uarc(A, u0, u1, v_)
         _utxt(A, um_, v_, f'{L_:,.0f}')
+    A.lines([np.array([_xy(u, vs[2]) for u in np.linspace(u0, u1, 12)])], DIML, lw=LW_THIN, color=DIMC, z=9)
+    for u in (u0, u1): dim_dot(A, _xy(u, vs[2]))                     # 角度の寸法も両端に黒丸（ユーザー 11-04）
+    _utxt(A, um_, vs[2], f'{math.degrees(d_):.3f}°')
+    # 西（道の側）：西館の西の外面の上の弧長は西館の側に（ユーザー 11-05：西館の寸法を東に付けるのは分かりにくい）
+    v_w = vw_w - 1500
+    for u in (u0, u1): _ext(A, _xy(u, vw_w - 300), _xy(u, v_w), np.zeros(2))
+    _uarc(A, u0, u1, v_w)
+    _utxt(A, um_, v_w, f'{d_ * (205000 - vw_w):,.0f}')
     print('plan dims スパン10', round(math.degrees(d_), 4), [round(x) for x in arcs], 'v 西館の東・西', round(ve_w), round(vw_w))
     # 背骨（W 通り）の弦：端から端まで（50 m 走ができる、ユーザー 11-01）。想像線。矢高は無し
     p0, p1 = at(RW, th[0]), at(RW, th[-1])
@@ -1755,7 +1761,7 @@ def make_plan1F():
     plan_grid(A); plan_section_marks(A); plan_dims(A); plan_vdims(A); plan_more_dims(A); plan_extra_dims(A)
     _plan_notes(A, ext, ph, H_, MG, '平面図　1階　FL+1500 で切断　1/100',
                 '高野川を下に（配置図と同じ向き）。一点鎖線は敷地の境。二点鎖線は屋根の外形（軒の線）。周りの道・建物は細い線。'
-                'スパンの寸法はスパン10の庭の側に重ねた5本（建物に近い順に、放射の線のあいだの角度／W通りの上の弧長／E通りの上の弧長／西館の東端の弧長／西館の西端の弧長）\n'
+                'スパンの寸法はスパン10だけ：庭の側に建物に近い順にE通りの上の弧長／W通りの上の弧長／放射の線のあいだの角度、道の側に西館の西の外面の上の弧長\n'
                 '長手の全体は外がW通り（背骨）、内がE通りの上の弧長。二点鎖線の寸法は背骨（W通り）の弦。寸法はmm')
     return S
 
