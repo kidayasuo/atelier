@@ -78,7 +78,7 @@ def draw_annotations():
         for p, q in zip(xs, xs[1:]):
             begin('寸法'); orig_chain(A, [p, q], y, *a, **k); end()
     g['chain_dims'] = chain
-    # 高さの記号：level_marks は一度に幾つも描く。一つの記号は 線（▽）・線（水平）・字 の三つ
+    # 高さの記号：level_marks は一度に幾つも描く。一つの記号は 線（▽）・線（水平）・字の三つ
     orig_lv = g['level_marks']
     def lv(A, items, *a, **k):
         begin('高さ_tmp'); r = orig_lv(A, items, *a, **k); arts = groups.pop()[2]; end()
@@ -231,7 +231,7 @@ def main():
             else: collect(k)
     collect(asvg)
     defs = asvg.find(f'{{{SVGNS}}}defs')
-    k_pt = 25.4 / 72.0                              # matplotlib の SVG（pt、左上が原点）→ 紙の mm
+    k_pt = 25.4 / 72.0                              # matplotlib の SVG（pt、左上が原点）→紙の mm
     tops = {nm: layer(nm) for nm in ('線（Rhino）', '寸法', '高さ', '通り芯', '図名と方位')}
     for gl in rhino_lines():
         tops['線（Rhino）'].append(gl)
