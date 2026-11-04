@@ -1,6 +1,6 @@
 {
 "note": "mock.pyが書き出す。Illustratorで build_sodachiya.jsx が読む。手で書き換えない（ユーザーの割付は layout_user.json）",
-"generated": "2026-11-04 13:34",
+"generated": "2026-11-04 22:23",
 "unit": "mm",
 "artboard": [
 841.0,
@@ -158,7 +158,7 @@
 ],
 "u": 1,
 "fig": "配置図",
-"mock_hash": "8970d0f1"
+"mock_hash": "b52e8461"
 },
 {
 "id": "p1.sozai.01c",
@@ -3091,7 +3091,7 @@
 "clip": null,
 "scale": 1,
 "fig": "一日の帯",
-"mock_hash": "166113a9"
+"mock_hash": "66f83785"
 },
 {
 "id": "p2.sozai.07",
@@ -3106,7 +3106,7 @@
 "clip": null,
 "scale": 1,
 "fig": "一日の帯",
-"mock_hash": "cb18ce48"
+"mock_hash": "6bf3335b"
 },
 {
 "id": "p2.sozai.08",
@@ -3121,7 +3121,7 @@
 "clip": null,
 "scale": 1,
 "fig": "一日の帯",
-"mock_hash": "4f66a85e"
+"mock_hash": "cc5eb895"
 },
 {
 "id": "p2.sozai.09",
@@ -3136,7 +3136,7 @@
 "clip": null,
 "scale": 1,
 "fig": "一日の帯",
-"mock_hash": "321dadef"
+"mock_hash": "e0376d6d"
 },
 {
 "id": "p2.sozai.22",
@@ -3165,7 +3165,7 @@
 "world_mm": 4.0,
 "u": 1,
 "fig": "園庭説明図",
-"mock_hash": "c3af8b06"
+"mock_hash": "5c9238e3"
 },
 {
 "id": "p2.sozai.23a",
@@ -3180,7 +3180,7 @@
 "clip": null,
 "scale": 1,
 "fig": "教室　3〜5歳",
-"mock_hash": "41f53218"
+"mock_hash": "73ea724a"
 },
 {
 "id": "p2.sozai.23b",
@@ -3195,7 +3195,7 @@
 "clip": null,
 "scale": 1,
 "fig": "教室　0・1歳",
-"mock_hash": "397548e6"
+"mock_hash": "1074beb2"
 },
 {
 "id": "p2.sozai.23c",
@@ -3210,7 +3210,7 @@
 "clip": null,
 "scale": 1,
 "fig": "教室　2歳",
-"mock_hash": "e1cded15"
+"mock_hash": "957e54a9"
 },
 {
 "id": "p2.sozai.23d",
@@ -3225,7 +3225,7 @@
 "clip": null,
 "scale": 1,
 "fig": "居場所　読書",
-"mock_hash": "01d6abad"
+"mock_hash": "18e7031b"
 },
 {
 "id": "p2.sozai.23e",
@@ -3240,7 +3240,7 @@
 "clip": null,
 "scale": 1,
 "fig": "居場所　遊戯室の箱",
-"mock_hash": "79265bbd"
+"mock_hash": "7b10bf5e"
 },
 {
 "id": "p2.link.26_遊戯室_平面_文字なし",
@@ -173168,7 +173168,7 @@
 "page": 1,
 "dwg": "平面図　1階",
 "fig": "平面図　1階",
-"mock_hash": "0897d154"
+"mock_hash": "720efa73"
 },
 {
 "id": "p3.dwg.plan.line.355_120.l",
@@ -177309,6 +177309,86 @@
 "fig": "平面図　1階"
 },
 {
+"id": "p3.dwg.plan.room.機械室300m².l",
+"name": "線　機械室　30.0 m²",
+"kind": "lines",
+"layer": "図",
+"x": 721.43,
+"y": 57.84,
+"w": 10.22,
+"h": 6.01,
+"paths": [
+{
+"pts": [
+[
+721.431,
+57.837
+],
+[
+731.653,
+57.837
+],
+[
+731.653,
+63.85
+],
+[
+721.431,
+63.85
+]
+],
+"closed": true,
+"stroke": null,
+"fill": "#ffffff",
+"lw": 0.0,
+"dash": null,
+"op": 0.85,
+"eo": false
+}
+],
+"group": "dwg.plan.room.機械室300m²",
+"group_name": "部屋名　機械室　30.0 m²",
+"dwg": "平面図　1階",
+"mock_hash": "57c4ec4f",
+"fig": "平面図　1階"
+},
+{
+"id": "p3.dwg.plan.room.機械室300m².t",
+"name": "機械室",
+"kind": "text",
+"layer": "図",
+"x": 726.54,
+"y": 60.49,
+"s": "機械室",
+"size_pt": 8.0,
+"font": "W3",
+"color": "#000000",
+"align": "center",
+"group": "dwg.plan.room.機械室300m²",
+"group_name": "部屋名　機械室　30.0 m²",
+"dwg": "平面図　1階",
+"mock_hash": "d590b58",
+"fig": "平面図　1階"
+},
+{
+"id": "p3.dwg.plan.room.機械室300m².t2",
+"name": "30.0 m²",
+"kind": "text",
+"layer": "図",
+"x": 726.54,
+"y": 63.34,
+"s": "30.0 m²",
+"size_pt": 8.0,
+"font": "W3",
+"color": "#000000",
+"align": "center",
+"group": "dwg.plan.room.機械室300m²",
+"group_name": "部屋名　機械室　30.0 m²",
+"dwg": "平面図　1階",
+"mock_hash": "cceca645",
+"fig": "平面図　1階"
+},
+{
 "id": "p3.dwg.plan.grid.18.l",
 "name": "線　18",
 "kind": "lines",
@@ -180419,8 +180499,8 @@
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.倉庫77m².l",
-"name": "線　倉庫　7.7 m²",
+"id": "p3.dwg.plan.room.倉庫74m².l",
+"name": "線　倉庫　7.4 m²",
 "kind": "lines",
 "layer": "図",
 "x": 567.55,
@@ -180456,14 +180536,15 @@
 "eo": false
 }
 ],
-"group": "dwg.plan.room.倉庫77m²",
-"group_name": "部屋名　倉庫　7.7 m²",
+"group": "dwg.plan.room.倉庫74m²",
+"group_name": "部屋名　倉庫　7.4 m²",
 "dwg": "平面図　1階",
 "mock_hash": "5a55e42d",
+"hidden": true,
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.倉庫77m².t",
+"id": "p3.dwg.plan.room.倉庫74m².t",
 "name": "倉庫",
 "kind": "text",
 "layer": "図",
@@ -180474,28 +180555,30 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.倉庫77m²",
-"group_name": "部屋名　倉庫　7.7 m²",
+"group": "dwg.plan.room.倉庫74m²",
+"group_name": "部屋名　倉庫　7.4 m²",
 "dwg": "平面図　1階",
 "mock_hash": "641a19",
+"hidden": true,
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.倉庫77m².t2",
-"name": "7.7 m²",
+"id": "p3.dwg.plan.room.倉庫74m².t2",
+"name": "7.4 m²",
 "kind": "text",
 "layer": "図",
 "x": 571.88,
 "y": 111.41,
-"s": "7.7 m²",
+"s": "7.4 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.倉庫77m²",
-"group_name": "部屋名　倉庫　7.7 m²",
+"group": "dwg.plan.room.倉庫74m²",
+"group_name": "部屋名　倉庫　7.4 m²",
 "dwg": "平面図　1階",
-"mock_hash": "8b89e640",
+"mock_hash": "8b88411d",
+"hidden": true,
 "fig": "平面図　1階"
 },
 {
@@ -181045,8 +181128,8 @@
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.遊戯室2622m².l",
-"name": "線　遊戯室　262.2 m²",
+"id": "p3.dwg.plan.room.遊戯室2627m².l",
+"name": "線　遊戯室　262.7 m²",
 "kind": "lines",
 "layer": "図",
 "x": 437.84,
@@ -181082,14 +181165,14 @@
 "eo": false
 }
 ],
-"group": "dwg.plan.room.遊戯室2622m²",
-"group_name": "部屋名　遊戯室　262.2 m²",
+"group": "dwg.plan.room.遊戯室2627m²",
+"group_name": "部屋名　遊戯室　262.7 m²",
 "dwg": "平面図　1階",
 "mock_hash": "34210c49",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.遊戯室2622m².t",
+"id": "p3.dwg.plan.room.遊戯室2627m².t",
 "name": "遊戯室",
 "kind": "text",
 "layer": "図",
@@ -181100,28 +181183,28 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.遊戯室2622m²",
-"group_name": "部屋名　遊戯室　262.2 m²",
+"group": "dwg.plan.room.遊戯室2627m²",
+"group_name": "部屋名　遊戯室　262.7 m²",
 "dwg": "平面図　1階",
 "mock_hash": "df98162",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.遊戯室2622m².t2",
-"name": "262.2 m²",
+"id": "p3.dwg.plan.room.遊戯室2627m².t2",
+"name": "262.7 m²",
 "kind": "text",
 "layer": "図",
 "x": 443.73,
 "y": 123.12,
-"s": "262.2 m²",
+"s": "262.7 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.遊戯室2622m²",
-"group_name": "部屋名　遊戯室　262.2 m²",
+"group": "dwg.plan.room.遊戯室2627m²",
+"group_name": "部屋名　遊戯室　262.7 m²",
 "dwg": "平面図　1階",
-"mock_hash": "5556071e",
+"mock_hash": "5558c503",
 "fig": "平面図　1階"
 },
 {
@@ -188528,8 +188611,8 @@
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.倉庫26m².l",
-"name": "線　倉庫　2.6 m²",
+"id": "p3.dwg.plan.room.倉庫25m².l",
+"name": "線　倉庫　2.5 m²",
 "kind": "lines",
 "layer": "図",
 "x": 436.72,
@@ -188565,14 +188648,14 @@
 "eo": false
 }
 ],
-"group": "dwg.plan.room.倉庫26m²",
-"group_name": "部屋名　倉庫　2.6 m²",
+"group": "dwg.plan.room.倉庫25m²",
+"group_name": "部屋名　倉庫　2.5 m²",
 "dwg": "平面図　1階",
 "mock_hash": "5a55e42d",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.倉庫26m².t",
+"id": "p3.dwg.plan.room.倉庫25m².t",
 "name": "倉庫",
 "kind": "text",
 "layer": "図",
@@ -188583,28 +188666,28 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.倉庫26m²",
-"group_name": "部屋名　倉庫　2.6 m²",
+"group": "dwg.plan.room.倉庫25m²",
+"group_name": "部屋名　倉庫　2.5 m²",
 "dwg": "平面図　1階",
 "mock_hash": "641a19",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.倉庫26m².t2",
-"name": "2.6 m²",
+"id": "p3.dwg.plan.room.倉庫25m².t2",
+"name": "2.5 m²",
 "kind": "text",
 "layer": "図",
 "x": 441.05,
 "y": 210.63,
-"s": "2.6 m²",
+"s": "2.5 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.倉庫26m²",
-"group_name": "部屋名　倉庫　2.6 m²",
+"group": "dwg.plan.room.倉庫25m²",
+"group_name": "部屋名　倉庫　2.5 m²",
 "dwg": "平面図　1階",
-"mock_hash": "7fdf8eba",
+"mock_hash": "7fdf0259",
 "fig": "平面図　1階"
 },
 {
@@ -189232,8 +189315,8 @@
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.キッチン（前室を含む）607m².l",
-"name": "線　キッチン　（前室を含む）　60.7 m²",
+"id": "p3.dwg.plan.room.キッチン（前室を含む）606m².l",
+"name": "線　キッチン　（前室を含む）　60.6 m²",
 "kind": "lines",
 "layer": "図",
 "x": 340.8,
@@ -189269,14 +189352,14 @@
 "eo": false
 }
 ],
-"group": "dwg.plan.room.キッチン（前室を含む）607m²",
-"group_name": "部屋名　キッチン　（前室を含む）　60.7 m²",
+"group": "dwg.plan.room.キッチン（前室を含む）606m²",
+"group_name": "部屋名　キッチン　（前室を含む）　60.6 m²",
 "dwg": "平面図　1階",
 "mock_hash": "1a09bbe3",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.キッチン（前室を含む）607m².t",
+"id": "p3.dwg.plan.room.キッチン（前室を含む）606m².t",
 "name": "キッチン",
 "kind": "text",
 "layer": "図",
@@ -189287,14 +189370,14 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.キッチン（前室を含む）607m²",
-"group_name": "部屋名　キッチン　（前室を含む）　60.7 m²",
+"group": "dwg.plan.room.キッチン（前室を含む）606m²",
+"group_name": "部屋名　キッチン　（前室を含む）　60.6 m²",
 "dwg": "平面図　1階",
 "mock_hash": "97e40469",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.キッチン（前室を含む）607m².t2",
+"id": "p3.dwg.plan.room.キッチン（前室を含む）606m².t2",
 "name": "（前室を含む）",
 "kind": "text",
 "layer": "図",
@@ -189305,33 +189388,33 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.キッチン（前室を含む）607m²",
-"group_name": "部屋名　キッチン　（前室を含む）　60.7 m²",
+"group": "dwg.plan.room.キッチン（前室を含む）606m²",
+"group_name": "部屋名　キッチン　（前室を含む）　60.6 m²",
 "dwg": "平面図　1階",
 "mock_hash": "3f13a444",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.キッチン（前室を含む）607m².t3",
-"name": "60.7 m²",
+"id": "p3.dwg.plan.room.キッチン（前室を含む）606m².t3",
+"name": "60.6 m²",
 "kind": "text",
 "layer": "図",
 "x": 350.85,
 "y": 225.64,
-"s": "60.7 m²",
+"s": "60.6 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.キッチン（前室を含む）607m²",
-"group_name": "部屋名　キッチン　（前室を含む）　60.7 m²",
+"group": "dwg.plan.room.キッチン（前室を含む）606m²",
+"group_name": "部屋名　キッチン　（前室を含む）　60.6 m²",
 "dwg": "平面図　1階",
-"mock_hash": "b3df332f",
+"mock_hash": "b3dea6ce",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.3歳558m².l",
-"name": "線　3歳　55.8 m²",
+"id": "p3.dwg.plan.room.3歳557m².l",
+"name": "線　3歳　55.7 m²",
 "kind": "lines",
 "layer": "図",
 "x": 522.78,
@@ -189367,14 +189450,14 @@
 "eo": false
 }
 ],
-"group": "dwg.plan.room.3歳558m²",
-"group_name": "部屋名　3歳　55.8 m²",
+"group": "dwg.plan.room.3歳557m²",
+"group_name": "部屋名　3歳　55.7 m²",
 "dwg": "平面図　1階",
 "mock_hash": "57c4ec4f",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.3歳558m².t",
+"id": "p3.dwg.plan.room.3歳557m².t",
 "name": "3歳",
 "kind": "text",
 "layer": "図",
@@ -189385,28 +189468,28 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.3歳558m²",
-"group_name": "部屋名　3歳　55.8 m²",
+"group": "dwg.plan.room.3歳557m²",
+"group_name": "部屋名　3歳　55.7 m²",
 "dwg": "平面図　1階",
 "mock_hash": "59dc4b",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.3歳558m².t2",
-"name": "55.8 m²",
+"id": "p3.dwg.plan.room.3歳557m².t2",
+"name": "55.7 m²",
 "kind": "text",
 "layer": "図",
 "x": 527.89,
 "y": 224.79,
-"s": "55.8 m²",
+"s": "55.7 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.3歳558m²",
-"group_name": "部屋名　3歳　55.8 m²",
+"group": "dwg.plan.room.3歳557m²",
+"group_name": "部屋名　3歳　55.7 m²",
 "dwg": "平面図　1階",
-"mock_hash": "728f4df4",
+"mock_hash": "728ec193",
 "fig": "平面図　1階"
 },
 {
@@ -193616,8 +193699,8 @@
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.1,600東の帯258m².l",
-"name": "線　1,600　東の帯　25.8 m²",
+"id": "p3.dwg.plan.room.1,600東の帯260m².l",
+"name": "線　1,600　東の帯　26.0 m²",
 "kind": "lines",
 "layer": "図",
 "x": 416.08,
@@ -193996,14 +194079,14 @@
 "eo": false
 }
 ],
-"group": "dwg.plan.room.1,600東の帯258m²",
-"group_name": "部屋名　1,600　東の帯　25.8 m²",
+"group": "dwg.plan.room.1,600東の帯260m²",
+"group_name": "部屋名　1,600　東の帯　26.0 m²",
 "dwg": "平面図　1階",
 "mock_hash": "a88aee22",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.1,600東の帯258m².t",
+"id": "p3.dwg.plan.room.1,600東の帯260m².t",
 "name": "1,600",
 "kind": "text",
 "layer": "図",
@@ -194015,14 +194098,14 @@
 "color": "#000000",
 "align": "center",
 "rot": -39.37,
-"group": "dwg.plan.room.1,600東の帯258m²",
-"group_name": "部屋名　1,600　東の帯　25.8 m²",
+"group": "dwg.plan.room.1,600東の帯260m²",
+"group_name": "部屋名　1,600　東の帯　26.0 m²",
 "dwg": "平面図　1階",
 "mock_hash": "b8ebd98",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.1,600東の帯258m².t2",
+"id": "p3.dwg.plan.room.1,600東の帯260m².t2",
 "name": "東の帯",
 "kind": "text",
 "layer": "図",
@@ -194033,28 +194116,28 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.1,600東の帯258m²",
-"group_name": "部屋名　1,600　東の帯　25.8 m²",
+"group": "dwg.plan.room.1,600東の帯260m²",
+"group_name": "部屋名　1,600　東の帯　26.0 m²",
 "dwg": "平面図　1階",
 "mock_hash": "d4556f3",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.1,600東の帯258m².t3",
-"name": "25.8 m²",
+"id": "p3.dwg.plan.room.1,600東の帯260m².t3",
+"name": "26.0 m²",
 "kind": "text",
 "layer": "図",
 "x": 433.03,
 "y": 246.82,
-"s": "25.8 m²",
+"s": "26.0 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.1,600東の帯258m²",
-"group_name": "部屋名　1,600　東の帯　25.8 m²",
+"group": "dwg.plan.room.1,600東の帯260m²",
+"group_name": "部屋名　1,600　東の帯　26.0 m²",
 "dwg": "平面図　1階",
-"mock_hash": "8ba097b1",
+"mock_hash": "8df15d4a",
 "fig": "平面図　1階"
 },
 {
@@ -199358,8 +199441,8 @@
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.0・1歳1202m².l",
-"name": "線　0・1歳　120.2 m²",
+"id": "p3.dwg.plan.room.0・1歳1205m².l",
+"name": "線　0・1歳　120.5 m²",
 "kind": "lines",
 "layer": "図",
 "x": 373.01,
@@ -199395,14 +199478,14 @@
 "eo": false
 }
 ],
-"group": "dwg.plan.room.0・1歳1202m²",
-"group_name": "部屋名　0・1歳　120.2 m²",
+"group": "dwg.plan.room.0・1歳1205m²",
+"group_name": "部屋名　0・1歳　120.5 m²",
 "dwg": "平面図　1階",
 "mock_hash": "34210c49",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.0・1歳1202m².t",
+"id": "p3.dwg.plan.room.0・1歳1205m².t",
 "name": "0・1歳",
 "kind": "text",
 "layer": "図",
@@ -199413,28 +199496,28 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.0・1歳1202m²",
-"group_name": "部屋名　0・1歳　120.2 m²",
+"group": "dwg.plan.room.0・1歳1205m²",
+"group_name": "部屋名　0・1歳　120.5 m²",
 "dwg": "平面図　1階",
 "mock_hash": "7d482f34",
 "fig": "平面図　1階"
 },
 {
-"id": "p3.dwg.plan.room.0・1歳1202m².t2",
-"name": "120.2 m²",
+"id": "p3.dwg.plan.room.0・1歳1205m².t2",
+"name": "120.5 m²",
 "kind": "text",
 "layer": "図",
 "x": 378.91,
 "y": 463.77,
-"s": "120.2 m²",
+"s": "120.5 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan.room.0・1歳1202m²",
-"group_name": "部屋名　0・1歳　120.2 m²",
+"group": "dwg.plan.room.0・1歳1205m²",
+"group_name": "部屋名　0・1歳　120.5 m²",
 "dwg": "平面図　1階",
-"mock_hash": "3080edf7",
+"mock_hash": "3082931a",
 "fig": "平面図　1階"
 },
 {
@@ -201456,7 +201539,7 @@
 "page": 1,
 "dwg": "平面図　2階",
 "fig": "平面図　2階",
-"mock_hash": "56867429"
+"mock_hash": "5f089772"
 },
 {
 "id": "p4.dwg.plan2.grid.20.l",
@@ -210534,8 +210617,8 @@
 "fig": "平面図　2階"
 },
 {
-"id": "p4.dwg.plan2.room.休憩室606m².l",
-"name": "線　休憩室　60.6 m²",
+"id": "p4.dwg.plan2.room.休憩室604m².l",
+"name": "線　休憩室　60.4 m²",
 "kind": "lines",
 "layer": "図",
 "x": 349.31,
@@ -210571,14 +210654,14 @@
 "eo": false
 }
 ],
-"group": "dwg.plan2.room.休憩室606m²",
-"group_name": "部屋名　休憩室　60.6 m²",
+"group": "dwg.plan2.room.休憩室604m²",
+"group_name": "部屋名　休憩室　60.4 m²",
 "dwg": "平面図　2階",
 "mock_hash": "57c4ec4f",
 "fig": "平面図　2階"
 },
 {
-"id": "p4.dwg.plan2.room.休憩室606m².t",
+"id": "p4.dwg.plan2.room.休憩室604m².t",
 "name": "休憩室",
 "kind": "text",
 "layer": "図",
@@ -210589,28 +210672,28 @@
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan2.room.休憩室606m²",
-"group_name": "部屋名　休憩室　60.6 m²",
+"group": "dwg.plan2.room.休憩室604m²",
+"group_name": "部屋名　休憩室　60.4 m²",
 "dwg": "平面図　2階",
 "mock_hash": "ce3fca3",
 "fig": "平面図　2階"
 },
 {
-"id": "p4.dwg.plan2.room.休憩室606m².t2",
-"name": "60.6 m²",
+"id": "p4.dwg.plan2.room.休憩室604m².t2",
+"name": "60.4 m²",
 "kind": "text",
 "layer": "図",
 "x": 354.42,
 "y": 223.7,
-"s": "60.6 m²",
+"s": "60.4 m²",
 "size_pt": 8.0,
 "font": "W3",
 "color": "#000000",
 "align": "center",
-"group": "dwg.plan2.room.休憩室606m²",
-"group_name": "部屋名　休憩室　60.6 m²",
+"group": "dwg.plan2.room.休憩室604m²",
+"group_name": "部屋名　休憩室　60.4 m²",
 "dwg": "平面図　2階",
-"mock_hash": "b3dea6ce",
+"mock_hash": "b3dd8e0c",
 "fig": "平面図　2階"
 },
 {
@@ -217916,7 +217999,7 @@
 "page": 1,
 "dwg": "立面図　園庭の側",
 "fig": "立面図　園庭の側",
-"mock_hash": "12f57450"
+"mock_hash": "1267aad1"
 },
 {
 "id": "p5.dwg.E1.note.西館の最高高さ+8,553.l",
@@ -219240,7 +219323,7 @@
 "page": 1,
 "dwg": "立面図　道路の側",
 "fig": "立面図　道路の側",
-"mock_hash": "12f57450"
+"mock_hash": "1267aad1"
 },
 {
 "id": "p5.dwg.E2.line.40_200.l",
@@ -220841,7 +220924,7 @@
 "page": 1,
 "dwg": "縦断面図A",
 "fig": "縦断面図A",
-"mock_hash": "c1cebb03"
+"mock_hash": "a7ddf9da"
 },
 {
 "id": "p6.dwg.SA.line.70_120.l",
@@ -222955,7 +223038,7 @@
 "page": 1,
 "dwg": "断面図C",
 "fig": "断面図C",
-"mock_hash": "c1cebb03"
+"mock_hash": "a7ddf9da"
 },
 {
 "id": "p6.dwg.C.cut.W.l",
@@ -231599,7 +231682,7 @@
 "page": 1,
 "dwg": "断面図D",
 "fig": "断面図D",
-"mock_hash": "77345a77"
+"mock_hash": "f75935d4"
 },
 {
 "id": "p6.dwg.D.note.1,758553W.l",
