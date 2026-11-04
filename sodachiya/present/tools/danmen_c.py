@@ -78,7 +78,7 @@ def draw_annotations():
         for p, q in zip(xs, xs[1:]):
             begin('寸法'); orig_chain(A, [p, q], y, *a, **k); end()
     g['chain_dims'] = chain
-    # 高さの記号：level_marks は一度に幾つも描く。一つの記号は 線（▽）・線（水平）・字の三つ
+    # 高さの記号：level_marks は一度に幾つも描く。一つの記号は線（▽）・線（水平）・字の三つ
     orig_lv = g['level_marks']
     def lv(A, items, *a, **k):
         begin('高さ_tmp'); r = orig_lv(A, items, *a, **k); arts = groups.pop()[2]; end()
