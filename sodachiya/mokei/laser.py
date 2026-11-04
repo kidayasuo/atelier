@@ -3540,37 +3540,58 @@ def tsuki_sheets(sheet=None):
         out.append((len(lst), round(uw + Sheet.MARGIN, 1), round(uh + Sheet.MARGIN, 1)))
     return dict(段=len(set(p[0] for p in pieces)), 切る板の数=len(pieces), 板の数=out)
 
-# ================= 8b. 本館の南の妻（開口を閉じた 1 枚、11-04 ユーザー） =================
-def south_gable_sheet():
-    """08 の南の妻は細片に分かれて付けられない。開口（格子戸・戸・窓）を閉じた 1 枚にして、開口の輪郭と縦格子を彫る。天端は梁の上面、底は GL"""
-    W = honkan_walls(); g = W['南の妻の西の端']
+# ================= 8b・8c. 本館の南の妻・北の妻（架構の面の中に入れる、11-04 ユーザー） =================
+# 妻の板は、架構の面（柱と梁の板 0.8×2 のあいだのすき間 1.75）の中に、板 1.0 を差し込む。柱の側面に突き当て、
+# 底は床の上（土間は GL、床は下の層 1.7＋上の層 1.7）、天端は梁の下面の輪郭（丸みも）に沿って 0.1 mm 下げる。架構が見える。
+GABLE_COL_X = (3.5, 123.5)         # 柱の中心（西の端から、模型 mm）。柱の幅 4.0
+GABLE_END = 137.5                  # 東の端（梁の先）
+GABLE_CLR = 0.1
+def gable_wall(f):
+    import kirita
     rmax = 205367.73
-    top = lambda x: beam_top(rmax - x * 100) + 3.0
-    xs = [i * 0.5 for i in range(0, 276)]
-    full = Polygon([(0, 0), (137.5, 0)] + [(x, top(x)) for x in reversed(xs)])
-    ops = [p for p in getattr(full.difference(g.buffer(0.01)), 'geoms', []) if p.area > 0.5]
-    s = Sheet('08b_本館の南の妻_航空ベニヤ1.0', 300, 600, '航空ベニヤ 1.0 300×600：本館の南の妻。開口（格子戸・戸・窓）を閉じた 1 枚。外から見て左＝西。天端は梁の上面、底は GL。開口の輪郭と、格子戸の縦格子（30 角＠150）は彫り')
-    s.show_used = True
+    def inside(poly):
+        iv = kirita._ray(poly, f)
+        return lambda x: any((rmax - b) / 100 - 1e-6 <= x <= (rmax - a) / 100 + 1e-6 for a, b in iv)
+    lo, up = inside(kirita.cut_floor('lower').buffer(0)), inside(kirita.cut_floor('upper').buffer(0))
+    fd = inside(kirita.cut_found())
+    hb = lambda x: 3.4 if up(x) else (1.7 if lo(x) else 0.0)
+    def top(x):
+        u = beam_under(rmax - x * 100)
+        return (u - GL) * S - GABLE_CLR
+    segs = [(GABLE_COL_X[0] + 2.0, GABLE_COL_X[1] - 2.0), (GABLE_COL_X[1] + 2.0, GABLE_END)]
+    polys = []; warn = []
+    for x0, x1 in segs:
+        xs = [x0 + i * 0.5 for i in range(int((x1 - x0) / 0.5) + 1)] + [x1]
+        xs = sorted(set(xs))
+        P = Polygon([(x, hb(x)) for x in xs] + [(x, top(x)) for x in reversed(xs)]).buffer(0)
+        # 底が階段になる所（土間→床）を、床の端で段にする（斜めにならないよう、サンプルが 0.5 おきなので 0.5 mm 以内の傾き）
+        polys.append(P)
+        nofd = [x for x in xs if not fd(x)]
+        if nofd: warn.append((round(min(nofd), 1), round(max(nofd), 1)))
+    return polys, warn, hb
+
+def gable_sheet(f, name, title, mirror):
+    polys, warn, hb = gable_wall(f)
+    s = Sheet(name, 300, 600, f'航空ベニヤ 1.0 300×600：本館の{title}。架構の面の中（柱と梁の板のあいだのすき間 1.75）に差し込む。底は床の上、天端は梁の下面の輪郭。{"外から見て左＝東" if mirror else "外から見て左＝西"}')
+    s.show_used = True; s.tabs = True
     s.add(box(0, 0, 300, 600), 'ref')
-    s.add(full)
-    solid = full
-    for p in ops:
-        b = p.bounds
-        if b[2] - b[0] < 3.0: continue                              # 幅 1.3 mm のすき間は彫らない
-        if b[2] - b[0] > 100:                                         # 格子戸：下の開口（高さ 27.5 mm まで）に縦格子
-            lo = box(b[0], 0, b[2], 27.5).intersection(full)
-            s.add(lo.exterior.difference(full.exterior.buffer(0.05)), 'eng')
-            x = b[0] + 0.75
-            while x < b[2] - 0.5:
-                ln = LineString([(x, 0.3), (x, 27.2)]).intersection(full)
-                s.add(ln, 'eng'); x += 1.5
-            solid = solid.difference(lo)
-        else:
-            s.add(p.exterior.difference(full.exterior.buffer(0.05)), 'eng'); solid = solid.difference(p)
-    for l in yamato_lines(solid):
-        s.add(l, 'eng')
-    s.save([(0, -4, '南の妻 1 枚（外から見て左＝西）', 3)])
-    return dict(大きさ=tuple(round(v, 1) for v in full.bounds), 開口=[tuple(round(v, 1) for v in p.bounds) for p in ops])
+    xoff = 0.0; ys = 0.0
+    for P in polys:
+        b = P.bounds
+        Q = affinity.translate(P, -b[0], -b[1])
+        if mirror: Q = affinity.scale(Q, -1, 1, origin=(Q.bounds[2] / 2, 0))
+        Q = affinity.translate(Q, xoff, ys)
+        s.add(Q)
+        for l in yamato_lines(Q): s.add(l, 'eng')
+        xoff += (b[2] - b[0]) + 6.0
+    s.save([(0, -4, f'{title}：{len(polys)} 枚。底の高さ 0（土間）・1.7・3.4（床）、天端は梁の下面', 3)])
+    return dict(板=[tuple(round(v, 1) for v in P.bounds) for P in polys], 基礎のない範囲=warn)
+
+def south_gable_sheet():
+    return gable_sheet(1, '08b_本館の南の妻_航空ベニヤ1.0', '南の妻', False)
+
+def north_gable_sheet():
+    return gable_sheet(20, '08c_本館の北の妻_航空ベニヤ1.0', '北の妻', True)
 
 # ================= 14p. PET 0.3 のガラス（東のはめ殺し、西の窓） =================
 PET_PAD = 0.6                  # 窓：穴より周り 0.6 mm 大きい短冊を、壁の外面に貼る（内面に貼ると柱と壁のあいだに 0.3 mm が入る）
@@ -3665,7 +3686,7 @@ if __name__ == '__main__':
     if sys.argv[1:2] == ['pet']:
         print(pet_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['south']:
-        print(south_gable_sheet()); sys.exit(0)
+        print(south_gable_sheet()); print(north_gable_sheet()); sys.exit(0)
     if sys.argv[1:2] == ['tsuki']:                     # 築山のバルサ（13）だけ
         print(tsuki_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['14w']:                       # 西館の外壁だけ
