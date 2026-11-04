@@ -3506,6 +3506,38 @@ def tsuki_sheets(sheet=None):
         out.append((len(lst), round(uw + Sheet.MARGIN, 1), round(uh + Sheet.MARGIN, 1)))
     return dict(段=len(lv), 板の数=out, 木=[(k, nm) for k, _, nm in trees])
 
+# ================= 8b. 本館の南の妻（開口を閉じた 1 枚、11-04 ユーザー） =================
+def south_gable_sheet():
+    """08 の南の妻は細片に分かれて付けられない。開口（格子戸・戸・窓）を閉じた 1 枚にして、開口の輪郭と縦格子を彫る。天端は梁の上面、底は GL"""
+    W = honkan_walls(); g = W['南の妻の西の端']
+    rmax = 205367.73
+    top = lambda x: beam_top(rmax - x * 100) + 3.0
+    xs = [i * 0.5 for i in range(0, 276)]
+    full = Polygon([(0, 0), (137.5, 0)] + [(x, top(x)) for x in reversed(xs)])
+    ops = [p for p in getattr(full.difference(g.buffer(0.01)), 'geoms', []) if p.area > 0.5]
+    s = Sheet('08b_本館の南の妻_航空ベニヤ1.0', 300, 600, '航空ベニヤ 1.0 300×600：本館の南の妻。開口（格子戸・戸・窓）を閉じた 1 枚。外から見て左＝西。天端は梁の上面、底は GL。開口の輪郭と、格子戸の縦格子（30 角＠150）は彫り')
+    s.show_used = True
+    s.add(box(0, 0, 300, 600), 'ref')
+    s.add(full)
+    solid = full
+    for p in ops:
+        b = p.bounds
+        if b[2] - b[0] < 3.0: continue                              # 幅 1.3 mm のすき間は彫らない
+        if b[2] - b[0] > 100:                                         # 格子戸：下の開口（高さ 27.5 mm まで）に縦格子
+            lo = box(b[0], 0, b[2], 27.5).intersection(full)
+            s.add(lo.exterior.difference(full.exterior.buffer(0.05)), 'eng')
+            x = b[0] + 0.75
+            while x < b[2] - 0.5:
+                ln = LineString([(x, 0.3), (x, 27.2)]).intersection(full)
+                s.add(ln, 'eng'); x += 1.5
+            solid = solid.difference(lo)
+        else:
+            s.add(p.exterior.difference(full.exterior.buffer(0.05)), 'eng'); solid = solid.difference(p)
+    for l in yamato_lines(solid):
+        s.add(l, 'eng')
+    s.save([(0, -4, '南の妻 1 枚（外から見て左＝西）', 3)])
+    return dict(大きさ=tuple(round(v, 1) for v in full.bounds), 開口=[tuple(round(v, 1) for v in p.bounds) for p in ops])
+
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
         print(engawa_sheets()); sys.exit(0)
@@ -3519,6 +3551,8 @@ if __name__ == '__main__':
         print(dai_pit_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['south']:
+        print(south_gable_sheet()); sys.exit(0)
     if sys.argv[1:2] == ['tsuki']:                     # 築山のバルサ（13）だけ
         print(tsuki_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['14w']:                       # 西館の外壁だけ
