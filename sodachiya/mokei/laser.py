@@ -3638,6 +3638,7 @@ def pet_sheets():
     return [(nm, w, h) for nm, w, h in items]
 
 # ================= 14w 裏の彫り（曲げる所の内面に縦の浅い彫り、11-04 ユーザー） =================
+WW_BEND_MARGIN = 0.4                                                  # 筋の端と板の縁のあいだ（11-04 試し：1.5 だと端の固い所が曲がりを邪魔した。123/36/5 で端も貫通しない）
 WW_BEND_ZONES = [(41.0, 73.0), (159.0, 205.0), (379.0, 431.0)]     # 丸みの帯 A の x（曲率から、前後 3 mm の余裕。北東・北西・南西）
 def west_wall_back_sheets():
     """切った 14w の帯 A の裏（内面）に彫る：丸みの所に縦の浅い線を 1 mm おき。切った板を、裏を上にして、**上下をひっくり返して**（GL の辺が上）
@@ -3654,7 +3655,7 @@ def west_wall_back_sheets():
     for x0, x1 in WW_BEND_ZONES:
         x = x0
         while x <= x1 + 1e-6:
-            col = LineString([(x, -10), (x, Hh + 10)]).intersection(A.buffer(-1.5))
+            col = LineString([(x, -10), (x, Hh + 10)]).intersection(A.buffer(-WW_BEND_MARGIN))
             for seg in getattr(col, 'geoms', [col]):
                 if seg.geom_type == 'LineString' and seg.length > 3: s.add(flip(seg), 'eng'); n += 1
             x += 1.0
