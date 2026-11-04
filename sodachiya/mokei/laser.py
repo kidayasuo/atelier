@@ -3628,6 +3628,23 @@ def west_wall_back_sheets():
     c.save([(0, -4, '位置の確かめ（弱い彫り）', 3)])
     return n
 
+# ================= 16. 試し：曲げの筋（11-04 ユーザー：14w の裏の筋は試しが必要） =================
+def bend_test_sheet():
+    """航空ベニヤ 1.0 の端材に、40×25 mm の帯 4 本：同じ 1 mm おきの筋を 3 通りの設定（色が違う：青・水色・紫）と、筋なし（そのまま）。
+    各色に別の出力・速度を割り当てて走らせ、湿らせて φ60 に巻き、割れ・戻り・筋の深さを見る"""
+    s = Sheet('16_試し_曲げの筋_航空ベニヤ1.0', 100, 70, '航空ベニヤ 1.0 の端材：曲げの筋の試し。帯 4 本（左から：青の設定／水色の設定／紫の設定／筋なし）。筋は 1 mm おき（3 本目だけ 1.5 mm おき）。出力・速度は色ごとに割り当てて、湿らせて φ60 に巻いて見る')
+    s.show_used = True; s.tabs = False
+    s.add_layer('eng2', '#00B4FF', 5, 'ENGRAVE_cyan', '彫る（水色）'); s.add_layer('eng3', '#A020F0', 5, 'ENGRAVE_purple', '彫る（紫）')
+    s.add(box(0, 0, 100, 70), 'ref')
+    for i, (lay, pitch) in enumerate((('eng', 1.0), ('eng2', 1.0), ('eng3', 1.5), (None, None))):
+        x0 = 3 + i * 24.0; y0 = 40.0
+        s.add(box(x0, y0, x0 + 22.0, y0 + 26.0))
+        if lay:
+            x = x0 + 4.0
+            while x <= x0 + 18.0 + 1e-6:
+                s.add(LineString([(x, y0 + 2.0), (x, y0 + 24.0)]), lay); x += pitch
+    s.save([(0, -4, '左から：青／水色／紫の設定、筋なし', 3)])
+
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
         print(engawa_sheets()); sys.exit(0)
@@ -3641,6 +3658,8 @@ if __name__ == '__main__':
         print(dai_pit_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['bend-test']:
+        print(bend_test_sheet()); sys.exit(0)
     if sys.argv[1:2] == ['14w-back']:
         print(west_wall_back_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['pet']:
