@@ -3538,6 +3538,29 @@ def south_gable_sheet():
     s.save([(0, -4, '南の妻 1 枚（外から見て左＝西）', 3)])
     return dict(大きさ=tuple(round(v, 1) for v in full.bounds), 開口=[tuple(round(v, 1) for v in p.bounds) for p in ops])
 
+# ================= 14p. PET 0.3 のガラス（東のはめ殺し、西の窓） =================
+PET_PAD = 0.6                  # 窓：穴より周り 0.6 mm 大きい短冊を、壁の外面に貼る（内面に貼ると柱と壁のあいだに 0.3 mm が入る）
+PET_FIX_W, PET_FIX_H = 12.2, 4.5   # 東のはめ殺し：3dm は 1.4 m 幅（梁の線から半スパン）、梁の外面（片側 0.18 m）を引いた幅。高さ＝2.445〜2.891 m
+def pet_sheets():
+    W = honkan_walls()
+    items = []                                                                 # (名前, 幅, 高さ)
+    for i in range(22): items.append(('東のはめ殺し', PET_FIX_W, PET_FIX_H))    # 19 枚＋予備 3
+    for p in W['西の外壁'].geoms:
+        for h in p.interiors:
+            b = h.bounds
+            for _ in range(1): items.append(('西の窓', round(b[2] - b[0] + 2 * PET_PAD, 2), round(b[3] - b[1] + 2 * PET_PAD, 2)))
+    for k in range(2): items.append(('西の窓 予備', 7.2, 10.2))
+    s = Sheet('14p_PET0.3_ガラス', 300, 300, 'PET 0.3：東のはめ殺し（梁のあいだにはめる、19＋予備 3）、西の窓（壁の外面から貼る、穴より周り 0.6 mm 大きい。9＋予備 2）')
+    s.show_used = True; s.tabs = False
+    s.add(box(0, 0, 300, 300), 'ref')
+    x = y = 0.0; rowh = 0.0; gap = 3.0; texts = []
+    items.sort(key=lambda t: (-t[2], -t[1]))
+    for nm, w, h in items:
+        if x + w > 150: x = 0; y += rowh + gap; rowh = 0
+        s.add(box(x, 290 - y - h, x + w, 290 - y)); x += w + gap; rowh = max(rowh, h)
+    s.save([(0, -4, f'{len(items)} 枚。東のはめ殺し {PET_FIX_W}×{PET_FIX_H}、西の窓は壁の穴＋{2 * PET_PAD} mm', 3)])
+    return [(nm, w, h) for nm, w, h in items]
+
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
         print(engawa_sheets()); sys.exit(0)
@@ -3551,6 +3574,8 @@ if __name__ == '__main__':
         print(dai_pit_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['pet']:
+        print(pet_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['south']:
         print(south_gable_sheet()); sys.exit(0)
     if sys.argv[1:2] == ['tsuki']:                     # 築山のバルサ（13）だけ
