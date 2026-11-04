@@ -3593,9 +3593,9 @@ def gable_wall(f):
 
 def gable_sheet(f, name, title, mirror):
     polys, warn, hb = gable_wall(f)
-    s = Sheet(name, 300, 600, f'航空ベニヤ 1.0 300×600：本館の{title}。架構の面の中（柱と梁の板のあいだのすき間 1.75）に差し込む。底は床の上、天端は梁の下面の輪郭。{"外から見て左＝東" if mirror else "外から見て左＝西"}')
+    s = Sheet(name, 600, 300, f'航空ベニヤ 1.0 300×600（横位置）：本館の{title}。架構の面の中（柱と梁の板のあいだのすき間 1.75）に差し込む。底は床の上、天端は梁の下面の輪郭。{"外から見て左＝東" if mirror else "外から見て左＝西"}')
     s.show_used = True; s.tabs = True
-    s.add(box(0, 0, 300, 600), 'ref')
+    s.add(box(0, 0, 600, 300), 'ref')
     xoff = 0.0; ys = 0.0
     for P in polys:
         b = P.bounds
