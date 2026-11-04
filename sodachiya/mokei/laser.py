@@ -9,7 +9,7 @@
 import json, math, os, re, sys
 import numpy as np
 import rhino3dm as r
-from shapely.geometry import Polygon, MultiPolygon, box, Point
+from shapely.geometry import Polygon, MultiPolygon, box, Point, LineString
 from shapely.ops import unary_union
 from shapely import affinity
 
@@ -3432,6 +3432,80 @@ def west_stair_sheets():
     s.save([(0, -4, f'{len(items)} 枚。番号＝下から何枚目', 3)])
     return dict(板=len(items), 踏面=len(ns), 踏面の板数=[n for n, _ in ns], 使う幅=round(uw + Sheet.MARGIN, 1), 使う高さ=round(uh + Sheet.MARGIN, 1), 板の最大=(round(max(g.bounds[2] for _, g in items), 1), round(max(g.bounds[3] for _, g in items), 1)))
 
+# ================= 築山の等高線（バルサ 1 mm を 2 枚重ねで 2 mm＝20 cm） =================
+BALSA_SHEET = (200.0, 500.0)      # 手持ちのバルサ 1 mm の大きさ（仮：2 mm を買ったときの 200×500 と同じとした。違えばここを直す）
+BALSA_T = 1.0
+def tsuki_levels():
+    """98 の等高線の板：[(段 1..12 = +0.2〜+2.4 m、模型 mm の Polygon の島, ...)]。段の番号 = 高さ/0.2"""
+    import re as _re
+    lv = {}
+    for nm, g in _pf('98_園庭_等高線の板'):
+        mm_ = _re.match(r'\+(\d+(?:\.\d+)?) m の板', nm)
+        if not mm_: continue                                  # くぼみ（−）と園庭の外形は作らない
+        k = int(round(float(mm_.group(1)) / 0.2))
+        P = dai_tx(Polygon(_cxy(g, 400)).buffer(0))
+        lv.setdefault(k, []).append(P)
+    return dict(sorted(lv.items()))
+
+def tsuki_sheets(sheet=None):
+    sheet = sheet or BALSA_SHEET
+    W, H, gap = sheet[0] - 2 * Sheet.MARGIN, sheet[1] - 2 * Sheet.MARGIN, 1.6
+    lv = tsuki_levels()
+    # 木：築山の上（バルサの 1 段目より上に立つ木）は、いちばん高い段の上の板に十字を彫る
+    F = dai_features(); trees = []
+    for t in F['_trees']:
+        pt = dai_tx(Point(t['x'], t['y']))
+        ks = [k for k, ps in lv.items() if any(p.contains(pt) for p in ps)]
+        if ks and t['base'] > -100: trees.append((max(ks), pt, t['name']))
+    pieces = []      # (段, 島の番号, 層 'a'/'b', 形, 彫る線のリスト)
+    for k, ps in lv.items():
+        up = lv.get(k + 1, [])
+        for i, p in enumerate(ps):
+            eng = []
+            for q in up:
+                if q.intersects(p): eng.append(q.exterior)                   # 次の段の輪郭（置く位置の線）
+            for kk, pt, nm in trees:
+                if kk == k and p.contains(pt): eng.append(pt)
+            for layer in ('a', 'b'):
+                pieces.append((k, i, layer, p, eng if layer == 'b' else []))
+    pieces.sort(key=lambda t: (-t[3].area, t[0], t[2]))
+    # 板に詰める（入らなければ次の板へ）
+    sheets = [[]]
+    def fits(lst):
+        try:
+            nest([affinity.translate(p[3], -p[3].bounds[0], -p[3].bounds[1]) for p in lst], W, H, gap, top=H); return True
+        except (RuntimeError, TypeError):
+            return False
+    for pc in pieces:
+        if fits(sheets[-1] + [pc]): sheets[-1].append(pc)
+        else: sheets.append([pc])
+    out = []
+    for si, lst in enumerate(sheets):
+        shp = [affinity.translate(p[3], -p[3].bounds[0], -p[3].bounds[1]) for p in lst]
+        mv, (uw, uh) = nest(shp, W, H, gap, top=H)
+        s = Sheet(f'13_築山_{si + 1}_バルサ1', sheet[0], sheet[1],
+                  f'バルサ 1 mm {sheet[0]:g}×{sheet[1]:g}：築山の等高線。1 段（20 cm＝2 mm）を同じ形 2 枚（a・b）で作る。番号＝段（1＝+0.2 m … 12＝+2.4 m）。b の板には次の段の輪郭（置く位置）と木の位置の十字を彫る')
+        s.show_used = True
+        s.add(box(0, 0, sheet[0], sheet[1]), 'ref')
+        for (k, i, layer, p, eng), (tx, ty) in zip(lst, mv):
+            dx, dy = tx - p.bounds[0], ty - p.bounds[1]
+            q = affinity.translate(p, dx, dy); s.add(q)
+            for e in eng:
+                e2 = affinity.translate(e, dx, dy)
+                if e2.geom_type == 'Point':
+                    h = DAI_TREE_MARK / 2
+                    s.add(LineString([(e2.x - h, e2.y), (e2.x + h, e2.y)]), 'eng'); s.add(LineString([(e2.x, e2.y - h), (e2.x, e2.y + h)]), 'eng')
+                else: s.add(e2, 'eng')
+            if layer == 'a':                                              # 段の番号は a の板だけに（b は表に残るので彫らない）。小さい島には彫らない
+                c = q.representative_point(); txt = str(k)
+                if q.area > 120:
+                    for j, ch in enumerate(txt):
+                        for l in label_num(ch, c.x - len(txt) * 0.6 + j * 1.2, c.y - 0.6, 1.2): s.add(l, 'eng')
+        s.tab_gap = lambda: 0.35
+        s.save([(0, -4, f'{len(lst)} 枚', 3)])
+        out.append((len(lst), round(uw + Sheet.MARGIN, 1), round(uh + Sheet.MARGIN, 1)))
+    return dict(段=len(lv), 板の数=out, 木=[(k, nm) for k, _, nm in trees])
+
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
         print(engawa_sheets()); sys.exit(0)
@@ -3445,6 +3519,8 @@ if __name__ == '__main__':
         print(dai_pit_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['tsuki']:                     # 築山のバルサ（13）だけ
+        print(tsuki_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['14w']:                       # 西館の外壁だけ
         print(west_wall_sheets()); sys.exit(0)
     # 01〜06（試し切り・本館の架構・床・ベタ基礎・屋根）は切った部品なので作り直さない（ユーザー 10-28、CUT_DONE）
