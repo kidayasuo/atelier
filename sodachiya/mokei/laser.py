@@ -138,7 +138,20 @@ def stadium(cx, cy, w, h):
                      Point(cx, cy - h / 2 + rr).buffer(rr, 32),
                      Point(cx, cy + h / 2 - rr).buffer(rr, 32)])
 
+
+# 11-04 ユーザーの指摘：桁（22d）は架構の面に直角でない区間がある（架構 9〜15 は 5〜8°、架構 8〜9 と 15〜18 は 36〜49°）。
+# 5〜8° の区間（架構 10〜14）は穴の幅を広げる：竹ひご 2.0÷cosθ ＋ 重ねた板の厚さ 3.2×tanθ ＋ あそび 0.15（描く寸法は −0.2 を引いた分）。
+# 36〜49° の区間は穴では通せない（5〜7 mm 要る）：桁は区間ごとの短い竹ひごを板の面に突き付けて接着する（穴は標準のまま）。
+KETA_SKEW_DEG = {10: 5.5, 11: 6.4, 12: 7.2, 13: 8.0, 14: 8.0}
+def keta_clr(k, clr):
+    th = KETA_SKEW_DEG.get(k)
+    if not th: return clr
+    t = math.radians(th)
+    need = 2.0 / math.cos(t) + 3.2 * math.tan(t) + 0.15          # 実寸の幅
+    return (max(clr[0], need - 0.2), clr[1])                      # 描く寸法（切り幅 0.2 を足すと実寸）
+
 def column_part(g, clr):
+    clr = keta_clr(_frame_no(_ang(g)), clr)
     P = to_model(profile_rz(g, 0))
     poly = Polygon(P).buffer(0)
     xmin, xmax = P[:, 0].min(), P[:, 0].max()
@@ -1000,6 +1013,7 @@ def _ang(g):
     return math.atan2((b.Min.Y + b.Max.Y) / 2 - CY, (b.Min.X + b.Max.X) / 2 - CX) % (2 * math.pi)
 
 def _holes(g, clr):
+    clr = keta_clr(_frame_no(_ang(g)), clr)
     return [stadium(*to_model(np.array([hole_center(g, k)]))[0], clr[0], clr[1]) for k in range(1, g.ProfileCount)]
 
 def west_parts(clr):
