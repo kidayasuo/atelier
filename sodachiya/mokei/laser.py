@@ -3475,7 +3475,7 @@ def tsuki_pieces(maxw):
                 R = lambda g: affinity.rotate(g, ang, origin=(0, 0))
                 pr = R(p); er = [R(e) for e in (eng if layer == 'b' else [])]
                 bb = pr.bounds; w = bb[2] - bb[0]
-                n = max(1, math.ceil(w / (maxw - 0.5)))
+                n = 1 if w <= maxw - 0.5 else max(2, math.ceil(w * 1.34 / (maxw - 0.5)))      # b は割る位置を 1/3 ずらすので、いちばん広い帯は w/n の 1.33 倍
                 cuts = [bb[0] + w * j / n for j in range(1, n)]
                 shift = 0.0 if layer == 'a' else 0.33 * (w / n)          # b は割る位置を 1/3 ずらして、継ぎ目を a の継ぎ目と重ねない
                 cuts = [c_ + shift for c_ in cuts] if n > 1 else []
@@ -3595,6 +3595,39 @@ def pet_sheets():
     s.save([(0, -4, f'{len(items)} 枚。東のはめ殺し {PET_FIX_W}×{PET_FIX_H}、西の窓は壁の穴＋{2 * PET_PAD} mm', 3)])
     return [(nm, w, h) for nm, w, h in items]
 
+# ================= 14w 裏の彫り（曲げる所の内面に縦の浅い彫り、11-04 ユーザー） =================
+WW_BEND_ZONES = [(41.0, 73.0), (159.0, 205.0), (379.0, 431.0)]     # 丸みの帯 A の x（曲率から、前後 3 mm の余裕。北東・北西・南西）
+def west_wall_back_sheets():
+    """切った 14w の帯 A の裏（内面）に彫る：丸みの所に縦の浅い線を 1 mm おき。切った板を、裏を上にして、**上下をひっくり返して**（GL の辺が上）
+    北の妻の端（左の辺）と GL の辺を、レーザーの原点の角に突き当てて置く。データの原点＝帯 A の外接矩形の角（余白 0）"""
+    pcs, mz = west_wall_pieces(); A = pcs['A']
+    b = A.bounds; Hh = b[3]
+    s = Sheet('14w裏_曲げの彫り_航空ベニヤ1.0', 600, 300, '切った 14w の帯 A の裏に彫る。裏を上にして上下をひっくり返し（GL の辺が上）、北の妻の端（左）と GL の辺を原点の角に突き当てる。丸み 3 か所の縦の浅い彫り 1 mm おき。参考の黒＝帯 A の外形（切らない）')
+    s.MARGIN = 0.0; s.tabs = False
+    s.add(box(0, 0, 600, 300), 'ref')
+    flip = lambda g: affinity.translate(affinity.scale(g, 1, -1, origin=(0, Hh / 2)), 0, 300 - Hh)     # 板の左上＝帯 A の外接矩形の左上（座標は板のまま）
+    s.no_shift = True
+    s.add(flip(A), 'ref')
+    n = 0
+    for x0, x1 in WW_BEND_ZONES:
+        x = x0
+        while x <= x1 + 1e-6:
+            col = LineString([(x, -10), (x, Hh + 10)]).intersection(A.buffer(-1.5))
+            for seg in getattr(col, 'geoms', [col]):
+                if seg.geom_type == 'LineString' and seg.length > 3: s.add(flip(seg), 'eng'); n += 1
+            x += 1.0
+    s.save([(0, -4, f'彫りの線 {n} 本。原点＝帯 A の外接矩形の左上（GL の辺が上）', 3)])
+    # 位置の確かめ：GL の辺と北の端から 2 mm 内の L 字（弱い彫り）。本番の前にこれだけ走らせ、辺との間隔が 2 mm かを見る
+    c = Sheet('14w裏_位置の確かめ_航空ベニヤ1.0', 600, 300, '位置の確かめ：GL の辺（上）と北の端（左）から 2 mm 内側の L 字と、丸み 3 か所の始まりの短い筋。弱い出力の彫りで。辺との間隔が 2 mm かを見て、ずれていたら置き直す')
+    c.MARGIN = 0.0; c.tabs = False; c.no_shift = True
+    c.add(box(0, 0, 600, 300), 'ref'); c.add(flip(A), 'ref')
+    c.add(LineString([(2.0, Hh - 2.0 + 0.0), (2.0, Hh - 2.0 - 20)]).intersection(box(0, 0, 600, 300)) if False else flip(LineString([(2.0, 2.0), (2.0, 22.0)])), 'eng')
+    c.add(flip(LineString([(2.0, 2.0), (22.0, 2.0)])), 'eng')
+    for x0, x1 in WW_BEND_ZONES:
+        for x in (x0, x1): c.add(flip(LineString([(x, 4.0), (x, 14.0)])), 'eng')
+    c.save([(0, -4, '位置の確かめ（弱い彫り）', 3)])
+    return n
+
 if __name__ == '__main__':
     if sys.argv[1:2] == ['04b']:                       # 0・1歳の外縁側の床の帯だけ
         print(engawa_sheets()); sys.exit(0)
@@ -3608,6 +3641,8 @@ if __name__ == '__main__':
         print(dai_pit_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['dai-naka']:                  # 台の中の層だけ
         print(dai_naka_sheets()); sys.exit(0)
+    if sys.argv[1:2] == ['14w-back']:
+        print(west_wall_back_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['pet']:
         print(pet_sheets()); sys.exit(0)
     if sys.argv[1:2] == ['south']:
