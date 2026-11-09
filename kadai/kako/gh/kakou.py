@@ -348,26 +348,53 @@ def _in(name, default=None):
     return v
 
 
+def _raw(x):
+    """GH の型（GH_String・GH_Number など）なら中の値を出す"""
+    for _ in range(3):
+        if hasattr(x, 'Value') and not isinstance(x, (str, int, float)):
+            try:
+                x = x.Value
+                continue
+            except Exception:
+                pass
+        break
+    return x
+
+
 def _f(x):
     """GH から来た値を数に（文字・数・GH の型・.NET の型のどれでも）"""
-    for get in (lambda v: v, lambda v: v.Value, lambda v: str(v)):
-        try:
-            return float(get(x))
-        except Exception:
-            pass
-    raise ValueError('数にできない：%r' % (x,))
+    x = _raw(x)
+    try:
+        return float(x)
+    except Exception:
+        pass
+    try:
+        return float(str(x).strip())
+    except Exception:
+        raise ValueError('数にできない：%r' % (str(x)[:40],))
 
 
 def _as_list(v):
-    """GH の List Access（Python の list でも .NET の List でも）と、一つの値を、Python の list に"""
+    """GH の List Access（Python の list でも .NET の List でも）と、一つの値を、Python の list に（中の値を出して）"""
     if v is None:
         return []
     if isinstance(v, (str, bytes)):
         return [v]
     try:
-        return list(v)
+        return [_raw(x) for x in v]
     except TypeError:
-        return [v]
+        return [_raw(v)]
+
+
+def _nums(v):
+    """数の並び：list の中の文字に改行・カンマ・空白で並んだ数があれば、分けて数に（Panel の Multiline Data が切ってあるとき）"""
+    out = []
+    for x in _as_list(_raw(v) if isinstance(_raw(v), str) else v):
+        if isinstance(x, str):
+            out += [float(q) for q in x.replace(',', ' ').replace(';', ' ').split()]
+        else:
+            out.append(_f(x))
+    return out
 
 
 def _num(name):
@@ -680,10 +707,10 @@ def run():
     ks = _in('k')
     if ks is None:
         return None, '入力 k が要る'
-    ks = [_f(x) for x in _as_list(ks) if str(x).strip() != '']
+    ks = _nums(ks)
     if not ks:
         return None, '入力 k が空'
-    vin = [_f(v) for v in _as_list(_in('vIn', V_IN)) if str(v).strip() != '']
+    vin = _nums(_in('vIn', V_IN))
     arcs, rays = guides(ks, vin, P['col'], P['FL'])
     if roof_ is None or west_ is None:
         return dict(spine=arcs, rays=rays), '下書きだけ（spine・rays）。架構を作るには roof・west も要る'
@@ -694,6 +721,8 @@ def run():
     rows, log = [], []
     for i, kk in enumerate(ks):
         sc = _pick(cols_, i, True)
+        if isinstance(sc, str):
+            sc = sc.strip().lower() not in ('false', '0', 'no', '')
         mids_i = parse_mids(_pick(mids_, i, None))
         try:
             o, row = build_one(kk, roof_, west_, eave_, bool(sc), mids_i, vin, P, tol, log)
