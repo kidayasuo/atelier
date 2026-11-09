@@ -101,6 +101,9 @@ def build(scheme, Dm, De, load):
     if scheme == 'renzoku':
         inner = [1.0, SW - 3.0]                    # キャットウォークの縁の列・西の3.0 mの列
         main = (inner[0], inner[1])
+    elif scheme.startswith('higashi'):           # 東だけ内に柱の列（s は名前の後ろ、m）、西は今のまま
+        inner = [float(scheme.split('_')[1])]
+        main = (inner[0], SW)
     elif scheme == 'houzue':
         braces = [(0.0, 2.0, 2.1), (SW, SW - 2.0, 2.1)]   # 柱の芯, 梁の点s, 下がり
         main = (2.0, SW - 2.0)
@@ -198,6 +201,15 @@ if __name__ == '__main__':
                           % (ratio, Dm * 1000, Dm * ratio * 1000, L, rs, rd, nb, cs))
                     break
 
+    print('== 東だけB（西は今のまま）')
+    for sc, name in (('higashi_1.0', 'キャットウォークの縁 s=1.0'), ('higashi_2.1', '2階の柱の線 v−3.4 s=2.1')):
+        for ratio in (1.0, 1.3):
+            for Dm in np.arange(0.25, 1.21, 0.025):
+                rs, rd, L, nb, cs = check(sc, Dm, Dm * ratio)
+                if rs <= 1 and rd <= 1:
+                    print('  %s 端/中=%.1f：真ん中 %.0f・端 %.0f（主のスパン %.2f m、曲げ %.2f・たわみ %.2f、内の柱 %.0f kN）'
+                          % (name, ratio, Dm * 1000, Dm * ratio * 1000, L, rs, rd, nb))
+                    break
     print('== 図に描いたせい（端560・真ん中420、今の案は650一定）')
     for scheme, Dm, De in (('tanjun', 0.65, 0.65), ('renzoku', 0.42, 0.56), ('houzue', 0.42, 0.56)):
         rs, rd, L, nb, cs = check(scheme, Dm, De)
