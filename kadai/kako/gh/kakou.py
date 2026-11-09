@@ -29,6 +29,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
                k：架構の番号（float、List）
                west：西の柱の外の面＝外壁の内面の線（平面の曲線、Curve、Item）
 入力（任意、無ければ既定の値。部品に入力を足したものだけ効く）
+               vU：u を測る円弧の v（m、float、Item）。既定 0.9（西館の東の壁の外面）。0 なら本館の背骨の円弧（育ち舎の uv.py・今の3dmの架構と同じ）
                vIn：内の柱の列の v（m、正の数、float、List。既定 [3.4]＝2階の柱の線。空にするには 0 を一つ）
                eave：軒先の線（Curve、Item）。無ければ外壁の内面から EAVE_OUT
                showCol：柱を出すか（bool、List。1つなら全部に、kと同じ数なら1本ずつ）
@@ -41,7 +42,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-09 22:26'
+VERSION = 'kakou 2026-11-09 22:58'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -69,7 +70,8 @@ EAVE_R = 300.0                      # 延長の下端と頭のつなぎ
 TIP_GAP = 100.0                     # 延長の先は軒先の線の0.1手前（線に直角に測る）
 EAVE_OUT = 780.0                    # eave が無いときの軒の出（外壁の内面から）
 V_EAST_FACE = 1050.0                # 東の柱の外の面＝西館の東の壁の内面 v−1.05
-V_U = 900.0                         # u を測る線 v−0.9
+V_U = 900.0                         # u を測る円弧の v（mm）。入力 vU（m）で変えられる。0 なら本館の背骨（uv.py と同じ）
+V_EAST_OUT = 900.0                  # 西館の東の壁の外面 v−0.9（下書きの円弧）
 PITCH = 3000.0
 # 本館の (u, v) の円（kadai/sodachiya/model/build/south/uv.py と同じ定数）
 CX, CY, RW = 194662.93237, -41348.26335, 205017.7
@@ -688,14 +690,14 @@ def guides(ks, vin, w, FL):
     """屋根や壁を描く前の下書き：背骨の円弧（v−0.9）・東の柱の芯の円弧・内の列の円弧と、架構kの放射の線（v−0.9→v−17）"""
     u0, u1 = 3 * (min(ks) - 1) - 1.5, 3 * (max(ks) - 1) + 1.5
     arcs = []
-    for v in [V_U / 1000.0, (V_EAST_FACE + w / 2) / 1000.0] + [x for x in vin if x > 0]:
+    for v in [V_EAST_OUT / 1000.0, (V_EAST_FACE + w / 2) / 1000.0] + [x for x in vin if x > 0]:
         c = rg.ArcCurve(rg.Arc(uv_xy(u0, v), uv_xy((u0 + u1) / 2, v), uv_xy(u1, v)))
         c.Translate(rg.Vector3d(0, 0, FL))
         arcs.append(c)
     rays = []
     for k_ in ks:
         u = 3 * (k_ - 1)
-        a, b = uv_xy(u, V_U / 1000.0), uv_xy(u, 17.0)
+        a, b = uv_xy(u, V_EAST_OUT / 1000.0), uv_xy(u, 17.0)
         a.Z = FL
         b.Z = FL
         rays.append(rg.LineCurve(a, b))
@@ -714,6 +716,9 @@ def run():
     if not ks:
         return None, '入力 k が空'
     vin = _nums(_in('vIn', V_IN))
+    global V_U
+    vu = _in('vU')
+    V_U = _f(vu) * 1000.0 if vu is not None else 900.0
     arcs, rays = guides(ks, vin, P['col'], P['FL'])
     if roof_ is None or west_ is None:
         return dict(spine=arcs, rays=rays), '下書きだけ（spine・rays）。架構を作るには roof・west も要る'
