@@ -34,7 +34,8 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
                mids：2階の床梁の上端の高さ（FL から、str、List。"3200"、無しは空。kと同じ数か1つ）
                FL・D・Dm・t・col・key・Df・eR・haR・hbR（float、Item）
                csv：CSV を書くファイルの道（str、Item）
-出力           plates（板、キー付き）・cols（柱、欠き込み付き）・floors（2階の床梁）
+出力           spine（v−0.9・東の柱の芯・内の列の円弧）・rays（架構kの放射の線）：k だけつなげば出る下書き
+               plates（板、キー付き）・cols（柱、欠き込み付き）・floors（2階の床梁）
                ptE・ptI・ptW・ptM（桁が通る点）・axis（桁の向き）・lines（架構の線）・table（CSV の文）・log
 """
 import math
@@ -625,24 +626,53 @@ COLS = ['k', 'u', 'th_deg', 'sW', 's_in', 'span_main', 's_wall', 's_tip', 'slope
         'D', 'Dm', 'fit_dev', 'dtopE', 'dtopW', 'col', 'mids']
 
 
+def uv_xy(u, v):
+    """育ち舎の (u, v)（m、u は v−0.9 の上で測る）→ 世界の点（mm）"""
+    th = TH_S - u * 1000.0 / (RW + V_U)
+    r = RW + v * 1000.0
+    return rg.Point3d(CX + r * math.cos(th), CY + r * math.sin(th), 0.0)
+
+
+def guides(ks, vin, w, FL):
+    """屋根や壁を描く前の下書き：背骨の円弧（v−0.9）・東の柱の芯の円弧・内の列の円弧と、架構kの放射の線（v−0.9→v−17）"""
+    u0, u1 = 3 * (min(ks) - 1) - 1.5, 3 * (max(ks) - 1) + 1.5
+    arcs = []
+    for v in [V_U / 1000.0, (V_EAST_FACE + w / 2) / 1000.0] + [x for x in vin if x > 0]:
+        c = rg.ArcCurve(rg.Arc(uv_xy(u0, v), uv_xy((u0 + u1) / 2, v), uv_xy(u1, v)))
+        c.Translate(rg.Vector3d(0, 0, FL))
+        arcs.append(c)
+    rays = []
+    for k_ in ks:
+        u = 3 * (k_ - 1)
+        a, b = uv_xy(u, V_U / 1000.0), uv_xy(u, 17.0)
+        a.Z = FL
+        b.Z = FL
+        rays.append(rg.LineCurve(a, b))
+    return arcs, rays
+
+
 def run():
     tol = _tol()
     P = {n: _num(n) for n in DEF}
     roof_ = _in('roof')
     west_ = _in('west')
     ks = _in('k')
-    if roof_ is None or west_ is None or ks is None:
-        return None, '入力 roof・west・k が要る'
+    if ks is None:
+        return None, '入力 k が要る'
     if not isinstance(ks, (list, tuple)):
         ks = [ks]
+    ks = [float(x) for x in ks]
     vin = _in('vIn', V_IN)
     if not isinstance(vin, (list, tuple)):
         vin = [vin]
     vin = [float(v) for v in vin]
+    arcs, rays = guides(ks, vin, P['col'], P['FL'])
+    if roof_ is None or west_ is None:
+        return dict(spine=arcs, rays=rays), '下書きだけ（spine・rays）。架構を作るには roof・west も要る'
     eave_ = _in('eave')
     cols_ = _in('showCol')
     mids_ = _in('mids')
-    res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[])
+    res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays)
     rows, log = [], []
     for i, kk in enumerate(ks):
         kk = float(kk)
@@ -677,9 +707,11 @@ def run():
     return res, '\n'.join(log)
 
 
-if _RHINO and 'roof' in globals():
+if _RHINO and 'k' in globals():
     _res, log = run()
     if _res:
+        spine, rays = _res['spine'], _res['rays']
+    if _res and 'plates' in _res:
         plates, cols, floors = _res['plates'], _res['cols'], _res['floors']
         ptE, ptI, ptW, ptM = _res['ptE'], _res['ptI'], _res['ptW'], _res['ptM']
         axis, lines, table = _res['axis'], _res['lines'], _res['table']
