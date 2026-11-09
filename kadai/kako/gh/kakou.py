@@ -707,6 +707,9 @@ def run():
     return res, '\n'.join(log)
 
 
+# Rhino 8 の部品は、入力と上の定義を globals でなく別の名前の場所（locals）に置くことがある。一つにまとめる
+globals().update(locals())
+log = '部品は動いたが、入力 k が見えない（k の名前と List Access を確かめる）'
 if _RHINO and 'k' in globals():
     _res, log = run()
     if _res:
