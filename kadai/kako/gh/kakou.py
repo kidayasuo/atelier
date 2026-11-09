@@ -2,6 +2,7 @@
 #! python 3
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
+版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
 Rhino 8 Mac の Grasshopper、Python 3 のスクリプト部品に貼る。単位は mm。
 
 一つの部品で、架構kの梁（2枚の板）・柱（東・内の列・西）・2階の床梁（あれば）を同時に作る。
@@ -39,6 +40,8 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
                ptE・ptI・ptW・ptM（桁が通る点）・axis（桁の向き）・lines（架構の線）・table（CSV の文）・log
 """
 import math
+
+VERSION = 'kakou 2026-11-09 22:26'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -755,9 +758,10 @@ def run():
 
 # Rhino 8 の部品は、入力と上の定義を globals でなく別の名前の場所（locals）に置くことがある。一つにまとめる
 globals().update(locals())
-log = '部品は動いたが、入力 k が見えない（k の名前と List Access を確かめる）'
+log = VERSION + '\n部品は動いたが、入力 k が見えない（k の名前と List Access を確かめる）'
 if _RHINO and 'k' in globals():
     _res, log = run()
+    log = VERSION + '\n' + log
     if _res:
         spine, rays = _res['spine'], _res['rays']
     if _res and 'plates' in _res:

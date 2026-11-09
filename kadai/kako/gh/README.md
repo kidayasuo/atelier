@@ -4,6 +4,8 @@
 
 ## 置き方
 
+版はコードの頭の`VERSION`（日時）で、`log`の1行目にも出る。直すたびに書き換える。
+
 1. Grasshopperに「Script」部品を置き、Python 3にして、`kakou.py`の中身を貼る。
 2. 入力を足して名前を付ける（名前は下の表のとおり、半角）。任意の入力は、足さなければ既定の値。
 3. 出力を足して名前を付ける：`spine`・`rays`・`plates`・`cols`・`floors`・`ptE`・`ptI`・`ptW`・`ptM`・`axis`・`lines`・`table`・`log`。
