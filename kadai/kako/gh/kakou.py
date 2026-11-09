@@ -348,17 +348,38 @@ def _in(name, default=None):
     return v
 
 
+def _f(x):
+    """GH から来た値を数に（文字・数・GH の型・.NET の型のどれでも）"""
+    for get in (lambda v: v, lambda v: v.Value, lambda v: str(v)):
+        try:
+            return float(get(x))
+        except Exception:
+            pass
+    raise ValueError('数にできない：%r' % (x,))
+
+
+def _as_list(v):
+    """GH の List Access（Python の list でも .NET の List でも）と、一つの値を、Python の list に"""
+    if v is None:
+        return []
+    if isinstance(v, (str, bytes)):
+        return [v]
+    try:
+        return list(v)
+    except TypeError:
+        return [v]
+
+
 def _num(name):
     v = _in(name)
-    return float(v) if v is not None else DEF[name]
+    return _f(v) if v is not None else DEF[name]
 
 
 def _pick(lst, i, default):
     """1つなら全部に、k と同じ数なら i 番目"""
     if lst is None:
         return default
-    if not isinstance(lst, (list, tuple)):
-        lst = list(lst) if hasattr(lst, '__iter__') and not isinstance(lst, str) else [lst]
+    lst = _as_list(lst)
     if len(lst) == 0:
         return default
     if len(lst) == 1:
@@ -659,13 +680,10 @@ def run():
     ks = _in('k')
     if ks is None:
         return None, '入力 k が要る'
-    if not isinstance(ks, (list, tuple)):
-        ks = [ks]
-    ks = [float(x) for x in ks]
-    vin = _in('vIn', V_IN)
-    if not isinstance(vin, (list, tuple)):
-        vin = [vin]
-    vin = [float(v) for v in vin]
+    ks = [_f(x) for x in _as_list(ks) if str(x).strip() != '']
+    if not ks:
+        return None, '入力 k が空'
+    vin = [_f(v) for v in _as_list(_in('vIn', V_IN)) if str(v).strip() != '']
     arcs, rays = guides(ks, vin, P['col'], P['FL'])
     if roof_ is None or west_ is None:
         return dict(spine=arcs, rays=rays), '下書きだけ（spine・rays）。架構を作るには roof・west も要る'
@@ -675,7 +693,6 @@ def run():
     res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays)
     rows, log = [], []
     for i, kk in enumerate(ks):
-        kk = float(kk)
         sc = _pick(cols_, i, True)
         mids_i = parse_mids(_pick(mids_, i, None))
         try:
