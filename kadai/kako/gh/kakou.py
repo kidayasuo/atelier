@@ -1,23 +1,24 @@
 # -*- coding: utf-8 -*-
 #! python 3
 """
-「架構」部品（遊戯室の架構、第4課題「架構と建築」）
+「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 Rhino 8 Mac の Grasshopper、Python 3 のスクリプト部品に貼る。単位は mm。
 
-一つの部品で、架構kの梁（2枚の板）・東西の柱・2階の床梁（あれば）を同時に作る。
-接合は Tamedia（Shigeru Ban、Zürich 2013）に倣う：
-  - 柱は1本の材で、2枚の板が両側から挟む。
-  - 柱の頭で、楕円の桁（ピン）が板と柱の穴を通る。
-  - 板の端は、桁の穴を包む楕円の頭。頭は梁の下端より下がり、
-    梁の下端とは大きな丸みのハンチでつながる。端の上は、上端から頭へ回る丸み。
-  - 柱は、頭の下で丸みで広がって頭に取りつく（2階の頭では上下とも）。柱の上は板の外形の中で終わる。
-  - 寸法は決めず、Tamedia の詳細図の比で梁のせい D から決める（ユーザー 11-09：あのデザインを達成する）：
-    桁の中心は下端から 0.14D、頭は半幅 0.58D・半高さ 0.68D、ハンチ 1.1D、柱の広がり 0.55D。
-    ただし頭は桁の穴のまわりに木 120 以上を残す。
+一つの部品で、架構kの梁（2枚の板）・柱（東・内の列・西）・2階の床梁（あれば）を同時に作る。
+Tamedia（Shigeru Ban、Zürich 2013）に倣う：
+  - 柱は角材（既定300角）。2枚の板（既定160）が柱をじかに挟む。2枚のあいだ＝柱の幅＝光の筋。
+  - 柱と板は互いに食い込む：板の内の面の楕円の突起（キー、桁の穴と同心）が、柱の両面の欠き込みに入る。
+    鉛直の力はキーの下の縁の支圧で柱へ、回転は楕円の桁とキーで止める。柱は頭の下で広がり、頭の中では頭の形いっぱい。
+  - 楕円の桁（既定180×260）が板と柱の穴を通り、回転を止める。
+  - 梁は内の柱の列の上を途切れずに続く（連続梁）。長いスパンの下端は端で深く真ん中で浅いカーブ。
+  - 板の端・柱の上には、桁の穴を包む楕円の頭。頭は下端より下がり、下端とはハンチでつながる。柱は頭の下で広がる。
+  - 形は寸法を写さず、Tamediaの詳細図の比で梁のせい D から決める：
+    桁の中心は下端から 0.14D、頭は半幅 0.58D・半高さ 0.68D（穴のまわりに木 120 以上）、ハンチ 1.1D、柱の広がり 0.55D。
 西の端は、頭と軒先への細い延長を一つの板にする（せい240→先で120、先は鉛直、丸み300でつなぐ）。
 
 架構の位置：背骨（西館の東の柱の列）の円弧の中心からの放射の直線。
   架構kは u＝3(k−1) m、u は東の線 v−0.9 の上で測る（k15.5 も可）。
+  東の柱の芯は東の壁の内面 v−1.05 から柱の幅の半分の内。内の列は v（vIn）で指定。西の柱の芯は west から柱の幅の半分の内。
 梁の上端：屋根の面（Brep）と、各板の真ん中の鉛直面の交線を直線で近似（ずれは CSV に出す）。
   屋根の面を差し替えれば、A・B・C 案の架構がそのまま作り直される。
 例外は「柱を出すか」だけ。それ以外は Bake してから手で直す。
@@ -26,43 +27,47 @@ Rhino 8 Mac の Grasshopper、Python 3 のスクリプト部品に貼る。単�
                k：架構の番号（float、List）
                west：西の柱の外の面＝外壁の内面の線（平面の曲線、Curve、Item）
 入力（任意、無ければ既定の値。部品に入力を足したものだけ効く）
+               vIn：内の柱の列の v（m、正の数、float、List。既定 [3.4]＝2階の柱の線。空にするには 0 を一つ）
                eave：軒先の線（Curve、Item）。無ければ外壁の内面から EAVE_OUT
                showCol：柱を出すか（bool、List。1つなら全部に、kと同じ数なら1本ずつ）
                mids：2階の床梁の上端の高さ（FL から、str、List。"3200"、無しは空。kと同じ数か1つ）
-               FL・D・t・gap・colE・colW・ext0・ext1・Dm・eR・haR・hbR（float、Item）
+               FL・D・Dm・t・col・key・Df・eR・haR・hbR（float、Item）
                csv：CSV を書くファイルの道（str、Item）
-出力           plates（板）・cols（柱）・floors（2階の床梁）・ptE・ptW・ptM（桁が通る点）
-               axis（桁の向き＝梁に直角）・lines（架構の線）・table（CSV の文）・log
+出力           plates（板、キー付き）・cols（柱、欠き込み付き）・floors（2階の床梁）
+               ptE・ptI・ptW・ptM（桁が通る点）・axis（桁の向き）・lines（架構の線）・table（CSV の文）・log
 """
 import math
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
     FL=0.0,
-    D=650.0,      # 梁のせい（鉛直）。今の単純梁で、板2×160・遊具の見直しの略算（ryakusan/hikaku_1109.py）
+    D=500.0,      # 梁のせい：支点の所（鉛直）。ryakusan/shin_1109.py
+    Dm=400.0,     # 梁のせい：長いスパンの真ん中
     t=160.0,      # 板の厚さ（Tamediaに合わせる、ユーザー 11-09）
-    gap=180.0,    # 光の筋の幅＝柱の厚さ
-    colE=480.0,   # 東の柱の幅（架構の向き）
-    colW=400.0,   # 西の柱の幅
+    col=300.0,    # 柱の幅（角材）＝2枚のあいだ＝光の筋（ユーザー 11-09）
+    key=50.0,     # 食い込みの深さ（片側、柱の幅の約0.17、Tamedia 77/440）
+    Df=400.0,     # 2階の床梁のせい
     eR=0.14,      # 桁の中心の、梁の下端からの高さ／D（Tamedia）
     haR=0.58,     # 頭の楕円の半幅／D
     hbR=0.68,     # 頭の楕円の半高さ／D
     ext0=240.0,   # 軒への延長のせい（外壁の内面で）
     ext1=120.0,   # 同（先で）
-    Dm=400.0,     # 2階の床梁のせい
 )
-GIRDER_A, GIRDER_B = 100.0, 200.0   # 桁（楕円 200×400）の半径
+V_IN = [3.4]                        # 内の柱の列の v（m）
+GIRDER_A, GIRDER_B = 90.0, 130.0    # 桁（楕円 180×260）の半径（Tamediaの比：柱の幅の0.6）
 HOLE_CLR = 5.0                      # 穴は桁の断面＋10（半径で＋5）
+WOOD_MIN = 120.0                    # 桁の穴のまわりに残す木
+KEY_MARGIN = 60.0                   # キーの高さ：穴の上下に＋これ（Tamedia 約70）
 HAUNCH_RR = 1.1                     # 梁の下端と頭のつなぎの丸み／D（Tamedia R600／せい550）
 COL_RR = 0.55                       # 柱の面と頭のつなぎの丸み／D
-WOOD_MIN = 120.0                    # 桁の穴のまわりに残す木
+LONG_SPAN = 4000.0                  # これより長いスパンは下端をカーブに（短いスパンは D 一定）
 EAVE_R = 300.0                      # 延長の下端と頭のつなぎ
 TIP_GAP = 100.0                     # 延長の先は軒先の線の0.1手前（線に直角に測る）
 EAVE_OUT = 780.0                    # eave が無いときの軒の出（外壁の内面から）
 V_EAST_FACE = 1050.0                # 東の柱の外の面＝西館の東の壁の内面 v−1.05
 V_U = 900.0                         # u を測る線 v−0.9
 PITCH = 3000.0
-# 本館の (u, v) の円（model/build/south/uv.py と同じ定数）
+# 本館の (u, v) の円（kadai/sodachiya/model/build/south/uv.py と同じ定数）
 CX, CY, RW = 194662.93237, -41348.26335, 205017.7
 TH_S = math.atan2(-65173.47495 - CY, -8965.4788 - CX) % (2 * math.pi)
 
@@ -71,15 +76,16 @@ TH_S = math.atan2(-65173.47495 - CY, -8965.4788 - CX) % (2 * math.pi)
 # 架構ごとの平面の座標 (s, z)：s は東の柱の芯から西へ、z は高さ（世界の z）。
 # 形は「基本形」の和で表し、Rhino の側で曲線にして足し合わせる。
 #   ('poly', [(s,z),...])                 閉じた多角形
+#   ('body', [(s,z) 上端], [(s,z) 下端])   上端は直線、下端はなめらかな曲線（点を通る）
 #   ('aff', kind, s0, z0, a11, a12, a21, a22)
 #        単位円（kind='circle'）か上半分の単位円（'half'）を (s,z)=(s0+a11x+a12y, z0+a21x+a22y) へ写したもの
 #   ('fillet', T1, cf, R, T2, I)          T1→（中心cf、半径Rの円弧）→T2→I→T1
 
-def frame_axis(k, colE):
+def frame_axis(k, col):
     """架構kの東の柱の芯 O（平面）と向き dir（西へ）・perp（dir を左へ90°）"""
     th = TH_S - PITCH * (k - 1.0) / (RW + V_U)
     c, s = math.cos(th), math.sin(th)
-    r = RW + V_EAST_FACE + colE / 2.0
+    r = RW + V_EAST_FACE + col / 2.0
     return (CX + r * c, CY + r * s), (c, s), (-s, c), th
 
 
@@ -170,123 +176,12 @@ def fillet(p0, d, n, c, a, b, R, pin):
     return ('fillet', T1, cf, R, T2, I)
 
 
-def head_size(P, D):
-    """せい D の梁の頭の大きさ（Tamediaの比、桁の穴のまわりに木 WOOD_MIN 以上）"""
-    return dict(e=P['eR'] * D,
-                ha=max(P['haR'] * D, GIRDER_A + HOLE_CLR + WOOD_MIN),
-                hb=max(P['hbR'] * D, GIRDER_B + HOLE_CLR + WOOD_MIN),
-                R=HAUNCH_RR * D, Rc=COL_RR * D)
-
-
-def ellipse(c, a, b):
-    return ('aff', 'circle', c[0], c[1], a, 0.0, 0.0, b)
-
-
-def head_prims(G, ztop, m, h, span_dir, soffit_line):
-    """桁の点 G のまわり：頭の楕円・上端へ回る丸み・梁の下端とのハンチ。
-    span_dir：G から梁のスパンの側への向き（+1 か −1）。soffit_line：(z0, m) 梁の下端"""
-    ha, hb, R_haunch = h['ha'], h['hb'], h['R']
-    pr = [ellipse(G, ha, hb)]
-    H = ztop - G[1]
-    if H > 1.0:
-        # 上半分の楕円を、上端の直線に接するよう傾けた丸み（端の上の角）
-        pr.append(('aff', 'half', G[0], G[1], ha, 0.0, m * ha, H))
-        if abs(m) > 1e-6:
-            pr.append(('poly', [(G[0] - ha, G[1]), (G[0] + ha, G[1]),
-                                (G[0] + ha, G[1] + m * ha), (G[0] - ha, G[1] - m * ha)]))
-    # ハンチ：梁の下端の直線を、スパンの側から G へ近づく
-    z0, ms = soffit_line
-    far = G[0] + span_dir * 4 * R_haunch
-    p0 = (far, z0 + ms * far)
-    L = math.hypot(1.0, ms)
-    d = (-span_dir / L, -span_dir * ms / L)
-    n = (d[1], -d[0])                     # 下向き（材の無い側）にそろえる
-    if n[1] > 0:
-        n = (-n[0], -n[1])
-    fl = fillet(p0, d, n, G, ha, hb, R_haunch, G)
-    if fl:
-        pr.append(fl)
-    return pr
-
-
-def beam_2d(P, top, sE, sW, ext=None):
-    """梁（または2階の床梁）の板の外形の基本形と、上端で切る多角形と、穴。
-    top=(z0, m)。ext=(s_wall, s_tip)：西の端の軒への延長"""
-    z0, m = top
-    zt = lambda s: z0 + m * s
-    D = P['D_beam']
-    h = head_size(P, D)
-    e = h['e']
-    soff = (z0 - D, m)
-    GE = (sE, zt(sE) - D + e)
-    GW = (sW, zt(sW) - D + e)
-    pr = [('poly', [(sE, zt(sE)), (sW, zt(sW)), (sW, zt(sW) - D), (sE, zt(sE) - D)])]
-    pr += head_prims(GE, zt(sE), m, h, +1, soff)
-    pr += head_prims(GW, zt(sW), m, h, -1, soff)
-    s_hi = sW + h['ha'] + 10
-    if ext:
-        s_wall, s_tip = ext
-        a0, a1 = P['ext0'], P['ext1']
-        pr.append(('poly', [(sW, zt(sW)), (s_tip, zt(s_tip)), (s_tip, zt(s_tip) - a1),
-                            (s_wall, zt(s_wall) - a0), (sW, zt(sW) - a0)]))
-        # 延長の下端と頭の上の丸みの入隅（丸み EAVE_R）。頭の上の丸みは傾いた楕円なので、
-        # 傾きを除いた座標（z' = z − m(s−sW)）で楕円として扱い、結果を戻す
-        H = zt(sW) - GW[1]
-        q = lambda s, z: (s, z - m * (s - sW))
-        r = lambda s, z: (s, z + m * (s - sW))
-        pA, pB = q(s_tip, zt(s_tip) - a1), q(s_wall, zt(s_wall) - a0)
-        L = math.hypot(pB[0] - pA[0], pB[1] - pA[1])
-        d = ((pB[0] - pA[0]) / L, (pB[1] - pA[1]) / L)
-        n = (d[1], -d[0])
-        if n[1] > 0:
-            n = (-n[0], -n[1])
-        pin = (GW[0], GW[1] + 0.85 * H)
-        fl = fillet(pA, d, n, GW, h['ha'], H, EAVE_R, pin)
-        if fl:
-            _, T1, cf, R, T2, I = fl
-            # 傾きを除いた座標の円弧は、戻すと少し楕円になる。円弧の点を細かく戻して多角形にする
-            pr.append(('poly', [r(*T1)] + [r(*p) for p in _arc_pts(T1, cf, T2, 16)] + [r(*T2), r(*I)]))
-        s_hi = s_tip
-    s_lo = sE - h['ha'] - 10
-    big = 20000.0
-    clip = ('poly', [(s_lo - 1, zt(s_lo - 1)), (s_hi + 1, zt(s_hi + 1)),
-                     (s_hi + 1, zt(s_hi) - big), (s_lo - 1, zt(s_lo) - big)])
-    holes = [ellipse(GE, GIRDER_A + HOLE_CLR, GIRDER_B + HOLE_CLR),
-             ellipse(GW, GIRDER_A + HOLE_CLR, GIRDER_B + HOLE_CLR)]
-    return dict(prims=pr, clip=clip, holes=holes, GE=(GE, h), GW=(GW, h), s_lo=s_lo, s_hi=s_hi)
-
-
 def _arc_pts(T1, cf, T2, n):
     a1 = math.atan2(T1[1] - cf[1], T1[0] - cf[0])
     a2 = math.atan2(T2[1] - cf[1], T2[0] - cf[0])
     da = (a2 - a1 + math.pi) % (2 * math.pi) - math.pi
     R = math.hypot(T1[0] - cf[0], T1[1] - cf[1])
     return [(cf[0] + R * math.cos(a1 + da * i / n), cf[1] + R * math.sin(a1 + da * i / n)) for i in range(1, n)]
-
-
-def column_2d(P, Gs, w, FL, top, heads, roofG):
-    """柱（架構の面）。heads：この柱に取りつく頭 [(点, 大きさ)]（屋根と2階）。roofG：屋根の頭の点。
-    返すのは柱の基本形（足し合わせる）と、切る形の指定（屋根の板の外形と、屋根の頭より下の帯の和）"""
-    z0, m = top
-    ztop = z0 + m * Gs
-    pr = [('poly', [(Gs - w / 2, FL), (Gs + w / 2, FL), (Gs + w / 2, ztop + 2000), (Gs - w / 2, ztop + 2000)])]
-    for G, h in heads:
-        ha, hb = h['ha'], h['hb']
-        for side in (-1, 1):
-            n = (side, 0.0)
-            # 下から頭へ
-            fl = fillet((Gs + side * w / 2, FL), (0.0, 1.0), n, G, ha, hb, h['Rc'], G)
-            if fl:
-                pr.append(fl)
-            # 2階の頭は上からも
-            if G is not roofG:
-                fl = fillet((Gs + side * w / 2, roofG[1]), (0.0, -1.0), n, G, ha, hb, h['Rc'], G)
-                if fl:
-                    pr.append(fl)
-    band = ('poly', [(Gs - w / 2 - 3000, FL - 1), (Gs + w / 2 + 3000, FL - 1),
-                     (Gs + w / 2 + 3000, roofG[1]), (Gs - w / 2 - 3000, roofG[1])])
-    holes = [ellipse(G, GIRDER_A + HOLE_CLR, GIRDER_B + HOLE_CLR) for G, h in heads]
-    return dict(prims=pr, band=band, holes=holes)
 
 
 def parse_mids(x):
@@ -301,6 +196,136 @@ def parse_mids(x):
             except ValueError:
                 pass
     return out
+
+
+
+def head_size(P, D):
+    """せい D の梁の頭の大きさ（Tamediaの比、桁の穴のまわりに木 WOOD_MIN 以上）"""
+    return dict(e=P['eR'] * D,
+                ha=max(P['haR'] * D, GIRDER_A + HOLE_CLR + WOOD_MIN),
+                hb=max(P['hbR'] * D, GIRDER_B + HOLE_CLR + WOOD_MIN),
+                R=HAUNCH_RR * D, Rc=COL_RR * D)
+
+
+def ellipse(c, a, b):
+    return ('aff', 'circle', c[0], c[1], a, 0.0, 0.0, b)
+
+
+def depth_fn(supports, De, Dm):
+    """支点の s の並びから、梁のせいの関数。長いスパンは端 De→真ん中 Dm の放物線、短いスパンは De"""
+    sp = sorted(supports)
+
+    def D(s):
+        for a, b in zip(sp[:-1], sp[1:]):
+            if a <= s <= b and b - a >= LONG_SPAN:
+                x = (s - a) / (b - a)
+                return Dm + (De - Dm) * (2 * x - 1) ** 2
+        return De
+    return D
+
+
+def _haunch(G, h, side, soffit):
+    """支点 G の side（+1＝西、−1＝東）の側の、梁の下端と頭の入隅。soffit(s)＝下端の z"""
+    R = h['R']
+    sf = G[0] + side * 1.5 * R
+    ms = soffit(sf + 1.0) - soffit(sf)
+    far = G[0] + side * 4 * R
+    p0 = (far, soffit(sf) + ms * (far - sf))
+    L = math.hypot(1.0, ms)
+    d = (-side / L, -side * ms / L)
+    n = (d[1], -d[0])
+    if n[1] > 0:
+        n = (-n[0], -n[1])
+    return fillet(p0, d, n, G, h['ha'], h['hb'], R, G)
+
+
+def beam_2d(P, top, supports, Dfn, ext=None):
+    """梁（または2階の床梁）の板の外形の基本形・上端で切る多角形・穴・頭の点。
+    top=(z0, m)。supports：支点の s（東から西へ、両端が端の支点）。Dfn(s)：せい。
+    ext=(s_wall, s_tip)：西の端の軒への延長"""
+    z0, m = top
+    zt = lambda s: z0 + m * s
+    soffit = lambda s: zt(s) - Dfn(s)
+    sE, sW = supports[0], supports[-1]
+    n = max(40, int((sW - sE) / 150))
+    ss = [sE + (sW - sE) * i / n for i in range(n + 1)]
+    pr = [('body', [(sE, zt(sE)), (sW, zt(sW))], [(s, soffit(s)) for s in ss])]
+    heads = []
+    for j, s in enumerate(supports):
+        h = head_size(P, Dfn(s))
+        G = (s, soffit(s) + h['e'])
+        heads.append((G, h))
+        pr.append(ellipse(G, h['ha'], h['hb']))
+        if j in (0, len(supports) - 1):
+            # 外の端：上端の直線に接するよう傾けた上半分の楕円（端の上の角）
+            H = zt(s) - G[1]
+            pr.append(('aff', 'half', G[0], G[1], h['ha'], 0.0, m * h['ha'], H))
+            if abs(m) > 1e-6:
+                pr.append(('poly', [(G[0] - h['ha'], G[1]), (G[0] + h['ha'], G[1]),
+                                    (G[0] + h['ha'], G[1] + m * h['ha']), (G[0] - h['ha'], G[1] - m * h['ha'])]))
+        for side in (-1, 1):
+            if (j == 0 and side < 0) or (j == len(supports) - 1 and side > 0):
+                continue
+            fl = _haunch(G, h, side, soffit)
+            if fl:
+                pr.append(fl)
+    hW = heads[-1][1]
+    s_hi = sW + hW['ha'] + 10
+    if ext:
+        s_wall, s_tip = ext
+        a0, a1 = P['ext0'], P['ext1']
+        GW = heads[-1][0]
+        pr.append(('poly', [(sW, zt(sW)), (s_tip, zt(s_tip)), (s_tip, zt(s_tip) - a1),
+                            (s_wall, zt(s_wall) - a0), (sW, zt(sW) - a0)]))
+        # 延長の下端と頭の上の丸みの入隅：傾きを除いた座標（z' = z − m(s−sW)）で楕円として扱い、戻す
+        H = zt(sW) - GW[1]
+        q = lambda s, z: (s, z - m * (s - sW))
+        r = lambda s, z: (s, z + m * (s - sW))
+        pA, pB = q(s_tip, zt(s_tip) - a1), q(s_wall, zt(s_wall) - a0)
+        L = math.hypot(pB[0] - pA[0], pB[1] - pA[1])
+        d = ((pB[0] - pA[0]) / L, (pB[1] - pA[1]) / L)
+        nn = (d[1], -d[0])
+        if nn[1] > 0:
+            nn = (-nn[0], -nn[1])
+        fl = fillet(pA, d, nn, GW, hW['ha'], H, EAVE_R, (GW[0], GW[1] + 0.85 * H))
+        if fl:
+            _, T1, cf, R, T2, I = fl
+            pr.append(('poly', [r(*T1)] + [r(*p) for p in _arc_pts(T1, cf, T2, 16)] + [r(*T2), r(*I)]))
+        s_hi = s_tip
+    s_lo = sE - heads[0][1]['ha'] - 10
+    big = 20000.0
+    clip = ('poly', [(s_lo - 1, zt(s_lo - 1)), (s_hi + 1, zt(s_hi + 1)),
+                     (s_hi + 1, zt(s_hi) - big), (s_lo - 1, zt(s_lo) - big)])
+    holes = [ellipse(G, GIRDER_A + HOLE_CLR, GIRDER_B + HOLE_CLR) for G, h in heads]
+    return dict(prims=pr, clip=clip, holes=holes, heads=heads, s_lo=s_lo, s_hi=s_hi)
+
+
+def key_shape(G, h, grow=0.0):
+    """食い込み（板のキー・柱の欠き込み）の外形：桁の穴と同心の楕円。高さは穴の上下に KEY_MARGIN、
+    幅は頭の中に収まる（頭の 0.8）。grow：欠き込みを少し大きくするとき"""
+    return ellipse(G, 0.8 * h['ha'] + grow, GIRDER_B + HOLE_CLR + KEY_MARGIN + grow)
+
+
+def column_2d(Gs, w, FL, ztop, heads, roofG):
+    """柱（架構の面）。heads：この柱に取りつく頭 [(点, 大きさ)]（屋根と2階）。roofG：屋根の頭の点。
+    返すのは柱の基本形（足し合わせる）と、切る形（屋根の板の外形と足す、屋根の頭より下の帯）"""
+    pr = [('poly', [(Gs - w / 2, FL), (Gs + w / 2, FL), (Gs + w / 2, ztop + 2000), (Gs - w / 2, ztop + 2000)])]
+    for G, h in heads:
+        pr.append(ellipse(G, h['ha'], h['hb']))     # 柱は頭の中では頭の形いっぱい（下から見て、広がりが頭の下端に取りつく）
+        for side in (-1, 1):
+            nrm = (side, 0.0)
+            fl = fillet((Gs + side * w / 2, FL), (0.0, 1.0), nrm, G, h['ha'], h['hb'], h['Rc'], G)
+            if fl:
+                pr.append(fl)
+            if G is not roofG:      # 2階の頭は上からも
+                fl = fillet((Gs + side * w / 2, roofG[1]), (0.0, -1.0), nrm, G, h['ha'], h['hb'], h['Rc'], G)
+                if fl:
+                    pr.append(fl)
+    band = ('poly', [(Gs - w / 2 - 3000, FL - 1), (Gs + w / 2 + 3000, FL - 1),
+                     (Gs + w / 2 + 3000, roofG[1]), (Gs - w / 2 - 3000, roofG[1])])
+    holes = [ellipse(G, GIRDER_A + HOLE_CLR, GIRDER_B + HOLE_CLR) for G, h in heads]
+    keys = [key_shape(G, h, 3.0) for G, h in heads]
+    return dict(prims=pr, band=band, holes=holes, keys=keys)
 
 
 # ================================================================== Rhino の側
@@ -356,6 +381,13 @@ class Frame3:
             pts = [self.P(s, z, off) for s, z in prim[1]]
             pts.append(pts[0])
             return rg.PolylineCurve(pts)
+        if kind == 'body':
+            _, tp, bt = prim
+            soff = rg.Curve.CreateInterpolatedCurve([self.P(s, z, off) for s, z in bt], 3)
+            a, b = self.P(tp[0][0], tp[0][1], off), self.P(tp[1][0], tp[1][1], off)
+            segs = [rg.LineCurve(a, b), rg.LineCurve(b, soff.PointAtEnd), soff, rg.LineCurve(soff.PointAtStart, a)]
+            j = rg.Curve.JoinCurves(segs, 0.01)
+            return j[0]
         if kind == 'aff':
             _, which, s0, z0, a11, a12, a21, a22 = prim
             if which == 'circle':
@@ -363,7 +395,7 @@ class Frame3:
             else:
                 arc = rg.Arc(rg.Plane.WorldXY, 1.0, math.pi).ToNurbsCurve()
                 ln = rg.LineCurve(rg.Point3d(-1, 0, 0), rg.Point3d(1, 0, 0))
-                c = rg.Curve.JoinCurves([arc, ln], 0.001)[0]
+                c = rg.Curve.JoinCurves([arc, ln], 0.001)[0].ToNurbsCurve()
             # 制御点を写す（写しは一次なので、重みはそのまま）
             for i in range(c.Points.Count):
                 cp = c.Points[i]
@@ -424,12 +456,26 @@ def _solid(F, outer, holes2d, off, thick, tol):
     if not br:
         raise RuntimeError('平らな面ができない')
     face = br[0].Faces[0]
-    p0 = F.P(0, 0, off)
-    path = rg.LineCurve(p0, F.P(0, 0, off + thick))
+    path = rg.LineCurve(F.P(0, 0, off), F.P(0, 0, off + thick))
     s = face.CreateExtrusion(path, True)
     if s is None:
         raise RuntimeError('押し出しができない')
     return s
+
+
+def _bool(kind, a, bs, tol, log, what):
+    """立体の和・差。できなければ元のまま（和は部品を並べて）返し、log に書く"""
+    try:
+        if kind == 'union':
+            r = rg.Brep.CreateBooleanUnion([a] + bs, tol)
+        else:
+            r = rg.Brep.CreateBooleanDifference([a], bs, tol)
+        if r and len(r) == 1:
+            return [r[0]]
+    except Exception:
+        pass
+    log.append('%s：立体の%sができず、別の部品のまま' % (what, '和' if kind == 'union' else '差'))
+    return [a] + (bs if kind == 'union' else [])
 
 
 def _top_fit(F, roof, off, s_lo, s_hi, tol):
@@ -461,19 +507,19 @@ def _hit_s(F, crv, s_min=1000.0):
         q = x.PointA
         s = (q.X - F.O[0]) * F.d[0] + (q.Y - F.O[1]) * F.d[1]
         if s > s_min and (best is None or s < best[0]):
-            tg = flat.TangentAt(x.ParameterB)
-            best = (s, tg)
+            best = (s, flat.TangentAt(x.ParameterB))
     return best
 
 
-def build_one(kk, roof, west, eave, showcol, mids, P, tol):
-    O, d, p, th = frame_axis(kk, P['colE'])
+def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
+    w = P['col']
+    O, d, p, th = frame_axis(kk, w)
     F = Frame3(O, d, p)
     hw = _hit_s(F, west)
     if hw is None:
         raise RuntimeError('架構の線が西の線と交わらない')
     s_wall = hw[0]
-    sW = s_wall - P['colW'] / 2.0
+    sW = s_wall - w / 2.0
     if eave is not None:
         he = _hit_s(F, eave, s_wall)
         if he is None:
@@ -483,65 +529,100 @@ def build_one(kk, roof, west, eave, showcol, mids, P, tol):
         s_tip = he[0] - TIP_GAP / max(cosphi, 0.2)
     else:
         s_tip = s_wall + EAVE_OUT - TIP_GAP
+    s_in = sorted(v * 1000.0 - (V_EAST_FACE + w / 2) for v in vin if v > 0)
+    s_in = [s for s in s_in if 500 < s < sW - 500]
+    sup = [0.0] + s_in + [sW]
+    Dfn = depth_fn(sup, P['D'], P['Dm'])
     s_lo, s_hi = -head_size(P, P['D'])['ha'] - 300, s_tip + 10
-    offs = {'+': P['gap'] / 2 + P['t'] / 2, '-': -(P['gap'] / 2 + P['t'] / 2), '0': 0.0}
+    offs = {'+': w / 2 + P['t'] / 2, '-': -(w / 2 + P['t'] / 2), '0': 0.0}
     tops = {key: _top_fit(F, roof, off, s_lo, s_hi, tol) for key, off in offs.items()}
 
-    Pb = dict(P, D_beam=P['D'])
     out = dict(plates=[], cols=[], floors=[], ptM=[])
-    plate_lo = {'+': P['gap'] / 2, '-': -(P['gap'] / 2 + P['t'])}
+    tag = 'k%g' % kk
+    colpos = sup if showcol else []
+    # 板（2枚、上端は板ごとの直線）。穴・キー・頭の点は架構の面の上端（'0'）で決め、2枚で同じにする
+    B0 = beam_2d(P, tops['0'][:2], sup, Dfn, ext=(s_wall, s_tip))
     for key in ('+', '-'):
-        B = beam_2d(Pb, tops[key][:2], 0.0, sW, ext=(s_wall, s_tip))
-        off = plate_lo[key]
+        B = beam_2d(P, tops[key][:2], sup, Dfn, ext=(s_wall, s_tip))
+        sgn = 1 if key == '+' else -1
+        w_, t_, kd = P['col'], P['t'], P['key']
+        off = w_ / 2 if sgn > 0 else -(w_ / 2 + t_)
         outer = _union([F.curve(q, off) for q in B['prims']], tol)
         outer = _inter(outer, F.curve(B['clip'], off), tol)
-        out['plates'].append(_solid(F, outer, B['holes'], off, P['t'], tol))
-    B0 = beam_2d(Pb, tops['0'][:2], 0.0, sW, ext=(s_wall, s_tip))
-    (GE, hE), (GW, hW) = B0['GE'], B0['GW']
+        pl = _solid(F, outer, B0['holes'], off, t_, tol)
+        if colpos and kd > 0:
+            koff = w_ / 2 - kd if sgn > 0 else -(w_ / 2) - 1.0
+            keys = [_solid(F, F.curve(key_shape(G, h), koff), [ellipse(G, GIRDER_A + HOLE_CLR, GIRDER_B + HOLE_CLR)],
+                           koff, kd + 1.0, tol) for G, h in B0['heads']]
+            out['plates'] += _bool('union', pl, keys, tol, log, tag + '板')
+        else:
+            out['plates'].append(pl)
+    heads = B0['heads']
 
-    # 2階の床梁
-    mid_heads = {0: [], 1: []}
+    # 2階の床梁（上端は水平、支点は同じ）
+    mid_heads = {i: [] for i in range(len(sup))}
     for hz in mids:
         ztop = P['FL'] + hz
-        Pf = dict(P, D_beam=P['Dm'])
-        for key in ('+', '-'):
-            Bf = beam_2d(Pf, (ztop, 0.0), 0.0, sW)
-            off = plate_lo[key]
+        Pf = dict(P)
+        Dff = lambda s: P['Df']
+        Bf = beam_2d(Pf, (ztop, 0.0), sup, Dff)
+        for sgn in (1, -1):
+            off = w / 2 if sgn > 0 else -(w / 2 + P['t'])
             outer = _union([F.curve(q, off) for q in Bf['prims']], tol)
             outer = _inter(outer, F.curve(Bf['clip'], off), tol)
-            out['floors'].append(_solid(F, outer, Bf['holes'], off, P['t'], tol))
-        mid_heads[0].append(Bf['GE'])
-        mid_heads[1].append(Bf['GW'])
-        out['ptM'] += [F.P(Bf['GE'][0][0], Bf['GE'][0][1]), F.P(Bf['GW'][0][0], Bf['GW'][0][1])]
+            pl = _solid(F, outer, Bf['holes'], off, P['t'], tol)
+            if colpos and P['key'] > 0:
+                koff = w / 2 - P['key'] if sgn > 0 else -(w / 2) - 1.0
+                keys = [_solid(F, F.curve(key_shape(G, h), koff), [ellipse(G, GIRDER_A + HOLE_CLR, GIRDER_B + HOLE_CLR)],
+                               koff, P['key'] + 1.0, tol) for G, h in Bf['heads']]
+                out['floors'] += _bool('union', pl, keys, tol, log, tag + '床梁')
+            else:
+                out['floors'].append(pl)
+        for i, gh in enumerate(Bf['heads']):
+            mid_heads[i].append(gh)
+            out['ptM'].append(F.P(gh[0][0], gh[0][1]))
 
+    # 柱（東・内の列・西）：架構の面で外形 → 押し出し → 両面の欠き込み
     if showcol:
-        roof_outer0 = _union([F.curve(q, -P['gap'] / 2) for q in B0['prims']], tol)
-        roof_outer0 = _inter(roof_outer0, F.curve(B0['clip'], -P['gap'] / 2), tol)
-        for i, (Gs, w, G, h) in enumerate(((0.0, P['colE'], GE, hE), (sW, P['colW'], GW, hW))):
-            C = column_2d(P, Gs, w, P['FL'], tops['0'][:2], [(G, h)] + mid_heads[i], G)
-            off = -P['gap'] / 2
+        roof_outer0 = _union([F.curve(q, -w / 2) for q in B0['prims']], tol)
+        roof_outer0 = _inter(roof_outer0, F.curve(B0['clip'], -w / 2), tol)
+        z0, m, _ = tops['0']
+        for i, s in enumerate(sup):
+            G, h = heads[i]
+            C = column_2d(s, w, P['FL'], z0 + m * s, [(G, h)] + mid_heads[i], G)
+            off = -w / 2
             body = _union([F.curve(q, off) for q in C['prims']], tol)
             clip = _union([roof_outer0, F.curve(C['band'], off)], tol)
             outer = _inter(body, clip, tol)
-            out['cols'].append(_solid(F, outer, C['holes'], off, P['gap'], tol))
+            col = _solid(F, outer, C['holes'], off, w, tol)
+            if P['key'] > 0:
+                cuts = []
+                for big in C['keys']:
+                    cuts.append(_solid(F, F.curve(big, w / 2 - P['key']), [], w / 2 - P['key'], P['key'] + 5, tol))
+                    cuts.append(_solid(F, F.curve(big, -w / 2 - 5), [], -w / 2 - 5, P['key'] + 5, tol))
+                out['cols'] += _bool('diff', col, cuts, tol, log, tag + '柱')
+            else:
+                out['cols'].append(col)
 
-    out['ptE'] = F.P(GE[0], GE[1])
-    out['ptW'] = F.P(GW[0], GW[1])
+    out['ptE'] = F.P(heads[0][0][0], heads[0][0][1])
+    out['ptW'] = F.P(heads[-1][0][0], heads[-1][0][1])
+    out['ptI'] = [F.P(G[0], G[1]) for G, h in heads[1:-1]]
     out['axis'] = rg.Vector3d(p[0], p[1], 0)
     out['line'] = rg.LineCurve(F.P(0, P['FL']), F.P(sW, P['FL']))
     z0, m, dev = tops['0']
     row = dict(
-        k=kk, u=3 * (kk - 1), th_deg=math.degrees(th), span=sW, s_wall=s_wall, s_tip=s_tip,
+        k=kk, u=3 * (kk - 1), th_deg=math.degrees(th), sW=sW, s_in=';'.join('%.0f' % s for s in s_in),
+        span_main=(sW - (s_in[-1] if s_in else 0.0)), s_wall=s_wall, s_tip=s_tip,
         slope_deg=math.degrees(math.atan(m)), topE=z0, topW=z0 + m * sW,
-        gE=GE[1], gW=GW[1], length=(s_tip + hE['ha']), fit_dev=max(tops[k_][2] for k_ in tops),
+        gE=heads[0][0][1], gW=heads[-1][0][1], D=P['D'], Dm=P['Dm'], fit_dev=max(tops[k_][2] for k_ in tops),
         dtopE=tops['+'][0] - tops['-'][0],
         dtopW=(tops['+'][0] + tops['+'][1] * sW) - (tops['-'][0] + tops['-'][1] * sW),
         col=int(bool(showcol)), mids=';'.join('%.0f' % h for h in mids))
     return out, row
 
 
-COLS = ['k', 'u', 'th_deg', 'span', 's_wall', 's_tip', 'slope_deg', 'topE', 'topW', 'gE', 'gW',
-        'length', 'fit_dev', 'dtopE', 'dtopW', 'col', 'mids']
+COLS = ['k', 'u', 'th_deg', 'sW', 's_in', 'span_main', 's_wall', 's_tip', 'slope_deg', 'topE', 'topW', 'gE', 'gW',
+        'D', 'Dm', 'fit_dev', 'dtopE', 'dtopW', 'col', 'mids']
 
 
 def run():
@@ -554,31 +635,35 @@ def run():
         return None, '入力 roof・west・k が要る'
     if not isinstance(ks, (list, tuple)):
         ks = [ks]
+    vin = _in('vIn', V_IN)
+    if not isinstance(vin, (list, tuple)):
+        vin = [vin]
+    vin = [float(v) for v in vin]
     eave_ = _in('eave')
     cols_ = _in('showCol')
     mids_ = _in('mids')
-    res = dict(plates=[], cols=[], floors=[], ptE=[], ptW=[], ptM=[], axis=[], lines=[])
+    res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[])
     rows, log = [], []
     for i, kk in enumerate(ks):
         kk = float(kk)
         sc = _pick(cols_, i, True)
         mids_i = parse_mids(_pick(mids_, i, None))
         try:
-            o, row = build_one(kk, roof_, west_, eave_, bool(sc), mids_i, P, tol)
+            o, row = build_one(kk, roof_, west_, eave_, bool(sc), mids_i, vin, P, tol, log)
         except Exception as ex:
             log.append('k%g：%s' % (kk, ex))
             continue
-        for key in ('plates', 'cols', 'floors', 'ptM'):
+        for key in ('plates', 'cols', 'floors', 'ptM', 'ptI'):
             res[key] += o[key]
         res['ptE'].append(o['ptE'])
         res['ptW'].append(o['ptW'])
         res['axis'].append(o['axis'])
         res['lines'].append(o['line'])
         rows.append(row)
-    lines = [','.join(COLS)]
+    lines_ = [','.join(COLS)]
     for r in rows:
-        lines.append(','.join(('%.4g' % r[c]) if isinstance(r[c], float) else str(r[c]) for c in COLS))
-    text = '\n'.join(lines)
+        lines_.append(','.join(('%.4g' % r[c]) if isinstance(r[c], float) else str(r[c]) for c in COLS))
+    text = '\n'.join(lines_)
     path = _in('csv')
     if path:
         try:
@@ -596,5 +681,5 @@ if _RHINO and 'roof' in globals():
     _res, log = run()
     if _res:
         plates, cols, floors = _res['plates'], _res['cols'], _res['floors']
-        ptE, ptW, ptM = _res['ptE'], _res['ptW'], _res['ptM']
+        ptE, ptI, ptW, ptM = _res['ptE'], _res['ptI'], _res['ptW'], _res['ptM']
         axis, lines, table = _res['axis'], _res['lines'], _res['table']
