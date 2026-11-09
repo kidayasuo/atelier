@@ -101,7 +101,7 @@ def dim(ax, a, b, y, txt, vert=False, fs=5.5, off=0):
 
 fig = plt.figure(figsize=(420 / 25.4, 297 / 25.4))
 fig.text(0.03, 0.955, '遊戯室の架構（作り直し、Tamediaに倣う）　架構k15', fontsize=12)
-fig.text(0.03, 0.935, '柱300角を板2枚×160がじかに挟み、互いに食い込む。楕円の桁180×260が板と柱を貫く。梁は東の内の柱の列（2階の柱の線v−3.4）の上を続き、西は外壁の柱まで一つのスパン。'
+fig.text(0.03, 0.935, '柱300角を板2枚×160がじかに挟み、板の頭がまるごと柱に食い込む。楕円の桁180×260が板と柱を貫く。梁は東の内の柱の列（2階の柱の線v−3.4）の上を続き、西は外壁の柱まで一つのスパン。'
          '\n架構の間隔3 m、2枚のあいだ（光の筋）は柱の幅300。形の比はTamediaの詳細図から（桁の中心は下端から0.14D、頭0.58D×0.68D、ハンチ1.1D）。', fontsize=7, va='top', linespacing=1.5)
 
 # 立面 1/100：幅 (s_tip+3400)/100 mm
@@ -133,7 +133,7 @@ axE, GE, hE = detail((0.03, 0.05), 0.0, '東の端の接合　立面 1/20')
 dim(axE, -w / 2, w / 2, GE[1] - hE['hb'] - 330, '柱 %d' % w)
 dim(axE, GE[1] - hE['hb'], GE[1] + hE['hb'], 0 + 0 - hE['ha'] - 120, '頭 %d' % (2 * hE['hb']), vert=True)
 axE.text(hE['ha'] + 40, GE[1] - 30, '桁 %d×%d\n（楕円）' % (2 * K.GIRDER_A, 2 * K.GIRDER_B), fontsize=5.5)
-axE.text(-650, GE[1] + 560, '赤の点線：食い込み（板のキー・柱の欠き込み）', fontsize=5.5, color=KEYC)
+axE.text(-650, GE[1] + 560, '赤の点線：食い込み（頭の形まるごと、柱の欠き込み）', fontsize=5.5, color=KEYC)
 
 axI, GI, hI = detail((0.27, 0.05), 2200.0, '内の列の接合　立面 1/20', xr=(-900, 900))
 dim(axI, 2200 - w / 2, 2200 + w / 2, GI[1] - hI['hb'] - 330, '柱 %d' % w)
@@ -143,7 +143,7 @@ axI.text(2200 + 420, GI[1] + 330, '梁は途切れずに続く\n（2枚の板が
 xr = (-700, 700); yr = (-900, 650)
 axS = fig.add_axes([0.56, 0.05, (xr[1] - xr[0]) / 20 / 420, (yr[1] - yr[0]) / 20 / 297])
 axS.set_title('内の列の接合　断面（架構に直角）1/20', loc='left', fontsize=8, pad=2)
-zt = top(2200); zb = GI[1] - hI['hb']; zk = K.GIRDER_B + K.HOLE_CLR + K.KEY_MARGIN
+zt = top(2200); zb = GI[1] - hI['hb']; zk = hI['hb']
 colS = box(-w / 2, GI[1] - 1500, w / 2, zt).difference(box(w / 2 - kd, GI[1] - zk, w / 2 + 1, GI[1] + zk)).difference(box(-w / 2 - 1, GI[1] - zk, -w / 2 + kd, GI[1] + zk))
 fill(axS, colS, COLC, z=1)
 for sg in (1, -1):
@@ -158,8 +158,8 @@ axS.text(0, zt + 140, '屋根（合板・断熱・屋根材）', fontsize=5.5, h
 dim(axS, -(w / 2 + t), -w / 2, zb - 80, '%d' % t)
 dim(axS, -w / 2, w / 2, zb - 80, '%d' % w)
 dim(axS, w / 2, w / 2 + t, zb - 80, '%d' % t)
-dim(axS, GI[1] - zk, GI[1] + zk, w / 2 + t + 90, 'キー %d' % (2 * zk), vert=True)
-axS.text(w / 2 + t + 40, GI[1] - zk - 160, '食い込み %d（片側）\n鉛直の力はキーの下の縁の支圧で柱へ' % kd, fontsize=5.5)
+dim(axS, GI[1] - zk, GI[1] + zk, w / 2 + t + 90, '頭 %d' % (2 * zk), vert=True)
+axS.text(w / 2 + t + 40, GI[1] - zk - 160, '食い込み %d（片側、頭の形まるごと）\n頭の下の縁が柱の肩に載る（支圧）' % kd, fontsize=5.5)
 axS.text(-680, GI[1] + K.GIRDER_B + 30, '桁（楕円、隣の架構へ）', fontsize=5.5)
 axS.set_xlim(*xr); axS.set_ylim(GI[1] + yr[0], GI[1] + yr[1]); axS.set_aspect('equal'); axS.axis('off')
 
