@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 #! python 3
+# r: shapely==2.0.6
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -42,7 +43,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-10 08:55'
+VERSION = 'kakou 2026-11-11 08:05'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -306,6 +307,54 @@ def beam_2d(P, top, supports, Dfn, ext=None):
     return dict(prims=pr, clip=clip, holes=holes, heads=heads, s_lo=s_lo, s_hi=s_hi)
 
 
+def prim_pts(prim, seg=8.0):
+    """基本形を (s,z) の閉じた点の並びに（弧は弦 seg 以下）。外形の和を2Dで取るため"""
+    kind = prim[0]
+    if kind == 'poly':
+        return list(prim[1])
+    if kind == 'body':
+        _, tp, bt = prim
+        return [tp[0], tp[1]] + list(reversed(bt))
+    if kind == 'aff':
+        _, which, s0, z0, a11, a12, a21, a22 = prim
+        r = max(math.hypot(a11, a21), math.hypot(a12, a22))
+        n = max(48, int(2 * math.pi * r / seg))
+        if which == 'circle':
+            uv = [(math.cos(2 * math.pi * i / n), math.sin(2 * math.pi * i / n)) for i in range(n)]
+        else:
+            m = n // 2
+            uv = [(math.cos(math.pi * i / m), math.sin(math.pi * i / m)) for i in range(m + 1)]
+        return [(s0 + a11 * x + a12 * y, z0 + a21 * x + a22 * y) for x, y in uv]
+    if kind == 'fillet':
+        _, T1, cf, R, T2, I = prim
+        n = max(8, int(R * math.pi / 2 / seg))
+        return [T1] + _arc_pts(T1, cf, T2, n) + [T2, I]
+    raise ValueError(kind)
+
+
+def outline_2d(prims, clips):
+    """基本形の和を、clips（基本形の list の list：各組の和）で順に切った外形。shapely で（無ければ None）。
+    返すのは (s,z) の外の輪郭の点の並び（いちばん大きい一つ）"""
+    try:
+        from shapely.geometry import Polygon
+        from shapely.ops import unary_union
+    except ImportError:
+        return None
+    poly = lambda q: Polygon(prim_pts(q)).buffer(0)
+    g = unary_union([poly(q) for q in prims])
+    for grp in clips:
+        g = g.intersection(unary_union([poly(q) for q in grp]))
+    if g.is_empty:
+        return []
+    parts = list(g.geoms) if hasattr(g, 'geoms') else [g]
+    parts = [p for p in parts if p.geom_type == 'Polygon']
+    if not parts:
+        return []
+    big = max(parts, key=lambda p: p.area)
+    big = big.simplify(0.05)
+    return list(big.exterior.coords)[:-1]
+
+
 def key_shape(G, h, grow=0.0):
     """食い込み（板のキー・柱の欠き込み）の外形：頭の楕円そのもの（Tamediaの写真：板の頭がまるごと柱に食い込み、
     頭の下の縁が柱の肩に載る）。grow：欠き込みを少し大きくするとき"""
@@ -503,6 +552,22 @@ def _inter(a, b, tol):
     return _largest(r)
 
 
+def _outline(F, prims, clips, off, tol, rh_clips=None):
+    """外形：shapely があれば2Dで和と切り取り（点の並び→ポリライン）。無ければ Rhino の曲線の和・積。
+    rh_clips：Rhino の道で使う、切る曲線（無ければ clips の各組の和）"""
+    pts = outline_2d(prims, clips)
+    if pts is not None:
+        if len(pts) < 3:
+            raise RuntimeError('外形が空')
+        q = [F.P(a, b, off) for a, b in pts]
+        q.append(q[0])
+        return rg.PolylineCurve(q)
+    outer = _union([F.curve(x, off) for x in prims], tol)
+    for c in (rh_clips if rh_clips is not None else [_union([F.curve(x, off) for x in g], tol) for g in clips]):
+        outer = _inter(outer, c, tol)
+    return outer
+
+
 def _solid(F, outer, holes2d, off, thick, tol):
     """外形（off の面）と穴から、+perp へ thick の押し出しの立体"""
     crvs = [outer] + [F.curve(h, off) for h in holes2d]
@@ -530,6 +595,22 @@ def _bool(kind, a, bs, tol, log, what):
         pass
     log.append('%s：立体の%sができず、別の部品のまま' % (what, '和' if kind == 'union' else '差'))
     return [a] + (bs if kind == 'union' else [])
+
+
+def _extend_roof(roof, L=3000.0):
+    """屋根の面を四方に L だけ延ばす（端の架構の外の板が面の外に出ないように）。一つの面の Brep だけ"""
+    try:
+        if roof.Faces.Count != 1:
+            return roof
+        srf = roof.Faces[0].UnderlyingSurface()
+        for side in (rg.IsoStatus.West, rg.IsoStatus.East, rg.IsoStatus.South, rg.IsoStatus.North):
+            e = srf.Extend(side, L, False)
+            if e is not None:
+                srf = e
+        b = srf.ToBrep()
+        return b if b is not None else roof
+    except Exception:
+        return roof
 
 
 def _top_fit(F, roof, off, s_lo, s_hi, tol):
@@ -601,8 +682,7 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
         sgn = 1 if key == '+' else -1
         w_, t_, kd = P['col'], P['t'], P['key']
         off = w_ / 2 if sgn > 0 else -(w_ / 2 + t_)
-        outer = _union([F.curve(q, off) for q in B['prims']], tol)
-        outer = _inter(outer, F.curve(B['clip'], off), tol)
+        outer = _outline(F, B['prims'], [[B['clip']]], off, tol)
         pl = _solid(F, outer, B0['holes'], off, t_, tol)
         if colpos and kd > 0:
             koff = w_ / 2 - kd if sgn > 0 else -(w_ / 2) - 1.0
@@ -622,8 +702,7 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
         Bf = beam_2d(Pf, (ztop, 0.0), sup, Dff)
         for sgn in (1, -1):
             off = w / 2 if sgn > 0 else -(w / 2 + P['t'])
-            outer = _union([F.curve(q, off) for q in Bf['prims']], tol)
-            outer = _inter(outer, F.curve(Bf['clip'], off), tol)
+            outer = _outline(F, Bf['prims'], [[Bf['clip']]], off, tol)
             pl = _solid(F, outer, Bf['holes'], off, P['t'], tol)
             if colpos and P['key'] > 0:
                 koff = w / 2 - P['key'] if sgn > 0 else -(w / 2) - 1.0
@@ -638,16 +717,18 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
 
     # 柱（東・内の列・西）：架構の面で外形 → 押し出し → 両面の欠き込み
     if showcol:
-        roof_outer0 = _union([F.curve(q, -w / 2) for q in B0['prims']], tol)
-        roof_outer0 = _inter(roof_outer0, F.curve(B0['clip'], -w / 2), tol)
+        o0 = outline_2d(B0['prims'], [[B0['clip']]])
+        roof_outer0 = None if o0 is not None else _outline(F, B0['prims'], [[B0['clip']]], -w / 2, tol)
         z0, m, _ = tops['0']
         for i, s in enumerate(sup):
             G, h = heads[i]
             C = column_2d(s, w, P['FL'], z0 + m * s, [(G, h)] + mid_heads[i], G)
             off = -w / 2
-            body = _union([F.curve(q, off) for q in C['prims']], tol)
-            clip = _union([roof_outer0, F.curve(C['band'], off)], tol)
-            outer = _inter(body, clip, tol)
+            if o0 is not None:
+                outer = _outline(F, C['prims'], [[('poly', o0), C['band']]], off, tol)
+            else:
+                clip = _union([roof_outer0, F.curve(C['band'], off)], tol)
+                outer = _outline(F, C['prims'], [], off, tol, rh_clips=[clip])
             col = _solid(F, outer, C['holes'], off, w, tol)
             if P['key'] > 0:
                 cuts = []
@@ -727,6 +808,8 @@ def run():
     mids_ = _in('mids')
     res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays)
     rows, log = [], []
+    roof_ = _extend_roof(roof_)
+    log.append('外形：' + ('shapely（2Dで和）' if outline_2d([], []) is not None else 'Rhino の曲線の和（shapely が無い）'))
     for i, kk in enumerate(ks):
         sc = _pick(cols_, i, True)
         if isinstance(sc, str):
