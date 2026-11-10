@@ -43,7 +43,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-11 08:20'
+VERSION = 'kakou 2026-11-11 08:45'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
