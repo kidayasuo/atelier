@@ -43,7 +43,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-11 08:45'
+VERSION = 'kakou 2026-11-11 09:10'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -254,7 +254,7 @@ def beam_2d(P, top, supports, Dfn, ext=None):
     zt = lambda s: z0 + m * s
     soffit = lambda s: zt(s) - Dfn(s)
     sE, sW = supports[0], supports[-1]
-    n = max(40, int((sW - sE) / 150))
+    n = max(40, int((sW - sE) / 20))     # 下端は細かく取り、Rhino の側でなめらかな曲線に戻す
     ss = [sE + (sW - sE) * i / n for i in range(n + 1)]
     pr = [('body', [(sE, zt(sE)), (sW, zt(sW))], [(s, soffit(s)) for s in ss])]
     heads = []
@@ -387,6 +387,17 @@ def region_2d(prims, clips=(), minus=()):
     return g
 
 
+def _dedup(ring, eps=0.5):
+    """近すぎる点を除く（閉じた並び）"""
+    out = []
+    for q in ring:
+        if not out or math.hypot(q[0] - out[-1][0], q[1] - out[-1][1]) > eps:
+            out.append(q)
+    while len(out) > 2 and math.hypot(out[0][0] - out[-1][0], out[0][1] - out[-1][1]) <= eps:
+        out.pop()
+    return out
+
+
 def polys_2d(g, min_area=100.0):
     """shapely の形 → [(外の点の並び, [穴の点の並び])]（小さな切れ端は捨てる）"""
     if g is None or g.is_empty:
@@ -395,9 +406,42 @@ def polys_2d(g, min_area=100.0):
     for x in (list(g.geoms) if hasattr(g, 'geoms') else [g]):
         if x.geom_type != 'Polygon' or x.area < min_area:
             continue
-        x = x.simplify(0.05)
-        out.append((list(x.exterior.coords)[:-1], [list(r.coords)[:-1] for r in x.interiors]))
+        out.append((_dedup(list(x.exterior.coords)[:-1]), [_dedup(list(r.coords)[:-1]) for r in x.interiors]))
     return out
+
+
+CORNER_DEG = 20.0      # これより大きく折れる点は角（曲線を分ける）
+LINE_MIN = 40.0        # これより長い辺は直線のまま
+
+
+def smooth_runs(ring):
+    """閉じた点の並び（2D）を、直線と曲線の区切りに分ける。
+    返す：[('line', p, q) | ('curve', [点…])]（順につながる）、角が一つも無く短い辺だけなら [('closed', [点…])]"""
+    n = len(ring)
+    if n < 3:
+        return []
+
+    def turn(i):
+        a, b, c = ring[i - 1], ring[i], ring[(i + 1) % n]
+        u = (b[0] - a[0], b[1] - a[1])
+        v = (c[0] - b[0], c[1] - b[1])
+        return abs(math.degrees(math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1])))
+
+    seglen = lambda i: math.hypot(ring[(i + 1) % n][0] - ring[i][0], ring[(i + 1) % n][1] - ring[i][1])
+    # 区切りの点：角、または長い辺の端
+    brk = [i for i in range(n) if turn(i) >= CORNER_DEG or seglen(i) >= LINE_MIN or seglen(i - 1) >= LINE_MIN]
+    if not brk:
+        return [('closed', list(ring))]
+    runs = []
+    for j, i0 in enumerate(brk):
+        i1 = brk[(j + 1) % len(brk)]
+        k = (i1 - i0) % n or n
+        pts = [ring[(i0 + t) % n] for t in range(k + 1)]
+        if len(pts) == 2:
+            runs.append(('line', pts[0], pts[1]))
+        else:
+            runs.append(('curve', pts))
+    return runs
 
 
 def key_shape(G, h, grow=0.0):
@@ -627,15 +671,43 @@ def _solid(F, outer, holes2d, off, thick, tol):
     return s
 
 
+def _ring_curve(F, ring, off, tol):
+    """2Dの点の並び → 直線となめらかな曲線をつないだ閉じた曲線"""
+    runs = smooth_runs(ring)
+    if runs and runs[0][0] == 'closed':
+        pts = [F.P(a, b, off) for a, b in runs[0][1]]
+        c = rg.Curve.CreateInterpolatedCurve(pts, 3, rg.CurveKnotStyle.ChordPeriodic)
+        f = c.Fit(3, 0.1, 0.0) if c is not None else None
+        return f if f is not None and f.IsClosed else c
+    segs = []
+    for r in runs:
+        if r[0] == 'line':
+            segs.append(rg.LineCurve(F.P(r[1][0], r[1][1], off), F.P(r[2][0], r[2][1], off)))
+        else:
+            pts = [F.P(a, b, off) for a, b in r[1]]
+            c = rg.Curve.CreateInterpolatedCurve(pts, 3)
+            if c is None:
+                c = rg.PolylineCurve(pts)
+            else:
+                f = c.Fit(3, 0.1, 0.0)
+                if f is not None:
+                    c = f
+            segs.append(c)
+    j = rg.Curve.JoinCurves(segs, 0.05)
+    if j and len(j) == 1 and j[0].IsClosed:
+        return j[0]
+    q = [F.P(a, b, off) for a, b in ring]
+    q.append(q[0])
+    return rg.PolylineCurve(q)
+
+
 def _slabs(F, g, off, thick, tol):
     """shapely の形を、off の面から +perp へ thick 押し出した立体（形が分かれていれば複数）"""
     out = []
     for ext, holes in polys_2d(g):
         crvs = []
         for ring in [ext] + holes:
-            q = [F.P(a, b, off) for a, b in ring]
-            q.append(q[0])
-            crvs.append(rg.PolylineCurve(q))
+            crvs.append(_ring_curve(F, ring, off, tol))
         br = rg.Brep.CreatePlanarBreps(crvs, tol)
         if not br:
             raise RuntimeError('平らな面ができない')
@@ -768,7 +840,7 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log, fails):
                 kg = _holes_g([key_shape(G, h) for G, h in B0['heads']]).difference(_holes_g(B0['holes'])).intersection(g)
                 koff = w_ / 2 - kd if sgn > 0 else -(w_ / 2)
                 pcs += _slabs(F, kg, koff, kd, tol)
-            out['plates'] += _join(pcs, tol, fails, tag + '板')
+            out['plates'] += pcs
             continue
         outer = _outline(F, B['prims'], [[B['clip']]], off, tol)
         pl = _solid(F, outer, B0['holes'], off, t_, tol)
@@ -797,7 +869,7 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log, fails):
                     kg = _holes_g([key_shape(G, h) for G, h in Bf['heads']]).difference(_holes_g(Bf['holes'])).intersection(g)
                     koff = w / 2 - P['key'] if sgn > 0 else -(w / 2)
                     pcs += _slabs(F, kg, koff, P['key'], tol)
-                out['floors'] += _join(pcs, tol, fails, tag + '床梁')
+                out['floors'] += pcs
                 continue
             outer = _outline(F, Bf['prims'], [[Bf['clip']]], off, tol)
             pl = _solid(F, outer, Bf['holes'], off, P['t'], tol)
@@ -831,7 +903,7 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log, fails):
                     pcs += _slabs(F, face, -w / 2, kd, tol) + _slabs(F, face, w / 2 - kd, kd, tol)
                 else:
                     pcs = _slabs(F, g.difference(_holes_g(C['holes'])), -w / 2, w, tol)
-                out['cols'] += _join(pcs, tol, fails, tag + '柱%d' % i)
+                out['cols'] += pcs
                 continue
             if o0 is not None:
                 outer = _outline(F, C['prims'], [[('poly', o0), C['band']]], off, tol)
@@ -917,7 +989,7 @@ def run():
     mids_ = _in('mids')
     res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays)
     rows, log, fails = [], [], {}
-    log.append('外形：' + ('shapely（2Dで和、層を重ねて立体）' if HAVE_SHAPELY else 'Rhino の曲線の和（shapely が無い）'))
+    log.append('外形：' + ('shapely（2Dで和、層を重ねて立体、層は分けたまま）' if HAVE_SHAPELY else 'Rhino の曲線の和（shapely が無い）'))
     for i, kk in enumerate(ks):
         sc = _pick(cols_, i, True)
         if isinstance(sc, str):
@@ -947,8 +1019,6 @@ def run():
             log.append('CSV：%s' % path)
         except Exception as ex:
             log.append('CSV を書けない：%s' % ex)
-    if fails:
-        log.append('層を一つにできず、層のまま（Bake後に BooleanUnion）：' + '・'.join(sorted(fails)))
     for key, name in (('plates', '板'), ('cols', '柱'), ('floors', '床梁')):
         bs = res[key]
         if bs:
