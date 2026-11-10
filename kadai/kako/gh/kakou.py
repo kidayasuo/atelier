@@ -43,7 +43,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-11 08:05'
+VERSION = 'kakou 2026-11-11 08:40'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -355,6 +355,51 @@ def outline_2d(prims, clips):
     return list(big.exterior.coords)[:-1]
 
 
+try:
+    import shapely  # noqa: F401
+    HAVE_SHAPELY = True
+except ImportError:
+    HAVE_SHAPELY = False
+
+
+def _sp(prim):
+    from shapely.geometry import Polygon
+    return Polygon(prim_pts(prim)).buffer(0)
+
+
+def _holes_g(prims):
+    from shapely.ops import unary_union
+    return unary_union([_sp(q) for q in prims])
+
+
+def region_2d(prims, clips=(), minus=()):
+    """shapely の形：基本形の和を clips の各組の和で切り、いちばん大きい一つを取り、minus（基本形）を引く"""
+    from shapely.ops import unary_union
+    g = unary_union([_sp(q) for q in prims])
+    for grp in clips:
+        g = g.intersection(unary_union([_sp(q) for q in grp]))
+    parts = [x for x in (list(g.geoms) if hasattr(g, 'geoms') else [g]) if x.geom_type == 'Polygon']
+    if not parts:
+        return None
+    g = max(parts, key=lambda x: x.area)
+    if minus:
+        g = g.difference(unary_union([_sp(q) for q in minus]))
+    return g
+
+
+def polys_2d(g, min_area=100.0):
+    """shapely の形 → [(外の点の並び, [穴の点の並び])]（小さな切れ端は捨てる）"""
+    if g is None or g.is_empty:
+        return []
+    out = []
+    for x in (list(g.geoms) if hasattr(g, 'geoms') else [g]):
+        if x.geom_type != 'Polygon' or x.area < min_area:
+            continue
+        x = x.simplify(0.05)
+        out.append((list(x.exterior.coords)[:-1], [list(r.coords)[:-1] for r in x.interiors]))
+    return out
+
+
 def key_shape(G, h, grow=0.0):
     """食い込み（板のキー・柱の欠き込み）の外形：頭の楕円そのもの（Tamediaの写真：板の頭がまるごと柱に食い込み、
     頭の下の縁が柱の肩に載る）。grow：欠き込みを少し大きくするとき"""
@@ -582,6 +627,41 @@ def _solid(F, outer, holes2d, off, thick, tol):
     return s
 
 
+def _slabs(F, g, off, thick, tol):
+    """shapely の形を、off の面から +perp へ thick 押し出した立体（形が分かれていれば複数）"""
+    out = []
+    for ext, holes in polys_2d(g):
+        crvs = []
+        for ring in [ext] + holes:
+            q = [F.P(a, b, off) for a, b in ring]
+            q.append(q[0])
+            crvs.append(rg.PolylineCurve(q))
+        br = rg.Brep.CreatePlanarBreps(crvs, tol)
+        if not br:
+            raise RuntimeError('平らな面ができない')
+        path = rg.LineCurve(F.P(0, 0, off), F.P(0, 0, off + thick))
+        sld = br[0].Faces[0].CreateExtrusion(path, True)
+        if sld is None:
+            raise RuntimeError('押し出しができない')
+        out.append(sld)
+    return out
+
+
+def _join(pieces, tol, fails, what):
+    """層の立体を一つに（面で接するだけの和）。できなければ層のまま返し、fails に数える"""
+    if len(pieces) <= 1:
+        return pieces
+    try:
+        r = rg.Brep.CreateBooleanUnion(pieces, tol)
+        if r and len(r) == 1 and r[0].IsSolid:
+            r[0].MergeCoplanarFaces(tol)
+            return [r[0]]
+    except Exception:
+        pass
+    fails[what] = fails.get(what, 0) + 1
+    return pieces
+
+
 def _bool(kind, a, bs, tol, log, what):
     """立体の和・差。できなければ元のまま（和は部品を並べて）返し、log に書く"""
     try:
@@ -595,22 +675,6 @@ def _bool(kind, a, bs, tol, log, what):
         pass
     log.append('%s：立体の%sができず、別の部品のまま' % (what, '和' if kind == 'union' else '差'))
     return [a] + (bs if kind == 'union' else [])
-
-
-def _extend_roof(roof, L=3000.0):
-    """屋根の面を四方に L だけ延ばす（端の架構の外の板が面の外に出ないように）。一つの面の Brep だけ"""
-    try:
-        if roof.Faces.Count != 1:
-            return roof
-        srf = roof.Faces[0].UnderlyingSurface()
-        for side in (rg.IsoStatus.West, rg.IsoStatus.East, rg.IsoStatus.South, rg.IsoStatus.North):
-            e = srf.Extend(side, L, False)
-            if e is not None:
-                srf = e
-        b = srf.ToBrep()
-        return b if b is not None else roof
-    except Exception:
-        return roof
 
 
 def _top_fit(F, roof, off, s_lo, s_hi, tol):
@@ -646,7 +710,7 @@ def _hit_s(F, crv, s_min=1000.0):
     return best
 
 
-def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
+def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log, fails):
     w = P['col']
     O, d, p, th = frame_axis(kk, w)
     F = Frame3(O, d, p)
@@ -670,7 +734,22 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
     Dfn = depth_fn(sup, P['D'], P['Dm'])
     s_lo, s_hi = -head_size(P, P['D'])['ha'] - 300, s_tip + 10
     offs = {'+': w / 2 + P['t'] / 2, '-': -(w / 2 + P['t'] / 2), '0': 0.0}
-    tops = {key: _top_fit(F, roof, off, s_lo, s_hi, tol) for key, off in offs.items()}
+    tops = {}
+    for key, off in offs.items():
+        try:
+            tops[key] = _top_fit(F, roof, off, s_lo, s_hi, tol)
+        except RuntimeError:
+            tops[key] = None
+    if tops['0'] is None:
+        raise RuntimeError('屋根の面と交わらない（架構の線の上）')
+    for a, b in (('+', '-'), ('-', '+')):
+        if tops[a] is None:
+            # 端の架構の外の板が屋根の面の外：架構の線と内の板から延ばす（板の面は架構の線に対して対称）
+            if tops[b] is None:
+                tops[a] = tops['0']
+            else:
+                tops[a] = (2 * tops['0'][0] - tops[b][0], 2 * tops['0'][1] - tops[b][1], tops['0'][2])
+            log.append('k%g：%s の板は屋根の面の外なので、架構の線と内の板から延ばした' % (kk, '東南' if a == '+' else '北西'))
 
     out = dict(plates=[], cols=[], floors=[], ptM=[])
     tag = 'k%g' % kk
@@ -682,6 +761,15 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
         sgn = 1 if key == '+' else -1
         w_, t_, kd = P['col'], P['t'], P['key']
         off = w_ / 2 if sgn > 0 else -(w_ / 2 + t_)
+        if HAVE_SHAPELY:
+            g = region_2d(B['prims'], [[B['clip']]])
+            pcs = _slabs(F, g.difference(_holes_g(B0['holes'])), off, t_, tol)
+            if colpos and kd > 0:
+                kg = _holes_g([key_shape(G, h) for G, h in B0['heads']]).difference(_holes_g(B0['holes'])).intersection(g)
+                koff = w_ / 2 - kd if sgn > 0 else -(w_ / 2)
+                pcs += _slabs(F, kg, koff, kd, tol)
+            out['plates'] += _join(pcs, tol, fails, tag + '板')
+            continue
         outer = _outline(F, B['prims'], [[B['clip']]], off, tol)
         pl = _solid(F, outer, B0['holes'], off, t_, tol)
         if colpos and kd > 0:
@@ -702,6 +790,15 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
         Bf = beam_2d(Pf, (ztop, 0.0), sup, Dff)
         for sgn in (1, -1):
             off = w / 2 if sgn > 0 else -(w / 2 + P['t'])
+            if HAVE_SHAPELY:
+                g = region_2d(Bf['prims'], [[Bf['clip']]])
+                pcs = _slabs(F, g.difference(_holes_g(Bf['holes'])), off, P['t'], tol)
+                if colpos and P['key'] > 0:
+                    kg = _holes_g([key_shape(G, h) for G, h in Bf['heads']]).difference(_holes_g(Bf['holes'])).intersection(g)
+                    koff = w / 2 - P['key'] if sgn > 0 else -(w / 2)
+                    pcs += _slabs(F, kg, koff, P['key'], tol)
+                out['floors'] += _join(pcs, tol, fails, tag + '床梁')
+                continue
             outer = _outline(F, Bf['prims'], [[Bf['clip']]], off, tol)
             pl = _solid(F, outer, Bf['holes'], off, P['t'], tol)
             if colpos and P['key'] > 0:
@@ -724,6 +821,18 @@ def build_one(kk, roof, west, eave, showcol, mids, vin, P, tol, log):
             G, h = heads[i]
             C = column_2d(s, w, P['FL'], z0 + m * s, [(G, h)] + mid_heads[i], G)
             off = -w / 2
+            if HAVE_SHAPELY:
+                # 層で作る：芯（欠き込みの奥、穴あり）と両面の層（頭の形の欠き込みを抜く）。立体の差は使わない
+                g = region_2d(C['prims'], [[('poly', o0), C['band']]])
+                kd = P['key']
+                if kd > 0:
+                    pcs = _slabs(F, g.difference(_holes_g(C['holes'])), -w / 2 + kd, w - 2 * kd, tol)
+                    face = g.difference(_holes_g(C['keys'] + C['holes']))
+                    pcs += _slabs(F, face, -w / 2, kd, tol) + _slabs(F, face, w / 2 - kd, kd, tol)
+                else:
+                    pcs = _slabs(F, g.difference(_holes_g(C['holes'])), -w / 2, w, tol)
+                out['cols'] += _join(pcs, tol, fails, tag + '柱%d' % i)
+                continue
             if o0 is not None:
                 outer = _outline(F, C['prims'], [[('poly', o0), C['band']]], off, tol)
             else:
@@ -807,16 +916,15 @@ def run():
     cols_ = _in('showCol')
     mids_ = _in('mids')
     res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays)
-    rows, log = [], []
-    roof_ = _extend_roof(roof_)
-    log.append('外形：' + ('shapely（2Dで和）' if outline_2d([], []) is not None else 'Rhino の曲線の和（shapely が無い）'))
+    rows, log, fails = [], [], {}
+    log.append('外形：' + ('shapely（2Dで和、層を重ねて立体）' if HAVE_SHAPELY else 'Rhino の曲線の和（shapely が無い）'))
     for i, kk in enumerate(ks):
         sc = _pick(cols_, i, True)
         if isinstance(sc, str):
             sc = sc.strip().lower() not in ('false', '0', 'no', '')
         mids_i = parse_mids(_pick(mids_, i, None))
         try:
-            o, row = build_one(kk, roof_, west_, eave_, bool(sc), mids_i, vin, P, tol, log)
+            o, row = build_one(kk, roof_, west_, eave_, bool(sc), mids_i, vin, P, tol, log, fails)
         except Exception as ex:
             log.append('k%g：%s' % (kk, ex))
             continue
@@ -839,6 +947,8 @@ def run():
             log.append('CSV：%s' % path)
         except Exception as ex:
             log.append('CSV を書けない：%s' % ex)
+    if fails:
+        log.append('層を一つにできず、層のまま（Bake後に BooleanUnion）：' + '・'.join(sorted(fails)))
     log.append('架構 %d 本（失敗 %d）' % (len(rows), len(ks) - len(rows)))
     res['table'] = text
     return res, '\n'.join(log)
