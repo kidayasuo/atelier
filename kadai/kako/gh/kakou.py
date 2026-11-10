@@ -43,7 +43,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-11 08:40'
+VERSION = 'kakou 2026-11-11 08:20'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -949,6 +949,16 @@ def run():
             log.append('CSV を書けない：%s' % ex)
     if fails:
         log.append('層を一つにできず、層のまま（Bake後に BooleanUnion）：' + '・'.join(sorted(fails)))
+    for key, name in (('plates', '板'), ('cols', '柱'), ('floors', '床梁')):
+        bs = res[key]
+        if bs:
+            bad = sum(1 for b in bs if b is None or not b.IsValid)
+            bb = rg.BoundingBox.Empty
+            for b in bs:
+                if b is not None:
+                    bb.Union(b.GetBoundingBox(True))
+            log.append('%s：%d 個（不正 %d）、範囲 x %.0f〜%.0f・y %.0f〜%.0f・z %.0f〜%.0f' % (
+                name, len(bs), bad, bb.Min.X, bb.Max.X, bb.Min.Y, bb.Max.Y, bb.Min.Z, bb.Max.Z))
     log.append('架構 %d 本（失敗 %d）' % (len(rows), len(ks) - len(rows)))
     res['table'] = text
     return res, '\n'.join(log)
