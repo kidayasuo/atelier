@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-11 14:11'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-11 14:22'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -45,7 +45,8 @@ DEF = dict(
     t=160.0,      # 梁の幅（1本、対で2本）。荷重から梁のせいを決めるときの前提（意匠で選ぶ）
     col=300.0,    # 柱の幅（角材、意匠で選ぶ）。梁のあいだ（光の筋）＝col−2×凹みの深さ（結果）
     keyR=1.0 / 3, # 凹みの深さ／梁の幅（Tamedia：梁の幅240の1/3≈80、kadai/kako/tamedia.md）
-    DmR=0.8,      # 長いスパンの真ん中のせい／端のせい（Tamediaのカーブ。ryakusan/shin_1109.py の500→400）
+    DmR=0.8,
+    tipR=0.04,    # 柱の広がりの先の厚さ／梁のせい。そこで頭の縁に直角に切る（Tamediaの写真）      # 長いスパンの真ん中のせい／端のせい（Tamediaのカーブ。ryakusan/shin_1109.py の500→400）
     qD=0.84,      # 屋根の固定荷重（kN/m²、育ち舎の略算）
     qS=0.6,       # 雪（kN/m²、30 cm）
     sp=3000.0,    # 架構の間隔（負担の幅）
@@ -422,6 +423,51 @@ def notch_cut(beam_g, heads, clr=None):
     bear = unary_union([box(G[0] - h['ha'] - 2 * clr, G[1] - h['hb'] - 2 * clr, G[0] + h['ha'] + 2 * clr, G[1])
                         for G, h in heads])
     return unary_union([beam_g, beam_g.buffer(clr).difference(bear)])
+
+
+def trim_flares(face, heads, Gs, C, tip):
+    """柱の面の層の、広がりの先を切る。頭の楕円に沿って柱の面から外へ進み、層の厚さ（楕円の法線の向き）が tip を
+    下回る所で、楕円に直角な線で切り落とす（紙のように薄い先を残さない）"""
+    from shapely.geometry import LineString, Polygon
+    out = face
+    for G, h in heads:
+        a, b = h['ha'], h['hb']
+        for side in (-1, 1):
+            x0 = (Gs + side * C / 2 - G[0]) / a
+            if abs(x0) >= 1:
+                continue
+            for up in (-1, 1):                     # 下（肩の側）と上（2階の頭の上）
+                t0 = math.atan2(up * math.sqrt(1 - x0 * x0), x0)
+                cut_at = None
+                for k in range(1, 400):
+                    t = t0 + side * (-up) * k * 0.004      # 柱から外へ（赤道の向き）
+                    Q = (G[0] + a * math.cos(t), G[1] + b * math.sin(t))
+                    nx, ny = math.cos(t) / a, math.sin(t) / b
+                    L = math.hypot(nx, ny)
+                    nx, ny = nx / L, ny / L
+                    ray = LineString([(Q[0] + nx * 0.01, Q[1] + ny * 0.01), (Q[0] + nx * 400, Q[1] + ny * 400)])
+                    seg = ray.intersection(out)
+                    th = seg.length if not seg.is_empty else 0.0
+                    if k == 1 and th <= 0:
+                        break                      # この側には層が無い
+                    if th < tip:
+                        cut_at = (Q, (nx, ny), (-ny * side * (-up), nx * side * (-up)), t)
+                        break
+                if cut_at is None:
+                    continue
+                Q, n_, _, t = cut_at
+                # 楕円の接線の向き（t が増える向き）を、進んだ向きにそろえる
+                dt = side * (-up)
+                tx, ty = -a * math.sin(t) * dt, b * math.cos(t) * dt
+                Lt = math.hypot(tx, ty)
+                tx, ty = tx / Lt, ty / Lt
+                # 切り落とす範囲：切る線から先（接線の向き）。頭の中へも深く取る（頭は層に無いので、取っても害が無い。
+                # 浅いと、頭の縁が接線から離れる所に薄い切れ端が残る）
+                cutp = Polygon([(Q[0] - n_[0] * 300, Q[1] - n_[1] * 300), (Q[0] + n_[0] * 400, Q[1] + n_[1] * 400),
+                                (Q[0] + n_[0] * 400 + tx * 600, Q[1] + n_[1] * 400 + ty * 600),
+                                (Q[0] - n_[0] * 300 + tx * 600, Q[1] - n_[1] * 300 + ty * 600)])
+                out = out.difference(cutp)
+    return out
 
 
 def head_shape(G, h, cap=None):
@@ -1328,6 +1374,7 @@ def geom_one(pl, P, showcol, mids, tol, log):
                 for k_, off_ in (('+', C / 2 - d), ('-', -C / 2)):
                     ok_ = [tuple(q) for q in list(plate_g[k_].exterior.coords)[:-1]]
                     gf = region_2d(Cc['prims'], [[('poly', ok_), Cc['band']]]).difference(cut[k_])
+                    gf = trim_flares(gf, [(G, h)] + mid_heads[j], s, C, P['tipR'] * pl['De'])
                     out['cols'] += _slabs(F, gf, off_, d, tol, tag + '柱%d面%s' % (j, k_), log, Cc['holes'])
             else:
                 out['cols'] += _slabs(F, g, -C / 2, C, tol, tag + '柱%d' % j, log, Cc['holes'])
