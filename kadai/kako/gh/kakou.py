@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-11 09:54'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-11 09:59'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -997,12 +997,12 @@ def _ring_curve(F, ring, off, tol):
     j = rg.Curve.JoinCurves(segs, 0.05)
     if not j or len(j) != 1 or not j[0].IsClosed:
         raise RuntimeError('輪の曲線がつながらない（区切り%d、つないだ結果%d本）' % (len(segs), len(j) if j else 0))
-    return j[0]
+    return j[0], segs
 
 
 def _ring_check(F, ring, off, tol):
     """一つの輪の曲線と、直線の区切りの数。曲線が閉じて平らで、自分と交わらないことを確かめる"""
-    c = _ring_curve(F, ring, off, tol)
+    c, segs = _ring_curve(F, ring, off, tol)
     runs = smooth_runs(ring)
     nline = sum(1 for r in runs if r[0] == 'line')
     probs = []
@@ -1014,7 +1014,7 @@ def _ring_check(F, ring, off, tol):
     if xs and xs.Count:
         q = xs[0].PointA
         probs.append('自分と交わる（%d所、たとえば x%.0f y%.0f z%.0f）' % (xs.Count, q.X, q.Y, q.Z))
-    return c, nline, probs
+    return c, segs, nline, probs
 
 
 def _slabs(F, g, off, thick, tol, tag='', log=None, holes=()):
@@ -1029,12 +1029,14 @@ def _slabs(F, g, off, thick, tol, tag='', log=None, holes=()):
         if part.interiors:
             raise RuntimeError('%s（%d）：思わぬ穴がある（%d）' % (tag, n_, len(part.interiors)))
         crvs, nline, probs = [], 0, []
-        c, nline, pr = _ring_check(F, ext, off, tol)
+        c, segs, nline, pr = _ring_check(F, ext, off, tol)
         crvs.append(c)
+        side_curves = list(segs)
         probs += ['外：%s' % x for x in pr]
         for k_, hp in enumerate(holes):
             if part.contains(Point(hp[2], hp[3])):
                 crvs.append(F.curve(hp, off))
+                side_curves.append(crvs[-1])
                 if not crvs[-1].IsClosed:
                     probs.append('穴%d：閉じていない' % (k_ + 1))
         for a_ in range(len(crvs)):
@@ -1045,10 +1047,22 @@ def _slabs(F, g, off, thick, tol, tag='', log=None, holes=()):
         br = rg.Brep.CreatePlanarBreps(crvs, tol) if not probs else None
         if not br or len(br) != 1:
             raise RuntimeError('%s（%d）：平らな面ができない。%s' % (tag, n_, '・'.join(probs) or '曲線は正しいのに面ができない'))
-        path = rg.LineCurve(F.P(0, 0, off), F.P(0, 0, off + thick))
-        sld = br[0].Faces[0].CreateExtrusion(path, True)
-        if sld is None:
-            raise RuntimeError('%s（%d）：押し出しができない' % (tag, n_))
+        # 側面は区切り（直線・曲線）ごとに1枚ずつ押し出してつなぐ。面を一度に押し出すと、直線と曲線が接線でつながる所が
+        # 1枚の面になり、直線の辺の側面が平らな面として残らない（11-11、柱の層で平らな面が2枚足りなかった）
+        v = F.P(0, 0, off + thick) - F.P(0, 0, off)
+        bot = br[0]
+        top = bot.DuplicateBrep()
+        top.Translate(v)
+        pieces = [bot, top]
+        for cv in side_curves:
+            sf = rg.Surface.CreateExtrusion(cv, v)
+            if sf is None:
+                raise RuntimeError('%s（%d）：側面を押し出せない' % (tag, n_))
+            pieces.append(sf.ToBrep())
+        jb = rg.Brep.JoinBreps(pieces, tol)
+        if not jb or len(jb) != 1:
+            raise RuntimeError('%s（%d）：面がつながらない（%d個に分かれる）' % (tag, n_, len(jb) if jb else 0))
+        sld = jb[0]
         # 完全な立体か：閉じていて（裸の辺が無い）、正しい向きで、体積が形の面積×厚さに合う
         if not sld.IsValid or not sld.IsSolid:
             naked = sum(1 for e in sld.Edges if e.Valence == rg.EdgeAdjacency.Naked)
@@ -1295,8 +1309,12 @@ def geom_one(pl, P, showcol, mids, tol, log):
             g = region_2d(Cc['prims'], [[('poly', o0), Cc['band']]])
             if d > 0:
                 out['cols'] += _slabs(F, g, -C / 2 + d, C - 2 * d, tol, tag + '柱%d芯' % j, log, Cc['holes'])
-                out['cols'] += _slabs(F, g.difference(cut['+']), C / 2 - d, d, tol, tag + '柱%d面+' % j, log, Cc['holes'])
-                out['cols'] += _slabs(F, g.difference(cut['-']), -C / 2, d, tol, tag + '柱%d面-' % j, log, Cc['holes'])
+                # 面の層の上は、その側の梁の外形で切る（芯と同じ架構の線の外形で切ると、梁の上端が少し低い側で、
+                # 頭の上に細い切れ端が残った、11-11）
+                for k_, off_ in (('+', C / 2 - d), ('-', -C / 2)):
+                    ok_ = [tuple(q) for q in list(plate_g[k_].exterior.coords)[:-1]]
+                    gf = region_2d(Cc['prims'], [[('poly', ok_), Cc['band']]]).difference(cut[k_])
+                    out['cols'] += _slabs(F, gf, off_, d, tol, tag + '柱%d面%s' % (j, k_), log, Cc['holes'])
             else:
                 out['cols'] += _slabs(F, g, -C / 2, C, tol, tag + '柱%d' % j, log, Cc['holes'])
     out['ptE'] = F.P(heads[0][0][0], heads[0][0][1])
