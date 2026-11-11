@@ -11,7 +11,7 @@
 
 ## 材料（案、11-11にレモン画翠の品ぞろえから）
 
-在庫の一覧は持たない。何が手に入るかは、ユーザーがいつも買う店（https://www.lemongasui.net）の品ぞろえで決める。前の課題の残り（航空ベニヤ0.8・平竹ひご2×4など）は`../../sodachiya/mokei/材料.md`。
+在庫の一覧は持たない。何が手に入るかは、ユーザーがいつも買う店（https://www.lemongasui.net）の品ぞろえで決める。レモン画翠に無い物は、ほかの店（ユーザー 11-11）：世界堂（https://webshop.sekaido.co.jp/product?parent_category_sm=建築模型用品）、https://kenchikumokei.stores.jp 、竹田（https://takeda-eshop.com/view/category/ct8）、https://koeido.org 。前の課題の残り（航空ベニヤ0.8・平竹ひご2×4など）は`../../sodachiya/mokei/材料.md`。
 
 | 部材 | 実物→1/50 | 材（案） | 店の品ぞろえ |
 |---|---|---|---|
