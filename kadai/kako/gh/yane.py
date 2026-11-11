@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #! python 3
-VERSION = 'yane 2026-11-11 14:48'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'yane 2026-11-11 15:13'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 屋根（Rhino 8 Mac、Grasshopper の Python 3 スクリプト部品）。
 
@@ -132,6 +132,23 @@ def _num(name):
     return _f(v) if v is not None else DEF[name]
 
 
+def _curve(x, name):
+    """入力を曲線に。型の指定（Type hint）が Curve でないと、Rhino の物の Guid が来るので、文書から曲線を取り出す"""
+    x = _raw(x)
+    if isinstance(x, rg.Curve):
+        return x
+    try:
+        import System
+        import Rhino
+        if isinstance(x, System.Guid):
+            o = Rhino.RhinoDoc.ActiveDoc.Objects.FindId(x)
+            if o is not None and isinstance(o.Geometry, rg.Curve):
+                return o.Geometry
+    except Exception:
+        pass
+    raise ValueError('%s が曲線でない（%s）。入力の型（Type hint）を Curve に' % (name, type(x).__name__))
+
+
 def _eave_hit(eave, th, rE):
     """架構の向き th の線（東の縁 rE から外へ）と軒の線の交わる所：(長さ L、点、交わる所の軒の線の向き)"""
     c, s = math.cos(th), math.sin(th)
@@ -159,7 +176,7 @@ def run():
     slope = _in('slope')
     slope = _f(slope) if slope is not None else None
     rE = RW + vE * 1000.0
-    flat = rg.Curve.ProjectToPlane(_raw(eave), rg.Plane.WorldXY)
+    flat = rg.Curve.ProjectToPlane(_curve(eave, 'eave'), rg.Plane.WorldXY)
     ext = flat.Extend(rg.CurveEnd.Both, 20000.0, rg.CurveExtensionStyle.Line)
     if ext is not None:
         flat = ext
