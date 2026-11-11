@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #! python 3
-VERSION = 'yane 2026-11-11 15:13'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'yane 2026-11-11 17:58'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 屋根（Rhino 8 Mac、Grasshopper の Python 3 スクリプト部品）。
 
@@ -14,13 +14,14 @@ VERSION = 'yane 2026-11-11 15:13'     # 版（直すたびに、そのときの�
   A：東の縁と軒をどれも水平（東 zE、軒 zW）。勾配は架構ごとに違い、架構のあいだは双一次（ねじれた）面。
   B：南西の辺（西の直線の軒）にかかる架構は A と同じく軒の高さ zW。それより北は、その境の架構の勾配のまま一定。
      境の架構 kB は入力で決めるか、無ければ軒の線の向きが k の最小の架構から3°以上変わる手前の架構。
-  C：どこも勾配一定（円錐の面）。架構のあいだは平らな面（合板がねじれない）。勾配は入力 slope（°）、
-     無ければ kRef の架構で A と同じ勾配。
+  C：どこも勾配一定（円錐の面）。架構のあいだは平らな面（合板がねじれない）。勾配は入力 slope（°）か、
+     kRef の架構で A と同じ勾配。どちらも無ければ、南西の辺の軒がどこも zW 以下になるいちばんゆるい勾配
+     （気にするのは南西の辺の軒の高さだけ。北は上がってよい、ユーザー 11-11）。
 
 入力  k（架構の番号、List）・eave（軒先の線＝屋根の面の縁、平面の曲線、Item）
       plan（'A'・'B'・'C'、Item、既定 'A'）
       zE（東の縁の梁の上端、8150）・zW（軒の梁の上端、4650）・vE（東の縁の v、m、0.9）
-      kB（B案の境の架構）・slope（C案の勾配、°）・kRef（C案の勾配を取る架構、15）・gable（南北の端の外へ、mm、1000）
+      kB（B案の境の架構）・slope（C案の勾配、°）・kRef（C案の勾配を取る架構）・gable（南北の端の外へ、mm、1000）
 出力  roof（屋根の面、Brep）・lines（架構ごとの直線）・table（架構ごとの数、CSV の文字）・log
 """
 import math
@@ -28,7 +29,7 @@ import math
 PITCH = 3000.0
 CX, CY, RW = 194662.93237, -41348.26335, 205017.7
 TH_S = math.atan2(-65173.47495 - CY, -8965.4788 - CX) % (2 * math.pi)
-DEF = dict(zE=8150.0, zW=4650.0, vE=0.9, kRef=15.0, gable=1000.0)
+DEF = dict(zE=8150.0, zW=4650.0, vE=0.9, gable=1000.0)
 TURN_DEG = 3.0        # B案の境：軒の線の向きが、最初の架構からこれ以上変わったら南西の辺の外
 
 
@@ -38,7 +39,18 @@ def theta(k):
     return TH_S - PITCH * (k - 1.0) / RW
 
 
-def plan_heights(plan, fr, zE, zW, kRef=15.0, kB=None, slope=None):
+def sw_frames(fr):
+    """南西の辺（西の直線の軒）にかかる架構：南から、軒の線の向きが TURN_DEG 変わる手前まで"""
+    out = []
+    for f in fr:
+        if abs(f['turn']) < TURN_DEG:
+            out.append(f)
+        else:
+            break
+    return out or fr[:1]
+
+
+def plan_heights(plan, fr, zE, zW, kRef=None, kB=None, slope=None):
     """架構ごとの両端の高さ。fr：k の小さい順の [dict(k, L, turn)]（L：東の縁から軒までの長さ mm、turn：軒の線の向きの
     最初の架構からの変化 °）。返す：[(zE_k, zW_k)] と、決めたこと（文字）"""
     note = ''
@@ -48,19 +60,21 @@ def plan_heights(plan, fr, zE, zW, kRef=15.0, kB=None, slope=None):
         if slope is not None:
             i = math.tan(math.radians(slope))
             note = '勾配%.2f°（入力）' % slope
-        else:
+        elif kRef is not None:
             ref = min(fr, key=lambda f: abs(f['k'] - kRef))
             i = (zE - zW) / ref['L']
             note = '勾配%.2f°（k%g で A と同じ）' % (math.degrees(math.atan(i)), ref['k'])
+        else:
+            # 南西の辺の軒がどこも zW 以下になる、いちばんゆるい勾配（気にするのは南西の辺の軒の高さだけ。
+            # 北は上がってよい：北の道は広く、向かいは大学、ユーザー 11-11）
+            sw = sw_frames(fr)
+            ref = min(sw, key=lambda f: f['L'])
+            i = (zE - zW) / ref['L']
+            note = '勾配%.2f°（南西の辺の軒がどこも%.0f以下：決めたのは k%g）' % (math.degrees(math.atan(i)), zW, ref['k'])
         return [(zE, zE - i * f['L']) for f in fr], 'C：東%.0f・' % zE + note
     if plan == 'B':
         if kB is None:
-            kB = fr[0]['k']
-            for f in fr:                   # 南から、軒の線の向きが変わる手前まで
-                if abs(f['turn']) < TURN_DEG:
-                    kB = f['k']
-                else:
-                    break
+            kB = sw_frames(fr)[-1]['k']
             note = '（軒の線の向きから）'
         else:
             note = '（入力）'
@@ -170,7 +184,9 @@ def run():
     if not ks or eave is None:
         return None, '入力 k（架構の番号）と eave（軒先の線）が要る'
     plan = str(_raw(_in('plan', 'A'))).strip().upper()
-    zE, zW, vE, kRef, gable = (_num(n) for n in ('zE', 'zW', 'vE', 'kRef', 'gable'))
+    zE, zW, vE, gable = (_num(n) for n in ('zE', 'zW', 'vE', 'gable'))
+    kRef = _in('kRef')
+    kRef = _f(kRef) if kRef is not None else None
     kB = _in('kB')
     kB = _f(kB) if kB is not None else None
     slope = _in('slope')
