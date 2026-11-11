@@ -37,7 +37,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-11 09:50'
+VERSION = 'kakou 2026-11-11 09:55'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -850,16 +850,31 @@ def _ring_curve(F, ring, off, tol):
     return rg.PolylineCurve(q)
 
 
+SLAB_FALLBACK = [0]     # なめらかな曲線で面ができず、ポリラインにした数
+
+
+def _poly_curve(F, ring, off):
+    q = [F.P(a, b, off) for a, b in ring]
+    q.append(q[0])
+    return rg.PolylineCurve(q)
+
+
 def _slabs(F, g, off, thick, tol):
-    """shapely の形を、off の面から +perp へ thick 押し出した立体（形が分かれていれば複数）"""
+    """shapely の形を、off の面から +perp へ thick 押し出した立体（形が分かれていれば複数）。
+    なめらかな曲線で平らな面ができなければ、細かいポリラインで作り直す"""
     out = []
     for ext, holes in polys_2d(g):
-        crvs = []
-        for ring in [ext] + holes:
-            crvs.append(_ring_curve(F, ring, off, tol))
-        br = rg.Brep.CreatePlanarBreps(crvs, tol)
+        rings = [ext] + holes
+        br = None
+        try:
+            br = rg.Brep.CreatePlanarBreps([_ring_curve(F, r, off, tol) for r in rings], tol)
+        except Exception:
+            br = None
+        if not br or len(br) != 1:
+            br = rg.Brep.CreatePlanarBreps([_poly_curve(F, r, off) for r in rings], tol)
+            SLAB_FALLBACK[0] += 1
         if not br:
-            raise RuntimeError('平らな面ができない')
+            raise RuntimeError('平らな面ができない（点%d、穴%d）' % (len(ext), len(holes)))
         path = rg.LineCurve(F.P(0, 0, off), F.P(0, 0, off + thick))
         sld = br[0].Faces[0].CreateExtrusion(path, True)
         if sld is None:
@@ -1196,14 +1211,16 @@ def run():
     # 2. せいをそろえる（same、既定）：いちばん深いものに
     if same and A['D'] is None:
         De = max(p_['De'] for p_ in plans)
+        deciders = [p_['kk'] for p_ in plans if p_['De'] >= De - 1e-6]
         for p_ in plans:
             if abs(p_['De'] - De) > 1e-6:
                 r, NL, NS = frame_check(*p_['args'], De=De / 1000.0, Dm=De * P['DmR'] / 1000.0)
                 p_.update(De=De, Dm=De * P['DmR'], r=r, NL=NL, NS=NS)
         log.append('梁のせい：端%.0f・真ん中%.0f（全部の架構でそろえる。決めたのは %s）' % (
-            De, De * P['DmR'], '・'.join('k%g' % p_['kk'] for p_ in plans if p_['De'] >= De - 1e-6)))
+            De, De * P['DmR'], '・'.join('k%g' % kk_ for kk_ in deciders)))
     # 3. 形
     rows = []
+    SLAB_FALLBACK[0] = 0
     for p_ in plans:
         r = p_['r']
         bad = [k_ for k_, v in r.items() if v > 1]
@@ -1226,6 +1243,8 @@ def run():
         res['axis'].append(o['axis'])
         res['lines'].append(o['line'])
         rows.append(_row(p_, P))
+    if SLAB_FALLBACK[0]:
+        log.append('なめらかな曲線で面ができず、細かいポリラインにした所：%d' % SLAB_FALLBACK[0])
     worst = {k_: max(p_['r'][k_] for p_ in plans) for k_ in plans[0]['r']}
     log.append('比のいちばん大きいもの（1以下でよい）：' + '・'.join('%s %.2f' % kv for kv in worst.items()))
     log.append('梁の幅%.0f×2本・柱%.0f・凹み%.0f・梁のあいだ%.0f' % (P['t'], P['col'], P['keyR'] * P['t'], P['col'] - 2 * P['keyR'] * P['t']))
