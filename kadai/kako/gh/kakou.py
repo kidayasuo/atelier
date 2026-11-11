@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-11 14:22'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-11 14:31'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -564,10 +564,11 @@ def _haunch(G, h, side, soffit):
     return ('poly', [T1] + _arc_pts(T1, cf, T2, na) + [T2, I] + back)
 
 
-def beam_2d(P, top, supports, Dfn, ext=None):
+def beam_2d(P, top, supports, Dfn, ext=None, Gz=None):
     """梁（または2階の床梁）の1本の外形の基本形・上端で切る多角形・穴・頭の点。
     top=(z0, m)。supports：支点の s（東から西へ、両端が端の支点）。Dfn(s)：せい。
-    ext=(s_wall, s_tip)：西の端の軒への延長"""
+    ext=(s_wall, s_tip)：西の端の軒への延長。
+    Gz：支点ごとの桁の中心の高さ（対の梁は1本の桁を共に通すので、両方の梁で同じ高さにする）。無ければ下端から"""
     z0, m = top
     zt = lambda s: z0 + m * s
     soffit = lambda s: zt(s) - Dfn(s)
@@ -578,7 +579,7 @@ def beam_2d(P, top, supports, Dfn, ext=None):
     heads = []
     for j, s in enumerate(supports):
         h = head_size(P, Dfn(s))
-        G = (s, soffit(s) + h['e'])
+        G = (s, Gz[j] if Gz is not None else soffit(s) + h['e'])
         heads.append((G, h))
         pr.append(ellipse(G, h['ha'], h['hb']))
         if j in (0, len(supports) - 1):
@@ -1338,7 +1339,9 @@ def geom_one(pl, P, showcol, mids, tol, log):
     B0 = beam_2d(P, tops['0'][:2], sup, Dfn, ext=(s_wall, s_tip))
     plate_g = {}
     for key in ('+', '-'):
-        B = beam_2d(P, tops[key][:2], sup, Dfn, ext=(s_wall, s_tip))
+        # 頭（桁の中心）は架構の線の上の梁と同じ高さ：桁は対の梁と柱を一直線に通る。上端だけがそれぞれの屋根の面に合う
+        # （前は梁ごとに頭の高さが数mm違い、柱の面の層との間に細い切れ端や穴ができた、11-11）
+        B = beam_2d(P, tops[key][:2], sup, Dfn, ext=(s_wall, s_tip), Gz=[G_[1] for G_, h_ in B0['heads']])
         g = region_2d(B['prims'], [[B['clip']]])
         plate_g[key] = g
         out['plates'] += _slabs(F, g, pos[key], t, tol, tag + '梁' + key, log, B0['holes'])
