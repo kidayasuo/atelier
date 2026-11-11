@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-11 09:59'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-11 14:11'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -409,6 +409,19 @@ def cap_pts(G, a, Ht, m, seg=4.0):
     n = max(48, int(math.pi * max(a, H) / seg))
     return [(G[0] + a * math.cos(math.pi * i / n),
              G[1] + math.sin(math.pi * i / n) * (H + m * a * math.cos(math.pi * i / n))) for i in range(n + 1)]
+
+
+def notch_cut(beam_g, heads, clr=None):
+    """柱の面の層から抜く凹み：梁の外形のまわりに clr（NOTCH_CLR）の遊び。ただし頭の下半分（赤道より下）は遊び0：
+    頭の下の縁が柱の肩にじかに載って、鉛直の力を伝える（ユーザー 11-11）"""
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+    clr = NOTCH_CLR if clr is None else clr
+    if clr <= 0:
+        return beam_g
+    bear = unary_union([box(G[0] - h['ha'] - 2 * clr, G[1] - h['hb'] - 2 * clr, G[0] + h['ha'] + 2 * clr, G[1])
+                        for G, h in heads])
+    return unary_union([beam_g, beam_g.buffer(clr).difference(bear)])
 
 
 def head_shape(G, h, cap=None):
@@ -1302,7 +1315,8 @@ def geom_one(pl, P, showcol, mids, tol, log):
         from shapely.ops import unary_union
         o0 = outline_2d(B0['prims'], [[B0['clip']]])
         z0, m, _ = tops['0']
-        cut = {k_: unary_union([plate_g[k_]] + floor_g).buffer(NOTCH_CLR) for k_ in plate_g}
+        all_heads = list(heads) + [gh for j_ in mid_heads for gh in mid_heads[j_]]
+        cut = {k_: notch_cut(unary_union([plate_g[k_]] + floor_g), all_heads) for k_ in plate_g}
         for j, s in enumerate(sup):
             G, h = heads[j]
             Cc = column_2d(s, C, P['FL'], z0 + m * s, [(G, h)] + mid_heads[j], G)
