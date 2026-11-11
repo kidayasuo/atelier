@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #! python 3
-VERSION = 'yane 2026-11-11 17:58'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'yane 2026-11-11 17:59'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 屋根（Rhino 8 Mac、Grasshopper の Python 3 スクリプト部品）。
 
@@ -43,6 +43,8 @@ def sw_frames(fr):
     """南西の辺（西の直線の軒）にかかる架構：南から、軒の線の向きが TURN_DEG 変わる手前まで"""
     out = []
     for f in fr:
+        if f.get('ext'):
+            continue                       # 南北の外へ延ばすための線は数えない
         if abs(f['turn']) < TURN_DEG:
             out.append(f)
         else:
@@ -61,7 +63,7 @@ def plan_heights(plan, fr, zE, zW, kRef=None, kB=None, slope=None):
             i = math.tan(math.radians(slope))
             note = '勾配%.2f°（入力）' % slope
         elif kRef is not None:
-            ref = min(fr, key=lambda f: abs(f['k'] - kRef))
+            ref = min([f for f in fr if not f.get('ext')], key=lambda f: abs(f['k'] - kRef))
             i = (zE - zW) / ref['L']
             note = '勾配%.2f°（k%g で A と同じ）' % (math.degrees(math.atan(i)), ref['k'])
         else:
@@ -78,7 +80,7 @@ def plan_heights(plan, fr, zE, zW, kRef=None, kB=None, slope=None):
             note = '（軒の線の向きから）'
         else:
             note = '（入力）'
-        fb = min(fr, key=lambda f: abs(f['k'] - kB))
+        fb = min([f for f in fr if not f.get('ext')], key=lambda f: abs(f['k'] - kB))
         i = (zE - zW) / fb['L']
         out = [(zE, zW) if f['k'] <= fb['k'] + 1e-9 else (zE, zE - i * f['L']) for f in fr]
         return out, 'B：k%g までは軒%.0f、その北は勾配%.2f°一定%s' % (fb['k'], zW, math.degrees(math.atan(i)), note)
@@ -209,7 +211,7 @@ def run():
         L, W, ang = hit
         if turn0 is None and k_ >= ks[0]:
             turn0 = ang
-        fr.append(dict(k=k_, L=L, E=E, W=W, ang=ang))
+        fr.append(dict(k=k_, L=L, E=E, W=W, ang=ang, ext=not (ks[0] <= k_ <= ks[-1])))
     for f in fr:
         d = (f['ang'] - (turn0 if turn0 is not None else f['ang']) + 90) % 180 - 90
         f['turn'] = d
