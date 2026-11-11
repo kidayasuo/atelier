@@ -6,23 +6,23 @@
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
 Rhino 8 Mac の Grasshopper、Python 3 のスクリプト部品に貼る。単位は mm。
 
-架構の線・柱の列・梁の上端の高さ・荷重から、一組の架構（梁の2枚の板・柱・2階の床梁）を作る。梁のせいは荷重から決める（11-11）。
+架構の線・柱の列・梁の上端の高さ・荷重から、一組の架構（対の梁2本・柱・2階の床梁）を作る。梁のせいは荷重から決める（11-11）。
 Tamedia（Shigeru Ban、Zürich 2013）に倣う：
-  - 柱は角材（既定300角）。梁は平らな板2枚（既定160）で、厚さの1/3を柱の両面の凹み（板の形）に沈めて挟む。
-    板のあいだ（光の筋）＝柱の幅−2×凹み（結果）。頭の下の縁が柱の肩に載り、鉛直の力はその支圧で柱へ。
+  - 柱は角材（既定300角）。梁は平らな対の梁2本（梁の幅（1本）既定160）で、幅の1/3を柱の両面の凹み（梁の形）に沈めて挟む。
+    梁のあいだ（光の筋）＝柱の幅−2×凹み（結果）。頭の下の縁が柱の肩に載り、鉛直の力はその支圧で柱へ。
     柱は頭の下で広がり、頭の中では頭の形いっぱい。
-  - 楕円の桁（既定180×260）が板と柱の穴を通り、回転を止める。
+  - 楕円の桁（既定180×260）が梁と柱の穴を通り、回転を止める。
   - 梁は内の柱の列の上を途切れずに続く（連続梁）。長いスパンの下端は端で深く真ん中で浅いカーブ。
-  - 板の端・柱の上には、桁の穴を包む楕円の頭。頭は下端より下がり、下端とはハンチでつながる。柱は頭の下で広がる。
+  - 梁の端・柱の上には、桁の穴を包む楕円の頭。頭は下端より下がり、下端とはハンチでつながる。柱は頭の下で広がる。
   - 形は寸法を写さず、Tamediaの詳細図の比で梁のせい D から決める：
     桁の中心は下端から 0.14D、頭は半幅 0.58D・半高さ 0.68D（穴のまわりに木 120 以上）、ハンチ 1.1D、柱の広がり 0.55D。
-西の端は、頭と軒先への細い延長を一つの板にする（せい240→先で120、先は鉛直、丸み300でつなぐ）。
+西の端は、頭と軒先への細い延長を一つの部材にする（せい240→先で120、先は鉛直、丸み300でつなぐ）。
 
 架構の位置：背骨（西館の東の柱の列）の円弧の中心からの放射の直線。
   架構kは u＝3(k−1) m、u は本館の背骨の円弧（v＝0）の上で測る（育ち舎の uv.py・3dm と同じ、k15.5 も可）。
   柱は colLines（柱の芯の曲線）と架構の線の交わる所。無ければ、東は東の壁の内面 v−1.05 から柱の幅の半分の内、内の列は vIn、西は west から柱の幅の半分の内。
   frames（架構の線）を渡せば、放射の線でなくその線で作る。
-梁の上端：屋根の面（Brep）と、各板の真ん中の鉛直面の交線を直線で近似（ずれは CSV に出す）。
+梁の上端：屋根の面（Brep）と、梁（1本ずつ）の真ん中の鉛直面の交線を直線で近似（ずれは CSV に出す）。
   屋根の面を差し替えれば、A・B・C 案の架構がそのまま作り直される。
 例外は「柱を出すか」だけ。それ以外は Bake してから手で直す。
 
@@ -30,21 +30,21 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
   位置：frames（架構の線）か k（放射の線）、colLines（柱の列の曲線）か west・vIn
   高さ：roof（屋根の面）か zE・zW（梁の上端、東と西の柱の芯で）
   荷重：qD・qS・sp・hang（吊り荷重 "s:kN;…"）。梁のせいはここから決める（D・Dm を入れれば確かめるだけ）
-  意匠：t（板）・col（柱）・keyR（凹み／板）・DmR・same、ほか eave・showCol・mids・FL・Df・eR・haR・hbR・ext0・ext1・vU・csv
+  意匠：t（梁の幅（1本））・col（柱）・keyR（凹み／梁の幅）・DmR・same、ほか eave・showCol・mids・FL・Df・eR・haR・hbR・ext0・ext1・vU・csv
 出力           spine（v−0.9・東の柱の芯・内の列の円弧）・rays（架構kの放射の線）：k だけつなげば出る下書き
-               plates（板）・cols（柱、芯と両面の層）・floors（2階の床梁）
+               plates（対の梁）・cols（柱、芯と両面の層）・floors（2階の床梁）
                ptE・ptI・ptW・ptM（桁が通る点）・axis（桁の向き）・lines（架構の線）・table（CSV の文）・log
 """
 import math
 
-VERSION = 'kakou 2026-11-11 09:45'
+VERSION = 'kakou 2026-11-11 09:50'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
     FL=0.0,
-    t=160.0,      # 板の厚さ（2枚）。荷重から梁のせいを決めるときの前提（意匠で選ぶ）
-    col=300.0,    # 柱の幅（角材、意匠で選ぶ）。板のあいだ（光の筋）＝col−2×凹みの深さ（結果）
-    keyR=1.0 / 3, # 凹みの深さ／板の厚さ（Tamedia：板240の1/3≈80、kadai/kako/tamedia.md）
+    t=160.0,      # 梁の幅（1本、対で2本）。荷重から梁のせいを決めるときの前提（意匠で選ぶ）
+    col=300.0,    # 柱の幅（角材、意匠で選ぶ）。梁のあいだ（光の筋）＝col−2×凹みの深さ（結果）
+    keyR=1.0 / 3, # 凹みの深さ／梁の幅（Tamedia：梁の幅240の1/3≈80、kadai/kako/tamedia.md）
     DmR=0.8,      # 長いスパンの真ん中のせい／端のせい（Tamediaのカーブ。ryakusan/shin_1109.py の500→400）
     qD=0.84,      # 屋根の固定荷重（kN/m²、育ち舎の略算）
     qS=0.6,       # 雪（kN/m²、30 cm）
@@ -59,7 +59,7 @@ DEF = dict(
 V_IN = [3.4]                        # 内の柱の列の v（m）
 GIRDER_A, GIRDER_B = 90.0, 130.0    # 桁（楕円 180×260）の半径（Tamediaの比：柱の幅の0.6）
 HOLE_CLR = 5.0                      # 穴は桁の断面＋10（半径で＋5）
-NOTCH_CLR = 3.0                     # 柱の凹みは板の外形より3大きく
+NOTCH_CLR = 3.0                     # 柱の凹みは梁の外形より3大きく
 WOOD_MIN = 120.0                    # 桁の穴のまわりに残す木
 HAUNCH_RR = 1.1                     # 梁の下端と頭のつなぎの丸み／D（Tamedia R600／せい550）
 COL_RR = 0.55                       # 柱の面と頭のつなぎの丸み／D
@@ -305,7 +305,7 @@ def beam_solve(xs, EI, q, P, sup):
 
 def frame_check(sup, top, s_tip, t, C, d, FL, loads, hang, De, Dm, long_span=4.0):
     """一つの架構の略算。sup：柱の s（m、東→西）。top=(z0, m)：梁の上端 z=z0+m·s（m）。s_tip：延長の先（m）。
-    De・Dm：せい（m）。t：板の厚さ（m、2枚）。C：柱の幅、d：凹みの深さ（m）。FL（m）。
+    De・Dm：せい（m）。t：梁の幅（1本、m、対で2本）。C：柱の幅、d：凹みの深さ（m）。FL（m）。
     loads=(屋根の固定 kN/m², 雪 kN/m², 間隔 m)。hang=[(s, kN)]（吊り荷重）。
     返す：比の dict と、柱の軸力"""
     z0, m = top
@@ -396,7 +396,7 @@ def _haunch(G, h, side, soffit):
 
 
 def beam_2d(P, top, supports, Dfn, ext=None):
-    """梁（または2階の床梁）の板の外形の基本形・上端で切る多角形・穴・頭の点。
+    """梁（または2階の床梁）の1本の外形の基本形・上端で切る多角形・穴・頭の点。
     top=(z0, m)。supports：支点の s（東から西へ、両端が端の支点）。Dfn(s)：せい。
     ext=(s_wall, s_tip)：西の端の軒への延長"""
     z0, m = top
@@ -594,14 +594,14 @@ def smooth_runs(ring):
 
 
 def key_shape(G, h, grow=0.0):
-    """食い込み（板のキー・柱の欠き込み）の外形：頭の楕円そのもの（Tamediaの写真：板の頭がまるごと柱に食い込み、
+    """食い込み（梁のキー・柱の欠き込み）の外形：頭の楕円そのもの（Tamediaの写真：梁の頭がまるごと柱に食い込み、
     頭の下の縁が柱の肩に載る）。grow：欠き込みを少し大きくするとき"""
     return ellipse(G, h['ha'] + grow, h['hb'] + grow)
 
 
 def column_2d(Gs, w, FL, ztop, heads, roofG):
     """柱（架構の面）。heads：この柱に取りつく頭 [(点, 大きさ)]（屋根と2階）。roofG：屋根の頭の点。
-    返すのは柱の基本形（足し合わせる）と、切る形（屋根の板の外形と足す、屋根の頭より下の帯）"""
+    返すのは柱の基本形（足し合わせる）と、切る形（屋根の梁の外形と足す、屋根の頭より下の帯）"""
     pr = [('poly', [(Gs - w / 2, FL), (Gs + w / 2, FL), (Gs + w / 2, ztop + 2000), (Gs - w / 2, ztop + 2000)])]
     for G, h in heads:
         pr.append(ellipse(G, h['ha'], h['hb']))     # 柱は頭の中では頭の形いっぱい（下から見て、広がりが頭の下端に取りつく）
@@ -1025,7 +1025,7 @@ def plan_one(i, kk, fr, P, A, log):
             if tops[a_] is None:
                 tops[a_] = tops['0'] if tops[b_] is None else (
                     2 * tops['0'][0] - tops[b_][0], 2 * tops['0'][1] - tops[b_][1], tops['0'][2])
-                log.append('k%g：%s の板は屋根の面の外なので、架構の線と内の板から延ばした' % (kk, '左' if a_ == '+' else '右'))
+                log.append('k%g：%s の梁は屋根の面の外なので、架構の線ともう1本の梁から延ばした' % (kk, '左' if a_ == '+' else '右'))
     else:
         zE, zW = _pick(A['zE'], i, None), _pick(A['zW'], i, None)
         if zE is None or zW is None:
@@ -1055,13 +1055,13 @@ def plan_one(i, kk, fr, P, A, log):
 
 
 def geom_one(pl, P, showcol, mids, tol, log):
-    """架構一つの形（板2枚・柱・2階の床梁）。凹み：平らな板が厚さの keyR を柱の頭の形の凹みに沈める（Tamedia）"""
+    """架構一つの形（対の梁2本・柱・2階の床梁）。凹み：平らな梁が幅の keyR を柱の頭の形の凹みに沈める（Tamedia）"""
     F, sup, tops = pl['F'], pl['sup'], pl['tops']
     C, t, d = P['col'], P['t'], pl['d']
     s_wall, s_tip = pl['s_wall'], pl['s_tip']
     Dfn = depth_fn(sup, pl['De'], pl['Dm'])
     out = dict(plates=[], cols=[], floors=[], ptM=[])
-    # 板の位置：内の面が柱の面から d 内、外へ t
+    # 梁の位置：内の面が柱の面から d 内、外へ t
     pos = {'+': (C / 2 - d), '-': -(C / 2 - d + t)}
     B0 = beam_2d(P, tops['0'][:2], sup, Dfn, ext=(s_wall, s_tip))
     holes0 = _holes_g(B0['holes'])
@@ -1085,7 +1085,7 @@ def geom_one(pl, P, showcol, mids, tol, log):
         for j, gh in enumerate(Bf['heads']):
             mid_heads[j].append(gh)
             out['ptM'].append(F.P(gh[0][0], gh[0][1]))
-    # 柱：芯（凹みの奥、厚さ C−2d）と両面の層（厚さ d、板の形の凹みを抜く）
+    # 柱：芯（凹みの奥、厚さ C−2d）と両面の層（厚さ d、梁の形の凹みを抜く）
     if showcol:
         from shapely.ops import unary_union
         o0 = outline_2d(B0['prims'], [[B0['clip']]])
@@ -1209,7 +1209,7 @@ def run():
         bad = [k_ for k_, v in r.items() if v > 1]
         if bad:
             log.append('k%g：足りない（%s）。%s' % (p_['kk'], '・'.join('%s %.2f' % (k_, r[k_]) for k_ in bad),
-                                                   '柱を太く・板を厚くする' if set(bad) & {'肩', '座屈', '凹み'} else 'せいを深く'))
+                                                   '柱を太く・梁の幅を広くする' if set(bad) & {'肩', '座屈', '凹み'} else 'せいを深く'))
         sc = _pick(cols_, p_['i'], True)
         if isinstance(sc, str):
             sc = sc.strip().lower() not in ('false', '0', 'no', '')
@@ -1228,7 +1228,7 @@ def run():
         rows.append(_row(p_, P))
     worst = {k_: max(p_['r'][k_] for p_ in plans) for k_ in plans[0]['r']}
     log.append('比のいちばん大きいもの（1以下でよい）：' + '・'.join('%s %.2f' % kv for kv in worst.items()))
-    log.append('板%.0f×2・柱%.0f・凹み%.0f・板のあいだ%.0f' % (P['t'], P['col'], P['keyR'] * P['t'], P['col'] - 2 * P['keyR'] * P['t']))
+    log.append('梁の幅%.0f×2本・柱%.0f・凹み%.0f・梁のあいだ%.0f' % (P['t'], P['col'], P['keyR'] * P['t'], P['col'] - 2 * P['keyR'] * P['t']))
     lines_ = [','.join(COLS)]
     for r in rows:
         lines_.append(','.join(('%.4g' % r[c]) if isinstance(r[c], float) else str(r[c]) for c in COLS))
@@ -1241,7 +1241,7 @@ def run():
             log.append('CSV：%s' % path)
         except Exception as ex:
             log.append('CSV を書けない：%s' % ex)
-    for key, name in (('plates', '板'), ('cols', '柱'), ('floors', '床梁')):
+    for key, name in (('plates', '梁'), ('cols', '柱'), ('floors', '床梁')):
         bs = res[key]
         if bs:
             bad = sum(1 for b in bs if b is None or not b.IsValid)
