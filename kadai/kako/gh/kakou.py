@@ -37,7 +37,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-11 09:55'
+VERSION = 'kakou 2026-11-11 10:00'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -433,20 +433,39 @@ def beam_2d(P, top, supports, Dfn, ext=None):
         GW = heads[-1][0]
         pr.append(('poly', [(sW, zt(sW)), (s_tip, zt(s_tip)), (s_tip, zt(s_tip) - a1),
                             (s_wall, zt(s_wall) - a0), (sW, zt(sW) - a0)]))
-        # 延長の下端と頭の上の丸みの入隅：傾きを除いた座標（z' = z − m(s−sW)）で楕円として扱い、戻す
+        # 延長の下端と頭の入隅の丸み。頭の外形は、赤道より上が上端に接する傾いた半楕円、下が頭の楕円 (ha, hb)。
+        # 丸みは実際に接する方の曲線に接する：まず頭の楕円（そのままの座標）、接点が赤道より上なら
+        # 傾いた半楕円（傾きを除いた座標 z' = z − m(s−sW) で直立の半楕円 (ha, H)）で求め直す
         H = zt(sW) - GW[1]
-        q = lambda s, z: (s, z - m * (s - sW))
-        r = lambda s, z: (s, z + m * (s - sW))
-        pA, pB = q(s_tip, zt(s_tip) - a1), q(s_wall, zt(s_wall) - a0)
+        pA = (s_tip, zt(s_tip) - a1)
+        pB = (s_wall, zt(s_wall) - a0)
         L = math.hypot(pB[0] - pA[0], pB[1] - pA[1])
         d = ((pB[0] - pA[0]) / L, (pB[1] - pA[1]) / L)
         nn = (d[1], -d[0])
         if nn[1] > 0:
             nn = (-nn[0], -nn[1])
-        fl = fillet(pA, d, nn, GW, hW['ha'], H, EAVE_R, (GW[0], GW[1] + 0.85 * H))
-        if fl:
+        # pin：楕円の中で、延長の下端の線より上（材の側）の点
+        zl = pA[1] + (pB[1] - pA[1]) * (GW[0] - pA[0]) / (pB[0] - pA[0])
+        pin = (GW[0], (max(zl, GW[1] - hW['hb']) + GW[1] + hW['hb']) / 2)
+        fl = fillet(pA, d, nn, GW, hW['ha'], hW['hb'], EAVE_R, pin) if zl < GW[1] + hW['hb'] else None
+        if fl and fl[4][1] <= GW[1] + 1e-6:
             _, T1, cf, R, T2, I = fl
-            pr.append(('poly', [r(*T1)] + [r(*p) for p in _arc_pts(T1, cf, T2, 16)] + [r(*T2), r(*I)]))
+            pr.append(('poly', [T1] + _arc_pts(T1, cf, T2, 16) + [T2, I]))
+        else:
+            q = lambda s, z: (s, z - m * (s - sW))
+            r = lambda s, z: (s, z + m * (s - sW))
+            qA, qB = q(*pA), q(*pB)
+            L = math.hypot(qB[0] - qA[0], qB[1] - qA[1])
+            d = ((qB[0] - qA[0]) / L, (qB[1] - qA[1]) / L)
+            nn = (d[1], -d[0])
+            if nn[1] > 0:
+                nn = (-nn[0], -nn[1])
+            fl = fillet(qA, d, nn, GW, hW['ha'], H, EAVE_R, (GW[0], GW[1] + 0.85 * H))
+            if fl and fl[4][1] >= GW[1] - 1e-6:
+                _, T1, cf, R, T2, I = fl
+                pr.append(('poly', [r(*T1)] + [r(*p) for p in _arc_pts(T1, cf, T2, 16)] + [r(*T2), r(*I)]))
+            else:
+                raise RuntimeError('軒への延長と頭をつなぐ丸みが、頭の外形に接しない（EAVE_R・ext0・ext1を見直す）')
         s_hi = s_tip
     s_lo = sE - heads[0][1]['ha'] - 10
     big = 20000.0
@@ -544,7 +563,31 @@ def _dedup(ring, eps=0.5):
             out.append(q)
     while len(out) > 2 and math.hypot(out[0][0] - out[-1][0], out[0][1] - out[-1][1]) <= eps:
         out.pop()
-    return out
+    return _drop_collinear(out)
+
+
+COLLINEAR_TOL = 1e-6    # mm。これより直線から外れない点は、直線の途中の点として除く（直線の辺を1本の線に戻す）
+
+
+def _drop_collinear(ring):
+    """直線の上に並ぶだけの点を除く（閉じた並び）。曲線の点（弦の中のずれは1e-4 mm以上）は残る"""
+    pts = list(ring)
+    changed = True
+    while changed and len(pts) > 3:
+        changed = False
+        out = []
+        n = len(pts)
+        for i in range(n):
+            a, b, c = (out[-1] if out else pts[i - 1]), pts[i], pts[(i + 1) % n]
+            L = math.hypot(c[0] - a[0], c[1] - a[1])
+            dev = abs((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / L if L > 0 else 0.0
+            inside = (b[0] - a[0]) * (c[0] - a[0]) + (b[1] - a[1]) * (c[1] - a[1]) > 0
+            if dev < COLLINEAR_TOL and inside:
+                changed = True
+                continue
+            out.append(b)
+        pts = out
+    return pts
 
 
 def polys_2d(g, min_area=100.0):
@@ -605,13 +648,16 @@ def column_2d(Gs, w, FL, ztop, heads, roofG):
     pr = [('poly', [(Gs - w / 2, FL), (Gs + w / 2, FL), (Gs + w / 2, ztop + 2000), (Gs - w / 2, ztop + 2000)])]
     for G, h in heads:
         pr.append(ellipse(G, h['ha'], h['hb']))     # 柱は頭の中では頭の形いっぱい（下から見て、広がりが頭の下端に取りつく）
+        # 広がりの丸みは頭の楕円に接する。柱の面の層では、凹み（頭＋NOTCH_CLR）で切られて、広がりの先は頭の手前で
+        # 細く尖って止まる（Tamediaの立面も同じ：広がりの先は頭から10離れ、角度は約11°）
+        ea, eb = h['ha'], h['hb']
         for side in (-1, 1):
             nrm = (side, 0.0)
-            fl = fillet((Gs + side * w / 2, FL), (0.0, 1.0), nrm, G, h['ha'], h['hb'], h['Rc'], G)
+            fl = fillet((Gs + side * w / 2, FL), (0.0, 1.0), nrm, G, ea, eb, h['Rc'], G)
             if fl:
                 pr.append(fl)
             if G is not roofG:      # 2階の頭は上からも
-                fl = fillet((Gs + side * w / 2, roofG[1]), (0.0, -1.0), nrm, G, h['ha'], h['hb'], h['Rc'], G)
+                fl = fillet((Gs + side * w / 2, roofG[1]), (0.0, -1.0), nrm, G, ea, eb, h['Rc'], G)
                 if fl:
                     pr.append(fl)
     band = ('poly', [(Gs - w / 2 - 3000, FL - 1), (Gs + w / 2 + 3000, FL - 1),
@@ -825,60 +871,68 @@ def _ring_curve(F, ring, off, tol):
     runs = smooth_runs(ring)
     if runs and runs[0][0] == 'closed':
         pts = [F.P(a, b, off) for a, b in runs[0][1]]
-        c = rg.Curve.CreateInterpolatedCurve(pts, 3, rg.CurveKnotStyle.ChordPeriodic)
-        f = c.Fit(3, 0.1, 0.0) if c is not None else None
-        return f if f is not None and f.IsClosed else c
+        return rg.Curve.CreateInterpolatedCurve(pts, 3, rg.CurveKnotStyle.ChordPeriodic)
     segs = []
     for r in runs:
         if r[0] == 'line':
             segs.append(rg.LineCurve(F.P(r[1][0], r[1][1], off), F.P(r[2][0], r[2][1], off)))
         else:
             pts = [F.P(a, b, off) for a, b in r[1]]
+            # 点をそのまま通る3次の曲線（Fit で間引くと、尖った先の近くで2本の曲線が交わることがある）
             c = rg.Curve.CreateInterpolatedCurve(pts, 3)
             if c is None:
-                c = rg.PolylineCurve(pts)
-            else:
-                f = c.Fit(3, 0.1, 0.0)
-                if f is not None:
-                    c = f
+                raise RuntimeError('曲線を作れない（点%d）' % len(pts))
             segs.append(c)
     j = rg.Curve.JoinCurves(segs, 0.05)
-    if j and len(j) == 1 and j[0].IsClosed:
-        return j[0]
-    q = [F.P(a, b, off) for a, b in ring]
-    q.append(q[0])
-    return rg.PolylineCurve(q)
+    if not j or len(j) != 1 or not j[0].IsClosed:
+        raise RuntimeError('輪の曲線がつながらない（区切り%d、つないだ結果%d本）' % (len(segs), len(j) if j else 0))
+    return j[0]
 
 
-SLAB_FALLBACK = [0]     # なめらかな曲線で面ができず、ポリラインにした数
+def _ring_check(F, ring, off, tol):
+    """一つの輪の曲線と、直線の区切りの数。曲線が閉じて平らで、自分と交わらないことを確かめる"""
+    c = _ring_curve(F, ring, off, tol)
+    runs = smooth_runs(ring)
+    nline = sum(1 for r in runs if r[0] == 'line')
+    probs = []
+    if not c.IsClosed:
+        probs.append('閉じていない')
+    if not c.IsPlanar(tol):
+        probs.append('平らでない')
+    xs = _X.CurveSelf(c, tol)
+    if xs and xs.Count:
+        q = xs[0].PointA
+        probs.append('自分と交わる（%d所、たとえば x%.0f y%.0f z%.0f）' % (xs.Count, q.X, q.Y, q.Z))
+    return c, nline, probs
 
 
-def _poly_curve(F, ring, off):
-    q = [F.P(a, b, off) for a, b in ring]
-    q.append(q[0])
-    return rg.PolylineCurve(q)
-
-
-def _slabs(F, g, off, thick, tol):
+def _slabs(F, g, off, thick, tol, tag='', log=None):
     """shapely の形を、off の面から +perp へ thick 押し出した立体（形が分かれていれば複数）。
-    なめらかな曲線で平らな面ができなければ、細かいポリラインで作り直す"""
+    確かめる：輪の曲線が閉じて平らで交わらない、平らな面ができる、直線の区切りの数だけ側面が平ら"""
     out = []
-    for ext, holes in polys_2d(g):
+    for n_, (ext, holes) in enumerate(polys_2d(g)):
         rings = [ext] + holes
-        br = None
-        try:
-            br = rg.Brep.CreatePlanarBreps([_ring_curve(F, r, off, tol) for r in rings], tol)
-        except Exception:
-            br = None
+        crvs, nline, probs = [], 0, []
+        for k_, r in enumerate(rings):
+            c, nl, pr = _ring_check(F, r, off, tol)
+            crvs.append(c)
+            nline += nl
+            probs += ['%s：%s' % ('外' if k_ == 0 else '穴%d' % k_, x) for x in pr]
+        for a_ in range(len(crvs)):
+            for b_ in range(a_ + 1, len(crvs)):
+                ev = _X.CurveCurve(crvs[a_], crvs[b_], tol, tol)
+                if ev and ev.Count:
+                    probs.append('輪%dと輪%dが交わる' % (a_, b_))
+        br = rg.Brep.CreatePlanarBreps(crvs, tol) if not probs else None
         if not br or len(br) != 1:
-            br = rg.Brep.CreatePlanarBreps([_poly_curve(F, r, off) for r in rings], tol)
-            SLAB_FALLBACK[0] += 1
-        if not br:
-            raise RuntimeError('平らな面ができない（点%d、穴%d）' % (len(ext), len(holes)))
+            raise RuntimeError('%s（%d）：平らな面ができない。%s' % (tag, n_, '・'.join(probs) or '曲線は正しいのに面ができない'))
         path = rg.LineCurve(F.P(0, 0, off), F.P(0, 0, off + thick))
         sld = br[0].Faces[0].CreateExtrusion(path, True)
         if sld is None:
-            raise RuntimeError('押し出しができない')
+            raise RuntimeError('%s（%d）：押し出しができない' % (tag, n_))
+        flat = sum(1 for f in sld.Faces if f.IsPlanar(tol))
+        if log is not None and flat != nline + 2:
+            log.append('%s（%d）：平らな面 %d（直線の辺%d＋上下2のはず）' % (tag, n_, flat, nline))
         out.append(sld)
     return out
 
@@ -1036,11 +1090,10 @@ def plan_one(i, kk, fr, P, A, log):
                 tops[key] = None
         if tops['0'] is None:
             raise RuntimeError('屋根の面と交わらない（架構の線の上）')
-        for a_, b_ in (('+', '-'), ('-', '+')):
-            if tops[a_] is None:
-                tops[a_] = tops['0'] if tops[b_] is None else (
-                    2 * tops['0'][0] - tops[b_][0], 2 * tops['0'][1] - tops[b_][1], tops['0'][2])
-                log.append('k%g：%s の梁は屋根の面の外なので、架構の線ともう1本の梁から延ばした' % (kk, '左' if a_ == '+' else '右'))
+        miss = [k_ for k_ in ('+', '-') if tops[k_] is None]
+        if miss:
+            raise RuntimeError('梁（%s）の面が屋根の面の外。屋根の面を、端の架構の梁の外まで（本来の屋根の縁まで）描く' % '・'.join(
+                '架構の線の左' if k_ == '+' else '架構の線の右' for k_ in miss))
     else:
         zE, zW = _pick(A['zE'], i, None), _pick(A['zW'], i, None)
         if zE is None or zW is None:
@@ -1076,6 +1129,7 @@ def geom_one(pl, P, showcol, mids, tol, log):
     s_wall, s_tip = pl['s_wall'], pl['s_tip']
     Dfn = depth_fn(sup, pl['De'], pl['Dm'])
     out = dict(plates=[], cols=[], floors=[], ptM=[])
+    tag = 'k%g' % pl['kk']
     # 梁の位置：内の面が柱の面から d 内、外へ t
     pos = {'+': (C / 2 - d), '-': -(C / 2 - d + t)}
     B0 = beam_2d(P, tops['0'][:2], sup, Dfn, ext=(s_wall, s_tip))
@@ -1085,7 +1139,7 @@ def geom_one(pl, P, showcol, mids, tol, log):
         B = beam_2d(P, tops[key][:2], sup, Dfn, ext=(s_wall, s_tip))
         g = region_2d(B['prims'], [[B['clip']]])
         plate_g[key] = g
-        out['plates'] += _slabs(F, g.difference(holes0), pos[key], t, tol)
+        out['plates'] += _slabs(F, g.difference(holes0), pos[key], t, tol, tag + '梁' + key, log)
     heads = B0['heads']
     # 2階の床梁
     mid_heads = {j: [] for j in range(len(sup))}
@@ -1096,7 +1150,7 @@ def geom_one(pl, P, showcol, mids, tol, log):
         g = region_2d(Bf['prims'], [[Bf['clip']]])
         floor_g.append(g)
         for key in ('+', '-'):
-            out['floors'] += _slabs(F, g.difference(_holes_g(Bf['holes'])), pos[key], t, tol)
+            out['floors'] += _slabs(F, g.difference(_holes_g(Bf['holes'])), pos[key], t, tol, tag + '床梁' + key, log)
         for j, gh in enumerate(Bf['heads']):
             mid_heads[j].append(gh)
             out['ptM'].append(F.P(gh[0][0], gh[0][1]))
@@ -1112,11 +1166,11 @@ def geom_one(pl, P, showcol, mids, tol, log):
             g = region_2d(Cc['prims'], [[('poly', o0), Cc['band']]])
             hl = _holes_g(Cc['holes'])
             if d > 0:
-                out['cols'] += _slabs(F, g.difference(hl), -C / 2 + d, C - 2 * d, tol)
-                out['cols'] += _slabs(F, g.difference(cut['+']).difference(hl), C / 2 - d, d, tol)
-                out['cols'] += _slabs(F, g.difference(cut['-']).difference(hl), -C / 2, d, tol)
+                out['cols'] += _slabs(F, g.difference(hl), -C / 2 + d, C - 2 * d, tol, tag + '柱%d芯' % j, log)
+                out['cols'] += _slabs(F, g.difference(cut['+']).difference(hl), C / 2 - d, d, tol, tag + '柱%d面+' % j, log)
+                out['cols'] += _slabs(F, g.difference(cut['-']).difference(hl), -C / 2, d, tol, tag + '柱%d面-' % j, log)
             else:
-                out['cols'] += _slabs(F, g.difference(hl), -C / 2, C, tol)
+                out['cols'] += _slabs(F, g.difference(hl), -C / 2, C, tol, tag + '柱%d' % j, log)
     out['ptE'] = F.P(heads[0][0][0], heads[0][0][1])
     out['ptW'] = F.P(heads[-1][0][0], heads[-1][0][1])
     out['ptI'] = [F.P(G[0], G[1]) for G, h in heads[1:-1]]
@@ -1220,7 +1274,6 @@ def run():
             De, De * P['DmR'], '・'.join('k%g' % kk_ for kk_ in deciders)))
     # 3. 形
     rows = []
-    SLAB_FALLBACK[0] = 0
     for p_ in plans:
         r = p_['r']
         bad = [k_ for k_, v in r.items() if v > 1]
@@ -1243,8 +1296,6 @@ def run():
         res['axis'].append(o['axis'])
         res['lines'].append(o['line'])
         rows.append(_row(p_, P))
-    if SLAB_FALLBACK[0]:
-        log.append('なめらかな曲線で面ができず、細かいポリラインにした所：%d' % SLAB_FALLBACK[0])
     worst = {k_: max(p_['r'][k_] for p_ in plans) for k_ in plans[0]['r']}
     log.append('比のいちばん大きいもの（1以下でよい）：' + '・'.join('%s %.2f' % kv for kv in worst.items()))
     log.append('梁の幅%.0f×2本・柱%.0f・凹み%.0f・梁のあいだ%.0f' % (P['t'], P['col'], P['keyR'] * P['t'], P['col'] - 2 * P['keyR'] * P['t']))
