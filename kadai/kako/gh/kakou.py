@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
+VERSION = 'kakou 2026-11-11 09:52'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -37,7 +38,6 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 """
 import math
 
-VERSION = 'kakou 2026-11-11 10:00'
 
 # ------------------------------------------------------------------ 既定の値（mm）
 DEF = dict(
@@ -186,6 +186,14 @@ def _arc_pts(T1, cf, T2, n):
     da = (a2 - a1 + math.pi) % (2 * math.pi) - math.pi
     R = math.hypot(T1[0] - cf[0], T1[1] - cf[1])
     return [(cf[0] + R * math.cos(a1 + da * i / n), cf[1] + R * math.sin(a1 + da * i / n)) for i in range(1, n)]
+
+
+def _arc_n(T1, cf, T2, seg=8.0):
+    """弧を弦 seg 以下に分ける数"""
+    a1 = math.atan2(T1[1] - cf[1], T1[0] - cf[0])
+    a2 = math.atan2(T2[1] - cf[1], T2[0] - cf[0])
+    da = abs((a2 - a1 + math.pi) % (2 * math.pi) - math.pi)
+    return max(8, int(math.ceil(math.hypot(T1[0] - cf[0], T1[1] - cf[1]) * da / seg)))
 
 
 def parse_mids(x):
@@ -380,19 +388,121 @@ def size_beam(sup, top, s_tip, t, C, d, FL, loads, hang, DmR, long_span=4.0):
     return None
 
 
+def cap_pts(G, a, Ht, m, seg=4.0):
+    """頭の上半分（外の端）：x＝G0＋a·cos t、z＝G1＋sin t·(H＋m·a·cos t)（0≤t≤π）。
+    両端は赤道で頭の楕円に鉛直の接線でなめらかにつながり、上は傾き m の上端の直線（G0 で G1＋Ht）に接する。
+    （前は傾けた半楕円と三角形の組で、赤道で段ができた、11-11）。H は接するように二分法で決める"""
+    def top_gap(H):
+        best = -1e30
+        for i in range(721):
+            t = math.pi * i / 720
+            best = max(best, math.sin(t) * (H + m * a * math.cos(t)) - m * a * math.cos(t))
+        return best
+    lo, hi = abs(m) * a, 4 * Ht + abs(m) * a
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if top_gap(mid) < Ht:
+            lo = mid
+        else:
+            hi = mid
+    H = (lo + hi) / 2
+    n = max(48, int(math.pi * max(a, H) / seg))
+    return [(G[0] + a * math.cos(math.pi * i / n),
+             G[1] + math.sin(math.pi * i / n) * (H + m * a * math.cos(math.pi * i / n))) for i in range(n + 1)]
+
+
+def head_shape(G, h, cap=None):
+    """頭の外形（shapely）：楕円、外の端なら冠を足したもの"""
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+    g = Polygon(prim_pts(ellipse(G, h['ha'], h['hb']), seg=2.0))
+    if cap:
+        g = unary_union([g, Polygon(cap)])
+    return g
+
+
+def fillet_shape(p0, d, n, shape, R, pin):
+    """直線（p0 から d の向きに形へ近づく、n は材の無い側）と、凸の形 shape（shapely）の入隅の半径 R の丸み。
+    pin は形の中で直線の材の側の点。返す：('poly', 点の並び) か None"""
+    from shapely.geometry import Point, LineString
+    far = 1e5
+    hit = LineString([p0, (p0[0] + d[0] * far, p0[1] + d[1] * far)]).intersection(shape.exterior)
+    pts = [hit] if hit.geom_type == 'Point' else [q for q in getattr(hit, 'geoms', []) if q.geom_type == 'Point']
+    if not pts:
+        return None
+    xX = min((q.x - p0[0]) * d[0] + (q.y - p0[1]) * d[1] for q in pts)
+    cen = lambda x: (p0[0] + d[0] * x + n[0] * R, p0[1] + d[1] * x + n[1] * R)
+    def f(x):
+        c = Point(cen(x))
+        dd = shape.exterior.distance(c)
+        return (-dd if shape.contains(c) else dd) - R
+    hi = xX
+    if f(hi) > 0:
+        return None
+    lo = xX - 3 * R
+    k = 0
+    while f(lo) <= 0 and k < 20:
+        lo -= 2 * R
+        k += 1
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if f(mid) > 0:
+            lo = mid
+        else:
+            hi = mid
+    x = (lo + hi) / 2
+    cf = cen(x)
+    T1 = (p0[0] + d[0] * x, p0[1] + d[1] * x)
+    q = shape.exterior.interpolate(shape.exterior.project(Point(cf)))
+    T2 = (q.x, q.y)
+    X = (p0[0] + d[0] * xX, p0[1] + d[1] * xX)
+    I = (X[0] + 0.15 * (pin[0] - X[0]), X[1] + 0.15 * (pin[1] - X[1]))
+    return ('poly', [T1] + _arc_pts(T1, cf, T2, _arc_n(T1, cf, T2)) + [T2, I])
+
+
 def _haunch(G, h, side, soffit):
-    """支点 G の side（+1＝西、−1＝東）の側の、梁の下端と頭の入隅。soffit(s)＝下端の z"""
-    R = h['R']
-    sf = G[0] + side * 1.5 * R
-    ms = soffit(sf + 1.0) - soffit(sf)
-    far = G[0] + side * 4 * R
-    p0 = (far, soffit(sf) + ms * (far - sf))
-    L = math.hypot(1.0, ms)
-    d = (-side / L, -side * ms / L)
-    n = (d[1], -d[0])
-    if n[1] > 0:
-        n = (-n[0], -n[1])
-    return fillet(p0, d, n, G, h['ha'], h['hb'], R, G)
+    """支点 G の side（+1＝西、−1＝東）の側の、梁の下端と頭の入隅の丸み（半径 R）。
+    丸みは実際の下端の曲線 soffit(s) に接する（下端が放物線のスパンでも、直線に置き換えない）。
+    返す：('poly', 点の並び)。丸みの弧・頭の楕円の接点・楕円の中の点・下端より1 mm上を通って戻る（下端と辺を重ねない）"""
+    R, a, b = h['R'], h['ha'], h['hb']
+    f = soffit
+    df = lambda s_: (f(s_ + 0.5) - f(s_ - 0.5))
+    def center(s_):
+        m_ = df(s_)
+        L = math.hypot(1.0, m_)
+        return (s_ + R * m_ / L, f(s_) - R / L)       # 下端の下（材の無い側）へ R
+    inside = lambda s_: ((s_ - G[0]) / a) ** 2 + ((f(s_) - G[1]) / b) ** 2 < 1.0
+    # 下端が楕円に入る所 X
+    s_far = G[0] + side * 4 * R
+    if inside(s_far):
+        return None
+    lo, hi = s_far, G[0]
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if inside(mid):
+            hi = mid
+        else:
+            lo = mid
+    sX = hi
+    g = lambda s_: ell_sdist(center(s_), G, a, b)[0] - R
+    if g(s_far) <= 0 or g(sX) > 0:
+        return None
+    lo, hi = s_far, sX
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if g(mid) > 0:
+            lo = mid
+        else:
+            hi = mid
+    s1 = (lo + hi) / 2
+    cf = center(s1)
+    T1 = (s1, f(s1))
+    T2 = ell_sdist(cf, G, a, b)[1]
+    I = (sX + 0.15 * (G[0] - sX), f(sX) + 0.15 * (G[1] - f(sX)))
+    nb = max(8, int(abs(sX - s1) / 10))
+    back = [(sX + (s1 - sX) * k / nb, f(sX + (s1 - sX) * k / nb) + 1.0) for k in range(nb + 1)]
+    na = max(8, int(R * abs(math.atan2(T2[1] - cf[1], T2[0] - cf[0]) - math.atan2(T1[1] - cf[1], T1[0] - cf[0])) / 8))
+    return ('poly', [T1] + _arc_pts(T1, cf, T2, na) + [T2, I] + back)
 
 
 def beam_2d(P, top, supports, Dfn, ext=None):
@@ -413,12 +523,8 @@ def beam_2d(P, top, supports, Dfn, ext=None):
         heads.append((G, h))
         pr.append(ellipse(G, h['ha'], h['hb']))
         if j in (0, len(supports) - 1):
-            # 外の端：上端の直線に接するよう傾けた上半分の楕円（端の上の角）
-            H = zt(s) - G[1]
-            pr.append(('aff', 'half', G[0], G[1], h['ha'], 0.0, m * h['ha'], H))
-            if abs(m) > 1e-6:
-                pr.append(('poly', [(G[0] - h['ha'], G[1]), (G[0] + h['ha'], G[1]),
-                                    (G[0] + h['ha'], G[1] + m * h['ha']), (G[0] - h['ha'], G[1] - m * h['ha'])]))
+            # 外の端の上：頭の楕円の赤道から立ち上がり、上端の直線に接する「冠」（cap_pts）
+            pr.append(('poly', cap_pts(G, h['ha'], zt(s) - G[1], m)))
         for side in (-1, 1):
             if (j == 0 and side < 0) or (j == len(supports) - 1 and side > 0):
                 continue
@@ -433,10 +539,7 @@ def beam_2d(P, top, supports, Dfn, ext=None):
         GW = heads[-1][0]
         pr.append(('poly', [(sW, zt(sW)), (s_tip, zt(s_tip)), (s_tip, zt(s_tip) - a1),
                             (s_wall, zt(s_wall) - a0), (sW, zt(sW) - a0)]))
-        # 延長の下端と頭の入隅の丸み。頭の外形は、赤道より上が上端に接する傾いた半楕円、下が頭の楕円 (ha, hb)。
-        # 丸みは実際に接する方の曲線に接する：まず頭の楕円（そのままの座標）、接点が赤道より上なら
-        # 傾いた半楕円（傾きを除いた座標 z' = z − m(s−sW) で直立の半楕円 (ha, H)）で求め直す
-        H = zt(sW) - GW[1]
+        # 延長の下端と頭の入隅の丸み：実際の頭の外形（楕円＋冠）に接する
         pA = (s_tip, zt(s_tip) - a1)
         pB = (s_wall, zt(s_wall) - a0)
         L = math.hypot(pB[0] - pA[0], pB[1] - pA[1])
@@ -444,28 +547,13 @@ def beam_2d(P, top, supports, Dfn, ext=None):
         nn = (d[1], -d[0])
         if nn[1] > 0:
             nn = (-nn[0], -nn[1])
-        # pin：楕円の中で、延長の下端の線より上（材の側）の点
+        shape = head_shape(GW, hW, cap_pts(GW, hW['ha'], zt(sW) - GW[1], m))
         zl = pA[1] + (pB[1] - pA[1]) * (GW[0] - pA[0]) / (pB[0] - pA[0])
-        pin = (GW[0], (max(zl, GW[1] - hW['hb']) + GW[1] + hW['hb']) / 2)
-        fl = fillet(pA, d, nn, GW, hW['ha'], hW['hb'], EAVE_R, pin) if zl < GW[1] + hW['hb'] else None
-        if fl and fl[4][1] <= GW[1] + 1e-6:
-            _, T1, cf, R, T2, I = fl
-            pr.append(('poly', [T1] + _arc_pts(T1, cf, T2, 16) + [T2, I]))
-        else:
-            q = lambda s, z: (s, z - m * (s - sW))
-            r = lambda s, z: (s, z + m * (s - sW))
-            qA, qB = q(*pA), q(*pB)
-            L = math.hypot(qB[0] - qA[0], qB[1] - qA[1])
-            d = ((qB[0] - qA[0]) / L, (qB[1] - qA[1]) / L)
-            nn = (d[1], -d[0])
-            if nn[1] > 0:
-                nn = (-nn[0], -nn[1])
-            fl = fillet(qA, d, nn, GW, hW['ha'], H, EAVE_R, (GW[0], GW[1] + 0.85 * H))
-            if fl and fl[4][1] >= GW[1] - 1e-6:
-                _, T1, cf, R, T2, I = fl
-                pr.append(('poly', [r(*T1)] + [r(*p) for p in _arc_pts(T1, cf, T2, 16)] + [r(*T2), r(*I)]))
-            else:
-                raise RuntimeError('軒への延長と頭をつなぐ丸みが、頭の外形に接しない（EAVE_R・ext0・ext1を見直す）')
+        pin = (GW[0], (zl + zt(sW)) / 2)
+        fl = fillet_shape(pA, d, nn, shape, EAVE_R, pin)
+        if fl is None:
+            raise RuntimeError('軒への延長と頭をつなぐ丸みが、頭の外形に接しない（EAVE_R・ext0・ext1を見直す）')
+        pr.append(fl)
         s_hi = s_tip
     s_lo = sE - heads[0][1]['ha'] - 10
     big = 20000.0
@@ -486,7 +574,7 @@ def prim_pts(prim, seg=8.0):
     if kind == 'aff':
         _, which, s0, z0, a11, a12, a21, a22 = prim
         r = max(math.hypot(a11, a21), math.hypot(a12, a22))
-        n = max(48, int(2 * math.pi * r / seg))
+        n = 4 * max(12, int(math.ceil(2 * math.pi * r / seg / 4)))     # 4の倍数：上下左右の端の点を必ず通る
         if which == 'circle':
             uv = [(math.cos(2 * math.pi * i / n), math.sin(2 * math.pi * i / n)) for i in range(n)]
         else:
@@ -519,8 +607,7 @@ def outline_2d(prims, clips):
     if not parts:
         return []
     big = max(parts, key=lambda p: p.area)
-    big = big.simplify(0.05)
-    return list(big.exterior.coords)[:-1]
+    return _dedup(list(big.exterior.coords)[:-1])
 
 
 try:
@@ -620,10 +707,14 @@ def smooth_runs(ring):
         return abs(math.degrees(math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1])))
 
     seglen = lambda i: math.hypot(ring[(i + 1) % n][0] - ring[i][0], ring[(i + 1) % n][1] - ring[i][1])
+    T = [turn(i) for i in range(n)]
+    # 角：大きく折れる点、または前後の点よりはっきり大きく折れる点（2つの曲線が角度を持って出会う所。
+    # 曲線の点の取り方による折れは前後でほぼ同じ）
+    corner = lambda i: T[i] >= CORNER_DEG or (T[i] >= 1.0 and T[i] > 3 * max(T[i - 1], T[(i + 1) % n], 0.05))
     # 区切りの点：角、または長い辺の端
-    brk = [i for i in range(n) if turn(i) >= CORNER_DEG or seglen(i) >= LINE_MIN or seglen(i - 1) >= LINE_MIN]
+    brk = [i for i in range(n) if corner(i) or seglen(i) >= LINE_MIN or seglen(i - 1) >= LINE_MIN]
     if not brk:
-        return [('closed', list(ring))]
+        brk = [0, n // 2]          # 角の無い輪は2つに分ける（周期の曲線を使わない）
     runs = []
     for j, i0 in enumerate(brk):
         i1 = brk[(j + 1) % len(brk)]
@@ -632,8 +723,31 @@ def smooth_runs(ring):
         if len(pts) == 2:
             runs.append(('line', pts[0], pts[1]))
         else:
-            runs.append(('curve', pts))
+            runs.append(('curve', _resample(pts)))
     return runs
+
+
+CURVE_SEG = 6.0     # 曲線の区切りを、この長さ以下の等しい間隔の点に取り直してから曲線にする
+
+
+def _resample(pts, seg=CURVE_SEG):
+    """折れ線を、長さに沿って等しい間隔の点に取り直す（両端はそのまま）。
+    間隔が不ぞろいな点を3次の曲線で結ぶと、短い間の所で曲線がはね返り、輪が自分と交わる（11-11、k9〜k17）"""
+    cum = [0.0]
+    for a, b in zip(pts[:-1], pts[1:]):
+        cum.append(cum[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    L = cum[-1]
+    n = max(2, int(math.ceil(L / seg)))
+    out, j = [], 0
+    for k in range(n + 1):
+        t = L * k / n
+        while j < len(cum) - 2 and cum[j + 1] < t:
+            j += 1
+        a, b = pts[j], pts[j + 1]
+        u = (t - cum[j]) / (cum[j + 1] - cum[j]) if cum[j + 1] > cum[j] else 0.0
+        out.append((a[0] + u * (b[0] - a[0]), a[1] + u * (b[1] - a[1])))
+    out[0], out[-1] = pts[0], pts[-1]
+    return out
 
 
 def key_shape(G, h, grow=0.0):
@@ -869,9 +983,6 @@ def _solid(F, outer, holes2d, off, thick, tol):
 def _ring_curve(F, ring, off, tol):
     """2Dの点の並び → 直線となめらかな曲線をつないだ閉じた曲線"""
     runs = smooth_runs(ring)
-    if runs and runs[0][0] == 'closed':
-        pts = [F.P(a, b, off) for a, b in runs[0][1]]
-        return rg.Curve.CreateInterpolatedCurve(pts, 3, rg.CurveKnotStyle.ChordPeriodic)
     segs = []
     for r in runs:
         if r[0] == 'line':
@@ -879,7 +990,7 @@ def _ring_curve(F, ring, off, tol):
         else:
             pts = [F.P(a, b, off) for a, b in r[1]]
             # 点をそのまま通る3次の曲線（Fit で間引くと、尖った先の近くで2本の曲線が交わることがある）
-            c = rg.Curve.CreateInterpolatedCurve(pts, 3)
+            c = rg.Curve.CreateInterpolatedCurve(pts, 3, rg.CurveKnotStyle.Chord)
             if c is None:
                 raise RuntimeError('曲線を作れない（点%d）' % len(pts))
             segs.append(c)
@@ -906,18 +1017,26 @@ def _ring_check(F, ring, off, tol):
     return c, nline, probs
 
 
-def _slabs(F, g, off, thick, tol, tag='', log=None):
+def _slabs(F, g, off, thick, tol, tag='', log=None, holes=()):
     """shapely の形を、off の面から +perp へ thick 押し出した立体（形が分かれていれば複数）。
+    holes：桁の穴（楕円の基本形）。shapely で引かず、ちょうどの楕円の曲線にして、その中心を含む部分に開ける。
     確かめる：輪の曲線が閉じて平らで交わらない、平らな面ができる、直線の区切りの数だけ側面が平ら"""
+    from shapely.geometry import Point
     out = []
-    for n_, (ext, holes) in enumerate(polys_2d(g)):
-        rings = [ext] + holes
+    parts = [x for x in (list(g.geoms) if hasattr(g, 'geoms') else [g]) if x.geom_type == 'Polygon' and x.area >= 100.0]
+    for n_, part in enumerate(parts):
+        ext = _dedup(list(part.exterior.coords)[:-1])
+        if part.interiors:
+            raise RuntimeError('%s（%d）：思わぬ穴がある（%d）' % (tag, n_, len(part.interiors)))
         crvs, nline, probs = [], 0, []
-        for k_, r in enumerate(rings):
-            c, nl, pr = _ring_check(F, r, off, tol)
-            crvs.append(c)
-            nline += nl
-            probs += ['%s：%s' % ('外' if k_ == 0 else '穴%d' % k_, x) for x in pr]
+        c, nline, pr = _ring_check(F, ext, off, tol)
+        crvs.append(c)
+        probs += ['外：%s' % x for x in pr]
+        for k_, hp in enumerate(holes):
+            if part.contains(Point(hp[2], hp[3])):
+                crvs.append(F.curve(hp, off))
+                if not crvs[-1].IsClosed:
+                    probs.append('穴%d：閉じていない' % (k_ + 1))
         for a_ in range(len(crvs)):
             for b_ in range(a_ + 1, len(crvs)):
                 ev = _X.CurveCurve(crvs[a_], crvs[b_], tol, tol)
@@ -1133,13 +1252,12 @@ def geom_one(pl, P, showcol, mids, tol, log):
     # 梁の位置：内の面が柱の面から d 内、外へ t
     pos = {'+': (C / 2 - d), '-': -(C / 2 - d + t)}
     B0 = beam_2d(P, tops['0'][:2], sup, Dfn, ext=(s_wall, s_tip))
-    holes0 = _holes_g(B0['holes'])
     plate_g = {}
     for key in ('+', '-'):
         B = beam_2d(P, tops[key][:2], sup, Dfn, ext=(s_wall, s_tip))
         g = region_2d(B['prims'], [[B['clip']]])
         plate_g[key] = g
-        out['plates'] += _slabs(F, g.difference(holes0), pos[key], t, tol, tag + '梁' + key, log)
+        out['plates'] += _slabs(F, g, pos[key], t, tol, tag + '梁' + key, log, B0['holes'])
     heads = B0['heads']
     # 2階の床梁
     mid_heads = {j: [] for j in range(len(sup))}
@@ -1150,7 +1268,7 @@ def geom_one(pl, P, showcol, mids, tol, log):
         g = region_2d(Bf['prims'], [[Bf['clip']]])
         floor_g.append(g)
         for key in ('+', '-'):
-            out['floors'] += _slabs(F, g.difference(_holes_g(Bf['holes'])), pos[key], t, tol, tag + '床梁' + key, log)
+            out['floors'] += _slabs(F, g, pos[key], t, tol, tag + '床梁' + key, log, Bf['holes'])
         for j, gh in enumerate(Bf['heads']):
             mid_heads[j].append(gh)
             out['ptM'].append(F.P(gh[0][0], gh[0][1]))
@@ -1164,13 +1282,12 @@ def geom_one(pl, P, showcol, mids, tol, log):
             G, h = heads[j]
             Cc = column_2d(s, C, P['FL'], z0 + m * s, [(G, h)] + mid_heads[j], G)
             g = region_2d(Cc['prims'], [[('poly', o0), Cc['band']]])
-            hl = _holes_g(Cc['holes'])
             if d > 0:
-                out['cols'] += _slabs(F, g.difference(hl), -C / 2 + d, C - 2 * d, tol, tag + '柱%d芯' % j, log)
-                out['cols'] += _slabs(F, g.difference(cut['+']).difference(hl), C / 2 - d, d, tol, tag + '柱%d面+' % j, log)
-                out['cols'] += _slabs(F, g.difference(cut['-']).difference(hl), -C / 2, d, tol, tag + '柱%d面-' % j, log)
+                out['cols'] += _slabs(F, g, -C / 2 + d, C - 2 * d, tol, tag + '柱%d芯' % j, log, Cc['holes'])
+                out['cols'] += _slabs(F, g.difference(cut['+']), C / 2 - d, d, tol, tag + '柱%d面+' % j, log, Cc['holes'])
+                out['cols'] += _slabs(F, g.difference(cut['-']), -C / 2, d, tol, tag + '柱%d面-' % j, log, Cc['holes'])
             else:
-                out['cols'] += _slabs(F, g.difference(hl), -C / 2, C, tol, tag + '柱%d' % j, log)
+                out['cols'] += _slabs(F, g, -C / 2, C, tol, tag + '柱%d' % j, log, Cc['holes'])
     out['ptE'] = F.P(heads[0][0][0], heads[0][0][1])
     out['ptW'] = F.P(heads[-1][0][0], heads[-1][0][1])
     out['ptI'] = [F.P(G[0], G[1]) for G, h in heads[1:-1]]
