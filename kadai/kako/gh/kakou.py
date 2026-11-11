@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-11 09:52'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-11 09:54'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -1049,6 +1049,17 @@ def _slabs(F, g, off, thick, tol, tag='', log=None, holes=()):
         sld = br[0].Faces[0].CreateExtrusion(path, True)
         if sld is None:
             raise RuntimeError('%s（%d）：押し出しができない' % (tag, n_))
+        # 完全な立体か：閉じていて（裸の辺が無い）、正しい向きで、体積が形の面積×厚さに合う
+        if not sld.IsValid or not sld.IsSolid:
+            naked = sum(1 for e in sld.Edges if e.Valence == rg.EdgeAdjacency.Naked)
+            raise RuntimeError('%s（%d）：閉じた立体にならない（裸の辺%d）' % (tag, n_, naked))
+        if sld.SolidOrientation != rg.BrepSolidOrientation.Outward:
+            sld.Flip()
+        vm = rg.VolumeMassProperties.Compute(sld)
+        hole_a = sum(math.pi * hp[4] * hp[7] for hp in holes if part.contains(Point(hp[2], hp[3])))
+        v_want = (part.area - hole_a) * abs(thick)
+        if vm is None or abs(vm.Volume - v_want) > 0.002 * v_want:
+            raise RuntimeError('%s（%d）：体積が合わない（%.0f、形から%.0f）' % (tag, n_, vm.Volume if vm else -1, v_want))
         flat = sum(1 for f in sld.Faces if f.IsPlanar(tol))
         if log is not None and flat != nline + 2:
             log.append('%s（%d）：平らな面 %d（直線の辺%d＋上下2のはず）' % (tag, n_, flat, nline))
@@ -1431,8 +1442,8 @@ def run():
     for key, name in (('plates', '梁'), ('cols', '柱'), ('floors', '床梁')):
         bs = res[key]
         if bs:
-            bad = sum(1 for b in bs if b is None or not b.IsValid)
-            log.append('%s：%d 個（不正 %d）' % (name, len(bs), bad))
+            bad = sum(1 for b in bs if b is None or not b.IsValid or not b.IsSolid)
+            log.append('%s：%d 個（閉じた立体でないもの %d）' % (name, len(bs), bad))
     log.append('架構 %d 本（失敗 %d）' % (len(rows), len(ks) - len(rows)))
     res['table'] = text
     return res, '\n'.join(log)
