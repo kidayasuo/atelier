@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-13 09:55'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-13 10:14'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -480,6 +480,17 @@ def head_shape(G, h, cap=None):
     return g
 
 
+def _first_hit_s(p0, d, shape):
+    """p0 から d の向きの線が形 shape の縁に初めて当たる所の s（無ければ None）"""
+    from shapely.geometry import LineString
+    hit = LineString([p0, (p0[0] + d[0] * 1e5, p0[1] + d[1] * 1e5)]).intersection(shape.exterior)
+    pts = [hit] if hit.geom_type == 'Point' else [q for q in getattr(hit, 'geoms', []) if q.geom_type == 'Point']
+    if not pts:
+        return None
+    q = min(pts, key=lambda q: (q.x - p0[0]) * d[0] + (q.y - p0[1]) * d[1])
+    return q.x
+
+
 def fillet_shape(p0, d, n, shape, R, pin):
     """直線（p0 から d の向きに形へ近づく、n は材の無い側）と、凸の形 shape（shapely）の入隅の半径 R の丸み。
     pin は形の中で直線の材の側の点。返す：('poly', 点の並び) か None"""
@@ -608,9 +619,31 @@ def beam_2d(P, top, supports, Dfn, ext=None, Gz=None):
         if nn[1] > 0:
             nn = (-nn[0], -nn[1])
         shape = head_shape(GW, hW, cap_pts(GW, hW['ha'], zt(sW) - GW[1], m))
-        zl = pA[1] + (pB[1] - pA[1]) * (GW[0] - pA[0]) / (pB[0] - pA[0])
-        pin = (GW[0], (zl + zt(sW)) / 2)
-        fl = fillet_shape(pA, d, nn, shape, EAVE_R, pin)
+        # 延長の下端は折れ線：先→外壁の内面は先細り、外壁の内面→頭は上端と平行。丸みは、頭に当たる方の線に接する
+        # （外壁が架構に斜めの所では、片側の梁の外壁の内面が頭から遠く、平行の線で頭に当たる、11-13）
+        xt = _first_hit_s(pA, d, shape)
+        if xt is not None and xt >= s_wall:
+            zl = pA[1] + (pB[1] - pA[1]) * (GW[0] - pA[0]) / (pB[0] - pA[0])
+            fl = fillet_shape(pA, d, nn, shape, EAVE_R, (GW[0], (zl + zt(sW)) / 2))
+        else:
+            d2 = (-1.0 / math.hypot(1.0, m), -m / math.hypot(1.0, m))
+            n2 = (d2[1], -d2[0])
+            if n2[1] > 0:
+                n2 = (-n2[0], -n2[1])
+            zl2 = pB[1] + m * (GW[0] - pB[0])
+            pin2 = (GW[0], (zl2 + zt(sW)) / 2)
+            fl = fillet_shape(pB, d2, n2, shape, EAVE_R, pin2)
+            if fl is not None and fl[1][0][0] > s_wall + 0.5:
+                # 丸みが外壁の内面（下端の折れ目）を越えるなら、折れ目で接する大きさまで小さくする
+                lo, hi = 5.0, EAVE_R
+                for _ in range(40):
+                    mid = (lo + hi) / 2
+                    f_ = fillet_shape(pB, d2, n2, shape, mid, pin2)
+                    if f_ is not None and f_[1][0][0] > s_wall:
+                        hi = mid
+                    else:
+                        lo = mid
+                fl = fillet_shape(pB, d2, n2, shape, lo, pin2)
         if fl is None:
             raise RuntimeError('軒への延長と頭をつなぐ丸みが、頭の外形に接しない（EAVE_R・ext0・ext1を見直す）')
         pr.append(fl)
