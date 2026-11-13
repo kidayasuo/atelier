@@ -9,6 +9,10 @@
 - **取り合いで付かない所は、実物の設計の問題として`../kettei.md`の側で解いてから戻る**（前回、壁が柱に付かなかった）。
 - 縮尺1/50。寸法は手に入る板の厚さに丸める（下の「材料」）。
 
+## レーザー（ユーザー 11-13）
+
+AEON NOVA16とNOVA14。加工の範囲はNOVA16が1600×1000、NOVA14が1400×900（メーカーの資料）。A1（841×594）は一枚のまま入る。前課題のレーザーの設定（`../../sodachiya/kettei/mokei.md`）を出発点にする。
+
 ## 材料（案、11-11にレモン画翠の品ぞろえから）
 
 在庫の一覧は持たない。何が手に入るかは、ユーザーがいつも買う店（https://www.lemongasui.net）の品ぞろえで決める。レモン画翠に無い物は、ほかの店（ユーザー 11-11）：世界堂（https://webshop.sekaido.co.jp/product?parent_category_sm=建築模型用品）、https://kenchikumokei.stores.jp 、竹田（https://takeda-eshop.com/view/category/ct8）、https://koeido.org 。前の課題の残り（航空ベニヤ0.8・平竹ひご2×4など）は`../../sodachiya/mokei/材料.md`。
