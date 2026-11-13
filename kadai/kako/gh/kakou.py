@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-11 14:31'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-13 09:55'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -1205,21 +1205,21 @@ def parse_hang(x):
     return out
 
 
-def _line_s(F, crv, s_lo=-5000.0, s_hi=60000.0):
-    """架構の線（平面、O から d の向き）と曲線の交わる s の全部"""
+def _line_s(F, crv, s_lo=-5000.0, s_hi=60000.0, off=0.0):
+    """架構の線（平面、O から d の向き、横へ off ずらした線）と曲線の交わる s の全部"""
     flat = rg.Curve.ProjectToPlane(crv, rg.Plane.WorldXY)
-    ln = rg.LineCurve(F.P(s_lo, 0), F.P(s_hi, 0))
+    ln = rg.LineCurve(F.P(s_lo, 0, off), F.P(s_hi, 0, off))
     ev = _X.CurveCurve(ln, flat, 0.1, 0.1)
     out = []
     for x in ev or []:
         q = x.PointA
-        out.append(((q.X - F.O[0]) * F.d[0] + (q.Y - F.O[1]) * F.d[1], flat.TangentAt(x.ParameterB)))
+        out.append(((q.X - F.O[0]) * F.d[0] + (q.Y - F.O[1]) * F.d[1], flat.TangentAt(x.ParameterB)))  # s は線に沿う長さ（off に依らない）
     return sorted(out, key=lambda a: a[0])
 
 
-def _hit_s(F, crv, s_min=1000.0):
-    """架構の線が曲線と交わる s（s_min より先でいちばん近いもの）と、その所の曲線の向き"""
-    for s, tg in _line_s(F, crv):
+def _hit_s(F, crv, s_min=1000.0, off=0.0):
+    """架構の線（横へ off）が曲線と交わる s（s_min より先でいちばん近いもの）と、その所の曲線の向き"""
+    for s, tg in _line_s(F, crv, off=off):
         if s > s_min:
             return s, tg
     return None
@@ -1263,7 +1263,10 @@ def plan_one(i, kk, fr, P, A, log):
         if hw is None:
             raise RuntimeError('架構の線が西の線と交わらない')
         s_wall = hw[0]
-        sW = s_wall - C / 2.0
+        # 西の柱は外壁の内面の内：柱の両側の面の線で外壁に当たる手前の方に、柱の外の面をそろえる
+        # （外壁が架構に斜めの所で、柱の角が外壁に食い込まないように）
+        hs_ = [_hit_s(F, A['west'], 1000.0, o_) for o_ in (-C / 2.0, C / 2.0)]
+        sW = min([s_wall] + [h_[0] for h_ in hs_ if h_ is not None]) - C / 2.0
         s_in = sorted(v * 1000.0 - (V_EAST_FACE + C / 2) for v in A['vin'] if v > 0)
         ss = [0.0] + [s for s in s_in if 500 < s < sW - 500] + [sW]
     # 原点を東の柱の芯へ
@@ -1271,23 +1274,34 @@ def plan_one(i, kk, fr, P, A, log):
     F = Frame3((F.O[0] + s0 * F.d[0], F.O[1] + s0 * F.d[1]), F.d, F.p)
     sup = [x - s0 for x in ss]
     s_wall -= s0
-    # 軒
-    if A['eave'] is not None:
-        he = _hit_s(F, A['eave'], s_wall)
-        if he is None:
-            raise RuntimeError('架構の線が軒先の線と交わらない')
-        tg = he[1]
-        cosphi = abs(-tg.Y * F.d[0] + tg.X * F.d[1]) / max(1e-9, math.hypot(tg.X, tg.Y))
-        s_tip = he[0] - TIP_GAP / max(cosphi, 0.2)
-    else:
-        s_tip = s_wall + EAVE_OUT - TIP_GAP
-    # 梁の上端：屋根の面、なければ両端の高さ
+    # 外壁の内面と軒先：対の梁は1本ずつ、自分の面（梁の厚さの真ん中）の線で交わる所まで。
+    # 外壁や軒の線が架構に斜めの所（北西）では、左右の梁で長さが違う（前は架構の線の上の長さを両方に使い、
+    # 片方は軒の外へ出て低く、片方は軒の手前で高く終わった、11-13）
     off_pl = C / 2 - d + t / 2
     offs = {'+': off_pl, '-': -off_pl, '0': 0.0}
+    s_walls, s_tips = {}, {}
+    for key, off in offs.items():
+        sw_k = s_wall
+        if A['west'] is not None and key != '0':
+            hw = _hit_s(F, A['west'], sup[-1] - 2000.0, off)
+            if hw is not None:
+                sw_k = hw[0]
+        s_walls[key] = sw_k
+        if A['eave'] is not None:
+            he = _hit_s(F, A['eave'], sw_k, off)
+            if he is None:
+                raise RuntimeError('梁（%s）の線が軒先の線と交わらない' % key)
+            tg = he[1]
+            cosphi = abs(-tg.Y * F.d[0] + tg.X * F.d[1]) / max(1e-9, math.hypot(tg.X, tg.Y))
+            s_tips[key] = he[0] - TIP_GAP / max(cosphi, 0.2)
+        else:
+            s_tips[key] = sw_k + EAVE_OUT - TIP_GAP
+    s_tip = s_tips['0']
+    # 梁の上端：屋根の面、なければ両端の高さ
     tops = {}
     if A['roof'] is not None:
-        s_lo, s_hi = -C - 600, s_tip + 10
         for key, off in offs.items():
+            s_lo, s_hi = -C - 600, s_tips[key] + 10
             try:
                 tops[key] = _top_fit(F, A['roof'], off, s_lo, s_hi, A['tol'])
             except RuntimeError:
@@ -1322,7 +1336,7 @@ def plan_one(i, kk, fr, P, A, log):
         ok = size_beam(*args, DmR=P['DmR'])
         if ok is None:
             raise RuntimeError('梁のせい%.0fでも足りない' % D_MAX)
-    return dict(i=i, kk=kk, F=F, th=th, sup=sup, s_wall=s_wall, s_tip=s_tip, tops=tops, d=d, hang=hang,
+    return dict(i=i, kk=kk, F=F, th=th, sup=sup, s_wall=s_walls, s_tip=s_tips, tops=tops, d=d, hang=hang,
                 args=args, De=round(ok[0] * 1000.0, 1), Dm=round(ok[1] * 1000.0, 1), r=ok[2], NL=ok[3], NS=ok[4], fr=fr)
 
 
@@ -1330,18 +1344,18 @@ def geom_one(pl, P, showcol, mids, tol, log):
     """架構一つの形（対の梁2本・柱・2階の床梁）。凹み：平らな梁が幅の keyR を柱の頭の形の凹みに沈める（Tamedia）"""
     F, sup, tops = pl['F'], pl['sup'], pl['tops']
     C, t, d = P['col'], P['t'], pl['d']
-    s_wall, s_tip = pl['s_wall'], pl['s_tip']
+    s_wall, s_tip = pl['s_wall'], pl['s_tip']          # dict：'0'（架構の線）・'+'・'-'（左右の梁）
     Dfn = depth_fn(sup, pl['De'], pl['Dm'])
     out = dict(plates=[], cols=[], floors=[], ptM=[])
     tag = 'k%g' % pl['kk']
     # 梁の位置：内の面が柱の面から d 内、外へ t
     pos = {'+': (C / 2 - d), '-': -(C / 2 - d + t)}
-    B0 = beam_2d(P, tops['0'][:2], sup, Dfn, ext=(s_wall, s_tip))
+    B0 = beam_2d(P, tops['0'][:2], sup, Dfn, ext=(s_wall['0'], s_tip['0']))
     plate_g = {}
     for key in ('+', '-'):
         # 頭（桁の中心）は架構の線の上の梁と同じ高さ：桁は対の梁と柱を一直線に通る。上端だけがそれぞれの屋根の面に合う
         # （前は梁ごとに頭の高さが数mm違い、柱の面の層との間に細い切れ端や穴ができた、11-11）
-        B = beam_2d(P, tops[key][:2], sup, Dfn, ext=(s_wall, s_tip), Gz=[G_[1] for G_, h_ in B0['heads']])
+        B = beam_2d(P, tops[key][:2], sup, Dfn, ext=(s_wall[key], s_tip[key]), Gz=[G_[1] for G_, h_ in B0['heads']])
         g = region_2d(B['prims'], [[B['clip']]])
         plate_g[key] = g
         out['plates'] += _slabs(F, g, pos[key], t, tol, tag + '梁' + key, log, B0['holes'])
@@ -1399,7 +1413,7 @@ def _row(pl, P):
     r = pl['r']
     return dict(
         k=pl['kk'], sup=';'.join('%.0f' % s for s in sup),
-        span_max=max(b - a for a, b in zip(sup[:-1], sup[1:])), s_tip=pl['s_tip'],
+        span_max=max(b - a for a, b in zip(sup[:-1], sup[1:])), s_tip=pl['s_tip']['0'],
         slope_deg=math.degrees(math.atan(m)), topE=z0, topW=z0 + m * sup[-1], De=pl['De'], Dm=pl['Dm'],
         hang=';'.join('%g:%g' % h for h in pl['hang']),
         r_bend=r['曲げ'], r_defl=r['たわみ'], r_buckle=r['座屈'], r_notch=r['凹み'], r_shoulder=r['肩'],
