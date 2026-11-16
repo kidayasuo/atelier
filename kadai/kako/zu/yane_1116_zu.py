@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""図：屋根の一般部の層（断面、2026-11-16 版1）。
+"""図：屋根の一般部の層（断面、2026-11-16 版2）。
 
 高さは梁の上端を0とする（mm）。育ち舎の「屋根の構成」（sodachiya/kettei/nishikan.md、kyoutsu.md）に、
 11-16の決定（梁の上まで断熱を連続、約50）を足した。
@@ -22,14 +22,21 @@ import fonts42  # noqa: F401,E402
 
 T, G = 160, 194                 # 梁の幅（1本）・梁のあいだ
 LAY = [  # 名前, 下, 上, 色
-    ('野地と屋根材 64', 95, 159, '#8c8c8c'),
-    ('通気垂木 45（通気層）', 50, 95, None),
+    ('屋根材と太陽光 約40', 119, 159, '#8c8c8c'),
+    ('野地 t24', 95, 119, '#c9a86a'),
+    ('通気垂木 60×45（通気層）', 50, 95, None),
     ('連続の断熱 50（11-16）', 0, 50, '#f3e27a'),
     ('断熱（板状）150', -150, 0, '#f7ec9f'),
     ('構造用合板 t24（天井に現す）', -174, -150, '#d9b77e'),
     ('母屋 杉60×150@455', -324, -174, '#e6cfa0'),
 ]
 WOOD, BEAM = '#e6cfa0', '#d8b87f'
+AIR, WRB, RFG = '#d0392b', '#1f7a3a', '#1f3f8a'   # 気密シート・透湿防水シート・ルーフィング
+
+
+def sheets(ax, a, b):
+    ax.plot([a, b], [50, 50], color=WRB, lw=1.6, zorder=5)     # 透湿防水シート（連続の断熱の上）
+    ax.plot([a, b], [119, 119], color=RFG, lw=1.6, zorder=5)   # ルーフィング（野地の上）
 
 fig = plt.figure(figsize=(11.7, 8.3))
 
@@ -47,6 +54,8 @@ def dims(ax, x):
 def labels(ax, x):
     for name, lo, hi, _ in LAY:
         ax.text(x, (lo + hi) / 2, name, fontsize=7, va='center')
+    for y, name, c in ((119, 'ルーフィング', RFG), (50, '透湿防水シート', WRB), (-150, '気密シート\n（梁の側面で立ち上げ）', AIR)):
+        ax.text(x + 600, y, '─ ' + name, fontsize=6.5, va='center', color=c)
 
 
 # ---- 断面A：梁に直角（母屋の向き）
@@ -75,13 +84,18 @@ for side in (-1, 1):
     e0 = -G / 2 if side < 0 else G / 2
     lo2, hi2 = (min(e0, x1), max(e0, x1))
     ax.add_patch(Rectangle((lo2, 0), hi2 - lo2, 50, fc='#f3e27a', ec='#b8a640', lw=0.6))
-    ax.add_patch(Rectangle((lo2, 95), hi2 - lo2, 64, fc='#8c8c8c', ec='#555', lw=0.6))
+    ax.add_patch(Rectangle((lo2, 95), hi2 - lo2, 24, fc='#c9a86a', ec='#6b5530', lw=0.6))
+    ax.add_patch(Rectangle((lo2, 119), hi2 - lo2, 40, fc='#8c8c8c', ec='#555', lw=0.6))
+    sheets(ax, lo2, hi2)
+    ax.plot([lo_, hi_], [-150, -150], color=AIR, lw=1.6)
     for k in range(4):
         xr = (e0 - 120 - k * 455) if side < 0 else (e0 + 75 + k * 455)
         if abs(xr) < L - 45:
-            ax.add_patch(Rectangle((xr, 50), 45, 45, fc=WOOD, ec='#6b5530', lw=0.6))
+            ax.add_patch(Rectangle((xr, 50), 60, 45, fc=WOOD, ec='#6b5530', lw=0.6))
     # 破断線
     ax.plot([x1, x1], [-340, 175], color='#333', lw=0.8, ls=(0, (4, 2)))
+for xb in (bl[0], br[1]):
+    ax.plot([xb, xb], [-150, -2], color=AIR, lw=1.6, zorder=5)
 # 光の筋：ガラス（仮）と鋼の平板
 ax.add_patch(Rectangle((-G / 2 - 30, 120), G + 60, 16, fc='#bfe3f2', ec='#4a90b8', lw=0.8, zorder=6))
 ax.add_patch(Rectangle((-G / 2 - 60, -6), G + 120, 6, fc='#555', ec='none', zorder=6))
@@ -97,7 +111,7 @@ ax.text(-700, -360, '母屋は梁と梁のあいだ（3 m）に渡る。この�
 dims(ax, -L - 160)
 labels(ax, L + 40)
 ax.text(-L - 520, 260, '断面A：梁に直角に切る（母屋の向き、架構kの対の梁のところ）', fontsize=10, fontweight='bold')
-ax.set_xlim(-L - 560, L + 520); ax.set_ylim(BOT - 40, 300)
+ax.set_xlim(-L - 560, L + 1150); ax.set_ylim(BOT - 40, 300)
 
 # ---- 断面B：梁に平行（勾配の向き、梁と梁のあいだ）
 ax = fig.add_axes([0.03, 0.06, 0.94, 0.36])
@@ -107,7 +121,10 @@ ax.add_patch(Rectangle((-L2, -150), 2 * L2, 150, fc='#f7ec9f', ec='#b8a640', lw=
 ax.add_patch(Rectangle((-L2, -174), 2 * L2, 24, fc='#d9b77e', ec='#6b5530', lw=0.6))
 ax.add_patch(Rectangle((-L2, 0), 2 * L2, 50, fc='#f3e27a', ec='#b8a640', lw=0.6))
 ax.add_patch(Rectangle((-L2, 50), 2 * L2, 45, fc=WOOD, ec='#6b5530', lw=0.6))
-ax.add_patch(Rectangle((-L2, 95), 2 * L2, 64, fc='#8c8c8c', ec='#555', lw=0.6))
+ax.add_patch(Rectangle((-L2, 95), 2 * L2, 24, fc='#c9a86a', ec='#6b5530', lw=0.6))
+ax.add_patch(Rectangle((-L2, 119), 2 * L2, 40, fc='#8c8c8c', ec='#555', lw=0.6))
+sheets(ax, -L2, L2)
+ax.plot([-L2, L2], [-150, -150], color=AIR, lw=1.6)
 ax.text(0, 72, '通気垂木（勾配の向きに通る。垂木と垂木のあいだが通気層）', fontsize=6.5, ha='center', va='center')
 for k in range(-2, 3):
     x = k * 455
@@ -125,11 +142,11 @@ ax.text(0, -420, '母屋の断面60×150（梁に直角に渡る）', fontsize=6
 dims(ax, -L2 - 160)
 labels(ax, L2 + 40)
 ax.text(-L2 - 520, 260, '断面B：梁に平行に切る（勾配の向き、梁と梁のあいだ。勾配は省いた）', fontsize=10, fontweight='bold')
-ax.set_xlim(-L2 - 560, L2 + 520); ax.set_ylim(-560, 300)
+ax.set_xlim(-L2 - 560, L2 + 1150); ax.set_ylim(-560, 300)
 
-fig.text(0.5, 0.965, '屋根の一般部の層（2026-11-16 版1）　高さは梁の上端を0（mm）', fontsize=12, ha='center', fontweight='bold')
-fig.text(0.5, 0.02, '育ち舎の屋根の構成に、梁の上まで断熱を連続させる約50（11-16）を足した。屋根の上面は梁の上端＋159（育ち舎は＋109）。'
-         '通気垂木の断面と間隔は仮。母屋の上面は梁の上端より174下（断熱の上面が梁の上端とツラ）。',
+fig.text(0.5, 0.965, '屋根の一般部の層（2026-11-16 版2）　高さは梁の上端を0（mm）', fontsize=12, ha='center', fontweight='bold')
+fig.text(0.5, 0.02, '育ち舎の屋根の構成に、梁の上まで断熱を連続させる約50（11-16）を足した。屋根の上面は梁の上端＋159（育ち舎は＋109）。\n'
+         '通気垂木60×45@455・野地t24・気密シート・透湿防水シートは育ち舎の構成から。母屋の上面は梁の上端より174下（断熱の上面が梁の上端とツラ）。',
          fontsize=7, ha='center', color='#444')
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'yane_1116')
 fig.savefig(out + '.pdf')
