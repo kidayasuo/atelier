@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""図：屋根の一般部の層（断面、2026-11-16 版5）。
+"""図：屋根の一般部の層（断面、2026-11-16 版6）。
 
 高さは梁の上端を0とする（mm）。育ち舎の「屋根の構成」（sodachiya/kettei/nishikan.md、kyoutsu.md）に、
 11-16の決定（梁の上まで断熱を連続、約50）を足した。
@@ -37,7 +37,7 @@ def sheets(ax, a, b):
     ax.plot([a, b], [50, 50], color=WRB, lw=1.6, zorder=5)     # 透湿防水シート（連続の断熱の上）
     ax.plot([a, b], [119, 119], color=RFG, lw=1.6, zorder=5)   # ルーフィング（野地の上）
 
-fig = plt.figure(figsize=(11.7, 10.5))
+fig = plt.figure(figsize=(11.7, 13.5))
 
 
 def dims(ax, x):
@@ -58,7 +58,7 @@ def labels(ax, x):
 
 
 # ---- 断面A：梁に直角（母屋の向き）
-ax = fig.add_axes([0.03, 0.70, 0.94, 0.24])
+ax = fig.add_axes([0.03, 0.765, 0.94, 0.19])
 ax.set_aspect('equal'); ax.axis('off')
 L = 1250
 bl = (-G / 2 - T, -G / 2)       # 左の梁
@@ -116,7 +116,7 @@ ax.set_xlim(-L - 560, L + 1150); ax.set_ylim(BOT - 40, 300)
 # x は東の壁の内面から西へ（mm、左が東）。帯 v−0.9〜−2.56 → x −150〜1510、スリット 1510〜1660、一般部 1660〜
 # 11-16 版5：帯のガラスと排気の窓を連続の断熱の上面（＋50）にそろえ、断熱の線を一枚の平らな面にする
 from matplotlib.patches import Ellipse
-ax = fig.add_axes([0.02, 0.05, 0.96, 0.60])
+ax = fig.add_axes([0.02, 0.27, 0.96, 0.47])
 ax.set_aspect('equal'); ax.axis('off')
 XE, XW = -560, 2500
 XS0, XS1 = 1510, 1660            # スリット
@@ -151,8 +151,7 @@ ax.add_patch(Rectangle((XS1, -380), 12, 380 + 10, fc='#444', ec='none', zorder=5
 ax.add_patch(Rectangle((XS0 - 80, 0), XS1 - XS0 + 92, 10, fc='#444', ec='none', alpha=0.6, zorder=5))
 ax.add_patch(Rectangle((XS0 - 80, 10), XS1 - XS0 + 92, G0 - 10, fc='#e9a3c9', ec='none', zorder=5))
 # 雨受けの樋（窓の上、外）と防虫網
-ax.add_patch(Rectangle((XS0 + 30, 60), XS1 - XS0 - 60, 30, fc='none', ec='#555', lw=0.8))
-ax.plot([XS0, XS1], [144, 144], color='#555', lw=0.8, ls=(0, (1, 1.5)))
+ax.plot([XS0, XS1], [-12, -12], color='#555', lw=0.8, ls=(0, (1, 1.5)))   # 防虫網（蓋の下、室内側）
 # 一般部（スリットの西）
 X0 = XS1 + 12
 ax.add_patch(Rectangle((X0, -174), XW - X0, 24, fc='#d9b77e', ec='#6b5530', lw=0.6))
@@ -179,12 +178,11 @@ for x1 in (XE, XW):
     ax.plot([x1, x1], [-340, 175], color='#333', lw=0.8, ls=(0, (4, 2)))
 def note(xy, xt, text):
     ax.annotate(text, xy=xy, xytext=xt, fontsize=6.5, arrowprops=dict(arrowstyle='-', lw=0.5))
-note((XS0 + 75, 36), (300, -600), '① 閉じられる排気の窓（冬は閉じる。断熱・気密、熱を切った枠、自動）')
+note((XS0 + 75, 36), (300, -600), '① 排気の蓋（閉じた状態。断熱・気密、自動。開けるときは平らなまま上へ）')
 note((XS1 + 6, -300), (1750, -460), '② 鋼板の帯（南北に通る、断熱の線より下＝室内側）\n　弦・窓とガラスの西の縁の受け・天井扇の吊り')
 note((XS0 - 40, 5), (300, -660), '③ 腕（1 m前後おき、室内側）')
 note((XS0 - 40, 16), (300, -720), '④ 熱を切る受け（樹脂・木。断熱の線をまたぐのはここと枠の留め付けだけ）')
-note((XS0 + 75, 75), (1750, -620), '⑤ 雨受けの樋（窓の上、外）')
-note((XS0 + 75, 144), (1150, 330), '⑥ 防虫網（屋根の上面の15下）')
+note((XS0 + 75, -12), (1750, -620), '⑤ 防虫網（蓋の下＝室内側。室内から掃除）')
 note((X0 + 4, 120), (1900, 270), '⑦ 板金で切り口を包む（外）／通気層の出口（棟換気）')
 note((X0 + 2, -60), (1750, -720), '⑧ 気密シートを断熱の縁に沿って窓の枠まで立ち上げる')
 ax.text(XE, 360, '東（棟）', fontsize=8, ha='left')
@@ -194,9 +192,57 @@ dims(ax, XE - 160)
 ax.text(XE - 520, 440, '断面B：梁に平行に切る（冬に排気の窓を閉じた状態。棟の帯・スリットから一般部へ。勾配は省いた）', fontsize=10, fontweight='bold')
 ax.set_xlim(XE - 560, XW + 150); ax.set_ylim(-760, 480)
 
-fig.text(0.5, 0.965, '屋根の一般部の層（2026-11-16 版5）　高さは梁の上端を0（mm）', fontsize=12, ha='center', fontweight='bold')
-fig.text(0.5, 0.012, '育ち舎の屋根の構成に、梁の上まで断熱を連続させる約50（11-16）を足した。屋根の上面は梁の上端＋159（育ち舎は＋109）。\n'
-         '版5（11-16）：帯のガラスと排気の窓を連続の断熱の上面（＋50）にそろえ、断熱の線を一枚の面にした（断面Bは冬に閉じた状態）。母屋を断熱の層の中へ上げ（上面が梁の上端とツラ）、合板をその下に張って天井にした。天井の高さと梁の見えは変わらない。気密シートは合板の上。',
+
+# ---- スリットの拡大（閉じた状態・開いた状態）
+def slit_detail(ax, opened):
+    ax.set_aspect('equal'); ax.axis('off')
+    xa, xb = XS0 - 330, XS1 + 330
+    X0d = XS1 + 12
+    ax.add_patch(Rectangle((xa, G0), XS0 - xa, G1 - G0, fc='#d6eef8', ec='#4a90b8', lw=0.8))
+    for x in range(int(xa) + 20, XS0 - 30, 70):
+        ax.plot([x, x + 40], [100, 155], color='#777', lw=1.2)
+    ax.add_patch(Rectangle((X0d, -174), xb - X0d, 24, fc='#d9b77e', ec='#6b5530', lw=0.6))
+    ax.add_patch(Rectangle((X0d, -150), xb - X0d, 200, fc='#f7ec9f', ec='#b8a640', lw=0.6))
+    ax.add_patch(Rectangle((X0d, 50), xb - X0d, 45, fc=WOOD, ec='#6b5530', lw=0.6))
+    ax.add_patch(Rectangle((X0d, 95), xb - X0d, 24, fc='#c9a86a', ec='#6b5530', lw=0.6))
+    ax.add_patch(Rectangle((X0d, 119), xb - X0d, 40, fc='#8c8c8c', ec='#555', lw=0.6))
+    ax.plot([X0d + 4, X0d + 4], [G1, 162], color='#555', lw=1.4)
+    ax.plot([X0d, xb], [-150, -150], color=AIR, lw=1.6)
+    ax.plot([X0d + 2, X0d + 2], [-150, G1], color=AIR, lw=1.6)
+    ax.add_patch(Rectangle((XS1, -170), 12, 180, fc='#444', ec='none', zorder=5))
+    ax.add_patch(Rectangle((XS0 - 80, 0), XS1 - XS0 + 92, 10, fc='#444', ec='none', alpha=0.6, zorder=5))
+    ax.add_patch(Rectangle((XS0 - 80, 10), XS1 - XS0 + 92, G0 - 10, fc='#e9a3c9', ec='none', zorder=5))
+    # 枠の立ち上がり（閉める面は縁で合わせる）
+    for xf in (XS0, XS1 - 6):
+        ax.add_patch(Rectangle((xf, G0), 6, G1 - G0 + 8, fc='#999', ec='none', zorder=6))
+    ax.plot([XS0, XS1], [-12, -12], color='#555', lw=0.8, ls=(0, (1, 1.5)))
+    lift = 160 if opened else 0
+    ax.add_patch(Rectangle((XS0 + 8, G0 + lift), XS1 - XS0 - 16, G1 - G0, fc='#bfe3f2', ec='#4a90b8', lw=1.2, zorder=7))
+    if opened:
+        ax.add_patch(Rectangle((XS0 + 8, G0), XS1 - XS0 - 16, G1 - G0, fc='none', ec='#4a90b8', lw=0.6, ls=(0, (2, 2)), zorder=7))
+        ax.plot([XS1 - 30, XS1 - 30], [-150, G0 + lift], color='#444', lw=1.0, zorder=6)
+        xm = (XS0 + XS1) / 2
+        ax.plot([xm, xm], [-120, 170], color='#c0392b', lw=1.3)
+        for dx in (-170, 170):
+            ax.annotate('', xy=(xm + dx, 200), xytext=(xm, 170), arrowprops=dict(arrowstyle='->', lw=1.3, color='#c0392b'))
+        ax.text(xm, 290, '開いた状態（夏の夜など）：蓋を平らなまま約160持ち上げ（屋根の上面より上）、両脇から排気', fontsize=7, ha='center', va='bottom')
+    else:
+        ax.plot([xa, X0d + 12, xb], [G1, G1, G1], color=TH, lw=2.0, ls=(0, (5, 2)), zorder=8)
+        ax.plot([XS1 - 30, XS1 - 30], [-150, G0], color='#444', lw=1.0, zorder=6)
+        ax.text((XS0 + XS1) / 2, 290, '閉じた状態（冬・雨・強い風）：断熱の線（紫）が＋50で一枚につながる', fontsize=7, ha='center', va='bottom')
+        ax.text(XS1 + 120, 200, '雨は蓋の上面を西へ流れ、\n西の縁から屋根の面へ', fontsize=6, ha='left', va='center', color='#555')
+    ax.text(XS0 - 300, -60, '帯のガラス', fontsize=6, ha='left', color='#2a6a90')
+    ax.text(XS0 + 75, -40, '防虫網', fontsize=6, ha='center', va='top', color='#555')
+    ax.text(XS1 + 20, -200, '鋼板の帯・開閉装置（室内側）', fontsize=6, ha='left', va='top')
+    ax.set_xlim(xa - 20, xb + 20); ax.set_ylim(-240, 360)
+
+slit_detail(fig.add_axes([0.03, 0.03, 0.45, 0.21]), False)
+slit_detail(fig.add_axes([0.52, 0.03, 0.45, 0.21]), True)
+fig.text(0.03, 0.245, '排気のスリットの拡大（左：閉じた状態、右：開いた状態）', fontsize=10, fontweight='bold')
+
+fig.text(0.5, 0.965, '屋根の一般部の層（2026-11-16 版6）　高さは梁の上端を0（mm）', fontsize=12, ha='center', fontweight='bold')
+fig.text(0.5, 0.004, '育ち舎の屋根の構成に、梁の上まで断熱を連続（約50）。屋根の上面は梁の上端＋159。母屋は断熱の層の中、合板はその下で天井。\n'
+         '版6（11-16）：帯のガラスと排気の蓋を＋50にそろえ、断熱の線を一枚の面に。蓋は上から閉め、平らなまま持ち上げて開ける（防虫網は蓋の下）。',
          fontsize=7, ha='center', color='#444')
 out = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'yane_1116')
 fig.savefig(out + '.pdf')
