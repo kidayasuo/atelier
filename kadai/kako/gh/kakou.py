@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-13 10:14'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-16 21:09'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -241,10 +241,15 @@ def depth_fn(supports, De, Dm):
 # 梁は連続梁（支点＝柱の芯、柱の頭はピン、剛接合は当てにしない＝鉛直の荷重に対して安全側）。
 # 水平の投影で解き、傾きは EI·cos²α で見込む。単位は kN・m。
 E_W = 9.5e6            # kN/m²（基本編）
+# 長期：固定＋積載＋吊り荷重。短期：長期＋雪（京都は多雪区域でないので積雪は短期、ユーザー 11-16）。
+# 短期の許容は長期の 2/1.1 倍（長期＝1.1F/3、短期＝2F/3）
+SHORT = 2.0 / 1.1
 FB_L = 12e3            # 長期の曲げ（基本編）
-FB_S = 12e3 * 1.6 / 1.1
-FC_L, FC_S = 8.0e3, 14.5e3     # 圧縮（集成材の一般的な値、基本編に無い）
-FCV_L, FCV_S = 2.2e3, 4.0e3    # めり込み（同）
+FB_S = FB_L * SHORT
+FC_L = 8.0e3           # 圧縮（集成材の一般的な値、基本編に無い）
+FC_S = FC_L * SHORT
+FCV_L = 2.2e3          # めり込み（同）
+FCV_S = FCV_L * SHORT
 GAM_W = 5.0            # kN/m³
 DEFL = 250.0
 D_STEP = 25.0          # mm
@@ -313,7 +318,8 @@ def beam_solve(xs, EI, q, P, sup):
 
 
 def frame_check(sup, top, s_tip, t, C, d, FL, loads, hang, De, Dm, long_span=4.0):
-    """一つの架構の略算。sup：柱の s（m、東→西）。top=(z0, m)：梁の上端 z=z0+m·s（m）。s_tip：延長の先（m）。
+    """一つの架構の略算（長期：固定＋積載＋吊り、短期：＋雪）。比は長期と短期の大きい方。たわみは長期×2だけ。
+    sup：柱の s（m、東→西）。top=(z0, m)：梁の上端 z=z0+m·s（m）。s_tip：延長の先（m）。
     De・Dm：せい（m）。t：梁の幅（1本、m、対で2本）。C：柱の幅、d：凹みの深さ（m）。FL（m）。
     loads=(屋根の固定 kN/m², 雪 kN/m², 間隔 m)。hang=[(s, kN)]（吊り荷重）。
     返す：比の dict と、柱の軸力"""
@@ -359,8 +365,9 @@ def frame_check(sup, top, s_tip, t, C, d, FL, loads, hang, De, Dm, long_span=4.0
                 rel = w[i] - (w[a] + (xs[i] - xs[a]) / L * (w[b] - w[a]))
                 dmax = max(dmax, rel / (L / DEFL))
         res[key] = (sig, dmax, [R[i] for i in supi])
+    # たわみは長期だけ（クリープ×2、雪は入れない、ユーザー 11-16）
     r = dict(曲げ=max(res['L'][0] / FB_L, res['S'][0] / FB_S),
-             たわみ=max(2 * res['L'][1], res['S'][1]))
+             たわみ=2 * res['L'][1])
     NL, NS = res['L'][2], res['S'][2]
     # 柱
     g = C - 2 * d
@@ -1396,15 +1403,18 @@ def geom_one(pl, P, showcol, mids, tol, log):
     # 2階の床梁
     mid_heads = {j: [] for j in range(len(sup))}
     floor_g = []
+    # 2階の床梁は内の柱から西の柱まで（東の柱と内の柱のあいだには作らない：東の柱の引張りを増やさず、
+    # 東の帯の吹き抜けを残す、ユーザー 11-16）。内の柱が無い架構では柱から柱まで
+    j0 = 1 if len(sup) >= 3 else 0
     for hz in mids:
         ztop = P['FL'] + hz
-        Bf = beam_2d(P, (ztop, 0.0), sup, lambda s: P['Df'])
+        Bf = beam_2d(P, (ztop, 0.0), sup[j0:], lambda s: P['Df'])
         g = region_2d(Bf['prims'], [[Bf['clip']]])
         floor_g.append(g)
         for key in ('+', '-'):
             out['floors'] += _slabs(F, g, pos[key], t, tol, tag + '床梁' + key, log, Bf['holes'])
         for j, gh in enumerate(Bf['heads']):
-            mid_heads[j].append(gh)
+            mid_heads[j + j0].append(gh)
             out['ptM'].append(F.P(gh[0][0], gh[0][1]))
     # 柱：芯（凹みの奥、厚さ C−2d）と両面の層（厚さ d、梁の形の凹みを抜く）
     if showcol:
@@ -1436,7 +1446,7 @@ def geom_one(pl, P, showcol, mids, tol, log):
     return out
 
 
-COLS = ['k', 'sup', 'span_max', 's_tip', 'slope_deg', 'topE', 'topW', 'De', 'Dm', 'hang',
+COLS = ['k', 'sup', 'z_sup', 'span_max', 's_tip', 'slope_deg', 'topE', 'topW', 'De', 'Dm', 'hang',
         'r_bend', 'r_defl', 'r_buckle', 'r_notch', 'r_shoulder', 'N_long', 'N_snow', 'gap', 'fit_dev']
 
 
@@ -1446,6 +1456,7 @@ def _row(pl, P):
     r = pl['r']
     return dict(
         k=pl['kk'], sup=';'.join('%.0f' % s for s in sup),
+        z_sup=';'.join('%.0f' % (z0 + m * s) for s in sup),
         span_max=max(b - a for a, b in zip(sup[:-1], sup[1:])), s_tip=pl['s_tip']['0'],
         slope_deg=math.degrees(math.atan(m)), topE=z0, topW=z0 + m * sup[-1], De=pl['De'], Dm=pl['Dm'],
         hang=';'.join('%g:%g' % h for h in pl['hang']),
@@ -1499,12 +1510,13 @@ def run():
              colLines=[_raw(x) for x in _as_list(cl)] if cl is not None else [],
              hang=_in('hang'), D=_in('D'), Dm=_in('Dm'), vin=vin, tol=tol)
     if A['roof'] is None and (A['zE'] is None or A['zW'] is None):
-        return dict(spine=arcs, rays=rays), '下書きだけ（spine・rays）。架構を作るには roof か zE・zW も要る'
+        return dict(spine=arcs, rays=rays, table=''), '下書きだけ（spine・rays）。架構を作るには roof か zE・zW も要る'
     cols_ = _in('showCol')
     mids_ = _in('mids')
     same = _in('same')
     same = True if same is None else (str(_raw(same)).strip().lower() not in ('false', '0', 'no', ''))
-    res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays)
+    res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays,
+               table='')
     log = []
     if not HAVE_SHAPELY:
         return res, 'shapely が入っていない（コードの頭の # r: shapely で入るはず）'
@@ -1589,4 +1601,6 @@ if _RHINO and ('k' in globals() or 'frames' in globals()):
     if _res and 'plates' in _res:
         plates, cols, floors = _res['plates'], _res['cols'], _res['floors']
         ptE, ptI, ptW, ptM = _res['ptE'], _res['ptI'], _res['ptW'], _res['ptM']
-        axis, lines, table = _res['axis'], _res['lines'], _res['table']
+        axis, lines = _res['axis'], _res['lines']
+    if _res:
+        table = _res.get('table', '')
