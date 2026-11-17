@@ -1551,6 +1551,8 @@ def run():
         log.append('架構 0 本')
         return res, '\n'.join(log)
     # 2. せいをそろえる（same、既定）：いちばん深いものに
+    if not beam_auto(A):
+        log.append('梁のせい：' + '・'.join(sorted(set('端%.0f・真ん中%.0f' % (p_['De'], p_['Dm']) for p_ in plans))) + '（決めた値。確かめるだけ）')
     if same and beam_auto(A):
         De = max(p_['De'] for p_ in plans)
         deciders = [p_['kk'] for p_ in plans if p_['De'] >= De - 1e-6]
