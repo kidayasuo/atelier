@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-17 21:23'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-17 21:49'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -48,10 +48,10 @@ DEF = dict(
                   # Tamediaは梁の幅240・凹み約80・梁のあいだ280と、どれもきりのよい寸法（kadai/kako/tamedia.md）
     DmR=0.8,
     tipR=0.04,    # 柱の広がりの先の厚さ／梁のせい。そこで頭の縁に直角に切る（Tamediaの写真）      # 長いスパンの真ん中のせい／端のせい（Tamediaのカーブ。ryakusan/shin_1109.py の500→400）
-    qD=0.84,      # 屋根の固定荷重（kN/m²、育ち舎の略算）
+    qD=0.684,     # 屋根の長期の固定荷重（kN/m²、水平投影）：屋根材とPV0.390＋ネオマ0.054＋母屋0.100＋天井の合板0.120に3％の割り増し（ユーザー 11-17）
     qS=0.6,       # 雪（kN/m²、30 cm）
     sp=3000.0,    # 架構の間隔（負担の幅）
-    Df=400.0,     # 2階の床梁のせい
+    Df=610.0,     # 2階の床梁のせい（模型のための仮の値、ユーザー 11-17）。内の柱から西の柱まで、下の壁では受けない
     eR=0.14,      # 桁の中心の、梁の下端からの高さ／D（Tamedia）
     haR=0.58,     # 頭の楕円の半幅／D
     hbR=0.68,     # 頭の楕円の半高さ／D
@@ -1231,6 +1231,11 @@ def _top_fit(F, roof, off, s_lo, s_hi, tol):
     return fit_line(sz)
 
 
+# 吊る荷重の既定（架構の番号→"s:kN"、s は東の柱の芯から m）：輪の通路と摺鉢ネット（ユーザー 11-17）。
+# 入力 hang を渡すと、こちらは使わない
+HANG_DEF = {15: '6.2:8.5', 16: '6.2:8.5', 17: '6.2:5'}
+
+
 def parse_hang(x):
     """吊り荷重 "s:kN;s:kN"（s は東の柱の芯から西へ m）→ [(s, kN)]"""
     out = []
@@ -1376,7 +1381,7 @@ def plan_one(i, kk, fr, P, A, log):
         for key in offs:
             tops[key] = (zE, m, 0.0)
     # 荷重から梁のせい（m・kN で）
-    hang = parse_hang(_pick(A['hang'], i, None))
+    hang = parse_hang(_pick(A['hang'], i, None) if A['hang'] is not None else HANG_DEF.get(kk))
     loads = (P['qD'], P['qS'], P['sp'] / 1000.0)
     z0, m, _ = tops['0']
     args = ([x / 1000.0 for x in sup], (z0 / 1000.0, m), s_tip / 1000.0, t / 1000.0, C / 1000.0, d / 1000.0,
