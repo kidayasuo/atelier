@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-17 21:18'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-17 21:23'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -30,7 +30,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
 入力（名前・型・既定は README の表）
   位置：frames（架構の線）か k（放射の線）、colLines（柱の列の曲線）か west・vIn
   高さ：roof（屋根の面）か zE・zW（梁の上端、東と西の柱の芯で）
-  荷重：qD・qS・sp・hang（吊り荷重 "s:kN;…"）。梁のせいはここから決める（D・Dm を入れれば確かめるだけ）
+  荷重：qD・qS・sp・hang（吊り荷重 "s:kN;…"）。梁のせいは既定で端500・真ん中400（確かめるだけ）。D・Dm で変え、D に 0 で荷重から決める
   意匠：t（梁の幅（1本））・col（柱）・key（凹み、mm）・DmR・same、ほか eave・showCol・mids・FL・Df・eR・haR・hbR・ext0・ext1・vU・csv
 出力           spine（v−0.9・東の柱の芯・内の列の円弧）・rays（架構kの放射の線）：k だけつなげば出る下書き
                plates（対の梁）・cols（柱、芯と両面の層）・floors（2階の床梁）
@@ -1266,6 +1266,20 @@ def _hit_s(F, crv, s_min=1000.0, off=0.0):
     return None
 
 
+D_FIX, DM_FIX = 500.0, 400.0     # 屋根の梁のせいの既定：端500→真ん中400（下端は放物線、ユーザー 11-16）
+
+
+def beam_auto(A):
+    """梁のせいを荷重から決めるか：入力 D に 0 を渡したときだけ（既定は D_FIX・DM_FIX で確かめるだけ）"""
+    D = A['D']
+    if D is None:
+        return False
+    try:
+        return _f(_pick(D, 0, D)) <= 0
+    except Exception:
+        return False
+
+
 def plan_one(i, kk, fr, P, A, log):
     """架構一つの位置・支点・上端・軒、と荷重から梁のせい。fr：架構の線（Curve）か None（k から放射の線）"""
     C, t = P['col'], P['t']
@@ -1367,10 +1381,14 @@ def plan_one(i, kk, fr, P, A, log):
     z0, m, _ = tops['0']
     args = ([x / 1000.0 for x in sup], (z0 / 1000.0, m), s_tip / 1000.0, t / 1000.0, C / 1000.0, d / 1000.0,
             P['FL'] / 1000.0, loads, hang)
-    Din = A['D']
-    if Din is not None:
-        De = _f(_pick(Din, i, Din)) / 1000.0
-        Dm = _f(_pick(A['Dm'], i, None)) / 1000.0 if A['Dm'] is not None else De * P['DmR']
+    if not beam_auto(A):
+        # 梁のせいは決まった値（既定：端500・真ん中400、ユーザー 11-16）。部品は確かめるだけ
+        Din = A['D']
+        De = (_f(_pick(Din, i, Din)) if Din is not None else D_FIX) / 1000.0
+        if A['Dm'] is not None:
+            Dm = _f(_pick(A['Dm'], i, None)) / 1000.0
+        else:
+            Dm = (DM_FIX / 1000.0) if Din is None else De * P['DmR']
         res = frame_check(*args, De=De, Dm=Dm)
         ok = (De, Dm) + res
     else:
@@ -1533,7 +1551,7 @@ def run():
         log.append('架構 0 本')
         return res, '\n'.join(log)
     # 2. せいをそろえる（same、既定）：いちばん深いものに
-    if same and A['D'] is None:
+    if same and beam_auto(A):
         De = max(p_['De'] for p_ in plans)
         deciders = [p_['kk'] for p_ in plans if p_['De'] >= De - 1e-6]
         for p_ in plans:
