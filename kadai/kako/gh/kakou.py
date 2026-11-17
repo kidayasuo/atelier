@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-16 21:09'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-17 21:18'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -31,7 +31,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
   位置：frames（架構の線）か k（放射の線）、colLines（柱の列の曲線）か west・vIn
   高さ：roof（屋根の面）か zE・zW（梁の上端、東と西の柱の芯で）
   荷重：qD・qS・sp・hang（吊り荷重 "s:kN;…"）。梁のせいはここから決める（D・Dm を入れれば確かめるだけ）
-  意匠：t（梁の幅（1本））・col（柱）・keyR（凹み／梁の幅）・DmR・same、ほか eave・showCol・mids・FL・Df・eR・haR・hbR・ext0・ext1・vU・csv
+  意匠：t（梁の幅（1本））・col（柱）・key（凹み、mm）・DmR・same、ほか eave・showCol・mids・FL・Df・eR・haR・hbR・ext0・ext1・vU・csv
 出力           spine（v−0.9・東の柱の芯・内の列の円弧）・rays（架構kの放射の線）：k だけつなげば出る下書き
                plates（対の梁）・cols（柱、芯と両面の層）・floors（2階の床梁）
                ptE・ptI・ptW・ptM（桁が通る点）・axis（桁の向き）・lines（架構の線）・table（CSV の文）・log
@@ -44,7 +44,8 @@ DEF = dict(
     FL=0.0,
     t=160.0,      # 梁の幅（1本、対で2本）。荷重から梁のせいを決めるときの前提（意匠で選ぶ）
     col=300.0,    # 柱の幅（角材、意匠で選ぶ）。梁のあいだ（光の筋）＝col−2×凹みの深さ（結果）
-    keyR=1.0 / 3, # 凹みの深さ／梁の幅（Tamedia：梁の幅240の1/3≈80、kadai/kako/tamedia.md）
+    key=60.0,     # 凹みの深さ＝梁が柱に重なる幅（mm）。きりのよい寸法で決める（ユーザー 11-17：60。梁のあいだ＝300−2×60＝180）。
+                  # Tamediaは梁の幅240・凹み約80・梁のあいだ280と、どれもきりのよい寸法（kadai/kako/tamedia.md）
     DmR=0.8,
     tipR=0.04,    # 柱の広がりの先の厚さ／梁のせい。そこで頭の縁に直角に切る（Tamediaの写真）      # 長いスパンの真ん中のせい／端のせい（Tamediaのカーブ。ryakusan/shin_1109.py の500→400）
     qD=0.84,      # 屋根の固定荷重（kN/m²、育ち舎の略算）
@@ -1268,7 +1269,7 @@ def _hit_s(F, crv, s_min=1000.0, off=0.0):
 def plan_one(i, kk, fr, P, A, log):
     """架構一つの位置・支点・上端・軒、と荷重から梁のせい。fr：架構の線（Curve）か None（k から放射の線）"""
     C, t = P['col'], P['t']
-    d = P['keyR'] * t
+    d = P['key']
     if fr is not None:
         a, b = fr.PointAtStart, fr.PointAtEnd
         L = math.hypot(b.X - a.X, b.Y - a.Y)
@@ -1381,7 +1382,7 @@ def plan_one(i, kk, fr, P, A, log):
 
 
 def geom_one(pl, P, showcol, mids, tol, log):
-    """架構一つの形（対の梁2本・柱・2階の床梁）。凹み：平らな梁が幅の keyR を柱の頭の形の凹みに沈める（Tamedia）"""
+    """架構一つの形（対の梁2本・柱・2階の床梁）。凹み：平らな梁が key（mm）だけ柱の頭の形の凹みに沈む（Tamedia）"""
     F, sup, tops = pl['F'], pl['sup'], pl['tops']
     C, t, d = P['col'], P['t'], pl['d']
     s_wall, s_tip = pl['s_wall'], pl['s_tip']          # dict：'0'（架構の線）・'+'・'-'（左右の梁）
@@ -1567,7 +1568,7 @@ def run():
         rows.append(_row(p_, P))
     worst = {k_: max(p_['r'][k_] for p_ in plans) for k_ in plans[0]['r']}
     log.append('比のいちばん大きいもの（1以下でよい）：' + '・'.join('%s %.2f' % kv for kv in worst.items()))
-    log.append('梁の幅%.0f×2本・柱%.0f・凹み%.0f・梁のあいだ%.0f' % (P['t'], P['col'], P['keyR'] * P['t'], P['col'] - 2 * P['keyR'] * P['t']))
+    log.append('梁の幅%.0f×2本・柱%.0f・凹み%.0f・梁のあいだ%.0f' % (P['t'], P['col'], P['key'], P['col'] - 2 * P['key']))
     lines_ = [','.join(COLS)]
     for r in rows:
         lines_.append(','.join(('%.4g' % r[c]) if isinstance(r[c], float) else str(r[c]) for c in COLS))
