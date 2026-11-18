@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-17 21:49'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-18 14:33'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -48,7 +48,7 @@ DEF = dict(
                   # Tamediaは梁の幅240・凹み約80・梁のあいだ280と、どれもきりのよい寸法（kadai/kako/tamedia.md）
     DmR=0.8,
     tipR=0.04,    # 柱の広がりの先の厚さ／梁のせい。そこで頭の縁に直角に切る（Tamediaの写真）      # 長いスパンの真ん中のせい／端のせい（Tamediaのカーブ。ryakusan/shin_1109.py の500→400）
-    qD=0.684,     # 屋根の長期の固定荷重（kN/m²、水平投影）：屋根材とPV0.390＋ネオマ0.054＋母屋0.100＋天井の合板0.120に3％の割り増し（ユーザー 11-17）
+    qD=0.784,     # 屋根の長期の固定荷重（kN/m²、水平投影。屋根面で0.764）：11-17の0.684に天井の木の羽目板0.1（仮）を足す（ユーザー 11-18、内訳は haikei.md）
     qS=0.6,       # 雪（kN/m²、30 cm）
     sp=3000.0,    # 架構の間隔（負担の幅）
     Df=610.0,     # 2階の床梁のせい（模型のための仮の値、ユーザー 11-17）。内の柱から西の柱まで、下の壁では受けない
@@ -1467,11 +1467,49 @@ def geom_one(pl, P, showcol, mids, tol, log):
     out['ptI'] = [F.P(G[0], G[1]) for G, h in heads[1:-1]]
     out['axis'] = rg.Vector3d(F.p[0], F.p[1], 0)
     out['line'] = rg.LineCurve(F.P(0, P['FL']), F.P(sup[-1], P['FL']))
+    # 屋根の梁1本の自重（kN）：外形の面積−桁の穴、×梁の幅×GAM_W。'+'＝南の梁、'-'＝北の梁（架構kの p の向きは k の小さい側＝南）
+    hole_a = sum(math.pi * hp[4] * hp[7] for hp in B0['holes'])
+    out['wt'] = {k_: (plate_g[k_].area - hole_a) * t * 1e-9 * GAM_W for k_ in plate_g}
     return out
 
 
 COLS = ['k', 'sup', 'z_sup', 'span_max', 's_tip', 'slope_deg', 'topE', 'topW', 'De', 'Dm', 'hang',
-        'r_bend', 'r_defl', 'r_buckle', 'r_notch', 'r_shoulder', 'N_long', 'N_snow', 'gap', 'fit_dev']
+        'r_bend', 'r_defl', 'r_buckle', 'r_notch', 'r_shoulder', 'N_long', 'N_snow', 'gap', 'fit_dev',
+        'trib_S_plan', 'trib_S_roof', 'trib_S_wE', 'trib_S_wW', 'trib_N_plan', 'trib_N_roof', 'trib_N_wE', 'trib_N_wW',
+        'wt_S', 'wt_N']
+
+
+def k_of_xy(x, y):
+    """平面の点の、架構の番号の連続値（放射の線の向きから）"""
+    th = math.atan2(y - CY, x - CX)
+    d = (TH_S - th + math.pi) % (2 * math.pi) - math.pi
+    return 1.0 + d * (RW + V_U) / PITCH
+
+
+def roof_tributary(roof, n=360):
+    """屋根の面（梁の上端の面）を、架構の半分ずつの帯に分けた面積。帯 j は k∈[j/2, j/2+0.5)。
+    返す {j: (水平投影の面積 m², 屋根面の面積 m²)}。面を n×n の格子で数え、トリムの外は除く"""
+    out = {}
+    for f in roof.Faces:
+        srf = f.UnderlyingSurface()
+        du, dv = srf.Domain(0), srf.Domain(1)
+        hu, hv = du.Length / n, dv.Length / n
+        for i in range(n):
+            u = du.T0 + (i + 0.5) * hu
+            for j in range(n):
+                v = dv.T0 + (j + 0.5) * hv
+                if f.IsPointOnFace(u, v) == rg.PointFaceRelation.Exterior:
+                    continue
+                ev = srf.Evaluate(u, v, 1)
+                pt, ders = ev[1], ev[2]
+                su, sv = ders[0], ders[1]
+                cr = rg.Vector3d.CrossProduct(su, sv)
+                da = cr.Length * hu * hv * 1e-6
+                dp = abs(cr.Z) * hu * hv * 1e-6
+                b = int(math.floor(k_of_xy(pt.X, pt.Y) * 2 + 1e-9))
+                a0, a1 = out.get(b, (0.0, 0.0))
+                out[b] = (a0 + dp, a1 + da)
+    return out
 
 
 def _row(pl, P):
@@ -1486,7 +1524,30 @@ def _row(pl, P):
         hang=';'.join('%g:%g' % h for h in pl['hang']),
         r_bend=r['曲げ'], r_defl=r['たわみ'], r_buckle=r['座屈'], r_notch=r['凹み'], r_shoulder=r['肩'],
         N_long=';'.join('%.0f' % x for x in pl['NL']), N_snow=';'.join('%.0f' % x for x in pl['NS']),
-        gap=P['col'] - 2 * pl['d'], fit_dev=max(v[2] for v in pl['tops'].values()))
+        gap=P['col'] - 2 * pl['d'], fit_dev=max(v[2] for v in pl['tops'].values()),
+        **_trib_cols(pl, P))
+
+
+def _trib_cols(pl, P):
+    """負担する屋根（南の梁：k−0.5〜k、北の梁：k〜k+0.5。北のスパン15は北西のふくらみを含む）と、梁1本の自重"""
+    out = {c: '' for c in COLS if c.startswith('trib_') or c.startswith('wt_')}
+    wt = pl.get('wt')
+    if wt:
+        out['wt_S'], out['wt_N'] = wt['+'], wt['-']
+    tb = pl.get('trib')
+    if tb is None:
+        return out
+    kk = pl['kk']
+    j = int(round(kk * 2))
+    half = 0.5 * PITCH / (RW + V_U)                 # 半スパンの角度
+    rE = RW + V_EAST_FACE + P['col'] / 2.0           # 東の柱の芯の半径
+    rW = rE + pl['s_tip']['0']                       # 梁の先（軒）の半径
+    for key, b in (('S', j - 1), ('N', j)):
+        a = tb.get(b, (0.0, 0.0))
+        out['trib_%s_plan' % key], out['trib_%s_roof' % key] = a[0], a[1]
+        out['trib_%s_wE' % key] = rE * math.sin(half) / 1000.0
+        out['trib_%s_wW' % key] = rW * math.sin(half) / 1000.0
+    return out
 
 
 def uv_xy(u, v):
@@ -1567,6 +1628,14 @@ def run():
                 p_.update(De=De, Dm=De * P['DmR'], r=r, NL=NL, NS=NS)
         log.append('梁のせい：端%.0f・真ん中%.0f（全部の架構でそろえる。決めたのは %s）' % (
             De, De * P['DmR'], '・'.join('k%g' % kk_ for kk_ in deciders)))
+    # 負担する屋根の面積（放射の線の架構で、屋根の面があるとき）
+    if A['roof'] is not None and not frames_:
+        try:
+            tb = roof_tributary(_raw(A['roof']))
+            for p_ in plans:
+                p_['trib'] = tb
+        except Exception as ex:
+            log.append('負担する屋根の面積を数えられない：%s' % ex)
     # 3. 形
     rows = []
     for p_ in plans:
@@ -1581,6 +1650,7 @@ def run():
         mids_i = parse_mids(_pick(mids_, p_['i'], None))
         try:
             o = geom_one(p_, P, bool(sc), mids_i, tol, log)
+            p_['wt'] = o['wt']
         except Exception as ex:
             log.append('k%g：形ができない：%s' % (p_['kk'], ex))
             continue

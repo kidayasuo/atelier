@@ -56,7 +56,7 @@ Bakeして、屋根の面・外壁の内面の線・軒先の線を描く下敷�
 | `west` | Curve・Item | 外壁の内面の線（平面）。軒への延長の始まり。`colLines`が無ければ西の柱もここから | — |
 | `eave` | Curve・Item | 軒先の線＝屋根の面の縁（平面）。外壁の外の面（壁面後退の線）から780外 | 外壁の内面から980 |
 | `hang` | str・List | 吊り荷重 "s:kN;s:kN"（sは東の柱の芯から西へm）。1つなら全部に | k15・k16：`6.2:8.5`、k17：`6.2:5`、ほかは無し（ユーザー 11-17） |
-| `qD`・`qS` | float・Item | 屋根の長期の固定荷重（水平投影）・雪（短期）（kN/m²） | 0.684（ユーザー 11-17）・0.6 |
+| `qD`・`qS` | float・Item | 屋根の長期の固定荷重（水平投影）・雪（短期）（kN/m²） | 0.784（屋根面で0.764、天井の木の羽目板0.1を含む、ユーザー 11-18）・0.6 |
 | `sp` | float・Item | 架構の間隔（負担の幅、mm） | 3000 |
 | `t`・`col` | float・Item | 梁の幅（1本、対で2本）・柱の幅（角材）。意匠で選ぶ | 160・300 |
 | `key` | float・Item | 凹みの深さ＝梁が柱に重なる幅（mm） | 60 |
@@ -74,7 +74,9 @@ Bakeして、屋根の面・外壁の内面の線・軒先の線を描く下敷�
 | `ext0`・`ext1` | float・Item | 軒への延長のせい（外壁の内面で・先で） | 240・120 |
 | `csv` | str・Item | CSVを書くファイルの道 | 書かない |
 
-`table`の列：k・sup（柱のs）・z_sup（各柱の位置の梁の上端の高さ、supと同じ順、mm。手で略算するのに使う）・span_max・s_tip・slope_deg・topE・topW・De・Dm・hang・r_bend（曲げ）・r_defl（たわみ）・r_buckle（座屈）・r_notch（凹み）・r_shoulder（肩）・N_long（長期の柱の軸力kN）・N_snow（短期の積雪時の柱の軸力kN）（＋は圧縮）・gap（梁のあいだ）・fit_dev。
+`table`の列：k・sup（柱のs）・z_sup（各柱の位置の梁の上端の高さ、supと同じ順、mm。手で略算するのに使う）・span_max・s_tip・slope_deg・topE・topW・De・Dm・hang・r_bend（曲げ）・r_defl（たわみ）・r_buckle（座屈）・r_notch（凹み）・r_shoulder（肩）・N_long（長期の柱の軸力kN）・N_snow（短期の積雪時の柱の軸力kN）（＋は圧縮）・gap（梁のあいだ）・fit_dev・trib_S_plan・trib_S_roof・trib_S_wE・trib_S_wW・trib_N_plan・trib_N_roof・trib_N_wE・trib_N_wW・wt_S・wt_N。
+
+負担の列（11-18）：対の梁の南の梁（`S`、架構の線から南、k−0.5〜k）と北の梁（`N`、k〜k+0.5）がそれぞれ受け持つ屋根。`plan`は水平投影の面積、`roof`は屋根面の面積（m²）。屋根の面（`roof`の入力）を格子で数えるので、スパン15の北西のふくらみは、k15の北の梁とk16の南の梁に入る。`wE`・`wW`は東の柱の芯・梁の先（軒）での負担の幅（m、架構の線から半スパンの放射の線まで）。`wt_S`・`wt_N`は梁1本の自重（kN、外形の面積−桁の穴、×梁の幅×5 kN/m³）。架構の線を`frames`で渡したときと、`roof`の代わりに`zE`・`zW`を使うときは、負担の列は空。
 
 単位はmm。座標は育ち舎のモデルと同じ（中心と向きは`kadai/sodachiya/model/build/south/uv.py`の定数）。
 
