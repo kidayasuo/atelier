@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #! python 3
-VERSION = 'yane 2026-11-11 17:59'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'yane 2026-11-25 17:40'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 屋根（Rhino 8 Mac、Grasshopper の Python 3 スクリプト部品）。
 
@@ -22,7 +22,16 @@ VERSION = 'yane 2026-11-11 17:59'     # 版（直すたびに、そのときの�
       plan（'A'・'B'・'C'、Item、既定 'A'）
       zE（東の縁の梁の上端、8150）・zW（軒の梁の上端、4650）・vE（東の縁の v、m、0.9）
       kB（B案の境の架構）・slope（C案の勾配、°）・kRef（C案の勾配を取る架構）・gable（南北の端の外へ、mm、1000）
-出力  roof（屋根の面、Brep）・lines（架構ごとの直線）・table（架構ごとの数、CSV の文字）・log
+      band（棟のガラスの帯の作り方：'0'・'1'・'2'、Item。無ければ帯を作らない）・bandW（帯の幅、面に沿って mm、1600）
+      bandK（案1・案2の基準の勾配を取る架構。無ければいちばんゆるい架構）
+出力  roof（屋根の面、Brep）・lines（架構ごとの線）・table（架構ごとの数、CSV の文字）・log
+      bandSrf（帯の面、Brep）・bandEdge（帯の下の縁＝スリットの線、Curve）
+
+棟のガラスの帯（11-25、見比べるための切り替え）：
+  0（今）：帯の幅は面に沿って bandW で一定。勾配の急な北ほど下の縁が下がる。
+  1：帯の下の縁を等高線にする（高さ zE − bandW·sin(基準の勾配) で水平）。屋根の面は変えない。勾配の急な架構ほど帯は狭い。
+  2：帯の部分だけ、どの架構も基準の勾配の平面にする（幅 bandW で一定、下の縁は水平）。下の縁（スリット）で
+     屋根の面が折れ、そこから西は軒まで直線。roof も折れた面になるので、架構の部品の梁の上端も折れる。
 """
 import math
 
@@ -85,6 +94,25 @@ def plan_heights(plan, fr, zE, zW, kRef=None, kB=None, slope=None):
         out = [(zE, zW) if f['k'] <= fb['k'] + 1e-9 else (zE, zE - i * f['L']) for f in fr]
         return out, 'B：k%g までは軒%.0f、その北は勾配%.2f°一定%s' % (fb['k'], zW, math.degrees(math.atan(i)), note)
     raise ValueError('plan は A・B・C のどれか：%r' % plan)
+
+
+def band_point(L, a, b, mode, W, sr):
+    """架構の線（東の縁の高さ a、軒の高さ b、水平の長さ L）の上の帯の下の縁：(水平の距離 s、高さ z、面に沿った幅)。
+    sr：基準の勾配（tan）。mode：'0'・'1'・'2'"""
+    t = (a - b) / L
+    if mode == '0':
+        c = 1.0 / math.sqrt(1 + t * t)
+        s = W * c
+        return s, a - s * t, W
+    cr = 1.0 / math.sqrt(1 + sr * sr)
+    if mode == '1':
+        drop = W * cr * sr
+        s = drop / t
+        return s, a - drop, math.hypot(s, drop)
+    if mode == '2':
+        s = W * cr
+        return s, a - s * sr, W
+    raise ValueError("band は '0'・'1'・'2' のどれか：%r" % mode)
 
 
 # ================================================================== Rhino
@@ -217,24 +245,70 @@ def run():
         f['turn'] = d
     hs, note = plan_heights(plan, fr, zE, zW, kRef, kB, slope)
     log.append(note)
-    lines = []
-    rows = ['k,L,zE,zW,slope_deg,eave_turn_deg']
+    band = _in('band')
+    band = str(_raw(band)).strip() if band is not None else None
+    if band is not None and band not in ('0', '1', '2'):
+        return None, "band は '0'・'1'・'2' のどれか：%r" % band
+    bW = _f(_in('bandW')) if _in('bandW') is not None else 1600.0
+    sr = None
+    if band in ('1', '2'):
+        real = [(f, h) for f, h in zip(fr, hs) if not f.get('ext')]
+        bK = _in('bandK')
+        if bK is not None:
+            f0, h0 = min(real, key=lambda q: abs(q[0]['k'] - _f(bK)))
+        else:
+            f0, h0 = min(real, key=lambda q: (q[1][0] - q[1][1]) / q[0]['L'])
+        sr = (h0[0] - h0[1]) / f0['L']
+        log.append('帯 案%s：基準の勾配 %.2f°（k%g）、幅 %.0f' % (band, math.degrees(math.atan(sr)), f0['k'], bW))
+    elif band == '0':
+        log.append('帯 案0（今）：面に沿って幅 %.0f で一定' % bW)
+    lines, blines, bpts = [], [], []
+    rows = ['k,L,zE,zW,slope_deg,eave_turn_deg' + (',band_s,band_z,band_w,band_drop' if band else '')]
     for f, (a, b) in zip(fr, hs):
-        lines.append(rg.LineCurve(rg.Point3d(f['E'].X, f['E'].Y, a), rg.Point3d(f['W'].X, f['W'].Y, b)))
-        rows.append('%.3f,%.0f,%.0f,%.0f,%.3f,%.2f' % (f['k'], f['L'], a, b, math.degrees(math.atan((a - b) / f['L'])), f['turn']))
+        pE = rg.Point3d(f['E'].X, f['E'].Y, a)
+        pW = rg.Point3d(f['W'].X, f['W'].Y, b)
+        row = '%.3f,%.0f,%.0f,%.0f,%.3f,%.2f' % (f['k'], f['L'], a, b, math.degrees(math.atan((a - b) / f['L'])), f['turn'])
+        if band:
+            bs, bz, bw = band_point(f['L'], a, b, band, bW, sr)
+            if bs >= f['L']:
+                return None, 'k%.2f：帯が軒まで届いてしまう（s %.0f ≥ L %.0f）' % (f['k'], bs, f['L'])
+            r = bs / f['L']
+            pB = rg.Point3d(pE.X + (pW.X - pE.X) * r, pE.Y + (pW.Y - pE.Y) * r, bz)
+            bpts.append(pB)
+            blines.append(rg.LineCurve(pE, pB))
+            row += ',%.0f,%.0f,%.0f,%.0f' % (bs, bz, bw, a - bz)
+            if band == '2':
+                lines.append(rg.PolylineCurve([pE, pB, pW]))
+            else:
+                lines.append(rg.LineCurve(pE, pW))
+        else:
+            lines.append(rg.LineCurve(pE, pW))
+        rows.append(row)
     lofts = rg.Brep.CreateFromLoft(lines, rg.Point3d.Unset, rg.Point3d.Unset, rg.LoftType.Straight, False)
     if not lofts or len(lofts) != 1:
         return None, 'Loft ができない（%d）' % (len(lofts) if lofts else 0)
     roof = lofts[0]
+    bandSrf, bandEdge = None, None
+    if band:
+        bl = rg.Brep.CreateFromLoft(blines, rg.Point3d.Unset, rg.Point3d.Unset, rg.LoftType.Straight, False)
+        if bl and len(bl) == 1:
+            bandSrf = bl[0]
+        else:
+            log.append('帯の面の Loft ができない')
+        bandEdge = rg.PolylineCurve(bpts)
+        drops = [a - p.Z for (a, b), p in zip(hs[1:-1], bpts[1:-1])]
+        log.append('帯の下の縁の下がり：%.0f〜%.0f（南北の差 %.0f）' % (min(drops), max(drops), max(drops) - min(drops)))
     zs = [b for a, b in hs[1:-1]]
     log.append('軒の梁の上端：%.0f〜%.0f（架構 k%g〜k%g）。南北の端の外へ %.0f' % (min(zs), max(zs), ks[0], ks[-1], gable))
-    return dict(roof=roof, lines=lines, table='\n'.join(rows)), '\n'.join(log)
+    return dict(roof=roof, lines=lines, table='\n'.join(rows), bandSrf=bandSrf, bandEdge=bandEdge), '\n'.join(log)
 
 
 globals().update(locals())
 log = VERSION + '\n部品は動いたが、入力 k が見えない'
+bandSrf, bandEdge = None, None      # 帯を作らないとき・途中で返るときも出力の名前は残す
 if _RHINO and 'k' in globals():
     _res, _log = run()
     log = VERSION + '\n' + _log
     if _res:
         roof, lines, table = _res['roof'], _res['lines'], _res['table']
+        bandSrf, bandEdge = _res['bandSrf'], _res['bandEdge']
