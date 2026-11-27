@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-27 14:50'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-27 15:12'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -1271,6 +1271,7 @@ def _hit_s(F, crv, s_min=1000.0, off=0.0):
     return None
 
 
+KEY_OUT = 100.0                  # 西の頭のキーが、外の梁の外の面から出る長さ（桁へつなぐ所だけ。列の端と、一本だけの頭はツラ、ユーザー 11-27）
 MID_Z = 3170.0                   # 2階の床梁の上端の既定（FLから）：2階の床の下面（育ち舎、2FL 3260）
 K_FLOOR = (8, 12)                # 2階の床梁のある架構（育ち舎、u21〜u33）
 D_FIX, DM_FIX = 500.0, 400.0     # 屋根の梁のせいの既定：端500→真ん中400（下端は放物線、ユーザー 11-16）
@@ -1470,10 +1471,167 @@ def geom_one(pl, P, showcol, mids, tol, log, midsE=False):
     out['ptW'] = F.P(heads[-1][0][0], heads[-1][0][1])
     out['ptI'] = [F.P(G[0], G[1]) for G, h in heads[1:-1]]
     out['axis'] = rg.Vector3d(F.p[0], F.p[1], 0)
+    # 桁のための頭の中心（世界の座標）。列の名前：屋根 R・床梁 F<段>、東 E・内 I<番>・西 W
+    def _role(j, n):
+        return 'E' if j == 0 else ('W' if j == n - 1 else 'I%d' % j)
+    h3 = {}
+    for j, (G, h) in enumerate(heads):
+        q = F.P(G[0], G[1])
+        h3['R' + _role(j, len(sup))] = (q.X, q.Y, q.Z)
+    for j in mid_heads:
+        for m_, (G, h) in enumerate(mid_heads[j]):
+            q = F.P(G[0], G[1])
+            h3['F%d' % m_ + _role(j, len(sup))] = (q.X, q.Y, q.Z)
+    out['heads3'] = h3
+    out['p'], out['d'] = tuple(F.p[:2]), tuple(F.d[:2])
     out['line'] = rg.LineCurve(F.P(0, P['FL']), F.P(sup[-1], P['FL']))
     # 屋根の梁1本の自重（kN）：外形の面積−桁の穴、×梁の幅×GAM_W。'+'＝南の梁、'-'＝北の梁（架構kの p の向きは k の小さい側＝南）
     hole_a = sum(math.pi * hp[4] * hp[7] for hp in B0['holes'])
     out['wt'] = {k_: (plate_g[k_].area - hole_a) * t * 1e-9 * GAM_W for k_ in plate_g}
+    return out
+
+
+def _v(a, b):
+    return (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+
+
+def _add(a, b, f=1.0):
+    return (a[0] + f * b[0], a[1] + f * b[1], a[2] + f * b[2])
+
+
+def _unit(v):
+    n = math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
+    return (v[0] / n, v[1] / n, v[2] / n)
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
+def _sec_axes(u):
+    """軸 u に直角な断面の向き：x は水平（楕円の短い径）、y は上向き（長い径）"""
+    x = _unit((-u[1], u[0], 0.0))
+    y = _cross(u, x)
+    if y[2] < 0:
+        x, y = (-x[0], -x[1], -x[2]), (-y[0], -y[1], -y[2])
+    return x, y
+
+
+def girder_pieces(frs, out_face, key_out, kmode, rtol=2.0):
+    """桁の形（11-27）。frs：架構を k の順に [{'kk', 'p', 'd', 'h':{列: (x,y,z)}}]。
+    列ごとに、続く架構の頭を一本でつなぐ：
+      ・頭が本館の中心からの同じ半径にある列（東・内）は、同心の円弧の一本の桁（'arc'）。端は外の梁の外の面
+      ・そうでない列（西）は「キー＋桁」：各頭に架構に直角のキー、キーの端どうしを直線の桁でつなぐ。
+        キーは桁へつなぐ側だけ外の梁の外の面から key_out 出し、継ぎ目は二本の軸の角度を二等分する面（'prism'）
+      ・頭が一つだけの列（k18の床梁など）はキーだけ、両端は外の梁の外の面にツラ
+    返す ('arc', 名, [(原点, x, y)…]) と ('prism', 名, 軸の上の点, 軸 u, x, y, (点, 法線), (点, 法線))"""
+    rows = []
+    for f in frs:
+        for r in f['h']:
+            if r not in rows:
+                rows.append(r)
+    pieces = []
+    for r in rows:
+        runs, cur = [], []
+        for f in frs:
+            if r in f['h'] and (not cur or abs(f['kk'] - cur[-1]['kk'] - 1.0) < 1e-6):
+                cur.append(f)
+            else:
+                if cur:
+                    runs.append(cur)
+                cur = [f] if r in f['h'] else []
+        if cur:
+            runs.append(cur)
+        for run_ in runs:
+            lab = ('屋根' if r[0] == 'R' else '床梁') + {'E': '東', 'W': '西'}.get(r[-1], '内')
+            name = '%sの桁 k%g〜k%g' % (lab, run_[0]['kk'], run_[-1]['kk']) if len(run_) > 1 else '%s k%g' % (lab, run_[0]['kk'])
+            G = [f['h'][r] for f in run_]
+            P = [(f['p'][0], f['p'][1], 0.0) for f in run_]
+            D = [(f['d'][0], f['d'][1], 0.0) for f in run_]
+            rad = [math.hypot(g[0] - CX, g[1] - CY) for g in G]
+            if kmode and len(run_) >= 2 and max(rad) - min(rad) < rtol:
+                R = sum(rad) / len(rad)
+                th = [math.atan2(g[1] - CY, g[0] - CX) for g in G]
+                for i in range(1, len(th)):         # ±πをまたぐ所（西館は本館の中心の真西のあたり）で角度をつなぐ
+                    th[i] += 2 * math.pi * round((th[i - 1] - th[i]) / (2 * math.pi))
+                # 端を外の梁の外の面まで：p は k の小さい側（南）。始めの架構は +p へ、終わりは −p へ
+                tg0 = (-math.sin(th[0]), math.cos(th[0]))
+                sg = 1.0 if (P[0][0] * tg0[0] + P[0][1] * tg0[1]) > 0 else -1.0
+                da = out_face / R
+                ths = [th[0] + sg * da] + th + [th[-1] - sg * da]
+                zs = [G[0][2]] + [g[2] for g in G] + [G[-1][2]]
+                secs = []
+                for i in range(len(ths) - 1):
+                    n = max(2, int(math.ceil(abs(ths[i + 1] - ths[i]) * R / 500.0)))
+                    for m in range(n if i < len(ths) - 2 else n + 1):
+                        a = ths[i] + (ths[i + 1] - ths[i]) * m / n
+                        z = zs[i] + (zs[i + 1] - zs[i]) * m / n
+                        o = (CX + R * math.cos(a), CY + R * math.sin(a), z)
+                        tz = (zs[i + 1] - zs[i]) / (abs(ths[i + 1] - ths[i]) * R)
+                        u = _unit((-math.sin(a) * sg * -1.0, math.cos(a) * sg * -1.0, tz))
+                        x, y = _sec_axes(u)
+                        secs.append((o, x, y))
+                pieces.append(('arc', name, secs))
+                continue
+            n = len(run_)
+            # キーの端（軸の上）：桁へつなぐ側は外の面＋key_out、そうでなければ外の面
+            Es = [_add(G[i], P[i], out_face + key_out) for i in range(n)]       # 南の端（+p）
+            En = [_add(G[i], P[i], -(out_face + key_out)) for i in range(n)]    # 北の端（−p）
+            for i in range(n):
+                g, p_ = G[i], P[i]
+                if i > 0:   # 南に桁：桁は前の架構の北の端からこの南の端へ
+                    b = _unit(_v(En[i - 1], Es[i]))
+                    pS = (Es[i], _unit(_add(b, p_, -1.0)))
+                else:
+                    pS = (_add(g, p_, out_face), p_)
+                if i < n - 1:
+                    b = _unit(_v(En[i], Es[i + 1]))
+                    pN = (En[i], _unit(_add((-p_[0], -p_[1], 0.0), b)))
+                else:
+                    pN = (_add(g, p_, -out_face), (-p_[0], -p_[1], 0.0))
+                u = p_
+                pieces.append(('prism', '%sのキー k%g' % (lab, run_[i]['kk']), g, u, D[i], (0.0, 0.0, 1.0), pS, pN))
+                if i < n - 1:
+                    b = _unit(_v(En[i], Es[i + 1]))
+                    x, y = _sec_axes(b)
+                    n0 = _unit(_add((-p_[0], -p_[1], 0.0), b))
+                    n1 = _unit(_add(b, P[i + 1], -1.0))
+                    pieces.append(('prism', '%sの桁 k%g〜k%g' % (lab, run_[i]['kk'], run_[i + 1]['kk']), En[i], b, x, y,
+                                   (En[i], n0), (Es[i + 1], n1)))
+    return pieces
+
+
+def girder_breps(pieces, tol, log):
+    """girder_pieces の形を立体に。楕円は GIRDER_A×GIRDER_B（穴は＋HOLE_CLR）"""
+    out = []
+
+    def ell(o, x, y):
+        pl = rg.Plane(rg.Point3d(*o), rg.Vector3d(*x), rg.Vector3d(*y))
+        return rg.Ellipse(pl, GIRDER_A, GIRDER_B).ToNurbsCurve()
+
+    for pc in pieces:
+        try:
+            if pc[0] == 'arc':
+                cs = [ell(*sc) for sc in pc[2]]
+                lo = rg.Brep.CreateFromLoft(cs, rg.Point3d.Unset, rg.Point3d.Unset, rg.LoftType.Normal, False)
+            else:
+                _, name, ref, u, x, y, (q0, n0), (q1, n1) = pc
+                c = ell(ref, x, y)
+                cs = []
+                for q, nn in ((q0, n0), (q1, n1)):
+                    cc = c.DuplicateCurve()
+                    cc.Transform(rg.Transform.ProjectAlong(rg.Plane(rg.Point3d(*q), rg.Vector3d(*nn)), rg.Vector3d(*u)))
+                    cs.append(cc)
+                lo = rg.Brep.CreateFromLoft(cs, rg.Point3d.Unset, rg.Point3d.Unset, rg.LoftType.Straight, False)
+            b = lo[0].CapPlanarHoles(tol) if lo else None
+            if b is None or not b.IsSolid:
+                log.append('%s：閉じた立体にならない' % pc[1])
+                continue
+            if b.SolidOrientation == rg.BrepSolidOrientation.Inward:
+                b.Flip()
+            out.append(b)
+        except Exception as ex:
+            log.append('%s：形ができない：%s' % (pc[1], ex))
     return out
 
 
@@ -1605,7 +1763,7 @@ def run():
     midsE_ = _in('midsE')
     same = _in('same')
     same = True if same is None else (str(_raw(same)).strip().lower() not in ('false', '0', 'no', ''))
-    res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays,
+    res = dict(plates=[], cols=[], floors=[], girders=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays,
                table='')
     log = []
     if not HAVE_SHAPELY:
@@ -1644,6 +1802,7 @@ def run():
     # 3. 形
     rows = []
     k_north = max(p_['kk'] for p_ in plans)
+    hfr = []
     for p_ in plans:
         r = p_['r']
         bad = [k_ for k_, v in r.items() if v > 1]
@@ -1672,6 +1831,7 @@ def run():
         for key in ('plates', 'cols', 'floors', 'ptM', 'ptI'):
             res[key] += o[key]
         res['ptE'].append(o['ptE'])
+        hfr.append(dict(kk=p_['kk'], p=o['p'], d=o['d'], h=o['heads3']))
         res['ptW'].append(o['ptW'])
         res['axis'].append(o['axis'])
         res['lines'].append(o['line'])
@@ -1691,7 +1851,14 @@ def run():
             log.append('CSV：%s' % path)
         except Exception as ex:
             log.append('CSV を書けない：%s' % ex)
-    for key, name in (('plates', '梁'), ('cols', '柱'), ('floors', '床梁')):
+    # 桁とキー（11-27）
+    try:
+        out_face = P['col'] / 2 - P['key'] + P['t']        # 外の梁の外の面（架構の線から）
+        res['girders'] = girder_breps(girder_pieces(sorted(hfr, key=lambda f: f['kk']), out_face, KEY_OUT, not frames_),
+                                      tol, log)
+    except Exception as ex:
+        log.append('桁ができない：%s' % ex)
+    for key, name in (('plates', '梁'), ('cols', '柱'), ('floors', '床梁'), ('girders', '桁とキー')):
         bs = res[key]
         if bs:
             bad = sum(1 for b in bs if b is None or not b.IsValid or not b.IsSolid)
@@ -1711,6 +1878,7 @@ if _RHINO and ('k' in globals() or 'frames' in globals()):
         spine, rays = _res['spine'], _res['rays']
     if _res and 'plates' in _res:
         plates, cols, floors = _res['plates'], _res['cols'], _res['floors']
+        girders = _res.get('girders', [])
         ptE, ptI, ptW, ptM = _res['ptE'], _res['ptI'], _res['ptW'], _res['ptM']
         axis, lines = _res['axis'], _res['lines']
     if _res:
