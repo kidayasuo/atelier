@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-27 15:12'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-27 15:57'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -1883,3 +1883,13 @@ if _RHINO and ('k' in globals() or 'frames' in globals()):
         axis, lines = _res['axis'], _res['lines']
     if _res:
         table = _res.get('table', '')
+    # 出力の名前の確かめ（11-27：girders が Null。名前がコードの変数と一字でも違うと、部品は Null を出す）
+    _OUTS = ('out', 'log', 'spine', 'rays', 'plates', 'cols', 'floors', 'girders', 'ptE', 'ptI', 'ptW', 'ptM',
+             'axis', 'lines', 'table')
+    try:
+        _bad = [p_.NickName for p_ in ghenv.Component.Params.Output if p_.NickName not in _OUTS]  # noqa: F821
+        if _bad:
+            log += '\n出力の名前がコードと合わない：%s（使える名前：%s）' % (
+                '・'.join(repr(n_) for n_ in _bad), '・'.join(_OUTS[2:]))
+    except Exception:
+        pass
