@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-27 14:24'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-27 14:27'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -1271,6 +1271,8 @@ def _hit_s(F, crv, s_min=1000.0, off=0.0):
     return None
 
 
+MID_Z = 3170.0                   # 2階の床梁の上端の既定（FLから）：2階の床の下面（育ち舎、2FL 3260）
+K_FLOOR = (8, 12)                # 2階の床梁のある架構（育ち舎、u21〜u33）
 D_FIX, DM_FIX = 500.0, 400.0     # 屋根の梁のせいの既定：端500→真ん中400（下端は放物線、ユーザー 11-16）
 
 
@@ -1650,7 +1652,12 @@ def run():
         sc = _pick(cols_, p_['i'], True)
         if isinstance(sc, str):
             sc = sc.strip().lower() not in ('false', '0', 'no', '')
-        mids_i = parse_mids(_pick(mids_, p_['i'], None))
+        if mids_ is None:
+            # 既定は育ち舎のまま：2階の床梁 k8〜k12、上端＝2階の床の下面3170（2FL 3260、sodachiya/kettei/nishikan.md）。
+            # いちばん北の架構（北の妻の耐風梁、midsE）も同じ高さ（ユーザー 11-27）
+            mids_i = [MID_Z] if (K_FLOOR[0] - 1e-9 <= p_['kk'] <= K_FLOOR[1] + 1e-9 or p_['kk'] >= k_north - 1e-9) else []
+        else:
+            mids_i = parse_mids(_pick(mids_, p_['i'], None))
         # midsE の既定：いちばん北の架構（k が最大、北の妻）だけ True（ユーザー 11-27）
         me = _pick(midsE_, p_['i'], p_['kk'] >= k_north - 1e-9)
         if isinstance(me, str):
