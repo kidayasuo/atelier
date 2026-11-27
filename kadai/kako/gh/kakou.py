@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-27 14:15'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-27 14:24'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -1640,6 +1640,7 @@ def run():
             log.append('負担する屋根の面積を数えられない：%s' % ex)
     # 3. 形
     rows = []
+    k_north = max(p_['kk'] for p_ in plans)
     for p_ in plans:
         r = p_['r']
         bad = [k_ for k_, v in r.items() if v > 1]
@@ -1650,7 +1651,8 @@ def run():
         if isinstance(sc, str):
             sc = sc.strip().lower() not in ('false', '0', 'no', '')
         mids_i = parse_mids(_pick(mids_, p_['i'], None))
-        me = _pick(midsE_, p_['i'], False)
+        # midsE の既定：いちばん北の架構（k が最大、北の妻）だけ True（ユーザー 11-27）
+        me = _pick(midsE_, p_['i'], p_['kk'] >= k_north - 1e-9)
         if isinstance(me, str):
             me = me.strip().lower() not in ('false', '0', 'no', '')
         try:
