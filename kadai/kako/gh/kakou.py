@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-18 14:33'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-27 14:15'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -31,7 +31,7 @@ Tamedia（Shigeru Ban、Zürich 2013）に倣う：
   位置：frames（架構の線）か k（放射の線）、colLines（柱の列の曲線）か west・vIn
   高さ：roof（屋根の面）か zE・zW（梁の上端、東と西の柱の芯で）
   荷重：qD・qS・sp・hang（吊り荷重 "s:kN;…"）。梁のせいは既定で端500・真ん中400（確かめるだけ）。D・Dm で変え、D に 0 で荷重から決める
-  意匠：t（梁の幅（1本））・col（柱）・key（凹み、mm）・DmR・same、ほか eave・showCol・mids・FL・Df・eR・haR・hbR・ext0・ext1・vU・csv
+  意匠：t（梁の幅（1本））・col（柱）・key（凹み、mm）・DmR・same、ほか eave・showCol・mids・midsE・FL・Df・eR・haR・hbR・ext0・ext1・vU・csv
 出力           spine（v−0.9・東の柱の芯・内の列の円弧）・rays（架構kの放射の線）：k だけつなげば出る下書き
                plates（対の梁）・cols（柱、芯と両面の層）・floors（2階の床梁）
                ptE・ptI・ptW・ptM（桁が通る点）・axis（桁の向き）・lines（架構の線）・table（CSV の文）・log
@@ -1404,7 +1404,7 @@ def plan_one(i, kk, fr, P, A, log):
                 args=args, De=round(ok[0] * 1000.0, 1), Dm=round(ok[1] * 1000.0, 1), r=ok[2], NL=ok[3], NS=ok[4], fr=fr)
 
 
-def geom_one(pl, P, showcol, mids, tol, log):
+def geom_one(pl, P, showcol, mids, tol, log, midsE=False):
     """架構一つの形（対の梁2本・柱・2階の床梁）。凹み：平らな梁が key（mm）だけ柱の頭の形の凹みに沈む（Tamedia）"""
     F, sup, tops = pl['F'], pl['sup'], pl['tops']
     C, t, d = P['col'], P['t'], pl['d']
@@ -1428,8 +1428,9 @@ def geom_one(pl, P, showcol, mids, tol, log):
     mid_heads = {j: [] for j in range(len(sup))}
     floor_g = []
     # 2階の床梁は内の柱から西の柱まで（東の柱と内の柱のあいだには作らない：東の柱の引張りを増やさず、
-    # 東の帯の吹き抜けを残す、ユーザー 11-16）。内の柱が無い架構では柱から柱まで
-    j0 = 1 if len(sup) >= 3 else 0
+    # 東の帯の吹き抜けを残す、ユーザー 11-16）。内の柱が無い架構では柱から柱まで。
+    # midsE が True の架構（k18、北の妻の耐風梁、ユーザー 11-27）では東の柱から：東の柱にも頭の膨らみと楕円の穴ができる
+    j0 = 1 if (len(sup) >= 3 and not midsE) else 0
     for hz in mids:
         ztop = P['FL'] + hz
         Bf = beam_2d(P, (ztop, 0.0), sup[j0:], lambda s: P['Df'])
@@ -1598,6 +1599,7 @@ def run():
         return dict(spine=arcs, rays=rays, table=''), '下書きだけ（spine・rays）。架構を作るには roof か zE・zW も要る'
     cols_ = _in('showCol')
     mids_ = _in('mids')
+    midsE_ = _in('midsE')
     same = _in('same')
     same = True if same is None else (str(_raw(same)).strip().lower() not in ('false', '0', 'no', ''))
     res = dict(plates=[], cols=[], floors=[], ptE=[], ptI=[], ptW=[], ptM=[], axis=[], lines=[], spine=arcs, rays=rays,
@@ -1648,8 +1650,11 @@ def run():
         if isinstance(sc, str):
             sc = sc.strip().lower() not in ('false', '0', 'no', '')
         mids_i = parse_mids(_pick(mids_, p_['i'], None))
+        me = _pick(midsE_, p_['i'], False)
+        if isinstance(me, str):
+            me = me.strip().lower() not in ('false', '0', 'no', '')
         try:
-            o = geom_one(p_, P, bool(sc), mids_i, tol, log)
+            o = geom_one(p_, P, bool(sc), mids_i, tol, log, bool(me))
             p_['wt'] = o['wt']
         except Exception as ex:
             log.append('k%g：形ができない：%s' % (p_['kk'], ex))
