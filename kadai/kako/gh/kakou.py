@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #! python 3
 # r: shapely==2.0.6
-VERSION = 'kakou 2026-11-27 14:27'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
+VERSION = 'kakou 2026-11-27 14:50'     # 版（直すたびに、そのときの時刻に）。log の1行目にも出る
 """
 「架構」部品（遊戯室の架構、第4課題「架構と建築」）　2026-11-09夜に作り直し
 版：VERSION（下の定数）。log の1行目にも出る。直すたびに日時を書き換える。
@@ -1435,7 +1435,8 @@ def geom_one(pl, P, showcol, mids, tol, log, midsE=False):
     j0 = 1 if (len(sup) >= 3 and not midsE) else 0
     for hz in mids:
         ztop = P['FL'] + hz
-        Bf = beam_2d(P, (ztop, 0.0), sup[j0:], lambda s: P['Df'])
+        # midsE の架構（北の妻の耐風梁）のせいは屋根の梁と同じ（端→真ん中の放物線の下端）、ほかの床梁は Df 一定（ユーザー 11-27）
+        Bf = beam_2d(P, (ztop, 0.0), sup[j0:], Dfn if midsE else (lambda s: P['Df']))
         g = region_2d(Bf['prims'], [[Bf['clip']]])
         floor_g.append(g)
         for key in ('+', '-'):
